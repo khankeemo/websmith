@@ -43,7 +43,7 @@ export default function RegisterPage() {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   
   // Password strength
-  const [passwordStrength, setPasswordStrength] = useState({ score: 0, message: '' });
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, message: '', color: '#E5E5EA' });
 
   // OAuth Handlers - REAL OAuth (No Demo Mode)
   const handleOAuthLogin = async (provider: 'google' | 'yahoo') => {
@@ -82,8 +82,8 @@ export default function RegisterPage() {
     }
   };
 
-  // Password strength checker
-  const checkPasswordStrength = (pwd: string) => {
+  // Password strength helper
+  const getPasswordStrengthData = (pwd: string) => {
     let score = 0;
     if (pwd.length >= 6) score++;
     if (pwd.length >= 10) score++;
@@ -91,19 +91,25 @@ export default function RegisterPage() {
     if (/[0-9]/.test(pwd)) score++;
     if (/[^A-Za-z0-9]/.test(pwd)) score++;
     
+    const finalScore = Math.min(score, 4);
     const messages = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+    const colors = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#34C759'];
     
-    setPasswordStrength({
-      score: Math.min(score, 4),
-      message: messages[Math.min(score, 4)]
-    });
-    
-    return ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#34C759'][Math.min(score, 4)];
+    return {
+      score: finalScore,
+      message: messages[finalScore],
+      color: colors[finalScore]
+    };
   };
 
   const handlePasswordChange = (pwd: string) => {
     setPassword(pwd);
-    checkPasswordStrength(pwd);
+    const strength = getPasswordStrengthData(pwd);
+    setPasswordStrength({
+      score: strength.score,
+      message: strength.message,
+      color: strength.color
+    });
     if (validationErrors.password) {
       setValidationErrors(prev => ({ ...prev, password: '' }));
     }
@@ -373,9 +379,17 @@ export default function RegisterPage() {
               {password && (
                 <div style={styles.passwordStrength}>
                   <div style={styles.strengthBar}>
-                    <div style={{ width: `${(passwordStrength.score + 1) * 20}%`, height: '4px', backgroundColor: checkPasswordStrength(password), borderRadius: '4px', transition: 'width 0.3s ease' }} />
+                    <div style={{ 
+                      width: `${(passwordStrength.score + 1) * 20}%`, 
+                      height: '4px', 
+                      backgroundColor: passwordStrength.color, 
+                      borderRadius: '4px', 
+                      transition: 'width 0.3s ease' 
+                    }} />
                   </div>
-                  <p style={styles.strengthText}>Password strength: <span style={{ color: checkPasswordStrength(password) }}>{passwordStrength.message}</span></p>
+                  <p style={styles.strengthText}>
+                    Password strength: <span style={{ color: passwordStrength.color }}>{passwordStrength.message}</span>
+                  </p>
                 </div>
               )}
               {validationErrors.password && <p style={styles.validationError}>{validationErrors.password}</p>}
