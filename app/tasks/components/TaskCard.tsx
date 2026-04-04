@@ -1,0 +1,203 @@
+// C:\websmith\app\tasks\components\TaskCard.tsx
+// Task Card - Displays individual task with actions
+// Features: Status badges, priority indicators, edit/delete buttons
+
+'use client';
+
+import { Task } from '../services/taskService';
+import { CheckSquare, Calendar, Flag, Edit2, Trash2, User } from 'lucide-react';
+
+interface TaskCardProps {
+  task: Task;
+  onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
+}
+
+const statusColors: Record<string, { bg: string; color: string; text: string }> = {
+  'pending': { bg: '#FFF4E5', color: '#FF9500', text: 'Pending' },
+  'in-progress': { bg: '#E3F2FF', color: '#007AFF', text: 'In Progress' },
+  'completed': { bg: '#E8F5E9', color: '#34C759', text: 'Completed' },
+  'review': { bg: '#F3E8FF', color: '#AF52DE', text: 'Review' },
+};
+
+const priorityColors: Record<string, { bg: string; color: string; text: string }> = {
+  'low': { bg: '#E8F5E9', color: '#34C759', text: 'Low' },
+  'medium': { bg: '#FFF4E5', color: '#FF9500', text: 'Medium' },
+  'high': { bg: '#FEF2F0', color: '#FF3B30', text: 'High' },
+};
+
+export default function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
+  const status = statusColors[task.status];
+  const priority = priorityColors[task.priority];
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'No due date';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  return (
+    <div style={styles.card} className="task-card">
+      <div style={styles.cardHeader}>
+        <div style={styles.iconContainer}>
+          <CheckSquare size={24} color="#007AFF" />
+        </div>
+        <div style={styles.badgeContainer}>
+          <span style={{ ...styles.badge, backgroundColor: priority.bg, color: priority.color }}>
+            {priority.text}
+          </span>
+          <span style={{ ...styles.badge, backgroundColor: status.bg, color: status.color }}>
+            {status.text}
+          </span>
+        </div>
+      </div>
+
+      <h3 style={styles.taskTitle}>{task.title}</h3>
+      <p style={styles.taskDescription}>{task.description || 'No description'}</p>
+
+      <div style={styles.taskDetails}>
+        {task.dueDate && (
+          <div style={styles.detailItem}>
+            <Calendar size={14} color="#8E8E93" />
+            <span style={styles.detailText}>Due {formatDate(task.dueDate)}</span>
+          </div>
+        )}
+        {task.assignee && (
+          <div style={styles.detailItem}>
+            <User size={14} color="#8E8E93" />
+            <span style={styles.detailText}>{task.assignee}</span>
+          </div>
+        )}
+      </div>
+
+      <div style={styles.cardActions}>
+        <button onClick={() => onEdit(task)} style={styles.editBtn} className="card-action-btn">
+          <Edit2 size={16} />
+          <span>Edit</span>
+        </button>
+        <button onClick={() => onDelete(task._id!)} style={styles.deleteBtn} className="card-action-btn">
+          <Trash2 size={16} />
+          <span>Delete</span>
+        </button>
+      </div>
+
+      <style>{`
+        .task-card {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .task-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        }
+        .card-action-btn {
+          transition: all 0.2s ease;
+        }
+        .card-action-btn:hover {
+          transform: translateY(-2px);
+        }
+      `}</style>
+    </div>
+  );
+}
+
+const styles: any = {
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
+    padding: '20px',
+    border: '1px solid #E5E5EA',
+    cursor: 'pointer',
+  },
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '16px',
+  },
+  iconContainer: {
+    width: '48px',
+    height: '48px',
+    backgroundColor: '#E3F2FF',
+    borderRadius: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeContainer: {
+    display: 'flex',
+    gap: '8px',
+  },
+  badge: {
+    padding: '4px 10px',
+    borderRadius: '20px',
+    fontSize: '11px',
+    fontWeight: 600,
+  },
+  taskTitle: {
+    fontSize: '18px',
+    fontWeight: 600,
+    marginBottom: '8px',
+    color: '#1C1C1E',
+  },
+  taskDescription: {
+    fontSize: '14px',
+    color: '#6C6C70',
+    marginBottom: '16px',
+    lineHeight: 1.4,
+  },
+  taskDetails: {
+    display: 'flex',
+    gap: '16px',
+    marginBottom: '20px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid #E5E5EA',
+  },
+  detailItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  detailText: {
+    fontSize: '12px',
+    color: '#8E8E93',
+  },
+  cardActions: {
+    display: 'flex',
+    gap: '12px',
+  },
+  editBtn: {
+    flex: 1,
+    padding: '8px',
+    backgroundColor: '#F2F2F7',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: 500,
+    color: '#007AFF',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    fontFamily: 'inherit',
+  },
+  deleteBtn: {
+    flex: 1,
+    padding: '8px',
+    backgroundColor: '#FEF2F0',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: 500,
+    color: '#FF3B30',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    fontFamily: 'inherit',
+  },
+};
