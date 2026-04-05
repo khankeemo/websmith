@@ -72,11 +72,11 @@ export default function LandingPage() {
 
   // Menu items
   const menuItems = [
-    { name: "Home", action: () => window.scrollTo({ top: 0, behavior: "smooth" }) },
-    { name: "Features", action: () => scrollToSection(featuresRef) },
-    { name: "Developers", action: () => scrollToSection(developersRef) },
-    { name: "Clients", action: () => scrollToSection(clientsRef) },
-    { name: "Contact", action: () => scrollToSection(footerRef) },
+    { name: "Home", href: "/" },
+    { name: "Features", href: "/#features" },
+    { name: "Developers", href: "/#developers" },
+    { name: "Clients", href: "/#clients" },
+    { name: "Contact", href: "/#contact" },
   ];
 
   // Features data
@@ -130,28 +130,30 @@ export default function LandingPage() {
       {/* Navigation - WITH MENU ITEMS */}
       <nav style={styles.nav}>
         <div style={styles.navContent}>
-          {/* Logo */}
-          <div style={styles.logo} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="logo-hover">
-            <div style={styles.logoCircle}>W</div>
-            <span style={styles.logoText}>Websmith</span>
-          </div>
-          
-          {/* Desktop Menu */}
-          <div style={styles.desktopMenu}>
-            {menuItems.map((item, index) => (
-              <button 
-                key={index} 
-                onClick={item.action} 
-                style={styles.menuItem}
-                className="menu-item-hover"
-              >
-                {item.name}
-              </button>
-            ))}
+          <div style={styles.leftNavGroup}>
+            {/* Logo */}
+            <a href="/" style={styles.logo} className="logo-hover">
+              <div style={styles.logoCircle}>W</div>
+              <span style={styles.logoText}>Websmith</span>
+            </a>
+            
+            {/* Desktop Menu */}
+            <div style={styles.desktopMenu} className="desktop-menu">
+              {menuItems.map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  style={styles.menuItem}
+                  className="menu-item-hover"
+                >
+                  {item.name}
+                </a>
+              ))}
+            </div>
           </div>
           
           {/* Desktop Buttons */}
-          <div style={styles.navButtons}>
+          <div style={styles.navButtons} className="nav-buttons">
             <button onClick={() => router.push('/login')} style={styles.loginBtn} className="login-btn-hover">Log in</button>
           </div>
           
@@ -169,14 +171,15 @@ export default function LandingPage() {
         {mobileMenuOpen && (
           <div style={styles.mobileMenu}>
             {menuItems.map((item, index) => (
-              <button 
+              <a
                 key={index} 
-                onClick={item.action} 
+                href={item.href}
                 style={styles.mobileMenuItem}
                 className="mobile-menu-item"
+                onClick={() => setMobileMenuOpen(false)}
               >
                 {item.name}
-              </button>
+              </a>
             ))}
             <div style={styles.mobileMenuDivider} />
             <button 
@@ -202,7 +205,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Grid - 6 cards */}
-      <section ref={featuresRef} style={styles.section}>
+      <section id="features" ref={featuresRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Why Choose Websmith</h2>
         <p style={styles.sectionSubtitle}>Everything you need to build exceptional digital products</p>
         <div style={styles.featuresGrid}>
@@ -239,7 +242,7 @@ export default function LandingPage() {
       </section>
 
       {/* Satisfied Clients - 10 Rectangle Cards */}
-      <section ref={clientsRef} style={styles.section}>
+      <section id="clients" ref={clientsRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
         <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
         <div style={styles.clientGrid}>
@@ -257,7 +260,7 @@ export default function LandingPage() {
       </section>
 
       {/* Developers - 10 Circle Mask Cards */}
-      <section ref={developersRef} style={styles.section}>
+      <section id="developers" ref={developersRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
         <p style={styles.sectionSubtitle}>Work with the best talent in the industry</p>
         <div style={styles.developerGrid}>
@@ -312,7 +315,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer ref={footerRef} style={styles.footer}>
+      <footer id="contact" ref={footerRef} style={styles.footer}>
         <div style={styles.footerContent}>
           <div style={styles.footerSection}>
             <h3 style={styles.footerLogo}>Websmith</h3>
@@ -508,11 +511,18 @@ const styles: any = {
     justifyContent: "space-between",
     alignItems: "center",
   },
+  leftNavGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "32px",
+    minWidth: 0,
+  },
   logo: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
     cursor: "pointer",
+    textDecoration: "none",
   },
   logoCircle: {
     width: "36px",
@@ -539,8 +549,6 @@ const styles: any = {
     alignItems: "center",
   },
   menuItem: {
-    background: "none",
-    border: "none",
     fontSize: "15px",
     fontWeight: 500,
     color: "#1C1C1E",
@@ -548,6 +556,7 @@ const styles: any = {
     padding: "8px 0",
     fontFamily: "inherit",
     backgroundColor: "transparent",
+    textDecoration: "none",
   },
   
   // Buttons
@@ -593,6 +602,9 @@ const styles: any = {
     cursor: "pointer",
     borderRadius: "8px",
     fontFamily: "inherit",
+    color: "#1C1C1E",
+    textDecoration: "none",
+    display: "block",
   },
   mobileMenuDivider: {
     height: "1px",
