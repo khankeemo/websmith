@@ -1,18 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { AuthUser, getStoredUser } from "../../lib/auth";
+import { AuthUser, getStoredUser, clearAuthSession } from "../../lib/auth";
+import { LogOut } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     setUser(getStoredUser());
   }, [pathname]);
+
+  const handleLogout = () => {
+    clearAuthSession();
+    router.push("/login");
+  };
 
   const role = user?.role || "admin";
   const basePath = role === "admin" ? "/admin" : role === "client" ? "/client" : "/developer";
@@ -162,6 +169,17 @@ export default function Sidebar() {
         </div>
       ))}
 
+      <div style={styles.footer}>
+        <button 
+          onClick={handleLogout} 
+          style={styles.logoutButton}
+          className="logout-button-hover"
+        >
+          <LogOut size={16} />
+          <span>Log Out</span>
+        </button>
+      </div>
+
       {/* Hover Animation Styles */}
       <style>{`
         /* Image hover - ZOOM IN on enter, ZOOM OUT on leave */
@@ -184,6 +202,17 @@ export default function Sidebar() {
         
         .logo-text-hover:hover {
           transform: scale(1.05) translateY(-2px);
+        }
+ 
+        .logout-button-hover {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+ 
+        .logout-button-hover:hover {
+          background: #fff5f5 !important;
+          color: #ff3b30 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(255, 59, 48, 0.1);
         }
       `}</style>
     </div>
@@ -273,5 +302,27 @@ const styles: any = {
     borderLeft: "3px solid #000",
     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     fontWeight: 600,
+  },
+ 
+  footer: {
+    marginTop: "auto",
+    paddingTop: "20px",
+    borderTop: "1px solid #e8e8ed",
+  },
+ 
+  logoutButton: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "12px",
+    background: "transparent",
+    border: "none",
+    borderRadius: "12px",
+    color: "#ff3b30",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.3s ease",
   },
 };
