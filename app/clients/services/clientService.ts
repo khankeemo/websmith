@@ -15,6 +15,17 @@ export interface Client {
   createdAt?: string;
 }
 
+export type ClientPayload = Omit<Client, "_id" | "createdAt">;
+
+const getApiErrorMessage = (error: any, fallback: string) => {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    fallback
+  );
+};
+
 // Get all clients
 export const getClients = async (): Promise<Client[]> => {
   try {
@@ -22,7 +33,7 @@ export const getClients = async (): Promise<Client[]> => {
     return response.data.data || response.data;
   } catch (error: any) {
     console.error('Get clients error:', error);
-    throw error.response?.data?.message || 'Failed to fetch clients';
+    throw getApiErrorMessage(error, 'Failed to fetch clients');
   }
 };
 
@@ -33,18 +44,18 @@ export const getClient = async (id: string): Promise<Client> => {
     return response.data.data || response.data;
   } catch (error: any) {
     console.error('Get client error:', error);
-    throw error.response?.data?.message || 'Failed to fetch client';
+    throw getApiErrorMessage(error, 'Failed to fetch client');
   }
 };
 
 // Create client
-export const createClient = async (client: Omit<Client, '_id' | 'createdAt'>): Promise<Client> => {
+export const createClient = async (client: ClientPayload): Promise<Client> => {
   try {
     const response = await API.post('/clients', client);
     return response.data.data || response.data;
   } catch (error: any) {
-    console.error('Create client error:', error);
-    throw error.response?.data?.message || 'Failed to create client';
+    console.error('Create client error:', error.response?.data || error);
+    throw getApiErrorMessage(error, 'Failed to create client');
   }
 };
 
@@ -55,7 +66,7 @@ export const updateClient = async (id: string, client: Partial<Client>): Promise
     return response.data.data || response.data;
   } catch (error: any) {
     console.error('Update client error:', error);
-    throw error.response?.data?.message || 'Failed to update client';
+    throw getApiErrorMessage(error, 'Failed to update client');
   }
 };
 
@@ -65,6 +76,6 @@ export const deleteClient = async (id: string): Promise<void> => {
     await API.delete(`/clients/${id}`);
   } catch (error: any) {
     console.error('Delete client error:', error);
-    throw error.response?.data?.message || 'Failed to delete client';
+    throw getApiErrorMessage(error, 'Failed to delete client');
   }
 };

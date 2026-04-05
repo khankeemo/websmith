@@ -20,10 +20,10 @@ import {
   Menu,
   X
 } from "lucide-react";
+import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
 
 export default function LandingPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Refs for smooth scroll
@@ -41,9 +41,6 @@ export default function LandingPage() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    setIsLoggedIn(!!token);
-
     // Animate stats
     const targets = { projects: 500, clients: 280, developers: 45, countries: 12 };
     const duration = 2000;
@@ -70,11 +67,7 @@ export default function LandingPage() {
   };
 
   const handleGetStarted = () => {
-    if (isLoggedIn) {
-      router.push('/dashboard');
-    } else {
-      router.push('/register');
-    }
+    router.push('/services');
   };
 
   // Menu items
@@ -133,6 +126,7 @@ export default function LandingPage() {
 
   return (
     <div style={styles.container}>
+      <LeadCapturePopup />
       {/* Navigation - WITH MENU ITEMS */}
       <nav style={styles.nav}>
         <div style={styles.navContent}>
@@ -159,7 +153,6 @@ export default function LandingPage() {
           {/* Desktop Buttons */}
           <div style={styles.navButtons}>
             <button onClick={() => router.push('/login')} style={styles.loginBtn} className="login-btn-hover">Log in</button>
-            <button onClick={handleGetStarted} style={styles.signupBtn} className="signup-btn-hover">Sign up</button>
           </div>
           
           {/* Mobile Menu Button */}
@@ -192,13 +185,6 @@ export default function LandingPage() {
               className="mobile-login-btn"
             >
               Log in
-            </button>
-            <button 
-              onClick={() => router.push('/register')} 
-              style={styles.mobileSignupBtn}
-              className="mobile-signup-btn"
-            >
-              Sign up
             </button>
           </div>
         )}
@@ -407,20 +393,6 @@ export default function LandingPage() {
           transform: scale(0.98); 
         }
         
-        /* Sign Up Button Hover */
-        .signup-btn-hover { 
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
-          cursor: pointer; 
-        }
-        .signup-btn-hover:hover { 
-          background-color: #34C759 !important; 
-          transform: translateY(-2px); 
-          box-shadow: 0 4px 12px rgba(52,199,89,0.3);
-        }
-        .signup-btn-hover:active { 
-          transform: scale(0.98); 
-        }
-        
         /* CTA Button Hover */
         .cta-hover { 
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
@@ -507,13 +479,6 @@ export default function LandingPage() {
           transform: translateX(4px);
         }
         
-        .mobile-signup-btn {
-          transition: all 0.2s ease;
-        }
-        .mobile-signup-btn:hover {
-          background-color: #34C759 !important;
-          transform: translateX(4px);
-        }
       `}</style>
     </div>
   );
@@ -600,18 +565,6 @@ const styles: any = {
     cursor: "pointer",
     fontFamily: "inherit",
   },
-  signupBtn: {
-    padding: "8px 20px",
-    fontSize: "14px",
-    fontWeight: 500,
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-  },
-  
   // Mobile Menu Button
   mobileMenuBtn: {
     display: "none",
@@ -657,18 +610,6 @@ const styles: any = {
     marginBottom: "8px",
     fontFamily: "inherit",
   },
-  mobileSignupBtn: {
-    padding: "12px 16px",
-    fontSize: "16px",
-    fontWeight: 500,
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-  },
-  
   // Hero
   hero: {
     padding: "80px 24px",

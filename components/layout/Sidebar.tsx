@@ -37,6 +37,7 @@ export default function Sidebar() {
               { name: "Projects", path: `${basePath}/projects` },
               { name: "Clients", path: `${basePath}/clients` },
               { name: "Tasks", path: `${basePath}/tasks` },
+              { name: "Services", path: `${basePath}/services` },
             ],
           },
           {

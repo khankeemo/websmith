@@ -3,21 +3,24 @@
 // Features: Fetch, add, update, delete clients with loading/error states
 
 import { useState, useEffect, useCallback } from 'react';
-import { Client, getClients, createClient, updateClient, deleteClient } from '../services/clientService';
+import { Client, ClientPayload, getClients, createClient, updateClient, deleteClient } from '../services/clientService';
 
 interface UseClientsReturn {
   clients: Client[];
   loading: boolean;
+  saving: boolean;
   error: string | null;
   fetchClients: () => Promise<void>;
-  addClient: (client: Omit<Client, '_id' | 'createdAt'>) => Promise<Client | null>;
+  addClient: (client: ClientPayload) => Promise<Client | null>;
   editClient: (id: string, client: Partial<Client>) => Promise<Client | null>;
   removeClient: (id: string) => Promise<boolean>;
+  clearError: () => void;
 }
 
 export const useClients = (): UseClientsReturn => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchClients = useCallback(async () => {
@@ -33,50 +36,50 @@ export const useClients = (): UseClientsReturn => {
     }
   }, []);
 
-  const addClient = useCallback(async (client: Omit<Client, '_id' | 'createdAt'>): Promise<Client | null> => {
-    setLoading(true);
+  const addClient = useCallback(async (client: ClientPayload): Promise<Client | null> => {
+    setSaving(true);
     setError(null);
     try {
       const newClient = await createClient(client);
-      setClients(prev => [newClient, ...prev]);
+      await fetchClients();
       return newClient;
     } catch (err: any) {
-      setError(err.message || 'Failed to add client');
+      setError(err || err.message || 'Failed to add client');
       return null;
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  }, []);
+  }, [fetchClients]);
 
   const editClient = useCallback(async (id: string, client: Partial<Client>): Promise<Client | null> => {
-    setLoading(true);
+    setSaving(true);
     setError(null);
     try {
       const updatedClient = await updateClient(id, client);
-      setClients(prev => prev.map(c => c._id === id ? updatedClient : c));
+      await fetchClients();
       return updatedClient;
     } catch (err: any) {
-      setError(err.message || 'Failed to update client');
+      setError(err || err.message || 'Failed to update client');
       return null;
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  }, []);
+  }, [fetchClients]);
 
   const removeClient = useCallback(async (id: string): Promise<boolean> => {
-    setLoading(true);
+    setSaving(true);
     setError(null);
     try {
       await deleteClient(id);
-      setClients(prev => prev.filter(c => c._id !== id));
+      await fetchClients();
       return true;
     } catch (err: any) {
-      setError(err.message || 'Failed to delete client');
+      setError(err || err.message || 'Failed to delete client');
       return false;
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  }, []);
+  }, [fetchClients]);
 
   useEffect(() => {
     fetchClients();
@@ -85,10 +88,12 @@ export const useClients = (): UseClientsReturn => {
   return {
     clients,
     loading,
+    saving,
     error,
     fetchClients,
     addClient,
     editClient,
     removeClient,
+    clearError: () => setError(null),
   };
 };

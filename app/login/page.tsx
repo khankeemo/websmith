@@ -1,7 +1,7 @@
 // PATH: C:\websmith\app\login\page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { login } from "../../core/services/authService";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, Menu, X } from "lucide-react";
@@ -16,16 +16,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -81,7 +71,7 @@ export default function LoginPage() {
           </div>
 
           {/* Desktop Navigation */}
-          <div style={{ ...styles.navLinks, display: isMobile ? 'none' : 'flex' }}>
+          <div style={styles.navLinks} className="desktop-nav">
             {navItems.map((item, index) => (
               <a
                 key={index}
@@ -95,7 +85,7 @@ export default function LoginPage() {
           </div>
 
           {/* Desktop Auth Buttons */}
-          <div style={{ ...styles.authButtons, display: isMobile ? 'none' : 'flex' }}>
+          <div style={styles.authButtons} className="desktop-auth">
             <button
               onClick={() => router.push("/login")}
               style={styles.loginButton}
@@ -104,7 +94,7 @@ export default function LoginPage() {
               Login
             </button>
             <button
-              onClick={() => router.push("/register")}
+              onClick={() => router.push("/services")}
               style={styles.getStartedButton}
               className="get-started-button"
             >
@@ -115,7 +105,7 @@ export default function LoginPage() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            style={{ ...styles.mobileMenuButton, display: isMobile ? 'flex' : 'none' }}
+            style={styles.mobileMenuButton}
             className="mobile-menu-button"
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -123,7 +113,7 @@ export default function LoginPage() {
         </nav>
 
         {/* Mobile Menu */}
-        {mobileMenuOpen && isMobile && (
+        {mobileMenuOpen && (
           <div style={styles.mobileMenu}>
             {navItems.map((item, index) => (
               <a
@@ -144,7 +134,7 @@ export default function LoginPage() {
                 Login
               </button>
               <button
-                onClick={() => router.push("/register")}
+                onClick={() => router.push("/services")}
                 style={styles.mobileGetStartedButton}
               >
                 Get Started 🚀
@@ -194,6 +184,7 @@ export default function LoginPage() {
           <div style={styles.inputWrapper}>
             <Mail size={18} style={styles.inputIcon} />
             <input
+              suppressHydrationWarning
               type="email"
               placeholder="hello@websmith.com"
               value={email}
@@ -212,6 +203,7 @@ export default function LoginPage() {
           <div style={styles.inputWrapper}>
             <Lock size={18} style={styles.inputIcon} />
             <input
+              suppressHydrationWarning
               type={showPassword ? "text" : "password"}
               placeholder="Enter your password"
               value={password}
@@ -262,13 +254,13 @@ export default function LoginPage() {
 
         {/* Sign up link */}
         <div style={styles.signupContainer}>
-          <span style={styles.signupText}>Don't have an account?</span>
+          <span style={styles.signupText}>Need a new project?</span>
           <button 
-            onClick={() => router.push("/register")} 
+            onClick={() => router.push("/services")} 
             style={styles.signupButton}
             className="signup-button"
           >
-            Create one
+            Get started
           </button>
         </div>
       </div>
@@ -354,6 +346,7 @@ export default function LoginPage() {
         
         /* Mobile Menu Button Hover */
         .mobile-menu-button {
+          display: none;
           transition: all 0.2s ease;
         }
         .mobile-menu-button:hover {
@@ -453,6 +446,17 @@ export default function LoginPage() {
         /* Spinner Animation */
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+          .desktop-nav,
+          .desktop-auth {
+            display: none !important;
+          }
+
+          .mobile-menu-button {
+            display: flex !important;
+          }
         }
       `}</style>
     </div>
@@ -569,6 +573,7 @@ const styles: any = {
   },
 
   mobileMenuButton: {
+    display: "none",
     background: "none",
     border: "none",
     cursor: "pointer",

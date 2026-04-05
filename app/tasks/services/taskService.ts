@@ -17,6 +17,16 @@ export interface Task {
   createdAt?: string;
 }
 
+const normalizeTaskPayload = (task: Partial<Task>) => ({
+  ...task,
+  title: task.title?.trim() ?? task.title,
+  description: task.description ?? "",
+  assignee: task.assignee ?? "",
+  projectId: task.projectId === "" ? null : task.projectId,
+  clientId: task.clientId === "" ? null : task.clientId,
+  dueDate: task.dueDate === "" ? null : task.dueDate,
+});
+
 // Get all tasks
 export const getTasks = async (): Promise<Task[]> => {
   try {
@@ -42,7 +52,7 @@ export const getTask = async (id: string): Promise<Task> => {
 // Create task
 export const createTask = async (task: Omit<Task, '_id' | 'createdAt'>): Promise<Task> => {
   try {
-    const response = await API.post('/tasks', task);
+    const response = await API.post('/tasks', normalizeTaskPayload(task));
     return response.data.data || response.data;
   } catch (error: any) {
     console.error('Create task error:', error);
@@ -53,7 +63,7 @@ export const createTask = async (task: Omit<Task, '_id' | 'createdAt'>): Promise
 // Update task
 export const updateTask = async (id: string, task: Partial<Task>): Promise<Task> => {
   try {
-    const response = await API.put(`/tasks/${id}`, task);
+    const response = await API.put(`/tasks/${id}`, normalizeTaskPayload(task));
     return response.data.data || response.data;
   } catch (error: any) {
     console.error('Update task error:', error);
