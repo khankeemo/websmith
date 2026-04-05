@@ -10,7 +10,7 @@ import { useLeadFunnel } from "../../providers/LeadFunnelProvider";
 
 export default function ServiceSelectionClient() {
   const router = useRouter();
-  const { selectedServices, toggleService } = useLeadFunnel();
+  const { selectedServices, toggleService, setSelectedServices } = useLeadFunnel();
   const [services, setServices] = useState<PublicService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +21,17 @@ export default function ServiceSelectionClient() {
         setLoading(true);
         const data = await getPublicServices();
         setServices(data);
+        const nextSelectedServices = selectedServices.filter((selectedService) =>
+          data.some((service) => service.id === selectedService.id)
+        );
+
+        const hasSelectionChanged =
+          nextSelectedServices.length !== selectedServices.length ||
+          nextSelectedServices.some((service, index) => service.id !== selectedServices[index]?.id);
+
+        if (hasSelectionChanged) {
+          setSelectedServices(nextSelectedServices);
+        }
       } catch (err: any) {
         setError(err.message || "Failed to load services");
       } finally {
@@ -29,7 +40,7 @@ export default function ServiceSelectionClient() {
     };
 
     fetchServices();
-  }, []);
+  }, [selectedServices, setSelectedServices]);
 
   return (
     <div style={styles.wrapper}>

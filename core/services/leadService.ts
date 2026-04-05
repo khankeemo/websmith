@@ -22,7 +22,13 @@ export interface LeadPayload {
 
 export const getPublicServices = async (): Promise<PublicService[]> => {
   try {
-    const response = await API.get("/services");
+    const response = await API.get("/services", {
+      params: { t: Date.now() },
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    });
     return response.data.data || [];
   } catch (error: any) {
     console.error("Get public services error:", error);
