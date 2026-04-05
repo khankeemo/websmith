@@ -20,6 +20,7 @@ import {
   XCircle,
   AlertCircle
 } from "lucide-react";
+import API from "@/core/services/apiService";
 
 interface Invoice {
   _id: string;
@@ -55,12 +56,9 @@ export default function InvoicesPage() {
   const fetchInvoices = async () => {
     const token = localStorage.getItem("token");
     try {
-      const response = await fetch("http://localhost:5000/api/invoices", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setInvoices(data.data || []);
+      const response = await API.get("/invoices");
+      if (response.data.success || response.data.data) {
+        setInvoices(response.data.data || []);
       }
     } catch (error) {
       console.error("Fetch invoices error:", error);
@@ -74,11 +72,8 @@ export default function InvoicesPage() {
     
     const token = localStorage.getItem("token");
     try {
-      const response = await fetch(`http://localhost:5000/api/invoices/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.ok) {
+      const response = await API.delete(`/invoices/${id}`);
+      if (response.status === 200) {
         await fetchInvoices();
       }
     } catch (error) {

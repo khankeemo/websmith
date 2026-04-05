@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, X, Users, UserCheck, Code, Building } from 'lucide-react';
+import API from '@/core/services/apiService';
 
 // Simple Badge component inline to avoid import issues
 const Badge = ({ text, color }: { text: string; color: string }) => (
@@ -166,12 +167,9 @@ export default function TeamPage() {
     if (!authToken) return;
     
     try {
-      const response = await fetch('http://localhost:5000/api/team', {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTeamMembers(data.data || []);
+      const response = await API.get('/team');
+      if (response.data.success || response.data.data) {
+        setTeamMembers(response.data.data || []);
       }
     } catch (error) {
       console.error('Fetch error:', error);
@@ -188,12 +186,8 @@ export default function TeamPage() {
   const createTeamMember = async (data: any) => {
     const authToken = localStorage.getItem('token');
     try {
-      const response = await fetch('http://localhost:5000/api/team', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-        body: JSON.stringify(data)
-      });
-      if (response.ok) {
+      const response = await API.post('/team', data);
+      if (response.status === 200 || response.status === 201) {
         await fetchTeamMembers();
         setIsModalOpen(false);
       }
@@ -206,12 +200,8 @@ export default function TeamPage() {
   const updateTeamMember = async (id: string, data: any) => {
     const authToken = localStorage.getItem('token');
     try {
-      const response = await fetch(`http://localhost:5000/api/team/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-        body: JSON.stringify(data)
-      });
-      if (response.ok) {
+      const response = await API.put(`/team/${id}`, data);
+      if (response.status === 200) {
         await fetchTeamMembers();
         setIsModalOpen(false);
         setEditingMember(null);
@@ -226,11 +216,8 @@ export default function TeamPage() {
     if (!confirm('Are you sure?')) return;
     const authToken = localStorage.getItem('token');
     try {
-      const response = await fetch(`http://localhost:5000/api/team/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      if (response.ok) {
+      const response = await API.delete(`/team/${id}`);
+      if (response.status === 200) {
         await fetchTeamMembers();
       }
     } catch (error) {

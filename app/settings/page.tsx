@@ -21,6 +21,7 @@ import {
   Mail,
   Phone
 } from "lucide-react";
+import API from "@/core/services/apiService";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -68,18 +69,16 @@ export default function SettingsPage() {
     if (!token) return;
 
     try {
-      const response = await fetch("http://localhost:5000/api/users/me", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
+      const response = await API.get("/users/me");
+      if (response.data.user) {
+        const user = response.data.user;
         setProfile({
-          name: data.user?.name || "",
-          email: data.user?.email || "",
-          phone: data.user?.phone || "",
-          company: data.user?.company || "",
-          role: data.user?.role || "user",
-          avatar: data.user?.avatar || ""
+          name: user.name || "",
+          email: user.email || "",
+          phone: user.phone || "",
+          company: user.company || "",
+          role: user.role || "user",
+          avatar: user.avatar || ""
         });
       }
     } catch (err) {
@@ -95,20 +94,13 @@ export default function SettingsPage() {
 
     const token = localStorage.getItem("token");
     try {
-      const response = await fetch("http://localhost:5000/api/users/update", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: profile.name,
-          phone: profile.phone,
-          company: profile.company
-        })
+      const response = await API.put("/users/update", {
+        name: profile.name,
+        phone: profile.phone,
+        company: profile.company
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         setSuccess("Profile updated successfully!");
         setTimeout(() => setSuccess(""), 3000);
       } else {
@@ -140,25 +132,17 @@ export default function SettingsPage() {
 
     const token = localStorage.getItem("token");
     try {
-      const response = await fetch("http://localhost:5000/api/users/change-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword
-        })
+      const response = await API.post("/users/change-password", {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         setSuccess("Password changed successfully!");
         setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
         setTimeout(() => setSuccess(""), 3000);
       } else {
-        const data = await response.json();
-        setError(data.message || "Failed to change password");
+        setError(response.data.message || "Failed to change password");
       }
     } catch (err) {
       setError("Something went wrong");

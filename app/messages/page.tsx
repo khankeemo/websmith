@@ -17,6 +17,7 @@ import {
   CheckCheck,
   Clock
 } from "lucide-react";
+import API from "@/core/services/apiService";
 
 interface Message {
   _id: string;
@@ -70,12 +71,9 @@ export default function MessagesPage() {
   const fetchConversations = async () => {
     const token = localStorage.getItem("token");
     try {
-      const response = await fetch("http://localhost:5000/api/messages/conversations", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data.data || sampleConversations);
+      const response = await API.get("/messages/conversations");
+      if (response.data.success || response.data.data) {
+        setConversations(response.data.data || sampleConversations);
       }
     } catch (error) {
       console.error("Fetch conversations error:", error);
@@ -88,12 +86,9 @@ export default function MessagesPage() {
   const fetchMessages = async (conversationId: string) => {
     const token = localStorage.getItem("token");
     try {
-      const response = await fetch(`http://localhost:5000/api/messages/${conversationId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.data || sampleMessages);
+      const response = await API.get(`/messages/${conversationId}`);
+      if (response.data.success || response.data.data) {
+        setMessages(response.data.data || sampleMessages);
       }
     } catch (error) {
       console.error("Fetch messages error:", error);
@@ -119,16 +114,9 @@ export default function MessagesPage() {
     setNewMessage("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/messages/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          receiverId: selectedConversation.participantId,
-          content: newMessage
-        })
+      const response = await API.post("/messages/send", {
+        receiverId: selectedConversation.participantId,
+        content: newMessage
       });
     } catch (error) {
       console.error("Send message error:", error);

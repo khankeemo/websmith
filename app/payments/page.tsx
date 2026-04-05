@@ -16,6 +16,7 @@ import {
   Download,
   Eye
 } from "lucide-react";
+import API from "@/core/services/apiService";
 
 interface Payment {
   _id: string;
@@ -43,12 +44,9 @@ export default function PaymentsPage() {
   const fetchPayments = async () => {
     const token = localStorage.getItem("token");
     try {
-      const response = await fetch("http://localhost:5000/api/payments", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setPayments(data.data || []);
+      const response = await API.get("/payments");
+      if (response.data.success || response.data.data) {
+        setPayments(response.data.data || []);
       }
     } catch (error) {
       console.error("Fetch payments error:", error);
