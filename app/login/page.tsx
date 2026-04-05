@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { login } from "../../core/services/authService";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, Menu, X } from "lucide-react";
+import { getDefaultRouteForRole } from "../../lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,8 +37,8 @@ export default function LoginPage() {
     setError("");
 
     try {
-      await login(email, password);
-      router.push("/dashboard");
+      const result = await login(email, password);
+      router.push(getDefaultRouteForRole(result.user?.role));
     } catch (err) {
       setError("Invalid email or password. Please try again.");
     } finally {

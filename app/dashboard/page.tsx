@@ -23,6 +23,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { Ticket } from "../../core/services/ticketService";
 
 const chartData = [
   { name: "Jan", revenue: 1200 },
@@ -43,6 +44,8 @@ export default function DashboardPage() {
     revenue: 0,
   });
   const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState("");
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,9 +60,15 @@ export default function DashboardPage() {
       try {
         const userResponse = await API.get("/users/me");
         setUserName(userResponse.data.user.name);
+        setUserRole(userResponse.data.user.role);
         
         const statsResponse = await API.get("/stats");
         setStats(statsResponse.data.data);
+
+        if (userResponse.data.user.role === "admin") {
+          const ticketResponse = await API.get("/tickets");
+          setTickets(ticketResponse.data.data || []);
+        }
         
         setLoading(false);
       } catch (error) {
@@ -250,6 +259,33 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {userRole === "admin" && (
+        <div className="zoom-card">
+          <Card>
+            <div style={styles.chartHeader}>
+              <div>
+                <h3 style={styles.sectionTitle}>Client Tickets</h3>
+                <p style={styles.sectionSubtitle}>Newest support requests across active projects</p>
+              </div>
+            </div>
+            <div style={styles.activityList}>
+              {tickets.slice(0, 5).map((ticket) => (
+                <div key={ticket._id} style={styles.activityItem}>
+                  <div style={styles.activityDotOrange}></div>
+                  <div>
+                    <p style={styles.activityText}>{ticket.subject}</p>
+                    <p style={styles.activityTime}>
+                      {ticket.status} · {ticket.priority}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {tickets.length === 0 && <p style={styles.activityTime}>No tickets raised yet.</p>}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* GLOBAL STYLES FOR ANIMATIONS */}
       <style jsx global>{`

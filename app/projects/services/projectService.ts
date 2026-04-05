@@ -9,11 +9,21 @@ export interface Project {
   name: string;
   description: string;
   client: string;
+  clientId?: string | null;
+  assignedDevId?: string | null;
+  assignedDeveloperName?: string;
   status: 'pending' | 'in-progress' | 'completed' | 'on-hold';
   priority: 'low' | 'medium' | 'high';
   startDate: string;
   endDate?: string;
   budget?: number;
+  progress?: number;
+  statusUpdates?: Array<{
+    status: string;
+    progress: number;
+    note: string;
+    createdAt: string;
+  }>;
   createdAt?: string;
 }
 
@@ -74,5 +84,18 @@ export const deleteProject = async (id: string): Promise<void> => {
   } catch (error: any) {
     console.error('Delete project error:', error);
     throw error.response?.data?.message || 'Failed to delete project';
+  }
+};
+
+export const updateProjectStatus = async (
+  id: string,
+  payload: { status: string; progress?: number; note?: string }
+): Promise<Project> => {
+  try {
+    const response = await API.put(`/projects/${id}/status`, payload);
+    return response.data.data || response.data;
+  } catch (error: any) {
+    console.error('Update project status error:', error);
+    throw error.response?.data?.message || 'Failed to update project status';
   }
 };

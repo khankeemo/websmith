@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Project } from '../services/projectService';
+import { getUsersByRole, RoleUser } from '../../../core/services/userService';
 
 type ProjectStatus = 'pending' | 'in-progress' | 'completed' | 'on-hold';
 type ProjectPriority = 'low' | 'medium' | 'high';
@@ -35,6 +36,8 @@ interface FormData {
   name: string;
   description: string;
   client: string;
+  clientId: string;
+  assignedDevId: string;
   status: ProjectStatus;
   priority: ProjectPriority;
   startDate: string;
@@ -47,6 +50,8 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     name: '',
     description: '',
     client: '',
+    clientId: '',
+    assignedDevId: '',
     status: 'pending',
     priority: 'medium',
     startDate: '',
@@ -54,6 +59,25 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     budget: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [clients, setClients] = useState<RoleUser[]>([]);
+  const [developers, setDevelopers] = useState<RoleUser[]>([]);
+
+  useEffect(() => {
+    const loadAssignments = async () => {
+      try {
+        const [clientUsers, developerUsers] = await Promise.all([
+          getUsersByRole('client'),
+          getUsersByRole('developer'),
+        ]);
+        setClients(clientUsers);
+        setDevelopers(developerUsers);
+      } catch (error) {
+        console.error('Load assignment users error:', error);
+      }
+    };
+
+    loadAssignments();
+  }, []);
 
   useEffect(() => {
     if (project) {
@@ -61,6 +85,8 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         name: project.name || '',
         description: project.description || '',
         client: project.client || '',
+        clientId: project.clientId || '',
+        assignedDevId: project.assignedDevId || '',
         status: project.status || 'pending',
         priority: project.priority || 'medium',
         startDate: project.startDate?.split('T')[0] || '',
@@ -72,6 +98,8 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         name: '',
         description: '',
         client: '',
+        clientId: '',
+        assignedDevId: '',
         status: 'pending',
         priority: 'medium',
         startDate: '',
@@ -87,6 +115,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     if (!formData.name.trim()) newErrors.name = 'Project name is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
     if (!formData.client.trim()) newErrors.client = 'Client name is required';
+    if (!formData.clientId) newErrors.clientId = 'Client selection is required';
     if (!formData.startDate) newErrors.startDate = 'Start date is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -111,6 +140,18 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
   };
 
   if (!isOpen) return null;
+
+  const handleClientChange = (id: string) => {
+    const selectedClient = clients.find((client) => client._id === id);
+    setFormData((prev) => ({
+      ...prev,
+      clientId: id,
+      client: selectedClient?.name || '',
+    }));
+    if (errors.clientId || errors.client) {
+      setErrors((prev) => ({ ...prev, clientId: '', client: '' }));
+    }
+  };
 
   return (
     <div style={styles.overlay} onClick={onClose}>
@@ -149,15 +190,20 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
 
           <div style={styles.row}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Client Name *</label>
-              <input
-                type="text"
-                value={formData.client}
-                onChange={(e) => updateField('client', e.target.value)}
-                style={{ ...styles.input, ...(errors.client ? styles.inputError : {}) }}
-                placeholder="Client name"
-              />
-              {errors.client && <p style={styles.errorText}>{errors.client}</p>}
+              <label style={styles.label}>Client *</label>
+              <select
+                value={formData.clientId}
+                onChange={(e) => handleClientChange(e.target.value)}
+                style={{ ...styles.select, ...((errors.client || errors.clientId) ? styles.inputError : {}) }}
+              >
+                <option value="">Select client</option>
+                {clients.map((client) => (
+                  <option key={client._id} value={client._id}>
+                    {client.name} ({client.email})
+                  </option>
+                ))}
+              </select>
+              {(errors.client || errors.clientId) && <p style={styles.errorText}>{errors.client || errors.clientId}</p>}
             </div>
 
             <div style={styles.formGroup}>
@@ -187,14 +233,17 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Priority</label>
+              <label style={styles.label}>Assigned Developer</label>
               <select
-                value={formData.priority}
-                onChange={(e) => updateField('priority', e.target.value as ProjectPriority)}
+                value={formData.assignedDevId}
+                onChange={(e) => updateField('assignedDevId', e.target.value)}
                 style={styles.select}
               >
-                {priorityOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option value="">Unassigned</option>
+                {developers.map((developer) => (
+                  <option key={developer._id} value={developer._id}>
+                    {developer.name} ({developer.email})
+                  </option>
                 ))}
               </select>
             </div>
@@ -213,14 +262,27 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>End Date</label>
-              <input
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => updateField('endDate', e.target.value)}
-                style={styles.input}
-              />
+              <label style={styles.label}>Priority</label>
+              <select
+                value={formData.priority}
+                onChange={(e) => updateField('priority', e.target.value as ProjectPriority)}
+                style={styles.select}
+              >
+                {priorityOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>End Date</label>
+            <input
+              type="date"
+              value={formData.endDate}
+              onChange={(e) => updateField('endDate', e.target.value)}
+              style={styles.input}
+            />
           </div>
 
           <div style={styles.modalFooter}>

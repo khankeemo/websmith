@@ -29,6 +29,7 @@ const priorityColors = {
 export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
   const status = statusColors[project.status];
   const priority = priorityColors[project.priority];
+  const latestUpdate = project.statusUpdates?.[project.statusUpdates.length - 1];
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set';
@@ -58,6 +59,11 @@ export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardPr
       <h3 style={styles.projectName}>{project.name}</h3>
       <p style={styles.projectDescription}>{project.description}</p>
 
+      <div style={styles.assignmentBlock}>
+        <p style={styles.assignmentText}>Client: {project.client}</p>
+        <p style={styles.assignmentText}>Developer: {project.assignedDeveloperName || "Unassigned"}</p>
+      </div>
+
       <div style={styles.projectDetails}>
         <div style={styles.detailItem}>
           <Calendar size={14} color="#8E8E93" />
@@ -71,6 +77,11 @@ export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardPr
             <span style={styles.detailText}>${project.budget.toLocaleString()}</span>
           </div>
         )}
+      </div>
+
+      <div style={styles.updateBox}>
+        <p style={styles.updateLabel}>Latest Update</p>
+        <p style={styles.updateText}>{latestUpdate?.note || "No status updates yet"}</p>
       </div>
 
       <div style={styles.cardActions}>
@@ -150,12 +161,41 @@ const styles: any = {
     marginBottom: '16px',
     lineHeight: 1.4,
   },
+  assignmentBlock: {
+    backgroundColor: '#F9F9FB',
+    borderRadius: '12px',
+    padding: '12px',
+    marginBottom: '16px',
+  },
+  assignmentText: {
+    fontSize: '12px',
+    color: '#6C6C70',
+    margin: 0,
+    marginBottom: '4px',
+  },
   projectDetails: {
     display: 'flex',
     gap: '16px',
     marginBottom: '20px',
     paddingBottom: '16px',
     borderBottom: '1px solid #E5E5EA',
+  },
+  updateBox: {
+    backgroundColor: '#F9F9FB',
+    borderRadius: '12px',
+    padding: '12px',
+    marginBottom: '16px',
+  },
+  updateLabel: {
+    fontSize: '12px',
+    color: '#8E8E93',
+    margin: 0,
+    marginBottom: '6px',
+  },
+  updateText: {
+    fontSize: '13px',
+    color: '#1C1C1E',
+    margin: 0,
   },
   detailItem: {
     display: 'flex',

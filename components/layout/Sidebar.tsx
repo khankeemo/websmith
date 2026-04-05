@@ -3,42 +3,87 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import { AuthUser, getStoredUser } from "../../lib/auth";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [user, setUser] = useState<AuthUser | null>(null);
 
-  const menu = [
-    {
-      title: "MAIN",
-      items: [{ name: "Dashboard", path: "/dashboard" }],
-    },
-    {
-      title: "WORK",
-      items: [
-        { name: "Projects", path: "/projects" },
-        { name: "Clients", path: "/clients" },
-        { name: "Tasks", path: "/tasks" },
-      ],
-    },
-    {
-      title: "TEAM",
-      items: [
-        { name: "Team", path: "/team" },
-        { name: "Messages", path: "/messages" },
-      ],
-    },
-    {
-      title: "FINANCE",
-      items: [
-        { name: "Invoices", path: "/invoices" },
-        { name: "Payments", path: "/payments" },
-      ],
-    },
-    {
-      title: "SYSTEM",
-      items: [{ name: "Settings", path: "/settings" }],
-    },
-  ];
+  useEffect(() => {
+    setUser(getStoredUser());
+  }, [pathname]);
+
+  const role = user?.role || "admin";
+  const basePath = role === "admin" ? "/admin" : role === "client" ? "/client" : "/developer";
+
+  const menu =
+    role === "admin"
+      ? [
+          {
+            title: "MAIN",
+            items: [{ name: "Dashboard", path: `${basePath}/dashboard` }],
+          },
+          {
+            title: "WORK",
+            items: [
+              { name: "Projects", path: `${basePath}/projects` },
+              { name: "Clients", path: `${basePath}/clients` },
+              { name: "Tasks", path: `${basePath}/tasks` },
+            ],
+          },
+          {
+            title: "TEAM",
+            items: [
+              { name: "Team", path: `${basePath}/team` },
+              { name: "Messages", path: `${basePath}/messages` },
+            ],
+          },
+          {
+            title: "FINANCE",
+            items: [
+              { name: "Invoices", path: `${basePath}/invoices` },
+              { name: "Payments", path: `${basePath}/payments` },
+            ],
+          },
+          {
+            title: "SYSTEM",
+            items: [{ name: "Settings", path: `${basePath}/settings` }],
+          },
+        ]
+      : role === "client"
+        ? [
+            {
+              title: "MAIN",
+              items: [{ name: "Dashboard", path: `${basePath}/dashboard` }],
+            },
+            {
+              title: "WORK",
+              items: [
+                { name: "Projects", path: `${basePath}/projects` },
+                { name: "Payments", path: `${basePath}/payments` },
+                { name: "Tickets", path: `${basePath}/tickets` },
+              ],
+            },
+            {
+              title: "SYSTEM",
+              items: [{ name: "Profile", path: `${basePath}/profile` }],
+            },
+          ]
+        : [
+            {
+              title: "MAIN",
+              items: [{ name: "Dashboard", path: `${basePath}/dashboard` }],
+            },
+            {
+              title: "WORK",
+              items: [{ name: "Projects", path: `${basePath}/projects` }],
+            },
+            {
+              title: "SYSTEM",
+              items: [{ name: "Profile", path: `${basePath}/profile` }],
+            },
+          ];
 
   return (
     <div style={styles.sidebar}>

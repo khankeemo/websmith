@@ -1,10 +1,10 @@
 import API from "./apiService";
+import { setAuthSession } from "../../lib/auth";
 
 export const login = async (email: string, password: string) => {
   const res = await API.post("/auth/login", { email, password });
 
-  // store token
-  localStorage.setItem("token", res.data.token);
+  setAuthSession(res.data.token, res.data.user);
 
   return res.data;
 };
