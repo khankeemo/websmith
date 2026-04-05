@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
 import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken } from "../lib/auth";
+import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
 
 export default function ClientLayout({
   children,
@@ -19,7 +20,7 @@ export default function ClientLayout({
   const pathname = usePathname();
   const router = useRouter();
   
-  const publicPaths = ["/", "/login", "/register", "/auth/callback"];
+  const publicPaths = ["/", "/login", "/register", "/auth/callback", "/services", "/lead-form", "/success"];
   const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
   
   useEffect(() => {
@@ -61,12 +62,12 @@ export default function ClientLayout({
   const shouldShowSidebar = !publicPaths.includes(pathname);
 
   return (
-    <>
+    <LeadFunnelProvider>
       <div style={{ display: "flex", minHeight: "100vh" }}>
         {shouldShowSidebar && <Sidebar />}
         <main style={{ flex: 1 }}>{children}</main>
       </div>
       <CrispChat />
-    </>
+    </LeadFunnelProvider>
   );
 }

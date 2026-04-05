@@ -94,7 +94,7 @@ export default function LoginPage() {
               Login
             </button>
             <button
-              onClick={() => router.push("/register")}
+              onClick={() => router.push("/services")}
               style={styles.getStartedButton}
               className="get-started-button"
             >
@@ -134,7 +134,7 @@ export default function LoginPage() {
                 Login
               </button>
               <button
-                onClick={() => router.push("/register")}
+                onClick={() => router.push("/services")}
                 style={styles.mobileGetStartedButton}
               >
                 Get Started 🚀
@@ -254,13 +254,13 @@ export default function LoginPage() {
 
         {/* Sign up link */}
         <div style={styles.signupContainer}>
-          <span style={styles.signupText}>Don't have an account?</span>
+          <span style={styles.signupText}>Need a new project?</span>
           <button 
-            onClick={() => router.push("/register")} 
+            onClick={() => router.push("/services")} 
             style={styles.signupButton}
             className="signup-button"
           >
-            Create one
+            Get started
           </button>
         </div>
       </div>
