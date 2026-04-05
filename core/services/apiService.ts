@@ -1,8 +1,20 @@
 import axios from "axios";
 import { clearAuthSession, getToken } from "../../lib/auth";
 
+const getApiBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost") {
+    return "https://wsd-server-chi.vercel.app/api";
+  }
+
+  return "http://localhost:5000/api";
+};
+
 const API = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  baseURL: getApiBaseUrl(),
 });
 
 // attach token automatically
