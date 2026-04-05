@@ -67,9 +67,9 @@ export default function Sidebar() {
             {
               title: "WORK",
               items: [
-                { name: "Projects", path: `${basePath}/projects` },
+                { name: "My Projects", path: `${basePath}/projects` },
                 { name: "Payments", path: `${basePath}/payments` },
-                { name: "Tickets", path: `${basePath}/tickets` },
+                { name: "Query", path: `${basePath}/tickets` },
               ],
             },
             {
@@ -223,12 +223,12 @@ const styles: any = {
   sidebar: {
     width: "260px",
     height: "100vh",
-    background: "#f5f5f7",
-    color: "#1d1d1f",
+    background: "var(--bg-secondary)",
+    color: "var(--text-primary)",
     padding: "24px 16px",
     display: "flex",
     flexDirection: "column",
-    borderRight: "1px solid #e8e8ed",
+    borderRight: "1px solid var(--border-color)",
   },
 
   logoContainer: {
@@ -275,7 +275,7 @@ const styles: any = {
 
   sectionTitle: {
     fontSize: "11px",
-    color: "#86868b",
+    color: "var(--text-secondary)",
     marginBottom: "10px",
     paddingLeft: "12px",
     letterSpacing: "0.8px",
@@ -307,7 +307,7 @@ const styles: any = {
   footer: {
     marginTop: "auto",
     paddingTop: "20px",
-    borderTop: "1px solid #e8e8ed",
+    borderTop: "1px solid var(--border-color)",
   },
  
   logoutButton: {

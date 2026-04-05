@@ -5,6 +5,13 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  preferences?: {
+    theme: "light" | "dark";
+    notifications: {
+      email: boolean;
+      push: boolean;
+    };
+  };
 }
 
 const TOKEN_KEY = "token";

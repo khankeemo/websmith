@@ -56,15 +56,22 @@ export default function ClientLayout({
     if (pathname.startsWith("/developer") && user.role !== "developer") {
       router.replace(defaultRoute);
     }
+
+    // Apply theme globally
+    if (user && user.preferences?.theme === "dark") {
+      document.documentElement.classList.add("dark-theme");
+    } else {
+      document.documentElement.classList.remove("dark-theme");
+    }
   }, [pathname, router]);
 
   const shouldShowSidebar = !publicPaths.includes(pathname);
 
   return (
     <>
-      <div style={{ display: "flex", minHeight: "100vh" }}>
+      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--bg-primary)" }}>
         {shouldShowSidebar && <Sidebar />}
-        <main style={{ flex: 1 }}>{children}</main>
+        <main style={{ flex: 1, backgroundColor: "var(--bg-primary)" }}>{children}</main>
       </div>
       <CrispChat />
     </>

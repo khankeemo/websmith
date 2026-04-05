@@ -64,6 +64,17 @@ export default function SettingsPage() {
     fetchUserProfile();
   }, []);
 
+  // Apply theme change
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (preferences.theme === 'dark') {
+        document.documentElement.classList.add('dark-theme');
+      } else {
+        document.documentElement.classList.remove('dark-theme');
+      }
+    }
+  }, [preferences.theme]);
+
   const fetchUserProfile = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -80,6 +91,9 @@ export default function SettingsPage() {
           role: user.role || "user",
           avatar: user.avatar || ""
         });
+        if (user.preferences) {
+          setPreferences(user.preferences);
+        }
       }
     } catch (err) {
       console.error("Fetch profile error:", err);
@@ -96,12 +110,21 @@ export default function SettingsPage() {
     try {
       const response = await API.put("/users/update", {
         name: profile.name,
+        email: profile.email,
         phone: profile.phone,
-        company: profile.company
+        company: profile.company,
+        preferences: preferences
       });
 
       if (response.status === 200) {
         setSuccess("Profile updated successfully!");
+        // Update local stored user
+        const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+        const updatedUser = { ...storedUser, name: profile.name, email: profile.email, preferences: preferences };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+ 
+        // Trigger storage event for other components
+        window.dispatchEvent(new Event("storage"));
         setTimeout(() => setSuccess(""), 3000);
       } else {
         setError("Failed to update profile");
@@ -231,10 +254,11 @@ export default function SettingsPage() {
               <input
                 type="email"
                 value={profile.email}
-                disabled
-                style={{ ...styles.input, ...styles.disabledInput }}
+                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                style={styles.input}
+                className="input-focus"
               />
-              <p style={styles.hint}>Email cannot be changed</p>
+              <p style={styles.hint}>Updating your email will not change your ID</p>
             </div>
 
             <div style={styles.formGroup}>
@@ -476,6 +500,9 @@ const styles: any = {
     margin: "0 auto",
     padding: "40px 24px",
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    minHeight: "100vh",
   },
   header: {
     marginBottom: "32px",
@@ -483,18 +510,18 @@ const styles: any = {
   title: {
     fontSize: "34px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     marginBottom: "8px",
     letterSpacing: "-0.5px",
   },
   subtitle: {
     fontSize: "16px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   tabsContainer: {
     display: "flex",
     gap: "8px",
-    borderBottom: "1px solid #E5E5EA",
+    borderBottom: "1px solid var(--border-color)",
     marginBottom: "32px",
     overflowX: "auto" as const,
   },
@@ -505,7 +532,7 @@ const styles: any = {
     padding: "12px 20px",
     fontSize: "15px",
     fontWeight: 500,
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     background: "none",
     border: "none",
     cursor: "pointer",
@@ -514,10 +541,10 @@ const styles: any = {
   },
   tabActive: {
     color: "#007AFF",
-    backgroundColor: "#E3F2FF",
+    backgroundColor: "rgba(0, 122, 255, 0.1)",
   },
   successMessage: {
-    backgroundColor: "#E8F5E9",
+    backgroundColor: "rgba(52, 199, 89, 0.1)",
     border: "1px solid #34C759",
     borderRadius: "12px",
     padding: "12px 16px",
@@ -525,7 +552,7 @@ const styles: any = {
     marginBottom: "24px",
   },
   errorMessage: {
-    backgroundColor: "#FFE5E5",
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
     border: "1px solid #FF3B30",
     borderRadius: "12px",
     padding: "12px 16px",
@@ -533,10 +560,11 @@ const styles: any = {
     marginBottom: "24px",
   },
   content: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "20px",
-    border: "1px solid #E5E5EA",
+    border: "1px solid var(--border-color)",
     padding: "32px",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
   },
   form: {
     display: "flex",
@@ -590,24 +618,26 @@ const styles: any = {
   label: {
     fontSize: "14px",
     fontWeight: 500,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   input: {
     padding: "12px 16px",
     fontSize: "16px",
-    border: "1.5px solid #E5E5EA",
+    border: "1.5px solid var(--border-color)",
     borderRadius: "12px",
     outline: "none",
     transition: "all 0.2s ease",
     fontFamily: "inherit",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
   },
   disabledInput: {
-    backgroundColor: "#F9F9FB",
-    color: "#8E8E93",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-secondary)",
   },
   hint: {
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     marginTop: "4px",
   },
   saveButton: {
@@ -627,7 +657,7 @@ const styles: any = {
   sectionTitle: {
     fontSize: "18px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   themeOptions: {
     display: "flex",
@@ -641,15 +671,16 @@ const styles: any = {
     justifyContent: "center",
     gap: "8px",
     padding: "12px",
-    backgroundColor: "#F9F9FB",
-    border: "1px solid #E5E5EA",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
     borderRadius: "12px",
     cursor: "pointer",
     transition: "all 0.2s ease",
+    color: "var(--text-primary)",
   },
   themeOptionActive: {
     borderColor: "#007AFF",
-    backgroundColor: "#E3F2FF",
+    backgroundColor: "rgba(0,122,255,0.1)",
     color: "#007AFF",
   },
   notificationOptions: {
@@ -663,7 +694,7 @@ const styles: any = {
     alignItems: "center",
     gap: "12px",
     fontSize: "15px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     cursor: "pointer",
   },
   checkbox: {
@@ -674,9 +705,10 @@ const styles: any = {
   select: {
     padding: "12px 16px",
     fontSize: "16px",
-    border: "1.5px solid #E5E5EA",
+    border: "1.5px solid var(--border-color)",
     borderRadius: "12px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
     marginBottom: "24px",
   },
   billingInfo: {
@@ -686,13 +718,13 @@ const styles: any = {
   billingTitle: {
     fontSize: "20px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     marginTop: "16px",
     marginBottom: "8px",
   },
   billingText: {
     fontSize: "14px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     marginBottom: "24px",
   },
   billingButton: {
@@ -708,4 +740,4 @@ const styles: any = {
     fontSize: "14px",
     fontWeight: 500,
   },
-};
+};

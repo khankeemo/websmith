@@ -3,6 +3,7 @@
 // Features: Metadata configuration, imports client layout for conditional sidebar
 
 import ClientLayout from "./ClientLayout";
+import "./globals.css";
 
 export const metadata = {
   title: "Websmith - Your On-Demand Tech Partner",
