@@ -6,13 +6,15 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Client } from '../services/clientService';
+import { Client, ClientPayload } from '../services/clientService';
 
 interface ClientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (client: any) => void;
+  onSave: (client: ClientPayload) => Promise<void>;
   client?: Client | null;
+  isSaving?: boolean;
+  submitError?: string | null;
 }
 
 interface FormData {
@@ -24,7 +26,7 @@ interface FormData {
   status: 'active' | 'inactive';
 }
 
-export default function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProps) {
+export default function ClientModal({ isOpen, onClose, onSave, client, isSaving = false, submitError }: ClientModalProps) {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -60,20 +62,45 @@ export default function ClientModal({ isOpen, onClose, onSave, client }: ClientM
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.name.trim()) newErrors.name = 'Client name is required';
+    if (!formData.name.trim()) {
+      newErrors.name = 'Client name is required';
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Client name must be at least 2 characters';
+    }
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
     }
+
+    if (formData.phone && formData.phone.trim().length > 30) {
+      newErrors.phone = 'Phone number must be at most 30 characters';
+    }
+
+    if (formData.company && formData.company.trim().length > 100) {
+      newErrors.company = 'Company name must be at most 100 characters';
+    }
+
+    if (formData.address && formData.address.trim().length > 300) {
+      newErrors.address = 'Address must be at most 300 characters';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    onSave(formData);
+    await onSave({
+      name: formData.name.trim(),
+      email: formData.email.trim().toLowerCase(),
+      phone: formData.phone.trim(),
+      company: formData.company.trim(),
+      address: formData.address.trim(),
+      status: formData.status,
+    });
   };
 
   const updateField = (field: keyof FormData, value: string) => {
@@ -105,6 +132,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client }: ClientM
                 onChange={(e) => updateField('name', e.target.value)}
                 style={{ ...styles.input, ...(errors.name ? styles.inputError : {}) }}
                 placeholder="John Doe"
+                disabled={isSaving}
               />
               {errors.name && <p style={styles.errorText}>{errors.name}</p>}
             </div>
@@ -117,6 +145,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client }: ClientM
                 onChange={(e) => updateField('email', e.target.value)}
                 style={{ ...styles.input, ...(errors.email ? styles.inputError : {}) }}
                 placeholder="client@example.com"
+                disabled={isSaving}
               />
               {errors.email && <p style={styles.errorText}>{errors.email}</p>}
             </div>
@@ -129,9 +158,11 @@ export default function ClientModal({ isOpen, onClose, onSave, client }: ClientM
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => updateField('phone', e.target.value)}
-                style={styles.input}
+                style={{ ...styles.input, ...(errors.phone ? styles.inputError : {}) }}
                 placeholder="+1 234 567 8900"
+                disabled={isSaving}
               />
+              {errors.phone && <p style={styles.errorText}>{errors.phone}</p>}
             </div>
 
             <div style={styles.formGroup}>
@@ -140,9 +171,11 @@ export default function ClientModal({ isOpen, onClose, onSave, client }: ClientM
                 type="text"
                 value={formData.company}
                 onChange={(e) => updateField('company', e.target.value)}
-                style={styles.input}
+                style={{ ...styles.input, ...(errors.company ? styles.inputError : {}) }}
                 placeholder="Company Name"
+                disabled={isSaving}
               />
+              {errors.company && <p style={styles.errorText}>{errors.company}</p>}
             </div>
           </div>
 
@@ -151,10 +184,12 @@ export default function ClientModal({ isOpen, onClose, onSave, client }: ClientM
             <textarea
               value={formData.address}
               onChange={(e) => updateField('address', e.target.value)}
-              style={styles.textarea}
+              style={{ ...styles.textarea, ...(errors.address ? styles.inputError : {}) }}
               placeholder="Client address"
               rows={2}
+              disabled={isSaving}
             />
+            {errors.address && <p style={styles.errorText}>{errors.address}</p>}
           </div>
 
           <div style={styles.formGroup}>
@@ -163,15 +198,20 @@ export default function ClientModal({ isOpen, onClose, onSave, client }: ClientM
               value={formData.status}
               onChange={(e) => updateField('status', e.target.value as 'active' | 'inactive')}
               style={styles.select}
+              disabled={isSaving}
             >
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>
 
+          {submitError && <p style={styles.submitError}>{submitError}</p>}
+
           <div style={styles.modalFooter}>
-            <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
-            <button type="submit" style={styles.saveBtn}>Save Client</button>
+            <button type="button" onClick={onClose} style={styles.cancelBtn} disabled={isSaving}>Cancel</button>
+            <button type="submit" style={styles.saveBtn} disabled={isSaving}>
+              {isSaving ? 'Saving...' : client ? 'Update Client' : 'Save Client'}
+            </button>
           </div>
         </form>
       </div>
@@ -286,6 +326,12 @@ const styles: any = {
   row: {
     display: 'flex',
     gap: '16px',
+  },
+  submitError: {
+    fontSize: '13px',
+    color: '#FF3B30',
+    marginTop: '-4px',
+    marginBottom: '8px',
   },
   modalFooter: {
     display: 'flex',

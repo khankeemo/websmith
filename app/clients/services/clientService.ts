@@ -15,6 +15,8 @@ export interface Client {
   createdAt?: string;
 }
 
+export type ClientPayload = Omit<Client, "_id" | "createdAt">;
+
 // Get all clients
 export const getClients = async (): Promise<Client[]> => {
   try {

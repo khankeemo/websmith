@@ -9,38 +9,61 @@ import { Plus, Search, Users as UsersIcon } from 'lucide-react';
 import { useClients } from './hooks/useClients';
 import ClientCard from './components/ClientCard';
 import ClientModal from './components/ClientModal';
-import { Client } from './services/clientService';
+import { Client, ClientPayload } from './services/clientService';
 
 export default function ClientsPage() {
-  const { clients, loading, error, addClient, editClient, removeClient, fetchClients } = useClients();
+  const { clients, loading, saving, error, addClient, editClient, removeClient, fetchClients, clearError } = useClients();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleAddClient = () => {
+    clearError();
+    setFormError(null);
     setEditingClient(null);
     setIsModalOpen(true);
   };
 
   const handleEditClient = (client: Client) => {
+    clearError();
+    setFormError(null);
     setEditingClient(client);
     setIsModalOpen(true);
   };
 
-  const handleSaveClient = async (clientData: any) => {
+  const handleSaveClient = async (clientData: ClientPayload) => {
+    setFormError(null);
+    setSuccessMessage(null);
+
     if (editingClient) {
-      await editClient(editingClient._id!, clientData);
+      const updatedClient = await editClient(editingClient._id!, clientData);
+      if (!updatedClient) {
+        setFormError('Unable to update client. Please check the details and try again.');
+        return;
+      }
+      setSuccessMessage('Client updated successfully.');
     } else {
-      await addClient(clientData);
+      const createdClient = await addClient(clientData);
+      if (!createdClient) {
+        setFormError('Unable to create client. Please check the details and try again.');
+        return;
+      }
+      setSuccessMessage('Client created successfully.');
     }
+
     setIsModalOpen(false);
     setEditingClient(null);
-    fetchClients();
   };
 
   const handleDeleteClient = async (id: string) => {
+    setSuccessMessage(null);
     if (confirm('Are you sure you want to delete this client?')) {
-      await removeClient(id);
+      const removed = await removeClient(id);
+      if (removed) {
+        setSuccessMessage('Client deleted successfully.');
+      }
     }
   };
 
@@ -78,6 +101,12 @@ export default function ClientsPage() {
           />
         </div>
       </div>
+
+      {successMessage && (
+        <div style={styles.successContainer}>
+          <p style={styles.successText}>{successMessage}</p>
+        </div>
+      )}
 
       {/* Loading State */}
       {loading && (
@@ -129,9 +158,12 @@ export default function ClientsPage() {
         onClose={() => {
           setIsModalOpen(false);
           setEditingClient(null);
+          setFormError(null);
         }}
         onSave={handleSaveClient}
         client={editingClient}
+        isSaving={saving}
+        submitError={formError || error}
       />
 
       <style>{`
@@ -232,6 +264,19 @@ const styles: any = {
     padding: '60px',
     backgroundColor: '#FEF2F0',
     borderRadius: '16px',
+  },
+  successContainer: {
+    marginBottom: '20px',
+    padding: '14px 16px',
+    backgroundColor: '#E8F5E9',
+    border: '1px solid #34C759',
+    borderRadius: '12px',
+  },
+  successText: {
+    color: '#1C1C1E',
+    margin: 0,
+    fontSize: '14px',
+    fontWeight: 500,
   },
   errorText: {
     color: '#FF3B30',
