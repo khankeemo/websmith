@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [userRole, setUserRole] = useState("");
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isChartReady, setIsChartReady] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -80,6 +81,10 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, [router]);
+
+  useEffect(() => {
+    setIsChartReady(true);
+  }, []);
 
   if (loading) {
     return (
@@ -182,7 +187,8 @@ export default function DashboardPage() {
               </div>
             </div>
             <div style={styles.chartContainer}>
-              <ResponsiveContainer width="100%" height="100%">
+              {isChartReady ? (
+              <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={chartData}>
                   <CartesianGrid stroke="#E5E5EA" strokeDasharray="3 3" />
                   <XAxis 
@@ -216,6 +222,9 @@ export default function DashboardPage() {
                   />
                 </LineChart>
               </ResponsiveContainer>
+              ) : (
+                <div style={styles.chartSkeleton}></div>
+              )}
             </div>
           </Card>
         </div>
@@ -313,6 +322,10 @@ export default function DashboardPage() {
         .zoom-card:hover {
           transform: translateY(-4px);
           transition: transform 0.2s ease;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
@@ -443,10 +456,12 @@ const styles: any = {
     display: "grid",
     gridTemplateColumns: "2fr 1fr",
     gap: "20px",
+    minWidth: 0,
   },
 
   chartWrapper: {
     height: "100%",
+    minWidth: 0,
   },
 
   chartHeader: {
@@ -470,6 +485,14 @@ const styles: any = {
   chartContainer: {
     width: "100%",
     height: "280px",
+    minWidth: 0,
+  },
+
+  chartSkeleton: {
+    width: "100%",
+    height: "280px",
+    borderRadius: "16px",
+    background: "linear-gradient(90deg, #F2F2F7 0%, #E5E5EA 50%, #F2F2F7 100%)",
   },
 
   sectionTitle: {
@@ -543,14 +566,3 @@ const styles: any = {
     color: "#8E8E93",
   },
 };
-
-// Add keyframe animation to document
-if (typeof document !== "undefined") {
-  const style = document.createElement("style");
-  style.textContent = `
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `;
-  document.head.appendChild(style);
-}
