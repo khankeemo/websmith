@@ -1,96 +1,88 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import React from "react";
 
-export default function Sidebar() {
-  const pathname = usePathname();
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "primary" | "secondary" | "outline" | "danger" | "ghost";
+  size?: "sm" | "md" | "lg";
+  isLoading?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+}
 
-  const menu = [
-    { name: "Dashboard", path: "/dashboard" },
-    { name: "Projects", path: "/projects" },
-    { name: "Clients", path: "/clients" },
-    { name: "Tasks", path: "/tasks" },
-    { name: "Team", path: "/team" },
-    { name: "Invoices", path: "/invoices" },
-  ];
+export default function Button({
+  children,
+  variant = "primary",
+  size = "md",
+  isLoading = false,
+  leftIcon,
+  rightIcon,
+  style,
+  disabled,
+  ...props
+}: ButtonProps) {
+  const getVariantStyles = () => {
+    switch (variant) {
+      case "primary":
+        return { backgroundColor: "#007AFF", color: "#FFFFFF", border: "none" };
+      case "secondary":
+        return { backgroundColor: "#F2F2F7", color: "#1C1C1E", border: "none" };
+      case "outline":
+        return { backgroundColor: "transparent", color: "#007AFF", border: "1px solid #007AFF" };
+      case "danger":
+        return { backgroundColor: "#FF3B30", color: "#FFFFFF", border: "none" };
+      case "ghost":
+        return { backgroundColor: "transparent", color: "#8E8E93", border: "none" };
+      default:
+        return {};
+    }
+  };
+
+  const getSizeStyles = () => {
+    switch (size) {
+      case "sm":
+        return { padding: "6px 12px", fontSize: "12px" };
+      case "md":
+        return { padding: "10px 18px", fontSize: "14px" };
+      case "lg":
+        return { padding: "14px 24px", fontSize: "16px" };
+      default:
+        return {};
+    }
+  };
 
   return (
-    <div
+    <button
+      disabled={disabled || isLoading}
       style={{
-        width: "250px",
-        height: "100vh",
-        background: "#0b0b0c",
-        color: "#fff",
-        padding: "30px 20px",
-        borderRight: "1px solid #1a1a1a",
-        display: "flex",
-        flexDirection: "column",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        borderRadius: "12px",
+        fontWeight: 500,
+        cursor: disabled || isLoading ? "not-allowed" : "pointer",
+        opacity: disabled || isLoading ? 0.6 : 1,
+        transition: "all 0.2s ease",
+        fontFamily: "inherit",
+        ...getVariantStyles(),
+        ...getSizeStyles(),
+        ...style,
       }}
+      {...props}
     >
-      {/* 🔥 Brand */}
-      <h2
-        style={{
-          marginBottom: "35px",
-          fontWeight: 600,
-          letterSpacing: "0.5px",
-          color: "#ffffff",
-        }}
-      >
-        Websmith
-      </h2>
-
-      {/* 🔥 Menu */}
-      <nav style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        {menu.map((item) => {
-          const active = pathname === item.path;
-
-          return (
-            <Link
-              key={item.path}
-              href={item.path}
-              style={{
-                padding: "12px 14px",
-                borderRadius: "8px",
-                textDecoration: "none",
-                fontSize: "14px",
-                fontWeight: 500,
-
-                // TEXT
-                color: active ? "#ffffff" : "#8e8e93",
-
-                // BACKGROUND
-                background: active ? "#1c1c1e" : "transparent",
-
-                // LEFT BORDER (APPLE STYLE)
-                borderLeft: active
-                  ? "3px solid #ffffff"
-                  : "3px solid transparent",
-
-                // ALIGNMENT
-                paddingLeft: "12px",
-
-                // ANIMATION
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) {
-                  e.currentTarget.style.background = "#161617";
-                  e.currentTarget.style.color = "#ffffff";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#8e8e93";
-                }
-              }}
-            >
-              {item.name}
-            </Link>
-          );
-        })}
-      </nav>
-    </div>
+      {isLoading ? (
+        <div style={{ width: "16px", height: "16px", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#FFF", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+      ) : (
+        <>
+          {leftIcon}
+          {children}
+          {rightIcon}
+        </>
+      )}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+    </button>
   );
 }

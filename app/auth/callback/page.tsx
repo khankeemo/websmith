@@ -4,11 +4,11 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import API from '../../../core/services/apiService';
 
-export default function AuthCallback() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -92,36 +92,48 @@ export default function AuthCallback() {
   }, [router, searchParams]);
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        {status === 'loading' && (
-          <>
-            <div style={styles.spinner}></div>
-            <h2 style={styles.title}>Completing authentication...</h2>
-            <p style={styles.subtitle}>Please wait while we verify your credentials</p>
-          </>
-        )}
-        
-        {status === 'success' && (
-          <>
-            <div style={styles.successIcon}>✓</div>
-            <h2 style={styles.title}>Successfully authenticated!</h2>
-            <p style={styles.subtitle}>Redirecting you to dashboard...</p>
-          </>
-        )}
-        
-        {status === 'error' && (
-          <>
-            <div style={styles.errorIcon}>✗</div>
-            <h2 style={styles.title}>Authentication failed</h2>
-            <p style={styles.subtitle}>{errorMessage}</p>
-            <button onClick={() => window.close()} style={styles.button}>
-              Close Window
-            </button>
-          </>
-        )}
-      </div>
+    <div style={styles.card}>
+      {status === 'loading' && (
+        <>
+          <div style={styles.spinner}></div>
+          <h2 style={styles.title}>Completing authentication...</h2>
+          <p style={styles.subtitle}>Please wait while we verify your credentials</p>
+        </>
+      )}
       
+      {status === 'success' && (
+        <>
+          <div style={styles.successIcon}>✓</div>
+          <h2 style={styles.title}>Successfully authenticated!</h2>
+          <p style={styles.subtitle}>Redirecting you to dashboard...</p>
+        </>
+      )}
+      
+      {status === 'error' && (
+        <>
+          <div style={styles.errorIcon}>✗</div>
+          <h2 style={styles.title}>Authentication failed</h2>
+          <p style={styles.subtitle}>{errorMessage}</p>
+          <button onClick={() => window.close()} style={styles.button}>
+            Close Window
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function AuthCallback() {
+  return (
+    <div style={styles.container}>
+      <Suspense fallback={
+        <div style={styles.card}>
+          <div style={styles.spinner}></div>
+          <h2 style={styles.title}>Loading...</h2>
+        </div>
+      }>
+        <AuthCallbackContent />
+      </Suspense>
       <style>{`
         @keyframes spin {
           to { transform: rotate(360deg); }

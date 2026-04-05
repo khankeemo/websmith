@@ -1,96 +1,92 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import React from "react";
 
-export default function Sidebar() {
-  const pathname = usePathname();
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+}
 
-  const menu = [
-    { name: "Dashboard", path: "/dashboard" },
-    { name: "Projects", path: "/projects" },
-    { name: "Clients", path: "/clients" },
-    { name: "Tasks", path: "/tasks" },
-    { name: "Team", path: "/team" },
-    { name: "Invoices", path: "/invoices" },
-  ];
-
+export default function Input({
+  label,
+  error,
+  leftIcon,
+  rightIcon,
+  style,
+  ...props
+}: InputProps) {
   return (
-    <div
-      style={{
-        width: "250px",
-        height: "100vh",
-        background: "#0b0b0c",
-        color: "#fff",
-        padding: "30px 20px",
-        borderRight: "1px solid #1a1a1a",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* 🔥 Brand */}
-      <h2
-        style={{
-          marginBottom: "35px",
-          fontWeight: 600,
-          letterSpacing: "0.5px",
-          color: "#ffffff",
-        }}
-      >
-        Websmith
-      </h2>
-
-      {/* 🔥 Menu */}
-      <nav style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        {menu.map((item) => {
-          const active = pathname === item.path;
-
-          return (
-            <Link
-              key={item.path}
-              href={item.path}
-              style={{
-                padding: "12px 14px",
-                borderRadius: "8px",
-                textDecoration: "none",
-                fontSize: "14px",
-                fontWeight: 500,
-
-                // TEXT
-                color: active ? "#ffffff" : "#8e8e93",
-
-                // BACKGROUND
-                background: active ? "#1c1c1e" : "transparent",
-
-                // LEFT BORDER (APPLE STYLE)
-                borderLeft: active
-                  ? "3px solid #ffffff"
-                  : "3px solid transparent",
-
-                // ALIGNMENT
-                paddingLeft: "12px",
-
-                // ANIMATION
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) {
-                  e.currentTarget.style.background = "#161617";
-                  e.currentTarget.style.color = "#ffffff";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#8e8e93";
-                }
-              }}
-            >
-              {item.name}
-            </Link>
-          );
-        })}
-      </nav>
+    <div style={{ width: "100%", marginBottom: "16px" }}>
+      {label && (
+        <label
+          style={{
+            display: "block",
+            fontSize: "13px",
+            fontWeight: 500,
+            color: "#1C1C1E",
+            marginBottom: "8px",
+          }}
+        >
+          {label}
+        </label>
+      )}
+      <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+        {leftIcon && (
+          <div
+            style={{
+              position: "absolute",
+              left: "12px",
+              color: "#8E8E93",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            {leftIcon}
+          </div>
+        )}
+        <input
+          style={{
+            width: "100%",
+            padding: `12px 16px 12px ${leftIcon ? "40px" : "16px"}`,
+            paddingRight: rightIcon ? "40px" : "16px",
+            fontSize: "14px",
+            background: "#FFFFFF",
+            border: `1px solid ${error ? "#FF3B30" : "#E5E5EA"}`,
+            borderRadius: "12px",
+            outline: "none",
+            transition: "all 0.2s ease",
+            ...style,
+          }}
+          className="wsd-input"
+          {...props}
+        />
+        {rightIcon && (
+          <div
+            style={{
+              position: "absolute",
+              right: "12px",
+              color: "#8E8E93",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            {rightIcon}
+          </div>
+        )}
+      </div>
+      {error && (
+        <p style={{ fontSize: "12px", color: "#FF3B30", marginTop: "6px", marginBottom: 0 }}>
+          {error}
+        </p>
+      )}
+      <style>{`
+        .wsd-input:focus {
+          border-color: #007AFF !important;
+          box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+        }
+      `}</style>
     </div>
   );
 }

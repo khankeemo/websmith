@@ -4,7 +4,7 @@
 import React from 'react';
 import { TeamMember } from '../services/teamService';
 import { Users, Mail, Phone, Briefcase, Calendar, Award, Edit2, Trash2 } from 'lucide-react';
-import Badge from '@/components/ui/Dadge';
+import Badge from '../../../components/ui/Badge';
 
 interface TeamCardProps {
   member: TeamMember;
