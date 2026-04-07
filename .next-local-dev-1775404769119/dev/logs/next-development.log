@@ -1,5 +1,0 @@
-{"timestamp":"00:02:22.820","source":"Server","level":"ERROR","message":"⨯ Error: ENOENT: no such file or directory, open 'F:\\PRojects\\WSD\\websmith\\.next-local-dev-1775404769119\\dev\\server\\app\\page\\build-manifest.json'"}
-{"timestamp":"00:02:22.855","source":"Server","level":"ERROR","message":"⨯ Error: ENOENT: no such file or directory, open 'F:\\PRojects\\WSD\\websmith\\.next-local-dev-1775404769119\\dev\\server\\pages\\_app\\build-manifest.json'"}
-{"timestamp":"00:02:22.901","source":"Server","level":"ERROR","message":"Error: ENOENT: no such file or directory, open 'F:\\PRojects\\WSD\\websmith\\.next-local-dev-1775404769119\\dev\\server\\app\\page\\build-manifest.json'"}
-{"timestamp":"00:02:22.939","source":"Server","level":"ERROR","message":"⨯ Error: ENOENT: no such file or directory, open 'F:\\PRojects\\WSD\\websmith\\.next-local-dev-1775404769119\\dev\\server\\pages\\_app\\build-manifest.json'"}
-{"timestamp":"00:02:22.970","source":"Server","level":"ERROR","message":"Error: ENOENT: no such file or directory, open 'F:\\PRojects\\WSD\\websmith\\.next-local-dev-1775404769119\\dev\\server\\pages\\_app\\build-manifest.json'"}
