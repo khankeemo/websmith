@@ -55,7 +55,11 @@ export default function ServiceSelectionClient() {
       {loading && <Card><p style={styles.message}>Loading services...</p></Card>}
       {error && <Card><p style={{ ...styles.message, color: "#FF3B30" }}>{error}</p></Card>}
 
-      {!loading && !error && (
+      {!loading && !error && services.length === 0 && (
+        <Card><p style={styles.message}>No services are currently available. Please check back later.</p></Card>
+      )}
+
+      {!loading && !error && services.length > 0 && (
         <>
           <div style={styles.grid}>
             {services.map((service) => {
