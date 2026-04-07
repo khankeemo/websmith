@@ -7,7 +7,7 @@ const getApiBaseUrl = () => {
   }
 
   if (typeof window !== "undefined" && window.location.hostname !== "localhost") {
-    return "https://wsd-server-chi.vercel.app/api";
+    return "https://wsdserver.vercel.app/api";
   }
 
   return "http://localhost:5000/api";

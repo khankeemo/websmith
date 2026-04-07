@@ -44,12 +44,10 @@ export default function LoginPage() {
 
   const navItems = [
     { name: "Home", href: "/" },
-    { name: "Services", href: "/services" },
-    { name: "Developers", href: "/developers" },
-    { name: "Pricing", href: "/pricing" },
-    { name: "Portfolio", href: "/portfolio" },
-    { name: "About", href: "/about" },
-    { name: "Contact", href: "/contact" },
+    { name: "Features", href: "/#features" },
+    { name: "Developers", href: "/#developers" },
+    { name: "Clients", href: "/#clients" },
+    { name: "Contact", href: "/#contact" },
   ];
 
   return (
@@ -57,31 +55,33 @@ export default function LoginPage() {
       {/* Header Menu */}
       <header style={styles.headerMenu}>
         <nav style={styles.nav}>
-          {/* Logo */}
-          <div style={styles.logoArea}>
-            <div 
-              style={styles.logoCircle}
-              className="logo-circle"
-            >
-              <span style={styles.logoCircleText}>W</span>
-            </div>
-            <span style={styles.logoText} className="logo-text">
-              Websmith
-            </span>
-          </div>
-
-          {/* Desktop Navigation */}
-          <div style={styles.navLinks} className="desktop-nav">
-            {navItems.map((item, index) => (
-              <a
-                key={index}
-                href={item.href}
-                style={styles.navLink}
-                className="nav-link"
+          <div style={styles.leftNavGroup}>
+            {/* Logo */}
+            <a href="/" style={styles.logoArea}>
+              <div 
+                style={styles.logoCircle}
+                className="logo-circle"
               >
-                {item.name}
-              </a>
-            ))}
+                <span style={styles.logoCircleText}>W</span>
+              </div>
+              <span style={styles.logoText} className="logo-text">
+                Websmith
+              </span>
+            </a>
+
+            {/* Desktop Navigation */}
+            <div style={styles.navLinks} className="desktop-nav">
+              {navItems.map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  style={styles.navLink}
+                  className="nav-link"
+                >
+                  {item.name}
+                </a>
+              ))}
+            </div>
           </div>
 
           {/* Desktop Auth Buttons */}
@@ -495,12 +495,19 @@ const styles: any = {
     justifyContent: "space-between",
     alignItems: "center",
   },
+  leftNavGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "32px",
+    minWidth: 0,
+  },
 
   logoArea: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
     cursor: "pointer",
+    textDecoration: "none",
   },
 
   logoCircle: {
