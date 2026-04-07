@@ -31,6 +31,17 @@ export default function LandingPage() {
   const developersRef = useRef<HTMLElement>(null);
   const clientsRef = useRef<HTMLElement>(null);
   const footerRef = useRef<HTMLElement>(null);
+  const contactFormRef = useRef<HTMLElement>(null);
+  
+  // Contact form state
+  const [contactState, setContactState] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<null | "success" | "error">(null);
   
   // Stats counter animation
   const [stats, setStats] = useState({
@@ -91,30 +102,26 @@ export default function LandingPage() {
 
   // Satisfied clients data
   const satisfiedClients = [
-    { name: "Sarah Johnson", company: "TechCorp", project: "E-commerce Platform" },
-    { name: "Michael Chen", company: "FinanceHub", project: "Mobile Banking App" },
-    { name: "Emily Rodriguez", company: "HealthPlus", project: "Telemedicine Portal" },
-    { name: "David Kim", company: "RetailPro", project: "Inventory Management" },
-    { name: "Lisa Wang", company: "EduSmart", project: "Learning Management System" },
-    { name: "James Wilson", company: "RealtyGroup", project: "Property Listing Platform" },
-    { name: "Maria Garcia", company: "LogiTrack", project: "Fleet Management System" },
-    { name: "Robert Taylor", company: "MediaHub", project: "Content Streaming Platform" },
-    { name: "Jennifer Lee", company: "FoodDash", project: "Delivery Optimization App" },
-    { name: "Thomas Brown", company: "TravelEasy", project: "Booking Management System" }
+    { name: "Sarah Johnson", company: "TechCorp", project: "E-commerce Platform", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
+    { name: "Michael Chen", company: "FinanceHub", project: "Mobile Banking App", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" },
+    { name: "Emily Rodriguez", company: "HealthPlus", project: "Telemedicine Portal", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150" },
+    { name: "David Kim", company: "RetailPro", project: "Inventory Management", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150" },
+    { name: "Lisa Wang", company: "EduSmart", project: "Learning Management System", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150" },
+    { name: "James Wilson", company: "RealtyGroup", project: "Property Listing Platform", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150" },
+    { name: "Maria Garcia", company: "LogiTrack", project: "Fleet Management System", avatar: "https://images.unsplash.com/photo-1567532939604-b6c5b0ad2e01?auto=format&fit=crop&q=80&w=150" },
+    { name: "Robert Taylor", company: "MediaHub", project: "Content Streaming Platform", avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150" },
+    { name: "Jennifer Lee", company: "FoodDash", project: "Delivery Optimization App", avatar: "https://images.unsplash.com/photo-1554151228-14d9def656e4?auto=format&fit=crop&q=80&w=150" },
+    { name: "Thomas Brown", company: "TravelEasy", project: "Booking Management System", avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=150" }
   ];
 
   // Developers data
   const developers = [
-    { id: 1, name: "Alex Morgan", role: "Full Stack Developer", skills: ["React", "Node.js", "MongoDB"], experience: "8 years", rating: 4.9 },
-    { id: 2, name: "Sophia Chen", role: "UI/UX Expert", skills: ["Figma", "Adobe XD", "Tailwind"], experience: "6 years", rating: 4.8 },
-    { id: 3, name: "Marcus Williams", role: "Backend Specialist", skills: ["Python", "Django", "PostgreSQL"], experience: "10 years", rating: 5.0 },
-    { id: 4, name: "Olivia Martinez", role: "Mobile Developer", skills: ["React Native", "Flutter", "iOS"], experience: "5 years", rating: 4.7 },
-    { id: 5, name: "Ethan Kumar", role: "DevOps Engineer", skills: ["Docker", "K8s", "AWS"], experience: "7 years", rating: 4.9 },
-    { id: 6, name: "Isabella Rossi", role: "Frontend Developer", skills: ["Vue.js", "Next.js", "TypeScript"], experience: "4 years", rating: 4.6 },
-    { id: 7, name: "Liam O'Connor", role: "AI/ML Engineer", skills: ["TensorFlow", "PyTorch", "Python"], experience: "6 years", rating: 4.9 },
-    { id: 8, name: "Ava Nakamura", role: "Security Expert", skills: ["Cybersecurity", "Pen Testing", "AWS"], experience: "9 years", rating: 5.0 },
-    { id: 9, name: "Noah Schmidt", role: "Game Developer", skills: ["Unity", "C#", "3D Modeling"], experience: "5 years", rating: 4.7 },
-    { id: 10, name: "Mia Thompson", role: "Cloud Architect", skills: ["Azure", "GCP", "Terraform"], experience: "11 years", rating: 5.0 }
+    { id: 1, name: "Md Zahid Hussain", role: "Full Stack Developer", skills: ["React", "Node.js", "Backend Specialist"], experience: "8 years", rating: 4.9, avatar: "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&q=80&w=400", bgImage: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=400" },
+    { id: 2, name: "Md Jahangir", role: "UI/UX Specialist", skills: ["Figma", "TailwindCSS", "Adobe XD"], experience: "6 years", rating: 4.8, avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=400", bgImage: "https://images.unsplash.com/photo-1542744094-3a31f272c490?auto=format&fit=crop&q=80&w=400" },
+    { id: 3, name: "Mohammed Kalam Khan", role: "Senior Advisor & Analyst", skills: ["Strategy", "Architecture", "Cloud"], experience: "12 years", rating: 5.0, avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=400", bgImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=400" },
+    { id: 4, name: "Sarah Chen", role: "Mobile App Specialist", skills: ["React Native", "Flutter", "Swift"], experience: "7 years", rating: 4.9, avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150", bgImage: "https://images.unsplash.com/photo-1512941937669-90a1358233a4?auto=format&fit=crop&q=80&w=400" },
+    { id: 5, name: "Alex Rivera", role: "AI Engineer", skills: ["Python", "TensorFlow", "PyTorch"], experience: "5 years", rating: 4.7, avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150", bgImage: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?auto=format&fit=crop&q=80&w=400" },
+    { id: 6, name: "Priya Sharma", role: "QA Automation Lead", skills: ["Cypress", "Selenium", "Jest"], experience: "6 years", rating: 4.8, avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150", bgImage: "https://images.unsplash.com/photo-1484417894907-623942c8ee29?auto=format&fit=crop&q=80&w=400" },
   ];
 
   // Testimonials
@@ -195,6 +202,24 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section style={styles.hero}>
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            zIndex: 0,
+          }}
+        >
+          <source src="/videos/techVideo 2026-04-07 at 17.28.20.mp4" type="video/mp4" />
+        </video>
+        <div style={styles.heroOverlay} />
         <div style={styles.heroContent}>
           <h1 style={styles.heroTitle}>Your On-Demand <span style={styles.highlight}>Tech Partner</span></h1>
           <p style={styles.heroSubtitle}>Connect with top-tier developers, build amazing products, and scale your business with confidence.</p>
@@ -210,7 +235,16 @@ export default function LandingPage() {
         <p style={styles.sectionSubtitle}>Everything you need to build exceptional digital products</p>
         <div style={styles.featuresGrid}>
           {features.map((feature, index) => (
-            <div key={index} style={styles.featureCard} className="feature-card">
+            <div 
+              key={index} 
+              style={{
+                ...styles.featureCard,
+                backgroundImage: `linear-gradient(rgba(249, 249, 251, 0.9), rgba(249, 249, 251, 0.9)), url(/images/assets/service_${index % 5 + 1}.png)`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }} 
+              className="feature-card"
+            >
               <div style={styles.featureIcon}>{<feature.icon size={28} />}</div>
               <h3 style={styles.featureTitle}>{feature.title}</h3>
               <p style={styles.featureDesc}>{feature.description}</p>
@@ -241,6 +275,30 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Global Diversity & Collaboration */}
+      <section style={styles.diversitySection}>
+        <div style={styles.diversityContent}>
+          <div style={styles.diversityText}>
+            <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "#1C1C1E" }}>Global Collaboration & Technical Excellence</h2>
+            <p style={{ fontSize: "18px", color: "#6C6C70", lineHeight: 1.6, marginBottom: "24px" }}>
+              Our team brings together diverse perspectives and world-class expertise to solve complex challenges. 
+              We believe in the power of inclusive collaboration to build the next generation of digital products.
+            </p>
+            <div style={{ display: "flex", gap: "16px" }}>
+              <div style={styles.diversityBadge}>Enterprise Grade</div>
+              <div style={styles.diversityBadge}>Diverse Talent</div>
+            </div>
+          </div>
+          <div style={styles.diversityImageContainer}>
+            <img 
+              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200" 
+              alt="Global Technical Team" 
+              style={styles.diversityImage}
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Satisfied Clients - 10 Rectangle Cards */}
       <section id="clients" ref={clientsRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
@@ -248,8 +306,8 @@ export default function LandingPage() {
         <div style={styles.clientGrid}>
           {satisfiedClients.map((client, index) => (
             <div key={index} style={styles.clientCard} className="client-card">
-              <div style={styles.clientIcon}>
-                <Briefcase size={24} />
+              <div style={styles.clientAvatarContainer}>
+                <img src={client.avatar} alt={client.name} style={styles.clientAvatarImg} />
               </div>
               <h4 style={styles.clientName}>{client.name}</h4>
               <p style={styles.clientCompany}>{client.company}</p>
@@ -259,20 +317,25 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Developers - 10 Circle Mask Cards */}
+      {/* Developers - expert profiles */}
       <section id="developers" ref={developersRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
-        <p style={styles.sectionSubtitle}>Work with the best talent in the industry</p>
+        <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
         <div style={styles.developerGrid}>
           {developers.map((dev) => (
             <div 
               key={dev.id} 
-              style={styles.developerCard} 
+              style={{
+                ...styles.developerCard,
+                backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)), url(${(dev as any).bgImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }} 
               className="developer-card"
               onClick={() => router.push(`/developer/${dev.id}`)}
             >
               <div style={styles.circleMask}>
-                <span style={styles.circleInitial}>{dev.name.charAt(0)}</span>
+                <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} />
               </div>
               <h4 style={styles.developerName}>{dev.name}</h4>
               <p style={styles.developerRole}>{dev.role}</p>
@@ -314,8 +377,131 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Contact Section */}
+      <section id="contact" ref={contactFormRef} style={styles.contactSection}>
+        <div style={styles.contactContainer}>
+          <div style={styles.contactHeader}>
+            <h2 style={styles.sectionTitle}>Get in Touch</h2>
+            <p style={styles.sectionSubtitle}>Have a project in mind? Let's build something amazing together.</p>
+          </div>
+          
+          <div style={styles.contactGrid}>
+            <div style={styles.contactInfo}>
+              <h3 style={styles.contactInfoTitle}>Contact Information</h3>
+              <p style={styles.contactInfoDesc}>Fill out the form and our team will get back to you within 24 hours.</p>
+              
+              <div style={styles.infoItems}>
+                <div style={styles.infoItem}>
+                  <div style={styles.infoIcon}>📍</div>
+                  <div>
+                    <h4 style={styles.infoLabel}>Headquarters</h4>
+                    <p style={styles.infoValue}>123 Tech Avenue, Silicon Valley, CA</p>
+                  </div>
+                </div>
+                <div style={styles.infoItem}>
+                  <div style={styles.infoIcon}>📧</div>
+                  <div>
+                    <h4 style={styles.infoLabel}>Email</h4>
+                    <p style={styles.infoValue}>hello@websmith.com</p>
+                  </div>
+                </div>
+                <div style={styles.infoItem}>
+                  <div style={styles.infoIcon}>📞</div>
+                  <div>
+                    <h4 style={styles.infoLabel}>Phone</h4>
+                    <p style={styles.infoValue}>+1 (555) 000-0000</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div style={styles.contactFormContainer}>
+              <div style={styles.contactGlassCard}>
+                <form 
+                  style={styles.contactForm}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setIsSubmitting(true);
+                    // Simulate API call
+                    setTimeout(() => {
+                      setIsSubmitting(false);
+                      setSubmitStatus("success");
+                      setContactState({ name: "", email: "", subject: "", message: "" });
+                      setTimeout(() => setSubmitStatus(null), 5000);
+                    }, 1500);
+                  }}
+                >
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="John Doe" 
+                        style={styles.formInput}
+                        required
+                        value={contactState.name}
+                        onChange={(e) => setContactState({ ...contactState, name: e.target.value })}
+                      />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>Email</label>
+                      <input 
+                        type="email" 
+                        placeholder="john@example.com" 
+                        style={styles.formInput}
+                        required
+                        value={contactState.email}
+                        onChange={(e) => setContactState({ ...contactState, email: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Subject</label>
+                    <input 
+                      type="text" 
+                      placeholder="Project Inquiry" 
+                      style={styles.formInput}
+                      required
+                      value={contactState.subject}
+                      onChange={(e) => setContactState({ ...contactState, subject: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Message</label>
+                    <textarea 
+                      placeholder="Tell us about your project..." 
+                      style={styles.formTextarea}
+                      required
+                      value={contactState.message}
+                      onChange={(e) => setContactState({ ...contactState, message: e.target.value })}
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    style={styles.submitBtn} 
+                    className="cta-hover"
+                  >
+                    {isSubmitting ? "Sending..." : (submitStatus === "success" ? "Message Sent!" : "Send Message")}
+                  </button>
+                  
+                  {submitStatus === "success" && (
+                    <p style={{ color: "#34C759", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
+                      Successfully sent! Our team will contact you soon.
+                    </p>
+                  )}
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer id="contact" ref={footerRef} style={styles.footer}>
+      <footer id="footer" ref={footerRef} style={styles.footer}>
         <div style={styles.footerContent}>
           <div style={styles.footerSection}>
             <h3 style={styles.footerLogo}>Websmith</h3>
@@ -624,32 +810,50 @@ const styles: any = {
   },
   // Hero
   hero: {
-    padding: "80px 24px",
+    padding: "60px 24px",
     textAlign: "center",
-    background: "linear-gradient(135deg, #F5F5F7 0%, #FFFFFF 100%)",
+    position: "relative",
+    color: "#FFFFFF",
+    overflow: "hidden",
+    minHeight: "50vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
+    zIndex: 1,
   },
   heroContent: {
     maxWidth: "800px",
     margin: "0 auto",
+    position: "relative",
+    zIndex: 2,
   },
   heroTitle: {
     fontSize: "56px",
     fontWeight: 700,
     letterSpacing: "-0.02em",
     marginBottom: "20px",
-    color: "#1C1C1E",
+    color: "#FFFFFF",
+    textShadow: "0 2px 10px rgba(0,0,0,0.5)",
   },
   highlight: {
-    background: "linear-gradient(135deg, #007AFF 0%, #34C759 100%)",
-    backgroundClip: "text",
-    WebkitBackgroundClip: "text",
-    color: "transparent",
+    color: "#007AFF",
+    fontWeight: 700,
   },
   heroSubtitle: {
     fontSize: "20px",
-    color: "#6C6C70",
+    color: "#F2F2F7",
+    fontWeight: 500,
     marginBottom: "32px",
     lineHeight: 1.4,
+    textShadow: "0 1px 4px rgba(0,0,0,0.5)",
   },
   ctaButton: {
     padding: "14px 32px",
@@ -750,25 +954,27 @@ const styles: any = {
   clientGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-    gap: "20px",
+    gap: "24px",
   },
   clientCard: {
-    padding: "20px",
+    padding: "24px",
     backgroundColor: "#F9F9FB",
-    borderRadius: "16px",
+    borderRadius: "20px",
     border: "1px solid #E5E5EA",
     textAlign: "center",
   },
-  clientIcon: {
-    width: "48px",
-    height: "48px",
-    backgroundColor: "#E3F2FF",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+  clientAvatarContainer: {
+    width: "60px",
+    height: "60px",
+    borderRadius: "50%",
+    overflow: "hidden",
     margin: "0 auto 16px",
-    color: "#007AFF",
+    border: "2px solid #E3F2FF",
+  },
+  clientAvatarImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
   },
   clientName: {
     fontSize: "16px",
@@ -803,13 +1009,16 @@ const styles: any = {
   circleMask: {
     width: "100px",
     height: "100px",
-    backgroundColor: "#007AFF",
     borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
     margin: "0 auto 16px",
-    background: "linear-gradient(135deg, #007AFF 0%, #5856D6 100%)",
+    backgroundColor: "#F2F2F7",
+    border: "3px solid #E3F2FF",
+  },
+  devAvatarImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
   },
   circleInitial: {
     fontSize: "40px",
@@ -947,6 +1156,183 @@ const styles: any = {
     borderTop: "1px solid #E5E5EA",
     fontSize: "12px",
     color: "#8E8E93",
+  },
+
+  // Diversity Section Styles
+  diversitySection: {
+    backgroundColor: "#F5F5F7",
+    padding: "100px 24px",
+  },
+  diversityContent: {
+    maxWidth: "1100px",
+    margin: "0 auto",
+    display: "flex",
+    alignItems: "center",
+    gap: "60px",
+    flexWrap: "wrap",
+  },
+  diversityText: {
+    flex: 1,
+    minWidth: "320px",
+  },
+  diversityImageContainer: {
+    flex: 1,
+    minWidth: "320px",
+    borderRadius: "24px",
+    overflow: "hidden",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+  },
+  diversityImage: {
+    width: "100%",
+    height: "auto",
+    display: "block",
+  },
+  diversityBadge: {
+    padding: "8px 16px",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "20px",
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#007AFF",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    display: "inline-block",
+  },
+
+  // Contact Section Styles
+  contactSection: {
+    backgroundColor: "#FBFBFE",
+    padding: "100px 24px",
+  },
+  contactContainer: {
+    maxWidth: "1100px",
+    margin: "0 auto",
+  },
+  contactHeader: {
+    textAlign: "center",
+    marginBottom: "60px",
+  },
+  contactGrid: {
+    display: "flex",
+    gap: "60px",
+    flexWrap: "wrap",
+  },
+  contactInfo: {
+    flex: 1,
+    minWidth: "300px",
+  },
+  contactInfoTitle: {
+    fontSize: "24px",
+    fontWeight: 700,
+    color: "#1C1C1E",
+    marginBottom: "16px",
+  },
+  contactInfoDesc: {
+    fontSize: "16px",
+    color: "#6C6C70",
+    lineHeight: 1.6,
+    marginBottom: "40px",
+  },
+  infoItems: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "24px",
+  },
+  infoItem: {
+    display: "flex",
+    gap: "20px",
+    alignItems: "flex-start",
+  },
+  infoIcon: {
+    width: "48px",
+    height: "48px",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "20px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+  },
+  infoLabel: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#8E8E93",
+    marginBottom: "4px",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+  },
+  infoValue: {
+    fontSize: "16px",
+    fontWeight: 500,
+    color: "#1C1C1E",
+  },
+  contactFormContainer: {
+    flex: 1.5,
+    minWidth: "320px",
+  },
+  contactGlassCard: {
+    backgroundColor: "#FFFFFF",
+    padding: "40px",
+    borderRadius: "24px",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.05)",
+    border: "1px solid #E5E5EA",
+  },
+  contactForm: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px",
+  },
+  formRow: {
+    display: "flex",
+    gap: "20px",
+    flexWrap: "wrap",
+  },
+  formGroup: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    minWidth: "200px",
+  },
+  formLabel: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#1C1C1E",
+  },
+  formInput: {
+    padding: "14px 16px",
+    borderRadius: "12px",
+    border: "1px solid #D1D1D6",
+    fontSize: "16px",
+    fontFamily: "inherit",
+    outline: "none",
+    transition: "all 0.2s ease",
+    backgroundColor: "#F5F5F7",
+  },
+  formTextarea: {
+    padding: "14px 16px",
+    borderRadius: "12px",
+    border: "1px solid #D1D1D6",
+    fontSize: "16px",
+    fontFamily: "inherit",
+    outline: "none",
+    minHeight: "150px",
+    resize: "vertical" as any,
+    transition: "all 0.2s ease",
+    backgroundColor: "#F5F5F7",
+  },
+  submitBtn: {
+    padding: "16px 32px",
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: "12px",
+    fontSize: "16px",
+    fontWeight: 600,
+    cursor: "pointer",
+    marginTop: "10px",
+    transition: "all 0.3s ease",
+    width: "100%",
   },
 };
 
