@@ -29,10 +29,15 @@ export const getPublicServices = async (): Promise<PublicService[]> => {
         Pragma: "no-cache",
       },
     });
-    return response.data.data || [];
+    return response.data?.data || [];
   } catch (error: any) {
+    if (error.response?.status === 404) {
+      console.warn("Public services endpoint not found (404). Check if backend is running correctly.");
+      return [];
+    }
     console.error("Get public services error:", error);
-    throw new Error(error.response?.data?.message || "Failed to fetch services");
+    // Return empty array to prevent downstream crashes in UI
+    return [];
   }
 };
 
