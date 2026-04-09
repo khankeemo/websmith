@@ -10,7 +10,7 @@ import { getDefaultRouteForRole } from "../../lib/auth";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -18,8 +18,8 @@ export default function LoginPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError("Please enter both email and password");
+    if (!identifier || !password) {
+      setError("Please enter both email/ID and password");
       return;
     }
 
@@ -27,10 +27,10 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const result = await login(email, password);
+      const result = await login(identifier, password);
       router.push(getDefaultRouteForRole(result.user?.role));
     } catch (err) {
-      setError("Invalid email or password. Please try again.");
+      setError("Invalid credentials. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -180,15 +180,15 @@ export default function LoginPage() {
 
         {/* Email input */}
         <div style={styles.inputGroup}>
-          <label style={styles.label}>Email address</label>
+          <label style={styles.label}>Email or Client ID</label>
           <div style={styles.inputWrapper}>
             <Mail size={18} style={styles.inputIcon} />
             <input
               suppressHydrationWarning
-              type="email"
-              placeholder="hello@websmith.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              placeholder="Email or CL-0000"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               onKeyPress={handleKeyPress}
               style={styles.input}
               disabled={isLoading}

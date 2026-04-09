@@ -205,6 +205,14 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
             </select>
           </div>
 
+          {!client && (
+            <div style={styles.infoBox}>
+              <p style={styles.infoText}>
+                <strong>Note:</strong> Saving this client will automatically generate a User ID and Temporary Password, which will be emailed to them immediately.
+              </p>
+            </div>
+          )}
+
           {submitError && <p style={styles.submitError}>{submitError}</p>}
 
           <div style={styles.modalFooter}>
@@ -361,5 +369,18 @@ const styles: any = {
     borderRadius: '10px',
     cursor: 'pointer',
     fontFamily: 'inherit',
+  },
+  infoBox: {
+    backgroundColor: '#E3F2FF',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    marginBottom: '20px',
+    border: '1px solid #007AFF',
+  },
+  infoText: {
+    fontSize: '13px',
+    color: '#007AFF',
+    margin: 0,
+    lineHeight: 1.4,
   },
 };

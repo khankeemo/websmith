@@ -20,7 +20,7 @@ export default function ClientLayout({
   const pathname = usePathname();
   const router = useRouter();
   
-  const publicPaths = ["/", "/login", "/register", "/auth/callback", "/services", "/lead-form", "/success"];
+  const publicPaths = ["/", "/login", "/register", "/auth/callback", "/services", "/lead-form", "/success", "/auth/change-password"];
   const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
   
   useEffect(() => {
@@ -38,6 +38,12 @@ export default function ClientLayout({
     }
 
     const defaultRoute = getDefaultRouteForRole(user.role);
+
+    // Force password change for new clients
+    if (user.role === "client" && user.isTemporaryPassword && pathname !== "/auth/change-password") {
+      router.replace("/auth/change-password");
+      return;
+    }
 
     if (legacyProtectedPaths.includes(pathname)) {
       router.replace(defaultRoute);

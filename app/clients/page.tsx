@@ -9,6 +9,7 @@ import { Plus, Search, Users as UsersIcon } from 'lucide-react';
 import { useClients } from './hooks/useClients';
 import ClientCard from './components/ClientCard';
 import ClientModal from './components/ClientModal';
+import ConfirmationModal from '../../components/ui/ConfirmationModal';
 import { Client, ClientPayload } from './services/clientService';
 
 export default function ClientsPage() {
@@ -18,6 +19,10 @@ export default function ClientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // Deletion State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<string | null>(null);
 
   const handleAddClient = () => {
     clearError();
@@ -57,21 +62,29 @@ export default function ClientsPage() {
     setEditingClient(null);
   };
 
-  const handleDeleteClient = async (id: string) => {
+  const handleDeleteClient = (id: string) => {
+    setClientToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!clientToDelete) return;
+    
     setSuccessMessage(null);
-    if (confirm('Are you sure you want to delete this client?')) {
-      const removed = await removeClient(id);
-      if (removed) {
-        setSuccessMessage('Client deleted successfully.');
-      }
+    const removed = await removeClient(clientToDelete);
+    if (removed) {
+      setSuccessMessage('Client and associated user account deleted successfully.');
     }
+    setIsDeleteModalOpen(false);
+    setClientToDelete(null);
   };
 
   // Filter clients
   const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.company?.toLowerCase().includes(searchTerm.toLowerCase())
+    client.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.customId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -164,6 +177,22 @@ export default function ClientsPage() {
         client={editingClient}
         isSaving={saving}
         submitError={formError || error}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        title="Delete Client"
+        message="Are you sure you want to delete this client? This will also permanently remove their account access and all associated data."
+        confirmLabel="Delete Client"
+        cancelLabel="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setClientToDelete(null);
+        }}
+        isDanger={true}
+        isLoading={saving}
       />
 
       <style>{`

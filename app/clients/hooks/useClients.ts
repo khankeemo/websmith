@@ -44,7 +44,7 @@ export const useClients = (): UseClientsReturn => {
       await fetchClients();
       return newClient;
     } catch (err: any) {
-      setError(err || err.message || 'Failed to add client');
+      setError(typeof err === 'string' ? err : err.message || 'Failed to add client');
       return null;
     } finally {
       setSaving(false);
@@ -59,7 +59,7 @@ export const useClients = (): UseClientsReturn => {
       await fetchClients();
       return updatedClient;
     } catch (err: any) {
-      setError(err || err.message || 'Failed to update client');
+      setError(typeof err === 'string' ? err : err.message || 'Failed to update client');
       return null;
     } finally {
       setSaving(false);
@@ -74,7 +74,7 @@ export const useClients = (): UseClientsReturn => {
       await fetchClients();
       return true;
     } catch (err: any) {
-      setError(err || err.message || 'Failed to delete client');
+      setError(typeof err === 'string' ? err : err.message || 'Failed to delete client');
       return false;
     } finally {
       setSaving(false);

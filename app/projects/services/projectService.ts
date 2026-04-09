@@ -16,7 +16,9 @@ export interface Project {
   priority: 'low' | 'medium' | 'high';
   startDate: string;
   endDate?: string;
+  expectedCompletionDate?: string;
   budget?: number;
+  customClientId?: string;
   progress?: number;
   statusUpdates?: Array<{
     status: string;

@@ -5,6 +5,8 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  isTemporaryPassword?: boolean;
+  setupCompleted?: boolean;
   preferences?: {
     theme: "light" | "dark";
     notifications: {

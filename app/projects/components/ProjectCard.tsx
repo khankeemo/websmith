@@ -71,6 +71,14 @@ export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardPr
             {formatDate(project.startDate)} {project.endDate && `- ${formatDate(project.endDate)}`}
           </span>
         </div>
+        {project.expectedCompletionDate && (
+          <div style={styles.detailItem}>
+            <Calendar size={14} color="#007AFF" />
+            <span style={{ ...styles.detailText, color: '#007AFF', fontWeight: 500 }}>
+              Expected: {formatDate(project.expectedCompletionDate)}
+            </span>
+          </div>
+        )}
         {project.budget && (
           <div style={styles.detailItem}>
             <DollarSign size={14} color="#8E8E93" />

@@ -12,6 +12,7 @@ export interface Client {
   company: string;
   address: string;
   status: 'active' | 'inactive';
+  customId?: string;
   createdAt?: string;
 }
 
@@ -54,7 +55,12 @@ export const createClient = async (client: ClientPayload): Promise<Client> => {
     const response = await API.post('/clients', client);
     return response.data.data || response.data;
   } catch (error: any) {
-    console.error('Create client error:', error.response?.data || error);
+    const message = error.response?.data?.message || error.message || 'Unknown error';
+    console.error('Create client error details:', { 
+      message, 
+      status: error.response?.status,
+      data: error.response?.data 
+    });
     throw getApiErrorMessage(error, 'Failed to create client');
   }
 };

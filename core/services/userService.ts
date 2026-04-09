@@ -6,6 +6,7 @@ export interface RoleUser {
   email: string;
   role: "admin" | "client" | "developer";
   company?: string;
+  customId?: string;
 }
 
 export const getUsersByRole = async (role: RoleUser["role"]) => {

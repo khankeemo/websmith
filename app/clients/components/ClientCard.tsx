@@ -20,13 +20,20 @@ export default function ClientCard({ client, onEdit, onDelete }: ClientCardProps
         <div style={styles.iconContainer}>
           <Users size={24} color="#007AFF" />
         </div>
-        <span style={{ 
-          ...styles.statusBadge, 
-          backgroundColor: client.status === 'active' ? '#E8F5E9' : '#FEF2F0',
-          color: client.status === 'active' ? '#34C759' : '#FF3B30'
-        }}>
-          {client.status === 'active' ? 'Active' : 'Inactive'}
-        </span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {client.customId && (
+            <span style={{ ...styles.statusBadge, backgroundColor: '#F2F2F7', color: '#1C1C1E' }}>
+              {client.customId}
+            </span>
+          )}
+          <span style={{ 
+            ...styles.statusBadge, 
+            backgroundColor: client.status === 'active' ? '#E8F5E9' : '#FEF2F0',
+            color: client.status === 'active' ? '#34C759' : '#FF3B30'
+          }}>
+            {client.status === 'active' ? 'Active' : 'Inactive'}
+          </span>
+        </div>
       </div>
 
       <h3 style={styles.clientName}>{client.name}</h3>

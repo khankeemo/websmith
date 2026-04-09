@@ -5,24 +5,46 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { AuthUser, getStoredUser, clearAuthSession } from "../../lib/auth";
-import { LogOut } from "lucide-react";
+import { LogOut, Bell } from "lucide-react";
+import API from "../../core/services/apiService";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    setUser(getStoredUser());
+    const storedUser = getStoredUser();
+    setUser(storedUser);
+
+    if (storedUser?.role === "admin") {
+      fetchUnreadNotifications();
+      const interval = setInterval(fetchUnreadNotifications, 30000); // Poll every 30s
+      return () => clearInterval(interval);
+    }
   }, [pathname]);
+
+  const fetchUnreadNotifications = async () => {
+    try {
+      const response = await API.get("/admin/notifications");
+      const unread = response.data.data.filter((n: any) => !n.isRead).length;
+      setUnreadCount(unread);
+    } catch (error) {
+      // Silently ignore — non-admins will hit 403, which is expected
+    }
+  };
 
   const handleLogout = () => {
     clearAuthSession();
     router.push("/login");
   };
 
-  const role = user?.role || "admin";
+  const role = user?.role || null;
   const basePath = role === "admin" ? "/admin" : role === "client" ? "/client" : "/developer";
+
+  // Don't render menu until user role is resolved
+  if (!role) return <div style={styles.sidebar}></div>;
 
   const menu =
     role === "admin"
@@ -56,7 +78,10 @@ export default function Sidebar() {
           },
           {
             title: "SYSTEM",
-            items: [{ name: "Settings", path: `${basePath}/settings` }],
+            items: [
+              { name: "Notifications", path: `${basePath}/notifications` },
+              { name: "Settings", path: `${basePath}/settings` }
+            ],
           },
         ]
       : role === "client"
@@ -164,6 +189,9 @@ export default function Sidebar() {
                 }}
               >
                 {item.name}
+                {(item.name === "Clients" || item.name === "Notifications") && role === "admin" && unreadCount > 0 && (
+                  <span style={styles.badge}>{unreadCount}</span>
+                )}
               </Link>
             );
           })}
@@ -284,7 +312,6 @@ const styles: any = {
   },
 
   link: {
-    display: "block",
     padding: "10px 12px",
     marginBottom: "4px",
     borderRadius: "10px",
@@ -295,6 +322,19 @@ const styles: any = {
     transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
     borderLeft: "3px solid transparent",
     cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  badge: {
+    backgroundColor: "#FF3B30",
+    color: "#FFFFFF",
+    fontSize: "10px",
+    fontWeight: 700,
+    padding: "2px 6px",
+    borderRadius: "10px",
+    minWidth: "18px",
+    textAlign: "center",
   },
 
   activeLink: {

@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Project } from '../services/projectService';
 import { getUsersByRole, RoleUser } from '../../../core/services/userService';
+import { getStoredUser } from '../../../lib/auth';
 
 type ProjectStatus = 'pending' | 'in-progress' | 'completed' | 'on-hold';
 type ProjectPriority = 'low' | 'medium' | 'high';
@@ -42,7 +43,9 @@ interface FormData {
   priority: ProjectPriority;
   startDate: string;
   endDate: string;
+  expectedCompletionDate: string;
   budget: string;
+  customClientId: string;
 }
 
 export default function ProjectModal({ isOpen, onClose, onSave, project }: ProjectModalProps) {
@@ -56,13 +59,18 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     priority: 'medium',
     startDate: '',
     endDate: '',
+    expectedCompletionDate: '',
     budget: '',
+    customClientId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [clients, setClients] = useState<RoleUser[]>([]);
   const [developers, setDevelopers] = useState<RoleUser[]>([]);
 
   useEffect(() => {
+    const currentUser = getStoredUser();
+    if (!isOpen || currentUser?.role !== 'admin') return;
+
     const loadAssignments = async () => {
       try {
         const [clientUsers, developerUsers] = await Promise.all([
@@ -77,7 +85,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     };
 
     loadAssignments();
-  }, []);
+  }, [isOpen]);
 
   useEffect(() => {
     if (project) {
@@ -91,7 +99,9 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         priority: project.priority || 'medium',
         startDate: project.startDate?.split('T')[0] || '',
         endDate: project.endDate?.split('T')[0] || '',
+        expectedCompletionDate: project.expectedCompletionDate?.split('T')[0] || '',
         budget: project.budget?.toString() || '',
+        customClientId: project.customClientId || '',
       });
     } else {
       setFormData({
@@ -104,7 +114,9 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         priority: 'medium',
         startDate: '',
         endDate: '',
+        expectedCompletionDate: '',
         budget: '',
+        customClientId: '',
       });
     }
     setErrors({});
@@ -115,7 +127,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     if (!formData.name.trim()) newErrors.name = 'Project name is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
     if (!formData.client.trim()) newErrors.client = 'Client name is required';
-    if (!formData.clientId) newErrors.clientId = 'Client selection is required';
+    if (!formData.customClientId.trim()) newErrors.customClientId = 'Client ID (e.g. CL-0001) is required';
     if (!formData.startDate) newErrors.startDate = 'Start date is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -146,6 +158,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     setFormData((prev) => ({
       ...prev,
       clientId: id,
+      customClientId: selectedClient?.customId || '',
       client: selectedClient?.name || '',
     }));
     if (errors.clientId || errors.client) {
@@ -190,31 +203,32 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
 
           <div style={styles.row}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Client *</label>
+              <label style={styles.label}>Client Selection *</label>
               <select
                 value={formData.clientId}
                 onChange={(e) => handleClientChange(e.target.value)}
-                style={{ ...styles.select, ...((errors.client || errors.clientId) ? styles.inputError : {}) }}
+                style={{ ...styles.select, ...(errors.clientId ? styles.inputError : {}) }}
               >
                 <option value="">Select client</option>
                 {clients.map((client) => (
                   <option key={client._id} value={client._id}>
-                    {client.name} ({client.email})
+                    {client.customId ? `[${client.customId}] ` : ''}{client.name} ({client.email})
                   </option>
                 ))}
               </select>
-              {(errors.client || errors.clientId) && <p style={styles.errorText}>{errors.client || errors.clientId}</p>}
+              {errors.clientId && <p style={styles.errorText}>{errors.clientId}</p>}
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Budget ($)</label>
+              <label style={styles.label}>Client ID *</label>
               <input
-                type="number"
-                value={formData.budget}
-                onChange={(e) => updateField('budget', e.target.value)}
-                style={styles.input}
-                placeholder="e.g., 5000"
+                type="text"
+                value={formData.customClientId}
+                onChange={(e) => updateField('customClientId', e.target.value)}
+                placeholder="e.g., CL-0001"
+                style={{ ...styles.input, ...(errors.customClientId ? styles.inputError : {}) }}
               />
+              {errors.customClientId && <p style={styles.errorText}>{errors.customClientId}</p>}
             </div>
           </div>
 
@@ -275,14 +289,35 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             </div>
           </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>End Date</label>
-            <input
-              type="date"
-              value={formData.endDate}
-              onChange={(e) => updateField('endDate', e.target.value)}
-              style={styles.input}
-            />
+          <div style={styles.row}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>End Date</label>
+              <input
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => updateField('endDate', e.target.value)}
+                style={styles.input}
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Estimation Delivery Date *</label>
+              <input
+                type="date"
+                value={formData.expectedCompletionDate}
+                onChange={(e) => updateField('expectedCompletionDate', e.target.value)}
+                style={{ ...styles.input, ...(errors.expectedCompletionDate ? styles.inputError : {}) }}
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Budget ($)</label>
+              <input
+                type="number"
+                value={formData.budget}
+                onChange={(e) => updateField('budget', e.target.value)}
+                style={styles.input}
+                placeholder="e.g., 5000"
+              />
+            </div>
           </div>
 
           <div style={styles.modalFooter}>
