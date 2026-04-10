@@ -63,10 +63,10 @@ export default function TasksPage() {
   return (
     <div style={styles.container}>
       {/* Header */}
-      <div style={styles.header}>
+      <div style={styles.header} className="tasks-header">
         <div>
           <h1 style={styles.title}>Tasks</h1>
-          <p style={styles.subtitle}>Manage all your project tasks</p>
+          <p style={styles.subtitle}>Manage all your project tasks from a single dashboard</p>
         </div>
         <button onClick={handleAddTask} style={styles.addBtn} className="add-btn">
           <Plus size={18} />
@@ -75,9 +75,9 @@ export default function TasksPage() {
       </div>
 
       {/* Search and Filter */}
-      <div style={styles.searchSection}>
+      <div style={styles.searchSection} className="tasks-search-section">
         <div style={styles.searchBox}>
-          <Search size={18} color="#8E8E93" />
+          <Search size={18} color="var(--text-secondary)" />
           <input
             type="text"
             placeholder="Search tasks..."
@@ -118,7 +118,7 @@ export default function TasksPage() {
       {loading && (
         <div style={styles.loadingContainer}>
           <div style={styles.spinner}></div>
-          <p>Loading tasks...</p>
+          <p style={{ color: "var(--text-secondary)" }}>Loading your tasks...</p>
         </div>
       )}
 
@@ -133,16 +133,13 @@ export default function TasksPage() {
       {/* Empty State */}
       {!loading && !error && filteredTasks.length === 0 && (
         <div style={styles.emptyContainer}>
-          <CheckSquare size={48} color="#C6C6C8" />
+          <CheckSquare size={48} color="var(--border-color)" />
           <h3 style={styles.emptyTitle}>No tasks found</h3>
           <p style={styles.emptyText}>
             {searchTerm || statusFilter !== 'all' 
               ? 'Try adjusting your search or filter'
-              : 'Create your first task to get started'}
+              : 'Add your first task to keep track of development'}
           </p>
-          {!searchTerm && statusFilter === 'all' && (
-            <button onClick={handleAddTask} style={styles.emptyBtn}>Create Task</button>
-          )}
         </div>
       )}
 
@@ -183,14 +180,26 @@ export default function TasksPage() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+        @media (max-width: 768px) {
+          .tasks-header {
+            flex-direction: column !important;
+            gap: 16px;
+          }
+          .tasks-search-section {
+            width: 100%;
+          }
+        }
       `}</style>
     </div>
   );
 }
 
 const styles: any = {
-  container: {
+  container: { 
     padding: '8px 4px',
+    backgroundColor: 'var(--bg-primary)',
+    minHeight: '100vh',
+    color: 'var(--text-primary)'
   },
   header: {
     display: 'flex',
@@ -200,41 +209,45 @@ const styles: any = {
   },
   title: {
     fontSize: '34px',
-    fontWeight: 600,
-    letterSpacing: '-0.5px',
-    color: '#1C1C1E',
+    fontWeight: 700,
+    letterSpacing: '-1px',
+    color: 'var(--text-primary)',
+    margin: 0,
     marginBottom: '8px',
   },
   subtitle: {
     fontSize: '15px',
-    color: '#8E8E93',
+    color: 'var(--text-secondary)',
+    margin: 0
   },
   addBtn: {
-    padding: '10px 20px',
+    padding: '10px 24px',
     backgroundColor: '#007AFF',
     color: '#FFFFFF',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '12px',
     fontSize: '14px',
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '10px',
     fontFamily: 'inherit',
+    boxShadow: '0 4px 12px rgba(0,122,255,0.2)',
   },
   searchSection: {
-    marginBottom: '24px',
+    marginBottom: '32px',
   },
   searchBox: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    padding: '12px 16px',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E5E5EA',
-    borderRadius: '12px',
-    marginBottom: '16px',
+    padding: '12px 18px',
+    backgroundColor: 'var(--bg-primary)',
+    border: '1.5px solid var(--border-color)',
+    borderRadius: '14px',
+    marginBottom: '20px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
   },
   searchInput: {
     flex: 1,
@@ -243,20 +256,21 @@ const styles: any = {
     fontSize: '15px',
     fontFamily: 'inherit',
     backgroundColor: 'transparent',
+    color: 'var(--text-primary)',
   },
   filterTabs: {
     display: 'flex',
-    gap: '8px',
+    gap: '10px',
     flexWrap: 'wrap',
   },
   filterTab: {
-    padding: '6px 16px',
-    backgroundColor: '#F2F2F7',
-    border: 'none',
+    padding: '8px 20px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
     borderRadius: '20px',
     fontSize: '13px',
-    fontWeight: 500,
-    color: '#8E8E93',
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
     fontFamily: 'inherit',
     transition: 'all 0.2s ease',
@@ -264,24 +278,25 @@ const styles: any = {
   filterTabActive: {
     backgroundColor: '#007AFF',
     color: '#FFFFFF',
+    borderColor: '#007AFF',
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
-    gap: '20px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '24px',
   },
   loadingContainer: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '60px',
+    padding: '80px',
     gap: '16px',
   },
   spinner: {
     width: '40px',
     height: '40px',
-    border: '3px solid #E5E5EA',
+    border: '3px solid var(--border-color)',
     borderTopColor: '#007AFF',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
@@ -289,44 +304,41 @@ const styles: any = {
   errorContainer: {
     textAlign: 'center',
     padding: '60px',
-    backgroundColor: '#FEF2F0',
-    borderRadius: '16px',
+    backgroundColor: 'rgba(255, 59, 48, 0.05)',
+    borderRadius: '20px',
+    border: '1px solid rgba(255, 59, 48, 0.1)',
   },
   errorText: {
     color: '#FF3B30',
     marginBottom: '16px',
+    fontWeight: 600
   },
   retryBtn: {
-    padding: '8px 20px',
+    padding: '10px 24px',
     backgroundColor: '#007AFF',
     color: '#FFFFFF',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '12px',
     cursor: 'pointer',
+    fontWeight: 700
   },
   emptyContainer: {
     textAlign: 'center',
-    padding: '60px',
+    padding: '80px 20px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '24px',
+    border: '1.5px dashed var(--border-color)',
   },
   emptyTitle: {
     fontSize: '20px',
-    fontWeight: 600,
-    color: '#1C1C1E',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
     marginTop: '16px',
     marginBottom: '8px',
   },
   emptyText: {
     fontSize: '14px',
-    color: '#8E8E93',
+    color: 'var(--text-secondary)',
     marginBottom: '20px',
-  },
-  emptyBtn: {
-    padding: '10px 24px',
-    backgroundColor: '#007AFF',
-    color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
   },
 };

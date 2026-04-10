@@ -7,9 +7,7 @@ import {
   LayoutGrid, 
   List, 
   Calendar, 
-  Clock, 
   Search,
-  ChevronRight,
   Target
 } from "lucide-react";
 import API from "../../../core/services/apiService";
@@ -54,11 +52,11 @@ export default function ClientProjectsPage() {
 
   const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'pending': return { bg: '#FFF4E5', color: '#FF9500', text: 'Pending' };
-      case 'in-progress': return { bg: '#E3F2FF', color: '#007AFF', text: 'In Progress' };
-      case 'completed': return { bg: '#E8F5E9', color: '#34C759', text: 'Completed' };
-      case 'on-hold': return { bg: '#FEF2F0', color: '#FF3B30', text: 'On Hold' };
-      default: return { bg: '#F2F2F7', color: '#8E8E93', text: status };
+      case 'pending': return { bg: 'rgba(255, 149, 0, 0.1)', color: '#FF9500', text: 'Pending' };
+      case 'in-progress': return { bg: 'rgba(0, 122, 255, 0.1)', color: '#007AFF', text: 'In Progress' };
+      case 'completed': return { bg: 'rgba(52, 199, 89, 0.1)', color: '#34C759', text: 'Completed' };
+      case 'on-hold': return { bg: 'rgba(255, 59, 48, 0.1)', color: '#FF3B30', text: 'On Hold' };
+      default: return { bg: 'var(--bg-secondary)', color: 'var(--text-secondary)', text: status };
     }
   };
 
@@ -67,7 +65,7 @@ export default function ClientProjectsPage() {
       <div style={styles.container}>
         <div style={styles.loadingContainer}>
           <div style={styles.spinner}></div>
-          <p>Loading your projects...</p>
+          <p style={{ color: "var(--text-secondary)" }}>Loading your projects...</p>
         </div>
       </div>
     );
@@ -76,7 +74,7 @@ export default function ClientProjectsPage() {
   return (
     <div style={styles.container}>
       {/* Header */}
-      <div style={styles.header}>
+      <div style={styles.header} className="client-projects-header">
         <div>
           <h1 style={styles.title}>My Projects</h1>
           <p style={styles.subtitle}>View and track all your active projects</p>
@@ -84,7 +82,7 @@ export default function ClientProjectsPage() {
         
         <div style={styles.headerActions}>
           <div style={styles.searchBox}>
-            <Search size={16} color="#8E8E93" />
+            <Search size={16} color="var(--text-secondary)" />
             <input 
               type="text" 
               placeholder="Search projects..." 
@@ -114,14 +112,14 @@ export default function ClientProjectsPage() {
       {/* Projects Display */}
       {error ? (
         <div style={styles.errorState}>
-          <p style={{ color: '#FF3B30', fontWeight: 500 }}>{error}</p>
+          <p style={{ color: '#FF3B30', fontWeight: 600 }}>{error}</p>
           <button onClick={fetchProjects} style={styles.retryBtn}>Retry</button>
         </div>
       ) : filteredProjects.length === 0 ? (
         <div style={styles.emptyState}>
-          <Folder size={48} color="#C6C6C8" />
-          <h3>No projects found</h3>
-          <p>You don't have any projects assigned yet.</p>
+          <Folder size={64} color="var(--border-color)" />
+          <h3 style={{ color: "var(--text-primary)" }}>No projects found</h3>
+          <p style={{ color: "var(--text-secondary)" }}>You don't have any projects assigned yet.</p>
         </div>
       ) : viewMode === 'grid' ? (
         <div style={styles.grid}>
@@ -146,13 +144,13 @@ export default function ClientProjectsPage() {
               
               <div style={styles.cardFooter}>
                 <div style={styles.dateInfo}>
-                  <Calendar size={14} color="#8E8E93" />
+                  <Calendar size={14} color="var(--text-secondary)" />
                   <span>Start: {formatDate(project.startDate)}</span>
                 </div>
                 {project.expectedCompletionDate && (
                   <div style={styles.deliveryDate}>
                     <Target size={14} color="#007AFF" />
-                    <span style={{ color: '#007AFF', fontWeight: 500 }}>
+                    <span style={{ color: '#007AFF', fontWeight: 600 }}>
                       Delivery: {formatDate(project.expectedCompletionDate)}
                     </span>
                   </div>
@@ -163,14 +161,14 @@ export default function ClientProjectsPage() {
         </div>
       ) : (
         <div style={styles.list}>
-          <div style={styles.listHeader}>
+          <div style={styles.listHeader} className="client-projects-list-header">
             <div style={styles.colName}>Project Name</div>
             <div style={styles.colStatus}>Status</div>
             <div style={styles.colStart}>Start Date</div>
             <div style={styles.colDelivery}>Est. Delivery</div>
           </div>
           {filteredProjects.map(project => (
-            <div key={project._id} style={styles.listItem} className="list-item">
+            <div key={project._id} style={styles.listItem} className="list-item client-projects-list-item">
               <div style={styles.colName}>
                 <div style={styles.listIconWrap}>
                    <Folder size={18} color="#007AFF" />
@@ -193,7 +191,7 @@ export default function ClientProjectsPage() {
               <div style={styles.colStart}>{formatDate(project.startDate)}</div>
               <div style={styles.colDelivery}>
                  {project.expectedCompletionDate ? (
-                   <span style={{ color: '#007AFF', fontWeight: 500 }}>
+                   <span style={{ color: '#007AFF', fontWeight: 600 }}>
                      {formatDate(project.expectedCompletionDate)}
                    </span>
                  ) : '-'}
@@ -209,140 +207,167 @@ export default function ClientProjectsPage() {
         }
         .project-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 12px 24px rgba(0,0,0,0.08);
-          border-color: #007AFF33 !important;
+          box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+          border-color: #007AFF55 !important;
         }
         .list-item {
           transition: all 0.2s ease;
         }
         .list-item:hover {
-          background-color: #FAFBFF !important;
+          background-color: var(--bg-secondary) !important;
           transform: translateX(4px);
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 900px) {
+          .client-projects-header {
+            flex-direction: column !important;
+            gap: 16px;
+          }
+        }
+        @media (max-width: 768px) {
+          .client-projects-list-header {
+            display: none !important;
+          }
+          .client-projects-list-item {
+            grid-template-columns: 1fr !important;
+            gap: 12px;
+          }
+        }
       `}</style>
     </div>
   );
 }
 
 const styles: any = {
-  container: { padding: '8px 4px' },
+  container: { 
+    padding: '8px 4px',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+    minHeight: '100vh',
+  },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: '32px',
   },
-  title: { fontSize: '34px', fontWeight: 600, color: '#1C1C1E', marginBottom: '8px' },
-  subtitle: { fontSize: '15px', color: '#8E8E93' },
-  headerActions: { display: 'flex', gap: '16px', alignItems: 'center' },
+  title: { fontSize: '34px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px', letterSpacing: "-1px" },
+  subtitle: { fontSize: '15px', color: 'var(--text-secondary)' },
+  headerActions: { display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', width: '100%' },
   searchBox: {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E5E5EA',
-    borderRadius: '10px',
-    padding: '8px 12px',
+    backgroundColor: 'var(--bg-primary)',
+    border: '1.5px solid var(--border-color)',
+    borderRadius: '12px',
+    padding: '8px 14px',
     width: '240px',
+    maxWidth: '100%',
   },
-  searchInput: { border: 'none', outline: 'none', fontSize: '14px', flex: 1 },
+  searchInput: { border: 'none', outline: 'none', fontSize: '14px', flex: 1, backgroundColor: 'transparent', color: 'var(--text-primary)' },
   viewToggle: {
     display: 'flex',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: 'var(--bg-secondary)',
     padding: '4px',
-    borderRadius: '10px',
+    borderRadius: '12px',
+    border: '1px solid var(--border-color)',
   },
   toggleBtn: {
     padding: '6px 12px',
     border: 'none',
     backgroundColor: 'transparent',
-    borderRadius: '8px',
+    borderRadius: '10px',
     cursor: 'pointer',
-    color: '#8E8E93',
+    color: 'var(--text-secondary)',
     transition: 'all 0.2s ease',
   },
-  toggleBtnActive: { backgroundColor: '#FFFFFF', color: '#007AFF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' },
+  toggleBtnActive: { backgroundColor: 'var(--bg-primary)', color: '#007AFF', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
     gap: '24px',
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--bg-primary)',
     borderRadius: '20px',
     padding: '24px',
-    border: '1px solid #E5E5EA',
+    border: '1.5px solid var(--border-color)',
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
+    boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
   },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
   iconContainer: {
     width: '48px',
     height: '48px',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: 'var(--bg-secondary)',
     borderRadius: '14px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    border: '1px solid var(--border-color)',
   },
-  projectName: { fontSize: '18px', fontWeight: 600, color: '#1C1C1E', margin: 0 },
-  projectDesc: { fontSize: '14px', color: '#8E8E93', lineHeight: 1.5, margin: 0 },
+  projectName: { fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 },
+  projectDesc: { fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 },
   cardFooter: {
     marginTop: '8px',
     paddingTop: '16px',
-    borderTop: '1px solid #F2F2F7',
+    borderTop: '1px solid var(--border-color)',
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
   },
-  dateInfo: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8E8E93' },
+  dateInfo: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' },
   deliveryDate: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' },
   statusBadge: {
     padding: '4px 12px',
     borderRadius: '20px',
     fontSize: '11px',
-    fontWeight: 600,
+    fontWeight: 700,
+    letterSpacing: "0.5px",
+    textTransform: "uppercase",
   },
-  list: { backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid #E5E5EA', overflow: 'hidden' },
+  list: { backgroundColor: 'var(--bg-primary)', borderRadius: '20px', border: '1.5px solid var(--border-color)', overflow: 'hidden' },
   listHeader: {
     display: 'grid',
     gridTemplateColumns: '2fr 1fr 1fr 1fr',
     padding: '16px 24px',
-    backgroundColor: '#FAFAFB',
-    borderBottom: '1px solid #E5E5EA',
+    backgroundColor: 'var(--bg-secondary)',
+    borderBottom: '1.5px solid var(--border-color)',
     fontSize: '13px',
-    fontWeight: 600,
-    color: '#8E8E93',
+    fontWeight: 700,
+    color: 'var(--text-secondary)',
   },
   listItem: {
     display: 'grid',
     gridTemplateColumns: '2fr 1fr 1fr 1fr',
     padding: '20px 24px',
     alignItems: 'center',
-    borderBottom: '1px solid #F2F2F7',
+    borderBottom: '1px solid var(--border-color)',
   },
   colName: { display: 'flex', alignItems: 'center', gap: '16px' },
   colStatus: {},
-  colStart: { fontSize: '14px', color: '#636366' },
+  colStart: { fontSize: '14px', color: 'var(--text-secondary)' },
   colDelivery: { fontSize: '14px' },
   listIconWrap: {
-    width: '36px',
-    height: '36px',
-    backgroundColor: '#F2F2F7',
+    width: '40px',
+    height: '40px',
+    backgroundColor: 'var(--bg-secondary)',
     borderRadius: '10px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    border: '1px solid var(--border-color)',
   },
   listNameWrap: { overflow: 'hidden' },
-  listProjectName: { fontSize: '15px', fontWeight: 600, color: '#1C1C1E', margin: 0, marginBottom: '2px' },
-  listProjectDesc: { fontSize: '12px', color: '#8E8E93', margin: 0, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' },
+  listProjectName: { fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, marginBottom: '2px' },
+  listProjectDesc: { fontSize: '12px', color: 'var(--text-secondary)', margin: 0, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' },
   loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '100px' },
-  spinner: { width: '32px', height: '32px', border: '3px solid #E5E5EA', borderTopColor: '#007AFF', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
-  emptyState: { textAlign: 'center', padding: '100px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' },
+  spinner: { width: '32px', height: '32px', border: '3px solid var(--border-color)', borderTopColor: '#007AFF', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
+  emptyState: { textAlign: 'center', padding: '100px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '20px', margin: '20px' },
   errorState: { textAlign: 'center', padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' },
-  retryBtn: { padding: '10px 24px', backgroundColor: '#007AFF', color: '#FFFFFF', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' },
+  retryBtn: { padding: '10px 24px', backgroundColor: '#007AFF', color: '#FFFFFF', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' },
 };

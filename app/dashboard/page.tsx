@@ -103,7 +103,7 @@ export default function DashboardPage() {
       label: "Total Projects",
       value: stats.projects,
       color: "#007AFF",
-      bg: "#E3F2FF",
+      bg: "rgba(0, 122, 255, 0.1)",
       trend: "+12%",
     },
     {
@@ -111,7 +111,7 @@ export default function DashboardPage() {
       label: "Active Clients",
       value: stats.clients,
       color: "#34C759",
-      bg: "#E8F5E9",
+      bg: "rgba(52, 199, 89, 0.1)",
       trend: "+8%",
     },
     {
@@ -119,7 +119,7 @@ export default function DashboardPage() {
       label: "Pending Tasks",
       value: stats.tasks,
       color: "#FF9500",
-      bg: "#FFF4E5",
+      bg: "rgba(255, 149, 0, 0.1)",
       trend: "-3%",
     },
     {
@@ -127,7 +127,7 @@ export default function DashboardPage() {
       label: "Total Revenue",
       value: `$${stats.revenue.toLocaleString()}`,
       color: "#AF52DE",
-      bg: "#F3E8FF",
+      bg: "rgba(175, 82, 222, 0.1)",
       trend: "+23%",
     },
   ];
@@ -135,7 +135,7 @@ export default function DashboardPage() {
   return (
     <div style={styles.container}>
       {/* HEADER SECTION */}
-      <div style={styles.header}>
+      <div style={styles.header} className="dashboard-header">
         <div>
           <h1 style={styles.title}>Dashboard</h1>
           <p style={styles.subtitle}>Welcome back, {userName}</p>
@@ -147,7 +147,7 @@ export default function DashboardPage() {
       </div>
 
       {/* STATS GRID WITH ZOOM-IN ANIMATION */}
-      <div style={styles.grid}>
+      <div style={styles.grid} className="dashboard-stats-grid">
         {statCards.map((card, index) => (
           <div key={index} style={styles.cardWrapper} className="zoom-card">
             <Card>
@@ -172,11 +172,11 @@ export default function DashboardPage() {
       </div>
 
       {/* MAIN GRID */}
-      <div style={styles.main}>
+      <div style={styles.main} className="dashboard-main-grid">
         {/* CHART CARD */}
         <div className="zoom-card" style={styles.chartWrapper}>
           <Card>
-            <div style={styles.chartHeader}>
+            <div style={styles.chartHeader} className="dashboard-chart-header">
               <div>
                 <h3 style={styles.sectionTitle}>Revenue Overview</h3>
                 <p style={styles.sectionSubtitle}>Monthly recurring revenue</p>
@@ -190,27 +190,29 @@ export default function DashboardPage() {
               {isChartReady ? (
               <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={chartData}>
-                  <CartesianGrid stroke="#E5E5EA" strokeDasharray="3 3" />
+                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8E8E93", fontSize: 12 }}
+                    tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
                   />
                   <YAxis 
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8E8E93", fontSize: 12 }}
+                    tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
                     tickFormatter={(value) => `$${value}`}
                   />
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: "#FFFFFF",
-                      border: "1px solid #E5E5EA",
+                      backgroundColor: "var(--bg-primary)",
+                      border: "1px solid var(--border-color)",
                       borderRadius: "12px",
                       padding: "8px 12px",
                       fontSize: "13px",
+                      color: "var(--text-primary)"
                     }}
+                    itemStyle={{ color: "#007AFF" }}
                   />
                   <Line
                     type="monotone"
@@ -272,7 +274,7 @@ export default function DashboardPage() {
       {userRole === "admin" && (
         <div className="zoom-card">
           <Card>
-            <div style={styles.chartHeader}>
+            <div style={styles.chartHeader} className="dashboard-chart-header">
               <div>
                 <h3 style={styles.sectionTitle}>Client Tickets</h3>
                 <p style={styles.sectionSubtitle}>Newest support requests across active projects</p>
@@ -327,6 +329,24 @@ export default function DashboardPage() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+        @media (max-width: 1100px) {
+          .dashboard-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+          .dashboard-main-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 700px) {
+          .dashboard-header,
+          .dashboard-chart-header {
+            flex-direction: column !important;
+            gap: 12px;
+          }
+          .dashboard-stats-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
       `}</style>
     </div>
   );
@@ -338,6 +358,7 @@ const styles: any = {
     flexDirection: "column",
     gap: "32px",
     padding: "8px 4px",
+    backgroundColor: "var(--bg-primary)",
   },
 
   // Header Styles
@@ -351,17 +372,14 @@ const styles: any = {
   title: {
     margin: 0,
     fontSize: "34px",
-    fontWeight: 600,
-    letterSpacing: "-0.5px",
-    background: "linear-gradient(135deg, #1C1C1E 0%, #3A3A3C 100%)",
-    backgroundClip: "text",
-    WebkitBackgroundClip: "text",
-    color: "#1C1C1E",
+    fontWeight: 700,
+    letterSpacing: "-1px",
+    color: "var(--text-primary)",
   },
 
   subtitle: {
     margin: "4px 0 0 0",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     fontSize: "15px",
     fontWeight: 400,
   },
@@ -371,11 +389,12 @@ const styles: any = {
     alignItems: "center",
     gap: "8px",
     padding: "8px 16px",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "100px",
     fontSize: "13px",
-    fontWeight: 500,
+    fontWeight: 600,
     color: "#007AFF",
+    border: "1px solid var(--border-color)",
   },
 
   // Loading Styles
@@ -391,14 +410,14 @@ const styles: any = {
   loadingSpinner: {
     width: "40px",
     height: "40px",
-    border: "3px solid #E5E5EA",
+    border: "3px solid var(--border-color)",
     borderTopColor: "#007AFF",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },
 
   loadingText: {
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     fontSize: "14px",
   },
 
@@ -433,22 +452,22 @@ const styles: any = {
     margin: 0,
     fontSize: "13px",
     fontWeight: 500,
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     letterSpacing: "-0.2px",
   },
 
   cardValue: {
     margin: "6px 0 0 0",
     fontSize: "28px",
-    fontWeight: 600,
-    color: "#1C1C1E",
+    fontWeight: 700,
+    color: "var(--text-primary)",
     letterSpacing: "-0.5px",
   },
 
   cardTrend: {
     margin: "8px 0 0 0",
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
 
   // Main Grid
@@ -476,10 +495,11 @@ const styles: any = {
     alignItems: "center",
     gap: "6px",
     padding: "4px 12px",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "100px",
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
+    border: "1px solid var(--border-color)",
   },
 
   chartContainer: {
@@ -492,21 +512,21 @@ const styles: any = {
     width: "100%",
     height: "280px",
     borderRadius: "16px",
-    background: "linear-gradient(90deg, #F2F2F7 0%, #E5E5EA 50%, #F2F2F7 100%)",
+    background: "linear-gradient(90deg, var(--bg-secondary) 0%, var(--border-color) 50%, var(--bg-secondary) 100%)",
   },
 
   sectionTitle: {
     margin: 0,
     fontSize: "17px",
-    fontWeight: 600,
-    color: "#1C1C1E",
+    fontWeight: 700,
+    color: "var(--text-primary)",
     letterSpacing: "-0.3px",
   },
 
   sectionSubtitle: {
     margin: "4px 0 0 0",
     fontSize: "13px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
 
   // Activity Styles
@@ -522,7 +542,7 @@ const styles: any = {
     alignItems: "center",
     gap: "12px",
     padding: "8px 0",
-    borderBottom: "1px solid #E5E5EA",
+    borderBottom: "1px solid var(--border-color)",
   },
 
   activityDotGreen: {
@@ -557,12 +577,12 @@ const styles: any = {
     margin: 0,
     fontSize: "14px",
     fontWeight: 500,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
 
   activityTime: {
     margin: "4px 0 0 0",
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
 };

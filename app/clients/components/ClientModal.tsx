@@ -74,18 +74,6 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
       newErrors.email = 'Email is invalid';
     }
 
-    if (formData.phone && formData.phone.trim().length > 30) {
-      newErrors.phone = 'Phone number must be at most 30 characters';
-    }
-
-    if (formData.company && formData.company.trim().length > 100) {
-      newErrors.company = 'Company name must be at most 100 characters';
-    }
-
-    if (formData.address && formData.address.trim().length > 300) {
-      newErrors.address = 'Address must be at most 300 characters';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -133,6 +121,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
                 style={{ ...styles.input, ...(errors.name ? styles.inputError : {}) }}
                 placeholder="John Doe"
                 disabled={isSaving}
+                className="modal-input-focus"
               />
               {errors.name && <p style={styles.errorText}>{errors.name}</p>}
             </div>
@@ -146,6 +135,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
                 style={{ ...styles.input, ...(errors.email ? styles.inputError : {}) }}
                 placeholder="client@example.com"
                 disabled={isSaving}
+                className="modal-input-focus"
               />
               {errors.email && <p style={styles.errorText}>{errors.email}</p>}
             </div>
@@ -161,6 +151,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
                 style={{ ...styles.input, ...(errors.phone ? styles.inputError : {}) }}
                 placeholder="+1 234 567 8900"
                 disabled={isSaving}
+                className="modal-input-focus"
               />
               {errors.phone && <p style={styles.errorText}>{errors.phone}</p>}
             </div>
@@ -174,6 +165,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
                 style={{ ...styles.input, ...(errors.company ? styles.inputError : {}) }}
                 placeholder="Company Name"
                 disabled={isSaving}
+                className="modal-input-focus"
               />
               {errors.company && <p style={styles.errorText}>{errors.company}</p>}
             </div>
@@ -188,27 +180,30 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
               placeholder="Client address"
               rows={2}
               disabled={isSaving}
+              className="modal-input-focus"
             />
             {errors.address && <p style={styles.errorText}>{errors.address}</p>}
           </div>
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Status</label>
-            <select
-              value={formData.status}
-              onChange={(e) => updateField('status', e.target.value as 'active' | 'inactive')}
-              style={styles.select}
-              disabled={isSaving}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+            <div style={styles.selectWrapper}>
+              <select
+                value={formData.status}
+                onChange={(e) => updateField('status', e.target.value as 'active' | 'inactive')}
+                style={styles.select}
+                disabled={isSaving}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
           </div>
 
           {!client && (
             <div style={styles.infoBox}>
               <p style={styles.infoText}>
-                <strong>Note:</strong> Saving this client will automatically generate a User ID and Temporary Password, which will be emailed to them immediately.
+                <strong>Note:</strong> Credentials will be generated and emailed to the client automatically upon saving.
               </p>
             </div>
           )}
@@ -226,14 +221,12 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
 
       <style>{`
         @keyframes modalFadeIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+          from { opacity: 0; transform: translateY(20px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-input-focus:focus {
+          border-color: #007AFF !important;
+          box-shadow: 0 0 0 3px rgba(0,122,255,0.1) !important;
         }
       `}</style>
     </div>
@@ -247,81 +240,99 @@ const styles: any = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    backdropFilter: 'blur(4px)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    backdropFilter: 'blur(10px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000,
+    zIndex: 2000,
   },
   modal: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '24px',
-    padding: '28px',
-    width: '90%',
-    maxWidth: '600px',
+    backgroundColor: 'var(--bg-primary)',
+    borderRadius: '32px',
+    padding: '32px',
+    width: '95%',
+    maxWidth: '640px',
     maxHeight: '90vh',
     overflowY: 'auto',
-    animation: 'modalFadeIn 0.3s ease',
+    animation: 'modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+    border: '1.5px solid var(--border-color)',
+    boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
   },
   modalHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '24px',
+    marginBottom: '28px',
   },
   modalTitle: {
-    fontSize: '24px',
-    fontWeight: 600,
-    color: '#1C1C1E',
+    fontSize: '28px',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    letterSpacing: '-1px',
   },
   closeBtn: {
-    background: 'none',
-    border: 'none',
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '12px',
     cursor: 'pointer',
-    color: '#8E8E93',
-    padding: '4px',
+    color: 'var(--text-secondary)',
+    padding: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   formGroup: {
-    marginBottom: '20px',
+    marginBottom: '24px',
     flex: 1,
   },
   label: {
     display: 'block',
-    fontSize: '14px',
-    fontWeight: 500,
-    color: '#1C1C1E',
+    fontSize: '13px',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
     marginBottom: '8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   },
   input: {
     width: '100%',
-    padding: '12px 16px',
+    padding: '14px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
-    borderRadius: '12px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1.5px solid var(--border-color)',
+    borderRadius: '14px',
     outline: 'none',
+    color: 'var(--text-primary)',
     fontFamily: 'inherit',
     transition: 'all 0.2s ease',
   },
   textarea: {
     width: '100%',
-    padding: '12px 16px',
+    padding: '14px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
-    borderRadius: '12px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1.5px solid var(--border-color)',
+    borderRadius: '14px',
     outline: 'none',
+    color: 'var(--text-primary)',
     fontFamily: 'inherit',
-    resize: 'vertical',
+    resize: 'none',
+  },
+  selectWrapper: {
+    position: 'relative',
   },
   select: {
     width: '100%',
-    padding: '12px 16px',
+    padding: '14px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
-    borderRadius: '12px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1.5px solid var(--border-color)',
+    borderRadius: '14px',
     outline: 'none',
+    color: 'var(--text-primary)',
     fontFamily: 'inherit',
-    backgroundColor: '#FFFFFF',
+    appearance: 'none',
   },
   inputError: {
     borderColor: '#FF3B30',
@@ -330,57 +341,60 @@ const styles: any = {
     fontSize: '12px',
     color: '#FF3B30',
     marginTop: '6px',
+    fontWeight: 500,
   },
   row: {
     display: 'flex',
-    gap: '16px',
-  },
-  submitError: {
-    fontSize: '13px',
-    color: '#FF3B30',
-    marginTop: '-4px',
-    marginBottom: '8px',
-  },
-  modalFooter: {
-    display: 'flex',
-    gap: '12px',
-    justifyContent: 'flex-end',
-    marginTop: '24px',
-    paddingTop: '16px',
-    borderTop: '1px solid #E5E5EA',
-  },
-  cancelBtn: {
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: 500,
-    backgroundColor: '#F2F2F7',
-    border: 'none',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-  },
-  saveBtn: {
-    padding: '10px 20px',
-    fontSize: '14px',
-    fontWeight: 600,
-    backgroundColor: '#007AFF',
-    color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
+    gap: '20px',
+    flexWrap: 'wrap',
   },
   infoBox: {
-    backgroundColor: '#E3F2FF',
-    padding: '12px 16px',
-    borderRadius: '12px',
-    marginBottom: '20px',
-    border: '1px solid #007AFF',
+    backgroundColor: 'rgba(0, 122, 255, 0.05)',
+    padding: '16px',
+    borderRadius: '14px',
+    marginBottom: '24px',
+    border: '1px solid rgba(0, 122, 255, 0.1)',
   },
   infoText: {
     fontSize: '13px',
     color: '#007AFF',
     margin: 0,
-    lineHeight: 1.4,
+    lineHeight: 1.5,
+  },
+  submitError: {
+    fontSize: '14px',
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: '20px',
+    fontWeight: 600,
+  },
+  modalFooter: {
+    display: 'flex',
+    gap: '12px',
+    justifyContent: 'flex-end',
+    marginTop: '12px',
+  },
+  cancelBtn: {
+    padding: '12px 24px',
+    fontSize: '15px',
+    fontWeight: 700,
+    backgroundColor: 'transparent',
+    border: '1.5px solid var(--border-color)',
+    borderRadius: '14px',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  saveBtn: {
+    padding: '12px 28px',
+    fontSize: '15px',
+    fontWeight: 700,
+    backgroundColor: '#007AFF',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '14px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    boxShadow: '0 8px 16px rgba(0,122,255,0.2)',
   },
 };

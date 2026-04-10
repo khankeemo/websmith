@@ -4,19 +4,31 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { AuthUser, getStoredUser, clearAuthSession } from "../../lib/auth";
-import { LogOut, Bell } from "lucide-react";
+import { AuthUser, getStoredUser, clearAuthSession, getToken, setAuthSession } from "../../lib/auth";
+import { LogOut, Bell, User, Settings, Sun, Moon, ChevronRight } from "lucide-react";
 import API from "../../core/services/apiService";
+import ProfileModal from "./ProfileModal";
 
-export default function Sidebar() {
+export default function Sidebar({
+  mobileOpen = false,
+  onNavigate,
+}: {
+  mobileOpen?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     const storedUser = getStoredUser();
     setUser(storedUser);
+    if (storedUser?.preferences?.theme) {
+      setTheme(storedUser.preferences.theme);
+    }
 
     if (storedUser?.role === "admin") {
       fetchUnreadNotifications();
@@ -24,6 +36,16 @@ export default function Sidebar() {
       return () => clearInterval(interval);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      const updatedUser = getStoredUser();
+      setUser(updatedUser);
+    };
+
+    window.addEventListener("userProfileUpdated", handleProfileUpdate);
+    return () => window.removeEventListener("userProfileUpdated", handleProfileUpdate);
+  }, []);
 
   const fetchUnreadNotifications = async () => {
     try {
@@ -38,6 +60,41 @@ export default function Sidebar() {
   const handleLogout = () => {
     clearAuthSession();
     router.push("/login");
+  };
+
+  const toggleTheme = async () => {
+    if (!user) return;
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+
+    // Apply theme immediately
+    if (newTheme === "dark") {
+      document.documentElement.classList.add("dark-theme");
+    } else {
+      document.documentElement.classList.remove("dark-theme");
+    }
+
+    try {
+      const updatedPreferences = {
+        ...user.preferences,
+        theme: newTheme as "light" | "dark",
+      };
+      
+      const response = await API.put("/users/update", {
+        preferences: updatedPreferences
+      });
+
+      if (response.data.success) {
+        const updatedUser = { ...user, preferences: updatedPreferences };
+        const token = getToken();
+        if (token) {
+          setAuthSession(token, updatedUser);
+        }
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error("Failed to update theme preference:", error);
+    }
   };
 
   const role = user?.role || null;
@@ -96,11 +153,15 @@ export default function Sidebar() {
                 { name: "My Projects", path: `${basePath}/projects` },
                 { name: "Payments", path: `${basePath}/payments` },
                 { name: "Query", path: `${basePath}/tickets` },
+                { name: "Invoices", path: `${basePath}/invoices` },
               ],
             },
             {
               title: "SYSTEM",
-              items: [{ name: "Profile", path: `${basePath}/profile` }],
+              items: [
+                { name: "Notifications", path: `${basePath}/notifications` },
+                { name: "Settings", path: `${basePath}/settings` }
+              ],
             },
           ]
         : [
@@ -114,12 +175,18 @@ export default function Sidebar() {
             },
             {
               title: "SYSTEM",
-              items: [{ name: "Profile", path: `${basePath}/profile` }],
+              items: [
+                { name: "Notifications", path: `${basePath}/notifications` },
+                { name: "Settings", path: `${basePath}/settings` }
+              ],
             },
           ];
 
   return (
-    <div style={styles.sidebar}>
+    <div
+      className={`app-sidebar ${mobileOpen ? "app-sidebar-open" : ""}`}
+      style={styles.sidebar}
+    >
       {/* LOGO CONTAINER */}
       <div style={styles.logoContainer}>
         {/* MASK CIRCLE - Separate hover */}
@@ -147,6 +214,26 @@ export default function Sidebar() {
         </span>
       </div>
 
+      {/* PROFILE SECTION */}
+      <div 
+        style={styles.profileSection} 
+        onClick={() => router.push(`${basePath}/profile`)}
+        className="profile-section-hover"
+      >
+        <div style={styles.profileAvatar}>
+          {user?.avatar ? (
+            <img src={user.avatar} alt="Profile" style={styles.avatarImg} />
+          ) : (
+            <User size={20} color="#8e8e93" />
+          )}
+        </div>
+        <div style={styles.profileInfo}>
+          <span style={styles.profileName}>{user?.name || "User"}</span>
+          <span style={styles.profileEmail}>{user?.email || "user@example.com"}</span>
+        </div>
+        <ChevronRight size={14} color="#8e8e93" />
+      </div>
+
       {/* MENU */}
       {menu.map((section) => (
         <div key={section.title} style={styles.section}>
@@ -159,17 +246,18 @@ export default function Sidebar() {
               <Link
                 key={item.name}
                 href={item.path}
+                onClick={onNavigate}
                 style={{
                   ...styles.link,
                   ...(isActive ? styles.activeLink : {}),
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
-                    e.currentTarget.style.background = "#e8e8ed";
+                    e.currentTarget.style.background = "var(--bg-primary)";
                     e.currentTarget.style.transform = "translateX(4px)";
-                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.05)";
-                    e.currentTarget.style.color = "#000";
-                    e.currentTarget.style.borderLeft = "3px solid #000";
+                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+                    e.currentTarget.style.color = "var(--text-primary)";
+                    e.currentTarget.style.borderLeft = "3px solid var(--text-primary)";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -177,7 +265,7 @@ export default function Sidebar() {
                     e.currentTarget.style.background = "transparent";
                     e.currentTarget.style.transform = "translateX(0)";
                     e.currentTarget.style.boxShadow = "none";
-                    e.currentTarget.style.color = "#555";
+                    e.currentTarget.style.color = "var(--text-secondary)";
                     e.currentTarget.style.borderLeft = "3px solid transparent";
                   }
                 }}
@@ -209,8 +297,19 @@ export default function Sidebar() {
         </button>
       </div>
 
+      {/* Profile Modal */}
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        user={user}
+        onUpdate={(updatedUser) => setUser(updatedUser)}
+      />
+
       {/* Hover Animation Styles */}
       <style>{`
+        .app-sidebar {
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
         /* Image hover - ZOOM IN on enter, ZOOM OUT on leave */
         .logo-image-hover {
           transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -243,6 +342,43 @@ export default function Sidebar() {
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(255, 59, 48, 0.1);
         }
+
+        .profile-section-hover {
+          transition: all 0.3s ease;
+          cursor: pointer;
+        }
+        .profile-section-hover:hover {
+          background: var(--border-color);
+          transform: translateY(-2px);
+        }
+        .profile-section-hover:active {
+          transform: scale(0.98);
+        }
+
+        .settings-item-hover {
+          transition: all 0.2s ease;
+          cursor: pointer;
+        }
+        .settings-item-hover:hover, .settings-link-hover:hover {
+          background: var(--border-color);
+        }
+        @media (max-width: 900px) {
+          .app-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 1200;
+            width: min(82vw, 320px) !important;
+            height: 100dvh !important;
+            transform: translateX(-100%);
+            box-shadow: none;
+          }
+          .app-sidebar.app-sidebar-open {
+            transform: translateX(0);
+            box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+          }
+        }
       `}</style>
     </div>
   );
@@ -273,7 +409,7 @@ const styles: any = {
     width: "96px",
     height: "96px",
     borderRadius: "50%",
-    background: "#f5f5f7",
+    background: "var(--bg-primary)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -293,7 +429,7 @@ const styles: any = {
     fontSize: "18px",
     fontWeight: 600,
     letterSpacing: "-0.3px",
-    color: "#1d1d1f",
+    color: "var(--text-primary)",
     textAlign: "center",
     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
   },
@@ -316,7 +452,7 @@ const styles: any = {
     marginBottom: "4px",
     borderRadius: "10px",
     textDecoration: "none",
-    color: "#555",
+    color: "var(--text-secondary)",
     fontSize: "14px",
     fontWeight: 500,
     transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -338,9 +474,9 @@ const styles: any = {
   },
 
   activeLink: {
-    background: "#ffffff",
-    color: "#000",
-    borderLeft: "3px solid #000",
+    background: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    borderLeft: "3px solid var(--text-primary)",
     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     fontWeight: 600,
   },
@@ -365,5 +501,88 @@ const styles: any = {
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.3s ease",
+  },
+
+  profileSection: {
+    display: "flex",
+    alignItems: "center",
+    padding: "12px",
+    borderRadius: "16px",
+    backgroundColor: "var(--bg-primary)",
+    marginBottom: "24px",
+    gap: "12px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+    border: "1px solid var(--border-color)",
+  },
+  profileAvatar: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    backgroundColor: "var(--bg-secondary)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  avatarImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  profileInfo: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    minWidth: 0,
+  },
+  profileName: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "var(--text-primary)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  profileEmail: {
+    fontSize: "11px",
+    color: "var(--text-secondary)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  settingsItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "10px 12px",
+    borderRadius: "12px",
+    marginBottom: "4px",
+    color: "var(--text-primary)",
+    transition: "all 0.2s",
+  },
+  settingsLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    fontSize: "14px",
+    fontWeight: 500,
+  },
+  toggleSwitch: {
+    width: "32px",
+    height: "18px",
+    borderRadius: "10px",
+    padding: "2px",
+    transition: "background-color 0.3s",
+    display: "flex",
+    alignItems: "center",
+  },
+  toggleThumb: {
+    width: "14px",
+    height: "14px",
+    backgroundColor: "#ffffff",
+    borderRadius: "50%",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+    transition: "transform 0.3s",
   },
 };

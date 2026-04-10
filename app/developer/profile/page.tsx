@@ -1,5 +1,3 @@
 "use client";
-
-import SettingsPage from "../../settings/page";
-
-export default SettingsPage;
+import ProfilePageContent from "../../../components/layout/ProfilePageContent";
+export default ProfilePageContent;

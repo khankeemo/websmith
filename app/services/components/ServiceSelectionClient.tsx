@@ -1,3 +1,6 @@
+// C:\websmith\app\services\components\ServiceSelectionClient.tsx
+// Features: List available services, select/deselect, navigate to lead form
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -52,11 +55,23 @@ export default function ServiceSelectionClient() {
         </p>
       </div>
 
-      {loading && <Card><p style={styles.message}>Loading services...</p></Card>}
-      {error && <Card><p style={{ ...styles.message, color: "#FF3B30" }}>{error}</p></Card>}
+      {loading && (
+        <div style={styles.messageCard}>
+          <div style={styles.spinner}></div>
+          <p style={styles.message}>Loading available services...</p>
+        </div>
+      )}
+      
+      {error && (
+        <div style={{ ...styles.messageCard, borderLeft: '6px solid #FF3B30' }}>
+          <p style={{ ...styles.message, color: "#FF3B30", fontWeight: 700 }}>{error}</p>
+        </div>
+      )}
 
       {!loading && !error && services.length === 0 && (
-        <Card><p style={styles.message}>No services are currently available. Please check back later.</p></Card>
+        <div style={styles.messageCard}>
+          <p style={styles.message}>No services are currently available. Please check back later.</p>
+        </div>
       )}
 
       {!loading && !error && services.length > 0 && (
@@ -75,17 +90,26 @@ export default function ServiceSelectionClient() {
                     ...(selected ? styles.serviceButtonSelected : {}),
                   }}
                 >
-                  <Card>
+                  <Card style={{ 
+                    borderColor: selected ? '#007AFF' : 'var(--border-color)',
+                    backgroundColor: selected ? 'rgba(0, 122, 255, 0.05)' : 'var(--bg-primary)',
+                    boxShadow: selected ? '0 12px 32px rgba(0,122,255,0.12)' : '0 4px 12px rgba(0,0,0,0.02)',
+                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                  }}>
                     <div style={styles.cardTop}>
-                      <div style={styles.iconWrap}>
-                        <Layers3 size={22} color={selected ? "#FFFFFF" : "#007AFF"} />
+                      <div style={{
+                        ...styles.iconWrap,
+                        background: selected ? 'linear-gradient(135deg, #007AFF 0%, #34C759 100%)' : 'var(--bg-secondary)',
+                        border: selected ? 'none' : '1px solid var(--border-color)'
+                      }}>
+                        <Layers3 size={24} color={selected ? "#FFFFFF" : "#007AFF"} />
                       </div>
-                      <CheckCircle2 size={20} color={selected ? "#34C759" : "#C7C7CC"} />
+                      <CheckCircle2 size={26} color={selected ? "#34C759" : "var(--border-color)"} fill={selected ? "#34C75922" : "transparent"} />
                     </div>
                     <h3 style={styles.serviceTitle}>{service.name}</h3>
                     <p style={styles.serviceDescription}>{service.description}</p>
                     {typeof service.price === "number" && (
-                      <p style={styles.price}>Starting at ${service.price.toLocaleString()}</p>
+                      <p style={styles.price}>Starting at <span style={{fontSize: '18px'}}>${service.price.toLocaleString()}</span></p>
                     )}
                   </Card>
                 </button>
@@ -94,7 +118,7 @@ export default function ServiceSelectionClient() {
           </div>
 
           <div style={styles.footerCard}>
-            <div>
+            <div style={styles.footerInfo}>
               <p style={styles.footerLabel}>Selected Services</p>
               <div style={styles.selectedList}>
                 {selectedServices.length > 0 ? (
@@ -102,7 +126,7 @@ export default function ServiceSelectionClient() {
                     <span key={service.id} style={styles.selectedChip}>{service.name}</span>
                   ))
                 ) : (
-                  <span style={styles.emptyText}>Choose at least one service to continue.</span>
+                  <span style={styles.emptyText}>Select one or more services to proceed to the next step.</span>
                 )}
               </div>
             </div>
@@ -111,63 +135,93 @@ export default function ServiceSelectionClient() {
               size="lg"
               onClick={() => router.push("/lead-form")}
               disabled={selectedServices.length === 0}
-              rightIcon={<ArrowRight size={16} />}
+              rightIcon={<ArrowRight size={20} />}
+              style={{ padding: '0 36px', height: '58px', borderRadius: '16px', fontSize: '16px', fontWeight: 700 }}
             >
-              Continue
+              Continue to Details
             </Button>
           </div>
         </>
       )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
 
 const styles: any = {
   wrapper: {
-    maxWidth: "1120px",
+    maxWidth: "1160px",
     margin: "0 auto",
-    padding: "32px 24px 64px",
+    padding: "40px 24px 80px",
     display: "flex",
     flexDirection: "column",
-    gap: "24px",
+    gap: "40px",
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
   },
   heroCard: {
-    padding: "32px",
-    borderRadius: "24px",
-    background: "linear-gradient(135deg, #F8FAFC 0%, #EEF6FF 100%)",
-    border: "1px solid #E5E7EB",
+    padding: "56px 48px",
+    borderRadius: "32px",
+    background: "var(--bg-secondary)",
+    border: "1.5px solid var(--border-color)",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.02)",
   },
   eyebrow: {
-    margin: 0,
+    margin: "0 0 20px 0",
     color: "#007AFF",
-    fontSize: "12px",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
+    fontSize: "13px",
+    fontWeight: 800,
+    letterSpacing: "0.15em",
     textTransform: "uppercase",
   },
   title: {
-    margin: "12px 0 10px",
-    fontSize: "38px",
-    fontWeight: 700,
-    color: "#111827",
-    letterSpacing: "-0.02em",
+    margin: "0 0 20px",
+    fontSize: "46px",
+    fontWeight: 800,
+    color: "var(--text-primary)",
+    letterSpacing: "-0.04em",
+    lineHeight: 1.05,
   },
   subtitle: {
     margin: 0,
-    maxWidth: "760px",
-    color: "#6B7280",
-    fontSize: "16px",
-    lineHeight: 1.7,
+    maxWidth: "840px",
+    color: "var(--text-secondary)",
+    fontSize: "19px",
+    lineHeight: 1.5,
+    fontWeight: 500,
+  },
+  messageCard: {
+    padding: "64px",
+    borderRadius: "28px",
+    backgroundColor: 'var(--bg-secondary)',
+    border: "1.5px solid var(--border-color)",
+    textAlign: "center",
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '24px',
+  },
+  spinner: {
+    width: '40px',
+    height: '40px',
+    border: '4px solid var(--border-color)',
+    borderTopColor: '#007AFF',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
   },
   message: {
     margin: 0,
-    fontSize: "15px",
-    color: "#6B7280",
+    fontSize: "17px",
+    fontWeight: 500,
+    color: "var(--text-secondary)",
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "20px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+    gap: "28px",
   },
   serviceButton: {
     background: "transparent",
@@ -175,81 +229,96 @@ const styles: any = {
     padding: 0,
     textAlign: "left",
     cursor: "pointer",
-    borderRadius: "16px",
-    transition: "transform 0.2s ease",
+    borderRadius: "24px",
+    transition: "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
   },
   serviceButtonSelected: {
-    transform: "translateY(-2px)",
+    transform: "translateY(-6px)",
   },
   cardTop: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "16px",
+    marginBottom: '24px',
   },
   iconWrap: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "14px",
-    background: "linear-gradient(135deg, #007AFF 0%, #34C759 100%)",
+    width: "56px",
+    height: "56px",
+    borderRadius: "18px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   serviceTitle: {
-    margin: "0 0 10px",
-    fontSize: "18px",
-    fontWeight: 600,
-    color: "#1C1C1E",
+    margin: "0 0 12px",
+    fontSize: "22px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    letterSpacing: '-0.5px',
   },
   serviceDescription: {
     margin: 0,
-    fontSize: "14px",
-    color: "#6B7280",
+    fontSize: "16px",
+    color: "var(--text-secondary)",
     lineHeight: 1.6,
-    minHeight: "68px",
+    minHeight: "80px",
   },
   price: {
-    margin: "14px 0 0",
+    margin: "24px 0 0",
     color: "#007AFF",
-    fontSize: "13px",
-    fontWeight: 600,
+    fontSize: "15px",
+    fontWeight: 800,
+    letterSpacing: '-0.2px',
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '4px'
   },
   footerCard: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: "16px",
-    padding: "24px",
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E7EB",
-    borderRadius: "20px",
-    boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
+    gap: "32px",
+    padding: "36px 40px",
+    backgroundColor: "var(--bg-primary)",
+    border: "1.5px solid var(--border-color)",
+    borderRadius: "28px",
+    boxShadow: "0 18px 48px rgba(0,0,0,0.12)",
     flexWrap: "wrap",
+    position: 'sticky',
+    bottom: '32px',
+    zIndex: 100,
+    backdropFilter: 'blur(20px)',
+  },
+  footerInfo: {
+    flex: 1,
+    minWidth: '240px',
   },
   footerLabel: {
-    margin: "0 0 10px",
+    margin: "0 0 16px",
     fontSize: "13px",
-    fontWeight: 600,
-    color: "#6B7280",
+    fontWeight: 800,
+    color: "var(--text-secondary)",
     textTransform: "uppercase",
-    letterSpacing: "0.08em",
+    letterSpacing: "0.15em",
   },
   selectedList: {
     display: "flex",
     flexWrap: "wrap",
-    gap: "10px",
+    gap: "12px",
   },
   selectedChip: {
-    padding: "8px 14px",
-    borderRadius: "999px",
-    backgroundColor: "#E3F2FF",
+    padding: "10px 20px",
+    borderRadius: "14px",
+    backgroundColor: "rgba(0, 122, 255, 0.1)",
     color: "#007AFF",
-    fontSize: "13px",
-    fontWeight: 600,
+    fontSize: "14px",
+    fontWeight: 700,
+    border: '1.5px solid rgba(0, 122, 255, 0.15)',
   },
   emptyText: {
-    color: "#8E8E93",
-    fontSize: "14px",
+    color: "var(--text-secondary)",
+    fontSize: "15px",
+    fontStyle: 'italic',
+    fontWeight: 500,
   },
 };

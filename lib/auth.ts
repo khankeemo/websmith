@@ -5,6 +5,10 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  phone?: string;
+  company?: string;
+  avatar?: string;
+  adminLevel?: "super" | "sub" | null;
   isTemporaryPassword?: boolean;
   setupCompleted?: boolean;
   preferences?: {

@@ -27,13 +27,13 @@ interface InvoiceCardProps {
 const getStatusConfig = (status: string) => {
   switch (status) {
     case 'paid':
-      return { color: '#34C759', bg: '#E8F5E9', icon: CheckCircle, label: 'Paid' };
+      return { color: '#34C759', bg: 'rgba(52, 199, 89, 0.1)', icon: CheckCircle, label: 'Paid' };
     case 'pending':
-      return { color: '#FF9500', bg: '#FFF3E0', icon: Clock, label: 'Pending' };
+      return { color: '#FF9500', bg: 'rgba(255, 149, 0, 0.1)', icon: Clock, label: 'Pending' };
     case 'overdue':
-      return { color: '#FF3B30', bg: '#FFE5E5', icon: AlertCircle, label: 'Overdue' };
+      return { color: '#FF3B30', bg: 'rgba(255, 59, 48, 0.1)', icon: AlertCircle, label: 'Overdue' };
     default:
-      return { color: '#8E8E93', bg: '#F2F2F7', icon: FileText, label: 'Draft' };
+      return { color: 'var(--text-secondary)', bg: 'var(--bg-secondary)', icon: FileText, label: 'Draft' };
   }
 };
 
@@ -77,7 +77,8 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({
         <div style={{
           ...styles.statusBadge,
           backgroundColor: statusConfig.bg,
-          color: statusConfig.color
+          color: statusConfig.color,
+          border: `1px solid ${statusConfig.color}20`
         }}>
           <StatusIcon size={12} />
           <span>{statusConfig.label}</span>
@@ -88,62 +89,56 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({
       <div style={styles.clientInfo}>
         <h3 style={styles.clientName}>{invoice.clientName}</h3>
         <div style={styles.clientEmail}>
-          <Mail size={12} color="#8E8E93" />
+          <Mail size={12} color="var(--text-secondary)" />
           <span>{invoice.clientEmail}</span>
         </div>
       </div>
 
       {/* Amount */}
       <div style={styles.amountSection}>
-        <span style={styles.amountLabel}>Total Amount</span>
+        <span style={styles.amountLabel}>Grand Total</span>
         <span style={styles.amountValue}>{formatCurrency(invoice.amount)}</span>
       </div>
 
       {/* Dates */}
       <div style={styles.dates}>
         <div style={styles.dateItem}>
-          <Calendar size={12} color="#8E8E93" />
+          <Calendar size={12} color="var(--text-secondary)" />
           <div>
-            <span style={styles.dateLabel}>Issued</span>
-            <span>{formatDate(invoice.issueDate)}</span>
+            <span style={styles.dateLabel}>DATE ISSUED</span>
+            <span style={styles.dateValue}>{formatDate(invoice.issueDate)}</span>
           </div>
         </div>
         <div style={styles.dateItem}>
-          <Calendar size={12} color={isOverdue ? '#FF3B30' : '#8E8E93'} />
+          <Calendar size={12} color={isOverdue ? '#FF3B30' : 'var(--text-secondary)'} />
           <div>
             <span style={{
               ...styles.dateLabel,
               ...(isOverdue && { color: '#FF3B30' })
-            }}>Due Date</span>
-            <span style={isOverdue ? { color: '#FF3B30' } : {}}>
+            }}>DUE DATE</span>
+            <span style={{
+              ...styles.dateValue,
+              ...(isOverdue && { color: '#FF3B30', fontWeight: 800 })
+            }}>
               {formatDate(invoice.dueDate)}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Items Preview */}
-      {invoice.items && invoice.items.length > 0 && (
-        <div style={styles.itemsPreview}>
-          <span style={styles.itemsLabel}>
-            {invoice.items.length} item{invoice.items.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-      )}
-
       {/* Actions */}
       <div style={styles.actions}>
         <button 
           onClick={() => onView(invoice)} 
           style={styles.actionBtn}
-          className="action-btn"
+          className="action-btn-hover"
         >
           <Eye size={14} /> View
         </button>
         <button 
           onClick={() => onDownload(invoice._id, invoice.invoiceNumber)} 
           style={styles.actionBtn}
-          className="action-btn"
+          className="action-btn-hover"
         >
           <Download size={14} /> PDF
         </button>
@@ -151,7 +146,7 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({
           <button 
             onClick={() => onMarkAsPaid(invoice._id)} 
             style={{ ...styles.actionBtn, ...styles.markPaidBtn }}
-            className="action-btn"
+            className="mark-paid-hover"
           >
             <CheckCircle size={14} /> Mark Paid
           </button>
@@ -159,20 +154,12 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({
       </div>
 
       <style>{`
-        .invoice-card {
-          transition: all 0.3s ease;
-        }
-        .invoice-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-        }
-        .action-btn {
-          transition: all 0.2s ease;
-        }
-        .action-btn:hover {
-          transform: translateY(-2px);
-          opacity: 0.85;
-        }
+        .invoice-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .invoice-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.12); border-color: #007AFF55 !important; }
+        .action-btn-hover { transition: all 0.2s ease; }
+        .action-btn-hover:hover { background-color: var(--bg-primary) !important; color: #007AFF !important; border-color: #007AFF33 !important; }
+        .mark-paid-hover { transition: all 0.2s ease; }
+        .mark-paid-hover:hover { background-color: #34C759 !important; transform: scale(1.02); }
       `}</style>
     </div>
   );
@@ -180,122 +167,128 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({
 
 const styles: any = {
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '20px',
-    padding: '20px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-    border: '1px solid #E5E5EA',
-    transition: 'all 0.3s ease',
+    backgroundColor: 'var(--bg-primary)',
+    borderRadius: '24px',
+    padding: '24px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)',
+    border: '1.5px solid var(--border-color)',
+    display: 'flex',
+    flexDirection: 'column',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '16px',
+    marginBottom: '20px',
   },
   invoiceNumber: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    fontSize: '14px',
-    fontWeight: 600,
+    fontSize: '15px',
+    fontWeight: 700,
     color: '#007AFF',
+    letterSpacing: '-0.3px',
   },
   statusBadge: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    padding: '4px 10px',
+    padding: '5px 12px',
     borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: 500,
-    textTransform: 'capitalize' as const,
+    fontSize: '11px',
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   },
   clientInfo: {
-    marginBottom: '16px',
-    paddingBottom: '12px',
-    borderBottom: '1px solid #E5E5EA',
+    marginBottom: '20px',
+    paddingBottom: '16px',
+    borderBottom: '1.5px solid var(--border-color)',
   },
   clientName: {
-    fontSize: '16px',
-    fontWeight: 600,
-    color: '#1C1C1E',
-    marginBottom: '6px',
+    fontSize: '18px',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    marginBottom: '4px',
+    letterSpacing: '-0.5px',
   },
   clientEmail: {
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
-    fontSize: '12px',
-    color: '#8E8E93',
+    gap: '8px',
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
+    fontWeight: 500,
   },
   amountSection: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginBottom: '16px',
+    marginBottom: '20px',
   },
   amountLabel: {
     fontSize: '12px',
-    color: '#8E8E93',
+    color: 'var(--text-secondary)',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   },
   amountValue: {
-    fontSize: '20px',
-    fontWeight: 700,
-    color: '#1C1C1E',
+    fontSize: '22px',
+    fontWeight: 800,
+    color: 'var(--text-primary)',
   },
   dates: {
     display: 'flex',
     justifyContent: 'space-between',
-    marginBottom: '16px',
-    paddingBottom: '12px',
-    borderBottom: '1px solid #E5E5EA',
+    marginBottom: '20px',
+    paddingBottom: '16px',
+    borderBottom: '1.5px solid var(--border-color)',
   },
   dateItem: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '12px',
-    color: '#6C6C70',
+    alignItems: 'flex-start',
+    gap: '10px',
   },
   dateLabel: {
     fontSize: '10px',
-    color: '#8E8E93',
+    color: 'var(--text-secondary)',
     display: 'block',
+    fontWeight: 700,
+    letterSpacing: '0.5px',
+    marginBottom: '2px',
   },
-  itemsPreview: {
-    marginBottom: '16px',
-  },
-  itemsLabel: {
-    fontSize: '11px',
-    color: '#8E8E93',
-    backgroundColor: '#F2F2F7',
-    padding: '4px 8px',
-    borderRadius: '12px',
+  dateValue: {
+    fontSize: '13px',
+    color: 'var(--text-primary)',
+    fontWeight: 600,
   },
   actions: {
     display: 'flex',
-    gap: '8px',
+    gap: '10px',
+    marginTop: 'auto',
   },
   actionBtn: {
     flex: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '6px',
-    padding: '8px',
-    backgroundColor: '#F2F2F7',
-    border: 'none',
-    borderRadius: '10px',
-    fontSize: '12px',
-    fontWeight: 500,
-    color: '#1C1C1E',
+    gap: '8px',
+    padding: '10px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '12px',
+    fontSize: '13px',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
+    fontFamily: 'inherit',
   },
   markPaidBtn: {
-    backgroundColor: '#34C759',
-    color: '#FFFFFF',
+    backgroundColor: '#34C75922',
+    color: '#34C759',
+    borderColor: '#34C75944',
   },
 };
 

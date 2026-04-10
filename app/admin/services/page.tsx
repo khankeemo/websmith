@@ -1,3 +1,4 @@
+// PATH: C:\websmith\app\admin\services\page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -99,66 +100,68 @@ export default function AdminServicesPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Services</h1>
-          <p style={styles.subtitle}>Manage the cards visitors see in Step 1 of the lead funnel.</p>
+          <p style={styles.subtitle}>Manage the service cards displayed in the lead funnel.</p>
         </div>
-        <Button onClick={handleOpenCreate} leftIcon={<Plus size={16} />}>
+        <Button onClick={handleOpenCreate} leftIcon={<Plus size={18} />}>
           New Service
         </Button>
       </div>
 
       <div style={styles.summary}>
-        <Card>
+        <div style={styles.summaryCard}>
           <p style={styles.summaryLabel}>Total Services</p>
           <p style={styles.summaryValue}>{services.length}</p>
-        </Card>
-        <Card>
+        </div>
+        <div style={styles.summaryCard}>
           <p style={styles.summaryLabel}>Active in Funnel</p>
           <p style={styles.summaryValue}>{activeCount}</p>
-        </Card>
+        </div>
       </div>
 
-      {loading && <Card><p style={styles.message}>Loading services...</p></Card>}
-      {error && <Card><p style={{ ...styles.message, color: "#FF3B30" }}>{error}</p></Card>}
+      {loading && (
+        <Card>
+          <div style={styles.loadingBox}>
+            <div style={styles.spinner}></div>
+            <p style={styles.message}>Loading services...</p>
+          </div>
+        </Card>
+      )}
+      
+      {error && <Card><p style={{ ...styles.message, color: "#FF3B30", fontWeight: 700 }}>{error}</p></Card>}
 
       {!loading && !error && (
         <div style={styles.grid}>
           {services.map((service) => (
-            <Card key={service._id || service.name}>
+            <div key={service._id || service.name} style={styles.serviceCard} className="admin-service-card">
               <div style={styles.cardTop}>
                 <div style={styles.iconWrap}>
                   <Layers3 size={22} color="#007AFF" />
                 </div>
-                <span style={{ ...styles.statusBadge, ...(service.isActive ? styles.activeBadge : styles.inactiveBadge) }}>
+                <span style={{ 
+                  ...styles.statusBadge, 
+                  backgroundColor: service.isActive ? 'rgba(52, 199, 89, 0.1)' : 'var(--bg-secondary)',
+                  color: service.isActive ? '#34C759' : 'var(--text-secondary)'
+                }}>
                   {service.isActive ? "Active" : "Inactive"}
                 </span>
               </div>
 
               <h3 style={styles.cardTitle}>{service.name}</h3>
               <p style={styles.cardDescription}>{service.description}</p>
-              <p style={styles.cardPrice}>
-                {typeof service.price === "number" ? `Starting at $${service.price.toLocaleString()}` : "No starting price"}
-              </p>
-
-              <div style={styles.cardActions}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<Pencil size={14} />}
-                  onClick={() => handleOpenEdit(service)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  leftIcon={<Trash2 size={14} />}
-                  onClick={() => handleDelete(service)}
-                  isLoading={deletingId === service._id}
-                >
-                  Delete
-                </Button>
+              <div style={styles.cardFooter}>
+                <p style={styles.cardPrice}>
+                  {typeof service.price === "number" ? `Starting at $${service.price.toLocaleString()}` : "Price TBD"}
+                </p>
+                <div style={styles.cardActions}>
+                  <button onClick={() => handleOpenEdit(service)} style={styles.iconBtn} title="Edit">
+                    <Pencil size={16} color="var(--text-secondary)" />
+                  </button>
+                  <button onClick={() => handleDelete(service)} style={{...styles.iconBtn, color: '#FF3B30'}} title="Delete">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}
@@ -175,6 +178,12 @@ export default function AdminServicesPage() {
         isSaving={isSaving}
         submitError={submitError}
       />
+
+      <style>{`
+        .admin-service-card { transition: all 0.3s ease; }
+        .admin-service-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); border-color: #007AFF55 !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
@@ -183,8 +192,11 @@ const styles: any = {
   container: {
     display: "flex",
     flexDirection: "column",
-    gap: "24px",
+    gap: "32px",
     padding: "8px 4px",
+    backgroundColor: 'var(--bg-primary)',
+    minHeight: '100vh',
+    color: 'var(--text-primary)',
   },
   header: {
     display: "flex",
@@ -192,97 +204,148 @@ const styles: any = {
     alignItems: "flex-start",
     gap: "16px",
     flexWrap: "wrap",
+    marginBottom: "8px",
   },
   title: {
     margin: 0,
     fontSize: "34px",
-    fontWeight: 600,
-    letterSpacing: "-0.5px",
-    color: "#1C1C1E",
+    fontWeight: 700,
+    letterSpacing: "-1px",
+    color: "var(--text-primary)",
   },
   subtitle: {
     margin: "8px 0 0",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     fontSize: "15px",
   },
   summary: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "16px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: "20px",
+  },
+  summaryCard: {
+    padding: '24px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '20px',
+    border: '1.5px solid var(--border-color)',
   },
   summaryLabel: {
     margin: 0,
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     fontSize: "13px",
-    fontWeight: 500,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginBottom: '8px',
   },
   summaryValue: {
-    margin: "8px 0 0",
-    color: "#1C1C1E",
-    fontSize: "30px",
+    margin: 0,
+    color: "var(--text-primary)",
+    fontSize: "32px",
     fontWeight: 700,
+    letterSpacing: '-1px',
   },
   message: {
     margin: 0,
     fontSize: "15px",
-    color: "#6B7280",
+    color: "var(--text-secondary)",
+    fontWeight: 500,
+  },
+  loadingBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '40px',
+  },
+  spinner: {
+    width: '32px',
+    height: '32px',
+    border: '3px solid var(--border-color)',
+    borderTopColor: '#007AFF',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "20px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+    gap: "24px",
+  },
+  serviceCard: {
+    backgroundColor: "var(--bg-primary)",
+    borderRadius: "24px",
+    padding: "24px",
+    border: "1.5px solid var(--border-color)",
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
   },
   cardTop: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "16px",
+    marginBottom: "20px",
   },
   iconWrap: {
     width: "48px",
     height: "48px",
     borderRadius: "14px",
-    backgroundColor: "#E3F2FF",
+    backgroundColor: "var(--bg-secondary)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    border: '1px solid var(--border-color)',
   },
   statusBadge: {
-    padding: "6px 10px",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: 600,
-  },
-  activeBadge: {
-    backgroundColor: "#E8F5E9",
-    color: "#34C759",
-  },
-  inactiveBadge: {
-    backgroundColor: "#F2F2F7",
-    color: "#8E8E93",
+    padding: "6px 14px",
+    borderRadius: "20px",
+    fontSize: "11px",
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   },
   cardTitle: {
     margin: "0 0 10px",
-    fontSize: "18px",
-    fontWeight: 600,
-    color: "#1C1C1E",
+    fontSize: "20px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    letterSpacing: '-0.3px',
   },
   cardDescription: {
     margin: 0,
     minHeight: "72px",
-    color: "#6B7280",
+    color: "var(--text-secondary)",
     fontSize: "14px",
     lineHeight: 1.6,
+    flex: 1,
+    marginBottom: '20px',
+  },
+  cardFooter: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTop: '1px solid var(--border-color)',
+    paddingTop: '16px',
   },
   cardPrice: {
-    margin: "14px 0 0",
+    margin: 0,
     color: "#007AFF",
-    fontSize: "13px",
-    fontWeight: 600,
+    fontSize: "14px",
+    fontWeight: 700,
   },
   cardActions: {
     display: "flex",
-    gap: "10px",
-    marginTop: "20px",
+    gap: "8px",
   },
+  iconBtn: {
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '10px',
+    padding: '8px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s ease',
+  }
 };

@@ -1,3 +1,4 @@
+// PATH: C:\websmith\app\admin\services\components\ServiceModal.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -115,6 +116,7 @@ export default function ServiceModal({
               style={{ ...styles.input, ...(errors.name ? styles.inputError : {}) }}
               placeholder="Web Development"
               disabled={isSaving}
+              className="modal-input-focus"
             />
             {errors.name && <p style={styles.errorText}>{errors.name}</p>}
           </div>
@@ -128,13 +130,14 @@ export default function ServiceModal({
               placeholder="Describe what this service includes"
               rows={4}
               disabled={isSaving}
+              className="modal-input-focus"
             />
             {errors.description && <p style={styles.errorText}>{errors.description}</p>}
           </div>
 
           <div style={styles.row}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Starting Price</label>
+              <label style={styles.label}>Starting Price ($)</label>
               <input
                 type="number"
                 min="0"
@@ -144,21 +147,24 @@ export default function ServiceModal({
                 style={{ ...styles.input, ...(errors.price ? styles.inputError : {}) }}
                 placeholder="2500"
                 disabled={isSaving}
+                className="modal-input-focus"
               />
               {errors.price && <p style={styles.errorText}>{errors.price}</p>}
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Status</label>
-              <select
-                value={formData.isActive ? "active" : "inactive"}
-                onChange={(event) => updateField("isActive", event.target.value === "active")}
-                style={styles.select}
-                disabled={isSaving}
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+              <label style={styles.label}>Visibility</label>
+              <div style={styles.selectWrapper}>
+                <select
+                  value={formData.isActive ? "active" : "inactive"}
+                  onChange={(event) => updateField("isActive", event.target.value === "active")}
+                  style={styles.select}
+                  disabled={isSaving}
+                >
+                  <option value="active">Active (Visible)</option>
+                  <option value="inactive">Inactive (Hidden)</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -174,6 +180,18 @@ export default function ServiceModal({
           </div>
         </form>
       </div>
+
+      <style>{`
+        @keyframes modalSlideUp {
+          from { opacity: 0; transform: translateY(30px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-input-focus:focus {
+          border-color: #007AFF !important;
+          box-shadow: 0 0 0 3px rgba(0,122,255,0.1) !important;
+          background-color: var(--bg-primary) !important;
+        }
+      `}</style>
     </div>
   );
 }
@@ -185,125 +203,156 @@ const styles: any = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    backdropFilter: "blur(4px)",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    backdropFilter: "blur(12px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 1000,
+    zIndex: 2000,
   },
   modal: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: "24px",
-    padding: "28px",
-    width: "90%",
-    maxWidth: "640px",
+    backgroundColor: "var(--bg-primary)",
+    borderRadius: "32px",
+    padding: "40px",
+    width: "95%",
+    maxWidth: "680px",
     maxHeight: "90vh",
     overflowY: "auto",
+    animation: "modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+    border: '1.5px solid var(--border-color)',
+    boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
   },
   modalHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "24px",
+    marginBottom: "32px",
   },
   modalTitle: {
-    fontSize: "24px",
-    fontWeight: 600,
-    color: "#1C1C1E",
+    fontSize: "30px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    letterSpacing: '-1px',
+    margin: 0,
   },
   closeBtn: {
-    background: "none",
-    border: "none",
+    background: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "14px",
     cursor: "pointer",
-    color: "#8E8E93",
-    padding: "4px",
+    color: "var(--text-secondary)",
+    padding: "8px",
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s ease',
   },
   formGroup: {
-    marginBottom: "20px",
+    marginBottom: "24px",
     flex: 1,
   },
   label: {
     display: "block",
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#1C1C1E",
-    marginBottom: "8px",
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    marginBottom: "10px",
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   },
   input: {
     width: "100%",
-    padding: "12px 16px",
-    fontSize: "15px",
-    border: "1.5px solid #E5E5EA",
-    borderRadius: "12px",
+    padding: "16px",
+    fontSize: "16px",
+    backgroundColor: 'var(--bg-secondary)',
+    border: "1.5px solid var(--border-color)",
+    borderRadius: "16px",
     outline: "none",
+    color: "var(--text-primary)",
     fontFamily: "inherit",
+    transition: 'all 0.2s ease',
   },
   textarea: {
     width: "100%",
-    padding: "12px 16px",
-    fontSize: "15px",
-    border: "1.5px solid #E5E5EA",
-    borderRadius: "12px",
+    padding: "16px",
+    fontSize: "16px",
+    backgroundColor: 'var(--bg-secondary)',
+    border: "1.5px solid var(--border-color)",
+    borderRadius: "16px",
     outline: "none",
+    color: "var(--text-primary)",
     fontFamily: "inherit",
-    resize: "vertical",
+    resize: "none",
+    transition: 'all 0.2s ease',
+  },
+  selectWrapper: {
+    position: 'relative'
   },
   select: {
     width: "100%",
-    padding: "12px 16px",
-    fontSize: "15px",
-    border: "1.5px solid #E5E5EA",
-    borderRadius: "12px",
+    padding: "16px",
+    fontSize: "16px",
+    backgroundColor: 'var(--bg-secondary)',
+    border: "1.5px solid var(--border-color)",
+    borderRadius: "16px",
     outline: "none",
+    color: "var(--text-primary)",
     fontFamily: "inherit",
-    backgroundColor: "#FFFFFF",
+    cursor: 'pointer',
+    appearance: 'none',
   },
   row: {
     display: "flex",
-    gap: "16px",
+    gap: "24px",
+    flexWrap: 'wrap',
   },
   inputError: {
     borderColor: "#FF3B30",
   },
   errorText: {
-    fontSize: "12px",
-    color: "#FF3B30",
-    marginTop: "6px",
-  },
-  submitError: {
     fontSize: "13px",
     color: "#FF3B30",
-    marginTop: "-4px",
-    marginBottom: "8px",
+    marginTop: "8px",
+    fontWeight: 600,
+  },
+  submitError: {
+    fontSize: "15px",
+    color: "#FF3B30",
+    textAlign: 'center',
+    marginBottom: "24px",
+    fontWeight: 700,
   },
   modalFooter: {
     display: "flex",
-    gap: "12px",
+    gap: "16px",
     justifyContent: "flex-end",
-    marginTop: "24px",
-    paddingTop: "16px",
-    borderTop: "1px solid #E5E5EA",
+    marginTop: "16px",
+    paddingTop: "32px",
+    borderTop: "1.5px solid var(--border-color)",
   },
   cancelBtn: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: 500,
-    backgroundColor: "#F2F2F7",
-    border: "none",
-    borderRadius: "10px",
+    padding: "14px 28px",
+    fontSize: "16px",
+    fontWeight: 700,
+    backgroundColor: "transparent",
+    border: "1.5px solid var(--border-color)",
+    borderRadius: "16px",
+    color: "var(--text-secondary)",
     cursor: "pointer",
     fontFamily: "inherit",
+    transition: 'all 0.2s ease',
   },
   saveBtn: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: 600,
+    padding: "14px 32px",
+    fontSize: "16px",
+    fontWeight: 700,
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
     border: "none",
-    borderRadius: "10px",
+    borderRadius: "16px",
     cursor: "pointer",
     fontFamily: "inherit",
+    boxShadow: "0 8px 16px rgba(0,122,255,0.25)",
+    transition: 'all 0.2s ease',
   },
 };

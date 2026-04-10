@@ -7,18 +7,29 @@ import API from "../../../core/services/apiService";
 
 export default function DeveloperDashboardPage() {
   const [stats, setStats] = useState({ projects: 0, clients: 0, tasks: 0, revenue: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     API.get("/stats")
       .then((response) => setStats(response.data.data))
-      .catch((error) => console.error("Developer dashboard error:", error));
+      .catch((error) => console.error("Developer dashboard error:", error))
+      .finally(() => setLoading(false));
   }, []);
 
   const cards = [
-    { label: "Assigned Projects", value: stats.projects, icon: FolderOpen, color: "#007AFF", bg: "#E3F2FF" },
-    { label: "Active Deliveries", value: stats.tasks, icon: Clock3, color: "#FF9500", bg: "#FFF4E5" },
-    { label: "Client Accounts", value: stats.clients, icon: CheckCircle2, color: "#34C759", bg: "#E8F5E9" },
+    { label: "Assigned Projects", value: stats.projects, icon: FolderOpen, color: "#007AFF", bg: "rgba(0, 122, 255, 0.1)" },
+    { label: "Active Deliveries", value: stats.tasks, icon: Clock3, color: "#FF9500", bg: "rgba(255, 149, 0, 0.1)" },
+    { label: "Client Accounts", value: stats.clients, icon: CheckCircle2, color: "#34C759", bg: "rgba(52, 199, 89, 0.1)" },
   ];
+
+  if (loading) {
+    return (
+      <div style={styles.loadingContainer}>
+        <div style={styles.spinner}></div>
+        <p style={{ color: "var(--text-secondary)" }}>Loading developer stats...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
@@ -46,13 +57,60 @@ export default function DeveloperDashboardPage() {
 }
 
 const styles: any = {
-  container: { padding: "8px 4px", display: "flex", flexDirection: "column", gap: "24px" },
+  container: { 
+    padding: "8px 4px", 
+    display: "flex", 
+    flexDirection: "column", 
+    gap: "24px",
+    backgroundColor: "var(--bg-primary)",
+    minHeight: "100vh"
+  },
   header: {},
-  title: { fontSize: "34px", fontWeight: 600, color: "#1C1C1E", margin: 0, marginBottom: "8px", letterSpacing: "-0.5px" },
-  subtitle: { fontSize: "15px", color: "#8E8E93", margin: 0 },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px" },
+  title: { 
+    fontSize: "34px", 
+    fontWeight: 700, 
+    color: "var(--text-primary)", 
+    margin: 0, 
+    marginBottom: "8px", 
+    letterSpacing: "-1px" 
+  },
+  subtitle: { fontSize: "15px", color: "var(--text-secondary)", margin: 0 },
+  grid: { 
+    display: "grid", 
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", 
+    gap: "20px" 
+  },
   cardContent: { display: "flex", gap: "16px", alignItems: "center" },
-  iconWrap: { width: "48px", height: "48px", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" },
-  cardLabel: { margin: 0, fontSize: "13px", color: "#8E8E93" },
-  cardValue: { margin: "6px 0 0 0", fontSize: "28px", fontWeight: 600, color: "#1C1C1E" },
+  iconWrap: { 
+    width: "48px", 
+    height: "48px", 
+    borderRadius: "12px", 
+    display: "flex", 
+    alignItems: "center", 
+    justifyContent: "center" 
+  },
+  cardLabel: { margin: 0, fontSize: "13px", color: "var(--text-secondary)", fontWeight: 500 },
+  cardValue: { 
+    margin: "6px 0 0 0", 
+    fontSize: "28px", 
+    fontWeight: 700, 
+    color: "var(--text-primary)",
+    letterSpacing: "-0.5px"
+  },
+  loadingContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "400px",
+    gap: "16px",
+  },
+  spinner: {
+    width: "32px",
+    height: "32px",
+    border: "3px solid var(--border-color)",
+    borderTopColor: "#007AFF",
+    borderRadius: "50%",
+    animation: "spin 0.8s linear infinite",
+  },
 };
