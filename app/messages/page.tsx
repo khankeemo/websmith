@@ -1,6 +1,5 @@
 // PATH: C:\websmith\app\messages\page.tsx
 // Messages Page - Internal chat and messaging system
-// Features: Chat list, real-time messages, conversation management
 
 "use client";
 
@@ -15,7 +14,8 @@ import {
   Smile,
   Check,
   CheckCheck,
-  Clock
+  Clock,
+  ArrowLeft
 } from "lucide-react";
 import API from "@/core/services/apiService";
 
@@ -48,6 +48,7 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function MessagesPage() {
   useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation._id);
+      setShowMobileChat(true);
     }
   }, [selectedConversation]);
 
@@ -69,7 +71,6 @@ export default function MessagesPage() {
   };
 
   const fetchConversations = async () => {
-    const token = localStorage.getItem("token");
     try {
       const response = await API.get("/messages/conversations");
       if (response.data.success || response.data.data) {
@@ -84,7 +85,6 @@ export default function MessagesPage() {
   };
 
   const fetchMessages = async (conversationId: string) => {
-    const token = localStorage.getItem("token");
     try {
       const response = await API.get(`/messages/${conversationId}`);
       if (response.data.success || response.data.data) {
@@ -99,7 +99,6 @@ export default function MessagesPage() {
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
-    const token = localStorage.getItem("token");
     const tempMessage: Message = {
       _id: Date.now().toString(),
       senderId: "current-user",
@@ -132,10 +131,10 @@ export default function MessagesPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "sent": return <Clock size={12} color="#8E8E93" />;
-      case "delivered": return <Check size={12} color="#8E8E93" />;
+      case "sent": return <Clock size={12} color="var(--text-secondary)" />;
+      case "delivered": return <Check size={12} color="var(--text-secondary)" />;
       case "read": return <CheckCheck size={12} color="#34C759" />;
-      default: return <Clock size={12} color="#8E8E93" />;
+      default: return <Clock size={12} color="var(--text-secondary)" />;
     }
   };
 
@@ -162,15 +161,21 @@ export default function MessagesPage() {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p>Loading messages...</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Decrypting messages...</p>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
-      {/* Chat Sidebar - FIXED OVERFLOW */}
-      <div style={styles.sidebar}>
+    <div style={styles.container} className="messages-page-shell">
+      {/* Chat Sidebar */}
+      <div
+        style={{
+          ...styles.sidebar,
+          ...(showMobileChat ? styles.mobileSidebarHidden : {}),
+        }}
+        className="messages-sidebar"
+      >
         <div style={styles.sidebarHeader}>
           <h2 style={styles.sidebarTitle}>Messages</h2>
           <div style={styles.searchWrapper}>
@@ -189,7 +194,10 @@ export default function MessagesPage() {
           {filteredConversations.map((conv) => (
             <div
               key={conv._id}
-              onClick={() => setSelectedConversation(conv)}
+              onClick={() => {
+                setSelectedConversation(conv);
+                setShowMobileChat(true);
+              }}
               style={{
                 ...styles.conversationItem,
                 ...(selectedConversation?._id === conv._id ? styles.conversationItemActive : {})
@@ -205,7 +213,7 @@ export default function MessagesPage() {
               <div style={styles.conversationInfo}>
                 <div style={styles.conversationName}>{conv.participantName}</div>
                 <div style={styles.conversationRole}>{conv.participantRole}</div>
-                <div style={styles.lastMessage}>{conv.lastMessage}</div>
+                <div style={styles.lastMessageText}>{conv.lastMessage}</div>
               </div>
               <div style={styles.conversationMeta}>
                 <div style={styles.lastTime}>{formatTime(conv.lastMessageTime)}</div>
@@ -220,10 +228,23 @@ export default function MessagesPage() {
 
       {/* Chat Area */}
       {selectedConversation ? (
-        <div style={styles.chatArea}>
+        <div
+          style={{
+            ...styles.chatArea,
+            ...(!showMobileChat ? styles.mobileChatHidden : {}),
+          }}
+          className="messages-chat-area"
+        >
           {/* Chat Header */}
           <div style={styles.chatHeader}>
             <div style={styles.chatHeaderInfo}>
+              <button
+                onClick={() => setShowMobileChat(false)}
+                style={styles.mobileBackButton}
+                className="messages-mobile-back"
+              >
+                <ArrowLeft size={18} />
+              </button>
               <div style={styles.chatAvatar}>
                 {selectedConversation.participantName.charAt(0)}
               </div>
@@ -262,7 +283,7 @@ export default function MessagesPage() {
                       {selectedConversation.participantName.charAt(0)}
                     </div>
                   )}
-                  <div style={{ maxWidth: "70%" }}>
+                  <div style={{ maxWidth: "75%" }}>
                     <div
                       style={{
                         ...styles.messageBubble,
@@ -285,8 +306,8 @@ export default function MessagesPage() {
 
           {/* Message Input */}
           <div style={styles.messageInputContainer}>
-            <button style={styles.attachBtn} className="input-action">
-              <Paperclip size={18} />
+            <button style={styles.attachBtn} className="chat-input-btn">
+              <Paperclip size={20} />
             </button>
             <textarea
               value={newMessage}
@@ -294,11 +315,10 @@ export default function MessagesPage() {
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
               style={styles.messageInput}
-              className="message-input"
               rows={1}
             />
-            <button style={styles.emojiBtn} className="input-action">
-              <Smile size={18} />
+            <button style={styles.emojiBtn} className="chat-input-btn">
+              <Smile size={20} />
             </button>
             <button onClick={sendMessage} style={styles.sendBtn} className="send-btn">
               <Send size={18} />
@@ -308,8 +328,8 @@ export default function MessagesPage() {
       ) : (
         <div style={styles.noChatSelected}>
           <div style={styles.noChatIcon}>💬</div>
-          <h3>Select a conversation</h3>
-          <p>Choose a conversation from the list to start messaging</p>
+          <h3 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>Select a conversation</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>Choose a teammate from the list to start messaging</p>
         </div>
       )}
 
@@ -319,52 +339,17 @@ export default function MessagesPage() {
           box-shadow: 0 0 0 3px rgba(0,122,255,0.1) !important;
           outline: none;
         }
-        .conv-item {
-          transition: all 0.2s ease;
-        }
-        .conv-item:hover {
-          background-color: #F2F2F7;
-        }
-        .message-bubble {
-          transition: all 0.2s ease;
-        }
-        .message-bubble:hover {
-          transform: scale(1.02);
-        }
-        .chat-action {
-          transition: all 0.2s ease;
-        }
-        .chat-action:hover {
-          background-color: #F2F2F7;
-          transform: scale(1.05);
-        }
-        .input-action {
-          transition: all 0.2s ease;
-        }
-        .input-action:hover {
-          background-color: #F2F2F7;
-          transform: scale(1.05);
-        }
-        .send-btn {
-          transition: all 0.2s ease;
-        }
-        .send-btn:hover {
-          background-color: #0055CC !important;
-          transform: scale(1.05);
-        }
-        .message-input {
-          transition: all 0.2s ease;
-        }
-        .message-input:focus {
-          border-color: #007AFF !important;
-          box-shadow: 0 0 0 3px rgba(0,122,255,0.1) !important;
-          outline: none;
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        * {
-          box-sizing: border-box;
+        .conv-item { transition: all 0.2s ease; border-left: 3px solid transparent; }
+        .conv-item:hover { background-color: var(--bg-secondary); }
+        .message-bubble { transition: all 0.2s ease; position: relative; }
+        .chat-action, .chat-input-btn { transition: all 0.2s ease; border-radius: 10px; }
+        .chat-action:hover, .chat-input-btn:hover { background-color: var(--bg-secondary); color: #007AFF !important; }
+        .send-btn { transition: all 0.25s ease; border: none; }
+        .send-btn:hover { background-color: #0055CC !important; transform: scale(1.05); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 900px) {
+          .messages-page-shell { margin: 8px !important; height: calc(100vh - 96px) !important; }
+          .messages-mobile-back { display: flex !important; margin-right: 8px; }
         }
       `}</style>
     </div>
@@ -373,380 +358,175 @@ export default function MessagesPage() {
 
 // Sample data for demo
 const sampleConversations: Conversation[] = [
-  {
-    _id: "1",
-    participantId: "2",
-    participantName: "Sarah Johnson",
-    participantAvatar: "S",
-    participantRole: "Project Manager",
-    lastMessage: "The project is on track for Friday",
-    lastMessageTime: new Date().toISOString(),
-    unreadCount: 2,
-    online: true
-  },
-  {
-    _id: "2",
-    participantId: "3",
-    participantName: "Michael Chen",
-    participantAvatar: "M",
-    participantRole: "Lead Developer",
-    lastMessage: "I've pushed the latest updates",
-    lastMessageTime: new Date(Date.now() - 3600000).toISOString(),
-    unreadCount: 0,
-    online: true
-  },
-  {
-    _id: "3",
-    participantId: "4",
-    participantName: "Emily Rodriguez",
-    participantAvatar: "E",
-    participantRole: "UI/UX Designer",
-    lastMessage: "Here are the new mockups",
-    lastMessageTime: new Date(Date.now() - 86400000).toISOString(),
-    unreadCount: 0,
-    online: false
-  }
+  { _id: "1", participantId: "2", participantName: "Sarah Johnson", participantAvatar: "S", participantRole: "Project Manager", lastMessage: "The project is on track for Friday", lastMessageTime: new Date().toISOString(), unreadCount: 2, online: true },
+  { _id: "2", participantId: "3", participantName: "Michael Chen", participantAvatar: "M", participantRole: "Lead Developer", lastMessage: "I've pushed the latest updates", lastMessageTime: new Date(Date.now() - 3600000).toISOString(), unreadCount: 0, online: true },
+  { _id: "3", participantId: "4", participantName: "Emily Rodriguez", participantAvatar: "E", participantRole: "UI/UX Designer", lastMessage: "Here are the new mockups", lastMessageTime: new Date(Date.now() - 86400000).toISOString(), unreadCount: 0, online: false }
 ];
 
 const sampleMessages: Message[] = [
-  {
-    _id: "1",
-    senderId: "other",
-    receiverId: "current-user",
-    content: "Hey! How's the project going?",
-    type: "text",
-    status: "read",
-    timestamp: new Date(Date.now() - 3600000).toISOString()
-  },
-  {
-    _id: "2",
-    senderId: "current-user",
-    receiverId: "other",
-    content: "Going great! Almost done with the frontend.",
-    type: "text",
-    status: "read",
-    timestamp: new Date(Date.now() - 3500000).toISOString()
-  },
-  {
-    _id: "3",
-    senderId: "other",
-    receiverId: "current-user",
-    content: "Awesome! Let me know if you need anything.",
-    type: "text",
-    status: "read",
-    timestamp: new Date(Date.now() - 3400000).toISOString()
-  }
+  { _id: "1", senderId: "other", receiverId: "current-user", content: "Hey! How's the project going?", type: "text", status: "read", timestamp: new Date(Date.now() - 3600000).toISOString() },
+  { _id: "2", senderId: "current-user", receiverId: "other", content: "Going great! Almost done with the frontend.", type: "text", status: "read", timestamp: new Date(Date.now() - 3500000).toISOString() },
+  { _id: "3", senderId: "other", receiverId: "current-user", content: "Awesome! Let me know if you need anything.", type: "text", status: "read", timestamp: new Date(Date.now() - 3400000).toISOString() }
 ];
 
 const styles: any = {
   container: {
     display: "flex",
-    height: "calc(100vh - 80px)",
-    backgroundColor: "#FFFFFF",
-    borderRadius: "20px",
+    height: "calc(100vh - 40px)",
+    backgroundColor: "var(--bg-primary)",
+    borderRadius: "24px",
     overflow: "hidden",
-    margin: "20px",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    margin: "12px",
+    border: "1.5px solid var(--border-color)",
+    boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
   },
   loadingContainer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    height: "calc(100vh - 80px)",
+    height: "calc(100vh - 40px)",
     gap: "16px",
   },
   spinner: {
     width: "40px",
     height: "40px",
-    border: "3px solid #E5E5EA",
+    border: "3px solid var(--border-color)",
     borderTopColor: "#007AFF",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },
   sidebar: {
-    width: "320px",
-    minWidth: "320px",
-    maxWidth: "320px",
-    borderRight: "1px solid #E5E5EA",
+    width: "360px",
+    minWidth: "360px",
+    borderRight: "1.5px solid var(--border-color)",
     display: "flex",
-    flexDirection: "column" as const,
-    backgroundColor: "#FFFFFF",
-    overflow: "hidden",
+    flexDirection: "column",
+    backgroundColor: "var(--bg-primary)",
   },
+  mobileSidebarHidden: { display: "none" },
   sidebarHeader: {
-    padding: "20px",
-    borderBottom: "1px solid #E5E5EA",
+    padding: "32px 24px 24px",
+    borderBottom: "1.5px solid var(--border-color)",
   },
   sidebarTitle: {
-    fontSize: "20px",
-    fontWeight: 600,
-    marginBottom: "16px",
-    color: "#1C1C1E",
+    fontSize: "24px",
+    fontWeight: 700,
+    marginBottom: "20px",
+    color: "var(--text-primary)",
+    letterSpacing: '-0.5px'
   },
-  searchWrapper: {
-    position: "relative",
-    width: "100%",
-    overflow: "hidden",
-  },
-  searchIconSmall: {
-    position: "absolute",
-    left: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    color: "#8E8E93",
-    zIndex: 1,
-  },
+  searchWrapper: { position: "relative", width: "100%" },
+  searchIconSmall: { position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" },
   searchInputSmall: {
     width: "100%",
-    padding: "10px 12px 10px 36px",
+    padding: "12px 16px 12px 42px",
     fontSize: "14px",
-    border: "1px solid #E5E5EA",
-    borderRadius: "10px",
+    border: "1.5px solid var(--border-color)",
+    borderRadius: "14px",
+    backgroundColor: "var(--bg-secondary)",
+    color: 'var(--text-primary)',
     outline: "none",
-    backgroundColor: "#F9F9FB",
-    boxSizing: "border-box" as const,
   },
-  conversationsList: {
-    flex: 1,
-    overflowY: "auto" as const,
-  },
+  conversationsList: { flex: 1, overflowY: "auto" },
   conversationItem: {
     display: "flex",
     alignItems: "center",
-    gap: "12px",
-    padding: "16px 20px",
+    gap: "16px",
+    padding: "18px 24px",
     cursor: "pointer",
-    borderBottom: "1px solid #F5F5F7",
-    transition: "all 0.2s ease",
+    borderBottom: "1px solid var(--border-color)",
   },
   conversationItemActive: {
-    backgroundColor: "#E3F2FF",
+    backgroundColor: "rgba(0, 122, 255, 0.08)",
+    borderLeftColor: "#007AFF",
   },
-  avatarContainer: {
-    position: "relative" as const,
-    flexShrink: 0,
-  },
+  avatarContainer: { position: "relative", flexShrink: 0 },
   avatar: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "50%",
+    width: "54px",
+    height: "54px",
+    borderRadius: "18px",
     backgroundColor: "#007AFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "#FFFFFF",
-    fontWeight: 600,
-    fontSize: "18px",
+    fontWeight: 700,
+    fontSize: "20px",
   },
   onlineDot: {
     position: "absolute",
-    bottom: "2px",
-    right: "2px",
-    width: "12px",
-    height: "12px",
+    bottom: "-2px",
+    right: "-2px",
+    width: "14px",
+    height: "14px",
     backgroundColor: "#34C759",
     borderRadius: "50%",
-    border: "2px solid #FFFFFF",
+    border: "2.5px solid var(--bg-primary)",
   },
-  conversationInfo: {
-    flex: 1,
-    minWidth: 0, // Allows text truncation
-  },
-  conversationName: {
-    fontSize: "15px",
-    fontWeight: 600,
-    color: "#1C1C1E",
-    marginBottom: "2px",
-  },
-  conversationRole: {
-    fontSize: "12px",
-    color: "#8E8E93",
-    marginBottom: "4px",
-  },
-  lastMessage: {
-    fontSize: "13px",
-    color: "#6C6C70",
-    whiteSpace: "nowrap" as const,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  conversationMeta: {
-    display: "flex",
-    flexDirection: "column" as const,
-    alignItems: "flex-end",
-    gap: "4px",
-    flexShrink: 0,
-  },
-  lastTime: {
-    fontSize: "11px",
-    color: "#8E8E93",
-  },
-  unreadBadge: {
-    padding: "2px 6px",
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-    borderRadius: "10px",
-    fontSize: "11px",
-    fontWeight: 600,
-  },
+  conversationInfo: { flex: 1, minWidth: 0 },
+  conversationName: { fontSize: "16px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "4px" },
+  conversationRole: { fontSize: "12px", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 500 },
+  lastMessageText: { fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  conversationMeta: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" },
+  lastTime: { fontSize: "11px", color: "var(--text-secondary)", fontWeight: 500 },
+  unreadBadge: { padding: "3px 8px", backgroundColor: "#007AFF", color: "#FFFFFF", borderRadius: "10px", fontSize: "10px", fontWeight: 800 },
   chatArea: {
     flex: 1,
     display: "flex",
-    flexDirection: "column" as const,
-    backgroundColor: "#FFFFFF",
-    minWidth: 0, // Prevents flex overflow
+    flexDirection: "column",
+    backgroundColor: "var(--bg-primary)",
   },
+  mobileChatHidden: { display: "none" },
   chatHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "16px 24px",
-    borderBottom: "1px solid #E5E5EA",
+    padding: "20px 32px",
+    borderBottom: "1.5px solid var(--border-color)",
+    backgroundColor: 'var(--bg-primary)',
   },
-  chatHeaderInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  chatAvatar: {
+  chatHeaderInfo: { display: "flex", alignItems: "center", gap: "16px" },
+  mobileBackButton: {
+    display: "none",
     width: "40px",
     height: "40px",
-    borderRadius: "50%",
+    borderRadius: "12px",
+    border: "1.5px solid var(--border-color)",
+    background: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+  },
+  chatAvatar: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "16px",
     backgroundColor: "#007AFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "#FFFFFF",
-    fontWeight: 600,
+    fontWeight: 700,
   },
-  chatName: {
-    fontSize: "16px",
-    fontWeight: 600,
-    color: "#1C1C1E",
-  },
-  chatRole: {
-    fontSize: "12px",
-    color: "#8E8E93",
-  },
-  chatActions: {
-    display: "flex",
-    gap: "8px",
-  },
-  chatActionBtn: {
-    padding: "8px",
-    background: "none",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    color: "#8E8E93",
-  },
-  messagesArea: {
-    flex: 1,
-    overflowY: "auto" as const,
-    padding: "24px",
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "16px",
-  },
-  messageWrapper: {
-    display: "flex",
-    gap: "8px",
-  },
-  messageAvatar: {
-    width: "32px",
-    height: "32px",
-    borderRadius: "50%",
-    backgroundColor: "#007AFF",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#FFFFFF",
-    fontSize: "14px",
-    fontWeight: 600,
-    flexShrink: 0,
-  },
-  messageBubble: {
-    padding: "10px 14px",
-    borderRadius: "18px",
-    fontSize: "14px",
-    lineHeight: 1.4,
-    wordBreak: "break-word" as const,
-  },
-  messageBubbleOwn: {
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-    borderBottomRightRadius: "4px",
-  },
-  messageBubbleOther: {
-    backgroundColor: "#F2F2F7",
-    color: "#1C1C1E",
-    borderBottomLeftRadius: "4px",
-  },
-  messageMeta: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: "4px",
-    marginTop: "4px",
-  },
-  messageTime: {
-    fontSize: "10px",
-    color: "#8E8E93",
-  },
-  messageInputContainer: {
-    display: "flex",
-    alignItems: "flex-end",
-    gap: "12px",
-    padding: "16px 24px",
-    borderTop: "1px solid #E5E5EA",
-    backgroundColor: "#FFFFFF",
-  },
-  attachBtn: {
-    padding: "8px",
-    background: "none",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    color: "#8E8E93",
-  },
-  emojiBtn: {
-    padding: "8px",
-    background: "none",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    color: "#8E8E93",
-  },
-  messageInput: {
-    flex: 1,
-    padding: "10px 16px",
-    fontSize: "14px",
-    border: "1px solid #E5E5EA",
-    borderRadius: "20px",
-    outline: "none",
-    resize: "none" as const,
-    fontFamily: "inherit",
-    maxHeight: "100px",
-  },
-  sendBtn: {
-    padding: "8px 12px",
-    backgroundColor: "#007AFF",
-    border: "none",
-    borderRadius: "20px",
-    cursor: "pointer",
-    color: "#FFFFFF",
-  },
-  noChatSelected: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-    backgroundColor: "#F9F9FB",
-  },
-  noChatIcon: {
-    fontSize: "64px",
-  },
+  chatName: { fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" },
+  chatRole: { fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 },
+  chatActions: { display: "flex", gap: "10px" },
+  chatActionBtn: { padding: "10px", background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" },
+  messagesArea: { flex: 1, overflowY: "auto", padding: "32px", display: "flex", flexDirection: "column", gap: "24px", backgroundColor: 'var(--bg-secondary)' },
+  messageWrapper: { display: "flex", gap: "12px" },
+  messageAvatar: { width: "36px", height: "36px", borderRadius: "12px", backgroundColor: "#007AFF", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF", fontSize: "15px", fontWeight: 700 },
+  messageBubble: { padding: "14px 20px", borderRadius: "20px", fontSize: "15px", lineHeight: 1.5 },
+  messageBubbleOwn: { backgroundColor: "#007AFF", color: "#FFFFFF", borderBottomRightRadius: "4px", boxShadow: '0 4px 12px rgba(0,122,255,0.2)' },
+  messageBubbleOther: { backgroundColor: "var(--bg-primary)", color: "var(--text-primary)", borderBottomLeftRadius: "4px", border: '1px solid var(--border-color)' },
+  messageMeta: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px", marginTop: "6px" },
+  messageTime: { fontSize: "11px", color: "var(--text-secondary)", fontWeight: 500 },
+  messageInputContainer: { display: "flex", alignItems: "center", gap: "16px", padding: "20px 32px", borderTop: "1.5px solid var(--border-color)", backgroundColor: "var(--bg-primary)" },
+  attachBtn: { padding: "10px", background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" },
+  emojiBtn: { padding: "10px", background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" },
+  messageInput: { flex: 1, padding: "14px 20px", fontSize: "15px", border: "1.5px solid var(--border-color)", borderRadius: "16px", outline: "none", resize: "none", fontFamily: "inherit", backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' },
+  sendBtn: { padding: "12px", backgroundColor: "#007AFF", borderRadius: "14px", cursor: "pointer", color: "#FFFFFF" },
+  noChatSelected: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "40px", backgroundColor: 'var(--bg-secondary)' },
+  noChatIcon: { fontSize: "64px", marginBottom: "24px", backgroundColor: 'var(--bg-primary)', width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '40px', border: '1.5px solid var(--border-color)' },
 };

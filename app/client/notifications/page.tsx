@@ -1,228 +1,277 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, Clock } from "lucide-react";
+import { Bell, CheckCircle, Clock, MailOpen } from "lucide-react";
 import API from "../../../core/services/apiService";
-import Card from "../../../components/ui/Card";
 
 interface Notification {
   _id: string;
   type: string;
   message: string;
-  title: string;
   isRead: boolean;
-  relatedId?: string;
   createdAt: string;
 }
 
 export default function ClientNotificationsPage() {
-  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "unread">("all");
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    fetchNotifications();
-  }, [router]);
+  const [error, setError] = useState("");
 
   const fetchNotifications = async () => {
     try {
       const response = await API.get("/users/notifications");
-      setNotifications(response.data.notifications || []);
+      setNotifications(response.data.data || []);
+      setError("");
+    } catch (err) {
+      console.error("Failed to fetch client notifications:", err);
+      setError("Failed to load notifications. Please try again.");
+    } finally {
       setLoading(false);
-    } catch (error) {
-      console.error("Error:", error);
-      router.push("/login");
     }
   };
 
-  const markAsRead = async (notificationId: string) => {
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const markAsRead = async (id: string) => {
     try {
-      await API.post(`/users/notifications/${notificationId}/read`);
-      fetchNotifications();
-    } catch (error) {
-      console.error("Error marking as read:", error);
+      await API.patch(`/users/notifications/${id}/read`);
+      setNotifications((current) => current.map((item) => (item._id === id ? { ...item, isRead: true } : item)));
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
     }
   };
 
   const markAllAsRead = async () => {
     try {
-      await API.post("/users/notifications/mark-all-read");
-      fetchNotifications();
-    } catch (error) {
-      console.error("Error marking all as read:", error);
-    }
-  };
-
-  const filteredNotifications =
-    filter === "unread" ? notifications.filter((n) => !n.isRead) : notifications;
-
-  const stats = {
-    total: notifications.length,
-    unread: notifications.filter((n) => !n.isRead).length,
-    read: notifications.filter((n) => n.isRead).length,
-  };
-
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "project":
-        return "📁";
-      case "task":
-        return "✅";
-      case "ticket":
-        return "🎫";
-      case "payment":
-        return "💰";
-      default:
-        return "🔔";
+      const unread = notifications.filter((item) => !item.isRead);
+      await Promise.all(unread.map((item) => API.patch(`/users/notifications/${item._id}/read`)));
+      setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+    } catch (err) {
+      console.error("Failed to mark all notifications as read:", err);
     }
   };
 
   if (loading) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner}></div>
-        <p>Loading notifications...</p>
+      <div style={styles.container}>
+        <div style={styles.loadingContainer}>
+          <div style={styles.spinner}></div>
+          <p>Loading notifications...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div style={styles.container}>
-      {/* Header */}
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Notifications</h1>
-          <p style={styles.subtitle}>Stay updated with your project activities</p>
+          <p style={styles.subtitle}>Track project assignment updates and account activity</p>
         </div>
-        {stats.unread > 0 && (
-          <button onClick={markAllAsRead} style={styles.markAllBtn}>
-            <CheckCheck size={18} />
-            <span>Mark All Read</span>
-          </button>
-        )}
-      </div>
-
-      {/* Stats */}
-      <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <Bell size={24} color="#007AFF" />
-          <div>
-            <p style={styles.statValue}>{stats.total}</p>
-            <p style={styles.statLabel}>Total</p>
-          </div>
-        </div>
-        <div style={styles.statCard}>
-          <Bell size={24} color="#FF9500" />
-          <div>
-            <p style={styles.statValue}>{stats.unread}</p>
-            <p style={styles.statLabel}>Unread</p>
-          </div>
-        </div>
-        <div style={styles.statCard}>
-          <CheckCheck size={24} color="#34C759" />
-          <div>
-            <p style={styles.statValue}>{stats.read}</p>
-            <p style={styles.statLabel}>Read</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Tabs */}
-      <div style={styles.filterTabs}>
         <button
-          onClick={() => setFilter("all")}
-          style={{ ...styles.filterBtn, ...(filter === "all" ? styles.filterActive : {}) }}
+          onClick={markAllAsRead}
+          style={styles.markReadBtn}
+          disabled={!notifications.some((item) => !item.isRead)}
         >
-          All ({stats.total})
-        </button>
-        <button
-          onClick={() => setFilter("unread")}
-          style={{ ...styles.filterBtn, ...(filter === "unread" ? styles.filterActive : {}) }}
-        >
-          Unread ({stats.unread})
+          <MailOpen size={18} />
+          <span>Mark all as read</span>
         </button>
       </div>
 
-      {/* Notifications List */}
-      <div style={styles.notificationsList}>
-        {filteredNotifications.length > 0 ? (
-          filteredNotifications.map((notification) => (
-            <Card key={notification._id}>
+      {error && (
+        <div style={styles.errorContainer}>
+          <p>{error}</p>
+        </div>
+      )}
+
+      <div style={styles.listContainer}>
+        {notifications.length === 0 ? (
+          <div style={styles.emptyState}>
+            <Bell size={48} color="#C6C6C8" />
+            <h3>No notifications yet</h3>
+            <p>Project assignment updates will appear here.</p>
+          </div>
+        ) : (
+          <div style={styles.grid}>
+            {notifications.map((notification) => (
               <div
+                key={notification._id}
                 style={{
-                  ...styles.notificationItem,
-                  backgroundColor: notification.isRead ? "transparent" : "#E3F2FF",
-                  borderLeft: notification.isRead ? "3px solid transparent" : "3px solid #007AFF",
+                  ...styles.notificationCard,
+                  ...(notification.isRead ? {} : styles.unreadCard),
                 }}
+                className="notification-item"
               >
-                <div style={styles.notificationIcon}>
-                  {getIcon(notification.type)}
-                </div>
-                <div style={styles.notificationContent}>
-                  <h4 style={styles.notificationTitle}>{notification.title}</h4>
-                  <p style={styles.notificationMessage}>{notification.message}</p>
-                  <div style={styles.notificationMeta}>
-                    <Clock size={14} />
-                    <span>{new Date(notification.createdAt).toLocaleString()}</span>
+                <div style={styles.cardInfo}>
+                  <div
+                    style={{
+                      ...styles.iconWrapper,
+                      backgroundColor: notification.isRead ? "#F2F2F7" : "#E3F2FF",
+                    }}
+                  >
+                    <Bell size={20} color={notification.isRead ? "#8E8E93" : "#007AFF"} />
+                  </div>
+                  <div style={styles.textContent}>
+                    <p style={styles.messageText}>{notification.message}</p>
+                    <div style={styles.metaInfo}>
+                      <Clock size={12} />
+                      <span>{new Date(notification.createdAt).toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
                 {!notification.isRead && (
-                  <button
-                    onClick={() => markAsRead(notification._id)}
-                    style={styles.markReadBtn}
-                  >
-                    Mark Read
+                  <button onClick={() => markAsRead(notification._id)} style={styles.actionBtn} title="Mark as read">
+                    <CheckCircle size={20} color="#34C759" />
                   </button>
                 )}
               </div>
-            </Card>
-          ))
-        ) : (
-          <div style={styles.emptyContainer}>
-            <Bell size={48} color="#C6C6C8" />
-            <h3 style={styles.emptyTitle}>No notifications</h3>
-            <p style={styles.emptyText}>
-              {filter === "unread" ? "All caught up! No unread notifications" : "You have no notifications yet"}
-            </p>
+            ))}
           </div>
         )}
       </div>
+
+      <style>{`
+        .notification-item {
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .notification-item:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
 
-const styles: Record<string, any> = {
-  container: { padding: "24px" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "24px" },
-  title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "#1C1C1E" },
-  subtitle: { margin: "8px 0 0", color: "#8E8E93" },
-  markAllBtn: { display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", backgroundColor: "#007AFF", color: "#fff", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "24px" },
-  statCard: { display: "flex", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "20px" },
-  statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "#1C1C1E" },
-  statLabel: { margin: "4px 0 0", fontSize: "13px", color: "#8E8E93" },
-  filterTabs: { display: "flex", gap: "12px", marginBottom: "24px" },
-  filterBtn: { padding: "10px 20px", background: "#F2F2F7", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 500, cursor: "pointer", color: "#8E8E93" },
-  filterActive: { background: "#007AFF", color: "#fff" },
-  notificationsList: { display: "flex", flexDirection: "column", gap: "12px" },
-  notificationItem: { display: "flex", gap: "16px", padding: "16px", transition: "all 0.2s ease" },
-  notificationIcon: { fontSize: "32px", flexShrink: 0 },
-  notificationContent: { flex: 1 },
-  notificationTitle: { margin: "0 0 8px", fontSize: "16px", fontWeight: 600, color: "#1C1C1E" },
-  notificationMessage: { margin: "0 0 12px", fontSize: "14px", color: "#3A3A3C", lineHeight: 1.5 },
-  notificationMeta: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#8E8E93" },
-  markReadBtn: { padding: "8px 16px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: 500, cursor: "pointer", alignSelf: "center" },
-  loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px", gap: "16px" },
-  spinner: { width: "40px", height: "40px", border: "3px solid #E5E5EA", borderTopColor: "#007AFF", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
-  emptyContainer: { textAlign: "center", padding: "60px" },
-  emptyTitle: { fontSize: "20px", fontWeight: 600, color: "#1C1C1E", marginTop: "16px", marginBottom: "8px" },
-  emptyText: { fontSize: "14px", color: "#8E8E93" },
+const styles: any = {
+  container: {
+    padding: "8px 4px",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: "32px",
+  },
+  title: {
+    fontSize: "34px",
+    fontWeight: 600,
+    letterSpacing: "-0.5px",
+    color: "#1C1C1E",
+    marginBottom: "8px",
+  },
+  subtitle: {
+    fontSize: "15px",
+    color: "#8E8E93",
+  },
+  markReadBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 20px",
+    backgroundColor: "#F2F2F7",
+    color: "#1C1C1E",
+    border: "none",
+    borderRadius: "12px",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+  },
+  listContainer: {
+    marginTop: "20px",
+  },
+  emptyState: {
+    textAlign: "center",
+    padding: "100px 20px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "16px",
+  },
+  grid: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  notificationCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "16px 20px",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "16px",
+    border: "1px solid #E5E5EA",
+  },
+  unreadCard: {
+    borderLeft: "4px solid #007AFF",
+    backgroundColor: "#FAFBFF",
+  },
+  cardInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    flex: 1,
+  },
+  iconWrapper: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  textContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  messageText: {
+    fontSize: "15px",
+    color: "#1C1C1E",
+    fontWeight: 500,
+    margin: 0,
+  },
+  metaInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "12px",
+    color: "#8E8E93",
+  },
+  actionBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: "8px",
+  },
+  loadingContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "16px",
+    padding: "100px 20px",
+  },
+  spinner: {
+    width: "32px",
+    height: "32px",
+    border: "3px solid #E5E5EA",
+    borderTopColor: "#007AFF",
+    borderRadius: "50%",
+    animation: "spin 0.8s linear infinite",
+  },
+  errorContainer: {
+    padding: "14px 16px",
+    backgroundColor: "#FEF2F0",
+    border: "1px solid #FF3B30",
+    borderRadius: "12px",
+    color: "#1C1C1E",
+  },
 };

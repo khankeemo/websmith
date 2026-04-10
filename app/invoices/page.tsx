@@ -17,7 +17,6 @@ import {
   Calendar,
   Clock,
   CheckCircle,
-  XCircle,
   AlertCircle
 } from "lucide-react";
 import API from "@/core/services/apiService";
@@ -54,7 +53,6 @@ export default function InvoicesPage() {
   }, []);
 
   const fetchInvoices = async () => {
-    const token = localStorage.getItem("token");
     try {
       const response = await API.get("/invoices");
       if (response.data.success || response.data.data) {
@@ -70,7 +68,6 @@ export default function InvoicesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this invoice?")) return;
     
-    const token = localStorage.getItem("token");
     try {
       const response = await API.delete(`/invoices/${id}`);
       if (response.status === 200) {
@@ -133,7 +130,7 @@ export default function InvoicesPage() {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p>Loading invoices...</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Loading invoices...</p>
       </div>
     );
   }
@@ -144,7 +141,7 @@ export default function InvoicesPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Invoices</h1>
-          <p style={styles.subtitle}>Manage and track all your invoices</p>
+          <p style={styles.subtitle}>Manage and track all customer billing</p>
         </div>
         <button onClick={() => { setEditingInvoice(null); setIsModalOpen(true); }} style={styles.createButton} className="create-btn">
           <Plus size={18} /> Create Invoice
@@ -154,7 +151,7 @@ export default function InvoicesPage() {
       {/* Stats Cards */}
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: "#E3F2FF" }}>
+          <div style={{ ...styles.statIcon, backgroundColor: "rgba(0, 122, 255, 0.1)" }}>
             <FileText size={20} color="#007AFF" />
           </div>
           <div>
@@ -163,16 +160,16 @@ export default function InvoicesPage() {
           </div>
         </div>
         <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: "#E8F5E9" }}>
+          <div style={{ ...styles.statIcon, backgroundColor: "rgba(52, 199, 89, 0.1)" }}>
             <DollarSign size={20} color="#34C759" />
           </div>
           <div>
             <div style={styles.statValue}>{formatCurrency(stats.totalAmount)}</div>
-            <div style={styles.statLabel}>Total Amount</div>
+            <div style={styles.statLabel}>Total Value</div>
           </div>
         </div>
         <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: "#FFF3E0" }}>
+          <div style={{ ...styles.statIcon, backgroundColor: "rgba(255, 149, 0, 0.1)" }}>
             <Clock size={20} color="#FF9500" />
           </div>
           <div>
@@ -181,7 +178,7 @@ export default function InvoicesPage() {
           </div>
         </div>
         <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: "#FFE5E5" }}>
+          <div style={{ ...styles.statIcon, backgroundColor: "rgba(255, 59, 48, 0.1)" }}>
             <AlertCircle size={20} color="#FF3B30" />
           </div>
           <div>
@@ -197,7 +194,7 @@ export default function InvoicesPage() {
           <Search size={18} style={styles.searchIcon} />
           <input
             type="text"
-            placeholder="Search by invoice number or client..."
+            placeholder="Search by invoice # or client..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={styles.searchInput}
@@ -220,12 +217,14 @@ export default function InvoicesPage() {
       {/* Invoices Table */}
       {filteredInvoices.length === 0 ? (
         <div style={styles.emptyState}>
-          <FileText size={64} color="#C6C6C8" />
-          <h3>No invoices found</h3>
-          <p>Create your first invoice to get started</p>
-          <button onClick={() => setIsModalOpen(true)} style={styles.emptyButton}>
-            Create Invoice
-          </button>
+          <FileText size={64} color="var(--border-color)" />
+          <h3 style={{ color: 'var(--text-primary)' }}>No invoices found</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>{searchTerm ? 'Try adjusting your search terms' : 'Create your first invoice to get started'}</p>
+          {!searchTerm && (
+            <button onClick={() => setIsModalOpen(true)} style={styles.emptyButton}>
+              Create Invoice
+            </button>
+          )}
         </div>
       ) : (
         <div style={styles.tableContainer}>
@@ -278,7 +277,7 @@ export default function InvoicesPage() {
                       <button style={styles.actionBtn} className="action-btn" title="Edit">
                         <Edit2 size={16} />
                       </button>
-                      <button onClick={() => handleDelete(invoice._id)} style={{ ...styles.actionBtn, ...styles.deleteBtn }} className="action-btn" title="Delete">
+                      <button onClick={() => handleDelete(invoice._id)} style={{ ...styles.actionBtn, ...styles.deleteBtn }} className="action-btn delete-hover" title="Delete">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -291,35 +290,15 @@ export default function InvoicesPage() {
       )}
 
       <style>{`
-        .create-btn {
-          transition: all 0.25s ease;
-        }
-        .create-btn:hover {
-          background-color: #0055CC !important;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,122,255,0.3);
-        }
-        .input-focus:focus {
-          border-color: #007AFF !important;
-          box-shadow: 0 0 0 4px rgba(0,122,255,0.1) !important;
-        }
-        .table-row {
-          transition: all 0.2s ease;
-        }
-        .table-row:hover {
-          background-color: #F9F9FB;
-        }
-        .action-btn {
-          transition: all 0.2s ease;
-        }
-        .action-btn:hover {
-          background-color: #E3F2FF !important;
-          color: #007AFF !important;
-          transform: scale(1.05);
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
+        .create-btn { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .create-btn:hover { background-color: #0055CC !important; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,122,255,0.3); }
+        .input-focus:focus { border-color: #007AFF !important; box-shadow: 0 0 0 4px rgba(0,122,255,0.1) !important; }
+        .table-row { transition: all 0.2s ease; }
+        .table-row:hover { background-color: var(--bg-secondary); }
+        .action-btn { transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; }
+        .action-btn:hover { background-color: var(--bg-secondary) !important; color: #007AFF !important; transform: scale(1.1); }
+        .delete-hover:hover { color: #FF3B30 !important; background-color: rgba(255, 59, 48, 0.1) !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
@@ -330,7 +309,9 @@ const styles: any = {
     maxWidth: "1400px",
     margin: "0 auto",
     padding: "32px 24px",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    backgroundColor: 'var(--bg-primary)',
+    minHeight: '100vh',
+    color: 'var(--text-primary)',
   },
   loadingContainer: {
     display: "flex",
@@ -343,7 +324,7 @@ const styles: any = {
   spinner: {
     width: "40px",
     height: "40px",
-    border: "3px solid #E5E5EA",
+    border: "3px solid var(--border-color)",
     borderTopColor: "#007AFF",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
@@ -352,20 +333,21 @@ const styles: any = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: "32px",
+    marginBottom: "40px",
     flexWrap: "wrap",
     gap: "16px",
   },
   title: {
     fontSize: "34px",
-    fontWeight: 600,
-    color: "#1C1C1E",
-    marginBottom: "8px",
-    letterSpacing: "-0.5px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    margin: "0 0 8px 0",
+    letterSpacing: "-1px",
   },
   subtitle: {
     fontSize: "16px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
+    margin: 0,
   },
   createButton: {
     display: "flex",
@@ -375,47 +357,51 @@ const styles: any = {
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
     border: "none",
-    borderRadius: "12px",
+    borderRadius: "14px",
     cursor: "pointer",
     fontSize: "14px",
-    fontWeight: 500,
+    fontWeight: 700,
+    boxShadow: '0 4px 12px rgba(0,122,255,0.2)',
   },
   statsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "16px",
-    marginBottom: "32px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: "20px",
+    marginBottom: "40px",
   },
   statCard: {
     display: "flex",
     alignItems: "center",
-    gap: "16px",
-    padding: "20px",
-    backgroundColor: "#FFFFFF",
-    borderRadius: "16px",
-    border: "1px solid #E5E5EA",
+    gap: "20px",
+    padding: "24px",
+    backgroundColor: "var(--bg-primary)",
+    borderRadius: "20px",
+    border: "1.5px solid var(--border-color)",
+    boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
   },
   statIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "12px",
+    width: "52px",
+    height: "52px",
+    borderRadius: "14px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   statValue: {
-    fontSize: "24px",
+    fontSize: "26px",
     fontWeight: 700,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
+    letterSpacing: '-0.5px',
   },
   statLabel: {
     fontSize: "13px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
+    fontWeight: 600,
   },
   searchSection: {
     display: "flex",
     gap: "16px",
-    marginBottom: "24px",
+    marginBottom: "32px",
     flexWrap: "wrap",
   },
   searchWrapper: {
@@ -427,104 +413,124 @@ const styles: any = {
     left: "14px",
     top: "50%",
     transform: "translateY(-50%)",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   searchInput: {
     width: "100%",
-    padding: "12px 16px 12px 40px",
+    padding: "12px 16px 12px 42px",
     fontSize: "16px",
-    border: "1.5px solid #E5E5EA",
-    borderRadius: "12px",
+    border: "1.5px solid var(--border-color)",
+    borderRadius: "14px",
     outline: "none",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
     transition: "all 0.2s ease",
   },
   filterSelect: {
     padding: "12px 16px",
     fontSize: "14px",
-    border: "1.5px solid #E5E5EA",
-    borderRadius: "12px",
-    backgroundColor: "#FFFFFF",
+    border: "1.5px solid var(--border-color)",
+    borderRadius: "14px",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
     cursor: "pointer",
+    outline: 'none',
   },
   emptyState: {
     textAlign: "center",
-    padding: "80px 20px",
-    backgroundColor: "#F9F9FB",
-    borderRadius: "20px",
+    padding: "100px 20px",
+    backgroundColor: "var(--bg-secondary)",
+    borderRadius: "32px",
+    border: '1.5px dashed var(--border-color)',
   },
   emptyButton: {
-    marginTop: "16px",
-    padding: "10px 20px",
+    marginTop: "20px",
+    padding: "12px 28px",
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
     border: "none",
-    borderRadius: "10px",
+    borderRadius: "14px",
     cursor: "pointer",
+    fontWeight: 700,
+    boxShadow: '0 8px 20px rgba(0,122,255,0.2)',
   },
   tableContainer: {
     overflowX: "auto" as const,
-    backgroundColor: "#FFFFFF",
-    borderRadius: "16px",
-    border: "1px solid #E5E5EA",
+    backgroundColor: "var(--bg-primary)",
+    borderRadius: "24px",
+    border: "1.5px solid var(--border-color)",
+    boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
   },
   table: {
     width: "100%",
     borderCollapse: "collapse" as const,
   },
   tableHeader: {
-    borderBottom: "1px solid #E5E5EA",
-    backgroundColor: "#F9F9FB",
+    borderBottom: "1.5px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
   },
   th: {
-    padding: "16px",
+    padding: "20px 16px",
     textAlign: "left" as const,
-    fontSize: "13px",
-    fontWeight: 600,
-    color: "#8E8E93",
+    fontSize: "12px",
+    fontWeight: 700,
+    color: "var(--text-secondary)",
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
   },
   td: {
-    padding: "16px",
-    borderBottom: "1px solid #E5E5EA",
+    padding: "20px 16px",
+    borderBottom: "1px solid var(--border-color)",
     fontSize: "14px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
+    verticalAlign: 'middle',
   },
   invoiceNumber: {
-    fontWeight: 600,
+    fontWeight: 700,
     color: "#007AFF",
   },
   clientName: {
-    fontWeight: 500,
+    fontWeight: 700,
+    fontSize: '15px',
+    marginBottom: '2px',
   },
   clientEmail: {
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
+    fontWeight: 500,
   },
   amount: {
-    fontWeight: 600,
+    fontWeight: 800,
+    fontSize: '15px',
   },
   statusBadge: {
     display: "inline-flex",
     alignItems: "center",
     gap: "6px",
-    padding: "4px 10px",
+    padding: "6px 12px",
     borderRadius: "20px",
-    fontSize: "12px",
-    fontWeight: 500,
-    textTransform: "capitalize" as const,
+    fontSize: "11px",
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: '0.5px',
   },
   actions: {
     display: "flex",
     gap: "8px",
   },
   actionBtn: {
-    padding: "6px",
-    background: "none",
-    border: "none",
-    borderRadius: "6px",
+    padding: "8px",
+    background: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "8px",
     cursor: "pointer",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteBtn: {
     color: "#FF3B30",
+    backgroundColor: 'rgba(255, 59, 48, 0.05)',
   },
 };

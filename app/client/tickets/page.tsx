@@ -1,397 +1,150 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, MessageSquare, LayoutGrid, List, Kanban } from "lucide-react";
-import API from "../../../core/services/apiService";
-import Card from "../../../components/ui/Card";
-import KanbanBoard from "../../../components/ui/KanbanBoard";
-
-interface Ticket {
-  _id: string;
-  title: string;
-  description: string;
-  status: "open" | "in-progress" | "resolved";
-  priority: "low" | "medium" | "high" | "urgent";
-  type: string;
-  client: string;
-  assignedTo?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-type ViewMode = "grid" | "list" | "kanban";
+import { createTicket, getTickets, Ticket } from "../../../core/services/ticketService";
+import { getProjects, Project } from "../../projects/services/projectService";
 
 export default function ClientTicketsPage() {
-  const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [form, setForm] = useState({
+    projectId: "",
+    subject: "",
     description: "",
-    type: "general",
-    priority: "medium" as "low" | "medium" | "high" | "urgent",
+    priority: "medium" as "low" | "medium" | "high",
   });
 
+  const loadData = async () => {
+    const [ticketData, projectData] = await Promise.all([getTickets(), getProjects()]);
+    setTickets(ticketData);
+    setProjects(projectData);
+  };
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    const fetchData = async () => {
-      try {
-        const response = await API.get("/tickets");
-        setTickets(response.data.data || []);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error:", error);
-        router.push("/login");
-      }
-    };
-
-    fetchData();
-  }, [router]);
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      open: "#FF9500",
-      "in-progress": "#007AFF",
-      resolved: "#34C759",
-    };
-    return colors[status] || "#8E8E93";
-  };
-
-  const getPriorityColor = (priority: string) => {
-    const colors: Record<string, string> = {
-      low: "#8E8E93",
-      medium: "#007AFF",
-      high: "#FF9500",
-      urgent: "#FF3B30",
-    };
-    return colors[priority] || "#8E8E93";
-  };
+    loadData().catch((error) => console.error("Ticket page error:", error));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
+    setSubmitMessage("");
+    setSubmitError("");
+
     try {
-      await API.post("/tickets", formData);
-      const response = await API.get("/tickets");
-      setTickets(response.data.data || []);
-      setShowModal(false);
-      setFormData({ title: "", description: "", type: "general", priority: "medium" });
-    } catch (error) {
-      console.error("Error creating ticket:", error);
+      await createTicket(form);
+      setForm({ projectId: "", subject: "", description: "", priority: "medium" });
+      setSubmitMessage("Your query was submitted successfully. It has been emailed to admin and added to the admin inbox.");
+      await loadData();
+    } catch (error: any) {
+      setSubmitError(typeof error === "string" ? error : error?.message || "Failed to submit query");
+    } finally {
+      setSubmitting(false);
     }
   };
-
-  const handleReopen = async (ticketId: string) => {
-    try {
-      await API.put(`/tickets/${ticketId}/status`, { status: "open" });
-      const response = await API.get("/tickets");
-      setTickets(response.data.data || []);
-    } catch (error) {
-      console.error("Error reopening ticket:", error);
-    }
-  };
-
-  const handleCardDrop = async (cardId: string, fromStatus: string, toStatus: string) => {
-    // Clients have view-only for status changes
-    console.log("Clients cannot update ticket status");
-  };
-
-  const kanbanColumns = [
-    { id: "open", title: "Open", status: "open", color: "#FF9500" },
-    { id: "in-progress", title: "In Progress", status: "in-progress", color: "#007AFF" },
-    { id: "resolved", title: "Resolved", status: "resolved", color: "#34C759" },
-  ];
-
-  const stats = {
-    total: tickets.length,
-    open: tickets.filter((t) => t.status === "open").length,
-    resolved: tickets.filter((t) => t.status === "resolved").length,
-  };
-
-  if (loading) {
-    return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner}></div>
-        <p>Loading queries...</p>
-      </div>
-    );
-  }
 
   return (
     <div style={styles.container}>
-      {/* Header */}
       <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>My Queries</h1>
-          <p style={styles.subtitle}>Submit and track your support requests</p>
-        </div>
-        <div style={styles.headerRight}>
-          <div style={styles.viewToggle}>
-            <button onClick={() => setViewMode("grid")} style={{ ...styles.toggleBtn, ...(viewMode === "grid" ? styles.toggleActive : {}) }}>
-              <LayoutGrid size={16} />
-            </button>
-            <button onClick={() => setViewMode("list")} style={{ ...styles.toggleBtn, ...(viewMode === "list" ? styles.toggleActive : {}) }}>
-              <List size={16} />
-            </button>
-            <button onClick={() => setViewMode("kanban")} style={{ ...styles.toggleBtn, ...(viewMode === "kanban" ? styles.toggleActive : {}) }}>
-              <Kanban size={16} />
-            </button>
-          </div>
-          <button onClick={() => setShowModal(true)} style={styles.addBtn}>
-            <Plus size={18} />
-            <span>New Query</span>
+        <h1 style={styles.title}>Query</h1>
+        <p style={styles.subtitle}>Send a query to admin and keep track of your previous submissions</p>
+      </div>
+
+      <div style={styles.layout} className="client-query-layout">
+        <form onSubmit={handleSubmit} style={styles.formCard}>
+          {submitMessage && <div style={styles.successBox}>{submitMessage}</div>}
+          {submitError && <div style={styles.errorBox}>{submitError}</div>}
+
+          <label style={styles.label}>Project</label>
+          <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })} style={styles.input}>
+            <option value="">General support</option>
+            {projects.map((project) => (
+              <option key={project._id} value={project._id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+
+          <label style={styles.label}>Subject</label>
+          <input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} style={styles.input} required />
+
+          <label style={styles.label}>Description</label>
+          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={styles.textarea} required />
+
+          <label style={styles.label}>Priority</label>
+          <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as any })} style={styles.input}>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+
+          <button type="submit" style={styles.button} disabled={submitting}>
+            {submitting ? "Submitting..." : "Submit Query"}
           </button>
+        </form>
+
+        <div style={styles.listCard}>
+          <h2 style={styles.listTitle}>Your Queries</h2>
+          <div style={styles.ticketList}>
+            {tickets.map((ticket) => (
+              <div key={ticket._id} style={styles.ticketItem}>
+                <div style={styles.ticketTop}>
+                  <strong style={styles.ticketSubject}>{ticket.subject}</strong>
+                  <span style={styles.ticketStatus}>{ticket.status}</span>
+                </div>
+                <p style={styles.ticketDescription}>{ticket.description}</p>
+                <div style={styles.ticketFooter}>
+                  <span style={styles.ticketMeta}>Priority: {ticket.priority}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <MessageSquare size={24} color="#007AFF" />
-          <div>
-            <p style={styles.statValue}>{stats.total}</p>
-            <p style={styles.statLabel}>Total Queries</p>
-          </div>
-        </div>
-        <div style={styles.statCard}>
-          <MessageSquare size={24} color="#FF9500" />
-          <div>
-            <p style={styles.statValue}>{stats.open}</p>
-            <p style={styles.statLabel}>Open</p>
-          </div>
-        </div>
-        <div style={styles.statCard}>
-          <MessageSquare size={24} color="#34C759" />
-          <div>
-            <p style={styles.statValue}>{stats.resolved}</p>
-            <p style={styles.statLabel}>Resolved</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Tickets Display */}
-      {viewMode === "kanban" ? (
-        <KanbanBoard
-          columns={kanbanColumns}
-          cards={tickets.map((t) => ({
-            ...t,
-            title: t.title,
-            subtitle: `Priority: ${t.priority}`,
-            priority: t.priority,
-          }))}
-          onCardDrop={handleCardDrop}
-        />
-      ) : viewMode === "grid" ? (
-        <div style={styles.grid}>
-          {tickets.map((ticket) => (
-            <Card key={ticket._id}>
-              <div style={styles.ticketCard}>
-                <div style={styles.ticketHeader}>
-                  <h3 style={styles.ticketTitle}>{ticket.title}</h3>
-                  <span
-                    style={{
-                      ...styles.statusBadge,
-                      backgroundColor: `${getStatusColor(ticket.status)}20`,
-                      color: getStatusColor(ticket.status),
-                    }}
-                  >
-                    {ticket.status.replace("-", " ")}
-                  </span>
-                </div>
-                <p style={styles.ticketDesc}>{ticket.description}</p>
-                <div style={styles.ticketMeta}>
-                  <span
-                    style={{
-                      ...styles.priorityBadge,
-                      backgroundColor: `${getPriorityColor(ticket.priority)}20`,
-                      color: getPriorityColor(ticket.priority),
-                    }}
-                  >
-                    {ticket.priority}
-                  </span>
-                  <span>📅 {new Date(ticket.createdAt).toLocaleDateString()}</span>
-                </div>
-                {ticket.status === "resolved" && (
-                  <button onClick={() => handleReopen(ticket._id)} style={styles.reopenBtn}>
-                    Reopen Query
-                  </button>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div style={styles.list}>
-          {tickets.map((ticket) => (
-            <div key={ticket._id} style={styles.listRow}>
-              <div style={styles.listInfo}>
-                <strong>{ticket.title}</strong>
-                <p style={styles.listMeta}>{ticket.description.substring(0, 80)}...</p>
-              </div>
-              <span
-                style={{
-                  ...styles.statusBadge,
-                  backgroundColor: `${getStatusColor(ticket.status)}20`,
-                  color: getStatusColor(ticket.status),
-                }}
-              >
-                {ticket.status.replace("-", " ")}
-              </span>
-              <span
-                style={{
-                  ...styles.priorityBadge,
-                  backgroundColor: `${getPriorityColor(ticket.priority)}20`,
-                  color: getPriorityColor(ticket.priority),
-                }}
-              >
-                {ticket.priority}
-              </span>
-              <span style={styles.listDate}>{new Date(ticket.createdAt).toLocaleDateString()}</span>
-              {ticket.status === "resolved" && (
-                <button onClick={() => handleReopen(ticket._id)} style={styles.reopenBtnSmall}>
-                  Reopen
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tickets.length === 0 && (
-        <div style={styles.emptyContainer}>
-          <MessageSquare size={48} color="#C6C6C8" />
-          <h3 style={styles.emptyTitle}>No queries yet</h3>
-          <p style={styles.emptyText}>Submit your first query to get support</p>
-          <button onClick={() => setShowModal(true)} style={styles.emptyBtn}>
-            Create Query
-          </button>
-        </div>
-      )}
-
-      {/* Create Modal */}
-      {showModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowModal(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Submit New Query</h2>
-            <form onSubmit={handleSubmit}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Title *</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                  style={styles.input}
-                  placeholder="Brief description of your query"
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Description *</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  required
-                  rows={4}
-                  style={styles.textarea}
-                  placeholder="Provide detailed information about your query"
-                />
-              </div>
-              <div style={styles.formRow}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Type</label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    style={styles.select}
-                  >
-                    <option value="general">General</option>
-                    <option value="technical">Technical</option>
-                    <option value="billing">Billing</option>
-                    <option value="feature">Feature Request</option>
-                  </select>
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Priority</label>
-                  <select
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                    style={styles.select}
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-              </div>
-              <div style={styles.modalActions}>
-                <button type="button" onClick={() => setShowModal(false)} style={styles.cancelBtn}>
-                  Cancel
-                </button>
-                <button type="submit" style={styles.submitBtn}>
-                  Submit Query
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <style>{`
+        @media (max-width: 900px) {
+          .client-query-layout {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        .input-focus:focus {
+          border-color: #007AFF !important;
+          box-shadow: 0 0 0 4px rgba(0,122,255,0.1) !important;
+        }
+      `}</style>
     </div>
   );
 }
 
-const styles: Record<string, any> = {
-  container: { padding: "24px" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "24px" },
-  title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "#1C1C1E" },
-  subtitle: { margin: "8px 0 0", color: "#8E8E93" },
-  headerRight: { display: "flex", gap: "12px", alignItems: "center" },
-  viewToggle: { display: "flex", background: "#F2F2F7", borderRadius: "12px", padding: "4px" },
-  toggleBtn: { border: "none", background: "transparent", padding: "8px 10px", borderRadius: "8px", cursor: "pointer" },
-  toggleActive: { background: "#fff" },
-  addBtn: { display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", backgroundColor: "#007AFF", color: "#fff", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "24px" },
-  statCard: { display: "flex", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "20px" },
-  statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "#1C1C1E" },
-  statLabel: { margin: "4px 0 0", fontSize: "13px", color: "#8E8E93" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "20px" },
-  ticketCard: { display: "flex", flexDirection: "column", gap: "12px" },
-  ticketHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" },
-  ticketTitle: { margin: 0, fontSize: "18px", fontWeight: 600, color: "#1C1C1E" },
-  statusBadge: { padding: "6px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, textTransform: "capitalize" },
-  ticketDesc: { margin: 0, fontSize: "14px", color: "#8E8E93", lineHeight: 1.5 },
-  ticketMeta: { display: "flex", alignItems: "center", gap: "12px", fontSize: "13px", color: "#8E8E93" },
-  priorityBadge: { padding: "4px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 600, textTransform: "capitalize" },
-  reopenBtn: { padding: "10px 16px", background: "#FF9500", color: "#fff", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginTop: "8px" },
-  list: { display: "flex", flexDirection: "column", gap: "12px" },
-  listRow: { display: "grid", gridTemplateColumns: "1.5fr auto auto auto auto", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "16px 20px" },
-  listInfo: { display: "flex", flexDirection: "column", gap: "4px" },
-  listMeta: { margin: 0, fontSize: "13px", color: "#8E8E93" },
-  listDate: { fontSize: "13px", color: "#8E8E93" },
-  reopenBtnSmall: { padding: "6px 12px", background: "#FF9500", color: "#fff", border: "none", borderRadius: "8px", fontSize: "12px", fontWeight: 600, cursor: "pointer" },
-  loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px", gap: "16px" },
-  spinner: { width: "40px", height: "40px", border: "3px solid #E5E5EA", borderTopColor: "#007AFF", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
-  emptyContainer: { textAlign: "center", padding: "60px" },
-  emptyTitle: { fontSize: "20px", fontWeight: 600, color: "#1C1C1E", marginTop: "16px", marginBottom: "8px" },
-  emptyText: { fontSize: "14px", color: "#8E8E93", marginBottom: "20px" },
-  emptyBtn: { padding: "10px 24px", backgroundColor: "#007AFF", color: "#fff", border: "none", borderRadius: "10px", cursor: "pointer", fontFamily: "inherit" },
-  modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
-  modal: { background: "#fff", borderRadius: "20px", width: "90%", maxWidth: "600px", maxHeight: "90vh", overflow: "auto", padding: "24px" },
-  modalTitle: { margin: "0 0 24px", fontSize: "24px", fontWeight: 600, color: "#1C1C1E" },
-  formGroup: { marginBottom: "16px" },
-  label: { display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: 500, color: "#3A3A3C" },
-  input: { width: "100%", padding: "12px", border: "1px solid #E5E5EA", borderRadius: "10px", fontSize: "15px", boxSizing: "border-box" },
-  textarea: { width: "100%", padding: "12px", border: "1px solid #E5E5EA", borderRadius: "10px", fontSize: "15px", fontFamily: "inherit", resize: "vertical", boxSizing: "border-box" },
-  select: { width: "100%", padding: "12px", border: "1px solid #E5E5EA", borderRadius: "10px", fontSize: "15px" },
-  formRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
-  modalActions: { display: "flex", gap: "12px", marginTop: "24px" },
-  cancelBtn: { flex: 1, padding: "14px", background: "#F2F2F7", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
-  submitBtn: { flex: 1, padding: "14px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
+const styles: any = {
+  container: { 
+    padding: "8px 4px",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    minHeight: "100vh",
+  },
+  header: { marginBottom: "32px" },
+  title: { fontSize: "34px", fontWeight: 700, color: "var(--text-primary)", margin: 0, marginBottom: "8px", letterSpacing: "-1px" },
+  subtitle: { fontSize: "16px", color: "var(--text-secondary)", margin: 0 },
+  layout: { display: "grid", gridTemplateColumns: "minmax(320px, 420px) 1fr", gap: "24px" },
+  formCard: { backgroundColor: "var(--bg-primary)", borderRadius: "20px", border: "1px solid var(--border-color)", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" },
+  successBox: { padding: "12px 14px", backgroundColor: "rgba(52, 199, 89, 0.1)", border: "1px solid #34C759", borderRadius: "12px", fontSize: "13px", color: "#34C759" },
+  errorBox: { padding: "12px 14px", backgroundColor: "rgba(255, 59, 48, 0.1)", border: "1px solid #FF3B30", borderRadius: "12px", fontSize: "13px", color: "#FF3B30" },
+  label: { fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" },
+  input: { width: "100%", padding: "12px 14px", border: "1.5px solid var(--border-color)", borderRadius: "12px", fontSize: "14px", fontFamily: "inherit", outline: "none", backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" },
+  textarea: { width: "100%", minHeight: "140px", padding: "12px 14px", border: "1.5px solid var(--border-color)", borderRadius: "12px", fontSize: "14px", fontFamily: "inherit", outline: "none", resize: "vertical" as const, backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" },
+  button: { marginTop: "8px", padding: "12px 16px", backgroundColor: "#007AFF", color: "#FFFFFF", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 700, cursor: "pointer" },
+  listCard: { backgroundColor: "var(--bg-primary)", borderRadius: "20px", border: "1px solid var(--border-color)", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" },
+  listTitle: { fontSize: "20px", fontWeight: 700, color: "var(--text-primary)", margin: 0, marginBottom: "20px" },
+  ticketList: { display: "flex", flexDirection: "column" as const, gap: "16px" },
+  ticketItem: { padding: "16px", backgroundColor: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--border-color)" },
+  ticketTop: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "8px" },
+  ticketSubject: { fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" },
+  ticketStatus: { padding: "4px 12px", borderRadius: "20px", backgroundColor: "rgba(0, 122, 255, 0.1)", color: "#007AFF", fontSize: "12px", fontWeight: 700, textTransform: "capitalize" as const },
+  ticketDescription: { fontSize: "14px", color: "var(--text-secondary)", margin: 0, marginBottom: "12px", lineHeight: 1.6 },
+  ticketFooter: { borderTop: "1px solid var(--border-color)", paddingTop: "8px" },
+  ticketMeta: { fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500, textTransform: "capitalize" as const },
 };

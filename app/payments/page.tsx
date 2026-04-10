@@ -42,7 +42,6 @@ export default function PaymentsPage() {
   }, []);
 
   const fetchPayments = async () => {
-    const token = localStorage.getItem("token");
     try {
       const response = await API.get("/payments");
       if (response.data.success || response.data.data) {
@@ -127,7 +126,7 @@ export default function PaymentsPage() {
       {/* Stats Cards */}
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: "#E3F2FF" }}>
+          <div style={{ ...styles.statIcon, backgroundColor: "rgba(0, 122, 255, 0.1)" }}>
             <CreditCard size={20} color="#007AFF" />
           </div>
           <div>
@@ -136,7 +135,7 @@ export default function PaymentsPage() {
           </div>
         </div>
         <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: "#E8F5E9" }}>
+          <div style={{ ...styles.statIcon, backgroundColor: "rgba(52, 199, 89, 0.1)" }}>
             <DollarSign size={20} color="#34C759" />
           </div>
           <div>
@@ -145,7 +144,7 @@ export default function PaymentsPage() {
           </div>
         </div>
         <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: "#FFF3E0" }}>
+          <div style={{ ...styles.statIcon, backgroundColor: "rgba(255, 149, 0, 0.1)" }}>
             <Clock size={20} color="#FF9500" />
           </div>
           <div>
@@ -154,7 +153,7 @@ export default function PaymentsPage() {
           </div>
         </div>
         <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: "#E8F5E9" }}>
+          <div style={{ ...styles.statIcon, backgroundColor: "rgba(52, 199, 89, 0.1)" }}>
             <CheckCircle size={20} color="#34C759" />
           </div>
           <div>
@@ -165,7 +164,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* Search and Filter */}
-      <div style={styles.searchSection}>
+      <div style={styles.searchSection} className="payments-search-section">
         <div style={styles.searchWrapper}>
           <Search size={18} style={styles.searchIcon} />
           <input
@@ -193,9 +192,9 @@ export default function PaymentsPage() {
       {/* Payments List */}
       {filteredPayments.length === 0 ? (
         <div style={styles.emptyState}>
-          <CreditCard size={64} color="#C6C6C8" />
-          <h3>No payments found</h3>
-          <p>When you receive payments, they will appear here</p>
+          <CreditCard size={64} color="var(--text-secondary)" />
+          <h3 style={{color: 'var(--text-primary)'}}>No payments found</h3>
+          <p style={{color: 'var(--text-secondary)'}}>When you receive payments, they will appear here</p>
         </div>
       ) : (
         <div style={styles.paymentsList}>
@@ -222,11 +221,11 @@ export default function PaymentsPage() {
               </div>
               <div style={styles.paymentDetails}>
                 <div style={styles.detailItem}>
-                  <Calendar size={14} color="#8E8E93" />
+                  <Calendar size={14} color="var(--text-secondary)" />
                   <span>{formatDate(payment.date)}</span>
                 </div>
                 <div style={styles.detailItem}>
-                  <CreditCard size={14} color="#8E8E93" />
+                  <CreditCard size={14} color="var(--text-secondary)" />
                   <span>Transaction: {payment.transactionId}</span>
                 </div>
               </div>
@@ -253,7 +252,8 @@ export default function PaymentsPage() {
         }
         .payment-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+          border-color: #007AFF !important;
         }
         .action-btn {
           transition: all 0.2s ease;
@@ -265,6 +265,14 @@ export default function PaymentsPage() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+        @media (max-width: 768px) {
+          .payments-search-section {
+            flex-direction: column !important;
+          }
+          .payments-search-section select {
+            width: 100%;
+          }
+        }
       `}</style>
     </div>
   );
@@ -275,7 +283,9 @@ const styles: any = {
     maxWidth: "1200px",
     margin: "0 auto",
     padding: "32px 24px",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    minHeight: "100vh",
   },
   loadingContainer: {
     display: "flex",
@@ -288,7 +298,7 @@ const styles: any = {
   spinner: {
     width: "40px",
     height: "40px",
-    border: "3px solid #E5E5EA",
+    border: "3px solid var(--border-color)",
     borderTopColor: "#007AFF",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
@@ -298,14 +308,14 @@ const styles: any = {
   },
   title: {
     fontSize: "34px",
-    fontWeight: 600,
-    color: "#1C1C1E",
+    fontWeight: 700,
+    color: "var(--text-primary)",
     marginBottom: "8px",
-    letterSpacing: "-0.5px",
+    letterSpacing: "-1px",
   },
   subtitle: {
     fontSize: "16px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   statsGrid: {
     display: "grid",
@@ -318,9 +328,9 @@ const styles: any = {
     alignItems: "center",
     gap: "16px",
     padding: "20px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "16px",
-    border: "1px solid #E5E5EA",
+    border: "1px solid var(--border-color)",
   },
   statIcon: {
     width: "48px",
@@ -333,11 +343,11 @@ const styles: any = {
   statValue: {
     fontSize: "24px",
     fontWeight: 700,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   statLabel: {
     fontSize: "13px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   searchSection: {
     display: "flex",
@@ -354,30 +364,34 @@ const styles: any = {
     left: "14px",
     top: "50%",
     transform: "translateY(-50%)",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   searchInput: {
     width: "100%",
     padding: "12px 16px 12px 40px",
     fontSize: "16px",
-    border: "1.5px solid #E5E5EA",
+    border: "1.5px solid var(--border-color)",
     borderRadius: "12px",
     outline: "none",
     transition: "all 0.2s ease",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
   },
   filterSelect: {
     padding: "12px 16px",
     fontSize: "14px",
-    border: "1.5px solid #E5E5EA",
+    border: "1.5px solid var(--border-color)",
     borderRadius: "12px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
     cursor: "pointer",
   },
   emptyState: {
     textAlign: "center",
     padding: "80px 20px",
-    backgroundColor: "#F9F9FB",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "20px",
+    border: "1px solid var(--border-color)",
   },
   paymentsList: {
     display: "flex",
@@ -385,9 +399,9 @@ const styles: any = {
     gap: "16px",
   },
   paymentCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "16px",
-    border: "1px solid #E5E5EA",
+    border: "1px solid var(--border-color)",
     padding: "20px",
   },
   paymentHeader: {
@@ -408,12 +422,12 @@ const styles: any = {
   },
   invoiceNumber: {
     fontSize: "16px",
-    fontWeight: 600,
+    fontWeight: 700,
     color: "#007AFF",
   },
   clientName: {
     fontSize: "14px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   paymentRight: {
     textAlign: "right" as const,
@@ -421,7 +435,7 @@ const styles: any = {
   amount: {
     fontSize: "20px",
     fontWeight: 700,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     marginBottom: "4px",
   },
   statusBadge: {
@@ -431,14 +445,14 @@ const styles: any = {
     padding: "4px 10px",
     borderRadius: "20px",
     fontSize: "12px",
-    fontWeight: 500,
+    fontWeight: 600,
     textTransform: "capitalize" as const,
   },
   paymentDetails: {
     display: "flex",
     gap: "24px",
     paddingTop: "12px",
-    borderTop: "1px solid #E5E5EA",
+    borderTop: "1px solid var(--border-color)",
     marginBottom: "12px",
     flexWrap: "wrap",
   },
@@ -447,7 +461,7 @@ const styles: any = {
     alignItems: "center",
     gap: "8px",
     fontSize: "13px",
-    color: "#6C6C70",
+    color: "var(--text-secondary)",
   },
   paymentActions: {
     display: "flex",
@@ -458,12 +472,13 @@ const styles: any = {
     alignItems: "center",
     gap: "6px",
     padding: "8px 16px",
-    backgroundColor: "#F2F2F7",
-    border: "none",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "13px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
+    fontWeight: 600,
   },
   downloadButton: {
     display: "flex",
@@ -476,5 +491,6 @@ const styles: any = {
     cursor: "pointer",
     fontSize: "13px",
     color: "#FFFFFF",
+    fontWeight: 600,
   },
 };

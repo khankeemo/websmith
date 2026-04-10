@@ -5,31 +5,30 @@
 'use client';
 
 import { Project } from '../services/projectService';
-import { Folder, Calendar, DollarSign, Edit2, Trash2, MoreVertical } from 'lucide-react';
+import { Folder, Calendar, DollarSign, Edit2, Trash2 } from 'lucide-react';
 
 interface ProjectCardProps {
   project: Project;
   onEdit: (project: Project) => void;
   onDelete: (id: string) => void;
-  onTogglePublish?: (project: Project) => void;
 }
 
 const statusColors = {
-  'pending': { bg: '#FFF4E5', color: '#FF9500', text: 'Pending' },
-  'in-progress': { bg: '#E3F2FF', color: '#007AFF', text: 'In Progress' },
-  'completed': { bg: '#E8F5E9', color: '#34C759', text: 'Completed' },
-  'on-hold': { bg: '#FEF2F0', color: '#FF3B30', text: 'On Hold' },
+  'pending': { bg: 'rgba(255, 149, 0, 0.1)', color: '#FF9500', text: 'Pending' },
+  'in-progress': { bg: 'rgba(0, 122, 255, 0.1)', color: '#007AFF', text: 'In Progress' },
+  'completed': { bg: 'rgba(52, 199, 89, 0.1)', color: '#34C759', text: 'Completed' },
+  'on-hold': { bg: 'rgba(255, 59, 48, 0.1)', color: '#FF3B30', text: 'On Hold' },
 };
 
 const priorityColors = {
-  'low': { bg: '#E8F5E9', color: '#34C759', text: 'Low' },
-  'medium': { bg: '#FFF4E5', color: '#FF9500', text: 'Medium' },
-  'high': { bg: '#FEF2F0', color: '#FF3B30', text: 'High' },
+  'low': { bg: 'rgba(52, 199, 89, 0.1)', color: '#34C759', text: 'Low' },
+  'medium': { bg: 'rgba(255, 149, 0, 0.1)', color: '#FF9500', text: 'Medium' },
+  'high': { bg: 'rgba(255, 59, 48, 0.1)', color: '#FF3B30', text: 'High' },
 };
 
-export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish }: ProjectCardProps) {
-  const status = statusColors[project.status];
-  const priority = priorityColors[project.priority];
+export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
+  const status = statusColors[project.status] || { bg: 'var(--bg-secondary)', color: 'var(--text-secondary)', text: project.status };
+  const priority = priorityColors[project.priority] || { bg: 'var(--bg-secondary)', color: 'var(--text-secondary)', text: project.priority };
   const latestUpdate = project.statusUpdates?.[project.statusUpdates.length - 1];
 
   const formatDate = (dateString?: string) => {
@@ -48,10 +47,10 @@ export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish
           <Folder size={24} color="#007AFF" />
         </div>
         <div style={styles.badgeContainer}>
-          <span style={{ ...styles.badge, ...styles.statusBadge, backgroundColor: status.bg, color: status.color }}>
+          <span style={{ ...styles.badge, backgroundColor: status.bg, color: status.color }}>
             {status.text}
           </span>
-          <span style={{ ...styles.badge, ...styles.priorityBadge, backgroundColor: priority.bg, color: priority.color }}>
+          <span style={{ ...styles.badge, backgroundColor: priority.bg, color: priority.color }}>
             {priority.text}
           </span>
         </div>
@@ -61,13 +60,13 @@ export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish
       <p style={styles.projectDescription}>{project.description}</p>
 
       <div style={styles.assignmentBlock}>
-        <p style={styles.assignmentText}>Client: {project.client}</p>
-        <p style={styles.assignmentText}>Developer: {project.assignedDeveloperName || "Unassigned"}</p>
+        <p style={styles.assignmentText}><strong>Client:</strong> {project.client}</p>
+        <p style={styles.assignmentText}><strong>Developer:</strong> {project.assignedDeveloperName || "Unassigned"}</p>
       </div>
 
       <div style={styles.projectDetails}>
         <div style={styles.detailItem}>
-          <Calendar size={14} color="#8E8E93" />
+          <Calendar size={14} color="var(--text-secondary)" />
           <span style={styles.detailText}>
             {formatDate(project.startDate)} {project.endDate && `- ${formatDate(project.endDate)}`}
           </span>
@@ -75,14 +74,14 @@ export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish
         {project.expectedCompletionDate && (
           <div style={styles.detailItem}>
             <Calendar size={14} color="#007AFF" />
-            <span style={{ ...styles.detailText, color: '#007AFF', fontWeight: 500 }}>
-              Expected: {formatDate(project.expectedCompletionDate)}
+            <span style={{ ...styles.detailText, color: '#007AFF', fontWeight: 600 }}>
+              Due: {formatDate(project.expectedCompletionDate)}
             </span>
           </div>
         )}
         {project.budget && (
           <div style={styles.detailItem}>
-            <DollarSign size={14} color="#8E8E93" />
+            <DollarSign size={14} color="var(--text-secondary)" />
             <span style={styles.detailText}>${project.budget.toLocaleString()}</span>
           </div>
         )}
@@ -94,11 +93,6 @@ export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish
       </div>
 
       <div style={styles.cardActions}>
-        {onTogglePublish && (
-          <button onClick={() => onTogglePublish(project)} style={styles.publishBtn} className="card-action-btn">
-            <span>{project.published ? 'Unpublish' : 'Publish'}</span>
-          </button>
-        )}
         <button onClick={() => onEdit(project)} style={styles.editBtn} className="card-action-btn">
           <Edit2 size={16} />
           <span>Edit</span>
@@ -115,13 +109,15 @@ export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish
         }
         .project-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+          box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+          border-color: #007AFF55 !important;
         }
         .card-action-btn {
           transition: all 0.2s ease;
         }
         .card-action-btn:hover {
           transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.05);
         }
       `}</style>
     </div>
@@ -130,146 +126,143 @@ export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish
 
 const styles: any = {
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '16px',
-    padding: '20px',
-    border: '1px solid #E5E5EA',
+    backgroundColor: 'var(--bg-primary)',
+    borderRadius: '20px',
+    padding: '24px',
+    border: '1.5px solid var(--border-color)',
     cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
   },
   cardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: '16px',
+    marginBottom: '20px',
   },
   iconContainer: {
     width: '48px',
     height: '48px',
-    backgroundColor: '#E3F2FF',
-    borderRadius: '12px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '14px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    border: '1px solid var(--border-color)',
   },
   badgeContainer: {
     display: 'flex',
     gap: '8px',
   },
   badge: {
-    padding: '4px 10px',
+    padding: '4px 12px',
     borderRadius: '20px',
     fontSize: '11px',
-    fontWeight: 600,
+    fontWeight: 700,
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
   },
-  statusBadge: {},
-  priorityBadge: {},
   projectName: {
     fontSize: '18px',
-    fontWeight: 600,
+    fontWeight: 700,
     marginBottom: '8px',
-    color: '#1C1C1E',
+    color: 'var(--text-primary)',
+    letterSpacing: '-0.3px',
   },
   projectDescription: {
     fontSize: '14px',
-    color: '#6C6C70',
-    marginBottom: '16px',
-    lineHeight: 1.4,
+    color: 'var(--text-secondary)',
+    marginBottom: '20px',
+    lineHeight: 1.6,
   },
   assignmentBlock: {
-    backgroundColor: '#F9F9FB',
-    borderRadius: '12px',
-    padding: '12px',
-    marginBottom: '16px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '14px',
+    padding: '14px',
+    marginBottom: '20px',
+    border: '1px solid var(--border-color)',
   },
   assignmentText: {
-    fontSize: '12px',
-    color: '#6C6C70',
+    fontSize: '13px',
+    color: 'var(--text-primary)',
     margin: 0,
     marginBottom: '4px',
   },
   projectDetails: {
     display: 'flex',
-    gap: '16px',
-    marginBottom: '20px',
-    paddingBottom: '16px',
-    borderBottom: '1px solid #E5E5EA',
+    flexDirection: 'column',
+    gap: '12px',
+    marginBottom: '24px',
+    paddingBottom: '20px',
+    borderBottom: '1.5px solid var(--border-color)',
   },
   updateBox: {
-    backgroundColor: '#F9F9FB',
-    borderRadius: '12px',
-    padding: '12px',
-    marginBottom: '16px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '14px',
+    padding: '14px',
+    marginBottom: '24px',
+    border: '1px solid var(--border-color)',
   },
   updateLabel: {
     fontSize: '12px',
-    color: '#8E8E93',
+    color: 'var(--text-secondary)',
+    fontWeight: 600,
     margin: 0,
-    marginBottom: '6px',
+    marginBottom: '8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   },
   updateText: {
     fontSize: '13px',
-    color: '#1C1C1E',
+    color: 'var(--text-primary)',
     margin: 0,
+    lineHeight: 1.5,
   },
   detailItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    gap: '8px',
   },
   detailText: {
-    fontSize: '12px',
-    color: '#8E8E93',
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
   },
   cardActions: {
     display: 'flex',
     gap: '12px',
+    marginTop: 'auto',
   },
   editBtn: {
     flex: 1,
-    padding: '8px',
-    backgroundColor: '#F2F2F7',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: 500,
+    padding: '10px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 700,
     color: '#007AFF',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '6px',
-    fontFamily: 'inherit',
-  },
-  publishBtn: {
-    flex: 1,
-    padding: '8px',
-    backgroundColor: '#E8FFF3',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: 500,
-    color: '#16A34A',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '6px',
+    gap: '8px',
     fontFamily: 'inherit',
   },
   deleteBtn: {
     flex: 1,
-    padding: '8px',
-    backgroundColor: '#FEF2F0',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: 500,
+    padding: '10px',
+    backgroundColor: 'rgba(255, 59, 48, 0.05)',
+    border: '1px solid rgba(255, 59, 48, 0.1)',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 700,
     color: '#FF3B30',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '6px',
+    gap: '8px',
     fontFamily: 'inherit',
   },
 };
