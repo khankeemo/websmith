@@ -67,6 +67,10 @@ export default function ClientsPage() {
     setIsDeleteModalOpen(true);
   };
 
+  const handleTogglePublish = async (client: Client) => {
+    await editClient(client._id!, { published: !client.published });
+  };
+
   const confirmDelete = async () => {
     if (!clientToDelete) return;
     
@@ -160,6 +164,7 @@ export default function ClientsPage() {
               client={client}
               onEdit={handleEditClient}
               onDelete={handleDeleteClient}
+              onTogglePublish={handleTogglePublish}
             />
           ))}
         </div>

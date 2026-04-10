@@ -24,6 +24,7 @@ interface FormData {
   company: string;
   address: string;
   status: 'active' | 'inactive';
+  published: boolean;
 }
 
 export default function ClientModal({ isOpen, onClose, onSave, client, isSaving = false, submitError }: ClientModalProps) {
@@ -34,6 +35,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
     company: '',
     address: '',
     status: 'active',
+    published: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -46,6 +48,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
         company: client.company || '',
         address: client.address || '',
         status: client.status || 'active',
+        published: Boolean(client.published),
       });
     } else {
       setFormData({
@@ -55,6 +58,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
         company: '',
         address: '',
         status: 'active',
+        published: false,
       });
     }
     setErrors({});
@@ -100,6 +104,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
       company: formData.company.trim(),
       address: formData.address.trim(),
       status: formData.status,
+      published: formData.published,
     });
   };
 
@@ -204,6 +209,11 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
               <option value="inactive">Inactive</option>
             </select>
           </div>
+
+          <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input type="checkbox" checked={formData.published} onChange={(e) => setFormData((prev) => ({ ...prev, published: e.target.checked }))} />
+            Publish this client on the public website
+          </label>
 
           {!client && (
             <div style={styles.infoBox}>

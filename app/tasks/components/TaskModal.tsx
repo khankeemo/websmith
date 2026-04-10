@@ -7,6 +7,8 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Task } from '../services/taskService';
+import { getProjects, Project } from '../../projects/services/projectService';
+import { getUsersByRole, RoleUser } from '../../../core/services/userService';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -38,18 +40,30 @@ export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalPr
     assignee: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [developers, setDevelopers] = useState<RoleUser[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    Promise.all([getProjects(), getUsersByRole('developer')])
+      .then(([projectData, developerData]) => {
+        setProjects(projectData);
+        setDevelopers(developerData);
+      })
+      .catch((error) => console.error('Task modal dependencies error:', error));
+  }, [isOpen]);
 
   useEffect(() => {
     if (task) {
       setFormData({
         title: task.title || '',
         description: task.description || '',
-        projectId: task.projectId || '',
-        clientId: task.clientId || '',
+        projectId: typeof task.projectId === 'object' ? task.projectId?._id || '' : task.projectId || '',
+        clientId: typeof task.clientId === 'object' ? task.clientId?._id || '' : task.clientId || '',
         status: task.status || 'pending',
         priority: task.priority || 'medium',
         dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
-        assignee: task.assignee || '',
+        assignee: typeof task.developerId === 'object' ? task.developerId?._id || '' : task.assignee || '',
       });
     } else {
       setFormData({
@@ -153,6 +167,28 @@ export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalPr
 
           <div style={styles.row}>
             <div style={styles.formGroup}>
+              <label style={styles.label}>Project</label>
+              <select value={formData.projectId} onChange={(e) => updateField('projectId', e.target.value)} style={styles.select}>
+                <option value="">Select project</option>
+                {projects.map((project) => (
+                  <option key={project._id} value={project._id}>{project.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Developer</label>
+              <select value={formData.assignee} onChange={(e) => updateField('assignee', e.target.value)} style={styles.select}>
+                <option value="">Unassigned</option>
+                {developers.map((developer) => (
+                  <option key={developer._id} value={developer._id}>{developer.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={styles.row}>
+            <div style={styles.formGroup}>
               <label style={styles.label}>Due Date</label>
               <input
                 type="date"
@@ -163,13 +199,13 @@ export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalPr
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Assignee</label>
+              <label style={styles.label}>Developer Notes</label>
               <input
                 type="text"
-                value={formData.assignee}
-                onChange={(e) => updateField('assignee', e.target.value)}
+                value={formData.description}
+                onChange={(e) => updateField('description', e.target.value)}
                 style={styles.input}
-                placeholder="Team member name"
+                placeholder="Optional extra notes"
               />
             </div>
           </div>

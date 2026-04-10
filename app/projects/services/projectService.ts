@@ -20,6 +20,7 @@ export interface Project {
   budget?: number;
   customClientId?: string;
   progress?: number;
+  published?: boolean;
   statusUpdates?: Array<{
     status: string;
     progress: number;
@@ -99,5 +100,27 @@ export const updateProjectStatus = async (
   } catch (error: any) {
     console.error('Update project status error:', error);
     throw error.response?.data?.message || 'Failed to update project status';
+  }
+};
+
+export const getPublishedProjects = async (): Promise<Project[]> => {
+  try {
+    const response = await API.get('/projects/public');
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('Get public projects error:', error);
+    throw error.response?.data?.message || 'Failed to fetch public projects';
+  }
+};
+
+// Bulk update project statuses (for Kanban)
+export const bulkUpdateProjectStatus = async (
+  updates: Array<{ id: string; status: string; progress?: number }>
+): Promise<void> => {
+  try {
+    await API.post('/projects/bulk-status', { updates });
+  } catch (error: any) {
+    console.error('Bulk update projects error:', error);
+    throw error.response?.data?.message || 'Failed to bulk update projects';
   }
 };

@@ -11,9 +11,10 @@ interface ClientCardProps {
   client: Client;
   onEdit: (client: Client) => void;
   onDelete: (id: string) => void;
+  onTogglePublish?: (client: Client) => void;
 }
 
-export default function ClientCard({ client, onEdit, onDelete }: ClientCardProps) {
+export default function ClientCard({ client, onEdit, onDelete, onTogglePublish }: ClientCardProps) {
   return (
     <div style={styles.card} className="client-card">
       <div style={styles.cardHeader}>
@@ -62,6 +63,11 @@ export default function ClientCard({ client, onEdit, onDelete }: ClientCardProps
       )}
 
       <div style={styles.cardActions}>
+        {onTogglePublish && (
+          <button onClick={() => onTogglePublish(client)} style={styles.publishBtn} className="card-action-btn">
+            <span>{client.published ? 'Unpublish' : 'Publish'}</span>
+          </button>
+        )}
         <button onClick={() => onEdit(client)} style={styles.editBtn} className="card-action-btn">
           <Edit2 size={16} />
           <span>Edit</span>
@@ -166,6 +172,18 @@ const styles: any = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
+    fontFamily: 'inherit',
+  },
+  publishBtn: {
+    flex: 1,
+    padding: '8px',
+    backgroundColor: '#E8FFF3',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: 500,
+    color: '#16A34A',
+    cursor: 'pointer',
     fontFamily: 'inherit',
   },
   deleteBtn: {

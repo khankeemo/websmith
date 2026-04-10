@@ -21,6 +21,13 @@ export interface Ticket {
   description: string;
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "resolved";
+  resolution?: string;
+  history?: Array<{
+    action: string;
+    actorRole: "admin" | "client" | "developer" | "system";
+    message?: string;
+    createdAt: string;
+  }>;
   createdAt: string;
 }
 
@@ -39,7 +46,10 @@ export const createTicket = async (payload: {
   return response.data.data as Ticket;
 };
 
-export const updateTicketStatus = async (id: string, status: Ticket["status"]) => {
-  const response = await API.put(`/tickets/${id}/status`, { status });
+export const updateTicketStatus = async (
+  id: string,
+  payload: { status: Ticket["status"]; resolution?: string; reopenMessage?: string }
+) => {
+  const response = await API.put(`/tickets/${id}/status`, payload);
   return response.data.data as Ticket;
 };

@@ -6,7 +6,7 @@ import Card from "../../../components/ui/Card";
 import API from "../../../core/services/apiService";
 
 export default function ClientDashboardPage() {
-  const [stats, setStats] = useState({ projects: 0, clients: 0, tasks: 0, revenue: 0 });
+  const [stats, setStats] = useState({ projects: 0, clients: 0, tasks: 0, revenue: 0, completedTasks: 0, activeProjects: 0 });
   const [tickets, setTickets] = useState(0);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function ClientDashboardPage() {
     { label: "Assigned Projects", value: stats.projects, icon: Folder, color: "#007AFF", bg: "#E3F2FF" },
     { label: "Completed Payments", value: stats.revenue, icon: CreditCard, color: "#34C759", bg: "#E8F5E9", currency: true },
     { label: "Open Tickets", value: tickets, icon: LifeBuoy, color: "#FF9500", bg: "#FFF4E5" },
-    { label: "Active Workflows", value: stats.tasks, icon: TrendingUp, color: "#AF52DE", bg: "#F3E8FF" },
+    { label: "Active Tasks", value: stats.tasks, icon: TrendingUp, color: "#AF52DE", bg: "#F3E8FF" },
   ];
 
   return (

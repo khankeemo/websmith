@@ -8,12 +8,17 @@ export interface Task {
   _id?: string;
   title: string;
   description: string;
-  projectId: string | null;
-  clientId: string | null;
+  projectId: string | { _id: string; name: string; status?: string; progress?: number } | null;
+  clientId: string | { _id: string; name: string; email: string } | null;
+  developerId?: string | { _id: string; name: string; email: string; customId?: string } | null;
   status: 'pending' | 'in-progress' | 'completed' | 'review';
   priority: 'low' | 'medium' | 'high';
   dueDate: string | null;
   assignee: string;
+  completionNote?: string;
+  completedAt?: string | null;
+  subtasks?: Array<{ _id?: string; title: string; completed: boolean }>;
+  comments?: Array<{ _id?: string; userId?: string; authorName: string; content: string; createdAt: string }>;
   createdAt?: string;
 }
 
@@ -22,8 +27,14 @@ const normalizeTaskPayload = (task: Partial<Task>) => ({
   title: task.title?.trim() ?? task.title,
   description: task.description ?? "",
   assignee: task.assignee ?? "",
-  projectId: task.projectId === "" ? null : task.projectId,
-  clientId: task.clientId === "" ? null : task.clientId,
+  projectId: task.projectId === "" ? null : typeof task.projectId === "object" ? task.projectId?._id : task.projectId,
+  clientId: task.clientId === "" ? null : typeof task.clientId === "object" ? task.clientId?._id : task.clientId,
+  developerId:
+    task.developerId === ""
+      ? null
+      : typeof task.developerId === "object"
+        ? task.developerId?._id
+        : task.developerId || task.assignee,
   dueDate: task.dueDate === "" ? null : task.dueDate,
 });
 
@@ -78,5 +89,17 @@ export const deleteTask = async (id: string): Promise<void> => {
   } catch (error: any) {
     console.error('Delete task error:', error);
     throw error.response?.data?.message || 'Failed to delete task';
+  }
+};
+
+// Bulk update task statuses (for Kanban)
+export const bulkUpdateTaskStatus = async (
+  updates: Array<{ id: string; status: string }>
+): Promise<void> => {
+  try {
+    await API.post('/tasks/bulk-status', { updates });
+  } catch (error: any) {
+    console.error('Bulk update tasks error:', error);
+    throw error.response?.data?.message || 'Failed to bulk update tasks';
   }
 };

@@ -42,6 +42,10 @@ export default function DashboardPage() {
     clients: 0,
     tasks: 0,
     revenue: 0,
+    developers: 0,
+    completedTasks: 0,
+    activeProjects: 0,
+    recentActivity: [] as Array<{ id: string; type: string; title: string; timestamp: string }>,
   });
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -116,7 +120,7 @@ export default function DashboardPage() {
     },
     {
       icon: CheckCircle,
-      label: "Pending Tasks",
+      label: "Active Tasks",
       value: stats.tasks,
       color: "#FF9500",
       bg: "#FFF4E5",
@@ -129,6 +133,14 @@ export default function DashboardPage() {
       color: "#AF52DE",
       bg: "#F3E8FF",
       trend: "+23%",
+    },
+    {
+      icon: Users,
+      label: userRole === "admin" ? "Total Developers" : "Completed Tasks",
+      value: userRole === "admin" ? stats.developers : stats.completedTasks,
+      color: "#14B8A6",
+      bg: "#E6FFFB",
+      trend: "+5%",
     },
   ];
 
@@ -147,7 +159,7 @@ export default function DashboardPage() {
       </div>
 
       {/* STATS GRID WITH ZOOM-IN ANIMATION */}
-      <div style={styles.grid}>
+      <div style={{ ...styles.grid, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
         {statCards.map((card, index) => (
           <div key={index} style={styles.cardWrapper} className="zoom-card">
             <Card>

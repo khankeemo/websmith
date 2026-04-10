@@ -5,11 +5,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, Filter, FolderOpen } from 'lucide-react';
+import { Plus, Search, Filter, FolderOpen, LayoutGrid, List, Kanban, Eye } from 'lucide-react';
 import { useProjects } from './hooks/useProjects';
 import ProjectCard from './components/ProjectCard';
 import ProjectModal from './components/ProjectModal';
 import { Project } from './services/projectService';
+import KanbanBoard from '../../components/ui/KanbanBoard';
+import { bulkUpdateProjectStatus } from './services/projectService';
+
+type ViewMode = 'grid' | 'list' | 'kanban';
 
 export default function ProjectsPage() {
   const { projects, loading, error, addProject, editProject, removeProject, fetchProjects } = useProjects();
@@ -17,6 +21,8 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleAddProject = () => {
     setEditingProject(null);
@@ -45,6 +51,29 @@ export default function ProjectsPage() {
     }
   };
 
+  const handleTogglePublish = async (project: Project) => {
+    await editProject(project._id!, { published: !project.published });
+    fetchProjects();
+  };
+
+  const handleCardDrop = async (cardId: string, fromStatus: string, toStatus: string) => {
+    try {
+      const project = projects.find(p => p._id === cardId);
+      if (!project) return;
+
+      await editProject(cardId, { status: toStatus as Project['status'] });
+      await fetchProjects();
+    } catch (error) {
+      console.error('Error updating project status:', error);
+    }
+  };
+
+  const kanbanColumns = [
+    { id: 'pending', title: 'Pending', status: 'pending', color: '#FF9500' },
+    { id: 'in-progress', title: 'In Progress', status: 'in-progress', color: '#007AFF' },
+    { id: 'completed', title: 'Completed', status: 'completed', color: '#34C759' },
+  ];
+
   // Filter projects
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -68,10 +97,23 @@ export default function ProjectsPage() {
           <h1 style={styles.title}>Projects</h1>
           <p style={styles.subtitle}>Manage all your development projects</p>
         </div>
-        <button onClick={handleAddProject} style={styles.addBtn} className="add-btn">
-          <Plus size={18} />
-          <span>New Project</span>
-        </button>
+        <div style={styles.headerRight}>
+          <div style={styles.viewToggle}>
+            <button onClick={() => setViewMode('grid')} style={{ ...styles.toggleBtn, ...(viewMode === 'grid' ? styles.toggleActive : {}) }}>
+              <LayoutGrid size={16} />
+            </button>
+            <button onClick={() => setViewMode('list')} style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleActive : {}) }}>
+              <List size={16} />
+            </button>
+            <button onClick={() => setViewMode('kanban')} style={{ ...styles.toggleBtn, ...(viewMode === 'kanban' ? styles.toggleActive : {}) }}>
+              <Kanban size={16} />
+            </button>
+          </div>
+          <button onClick={handleAddProject} style={styles.addBtn} className="add-btn">
+            <Plus size={18} />
+            <span>New Project</span>
+          </button>
+        </div>
       </div>
 
       {/* Search and Filter */}
@@ -146,18 +188,34 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Projects Grid */}
+      {/* Projects Display */}
       {!loading && !error && filteredProjects.length > 0 && (
-        <div style={styles.grid}>
-          {filteredProjects.map((project) => (
-            <ProjectCard
-              key={project._id}
-              project={project}
-              onEdit={handleEditProject}
-              onDelete={handleDeleteProject}
+        <>
+          {viewMode === 'kanban' ? (
+            <KanbanBoard
+              columns={kanbanColumns}
+              cards={filteredProjects.filter(p => p._id).map(p => ({
+                _id: p._id!,
+                title: p.name,
+                subtitle: `Client: ${p.client}`,
+                status: p.status,
+              }))}
+              onCardDrop={handleCardDrop}
             />
-          ))}
-        </div>
+          ) : (
+            <div style={viewMode === 'grid' ? styles.grid : styles.list}>
+              {filteredProjects.map((project) => (
+                <ProjectCard
+                  key={project._id}
+                  project={project}
+                  onEdit={handleEditProject}
+                  onDelete={handleDeleteProject}
+                  onTogglePublish={handleTogglePublish}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Modal */}
@@ -208,6 +266,27 @@ const styles: any = {
   subtitle: {
     fontSize: '15px',
     color: '#8E8E93',
+  },
+  headerRight: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center',
+  },
+  viewToggle: {
+    display: 'flex',
+    background: '#F2F2F7',
+    borderRadius: '12px',
+    padding: '4px',
+  },
+  toggleBtn: {
+    border: 'none',
+    background: 'transparent',
+    padding: '8px 10px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+  },
+  toggleActive: {
+    background: '#fff',
   },
   addBtn: {
     padding: '10px 20px',
@@ -269,6 +348,11 @@ const styles: any = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
     gap: '20px',
+  },
+  list: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
   },
   loadingContainer: {
     display: 'flex',

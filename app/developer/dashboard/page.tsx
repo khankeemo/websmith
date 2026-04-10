@@ -6,7 +6,7 @@ import Card from "../../../components/ui/Card";
 import API from "../../../core/services/apiService";
 
 export default function DeveloperDashboardPage() {
-  const [stats, setStats] = useState({ projects: 0, clients: 0, tasks: 0, revenue: 0 });
+  const [stats, setStats] = useState({ projects: 0, clients: 0, tasks: 0, revenue: 0, completedTasks: 0 });
 
   useEffect(() => {
     API.get("/stats")
@@ -17,7 +17,7 @@ export default function DeveloperDashboardPage() {
   const cards = [
     { label: "Assigned Projects", value: stats.projects, icon: FolderOpen, color: "#007AFF", bg: "#E3F2FF" },
     { label: "Active Deliveries", value: stats.tasks, icon: Clock3, color: "#FF9500", bg: "#FFF4E5" },
-    { label: "Client Accounts", value: stats.clients, icon: CheckCircle2, color: "#34C759", bg: "#E8F5E9" },
+    { label: "Completed Tasks", value: stats.completedTasks, icon: CheckCircle2, color: "#34C759", bg: "#E8F5E9" },
   ];
 
   return (

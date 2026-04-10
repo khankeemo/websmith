@@ -65,8 +65,8 @@ export default function Sidebar() {
           {
             title: "TEAM",
             items: [
-              { name: "Team", path: `${basePath}/team` },
-              { name: "Messages", path: `${basePath}/messages` },
+              { name: "Developers", path: `${basePath}/team` },
+              { name: "Queries", path: `${basePath}/messages` },
             ],
           },
           {
@@ -95,7 +95,8 @@ export default function Sidebar() {
               items: [
                 { name: "My Projects", path: `${basePath}/projects` },
                 { name: "Payments", path: `${basePath}/payments` },
-                { name: "Query", path: `${basePath}/tickets` },
+                { name: "Queries", path: `${basePath}/tickets` },
+                { name: "Notifications", path: `${basePath}/notifications` },
               ],
             },
             {
@@ -110,7 +111,11 @@ export default function Sidebar() {
             },
             {
               title: "WORK",
-              items: [{ name: "Projects", path: `${basePath}/projects` }],
+              items: [
+                { name: "Projects", path: `${basePath}/projects` },
+                { name: "Tasks", path: `${basePath}/tasks` },
+                { name: "Notifications", path: `${basePath}/notifications` },
+              ],
             },
             {
               title: "SYSTEM",

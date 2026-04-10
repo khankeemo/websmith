@@ -1,74 +1,97 @@
-// PATH: websmith/app/client/projects/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
-  Folder, 
-  LayoutGrid, 
-  List, 
-  Calendar, 
-  Clock, 
-  Search,
-  ChevronRight,
-  Target
-} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Folder, LayoutGrid, List, Kanban } from "lucide-react";
 import API from "../../../core/services/apiService";
-import { Project } from "../../projects/services/projectService";
+import Card from "../../../components/ui/Card";
+import KanbanBoard from "../../../components/ui/KanbanBoard";
+
+interface Project {
+  _id: string;
+  name: string;
+  description: string;
+  client: string;
+  status: "pending" | "in-progress" | "completed" | "on-hold";
+  progress: number;
+  startDate: string;
+  endDate?: string;
+  expectedCompletionDate?: string;
+  projectType: string;
+  budget?: number;
+  createdAt: string;
+}
+
+type ViewMode = "grid" | "list" | "kanban";
 
 export default function ClientProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const fetchProjects = async () => {
-    try {
-      const response = await API.get("/projects");
-      setProjects(response.data.data || []);
-    } catch (err: any) {
-      console.error("Failed to fetch projects:", err);
-      setError(err.response?.data?.message || "Failed to load projects.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
 
-  const filteredProjects = projects.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    const fetchData = async () => {
+      try {
+        const userResponse = await API.get("/users/me");
+        setUserRole(userResponse.data.user.role);
+        
+        if (userResponse.data.user.role !== "client") {
+          router.push("/");
+          return;
+        }
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+        const projectsResponse = await API.get("/projects");
+        setProjects(projectsResponse.data.data || []);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        router.push("/login");
+      }
+    };
+
+    fetchData();
+  }, [router]);
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: "#FF9500",
+      "in-progress": "#007AFF",
+      completed: "#34C759",
+      "on-hold": "#FF3B30",
+    };
+    return colors[status] || "#8E8E93";
   };
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'pending': return { bg: '#FFF4E5', color: '#FF9500', text: 'Pending' };
-      case 'in-progress': return { bg: '#E3F2FF', color: '#007AFF', text: 'In Progress' };
-      case 'completed': return { bg: '#E8F5E9', color: '#34C759', text: 'Completed' };
-      case 'on-hold': return { bg: '#FEF2F0', color: '#FF3B30', text: 'On Hold' };
-      default: return { bg: '#F2F2F7', color: '#8E8E93', text: status };
-    }
+  const handleCardDrop = async (cardId: string, fromStatus: string, toStatus: string) => {
+    // Clients have view-only access, so this is disabled
+    console.log("Clients cannot update project status");
+  };
+
+  const kanbanColumns = [
+    { id: "pending", title: "Pending", status: "pending", color: "#FF9500" },
+    { id: "in-progress", title: "In Progress", status: "in-progress", color: "#007AFF" },
+    { id: "completed", title: "Completed", status: "completed", color: "#34C759" },
+  ];
+
+  const stats = {
+    total: projects.length,
+    active: projects.filter((p) => p.status === "in-progress").length,
+    completed: projects.filter((p) => p.status === "completed").length,
   };
 
   if (loading) {
     return (
-      <div style={styles.container}>
-        <div style={styles.loadingContainer}>
-          <div style={styles.spinner}></div>
-          <p>Loading your projects...</p>
-        </div>
+      <div style={styles.loadingContainer}>
+        <div style={styles.spinner}></div>
+        <p>Loading projects...</p>
       </div>
     );
   }
@@ -79,270 +102,178 @@ export default function ClientProjectsPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>My Projects</h1>
-          <p style={styles.subtitle}>View and track all your active projects</p>
+          <p style={styles.subtitle}>Track your project progress and milestones</p>
         </div>
-        
-        <div style={styles.headerActions}>
-          <div style={styles.searchBox}>
-            <Search size={16} color="#8E8E93" />
-            <input 
-              type="text" 
-              placeholder="Search projects..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.searchInput}
-            />
+        <div style={styles.viewToggle}>
+          <button
+            onClick={() => setViewMode("grid")}
+            style={{ ...styles.toggleBtn, ...(viewMode === "grid" ? styles.toggleActive : {}) }}
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            style={{ ...styles.toggleBtn, ...(viewMode === "list" ? styles.toggleActive : {}) }}
+          >
+            <List size={16} />
+          </button>
+          <button
+            onClick={() => setViewMode("kanban")}
+            style={{ ...styles.toggleBtn, ...(viewMode === "kanban" ? styles.toggleActive : {}) }}
+          >
+            <Kanban size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={styles.statsGrid}>
+        <div style={styles.statCard}>
+          <Folder size={24} color="#007AFF" />
+          <div>
+            <p style={styles.statValue}>{stats.total}</p>
+            <p style={styles.statLabel}>Total Projects</p>
           </div>
-          
-          <div style={styles.viewToggle}>
-            <button 
-              onClick={() => setViewMode('grid')}
-              style={{ ...styles.toggleBtn, ...(viewMode === 'grid' ? styles.toggleBtnActive : {}) }}
-            >
-              <LayoutGrid size={18} />
-            </button>
-            <button 
-              onClick={() => setViewMode('list')}
-              style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleBtnActive : {}) }}
-            >
-              <List size={18} />
-            </button>
+        </div>
+        <div style={styles.statCard}>
+          <Folder size={24} color="#FF9500" />
+          <div>
+            <p style={styles.statValue}>{stats.active}</p>
+            <p style={styles.statLabel}>In Progress</p>
+          </div>
+        </div>
+        <div style={styles.statCard}>
+          <Folder size={24} color="#34C759" />
+          <div>
+            <p style={styles.statValue}>{stats.completed}</p>
+            <p style={styles.statLabel}>Completed</p>
           </div>
         </div>
       </div>
 
       {/* Projects Display */}
-      {error ? (
-        <div style={styles.errorState}>
-          <p style={{ color: '#FF3B30', fontWeight: 500 }}>{error}</p>
-          <button onClick={fetchProjects} style={styles.retryBtn}>Retry</button>
-        </div>
-      ) : filteredProjects.length === 0 ? (
-        <div style={styles.emptyState}>
-          <Folder size={48} color="#C6C6C8" />
-          <h3>No projects found</h3>
-          <p>You don't have any projects assigned yet.</p>
-        </div>
-      ) : viewMode === 'grid' ? (
+      {viewMode === "kanban" ? (
+        <KanbanBoard
+          columns={kanbanColumns}
+          cards={projects.map((p) => ({
+            ...p,
+            title: p.name,
+            subtitle: `Progress: ${p.progress}%`,
+          }))}
+          onCardDrop={handleCardDrop}
+        />
+      ) : viewMode === "grid" ? (
         <div style={styles.grid}>
-          {filteredProjects.map(project => (
-            <div key={project._id} style={styles.card} className="project-card">
-              <div style={styles.cardHeader}>
-                <div style={styles.iconContainer}>
-                  <Folder size={24} color="#007AFF" />
+          {projects.map((project) => (
+            <Card key={project._id}>
+              <div style={styles.projectCard}>
+                <div style={styles.projectHeader}>
+                  <h3 style={styles.projectName}>{project.name}</h3>
+                  <span
+                    style={{
+                      ...styles.statusBadge,
+                      backgroundColor: `${getStatusColor(project.status)}20`,
+                      color: getStatusColor(project.status),
+                    }}
+                  >
+                    {project.status.replace("-", " ")}
+                  </span>
                 </div>
-                {(() => {
-                  const status = getStatusStyle(project.status);
-                  return (
-                    <span style={{ ...styles.statusBadge, backgroundColor: status.bg, color: status.color }}>
-                      {status.text}
-                    </span>
-                  );
-                })()}
-              </div>
-              
-              <h3 style={styles.projectName}>{project.name}</h3>
-              <p style={styles.projectDesc}>{project.description}</p>
-              
-              <div style={styles.cardFooter}>
-                <div style={styles.dateInfo}>
-                  <Calendar size={14} color="#8E8E93" />
-                  <span>Start: {formatDate(project.startDate)}</span>
+                <p style={styles.projectDesc}>{project.description}</p>
+                <div style={styles.progressBar}>
+                  <div
+                    style={{
+                      ...styles.progressFill,
+                      width: `${project.progress}%`,
+                      backgroundColor: getStatusColor(project.status),
+                    }}
+                  ></div>
                 </div>
-                {project.expectedCompletionDate && (
-                  <div style={styles.deliveryDate}>
-                    <Target size={14} color="#007AFF" />
-                    <span style={{ color: '#007AFF', fontWeight: 500 }}>
-                      Delivery: {formatDate(project.expectedCompletionDate)}
-                    </span>
-                  </div>
-                )}
+                <p style={styles.progressText}>{project.progress}% Complete</p>
+                <div style={styles.projectMeta}>
+                  <span>📅 Started: {new Date(project.startDate).toLocaleDateString()}</span>
+                  {project.expectedCompletionDate && (
+                    <span>• Due: {new Date(project.expectedCompletionDate).toLocaleDateString()}</span>
+                  )}
+                </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       ) : (
         <div style={styles.list}>
-          <div style={styles.listHeader}>
-            <div style={styles.colName}>Project Name</div>
-            <div style={styles.colStatus}>Status</div>
-            <div style={styles.colStart}>Start Date</div>
-            <div style={styles.colDelivery}>Est. Delivery</div>
-          </div>
-          {filteredProjects.map(project => (
-            <div key={project._id} style={styles.listItem} className="list-item">
-              <div style={styles.colName}>
-                <div style={styles.listIconWrap}>
-                   <Folder size={18} color="#007AFF" />
-                </div>
-                <div style={styles.listNameWrap}>
-                   <p style={styles.listProjectName}>{project.name}</p>
-                   <p style={styles.listProjectDesc}>{project.description.substring(0, 50)}...</p>
-                </div>
+          {projects.map((project) => (
+            <div key={project._id} style={styles.listRow}>
+              <div style={styles.listInfo}>
+                <strong>{project.name}</strong>
+                <p style={styles.listMeta}>{project.description}</p>
               </div>
-              <div style={styles.colStatus}>
-                {(() => {
-                  const status = getStatusStyle(project.status);
-                  return (
-                    <span style={{ ...styles.statusBadge, backgroundColor: status.bg, color: status.color }}>
-                      {status.text}
-                    </span>
-                  );
-                })()}
-              </div>
-              <div style={styles.colStart}>{formatDate(project.startDate)}</div>
-              <div style={styles.colDelivery}>
-                 {project.expectedCompletionDate ? (
-                   <span style={{ color: '#007AFF', fontWeight: 500 }}>
-                     {formatDate(project.expectedCompletionDate)}
-                   </span>
-                 ) : '-'}
+              <span
+                style={{
+                  ...styles.statusBadge,
+                  backgroundColor: `${getStatusColor(project.status)}20`,
+                  color: getStatusColor(project.status),
+                }}
+              >
+                {project.status.replace("-", " ")}
+              </span>
+              <div style={styles.listProgress}>
+                <div style={styles.progressBar}>
+                  <div
+                    style={{
+                      ...styles.progressFill,
+                      width: `${project.progress}%`,
+                    }}
+                  ></div>
+                </div>
+                <span style={styles.progressText}>{project.progress}%</span>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <style>{`
-        .project-card {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .project-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 24px rgba(0,0,0,0.08);
-          border-color: #007AFF33 !important;
-        }
-        .list-item {
-          transition: all 0.2s ease;
-        }
-        .list-item:hover {
-          background-color: #FAFBFF !important;
-          transform: translateX(4px);
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
+      {projects.length === 0 && (
+        <div style={styles.emptyContainer}>
+          <Folder size={48} color="#C6C6C8" />
+          <h3 style={styles.emptyTitle}>No projects yet</h3>
+          <p style={styles.emptyText}>Your assigned projects will appear here</p>
+        </div>
+      )}
     </div>
   );
 }
 
-const styles: any = {
-  container: { padding: '8px 4px' },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '32px',
-  },
-  title: { fontSize: '34px', fontWeight: 600, color: '#1C1C1E', marginBottom: '8px' },
-  subtitle: { fontSize: '15px', color: '#8E8E93' },
-  headerActions: { display: 'flex', gap: '16px', alignItems: 'center' },
-  searchBox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E5E5EA',
-    borderRadius: '10px',
-    padding: '8px 12px',
-    width: '240px',
-  },
-  searchInput: { border: 'none', outline: 'none', fontSize: '14px', flex: 1 },
-  viewToggle: {
-    display: 'flex',
-    backgroundColor: '#F2F2F7',
-    padding: '4px',
-    borderRadius: '10px',
-  },
-  toggleBtn: {
-    padding: '6px 12px',
-    border: 'none',
-    backgroundColor: 'transparent',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    color: '#8E8E93',
-    transition: 'all 0.2s ease',
-  },
-  toggleBtnActive: { backgroundColor: '#FFFFFF', color: '#007AFF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-    gap: '24px',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '20px',
-    padding: '24px',
-    border: '1px solid #E5E5EA',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  iconContainer: {
-    width: '48px',
-    height: '48px',
-    backgroundColor: '#F2F2F7',
-    borderRadius: '14px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  projectName: { fontSize: '18px', fontWeight: 600, color: '#1C1C1E', margin: 0 },
-  projectDesc: { fontSize: '14px', color: '#8E8E93', lineHeight: 1.5, margin: 0 },
-  cardFooter: {
-    marginTop: '8px',
-    paddingTop: '16px',
-    borderTop: '1px solid #F2F2F7',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-  },
-  dateInfo: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8E8E93' },
-  deliveryDate: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' },
-  statusBadge: {
-    padding: '4px 12px',
-    borderRadius: '20px',
-    fontSize: '11px',
-    fontWeight: 600,
-  },
-  list: { backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid #E5E5EA', overflow: 'hidden' },
-  listHeader: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1fr 1fr',
-    padding: '16px 24px',
-    backgroundColor: '#FAFAFB',
-    borderBottom: '1px solid #E5E5EA',
-    fontSize: '13px',
-    fontWeight: 600,
-    color: '#8E8E93',
-  },
-  listItem: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1fr 1fr',
-    padding: '20px 24px',
-    alignItems: 'center',
-    borderBottom: '1px solid #F2F2F7',
-  },
-  colName: { display: 'flex', alignItems: 'center', gap: '16px' },
-  colStatus: {},
-  colStart: { fontSize: '14px', color: '#636366' },
-  colDelivery: { fontSize: '14px' },
-  listIconWrap: {
-    width: '36px',
-    height: '36px',
-    backgroundColor: '#F2F2F7',
-    borderRadius: '10px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  listNameWrap: { overflow: 'hidden' },
-  listProjectName: { fontSize: '15px', fontWeight: 600, color: '#1C1C1E', margin: 0, marginBottom: '2px' },
-  listProjectDesc: { fontSize: '12px', color: '#8E8E93', margin: 0, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' },
-  loadingContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '100px' },
-  spinner: { width: '32px', height: '32px', border: '3px solid #E5E5EA', borderTopColor: '#007AFF', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
-  emptyState: { textAlign: 'center', padding: '100px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' },
-  errorState: { textAlign: 'center', padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' },
-  retryBtn: { padding: '10px 24px', backgroundColor: '#007AFF', color: '#FFFFFF', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' },
+const styles: Record<string, any> = {
+  container: { padding: "24px" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "24px" },
+  title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "#1C1C1E" },
+  subtitle: { margin: "8px 0 0", color: "#8E8E93" },
+  viewToggle: { display: "flex", background: "#F2F2F7", borderRadius: "12px", padding: "4px" },
+  toggleBtn: { border: "none", background: "transparent", padding: "8px 10px", borderRadius: "8px", cursor: "pointer" },
+  toggleActive: { background: "#fff" },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "24px" },
+  statCard: { display: "flex", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "20px" },
+  statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "#1C1C1E" },
+  statLabel: { margin: "4px 0 0", fontSize: "13px", color: "#8E8E93" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "20px" },
+  projectCard: { display: "flex", flexDirection: "column", gap: "12px" },
+  projectHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" },
+  projectName: { margin: 0, fontSize: "18px", fontWeight: 600, color: "#1C1C1E" },
+  statusBadge: { padding: "6px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, textTransform: "capitalize" },
+  projectDesc: { margin: 0, fontSize: "14px", color: "#8E8E93", lineHeight: 1.5 },
+  progressBar: { width: "100%", height: "8px", backgroundColor: "#F2F2F7", borderRadius: "4px", overflow: "hidden" },
+  progressFill: { height: "100%", transition: "width 0.3s ease" },
+  progressText: { margin: 0, fontSize: "13px", color: "#8E8E93", fontWeight: 500 },
+  projectMeta: { fontSize: "13px", color: "#8E8E93" },
+  list: { display: "flex", flexDirection: "column", gap: "12px" },
+  listRow: { display: "grid", gridTemplateColumns: "1.5fr auto 1fr", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "16px 20px" },
+  listInfo: { display: "flex", flexDirection: "column", gap: "4px" },
+  listMeta: { margin: 0, fontSize: "13px", color: "#8E8E93" },
+  listProgress: { display: "flex", alignItems: "center", gap: "12px" },
+  loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px", gap: "16px" },
+  spinner: { width: "40px", height: "40px", border: "3px solid #E5E5EA", borderTopColor: "#007AFF", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
+  emptyContainer: { textAlign: "center", padding: "60px" },
+  emptyTitle: { fontSize: "20px", fontWeight: 600, color: "#1C1C1E", marginTop: "16px", marginBottom: "8px" },
+  emptyText: { fontSize: "14px", color: "#8E8E93" },
 };

@@ -2,37 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, MessageSquare, LayoutGrid, List, Kanban } from "lucide-react";
+import { CheckSquare, LayoutGrid, List, Kanban, Plus } from "lucide-react";
 import API from "../../../core/services/apiService";
 import Card from "../../../components/ui/Card";
 import KanbanBoard from "../../../components/ui/KanbanBoard";
 
-interface Ticket {
+interface Task {
   _id: string;
   title: string;
   description: string;
-  status: "open" | "in-progress" | "resolved";
+  status: "todo" | "in-progress" | "review" | "done";
   priority: "low" | "medium" | "high" | "urgent";
-  type: string;
-  client: string;
-  assignedTo?: string;
+  project?: string;
+  assignedTo: string;
+  dueDate?: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 type ViewMode = "grid" | "list" | "kanban";
 
-export default function ClientTicketsPage() {
+export default function DeveloperTasksPage() {
   const router = useRouter();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    type: "general",
     priority: "medium" as "low" | "medium" | "high" | "urgent",
+    dueDate: "",
   });
 
   useEffect(() => {
@@ -44,11 +43,18 @@ export default function ClientTicketsPage() {
 
     const fetchData = async () => {
       try {
-        const response = await API.get("/tickets");
-        setTickets(response.data.data || []);
+        const userResponse = await API.get("/users/me");
+        
+        if (userResponse.data.user.role !== "developer") {
+          router.push("/");
+          return;
+        }
+
+        const tasksResponse = await API.get("/tasks");
+        setTasks(tasksResponse.data.data || []);
         setLoading(false);
       } catch (error) {
-        console.error("Error:", error);
+        console.error("Error fetching data:", error);
         router.push("/login");
       }
     };
@@ -58,9 +64,10 @@ export default function ClientTicketsPage() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      open: "#FF9500",
+      todo: "#8E8E93",
       "in-progress": "#007AFF",
-      resolved: "#34C759",
+      review: "#FF9500",
+      done: "#34C759",
     };
     return colors[status] || "#8E8E93";
   };
@@ -75,51 +82,49 @@ export default function ClientTicketsPage() {
     return colors[priority] || "#8E8E93";
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCardDrop = async (cardId: string, fromStatus: string, toStatus: string) => {
+    try {
+      await API.put(`/tasks/${cardId}/status`, { status: toStatus });
+      const tasksResponse = await API.get("/tasks");
+      setTasks(tasksResponse.data.data || []);
+    } catch (error) {
+      console.error("Error updating task status:", error);
+    }
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await API.post("/tickets", formData);
-      const response = await API.get("/tickets");
-      setTickets(response.data.data || []);
+      await API.post("/tasks", formData);
+      const tasksResponse = await API.get("/tasks");
+      setTasks(tasksResponse.data.data || []);
       setShowModal(false);
-      setFormData({ title: "", description: "", type: "general", priority: "medium" });
+      setFormData({ title: "", description: "", priority: "medium", dueDate: "" });
     } catch (error) {
-      console.error("Error creating ticket:", error);
+      console.error("Error creating task:", error);
     }
-  };
-
-  const handleReopen = async (ticketId: string) => {
-    try {
-      await API.put(`/tickets/${ticketId}/status`, { status: "open" });
-      const response = await API.get("/tickets");
-      setTickets(response.data.data || []);
-    } catch (error) {
-      console.error("Error reopening ticket:", error);
-    }
-  };
-
-  const handleCardDrop = async (cardId: string, fromStatus: string, toStatus: string) => {
-    // Clients have view-only for status changes
-    console.log("Clients cannot update ticket status");
   };
 
   const kanbanColumns = [
-    { id: "open", title: "Open", status: "open", color: "#FF9500" },
+    { id: "todo", title: "To Do", status: "todo", color: "#8E8E93" },
     { id: "in-progress", title: "In Progress", status: "in-progress", color: "#007AFF" },
-    { id: "resolved", title: "Resolved", status: "resolved", color: "#34C759" },
+    { id: "review", title: "Review", status: "review", color: "#FF9500" },
+    { id: "done", title: "Done", status: "done", color: "#34C759" },
   ];
 
   const stats = {
-    total: tickets.length,
-    open: tickets.filter((t) => t.status === "open").length,
-    resolved: tickets.filter((t) => t.status === "resolved").length,
+    total: tasks.length,
+    todo: tasks.filter((t) => t.status === "todo").length,
+    inProgress: tasks.filter((t) => t.status === "in-progress").length,
+    review: tasks.filter((t) => t.status === "review").length,
+    done: tasks.filter((t) => t.status === "done").length,
   };
 
   if (loading) {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p>Loading queries...</p>
+        <p>Loading tasks...</p>
       </div>
     );
   }
@@ -129,8 +134,8 @@ export default function ClientTicketsPage() {
       {/* Header */}
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>My Queries</h1>
-          <p style={styles.subtitle}>Submit and track your support requests</p>
+          <h1 style={styles.title}>My Tasks</h1>
+          <p style={styles.subtitle}>Manage your tasks and track progress</p>
         </div>
         <div style={styles.headerRight}>
           <div style={styles.viewToggle}>
@@ -146,7 +151,7 @@ export default function ClientTicketsPage() {
           </div>
           <button onClick={() => setShowModal(true)} style={styles.addBtn}>
             <Plus size={18} />
-            <span>New Query</span>
+            <span>New Task</span>
           </button>
         </div>
       </div>
@@ -154,33 +159,40 @@ export default function ClientTicketsPage() {
       {/* Stats */}
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
-          <MessageSquare size={24} color="#007AFF" />
+          <CheckSquare size={24} color="#007AFF" />
           <div>
             <p style={styles.statValue}>{stats.total}</p>
-            <p style={styles.statLabel}>Total Queries</p>
+            <p style={styles.statLabel}>Total Tasks</p>
           </div>
         </div>
         <div style={styles.statCard}>
-          <MessageSquare size={24} color="#FF9500" />
+          <CheckSquare size={24} color="#8E8E93" />
           <div>
-            <p style={styles.statValue}>{stats.open}</p>
-            <p style={styles.statLabel}>Open</p>
+            <p style={styles.statValue}>{stats.todo}</p>
+            <p style={styles.statLabel}>To Do</p>
           </div>
         </div>
         <div style={styles.statCard}>
-          <MessageSquare size={24} color="#34C759" />
+          <CheckSquare size={24} color="#007AFF" />
           <div>
-            <p style={styles.statValue}>{stats.resolved}</p>
-            <p style={styles.statLabel}>Resolved</p>
+            <p style={styles.statValue}>{stats.inProgress}</p>
+            <p style={styles.statLabel}>In Progress</p>
+          </div>
+        </div>
+        <div style={styles.statCard}>
+          <CheckSquare size={24} color="#34C759" />
+          <div>
+            <p style={styles.statValue}>{stats.done}</p>
+            <p style={styles.statLabel}>Done</p>
           </div>
         </div>
       </div>
 
-      {/* Tickets Display */}
+      {/* Tasks Display */}
       {viewMode === "kanban" ? (
         <KanbanBoard
           columns={kanbanColumns}
-          cards={tickets.map((t) => ({
+          cards={tasks.map((t) => ({
             ...t,
             title: t.title,
             subtitle: `Priority: ${t.priority}`,
@@ -190,97 +202,91 @@ export default function ClientTicketsPage() {
         />
       ) : viewMode === "grid" ? (
         <div style={styles.grid}>
-          {tickets.map((ticket) => (
-            <Card key={ticket._id}>
-              <div style={styles.ticketCard}>
-                <div style={styles.ticketHeader}>
-                  <h3 style={styles.ticketTitle}>{ticket.title}</h3>
+          {tasks.map((task) => (
+            <Card key={task._id}>
+              <div style={styles.taskCard}>
+                <div style={styles.taskHeader}>
+                  <h3 style={styles.taskTitle}>{task.title}</h3>
                   <span
                     style={{
                       ...styles.statusBadge,
-                      backgroundColor: `${getStatusColor(ticket.status)}20`,
-                      color: getStatusColor(ticket.status),
+                      backgroundColor: `${getStatusColor(task.status)}20`,
+                      color: getStatusColor(task.status),
                     }}
                   >
-                    {ticket.status.replace("-", " ")}
+                    {task.status.replace("-", " ")}
                   </span>
                 </div>
-                <p style={styles.ticketDesc}>{ticket.description}</p>
-                <div style={styles.ticketMeta}>
+                <p style={styles.taskDesc}>{task.description}</p>
+                <div style={styles.taskMeta}>
                   <span
                     style={{
                       ...styles.priorityBadge,
-                      backgroundColor: `${getPriorityColor(ticket.priority)}20`,
-                      color: getPriorityColor(ticket.priority),
+                      backgroundColor: `${getPriorityColor(task.priority)}20`,
+                      color: getPriorityColor(task.priority),
                     }}
                   >
-                    {ticket.priority}
+                    {task.priority}
                   </span>
-                  <span>📅 {new Date(ticket.createdAt).toLocaleDateString()}</span>
+                  {task.dueDate && (
+                    <span>📅 Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                  )}
                 </div>
-                {ticket.status === "resolved" && (
-                  <button onClick={() => handleReopen(ticket._id)} style={styles.reopenBtn}>
-                    Reopen Query
-                  </button>
-                )}
               </div>
             </Card>
           ))}
         </div>
       ) : (
         <div style={styles.list}>
-          {tickets.map((ticket) => (
-            <div key={ticket._id} style={styles.listRow}>
+          {tasks.map((task) => (
+            <div key={task._id} style={styles.listRow}>
               <div style={styles.listInfo}>
-                <strong>{ticket.title}</strong>
-                <p style={styles.listMeta}>{ticket.description.substring(0, 80)}...</p>
+                <strong>{task.title}</strong>
+                <p style={styles.listMeta}>{task.description.substring(0, 80)}...</p>
               </div>
               <span
                 style={{
                   ...styles.statusBadge,
-                  backgroundColor: `${getStatusColor(ticket.status)}20`,
-                  color: getStatusColor(ticket.status),
+                  backgroundColor: `${getStatusColor(task.status)}20`,
+                  color: getStatusColor(task.status),
                 }}
               >
-                {ticket.status.replace("-", " ")}
+                {task.status.replace("-", " ")}
               </span>
               <span
                 style={{
                   ...styles.priorityBadge,
-                  backgroundColor: `${getPriorityColor(ticket.priority)}20`,
-                  color: getPriorityColor(ticket.priority),
+                  backgroundColor: `${getPriorityColor(task.priority)}20`,
+                  color: getPriorityColor(task.priority),
                 }}
               >
-                {ticket.priority}
+                {task.priority}
               </span>
-              <span style={styles.listDate}>{new Date(ticket.createdAt).toLocaleDateString()}</span>
-              {ticket.status === "resolved" && (
-                <button onClick={() => handleReopen(ticket._id)} style={styles.reopenBtnSmall}>
-                  Reopen
-                </button>
-              )}
+              <span style={styles.listDate}>
+                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
+              </span>
             </div>
           ))}
         </div>
       )}
 
-      {tickets.length === 0 && (
+      {tasks.length === 0 && (
         <div style={styles.emptyContainer}>
-          <MessageSquare size={48} color="#C6C6C8" />
-          <h3 style={styles.emptyTitle}>No queries yet</h3>
-          <p style={styles.emptyText}>Submit your first query to get support</p>
+          <CheckSquare size={48} color="#C6C6C8" />
+          <h3 style={styles.emptyTitle}>No tasks yet</h3>
+          <p style={styles.emptyText}>Create your first task to get started</p>
           <button onClick={() => setShowModal(true)} style={styles.emptyBtn}>
-            Create Query
+            Create Task
           </button>
         </div>
       )}
 
-      {/* Create Modal */}
+      {/* Create Task Modal */}
       {showModal && (
         <div style={styles.modalOverlay} onClick={() => setShowModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Submit New Query</h2>
-            <form onSubmit={handleSubmit}>
+            <h2 style={styles.modalTitle}>Create New Task</h2>
+            <form onSubmit={handleCreateTask}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Title *</label>
                 <input
@@ -289,7 +295,7 @@ export default function ClientTicketsPage() {
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   required
                   style={styles.input}
-                  placeholder="Brief description of your query"
+                  placeholder="Task title"
                 />
               </div>
               <div style={styles.formGroup}>
@@ -300,23 +306,10 @@ export default function ClientTicketsPage() {
                   required
                   rows={4}
                   style={styles.textarea}
-                  placeholder="Provide detailed information about your query"
+                  placeholder="Task description"
                 />
               </div>
               <div style={styles.formRow}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Type</label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    style={styles.select}
-                  >
-                    <option value="general">General</option>
-                    <option value="technical">Technical</option>
-                    <option value="billing">Billing</option>
-                    <option value="feature">Feature Request</option>
-                  </select>
-                </div>
                 <div style={styles.formGroup}>
                   <label style={styles.label}>Priority</label>
                   <select
@@ -330,13 +323,22 @@ export default function ClientTicketsPage() {
                     <option value="urgent">Urgent</option>
                   </select>
                 </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Due Date</label>
+                  <input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    style={styles.input}
+                  />
+                </div>
               </div>
               <div style={styles.modalActions}>
                 <button type="button" onClick={() => setShowModal(false)} style={styles.cancelBtn}>
                   Cancel
                 </button>
                 <button type="submit" style={styles.submitBtn}>
-                  Submit Query
+                  Create Task
                 </button>
               </div>
             </form>
@@ -357,25 +359,23 @@ const styles: Record<string, any> = {
   toggleBtn: { border: "none", background: "transparent", padding: "8px 10px", borderRadius: "8px", cursor: "pointer" },
   toggleActive: { background: "#fff" },
   addBtn: { display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", backgroundColor: "#007AFF", color: "#fff", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "24px" },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" },
   statCard: { display: "flex", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "20px" },
   statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "#1C1C1E" },
   statLabel: { margin: "4px 0 0", fontSize: "13px", color: "#8E8E93" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "20px" },
-  ticketCard: { display: "flex", flexDirection: "column", gap: "12px" },
-  ticketHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" },
-  ticketTitle: { margin: 0, fontSize: "18px", fontWeight: 600, color: "#1C1C1E" },
+  taskCard: { display: "flex", flexDirection: "column", gap: "12px" },
+  taskHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" },
+  taskTitle: { margin: 0, fontSize: "18px", fontWeight: 600, color: "#1C1C1E" },
   statusBadge: { padding: "6px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, textTransform: "capitalize" },
-  ticketDesc: { margin: 0, fontSize: "14px", color: "#8E8E93", lineHeight: 1.5 },
-  ticketMeta: { display: "flex", alignItems: "center", gap: "12px", fontSize: "13px", color: "#8E8E93" },
+  taskDesc: { margin: 0, fontSize: "14px", color: "#8E8E93", lineHeight: 1.5 },
+  taskMeta: { display: "flex", alignItems: "center", gap: "12px", fontSize: "13px", color: "#8E8E93" },
   priorityBadge: { padding: "4px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 600, textTransform: "capitalize" },
-  reopenBtn: { padding: "10px 16px", background: "#FF9500", color: "#fff", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginTop: "8px" },
   list: { display: "flex", flexDirection: "column", gap: "12px" },
-  listRow: { display: "grid", gridTemplateColumns: "1.5fr auto auto auto auto", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "16px 20px" },
+  listRow: { display: "grid", gridTemplateColumns: "1.5fr auto auto auto", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "16px 20px" },
   listInfo: { display: "flex", flexDirection: "column", gap: "4px" },
   listMeta: { margin: 0, fontSize: "13px", color: "#8E8E93" },
   listDate: { fontSize: "13px", color: "#8E8E93" },
-  reopenBtnSmall: { padding: "6px 12px", background: "#FF9500", color: "#fff", border: "none", borderRadius: "8px", fontSize: "12px", fontWeight: 600, cursor: "pointer" },
   loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px", gap: "16px" },
   spinner: { width: "40px", height: "40px", border: "3px solid #E5E5EA", borderTopColor: "#007AFF", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
   emptyContainer: { textAlign: "center", padding: "60px" },

@@ -13,6 +13,7 @@ export interface Client {
   address: string;
   status: 'active' | 'inactive';
   customId?: string;
+  published?: boolean;
   createdAt?: string;
 }
 
@@ -83,5 +84,15 @@ export const deleteClient = async (id: string): Promise<void> => {
   } catch (error: any) {
     console.error('Delete client error:', error);
     throw getApiErrorMessage(error, 'Failed to delete client');
+  }
+};
+
+export const getPublishedClients = async (): Promise<Client[]> => {
+  try {
+    const response = await API.get('/clients/public');
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('Get public clients error:', error);
+    throw getApiErrorMessage(error, 'Failed to fetch public clients');
   }
 };
