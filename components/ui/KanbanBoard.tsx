@@ -75,7 +75,7 @@ export default function KanbanBoard({ columns, cards, onCardDrop, renderCard }: 
   };
 
   return (
-    <div style={styles.board}>
+    <div style={styles.board} className="wsd-kanban-board">
       {columns.map((column) => {
         const columnCards = cards.filter((card) => card.status === column.status);
         const isDragOver = dragOverColumn === column.id;
@@ -83,6 +83,7 @@ export default function KanbanBoard({ columns, cards, onCardDrop, renderCard }: 
         return (
           <div
             key={column.id}
+            className="wsd-kanban-column"
             style={{
               ...styles.column,
               border: isDragOver ? `2px dashed ${column.color}` : "2px solid transparent",
@@ -145,6 +146,20 @@ export default function KanbanBoard({ columns, cards, onCardDrop, renderCard }: 
           </div>
         );
       })}
+      <style>{`
+        @media (max-width: 768px) {
+          .wsd-kanban-board {
+            display: flex !important;
+            overflow-x: auto;
+            scroll-snap-type: x proximity;
+            padding-bottom: 8px;
+          }
+          .wsd-kanban-column {
+            min-width: min(86vw, 320px);
+            scroll-snap-align: start;
+          }
+        }
+      `}</style>
     </div>
   );
 }

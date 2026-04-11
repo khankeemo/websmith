@@ -125,13 +125,19 @@ export default function ClientLayout({
         @media (max-width: 900px) {
           .app-main-shell {
             width: 100%;
-            padding: 76px 16px 20px !important;
+            min-width: 0;
+            padding: 76px 12px 20px !important;
           }
           .app-mobile-topbar {
             display: flex !important;
           }
           .app-mobile-overlay {
             display: block !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .app-main-shell {
+            padding: 72px 10px 16px !important;
           }
         }
       `}</style>
@@ -149,7 +155,8 @@ const styles: any = {
     flex: 1,
     backgroundColor: "var(--bg-primary)",
     minWidth: 0,
-    padding: "24px",
+    width: "100%",
+    padding: "24px min(24px, 2vw)",
   },
   mobileTopbar: {
     display: "none",

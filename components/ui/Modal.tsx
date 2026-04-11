@@ -52,6 +52,7 @@ export default function Modal({
       onClick={onClose}
     >
       <div
+        className="wsd-responsive-modal"
         style={{
           width: "100%",
           maxWidth: maxWidth,
@@ -139,6 +140,11 @@ export default function Modal({
         }
         .wsd-modal-close:hover {
           color: #1C1C1E !important;
+        }
+        @media (max-width: 640px) {
+          .wsd-responsive-modal {
+            border-radius: 20px !important;
+          }
         }
       `}</style>
     </div>

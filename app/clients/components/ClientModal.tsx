@@ -107,7 +107,7 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
 
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.modal} className="wsd-client-modal" onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <h2 style={styles.modalTitle}>{client ? 'Edit Client' : 'New Client'}</h2>
           <button onClick={onClose} style={styles.closeBtn}>
@@ -238,6 +238,14 @@ export default function ClientModal({ isOpen, onClose, onSave, client, isSaving 
           border-color: #007AFF !important;
           box-shadow: 0 0 0 3px rgba(0,122,255,0.1) !important;
         }
+        @media (max-width: 640px) {
+          .wsd-client-modal {
+            width: calc(100vw - 24px) !important;
+            max-height: calc(100vh - 24px) !important;
+            padding: 20px !important;
+            border-radius: 20px !important;
+          }
+        }
       `}</style>
     </div>
   );
@@ -261,7 +269,7 @@ const styles: any = {
     backgroundColor: 'var(--bg-primary)',
     borderRadius: '32px',
     padding: '32px',
-    width: '95%',
+    width: 'min(95%, 640px)',
     maxWidth: '640px',
     maxHeight: '90vh',
     overflowY: 'auto',

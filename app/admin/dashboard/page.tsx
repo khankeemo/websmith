@@ -133,11 +133,11 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* HEADER SECTION */}
-      <div style={styles.header}>
+      <div style={styles.header} className="wsd-page-header">
         <div>
-          <h1 style={styles.title}>Dashboard</h1>
+          <h1 style={styles.title} className="admin-dashboard-title">Dashboard</h1>
           <p style={styles.subtitle}>Welcome back, {userName}</p>
         </div>
         <div style={styles.headerBadge}>
@@ -147,7 +147,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* STATS GRID */}
-      <div style={{ ...styles.grid, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+      <div style={{ ...styles.grid, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }} className="wsd-grid-tiles">
         {statCards.map((card, index) => (
           <div key={index} style={styles.cardWrapper} className="zoom-card">
             <Card>
@@ -172,7 +172,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* MAIN GRID */}
-      <div style={styles.main}>
+      <div style={styles.main} className="wsd-two-column">
         {/* CHART CARD */}
         <div className="zoom-card" style={styles.chartWrapper}>
           <Card>
@@ -256,7 +256,7 @@ export default function AdminDashboardPage() {
       {/* QUICK STATS */}
       <div className="zoom-card">
         <Card>
-          <div style={styles.quickStats}>
+          <div style={styles.quickStats} className="wsd-grid-tiles">
             <div style={styles.quickStatItem}>
               <Clock size={24} color="#007AFF" />
               <div>
@@ -311,6 +311,11 @@ export default function AdminDashboardPage() {
 
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        @media (max-width: 640px) {
+          .admin-dashboard-title {
+            font-size: 24px !important;
+          }
         }
       `}</style>
     </div>
@@ -506,4 +511,3 @@ const styles: any = {
     color: "#8E8E93",
   },
 };
-

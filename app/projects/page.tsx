@@ -78,9 +78,9 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
-      <div style={styles.header} className="projects-header">
+      <div style={styles.header} className="projects-header wsd-page-header">
         <div>
           <h1 style={styles.title}>Projects</h1>
           <p style={styles.subtitle}>Manage all your development projects</p>
@@ -92,8 +92,8 @@ export default function ProjectsPage() {
       </div>
 
       {/* Search and Filter */}
-      <div style={styles.searchSection} className="projects-search-section">
-        <div style={styles.searchBox}>
+      <div style={styles.searchSection} className="projects-search-section wsd-toolbar">
+        <div style={styles.searchBox} className="wsd-search-box">
           <Search size={18} color="var(--text-secondary)" />
           <input
             type="text"
@@ -108,7 +108,7 @@ export default function ProjectsPage() {
           <button onClick={() => setViewMode('list')} style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleActive : {}) }}><List size={16} /></button>
           <button onClick={() => setViewMode('kanban')} style={{ ...styles.toggleBtn, ...(viewMode === 'kanban' ? styles.toggleActive : {}) }}><Kanban size={16} /></button>
         </div>
-        <div style={styles.filterTabs}>
+        <div style={styles.filterTabs} className="wsd-chip-row">
           <button
             onClick={() => setStatusFilter('all')}
             style={{ ...styles.filterTab, ...(statusFilter === 'all' ? styles.filterTabActive : {}) }}
@@ -170,7 +170,7 @@ export default function ProjectsPage() {
 
       {/* Projects Grid */}
       {!loading && !error && filteredProjects.length > 0 && viewMode === 'grid' && (
-        <div style={styles.grid}>
+        <div style={styles.grid} className="wsd-card-grid">
           {filteredProjects.map((project) => (
             <ProjectCard
               key={project._id}
@@ -184,9 +184,9 @@ export default function ProjectsPage() {
       )}
 
       {!loading && !error && filteredProjects.length > 0 && viewMode === 'list' && (
-        <div style={styles.list}>
+        <div style={styles.list} className="wsd-list">
           {filteredProjects.map((project) => (
-            <div key={project._id} style={styles.listRow}>
+            <div key={project._id} style={styles.listRow} className="wsd-list-row">
               <div>
                 <strong>{project.name}</strong>
                 <p style={styles.listMeta}>{project.client} · {project.assignedDeveloperName || 'Unassigned'}</p>
@@ -314,6 +314,8 @@ const styles: any = {
     borderRadius: '14px',
     marginBottom: '16px',
     boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+    flex: 1,
+    minWidth: 0,
   },
   searchInput: {
     flex: 1,

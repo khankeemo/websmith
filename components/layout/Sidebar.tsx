@@ -381,10 +381,16 @@ export default function Sidebar({
             height: 100dvh !important;
             transform: translateX(-100%);
             box-shadow: none;
+            overflow-y: auto;
           }
           .app-sidebar.app-sidebar-open {
             transform: translateX(0);
             box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+          }
+        }
+        @media (max-width: 480px) {
+          .app-sidebar {
+            width: min(88vw, 320px) !important;
           }
         }
       `}</style>
@@ -402,6 +408,7 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     borderRight: "1px solid var(--border-color)",
+    minWidth: "260px",
   },
 
   logoContainer: {

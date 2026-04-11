@@ -104,7 +104,7 @@ export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalPr
 
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.modal} className="wsd-task-modal" onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <h2 style={styles.modalTitle}>{task ? 'Edit Task' : 'New Task'}</h2>
           <button onClick={onClose} style={styles.closeBtn}>
@@ -251,7 +251,7 @@ const styles: any = {
     backgroundColor: '#FFFFFF',
     borderRadius: '24px',
     padding: '28px',
-    width: '90%',
+    width: 'min(90%, 600px)',
     maxWidth: '600px',
     maxHeight: '90vh',
     overflowY: 'auto',
@@ -327,6 +327,7 @@ const styles: any = {
   row: {
     display: 'flex',
     gap: '16px',
+    flexWrap: 'wrap',
   },
   modalFooter: {
     display: 'flex',

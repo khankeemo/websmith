@@ -106,13 +106,13 @@ export default function ClientsPage() {
 
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header} className="clients-header">
+    <div style={styles.container} className="wsd-page">
+      <div style={styles.header} className="clients-header wsd-page-header">
         <div>
           <h1 style={styles.title}>Clients</h1>
           <p style={styles.subtitle}>Manage clients from one place</p>
         </div>
-        <div style={styles.headerButtons}>
+        <div style={styles.headerButtons} className="wsd-page-actions">
 
           <button onClick={handleAddClient} style={styles.addBtn} className="add-btn">
             <Plus size={18} />
@@ -121,8 +121,8 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      <div style={styles.searchSection}>
-        <div style={styles.searchBox}>
+      <div style={styles.searchSection} className="wsd-toolbar">
+        <div style={styles.searchBox} className="wsd-search-box">
           <Search size={18} color="var(--text-secondary)" />
           <input
             type="text"
@@ -174,7 +174,7 @@ export default function ClientsPage() {
             <p style={styles.emptyText}>{searchTerm ? 'Try adjusting your search' : 'Create your first client to get started'}</p>
           </div>
         ) : (
-          <div style={styles.grid}>
+          <div style={styles.grid} className="wsd-card-grid">
             {filteredClients.map((client) => (
               <ClientCard
                 key={client._id}
@@ -306,6 +306,8 @@ const styles: any = {
     border: '1.5px solid var(--border-color)',
     borderRadius: '16px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+    flex: 1,
+    minWidth: 0,
   },
   searchInput: {
     flex: 1,

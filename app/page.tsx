@@ -150,7 +150,7 @@ export default function LandingPage() {
       <LeadCapturePopup />
       {/* Navigation - WITH MENU ITEMS */}
       <nav style={styles.nav}>
-        <div style={styles.navContent}>
+        <div style={styles.navContent} className="landing-nav-content">
           <div style={styles.leftNavGroup}>
             {/* Logo */}
             <a href="/" style={styles.logo} className="logo-hover">
@@ -215,7 +215,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section style={styles.hero}>
+      <section style={styles.hero} className="landing-hero">
         <video
           autoPlay
           loop
@@ -234,9 +234,9 @@ export default function LandingPage() {
           <source src="/videos/techVideo 2026-04-07 at 17.28.20.mp4" type="video/mp4" />
         </video>
         <div style={styles.heroOverlay} />
-        <div style={styles.heroContent}>
-          <h1 style={styles.heroTitle}>Your On-Demand <span style={styles.highlight}>Tech Partner</span></h1>
-          <p style={styles.heroSubtitle}>Connect with top-tier developers, build amazing products, and scale your business with confidence.</p>
+        <div style={styles.heroContent} className="landing-hero-content">
+          <h1 style={styles.heroTitle} className="landing-hero-title">Your On-Demand <span style={styles.highlight}>Tech Partner</span></h1>
+          <p style={styles.heroSubtitle} className="landing-hero-subtitle">Connect with top-tier developers, build amazing products, and scale your business with confidence.</p>
           <button onClick={handleGetStarted} style={styles.ctaButton} className="cta-hover">
             Get Started <ArrowRight size={18} />
           </button>
@@ -247,7 +247,7 @@ export default function LandingPage() {
       <section id="features" ref={featuresRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Why Choose Websmith</h2>
         <p style={styles.sectionSubtitle}>Everything you need to build exceptional digital products</p>
-        <div style={styles.featuresGrid}>
+        <div style={styles.featuresGrid} className="landing-features-grid">
           {features.map((feature, index) => (
             <div 
               key={index} 
@@ -269,7 +269,7 @@ export default function LandingPage() {
 
       {/* Stats Counters */}
       <section style={styles.statsSection}>
-        <div style={styles.statsGrid}>
+        <div style={styles.statsGrid} className="landing-stats-grid">
           <div style={styles.statCard}>
             <h3 style={styles.statNumber}>{stats.projects}+</h3>
             <p style={styles.statLabel}>Projects Completed</p>
@@ -309,14 +309,14 @@ export default function LandingPage() {
 
       {/* Global Diversity & Collaboration */}
       <section style={styles.diversitySection}>
-        <div style={styles.diversityContent}>
+          <div style={styles.diversityContent} className="landing-diversity-content">
           <div style={styles.diversityText}>
             <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "#1C1C1E" }}>Global Collaboration & Technical Excellence</h2>
             <p style={{ fontSize: "18px", color: "#6C6C70", lineHeight: 1.6, marginBottom: "24px" }}>
               Our team brings together diverse perspectives and world-class expertise to solve complex challenges. 
               We believe in the power of inclusive collaboration to build the next generation of digital products.
             </p>
-            <div style={{ display: "flex", gap: "16px" }}>
+            <div style={{ display: "flex", gap: "16px" }} className="landing-badges-row">
               <div style={styles.diversityBadge}>Enterprise Grade</div>
               <div style={styles.diversityBadge}>Diverse Talent</div>
             </div>
@@ -335,7 +335,7 @@ export default function LandingPage() {
       <section id="clients" ref={clientsRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
         <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
-        <div style={styles.clientGrid}>
+        <div style={styles.clientGrid} className="landing-client-grid">
           {(publishedClients.length > 0 ? publishedClients.map((client: any) => ({
             name: client.name,
             company: client.company || client.customId || "Featured Client",
@@ -358,7 +358,7 @@ export default function LandingPage() {
       <section id="developers" ref={developersRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
         <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
-        <div style={styles.developerGrid}>
+        <div style={styles.developerGrid} className="landing-developer-grid">
           {(publishedDevelopers.length > 0
             ? publishedDevelopers.map((developer: any, index: number) => ({
                 id: developer._id || index,
@@ -550,7 +550,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer id="footer" ref={footerRef} style={styles.footer}>
-        <div style={styles.footerContent}>
+        <div style={styles.footerContent} className="landing-footer-content">
           <div style={styles.footerSection}>
             <h3 style={styles.footerLogo}>Websmith</h3>
             <p style={styles.footerDesc}>Your trusted partner for digital excellence.</p>
@@ -715,7 +715,67 @@ export default function LandingPage() {
           background-color: #F2F2F7;
           transform: translateX(4px);
         }
-        
+
+        @media (max-width: 1024px) {
+          .landing-hero-title {
+            font-size: 46px !important;
+          }
+          .landing-diversity-content {
+            gap: 32px !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .desktop-menu,
+          .nav-buttons {
+            display: none !important;
+          }
+          .mobile-menu-btn,
+          .mobile-menu {
+            display: flex !important;
+          }
+          .landing-nav-content {
+            padding: 14px 16px !important;
+          }
+          .landing-hero {
+            min-height: 62vh !important;
+            padding: 56px 16px !important;
+          }
+          .landing-hero-title {
+            font-size: 36px !important;
+            line-height: 1.1 !important;
+          }
+          .landing-hero-subtitle {
+            font-size: 17px !important;
+          }
+          .landing-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 20px !important;
+          }
+          .landing-badges-row {
+            flex-wrap: wrap;
+          }
+          .landing-footer-content {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 24px !important;
+          }
+        }
+
+        @media (max-width: 520px) {
+          .landing-hero-title {
+            font-size: 30px !important;
+          }
+          .landing-hero-subtitle {
+            font-size: 15px !important;
+          }
+          .landing-features-grid,
+          .landing-client-grid,
+          .landing-developer-grid,
+          .landing-footer-content,
+          .landing-stats-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
       `}</style>
     </div>
   );
@@ -1384,47 +1444,3 @@ const styles: any = {
   },
 };
 
-// Add responsive styles
-if (typeof window !== "undefined") {
-  const style = document.createElement("style");
-  style.textContent = `
-    @media (max-width: 768px) {
-      .desktop-menu {
-        display: none !important;
-      }
-      .nav-buttons {
-        display: none !important;
-      }
-      .mobile-menu-btn {
-        display: flex !important;
-      }
-      .mobile-menu {
-        display: flex !important;
-      }
-      .hero-title {
-        font-size: 40px !important;
-      }
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-      }
-      .footer-content {
-        grid-template-columns: repeat(2, 1fr) !important;
-      }
-    }
-    @media (min-width: 769px) {
-      .mobile-menu-btn {
-        display: none !important;
-      }
-      .mobile-menu {
-        display: none !important;
-      }
-      .desktop-menu {
-        display: flex !important;
-      }
-      .nav-buttons {
-        display: flex !important;
-      }
-    }
-  `;
-  document.head.appendChild(style);
-}

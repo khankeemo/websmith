@@ -114,7 +114,7 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header}>
         <div>
@@ -124,7 +124,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div style={styles.statsGrid}>
+      <div style={styles.statsGrid} className="wsd-grid-tiles">
         <div style={styles.statCard}>
           <div style={{ ...styles.statIcon, backgroundColor: "rgba(0, 122, 255, 0.1)" }}>
             <CreditCard size={20} color="#007AFF" />
@@ -164,8 +164,8 @@ export default function PaymentsPage() {
       </div>
 
       {/* Search and Filter */}
-      <div style={styles.searchSection} className="payments-search-section">
-        <div style={styles.searchWrapper}>
+      <div style={styles.searchSection} className="payments-search-section wsd-toolbar">
+        <div style={styles.searchWrapper} className="wsd-search-box">
           <Search size={18} style={styles.searchIcon} />
           <input
             type="text"
@@ -229,7 +229,7 @@ export default function PaymentsPage() {
                   <span>Transaction: {payment.transactionId}</span>
                 </div>
               </div>
-              <div style={styles.paymentActions}>
+              <div style={styles.paymentActions} className="payment-actions-stack">
                 <button style={styles.viewButton} className="action-btn">
                   <Eye size={14} /> View Details
                 </button>
@@ -271,6 +271,9 @@ export default function PaymentsPage() {
           }
           .payments-search-section select {
             width: 100%;
+          }
+          .payment-actions-stack {
+            flex-direction: column;
           }
         }
       `}</style>

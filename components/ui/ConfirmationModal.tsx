@@ -51,6 +51,7 @@ export default function ConfirmationModal({
       onClick={onCancel}
     >
       <div 
+        className="wsd-confirmation-modal"
         style={{
           ...styles.modal,
           transform: isOpen ? 'scale(1) translateY(0)' : 'scale(0.95) translateY(10px)',
@@ -99,6 +100,12 @@ export default function ConfirmationModal({
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
+        }
+        @media (max-width: 640px) {
+          .wsd-confirmation-modal {
+            width: calc(100vw - 24px) !important;
+            padding: 24px 20px !important;
+          }
         }
       `}</style>
     </div>

@@ -172,7 +172,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
 
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.modal} className="wsd-project-modal" onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <h2 style={styles.modalTitle}>{project ? 'Edit Project' : 'New Project'}</h2>
           <button onClick={onClose} style={styles.closeBtn}>
@@ -205,7 +205,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             {errors.description && <p style={styles.errorText}>{errors.description}</p>}
           </div>
 
-          <div style={styles.row}>
+          <div style={styles.row} className="wsd-form-row">
             <div style={styles.formGroup}>
               <label style={styles.label}>Client Selection *</label>
               <select
@@ -236,7 +236,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             </div>
           </div>
 
-          <div style={styles.row}>
+          <div style={styles.row} className="wsd-form-row">
             <div style={styles.formGroup}>
               <label style={styles.label}>Status</label>
               <select
@@ -267,7 +267,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             </div>
           </div>
 
-          <div style={styles.row}>
+          <div style={styles.row} className="wsd-form-row">
             <div style={styles.formGroup}>
               <label style={styles.label}>Start Date *</label>
               <input
@@ -293,7 +293,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             </div>
           </div>
 
-          <div style={styles.row}>
+          <div style={styles.row} className="wsd-form-row">
             <div style={styles.formGroup}>
               <label style={styles.label}>End Date</label>
               <input
@@ -347,6 +347,14 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             transform: scale(1);
           }
         }
+        @media (max-width: 640px) {
+          .wsd-project-modal {
+            width: calc(100vw - 24px) !important;
+            max-height: calc(100vh - 24px) !important;
+            padding: 20px !important;
+            border-radius: 20px !important;
+          }
+        }
       `}</style>
     </div>
   );
@@ -370,7 +378,7 @@ const styles: any = {
     backgroundColor: '#FFFFFF',
     borderRadius: '24px',
     padding: '28px',
-    width: '90%',
+    width: 'min(90%, 600px)',
     maxWidth: '600px',
     maxHeight: '90vh',
     overflowY: 'auto',
@@ -446,6 +454,7 @@ const styles: any = {
   row: {
     display: 'flex',
     gap: '16px',
+    flexWrap: 'wrap',
   },
   modalFooter: {
     display: 'flex',

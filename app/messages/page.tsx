@@ -167,7 +167,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div style={styles.container} className="messages-page-shell">
+    <div style={styles.container} className="messages-page-shell wsd-page">
       {/* Chat Sidebar */}
       <div
         style={{
@@ -253,7 +253,7 @@ export default function MessagesPage() {
                 <div style={styles.chatRole}>{selectedConversation.participantRole}</div>
               </div>
             </div>
-            <div style={styles.chatActions}>
+          <div style={styles.chatActions} className="messages-chat-actions">
               <button style={styles.chatActionBtn} className="chat-action">
                 <Phone size={18} />
               </button>
@@ -283,7 +283,7 @@ export default function MessagesPage() {
                       {selectedConversation.participantName.charAt(0)}
                     </div>
                   )}
-                  <div style={{ maxWidth: "75%" }}>
+                  <div style={{ maxWidth: "75%" }} className="messages-bubble-wrap">
                     <div
                       style={{
                         ...styles.messageBubble,
@@ -305,7 +305,7 @@ export default function MessagesPage() {
           </div>
 
           {/* Message Input */}
-          <div style={styles.messageInputContainer}>
+          <div style={styles.messageInputContainer} className="messages-input-row">
             <button style={styles.attachBtn} className="chat-input-btn">
               <Paperclip size={20} />
             </button>
@@ -350,6 +350,37 @@ export default function MessagesPage() {
         @media (max-width: 900px) {
           .messages-page-shell { margin: 8px !important; height: calc(100vh - 96px) !important; }
           .messages-mobile-back { display: flex !important; margin-right: 8px; }
+          .messages-sidebar,
+          .messages-chat-area {
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+          .messages-chat-actions {
+            gap: 6px !important;
+          }
+          .messages-input-row {
+            gap: 10px !important;
+            padding: 16px !important;
+          }
+          .messages-bubble-wrap {
+            max-width: 88% !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .messages-page-shell {
+            margin: 0 !important;
+            border-radius: 18px !important;
+            height: calc(100vh - 88px) !important;
+          }
+          .messages-chat-actions button:nth-child(2),
+          .messages-chat-actions button:nth-child(3) {
+            display: none !important;
+          }
+          .messages-input-row {
+            display: grid !important;
+            grid-template-columns: auto 1fr auto auto;
+            align-items: end !important;
+          }
         }
       `}</style>
     </div>
@@ -398,7 +429,7 @@ const styles: any = {
   },
   sidebar: {
     width: "360px",
-    minWidth: "360px",
+    minWidth: "320px",
     borderRight: "1.5px solid var(--border-color)",
     display: "flex",
     flexDirection: "column",

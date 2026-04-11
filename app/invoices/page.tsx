@@ -136,9 +136,9 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
-      <div style={styles.header}>
+      <div style={styles.header} className="wsd-page-header">
         <div>
           <h1 style={styles.title}>Invoices</h1>
           <p style={styles.subtitle}>Manage and track all customer billing</p>
@@ -149,7 +149,7 @@ export default function InvoicesPage() {
       </div>
 
       {/* Stats Cards */}
-      <div style={styles.statsGrid}>
+      <div style={styles.statsGrid} className="wsd-grid-tiles">
         <div style={styles.statCard}>
           <div style={{ ...styles.statIcon, backgroundColor: "rgba(0, 122, 255, 0.1)" }}>
             <FileText size={20} color="#007AFF" />
@@ -189,8 +189,8 @@ export default function InvoicesPage() {
       </div>
 
       {/* Search and Filter */}
-      <div style={styles.searchSection}>
-        <div style={styles.searchWrapper}>
+      <div style={styles.searchSection} className="wsd-toolbar">
+        <div style={styles.searchWrapper} className="wsd-search-box">
           <Search size={18} style={styles.searchIcon} />
           <input
             type="text"
@@ -227,7 +227,7 @@ export default function InvoicesPage() {
           )}
         </div>
       ) : (
-        <div style={styles.tableContainer}>
+        <div style={styles.tableContainer} className="wsd-table-scroll">
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeader}>
@@ -299,6 +299,12 @@ export default function InvoicesPage() {
         .action-btn:hover { background-color: var(--bg-secondary) !important; color: #007AFF !important; transform: scale(1.1); }
         .delete-hover:hover { color: #FF3B30 !important; background-color: rgba(255, 59, 48, 0.1) !important; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 640px) {
+          .action-btn {
+            width: 36px;
+            height: 36px;
+          }
+        }
       `}</style>
     </div>
   );
