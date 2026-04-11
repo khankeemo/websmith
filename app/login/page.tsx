@@ -1,7 +1,7 @@
 // PATH: C:\websmith\app\login\page.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { login } from "../../core/services/authService";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, Menu, X } from "lucide-react";
@@ -16,6 +16,22 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [mobileMenuOpen]);
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -107,6 +123,9 @@ export default function LoginPage() {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             style={styles.mobileMenuButton}
             className="mobile-menu-button"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="login-public-navigation"
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -114,7 +133,15 @@ export default function LoginPage() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div style={styles.mobileMenu}>
+          <>
+          <button
+            type="button"
+            style={styles.mobileMenuOverlay}
+            className="public-login-menu-overlay"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation menu"
+          />
+          <div style={styles.mobileMenu} id="login-public-navigation" className="public-login-menu-panel">
             {navItems.map((item, index) => (
               <a
                 key={index}
@@ -128,19 +155,26 @@ export default function LoginPage() {
             ))}
             <div style={styles.mobileAuthButtons}>
               <button
-                onClick={() => router.push("/login")}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push("/login");
+                }}
                 style={styles.mobileLoginButton}
               >
                 Login
               </button>
               <button
-                onClick={() => router.push("/services")}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push("/services");
+                }}
                 style={styles.mobileGetStartedButton}
               >
                 Get Started 🚀
               </button>
             </div>
           </div>
+          </>
         )}
       </header>
 
@@ -363,6 +397,26 @@ export default function LoginPage() {
           padding-left: 24px;
           color: #007AFF;
         }
+
+        .public-login-menu-overlay {
+          opacity: 1;
+          transition: opacity 0.2s ease;
+        }
+
+        .public-login-menu-panel {
+          animation: loginMenuSlideDown 0.22s ease;
+        }
+
+        @keyframes loginMenuSlideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
         
         /* Circle Mask Hover - Zoom In */
         .circle-mask-hover {
@@ -481,7 +535,7 @@ const styles: any = {
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 1000,
+    zIndex: 1300,
     backgroundColor: "rgba(255,255,255,0.95)",
     backdropFilter: "blur(20px)",
     borderBottom: "1px solid rgba(224,224,230,0.5)",
@@ -593,9 +647,29 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     backgroundColor: "#FFFFFF",
-    borderTop: "1px solid #E5E5EA",
-    padding: "16px 24px",
+    border: "1px solid #E5E5EA",
+    borderRadius: "20px",
+    padding: "16px",
     gap: "12px",
+    position: "fixed",
+    top: "76px",
+    left: "16px",
+    right: "16px",
+    zIndex: 1302,
+    boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
+    maxHeight: "calc(100dvh - 92px)",
+    overflowY: "auto",
+  },
+  mobileMenuOverlay: {
+    position: "fixed",
+    top: "69px",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    border: "none",
+    backgroundColor: "rgba(0,0,0,0.22)",
+    zIndex: 1301,
+    cursor: "pointer",
   },
 
   mobileNavLink: {

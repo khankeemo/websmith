@@ -373,15 +373,16 @@ export default function Sidebar({
         @media (max-width: 900px) {
           .app-sidebar {
             position: fixed;
-            top: 0;
+            top: 69px;
             left: 0;
             bottom: 0;
             z-index: 1200;
             width: min(82vw, 320px) !important;
-            height: 100dvh !important;
+            height: calc(100dvh - 69px) !important;
             transform: translateX(-100%);
             box-shadow: none;
             overflow-y: auto;
+            border-top: 1px solid var(--border-color);
           }
           .app-sidebar.app-sidebar-open {
             transform: translateX(0);

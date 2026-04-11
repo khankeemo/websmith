@@ -87,6 +87,14 @@ export default function ClientLayout({
   const shouldShowSidebar = !publicPaths.includes(pathname);
   const user = getStoredUser();
 
+  useEffect(() => {
+    if (!shouldShowSidebar) return;
+    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen, shouldShowSidebar]);
+
   return (
     <LeadFunnelProvider>
       <div style={styles.layoutShell}>
@@ -133,6 +141,7 @@ export default function ClientLayout({
           }
           .app-mobile-overlay {
             display: block !important;
+            top: 69px !important;
           }
         }
         @media (max-width: 480px) {
@@ -168,6 +177,7 @@ const styles: any = {
     alignItems: "center",
     gap: "12px",
     padding: "14px 16px",
+    minHeight: "69px",
     backgroundColor: "var(--bg-secondary)",
     borderBottom: "1px solid var(--border-color)",
   },
@@ -203,7 +213,10 @@ const styles: any = {
   mobileOverlay: {
     display: "none",
     position: "fixed",
-    inset: 0,
+    top: "69px",
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "rgba(0,0,0,0.35)",
     opacity: 0,
     pointerEvents: "none",

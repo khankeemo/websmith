@@ -85,6 +85,22 @@ export default function LandingPage() {
     });
   }, []);
 
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [mobileMenuOpen]);
+
   // Smooth scroll function
   const scrollToSection = (ref: React.RefObject<HTMLElement>) => {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -183,6 +199,9 @@ export default function LandingPage() {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
             style={styles.mobileMenuBtn}
             className="mobile-menu-btn"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="public-mobile-navigation"
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -190,27 +209,43 @@ export default function LandingPage() {
         
         {/* Mobile Menu Dropdown */}
         {mobileMenuOpen && (
-          <div style={styles.mobileMenu}>
-            {menuItems.map((item, index) => (
-              <a
-                key={index} 
-                href={item.href}
-                style={styles.mobileMenuItem}
-                className="mobile-menu-item"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {item.name}
-              </a>
-            ))}
-            <div style={styles.mobileMenuDivider} />
-            <button 
-              onClick={() => router.push('/login')} 
-              style={styles.mobileLoginBtn}
-              className="mobile-login-btn"
+          <>
+            <button
+              type="button"
+              style={styles.mobileMenuOverlay}
+              className="public-mobile-menu-overlay"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close navigation menu"
+            />
+            <div
+              id="public-mobile-navigation"
+              style={styles.mobileMenu}
+              className="public-mobile-menu-panel"
             >
-              Log in
-            </button>
-          </div>
+              {menuItems.map((item, index) => (
+                <a
+                  key={index} 
+                  href={item.href}
+                  style={styles.mobileMenuItem}
+                  className="mobile-menu-item"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.name}
+                </a>
+              ))}
+              <div style={styles.mobileMenuDivider} />
+              <button 
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push('/login');
+                }} 
+                style={styles.mobileLoginBtn}
+                className="mobile-login-btn"
+              >
+                Log in
+              </button>
+            </div>
+          </>
         )}
       </nav>
 
@@ -716,6 +751,26 @@ export default function LandingPage() {
           transform: translateX(4px);
         }
 
+        .public-mobile-menu-overlay {
+          opacity: 1;
+          transition: opacity 0.2s ease;
+        }
+
+        .public-mobile-menu-panel {
+          animation: publicNavSlideDown 0.22s ease;
+        }
+
+        @keyframes publicNavSlideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
         @media (max-width: 1024px) {
           .landing-hero-title {
             font-size: 46px !important;
@@ -795,7 +850,7 @@ const styles: any = {
     backgroundColor: "rgba(255,255,255,0.95)",
     backdropFilter: "blur(10px)",
     borderBottom: "1px solid #E5E5EA",
-    zIndex: 100,
+    zIndex: 1300,
   },
   navContent: {
     maxWidth: "1200px",
@@ -880,11 +935,31 @@ const styles: any = {
   
   // Mobile Menu
   mobileMenu: {
-    display: "none",
+    display: "flex",
     flexDirection: "column",
-    padding: "16px 24px",
-    borderTop: "1px solid #E5E5EA",
+    padding: "16px",
+    border: "1px solid #E5E5EA",
+    borderRadius: "20px",
     backgroundColor: "#FFFFFF",
+    position: "fixed",
+    top: "76px",
+    left: "16px",
+    right: "16px",
+    zIndex: 1302,
+    boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
+    maxHeight: "calc(100dvh - 92px)",
+    overflowY: "auto",
+  },
+  mobileMenuOverlay: {
+    position: "fixed",
+    top: "69px",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    border: "none",
+    backgroundColor: "rgba(0,0,0,0.22)",
+    zIndex: 1301,
+    cursor: "pointer",
   },
   mobileMenuItem: {
     padding: "12px 16px",
