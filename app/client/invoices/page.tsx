@@ -18,6 +18,8 @@ import {
   ChevronRight
 } from "lucide-react";
 import API from "@/core/services/apiService";
+import Modal from "../../../components/ui/Modal";
+import paymentService from "../../payments/services/paymentService";
 
 interface Invoice {
   _id: string;
@@ -37,6 +39,10 @@ export default function ClientInvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "bank" | "cash" | "crypto">("card");
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
 
   useEffect(() => {
     fetchInvoices();
@@ -82,6 +88,26 @@ export default function ClientInvoicesPage() {
   const filteredInvoices = invoices.filter(invoice => 
     invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handlePayInvoice = async () => {
+    if (!selectedInvoice) return;
+
+    setPaymentLoading(true);
+    setPaymentError("");
+    try {
+      await paymentService.createPayment({
+        invoiceId: selectedInvoice._id,
+        method: paymentMethod,
+        notes: `Client initiated payment for ${selectedInvoice.invoiceNumber}`,
+      });
+      setSelectedInvoice(null);
+      await fetchInvoices();
+    } catch (error: any) {
+      setPaymentError(error?.response?.data?.message || "Failed to process payment");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   const stats = {
     total: invoices.length,
@@ -210,7 +236,11 @@ export default function ClientInvoicesPage() {
                   <button 
                     style={styles.payButton} 
                     className="pay-btn-hover"
-                    onClick={() => alert("Redirecting to secure payment page...")}
+                    onClick={() => {
+                      setPaymentMethod("card");
+                      setPaymentError("");
+                      setSelectedInvoice(invoice);
+                    }}
                   >
                     <CreditCard size={18} /> Pay Now
                   </button>
@@ -255,6 +285,54 @@ export default function ClientInvoicesPage() {
           .hide-mobile { display: none; }
         }
       `}</style>
+
+      <Modal
+        isOpen={Boolean(selectedInvoice)}
+        onClose={() => {
+          setSelectedInvoice(null);
+          setPaymentError("");
+        }}
+        title="Complete Payment"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setSelectedInvoice(null)}
+              style={styles.modalSecondaryBtn}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handlePayInvoice}
+              style={styles.modalPrimaryBtn}
+              disabled={paymentLoading}
+            >
+              {paymentLoading ? "Processing..." : "Confirm Payment"}
+            </button>
+          </>
+        }
+      >
+        {selectedInvoice && (
+          <div style={styles.paymentModalBody}>
+            <p style={styles.modalText}>
+              Invoice <strong>{selectedInvoice.invoiceNumber}</strong> for {formatCurrency(selectedInvoice.amount)}
+            </p>
+            <label style={styles.modalLabel}>Payment Method</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as any)}
+              style={styles.modalSelect}
+            >
+              <option value="card">Card</option>
+              <option value="bank">Bank</option>
+              <option value="cash">Cash</option>
+              <option value="crypto">Crypto</option>
+            </select>
+            {paymentError && <p style={styles.modalError}>{paymentError}</p>}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -409,5 +487,52 @@ const styles: any = {
     backgroundColor: 'var(--bg-secondary)', 
     borderRadius: '32px',
     border: '1.5px dashed var(--border-color)',
+  },
+  paymentModalBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  modalText: {
+    margin: 0,
+    color: "var(--text-primary)",
+    lineHeight: 1.5,
+  },
+  modalLabel: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "var(--text-primary)",
+  },
+  modalSelect: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+  },
+  modalError: {
+    margin: 0,
+    color: "#FF3B30",
+    fontSize: "13px",
+    fontWeight: 500,
+  },
+  modalPrimaryBtn: {
+    padding: "10px 16px",
+    borderRadius: "12px",
+    border: "none",
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  modalSecondaryBtn: {
+    padding: "10px 16px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    fontWeight: 600,
+    cursor: "pointer",
   },
 };

@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, Moon, Sun, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
 import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken } from "../lib/auth";
@@ -21,6 +21,7 @@ export default function ClientLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [publicTheme, setPublicTheme] = useState<"light" | "dark">("light");
   
   const publicPaths = ["/", "/login", "/register", "/auth/callback", "/services", "/lead-form", "/success", "/auth/change-password"];
   const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
@@ -30,6 +31,10 @@ export default function ClientLayout({
     const user = getStoredUser();
 
     if (publicPaths.includes(pathname)) {
+      document.documentElement.classList.toggle(
+        "dark-theme",
+        token && user ? user.preferences?.theme === "dark" : publicTheme === "dark"
+      );
       return;
     }
 
@@ -41,7 +46,6 @@ export default function ClientLayout({
 
     const defaultRoute = getDefaultRouteForRole(user.role);
 
-    // Force password change for new clients
     if (user.role === "client" && user.isTemporaryPassword && pathname !== "/auth/change-password") {
       router.replace("/auth/change-password");
       return;
@@ -66,13 +70,8 @@ export default function ClientLayout({
       router.replace(defaultRoute);
     }
 
-    // Apply theme globally
-    if (user && user.preferences?.theme === "dark") {
-      document.documentElement.classList.add("dark-theme");
-    } else {
-      document.documentElement.classList.remove("dark-theme");
-    }
-  }, [pathname, router]);
+    document.documentElement.classList.toggle("dark-theme", user.preferences?.theme === "dark");
+  }, [pathname, publicTheme, router]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -127,6 +126,16 @@ export default function ClientLayout({
           </>
         )}
         <main className="app-main-shell" style={styles.main}>{children}</main>
+        {!shouldShowSidebar && !getToken() && !getStoredUser() && (
+          <button
+            type="button"
+            onClick={() => setPublicTheme((current) => (current === "light" ? "dark" : "light"))}
+            style={styles.publicThemeButton}
+            aria-label={`Switch to ${publicTheme === "light" ? "dark" : "light"} mode`}
+          >
+            {publicTheme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+        )}
       </div>
       <CrispChat />
       <style>{`
@@ -226,5 +235,22 @@ const styles: any = {
   mobileOverlayVisible: {
     opacity: 1,
     pointerEvents: "auto",
+  },
+  publicThemeButton: {
+    position: "fixed",
+    right: "16px",
+    bottom: "16px",
+    zIndex: 1250,
+    width: "44px",
+    height: "44px",
+    borderRadius: "999px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    boxShadow: "0 12px 24px rgba(0,0,0,0.12)",
   },
 };

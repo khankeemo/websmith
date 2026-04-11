@@ -128,7 +128,7 @@ export default function Sidebar({
             items: [
               { name: "Developers", path: `${basePath}/team`, icon: Code2 },
               { name: "Admins", path: `${basePath}/admins`, icon: ShieldCheck },
-              { name: "Messages", path: `${basePath}/messages`, icon: MessageSquare },
+              { name: "Queries", path: `${basePath}/messages`, icon: MessageSquare },
             ],
           },
           {
@@ -239,6 +239,21 @@ export default function Sidebar({
         <ChevronRight size={14} color="#8e8e93" />
       </div>
 
+      <div style={styles.quickActions}>
+        <button 
+          onClick={handleLogout} 
+          style={styles.logoutButton}
+          className="logout-button-hover"
+        >
+          <LogOut size={16} />
+          <span>Log Out</span>
+        </button>
+        <button onClick={toggleTheme} style={styles.themeToggleButton} aria-label="Toggle theme">
+          {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          <span>{theme === "light" ? "Dark" : "Light"}</span>
+        </button>
+      </div>
+
       {/* MENU */}
       {menu.map((section) => (
         <div key={section.title} style={styles.section}>
@@ -293,18 +308,6 @@ export default function Sidebar({
           })}
         </div>
       ))}
-
-      <div style={styles.footer}>
-        <button 
-          onClick={handleLogout} 
-          style={styles.logoutButton}
-          className="logout-button-hover"
-        >
-          <LogOut size={16} />
-          <span>Log Out</span>
-        </button>
-      </div>
-
       {/* Profile Modal */}
       <ProfileModal 
         isOpen={isProfileModalOpen}
@@ -502,6 +505,12 @@ const styles: any = {
     paddingTop: "20px",
     borderTop: "1px solid var(--border-color)",
   },
+  quickActions: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "10px",
+    marginBottom: "24px",
+  },
  
   logoutButton: {
     width: "100%",
@@ -510,13 +519,29 @@ const styles: any = {
     gap: "12px",
     padding: "12px",
     background: "transparent",
-    border: "none",
+    border: "1px solid rgba(255, 59, 48, 0.18)",
     borderRadius: "12px",
     color: "#ff3b30",
     fontSize: "14px",
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.3s ease",
+    justifyContent: "center",
+  },
+  themeToggleButton: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "10px",
+    padding: "12px",
+    background: "var(--bg-primary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "12px",
+    color: "var(--text-primary)",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
   },
 
   profileSection: {

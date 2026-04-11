@@ -22,10 +22,10 @@ export interface Payment {
 
 export interface CreatePaymentData {
   invoiceId: string;
-  amount: number;
+  amount?: number;
   method: Payment['method'];
-  transactionId: string;
-  date: string;
+  transactionId?: string;
+  date?: string;
   notes?: string;
 }
 

@@ -20,9 +20,16 @@ import {
   AlertCircle
 } from "lucide-react";
 import API from "@/core/services/apiService";
+import Modal from "../../components/ui/Modal";
+import { getProjects, Project } from "../projects/services/projectService";
+import { getUsersByRole, RoleUser } from "../../core/services/userService";
 
 interface Invoice {
   _id: string;
+  clientId?: string | null;
+  projectId?: string | null;
+  billingType?: "project_completion" | "advance_payment" | "milestone";
+  milestoneLabel?: string;
   invoiceNumber: string;
   clientName: string;
   clientEmail: string;
@@ -47,9 +54,35 @@ export default function InvoicesPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<RoleUser[]>([]);
+  const [formState, setFormState] = useState({
+    projectId: "",
+    clientId: "",
+    billingType: "project_completion" as "project_completion" | "advance_payment" | "milestone",
+    milestoneLabel: "",
+    clientName: "",
+    clientEmail: "",
+    issueDate: new Date().toISOString().split("T")[0],
+    dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+    description: "",
+    quantity: "1",
+    rate: "",
+    tax: "0",
+    discount: "0",
+    notes: "",
+  });
+  const [formError, setFormError] = useState("");
+  const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
+    Promise.all([getProjects(), getUsersByRole("client")])
+      .then(([projectData, clientData]) => {
+        setProjects(projectData);
+        setClients(clientData);
+      })
+      .catch((error) => console.error("Invoice dependencies error:", error));
   }, []);
 
   const fetchInvoices = async () => {
@@ -124,6 +157,90 @@ export default function InvoicesPage() {
     pending: invoices.filter(i => i.status === "pending").length,
     overdue: invoices.filter(i => i.status === "overdue").length,
     totalAmount: invoices.reduce((sum, i) => sum + i.amount, 0)
+  };
+
+  const resetForm = () => {
+    setFormState({
+      projectId: "",
+      clientId: "",
+      billingType: "project_completion",
+      milestoneLabel: "",
+      clientName: "",
+      clientEmail: "",
+      issueDate: new Date().toISOString().split("T")[0],
+      dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+      description: "",
+      quantity: "1",
+      rate: "",
+      tax: "0",
+      discount: "0",
+      notes: "",
+    });
+    setFormError("");
+  };
+
+  const handleProjectSelect = (projectId: string) => {
+    const project = projects.find((item) => item._id === projectId);
+    const client = clients.find((item) => item._id === project?.clientId);
+    setFormState((prev) => ({
+      ...prev,
+      projectId,
+      clientId: project?.clientId || prev.clientId,
+      clientName: project?.client || prev.clientName,
+      clientEmail: client?.email || prev.clientEmail,
+      description:
+        prev.description || (project ? `${prev.billingType === "advance_payment" ? "Advance payment" : prev.billingType === "milestone" ? `Milestone: ${prev.milestoneLabel || "Project milestone"}` : "Project completion"} for ${project.name}` : ""),
+    }));
+  };
+
+  const handleClientSelect = (clientId: string) => {
+    const client = clients.find((item) => item._id === clientId);
+    setFormState((prev) => ({
+      ...prev,
+      clientId,
+      clientName: client?.name || prev.clientName,
+      clientEmail: client?.email || prev.clientEmail,
+    }));
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!formState.clientName || !formState.clientEmail || !formState.description || !formState.rate) {
+      setFormError("Client, description, and amount are required.");
+      return;
+    }
+
+    setFormLoading(true);
+    setFormError("");
+    try {
+      await API.post("/invoices", {
+        projectId: formState.projectId || undefined,
+        clientId: formState.clientId || undefined,
+        billingType: formState.billingType,
+        milestoneLabel: formState.billingType === "milestone" ? formState.milestoneLabel : "",
+        clientName: formState.clientName,
+        clientEmail: formState.clientEmail,
+        issueDate: formState.issueDate,
+        dueDate: formState.dueDate,
+        notes: formState.notes,
+        tax: Number(formState.tax || 0),
+        discount: Number(formState.discount || 0),
+        items: [
+          {
+            description: formState.description,
+            quantity: Number(formState.quantity || 1),
+            rate: Number(formState.rate || 0),
+            amount: Number(formState.quantity || 1) * Number(formState.rate || 0),
+          },
+        ],
+      });
+      setIsModalOpen(false);
+      resetForm();
+      await fetchInvoices();
+    } catch (error: any) {
+      setFormError(error?.response?.data?.message || "Failed to create invoice");
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   if (loading) {
@@ -306,6 +423,99 @@ export default function InvoicesPage() {
           }
         }
       `}</style>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          resetForm();
+        }}
+        title="Create Invoice"
+        footer={
+          <>
+            <button type="button" onClick={() => setIsModalOpen(false)} style={styles.modalSecondaryBtn}>Cancel</button>
+            <button type="button" onClick={handleCreateInvoice} style={styles.modalPrimaryBtn} disabled={formLoading}>
+              {formLoading ? "Creating..." : "Create Invoice"}
+            </button>
+          </>
+        }
+      >
+        <div style={styles.modalGrid}>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Project</label>
+            <select value={formState.projectId} onChange={(e) => handleProjectSelect(e.target.value)} style={styles.modalInput}>
+              <option value="">Select project (optional)</option>
+              {projects.map((project) => (
+                <option key={project._id} value={project._id}>{project.name}</option>
+              ))}
+            </select>
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Client</label>
+            <select value={formState.clientId} onChange={(e) => handleClientSelect(e.target.value)} style={styles.modalInput}>
+              <option value="">Select client</option>
+              {clients.map((client) => (
+                <option key={client._id} value={client._id}>{client.name}</option>
+              ))}
+            </select>
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Billing Type</label>
+            <select value={formState.billingType} onChange={(e) => setFormState((prev) => ({ ...prev, billingType: e.target.value as any }))} style={styles.modalInput}>
+              <option value="project_completion">Project Completion</option>
+              <option value="advance_payment">Advance Payment</option>
+              <option value="milestone">Milestone</option>
+            </select>
+          </div>
+          {formState.billingType === "milestone" && (
+            <div style={styles.modalField}>
+              <label style={styles.modalLabel}>Milestone Label</label>
+              <input value={formState.milestoneLabel} onChange={(e) => setFormState((prev) => ({ ...prev, milestoneLabel: e.target.value }))} style={styles.modalInput} />
+            </div>
+          )}
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Client Name</label>
+            <input value={formState.clientName} onChange={(e) => setFormState((prev) => ({ ...prev, clientName: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Client Email</label>
+            <input value={formState.clientEmail} onChange={(e) => setFormState((prev) => ({ ...prev, clientEmail: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Issue Date</label>
+            <input type="date" value={formState.issueDate} onChange={(e) => setFormState((prev) => ({ ...prev, issueDate: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Due Date</label>
+            <input type="date" value={formState.dueDate} onChange={(e) => setFormState((prev) => ({ ...prev, dueDate: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={{ ...styles.modalField, gridColumn: "1 / -1" }}>
+            <label style={styles.modalLabel}>Line Item Description</label>
+            <input value={formState.description} onChange={(e) => setFormState((prev) => ({ ...prev, description: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Quantity</label>
+            <input type="number" min="1" value={formState.quantity} onChange={(e) => setFormState((prev) => ({ ...prev, quantity: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Rate</label>
+            <input type="number" min="0" value={formState.rate} onChange={(e) => setFormState((prev) => ({ ...prev, rate: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Tax</label>
+            <input type="number" min="0" value={formState.tax} onChange={(e) => setFormState((prev) => ({ ...prev, tax: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Discount</label>
+            <input type="number" min="0" value={formState.discount} onChange={(e) => setFormState((prev) => ({ ...prev, discount: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={{ ...styles.modalField, gridColumn: "1 / -1" }}>
+            <label style={styles.modalLabel}>Notes</label>
+            <textarea value={formState.notes} onChange={(e) => setFormState((prev) => ({ ...prev, notes: e.target.value }))} style={styles.modalTextarea} />
+          </div>
+          {formError && <p style={styles.modalError}>{formError}</p>}
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -538,5 +748,64 @@ const styles: any = {
   deleteBtn: {
     color: "#FF3B30",
     backgroundColor: 'rgba(255, 59, 48, 0.05)',
+  },
+  modalGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "14px",
+  },
+  modalField: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    minWidth: 0,
+  },
+  modalLabel: {
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "var(--text-primary)",
+  },
+  modalInput: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+  },
+  modalTextarea: {
+    width: "100%",
+    minHeight: "88px",
+    padding: "12px 14px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    resize: "vertical",
+  },
+  modalError: {
+    gridColumn: "1 / -1",
+    margin: 0,
+    color: "#FF3B30",
+    fontSize: "13px",
+    fontWeight: 500,
+  },
+  modalPrimaryBtn: {
+    padding: "10px 16px",
+    borderRadius: "12px",
+    border: "none",
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  modalSecondaryBtn: {
+    padding: "10px 16px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    fontWeight: 600,
+    cursor: "pointer",
   },
 };

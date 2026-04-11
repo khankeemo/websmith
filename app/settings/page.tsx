@@ -9,17 +9,6 @@ import { useRouter } from "next/navigation";
 import { 
   User, 
   Lock, 
-  Bell, 
-  CreditCard, 
-  Shield, 
-  ChevronRight,
-  Camera,
-  Save,
-  Moon,
-  Sun,
-  Globe,
-  Mail,
-  Phone,
   Edit3
 } from "lucide-react";
 import API from "@/core/services/apiService";
@@ -42,32 +31,10 @@ export default function SettingsPage() {
     confirmPassword: ""
   });
   
-  // Preferences State
-  const [preferences, setPreferences] = useState({
-    theme: "light",
-    notifications: {
-      email: true,
-      push: true,
-      taskUpdates: true,
-      invoiceAlerts: true
-    },
-    language: "en"
-  });
-
   // Fetch user data on load
   useEffect(() => {
     const storedUser = getStoredUser();
     setUser(storedUser);
-    if (storedUser?.preferences) {
-      setPreferences(prev => ({
-        ...prev,
-        ...storedUser.preferences,
-        notifications: {
-          ...prev.notifications,
-          ...(storedUser.preferences.notifications || {})
-        }
-      }) as any);
-    }
   }, []);
 
   // Update effect for storage changes
@@ -75,16 +42,6 @@ export default function SettingsPage() {
     const handleUpdate = () => {
       const updatedUser = getStoredUser();
       setUser(updatedUser);
-      if (updatedUser?.preferences) {
-        setPreferences(prev => ({
-          ...prev,
-          ...updatedUser.preferences,
-          notifications: {
-            ...prev.notifications,
-            ...(updatedUser.preferences.notifications || {})
-          }
-        }) as any);
-      }
     };
     window.addEventListener("userProfileUpdated", handleUpdate);
     return () => window.removeEventListener("userProfileUpdated", handleUpdate);
@@ -127,40 +84,9 @@ export default function SettingsPage() {
     }
   };
 
-  const handleThemeUpdate = async (newTheme: "light" | "dark") => {
-    if (!user) return;
-    
-    try {
-      const updatedPreferences = { ...preferences, theme: newTheme };
-      setPreferences(updatedPreferences);
-      
-      const response = await API.put("/users/update", {
-        preferences: updatedPreferences
-      });
-
-      if (response.status === 200) {
-        // Update local storage
-        const stored = JSON.parse(localStorage.getItem("user") || "{}");
-        stored.preferences = updatedPreferences;
-        localStorage.setItem("user", JSON.stringify(stored));
-        
-        // Apply theme immediately
-        document.documentElement.classList.toggle('dark-theme', newTheme === 'dark');
-        
-        setSuccess("Theme updated!");
-        setTimeout(() => setSuccess(""), 2000);
-        window.dispatchEvent(new Event("userProfileUpdated"));
-      }
-    } catch (err) {
-      setError("Failed to update theme");
-    }
-  };
-
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
     { id: "password", label: "Password", icon: Lock },
-    { id: "preferences", label: "Preferences", icon: Bell },
-    { id: "billing", label: "Billing", icon: CreditCard }
   ];
 
   if (!user) return null;
@@ -284,80 +210,6 @@ export default function SettingsPage() {
           </form>
         )}
 
-        {/* Preferences Tab */}
-        {activeTab === "preferences" && (
-          <div style={styles.form}>
-            <div style={styles.sectionHeader}>
-              <h3 style={styles.sectionTitle}>Theme Preference</h3>
-              <p style={styles.sectionHint}>Choose how Websmith looks for you.</p>
-            </div>
-            <div style={styles.themeOptions}>
-              <button
-                type="button"
-                onClick={() => handleThemeUpdate("light")}
-                style={{
-                  ...styles.themeOption,
-                  ...(preferences.theme === "light" ? styles.themeOptionActive : {})
-                }}
-                className="theme-opt"
-              >
-                <Sun size={20} /> Light
-              </button>
-              <button
-                type="button"
-                onClick={() => handleThemeUpdate("dark")}
-                style={{
-                  ...styles.themeOption,
-                  ...(preferences.theme === "dark" ? styles.themeOptionActive : {})
-                }}
-                className="theme-opt"
-              >
-                <Moon size={20} /> Dark
-              </button>
-            </div>
-
-            <div style={styles.sectionHeader}>
-              <h3 style={styles.sectionTitle}>Notifications</h3>
-              <p style={styles.sectionHint}>Control which emails and alerts you receive.</p>
-            </div>
-            <div style={styles.notificationOptions}>
-              {Object.entries(preferences.notifications).map(([key, val]) => (
-                <label key={key} style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={val as boolean}
-                    onChange={(e) => setPreferences({
-                      ...preferences,
-                      notifications: { ...preferences.notifications, [key]: e.target.checked }
-                    })}
-                    style={styles.checkbox}
-                  />
-                  <span style={{textTransform: 'capitalize'}}>{key.replace(/([A-Z])/g, ' $1')}</span>
-                </label>
-              ))}
-            </div>
-
-            <button onClick={() => setSuccess("Preferences saved!")} style={styles.saveButton} className="save-btn">
-              Save All Preferences
-            </button>
-          </div>
-        )}
-
-        {/* Billing Tab */}
-        {activeTab === "billing" && (
-          <div style={styles.form}>
-            <div style={styles.billingInfo}>
-              <Shield size={48} color="#007AFF" />
-              <h3 style={styles.billingTitle}>Billing Information</h3>
-              <p style={styles.billingText}>
-                Manage your subscription and payment methods
-              </p>
-              <button style={styles.billingButton} className="billing-btn">
-                Manage Billing <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       <ProfileModal 
@@ -373,8 +225,6 @@ export default function SettingsPage() {
         .input-focus:focus { border-color: #007AFF !important; box-shadow: 0 0 0 4px rgba(0,122,255,0.1) !important; }
         .save-btn { transition: all 0.25s ease; cursor: pointer; }
         .save-btn:hover { background-color: #0055CC !important; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,122,255,0.3); }
-        .theme-opt { transition: all 0.2s ease; }
-        .theme-opt:hover { border-color: #007AFF; transform: translateY(-1px); }
       `}</style>
     </div>
   );
@@ -470,14 +320,4 @@ const styles: any = {
   input: { padding: "12px 16px", fontSize: "15px", border: "1.5px solid var(--border-color)", borderRadius: "12px", outline: "none", backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" },
   hint: { fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px" },
   saveButton: { padding: "14px", fontSize: "15px", fontWeight: 700, color: "#FFFFFF", backgroundColor: "#007AFF", border: "none", borderRadius: "14px", marginTop: "8px" },
-  themeOptions: { display: "flex", gap: "12px" },
-  themeOption: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px", backgroundColor: "var(--bg-secondary)", borderWidth: "1.5px", borderStyle: "solid", borderColor: "var(--border-color)", borderRadius: "14px", cursor: "pointer", color: "var(--text-primary)", fontSize: "14px", fontWeight: 600 },
-  themeOptionActive: { borderColor: "#007AFF", backgroundColor: "rgba(0,122,255,0.08)", color: "#007AFF" },
-  notificationOptions: { display: "flex", flexDirection: "column", gap: "12px" },
-  checkboxLabel: { display: "flex", alignItems: "center", gap: "12px", fontSize: "14px", fontWeight: 500, cursor: "pointer" },
-  checkbox: { width: "18px", height: "18px", cursor: "pointer", accentColor: "#007AFF" },
-  billingInfo: { textAlign: "center", padding: "40px" },
-  billingTitle: { fontSize: "20px", fontWeight: 700, color: "var(--text-primary)", marginTop: "16px" },
-  billingText: { fontSize: "14px", color: "var(--text-secondary)", marginBottom: "24px" },
-  billingButton: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "12px 24px", backgroundColor: "#007AFF", color: "#FFFFFF", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "14px", fontWeight: 600 },
 };

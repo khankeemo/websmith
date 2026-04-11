@@ -12,6 +12,10 @@ export interface InvoiceItem {
 
 export interface Invoice {
   _id: string;
+  clientId?: string | null;
+  projectId?: string | null;
+  billingType?: 'project_completion' | 'advance_payment' | 'milestone';
+  milestoneLabel?: string;
   invoiceNumber: string;
   clientName: string;
   clientEmail: string;
@@ -29,6 +33,10 @@ export interface Invoice {
 }
 
 export interface CreateInvoiceData {
+  clientId?: string | null;
+  projectId?: string | null;
+  billingType?: 'project_completion' | 'advance_payment' | 'milestone';
+  milestoneLabel?: string;
   clientName: string;
   clientEmail: string;
   clientAddress?: string;
