@@ -46,6 +46,7 @@ interface FormData {
   expectedCompletionDate: string;
   budget: string;
   customClientId: string;
+  published: boolean;
 }
 
 export default function ProjectModal({ isOpen, onClose, onSave, project }: ProjectModalProps) {
@@ -62,6 +63,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     expectedCompletionDate: '',
     budget: '',
     customClientId: '',
+    published: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [clients, setClients] = useState<RoleUser[]>([]);
@@ -102,6 +104,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         expectedCompletionDate: project.expectedCompletionDate?.split('T')[0] || '',
         budget: project.budget?.toString() || '',
         customClientId: project.customClientId || '',
+        published: Boolean(project.published),
       });
     } else {
       setFormData({
@@ -117,6 +120,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         expectedCompletionDate: '',
         budget: '',
         customClientId: '',
+        published: false,
       });
     }
     setErrors({});
@@ -319,6 +323,11 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
               />
             </div>
           </div>
+
+          <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+            <input type="checkbox" checked={formData.published} onChange={(e) => setFormData((prev) => ({ ...prev, published: e.target.checked }))} />
+            Publish this project on the public website
+          </label>
 
           <div style={styles.modalFooter}>
             <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>

@@ -11,6 +11,7 @@ interface ProjectCardProps {
   project: Project;
   onEdit: (project: Project) => void;
   onDelete: (id: string) => void;
+  onTogglePublish?: (project: Project) => void;
 }
 
 const statusColors = {
@@ -26,7 +27,7 @@ const priorityColors = {
   'high': { bg: 'rgba(255, 59, 48, 0.1)', color: '#FF3B30', text: 'High' },
 };
 
-export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
+export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish }: ProjectCardProps) {
   const status = statusColors[project.status] || { bg: 'var(--bg-secondary)', color: 'var(--text-secondary)', text: project.status };
   const priority = priorityColors[project.priority] || { bg: 'var(--bg-secondary)', color: 'var(--text-secondary)', text: project.priority };
   const latestUpdate = project.statusUpdates?.[project.statusUpdates.length - 1];
@@ -93,6 +94,19 @@ export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardPr
       </div>
 
       <div style={styles.cardActions}>
+        {onTogglePublish && (
+          <button 
+            onClick={() => onTogglePublish(project)} 
+            style={{
+              ...styles.publishBtn,
+              backgroundColor: project.published ? '#FEF3C7' : '#E8FFF3',
+              color: project.published ? '#D97706' : '#16A34A',
+            }}
+            className="card-action-btn"
+          >
+            <span>{project.published ? 'Unpublish' : 'Publish'}</span>
+          </button>
+        )}
         <button onClick={() => onEdit(project)} style={styles.editBtn} className="card-action-btn">
           <Edit2 size={16} />
           <span>Edit</span>
@@ -232,6 +246,16 @@ const styles: any = {
     display: 'flex',
     gap: '12px',
     marginTop: 'auto',
+  },
+  publishBtn: {
+    flex: 1,
+    padding: '8px',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: 500,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   editBtn: {
     flex: 1,

@@ -5,20 +5,35 @@ import { useEffect, useState } from "react";
 import { 
   Folder, 
   LayoutGrid, 
-  List, 
-  Calendar, 
+  List,
+  Columns,
+  Calendar,
   Search,
-  Target
+  Target,
+  Eye,
+  MessageSquare,
+  FileText,
+  X,
+  Send,
+  TrendingUp
 } from "lucide-react";
 import API from "../../../core/services/apiService";
 import { Project } from "../../projects/services/projectService";
+import { getStoredUser } from "../../../lib/auth";
 
 export default function ClientProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban'>('grid');
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'messages' | 'feedback'>('details');
+  const [messageText, setMessageText] = useState("");
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [projectMessages, setProjectMessages] = useState<any[]>([]);
+  const [projectFeedback, setProjectFeedback] = useState<any[]>([]);
 
   const fetchProjects = async () => {
     try {
@@ -30,6 +45,58 @@ export default function ClientProjectsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchProjectDetails = async (projectId: string) => {
+    try {
+      const [messagesRes, feedbackRes] = await Promise.all([
+        API.get(`/projects/${projectId}/messages`),
+        API.get(`/projects/${projectId}/feedback`)
+      ]);
+      setProjectMessages(messagesRes.data.data || []);
+      setProjectFeedback(feedbackRes.data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch project details:", err);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedProject || !messageText.trim()) return;
+    try {
+      const currentUser = getStoredUser();
+      await API.post(`/projects/${selectedProject._id}/messages`, {
+        sender: "client",
+        senderName: currentUser?.name || "Client",
+        message: messageText,
+      });
+      setMessageText("");
+      await fetchProjectDetails(selectedProject._id!);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
+  };
+
+  const handleSendFeedback = async () => {
+    if (!selectedProject || !feedbackText.trim()) return;
+    try {
+      const currentUser = getStoredUser();
+      await API.post(`/projects/${selectedProject._id}/feedback`, {
+        rating: feedbackRating,
+        comment: feedbackText,
+        clientName: currentUser?.name || "Client",
+      });
+      setFeedbackText("");
+      setFeedbackRating(5);
+      await fetchProjectDetails(selectedProject._id!);
+    } catch (err) {
+      console.error("Failed to send feedback:", err);
+    }
+  };
+
+  const handleProjectClick = async (project: Project) => {
+    setSelectedProject(project);
+    setActiveTab('details');
+    await fetchProjectDetails(project._id!);
   };
 
   useEffect(() => {
@@ -95,15 +162,21 @@ export default function ClientProjectsPage() {
           <div style={styles.viewToggle}>
             <button 
               onClick={() => setViewMode('grid')}
-              style={{ ...styles.toggleBtn, ...(viewMode === 'grid' ? styles.toggleBtnActive : {}) }}
+              style={{ ...styles.viewToggleBtn, ...(viewMode === 'grid' ? styles.viewToggleBtnActive : {}) }}
             >
               <LayoutGrid size={18} />
             </button>
             <button 
               onClick={() => setViewMode('list')}
-              style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleBtnActive : {}) }}
+              style={{ ...styles.viewToggleBtn, ...(viewMode === 'list' ? styles.viewToggleBtnActive : {}) }}
             >
               <List size={18} />
+            </button>
+            <button 
+              onClick={() => setViewMode('kanban')}
+              style={{ ...styles.viewToggleBtn, ...(viewMode === 'kanban' ? styles.viewToggleBtnActive : {}) }}
+            >
+              <Columns size={18} />
             </button>
           </div>
         </div>
@@ -120,6 +193,62 @@ export default function ClientProjectsPage() {
           <Folder size={64} color="var(--border-color)" />
           <h3 style={{ color: "var(--text-primary)" }}>No projects found</h3>
           <p style={{ color: "var(--text-secondary)" }}>You don't have any projects assigned yet.</p>
+        </div>
+      ) : viewMode === 'kanban' ? (
+        <div style={styles.kanban}>
+          {["pending", "in-progress", "completed", "on-hold"].map((status) => {
+            const statusProjects = filteredProjects.filter((p) => p.status === status);
+            const statusStyle = getStatusStyle(status);
+            return (
+              <div key={status} style={styles.kanbanColumn}>
+                <div style={styles.kanbanHeader}>
+                  <h3 style={{ ...styles.kanbanTitle, color: statusStyle.color }}>
+                    {statusStyle.text}
+                  </h3>
+                  <span style={styles.kanbanCount}>{statusProjects.length}</span>
+                </div>
+                <div style={styles.kanbanCards}>
+                  {statusProjects.map((project) => (
+                    <div key={project._id} style={styles.kanbanCard}>
+                      <div style={styles.kanbanCardHeader}>
+                        <Folder size={16} color="#007AFF" />
+                        <strong style={styles.kanbanCardName}>{project.name}</strong>
+                      </div>
+                      <p style={styles.kanbanCardDesc}>{project.description}</p>
+                      {project.progress !== undefined && (
+                        <div style={styles.kanbanProgress}>
+                          <div style={styles.progressHeader}>
+                            <span style={styles.progressLabel}>Progress</span>
+                            <span style={styles.progressValue}>{project.progress}%</span>
+                          </div>
+                          <div style={styles.progressBar}>
+                            <div 
+                              style={{ 
+                                ...styles.progressFill, 
+                                width: `${project.progress}%`,
+                                backgroundColor: project.progress >= 75 ? '#34C759' : project.progress >= 50 ? '#007AFF' : '#FF9500'
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                      <div style={styles.kanbanCardFooter}>
+                        <Calendar size={12} color="var(--text-secondary)" />
+                        <span style={styles.kanbanCardDate}>{formatDate(project.expectedCompletionDate)}</span>
+                        <button 
+                          onClick={() => handleProjectClick(project)} 
+                          style={styles.kanbanViewBtn}
+                        >
+                          <Eye size={12} />
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : viewMode === 'grid' ? (
         <div style={styles.grid}>
@@ -155,6 +284,10 @@ export default function ClientProjectsPage() {
                     </span>
                   </div>
                 )}
+                <button onClick={() => handleProjectClick(project)} style={styles.viewProjectBtn}>
+                  <Eye size={14} />
+                  View Details
+                </button>
               </div>
             </div>
           ))}
@@ -196,8 +329,198 @@ export default function ClientProjectsPage() {
                    </span>
                  ) : '-'}
               </div>
+              <div style={styles.colActions}>
+                <button onClick={() => handleProjectClick(project)} style={styles.viewProjectBtn}>
+                  <Eye size={14} />
+                  View
+                </button>
+              </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Project Detail Modal */}
+      {selectedProject && (
+        <div style={styles.modal} onClick={() => setSelectedProject(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <div>
+                <h2 style={styles.modalTitle}>{selectedProject.name}</h2>
+                <p style={styles.modalSubtitle}>{selectedProject.description}</p>
+              </div>
+              <button onClick={() => setSelectedProject(null)} style={styles.closeBtn}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* Tab Navigation */}
+            <div style={styles.tabNav}>
+              <button 
+                onClick={() => setActiveTab('details')}
+                style={{
+                  ...styles.tabBtn,
+                  ...(activeTab === 'details' ? styles.tabBtnActive : {})
+                }}
+              >
+                <TrendingUp size={14} />
+                Details
+              </button>
+              <button 
+                onClick={() => setActiveTab('messages')}
+                style={{
+                  ...styles.tabBtn,
+                  ...(activeTab === 'messages' ? styles.tabBtnActive : {})
+                }}
+              >
+                <MessageSquare size={14} />
+                Messages ({projectMessages.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab('feedback')}
+                style={{
+                  ...styles.tabBtn,
+                  ...(activeTab === 'feedback' ? styles.tabBtnActive : {})
+                }}
+              >
+                <FileText size={14} />
+                Feedback ({projectFeedback.length})
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div style={styles.modalBody}>
+              {activeTab === 'details' && (
+                <div style={styles.detailsTab}>
+                  <div style={styles.detailGrid}>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Status:</span>
+                      <span style={{
+                        ...styles.detailValue,
+                        ...(() => {
+                          const status = getStatusStyle(selectedProject.status);
+                          return { backgroundColor: status.bg, color: status.color };
+                        })()
+                      }}>
+                        {getStatusStyle(selectedProject.status).text}
+                      </span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Progress:</span>
+                      <span style={styles.detailValue}>{selectedProject.progress || 0}%</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Start Date:</span>
+                      <span style={styles.detailValue}>{formatDate(selectedProject.startDate)}</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Expected Delivery:</span>
+                      <span style={styles.detailValue}>{formatDate(selectedProject.expectedCompletionDate)}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div style={styles.progressSection}>
+                    <h3 style={styles.sectionTitle}>Overall Progress</h3>
+                    <div style={styles.progressHeader}>
+                      <span style={styles.progressLabel}>{selectedProject.progress || 0}% Complete</span>
+                    </div>
+                    <div style={styles.progressBar}>
+                      <div 
+                        style={{ 
+                          ...styles.progressFill, 
+                          width: `${selectedProject.progress || 0}%`,
+                          backgroundColor: (selectedProject.progress || 0) >= 75 ? '#34C759' : (selectedProject.progress || 0) >= 50 ? '#007AFF' : '#FF9500'
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'messages' && (
+                <div style={styles.messagesTab}>
+                  <div style={styles.messagesList}>
+                    {projectMessages.map((msg: any, idx: number) => (
+                      <div key={idx} style={styles.messageItem}>
+                        <div style={styles.messageHeader}>
+                          <strong style={styles.messageAuthor}>{msg.senderName || msg.author || 'Team Member'}</strong>
+                          <span style={styles.messageTime}>
+                            {new Date(msg.timestamp || msg.createdAt).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <p style={styles.messageText}>{msg.message}</p>
+                      </div>
+                    ))}
+                    {projectMessages.length === 0 && (
+                      <p style={styles.emptyMessage}>No messages yet</p>
+                    )}
+                  </div>
+                  <div style={styles.messageInputWrap}>
+                    <textarea 
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      placeholder="Type your message..."
+                      style={styles.messageTextarea}
+                      rows={3}
+                    />
+                    <button onClick={handleSendMessage} style={styles.sendBtn} disabled={!messageText.trim()}>
+                      <Send size={14} />
+                      Send Message
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'feedback' && (
+                <div style={styles.feedbackTab}>
+                  <div style={styles.feedbackList}>
+                    {projectFeedback.map((fb: any, idx: number) => (
+                      <div key={idx} style={styles.feedbackItem}>
+                        <div style={styles.feedbackHeader}>
+                          <strong style={styles.feedbackAuthor}>{fb.clientName || fb.author || 'Client'}</strong>
+                          <span style={styles.feedbackTime}>
+                            {new Date(fb.timestamp || fb.createdAt).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <p style={styles.feedbackText}>{fb.comment || fb.feedback}</p>
+                        {typeof fb.rating === 'number' && <p style={styles.feedbackRating}>Rating: {fb.rating}/5</p>}
+                      </div>
+                    ))}
+                    {projectFeedback.length === 0 && (
+                      <p style={styles.emptyMessage}>No feedback yet</p>
+                    )}
+                  </div>
+                  <div style={styles.feedbackInputWrap}>
+                    <select value={feedbackRating} onChange={(e) => setFeedbackRating(Number(e.target.value))} style={styles.ratingSelect}>
+                      {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} Stars</option>)}
+                    </select>
+                    <textarea 
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      placeholder="Provide feedback..."
+                      style={styles.feedbackTextarea}
+                      rows={3}
+                    />
+                    <button onClick={handleSendFeedback} style={styles.sendBtn} disabled={!feedbackText.trim()}>
+                      <Send size={14} />
+                      Send Feedback
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -282,7 +605,19 @@ const styles: any = {
     color: 'var(--text-secondary)',
     transition: 'all 0.2s ease',
   },
-  toggleBtnActive: { backgroundColor: 'var(--bg-primary)', color: '#007AFF', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
+  viewToggleBtn: {
+    padding: '6px 12px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    color: 'var(--text-secondary)',
+    transition: 'all 0.2s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewToggleBtnActive: { backgroundColor: 'var(--bg-primary)', color: '#007AFF', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -321,6 +656,22 @@ const styles: any = {
   },
   dateInfo: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' },
   deliveryDate: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' },
+  viewProjectBtn: { 
+    marginTop: '8px',
+    padding: '8px 16px', 
+    backgroundColor: '#007AFF', 
+    color: '#FFFFFF', 
+    border: 'none', 
+    borderRadius: '10px', 
+    fontSize: '13px', 
+    fontWeight: 600, 
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    width: '100%',
+  },
   statusBadge: {
     padding: '4px 12px',
     borderRadius: '20px',
@@ -351,6 +702,7 @@ const styles: any = {
   colStatus: {},
   colStart: { fontSize: '14px', color: 'var(--text-secondary)' },
   colDelivery: { fontSize: '14px' },
+  colActions: { display: 'flex', justifyContent: 'center' },
   listIconWrap: {
     width: '40px',
     height: '40px',
@@ -370,4 +722,62 @@ const styles: any = {
   emptyState: { textAlign: 'center', padding: '100px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '20px', margin: '20px' },
   errorState: { textAlign: 'center', padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' },
   retryBtn: { padding: '10px 24px', backgroundColor: '#007AFF', color: '#FFFFFF', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' },
+  kanban: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' },
+  kanbanColumn: { display: 'flex', flexDirection: 'column' as const },
+  kanbanHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid var(--border-color)' },
+  kanbanTitle: { fontSize: '14px', fontWeight: 700, margin: 0, textTransform: 'uppercase' as const },
+  kanbanCount: { backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 },
+  kanbanCards: { display: 'flex', flexDirection: 'column' as const, gap: '12px' },
+  kanbanCard: { padding: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' },
+  kanbanCardHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' },
+  kanbanCardName: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' },
+  kanbanCardDesc: { fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.5 },
+  kanbanProgress: { marginBottom: '12px' },
+  progressHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '6px' },
+  progressLabel: { fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 },
+  progressValue: { fontSize: '11px', color: 'var(--text-primary)', fontWeight: 700 },
+  progressBar: { height: '6px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: '3px', transition: 'width 0.3s ease' },
+  kanbanCardFooter: { display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' },
+  kanbanCardDate: { fontSize: '11px', color: 'var(--text-secondary)', flex: 1 },
+  kanbanViewBtn: { padding: '4px 10px', border: 'none', backgroundColor: '#007AFF', color: '#fff', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' },
+  modal: { position: 'fixed' as const, top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modalContent: { backgroundColor: 'var(--bg-primary)', borderRadius: '20px', maxWidth: '700px', width: '100%', maxHeight: '85vh', overflow: 'auto' },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '24px 24px 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' },
+  modalTitle: { fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, marginBottom: '4px' },
+  modalSubtitle: { fontSize: '14px', color: 'var(--text-secondary)', margin: 0 },
+  closeBtn: { border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', padding: '8px' },
+  tabNav: { display: 'flex', gap: '8px', padding: '16px 24px', borderBottom: '1px solid var(--border-color)' },
+  tabBtn: { flex: 1, padding: '10px 16px', border: 'none', backgroundColor: 'transparent', borderRadius: '10px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' },
+  tabBtnActive: { backgroundColor: '#007AFF', color: '#fff' },
+  modalBody: { padding: '24px' },
+  detailsTab: { display: 'flex', flexDirection: 'column', gap: '24px' },
+  detailGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' },
+  detailRow: { display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' },
+  detailLabel: { fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 },
+  detailValue: { fontSize: '13px', fontWeight: 600, padding: '4px 12px', borderRadius: '8px' },
+  progressSection: { marginTop: '8px' },
+  sectionTitle: { fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' },
+  messagesTab: { display: 'flex', flexDirection: 'column', gap: '16px' },
+  messagesList: { display: 'flex', flexDirection: 'column' as const, gap: '12px', maxHeight: '300px', overflow: 'auto' },
+  messageItem: { padding: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' },
+  messageHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '8px' },
+  messageAuthor: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' },
+  messageTime: { fontSize: '11px', color: 'var(--text-secondary)' },
+  messageText: { fontSize: '14px', color: 'var(--text-primary)', margin: 0, lineHeight: 1.6 },
+  messageInputWrap: { display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' },
+  messageTextarea: { width: '100%', padding: '12px 14px', border: '1.5px solid var(--border-color)', borderRadius: '12px', fontSize: '14px', fontFamily: 'inherit', outline: 'none', resize: 'vertical' as const, backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
+  sendBtn: { padding: '10px 16px', backgroundColor: '#007AFF', color: '#FFFFFF', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' },
+  feedbackTab: { display: 'flex', flexDirection: 'column', gap: '16px' },
+  feedbackList: { display: 'flex', flexDirection: 'column' as const, gap: '12px', maxHeight: '300px', overflow: 'auto' },
+  feedbackItem: { padding: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' },
+  feedbackHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '8px' },
+  feedbackAuthor: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' },
+  feedbackTime: { fontSize: '11px', color: 'var(--text-secondary)' },
+  feedbackText: { fontSize: '14px', color: 'var(--text-primary)', margin: 0, lineHeight: 1.6 },
+  feedbackRating: { fontSize: '12px', color: '#FF9500', margin: '8px 0 0 0', fontWeight: 700 },
+  feedbackInputWrap: { display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' },
+  ratingSelect: { width: '180px', padding: '10px 12px', border: '1.5px solid var(--border-color)', borderRadius: '10px', fontFamily: 'inherit', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
+  feedbackTextarea: { width: '100%', padding: '12px 14px', border: '1.5px solid var(--border-color)', borderRadius: '12px', fontSize: '14px', fontFamily: 'inherit', outline: 'none', resize: 'vertical' as const, backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
+  emptyMessage: { textAlign: 'center' as const, padding: '40px 20px', color: 'var(--text-secondary)', fontSize: '14px' },
 };

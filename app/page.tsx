@@ -21,6 +21,9 @@ import {
   X
 } from "lucide-react";
 import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
+import { getPublishedProjects } from "./projects/services/projectService";
+import { getPublishedClients } from "./clients/services/clientService";
+import { getPublishedDevelopers } from "../core/services/userService";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -50,6 +53,9 @@ export default function LandingPage() {
     developers: 0,
     countries: 0
   });
+  const [publishedProjects, setPublishedProjects] = useState<any[]>([]);
+  const [publishedClients, setPublishedClients] = useState<any[]>([]);
+  const [publishedDevelopers, setPublishedDevelopers] = useState<any[]>([]);
 
   useEffect(() => {
     // Animate stats
@@ -69,6 +75,14 @@ export default function LandingPage() {
       });
       if (currentStep >= steps) clearInterval(interval);
     }, stepTime);
+  }, []);
+
+  useEffect(() => {
+    Promise.allSettled([getPublishedProjects(), getPublishedClients(), getPublishedDevelopers()]).then((results) => {
+      if (results[0].status === "fulfilled") setPublishedProjects(results[0].value);
+      if (results[1].status === "fulfilled") setPublishedClients(results[1].value);
+      if (results[2].status === "fulfilled") setPublishedDevelopers(results[2].value);
+    });
   }, []);
 
   // Smooth scroll function
@@ -275,6 +289,24 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {publishedProjects.length > 0 && (
+        <section style={styles.section}>
+          <h2 style={styles.sectionTitle}>Published Projects</h2>
+          <p style={styles.sectionSubtitle}>Live work we are actively delivering for clients.</p>
+          <div style={styles.featuresGrid}>
+            {publishedProjects.slice(0, 6).map((project: any) => (
+              <div key={project._id} style={styles.featureCard} className="feature-card">
+                <div style={styles.featureIcon}><Briefcase size={28} /></div>
+                <h3 style={styles.featureTitle}>{project.name}</h3>
+                <p style={styles.featureDesc}>{project.description}</p>
+                <p style={{ ...styles.clientCompany, marginTop: "12px" }}>{project.client}</p>
+                <p style={styles.clientProject}>{project.status} • {project.progress || 0}% complete</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Global Diversity & Collaboration */}
       <section style={styles.diversitySection}>
         <div style={styles.diversityContent}>
@@ -304,7 +336,12 @@ export default function LandingPage() {
         <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
         <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
         <div style={styles.clientGrid}>
-          {satisfiedClients.map((client, index) => (
+          {(publishedClients.length > 0 ? publishedClients.map((client: any) => ({
+            name: client.name,
+            company: client.company || client.customId || "Featured Client",
+            project: client.customId || "Published profile",
+            avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150",
+          })) : satisfiedClients).map((client, index) => (
             <div key={index} style={styles.clientCard} className="client-card">
               <div style={styles.clientAvatarContainer}>
                 <img src={client.avatar} alt={client.name} style={styles.clientAvatarImg} />
@@ -322,7 +359,18 @@ export default function LandingPage() {
         <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
         <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
         <div style={styles.developerGrid}>
-          {developers.map((dev) => (
+          {(publishedDevelopers.length > 0
+            ? publishedDevelopers.map((developer: any, index: number) => ({
+                id: developer._id || index,
+                name: developer.name,
+                role: developer.headline || "Developer",
+                skills: developer.skills?.length ? developer.skills : ["Delivery", "Engineering"],
+                experience: `${developer.experienceYears || 0} years`,
+                rating: 5,
+                avatar: developer.avatar || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150",
+                bgImage: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=400",
+              }))
+            : developers).map((dev) => (
             <div 
               key={dev.id} 
               style={{

@@ -68,6 +68,17 @@ export default function ClientsPage() {
     setEditingClient(null);
   };
 
+  const handleTogglePublish = async (client: Client) => {
+    try {
+      const { toggleClientPublish } = await import('./services/clientService');
+      await toggleClientPublish(client._id!, !client.published);
+      await fetchClients();
+      setSuccessMessage(`Client ${client.published ? 'published' : 'unpublished'} successfully`);
+    } catch (error) {
+      console.error('Toggle publish error:', error);
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
 
@@ -170,6 +181,7 @@ export default function ClientsPage() {
                 client={client}
                 onEdit={handleEditClient}
                 onDelete={(id) => setDeleteTarget({ type: 'client', id })}
+                onTogglePublish={handleTogglePublish}
               />
             ))}
           </div>

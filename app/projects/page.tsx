@@ -5,11 +5,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, FolderOpen } from 'lucide-react';
+import { Plus, Search, FolderOpen, LayoutGrid, List, Kanban } from 'lucide-react';
 import { useProjects } from './hooks/useProjects';
 import ProjectCard from './components/ProjectCard';
 import ProjectModal from './components/ProjectModal';
-import { Project } from './services/projectService';
+import KanbanBoard from '../../components/ui/KanbanBoard';
+import { Project, bulkUpdateProjectStatus } from './services/projectService';
 
 export default function ProjectsPage() {
   const { projects, loading, error, addProject, editProject, removeProject, fetchProjects } = useProjects();
@@ -17,6 +18,7 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban'>('grid');
 
   const handleAddProject = () => {
     setEditingProject(null);
@@ -43,6 +45,21 @@ export default function ProjectsPage() {
     if (confirm('Are you sure you want to delete this project?')) {
       await removeProject(id);
     }
+  };
+
+  const handleTogglePublish = async (project: Project) => {
+    try {
+      const { toggleProjectPublish } = await import('./services/projectService');
+      await toggleProjectPublish(project._id!, !project.published);
+      await fetchProjects();
+    } catch (error) {
+      console.error('Toggle publish error:', error);
+    }
+  };
+
+  const handleProjectDrop = async (cardId: string, _fromStatus: string, toStatus: string) => {
+    await bulkUpdateProjectStatus([{ id: cardId, status: toStatus }]);
+    await fetchProjects();
   };
 
   // Filter projects
@@ -85,6 +102,11 @@ export default function ProjectsPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={styles.searchInput}
           />
+        </div>
+        <div style={styles.viewToggle}>
+          <button onClick={() => setViewMode('grid')} style={{ ...styles.toggleBtn, ...(viewMode === 'grid' ? styles.toggleActive : {}) }}><LayoutGrid size={16} /></button>
+          <button onClick={() => setViewMode('list')} style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleActive : {}) }}><List size={16} /></button>
+          <button onClick={() => setViewMode('kanban')} style={{ ...styles.toggleBtn, ...(viewMode === 'kanban' ? styles.toggleActive : {}) }}><Kanban size={16} /></button>
         </div>
         <div style={styles.filterTabs}>
           <button
@@ -147,7 +169,7 @@ export default function ProjectsPage() {
       )}
 
       {/* Projects Grid */}
-      {!loading && !error && filteredProjects.length > 0 && (
+      {!loading && !error && filteredProjects.length > 0 && viewMode === 'grid' && (
         <div style={styles.grid}>
           {filteredProjects.map((project) => (
             <ProjectCard
@@ -155,9 +177,47 @@ export default function ProjectsPage() {
               project={project}
               onEdit={handleEditProject}
               onDelete={handleDeleteProject}
+              onTogglePublish={handleTogglePublish}
             />
           ))}
         </div>
+      )}
+
+      {!loading && !error && filteredProjects.length > 0 && viewMode === 'list' && (
+        <div style={styles.list}>
+          {filteredProjects.map((project) => (
+            <div key={project._id} style={styles.listRow}>
+              <div>
+                <strong>{project.name}</strong>
+                <p style={styles.listMeta}>{project.client} · {project.assignedDeveloperName || 'Unassigned'}</p>
+              </div>
+              <span style={styles.listMeta}>{project.status.replace('-', ' ')}</span>
+              <span style={styles.listMeta}>{project.expectedCompletionDate ? new Date(project.expectedCompletionDate).toLocaleDateString() : 'No due date'}</span>
+              <div style={styles.listActions}>
+                <button onClick={() => handleEditProject(project)} style={styles.listBtn}>Edit</button>
+                <button onClick={() => handleDeleteProject(project._id!)} style={{ ...styles.listBtn, color: '#FF3B30' }}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && !error && filteredProjects.length > 0 && viewMode === 'kanban' && (
+        <KanbanBoard
+          columns={[
+            { id: 'pending', title: 'Pending', status: 'pending', color: '#FF9500' },
+            { id: 'in-progress', title: 'In Progress', status: 'in-progress', color: '#007AFF' },
+            { id: 'completed', title: 'Completed', status: 'completed', color: '#34C759' },
+            { id: 'on-hold', title: 'On Hold', status: 'on-hold', color: '#FF3B30' },
+          ]}
+          cards={filteredProjects.map((project) => ({
+            ...project,
+            _id: project._id!,
+            title: project.name,
+            subtitle: `${project.client} · ${project.progress || 0}%`,
+          }))}
+          onCardDrop={handleProjectDrop}
+        />
       )}
 
       {/* Modal */}
@@ -239,6 +299,10 @@ const styles: any = {
   },
   searchSection: {
     marginBottom: '24px',
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    alignItems: 'center',
   },
   searchBox: {
     display: 'flex',
@@ -265,6 +329,9 @@ const styles: any = {
     gap: '8px',
     flexWrap: 'wrap',
   },
+  viewToggle: { display: 'flex', background: 'var(--bg-secondary)', borderRadius: '12px', padding: '4px' },
+  toggleBtn: { border: 'none', background: 'transparent', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  toggleActive: { background: 'var(--bg-primary)' },
   filterTab: {
     padding: '8px 18px',
     backgroundColor: 'var(--bg-secondary)',
@@ -287,6 +354,11 @@ const styles: any = {
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
     gap: '24px',
   },
+  list: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  listRow: { display: 'grid', gridTemplateColumns: '1.5fr auto auto auto', gap: '16px', alignItems: 'center', padding: '16px 20px', border: '1.5px solid var(--border-color)', borderRadius: '16px', backgroundColor: 'var(--bg-primary)' },
+  listMeta: { margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'capitalize' },
+  listActions: { display: 'flex', gap: '8px' },
+  listBtn: { padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 },
   loadingContainer: {
     display: 'flex',
     flexDirection: 'column',
