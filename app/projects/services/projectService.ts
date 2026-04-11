@@ -21,6 +21,25 @@ export interface Project {
   customClientId?: string;
   progress?: number;
   published?: boolean;
+  sharedFiles?: Array<{
+    _id?: string;
+    name: string;
+    url: string;
+    category: "deliverable" | "asset" | "document" | "other";
+    uploadedAt?: string;
+  }>;
+  tasks?: Array<{
+    _id: string;
+    title: string;
+    description?: string;
+    status: "pending" | "in-progress" | "completed" | "review";
+    priority: "low" | "medium" | "high";
+    dueDate?: string;
+    assignee?: string;
+    developerId?: { _id: string; name: string; email: string; customId?: string } | string | null;
+    subtasks?: Array<{ _id?: string; title: string; completed: boolean }>;
+    comments?: Array<{ _id?: string; authorName: string; content: string; createdAt: string }>;
+  }>;
   statusUpdates?: Array<{
     status: string;
     progress: number;

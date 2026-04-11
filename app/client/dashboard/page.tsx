@@ -1,79 +1,88 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Folder, CreditCard, LifeBuoy, TrendingUp, Calendar, Clock, AlertCircle, Activity } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, Bell, CalendarClock, CreditCard, FolderKanban, LifeBuoy, TrendingUp } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import API from "../../../core/services/apiService";
 
+type ActivityItem = {
+  id: string;
+  type: string;
+  title: string;
+  timestamp: string;
+};
+
+type DeadlineProject = {
+  _id: string;
+  name: string;
+  expectedCompletionDate: string;
+  status: string;
+  progress: number;
+};
+
+type DashboardStats = {
+  projects: number;
+  activeProjects: number;
+  completedTasks: number;
+  revenue: number;
+  unreadNotifications: number;
+  openQueries: number;
+  recentActivity: ActivityItem[];
+  upcomingDeadlines: DeadlineProject[];
+  overdueProjects: DeadlineProject[];
+};
+
+const defaultStats: DashboardStats = {
+  projects: 0,
+  activeProjects: 0,
+  completedTasks: 0,
+  revenue: 0,
+  unreadNotifications: 0,
+  openQueries: 0,
+  recentActivity: [],
+  upcomingDeadlines: [],
+  overdueProjects: [],
+};
+
 export default function ClientDashboardPage() {
-  const [stats, setStats] = useState({ 
-    projects: 0, 
-    clients: 0, 
-    tasks: 0, 
-    revenue: 0, 
-    completedTasks: 0, 
-    activeProjects: 0,
-    recentActivity: [] as Array<{ id: string; type: string; title: string; timestamp: string }>
-  });
-  const [tickets, setTickets] = useState(0);
-  const [activeProjectsList, setActiveProjectsList] = useState<any[]>([]);
-  const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
+  const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadDashboard = async () => {
       try {
-        const [statsResponse, ticketsResponse, projectsResponse] = await Promise.all([
-          API.get("/stats"),
-          API.get("/tickets"),
-          API.get("/projects"),
-        ]);
-
-        const statsData = statsResponse.data.data || { projects: 0, clients: 0, tasks: 0, revenue: 0, recentActivity: [] };
-        setStats(statsData);
-        setTickets((ticketsResponse.data.data || []).length);
-        
-        // Get active projects with progress
-        const allProjects = projectsResponse.data.data || [];
-        const active = allProjects.filter((p: any) => p.status === 'pending' || p.status === 'in-progress');
-        setActiveProjectsList(active);
-        
-        // Find upcoming deadlines (within 7 days)
-        const now = new Date();
-        const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const deadlines = allProjects
-          .filter((p: any) => {
-            if (!p.expectedCompletionDate) return false;
-            const dueDate = new Date(p.expectedCompletionDate);
-            return dueDate >= now && dueDate <= sevenDaysFromNow;
-          })
-          .sort((a: any, b: any) => new Date(a.expectedCompletionDate).getTime() - new Date(b.expectedCompletionDate).getTime());
-        setUpcomingDeadlines(deadlines);
-      } catch (error) {
-        console.error("Client dashboard error:", error);
+        const response = await API.get("/stats");
+        setStats({ ...defaultStats, ...(response.data.data || {}) });
+      } catch (err: any) {
+        console.error("Client dashboard error:", err);
+        setError(err.response?.data?.message || "Failed to load dashboard data.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    loadDashboard();
   }, []);
 
-  const cards = [
-    { label: "Assigned Projects", value: stats.projects, icon: Folder, color: "#007AFF", bg: "#E3F2FF" },
-    { label: "Active Projects", value: stats.activeProjects, icon: Activity, color: "#14B8A6", bg: "#E6FFFB" },
-    { label: "Completed Payments", value: stats.revenue, icon: CreditCard, color: "#34C759", bg: "#E8F5E9", currency: true },
-    { label: "Open Tickets", value: tickets, icon: LifeBuoy, color: "#FF9500", bg: "#FFF4E5" },
-    { label: "Completed Tasks", value: stats.completedTasks, icon: TrendingUp, color: "#AF52DE", bg: "#F3E8FF" },
-  ];
+  const cards = useMemo(
+    () => [
+      { label: "Assigned Projects", value: stats.projects, icon: FolderKanban, color: "#007AFF", bg: "#EAF2FF" },
+      { label: "Active Projects", value: stats.activeProjects, icon: TrendingUp, color: "#0F9D7A", bg: "#E7FBF4" },
+      { label: "Open Queries", value: stats.openQueries, icon: LifeBuoy, color: "#F59E0B", bg: "#FFF6E6" },
+      { label: "Unread Alerts", value: stats.unreadNotifications, icon: Bell, color: "#8B5CF6", bg: "#F4ECFF" },
+      { label: "Completed Payments", value: `$${Number(stats.revenue || 0).toLocaleString()}`, icon: CreditCard, color: "#10B981", bg: "#EAFBF3" },
+      { label: "Completed Tasks", value: stats.completedTasks, icon: CalendarClock, color: "#EF4444", bg: "#FEF0F0" },
+    ],
+    [stats]
+  );
 
   if (loading) {
-    return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner}></div>
-        <p style={{ color: "var(--text-secondary)" }}>Loading your dashboard...</p>
-      </div>
-    );
+    return <div style={styles.state}>Loading your dashboard...</div>;
+  }
+
+  if (error) {
+    return <div style={styles.state}>{error}</div>;
   }
 
   return (
@@ -81,212 +90,124 @@ export default function ClientDashboardPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Dashboard</h1>
-          <p style={styles.subtitle}>Track project progress, billing, and support updates</p>
+          <p style={styles.subtitle}>A live snapshot of your project health, deadlines, and communication.</p>
         </div>
       </div>
 
-      <div style={styles.grid}>
+      <div style={styles.cardGrid}>
         {cards.map((card) => (
           <Card key={card.label}>
-            <div style={styles.cardContent}>
-              <div style={{ ...styles.iconWrap, backgroundColor: card.bg }}>
-                <card.icon size={22} color={card.color} />
+            <div style={styles.metricCard}>
+              <div style={{ ...styles.metricIcon, backgroundColor: card.bg }}>
+                <card.icon size={20} color={card.color} />
               </div>
               <div>
-                <p style={styles.cardLabel}>{card.label}</p>
-                <p style={styles.cardValue}>
-                  {card.currency ? `$${Number(card.value).toLocaleString()}` : card.value}
-                </p>
+                <p style={styles.metricLabel}>{card.label}</p>
+                <p style={styles.metricValue}>{card.value}</p>
               </div>
             </div>
           </Card>
         ))}
       </div>
 
-      {/* Main Content Grid */}
-      <div style={styles.mainGrid}>
-        {/* Recent Activity */}
+      <div style={styles.contentGrid}>
         <Card>
           <div style={styles.sectionHeader}>
-            <div>
-              <h3 style={styles.sectionTitle}>Recent Activity</h3>
-              <p style={styles.sectionSubtitle}>Latest updates from your projects</p>
-            </div>
-            <Activity size={20} color="#007AFF" />
+            <h2 style={styles.sectionTitle}>Recent Activity</h2>
           </div>
-          <div style={styles.activityList}>
-            {stats.recentActivity.slice(0, 6).map((activity, index) => (
-              <div key={activity.id || index} style={styles.activityItem}>
-                <div style={{ 
-                  ...styles.activityDot, 
-                  backgroundColor: activity.type === "project" ? "#007AFF" : 
-                                  activity.type === "task" ? "#34C759" : "#FF9500" 
-                }}></div>
-                <div style={styles.activityContent}>
-                  <p style={styles.activityText}>{activity.title}</p>
-                  <p style={styles.activityTime}>
-                    {new Date(activity.timestamp).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
+          {stats.recentActivity.length === 0 ? (
+            <p style={styles.emptyText}>No recent activity yet.</p>
+          ) : (
+            <div style={styles.timeline}>
+              {stats.recentActivity.map((activity) => (
+                <div key={activity.id} style={styles.timelineItem}>
+                  <div style={styles.timelineDot} />
+                  <div>
+                    <p style={styles.timelineTitle}>{activity.title}</p>
+                    <p style={styles.timelineTime}>{new Date(activity.timestamp).toLocaleString()}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {stats.recentActivity.length === 0 && (
-              <p style={styles.emptyText}>No recent activity</p>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
-        {/* Active Projects Progress */}
         <Card>
           <div style={styles.sectionHeader}>
-            <div>
-              <h3 style={styles.sectionTitle}>Active Projects</h3>
-              <p style={styles.sectionSubtitle}>Track ongoing project progress</p>
+            <h2 style={styles.sectionTitle}>Upcoming Deadlines</h2>
+          </div>
+          {stats.upcomingDeadlines.length === 0 ? (
+            <p style={styles.emptyText}>Nothing due in the next 7 days.</p>
+          ) : (
+            <div style={styles.alertList}>
+              {stats.upcomingDeadlines.map((project) => (
+                <div key={project._id} style={styles.alertCard}>
+                  <div>
+                    <p style={styles.alertTitle}>{project.name}</p>
+                    <p style={styles.alertMeta}>Due {new Date(project.expectedCompletionDate).toLocaleDateString()}</p>
+                  </div>
+                  <span style={styles.progressPill}>{project.progress || 0}%</span>
+                </div>
+              ))}
             </div>
-            <TrendingUp size={20} color="#14B8A6" />
-          </div>
-          <div style={styles.projectsList}>
-            {activeProjectsList.slice(0, 5).map((project) => (
-              <div key={project._id} style={styles.projectItem}>
-                <div style={styles.projectInfo}>
-                  <p style={styles.projectName}>{project.name}</p>
-                  <p style={styles.projectStatus}>{project.status.replace('-', ' ').toUpperCase()}</p>
-                </div>
-                <div style={styles.progressSection}>
-                  <div style={styles.progressHeader}>
-                    <span style={styles.progressLabel}>Progress</span>
-                    <span style={styles.progressValue}>{project.progress || 0}%</span>
-                  </div>
-                  <div style={styles.progressBar}>
-                    <div 
-                      style={{ 
-                        ...styles.progressFill, 
-                        width: `${project.progress || 0}%`,
-                        backgroundColor: (project.progress || 0) >= 75 ? '#34C759' : (project.progress || 0) >= 50 ? '#007AFF' : '#FF9500'
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {activeProjectsList.length === 0 && (
-              <p style={styles.emptyText}>No active projects</p>
-            )}
-          </div>
+          )}
         </Card>
       </div>
 
-      {/* Upcoming Deadlines */}
-      {upcomingDeadlines.length > 0 && (
-        <Card>
-          <div style={styles.sectionHeader}>
-            <div>
-              <h3 style={styles.sectionTitle}>Upcoming Deadlines</h3>
-              <p style={styles.sectionSubtitle}>Projects due within the next 7 days</p>
-            </div>
-            <Calendar size={20} color="#FF9500" />
-          </div>
-          <div style={styles.deadlinesGrid}>
-            {upcomingDeadlines.map((project) => {
-              const daysLeft = Math.ceil((new Date(project.expectedCompletionDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-              const isUrgent = daysLeft <= 3;
-              return (
-                <div key={project._id} style={{
-                  ...styles.deadlineCard,
-                  borderLeft: `4px solid ${isUrgent ? '#FF3B30' : '#FF9500'}`
-                }}>
-                  <div style={styles.deadlineHeader}>
-                    <strong style={styles.deadlineName}>{project.name}</strong>
-                    {isUrgent && (
-                      <span style={styles.urgentBadge}>
-                        <AlertCircle size={12} />
-                        <span>Urgent</span>
-                      </span>
-                    )}
-                  </div>
-                  <div style={styles.deadlineFooter}>
-                    <Clock size={14} color="#8E8E93" />
-                    <span style={styles.deadlineDate}>
-                      {daysLeft === 0 ? 'Due today' : daysLeft === 1 ? 'Due tomorrow' : `Due in ${daysLeft} days`}
-                    </span>
-                    <span style={styles.deadlineDateText}>
-                      {new Date(project.expectedCompletionDate).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </span>
-                  </div>
+      <Card>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>Overdue Alerts</h2>
+        </div>
+        {stats.overdueProjects.length === 0 ? (
+          <p style={styles.emptyText}>No overdue projects right now.</p>
+        ) : (
+          <div style={styles.overdueList}>
+            {stats.overdueProjects.map((project) => (
+              <div key={project._id} style={styles.overdueCard}>
+                <AlertCircle size={18} color="#DC2626" />
+                <div style={{ flex: 1 }}>
+                  <p style={styles.alertTitle}>{project.name}</p>
+                  <p style={styles.alertMeta}>
+                    Missed {new Date(project.expectedCompletionDate).toLocaleDateString()} with status {project.status.replace("-", " ")}
+                  </p>
                 </div>
-              );
-            })}
+                <span style={{ ...styles.progressPill, backgroundColor: "#FEF0F0", color: "#DC2626" }}>
+                  {project.progress || 0}%
+                </span>
+              </div>
+            ))}
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
     </div>
   );
 }
 
-const styles: any = {
-  container: { 
-    padding: "8px 4px", 
-    display: "flex", 
-    flexDirection: "column", 
-    gap: "24px",
-    backgroundColor: "var(--bg-primary)",
-    minHeight: "100vh"
-  },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
-  title: { 
-    fontSize: "34px", 
-    fontWeight: 700, 
-    color: "var(--text-primary)", 
-    margin: 0, 
-    marginBottom: "8px", 
-    letterSpacing: "-1px" 
-  },
-  subtitle: { fontSize: "15px", color: "var(--text-secondary)", margin: 0 },
-  grid: { 
-    display: "grid", 
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", 
-    gap: "20px" 
-  },
-  cardContent: { display: "flex", gap: "16px", alignItems: "center" },
-  iconWrap: { 
-    width: "48px", 
-    height: "48px", 
-    borderRadius: "12px", 
-    display: "flex", 
-    alignItems: "center", 
-    justifyContent: "center" 
-  },
-  cardLabel: { margin: 0, fontSize: "13px", color: "var(--text-secondary)", fontWeight: 500 },
-  cardValue: { 
-    margin: "6px 0 0 0", 
-    fontSize: "28px", 
-    fontWeight: 700, 
-    color: "var(--text-primary)",
-    letterSpacing: "-0.5px"
-  },
-  loadingContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "400px",
-    gap: "16px",
-  },
-  spinner: {
-    width: "32px",
-    height: "32px",
-    border: "3px solid var(--border-color)",
-    borderTopColor: "#007AFF",
-    borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
-  },
+const styles: Record<string, any> = {
+  container: { padding: "8px 4px", display: "flex", flexDirection: "column", gap: "24px" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "var(--text-primary)" },
+  subtitle: { margin: "8px 0 0", color: "var(--text-secondary)" },
+  cardGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "18px" },
+  metricCard: { display: "flex", alignItems: "center", gap: "14px" },
+  metricIcon: { width: "46px", height: "46px", borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center" },
+  metricLabel: { margin: 0, fontSize: "13px", color: "var(--text-secondary)" },
+  metricValue: { margin: "4px 0 0", fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" },
+  contentGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "18px" },
+  sectionHeader: { marginBottom: "14px" },
+  sectionTitle: { margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" },
+  timeline: { display: "flex", flexDirection: "column", gap: "14px" },
+  timelineItem: { display: "flex", gap: "12px", alignItems: "flex-start" },
+  timelineDot: { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#007AFF", marginTop: "7px", flexShrink: 0 },
+  timelineTitle: { margin: 0, color: "var(--text-primary)", fontWeight: 600 },
+  timelineTime: { margin: "4px 0 0", color: "var(--text-secondary)", fontSize: "12px" },
+  emptyText: { margin: 0, color: "var(--text-secondary)" },
+  alertList: { display: "flex", flexDirection: "column", gap: "12px" },
+  alertCard: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "14px", border: "1px solid var(--border-color)", borderRadius: "14px", backgroundColor: "var(--bg-secondary)" },
+  overdueList: { display: "flex", flexDirection: "column", gap: "12px" },
+  overdueCard: { display: "flex", alignItems: "center", gap: "12px", padding: "14px", border: "1px solid #FECACA", borderRadius: "14px", backgroundColor: "#FFF7F7" },
+  alertTitle: { margin: 0, color: "var(--text-primary)", fontWeight: 600 },
+  alertMeta: { margin: "4px 0 0", color: "var(--text-secondary)", fontSize: "13px" },
+  progressPill: { padding: "6px 10px", borderRadius: "999px", backgroundColor: "#EAF2FF", color: "#007AFF", fontSize: "12px", fontWeight: 700 },
+  state: { padding: "48px 12px", color: "var(--text-secondary)" },
 };

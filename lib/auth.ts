@@ -16,8 +16,11 @@ export interface AuthUser {
     notifications: {
       email: boolean;
       push: boolean;
+      projectUpdates?: boolean;
+      queryResponses?: boolean;
     };
   };
+  customId?: string;
 }
 
 const TOKEN_KEY = "token";

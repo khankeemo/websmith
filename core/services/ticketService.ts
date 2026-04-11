@@ -22,6 +22,11 @@ export interface Ticket {
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "resolved";
   resolution?: string;
+  attachments?: Array<{
+    _id?: string;
+    name: string;
+    url: string;
+  }>;
   history?: Array<{
     action: string;
     actorRole: "admin" | "client" | "developer" | "system";
@@ -41,6 +46,7 @@ export const createTicket = async (payload: {
   subject: string;
   description: string;
   priority: "low" | "medium" | "high";
+  attachments?: Array<{ name: string; url: string }>;
 }) => {
   const response = await API.post("/tickets", payload);
   return response.data.data as Ticket;
@@ -52,4 +58,8 @@ export const updateTicketStatus = async (
 ) => {
   const response = await API.put(`/tickets/${id}/status`, payload);
   return response.data.data as Ticket;
+};
+
+export const deleteTicket = async (id: string) => {
+  await API.delete(`/tickets/${id}`);
 };
