@@ -45,6 +45,16 @@ export default function ProjectsPage() {
     }
   };
 
+  const handleTogglePublish = async (project: Project) => {
+    try {
+      const { toggleProjectPublish } = await import('./services/projectService');
+      await toggleProjectPublish(project._id!, !project.published);
+      await fetchProjects();
+    } catch (error) {
+      console.error('Toggle publish error:', error);
+    }
+  };
+
   // Filter projects
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -155,6 +165,7 @@ export default function ProjectsPage() {
               project={project}
               onEdit={handleEditProject}
               onDelete={handleDeleteProject}
+              onTogglePublish={handleTogglePublish}
             />
           ))}
         </div>

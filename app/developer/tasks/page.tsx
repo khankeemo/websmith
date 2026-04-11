@@ -11,12 +11,15 @@ interface Task {
   _id: string;
   title: string;
   description: string;
-  status: "todo" | "in-progress" | "review" | "done";
-  priority: "low" | "medium" | "high" | "urgent";
+  status: "todo" | "in-progress" | "review" | "done" | "pending" | "completed";
+  priority: "low" | "medium" | "high";
   project?: string;
+  projectId?: { _id: string; name: string; status: string };
   assignedTo: string;
   dueDate?: string;
   createdAt: string;
+  subtasks?: Array<{ _id: string; title: string; completed: boolean }>;
+  comments?: Array<{ _id: string; authorName: string; content: string; createdAt: string }>;
 }
 
 type ViewMode = "grid" | "list" | "kanban";
@@ -27,10 +30,14 @@ export default function DeveloperTasksPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showTaskDetail, setShowTaskDetail] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [newSubtask, setNewSubtask] = useState("");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    priority: "medium" as "low" | "medium" | "high" | "urgent",
+    priority: "medium" as "low" | "medium" | "high",
     dueDate: "",
   });
 
@@ -102,6 +109,71 @@ export default function DeveloperTasksPage() {
       setFormData({ title: "", description: "", priority: "medium", dueDate: "" });
     } catch (error) {
       console.error("Error creating task:", error);
+    }
+  };
+
+  const handleViewTask = (task: Task) => {
+    setSelectedTask(task);
+    setShowTaskDetail(true);
+    setNewComment("");
+    setNewSubtask("");
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTask || !newComment.trim()) return;
+
+    try {
+      await API.post(`/tasks/${selectedTask._id}/comments`, { content: newComment });
+      const tasksResponse = await API.get("/tasks");
+      setTasks(tasksResponse.data.data || []);
+      
+      // Update selected task
+      const updatedTask = tasksResponse.data.data.find((t: Task) => t._id === selectedTask._id);
+      if (updatedTask) {
+        setSelectedTask(updatedTask);
+      }
+      setNewComment("");
+    } catch (error) {
+      console.error("Error adding comment:", error);
+    }
+  };
+
+  const handleAddSubtask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTask || !newSubtask.trim()) return;
+
+    try {
+      await API.post(`/tasks/${selectedTask._id}/subtasks`, { title: newSubtask });
+      const tasksResponse = await API.get("/tasks");
+      setTasks(tasksResponse.data.data || []);
+      
+      // Update selected task
+      const updatedTask = tasksResponse.data.data.find((t: Task) => t._id === selectedTask._id);
+      if (updatedTask) {
+        setSelectedTask(updatedTask);
+      }
+      setNewSubtask("");
+    } catch (error) {
+      console.error("Error adding subtask:", error);
+    }
+  };
+
+  const handleToggleSubtask = async (subtaskId: string) => {
+    if (!selectedTask) return;
+
+    try {
+      await API.patch(`/tasks/${selectedTask._id}/subtasks/${subtaskId}`);
+      const tasksResponse = await API.get("/tasks");
+      setTasks(tasksResponse.data.data || []);
+      
+      // Update selected task
+      const updatedTask = tasksResponse.data.data.find((t: Task) => t._id === selectedTask._id);
+      if (updatedTask) {
+        setSelectedTask(updatedTask);
+      }
+    } catch (error) {
+      console.error("Error toggling subtask:", error);
     }
   };
 
@@ -204,7 +276,7 @@ export default function DeveloperTasksPage() {
         <div style={styles.grid}>
           {tasks.map((task) => (
             <Card key={task._id}>
-              <div style={styles.taskCard}>
+              <div style={styles.taskCard} onClick={() => handleViewTask(task)} className="clickable-card">
                 <div style={styles.taskHeader}>
                   <h3 style={styles.taskTitle}>{task.title}</h3>
                   <span
@@ -239,7 +311,7 @@ export default function DeveloperTasksPage() {
       ) : (
         <div style={styles.list}>
           {tasks.map((task) => (
-            <div key={task._id} style={styles.listRow}>
+            <div key={task._id} style={styles.listRow} onClick={() => handleViewTask(task)} className="clickable-row">
               <div style={styles.listInfo}>
                 <strong>{task.title}</strong>
                 <p style={styles.listMeta}>{task.description.substring(0, 80)}...</p>
@@ -345,6 +417,141 @@ export default function DeveloperTasksPage() {
           </div>
         </div>
       )}
+
+      {/* Task Detail Modal */}
+      {showTaskDetail && selectedTask && (
+        <div style={styles.modalOverlay} onClick={() => setShowTaskDetail(false)}>
+          <div style={styles.taskDetailModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>{selectedTask.title}</h2>
+              <button onClick={() => setShowTaskDetail(false)} style={styles.closeBtn}>×</button>
+            </div>
+
+            <div style={styles.modalBody}>
+              {/* Task Info */}
+              <div style={styles.taskInfoSection}>
+                <p style={styles.taskInfoLabel}>Status</p>
+                <span style={{
+                  ...styles.statusBadge,
+                  backgroundColor: `${getStatusColor(selectedTask.status)}20`,
+                  color: getStatusColor(selectedTask.status),
+                }}>
+                  {selectedTask.status.replace("-", " ")}
+                </span>
+              </div>
+
+              <div style={styles.taskInfoSection}>
+                <p style={styles.taskInfoLabel}>Priority</p>
+                <span style={{
+                  ...styles.priorityBadge,
+                  backgroundColor: `${getPriorityColor(selectedTask.priority)}20`,
+                  color: getPriorityColor(selectedTask.priority),
+                }}>
+                  {selectedTask.priority}
+                </span>
+              </div>
+
+              {selectedTask.dueDate && (
+                <div style={styles.taskInfoSection}>
+                  <p style={styles.taskInfoLabel}>Due Date</p>
+                  <p style={styles.taskInfoValue}>{new Date(selectedTask.dueDate).toLocaleDateString()}</p>
+                </div>
+              )}
+
+              {selectedTask.projectId && (
+                <div style={styles.taskInfoSection}>
+                  <p style={styles.taskInfoLabel}>Project</p>
+                  <p style={styles.taskInfoValue}>{selectedTask.projectId.name}</p>
+                </div>
+              )}
+
+              <div style={styles.taskInfoSection}>
+                <p style={styles.taskInfoLabel}>Description</p>
+                <p style={styles.taskInfoValue}>{selectedTask.description}</p>
+              </div>
+
+              {/* Subtasks Section */}
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Subtasks</h3>
+                <form onSubmit={handleAddSubtask} style={styles.addForm}>
+                  <input
+                    type="text"
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                    placeholder="Add a subtask..."
+                    style={styles.input}
+                  />
+                  <button type="submit" style={styles.addBtnSmall}>Add</button>
+                </form>
+                <div style={styles.subtasksList}>
+                  {selectedTask.subtasks?.map((subtask) => (
+                    <div key={subtask._id} style={styles.subtaskItem}>
+                      <input
+                        type="checkbox"
+                        checked={subtask.completed}
+                        onChange={() => handleToggleSubtask(subtask._id)}
+                        style={styles.checkbox}
+                      />
+                      <span style={{
+                        ...styles.subtaskText,
+                        textDecoration: subtask.completed ? 'line-through' : 'none',
+                        opacity: subtask.completed ? 0.6 : 1
+                      }}>
+                        {subtask.title}
+                      </span>
+                    </div>
+                  ))}
+                  {(!selectedTask.subtasks || selectedTask.subtasks.length === 0) && (
+                    <p style={styles.emptyText}>No subtasks yet</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Comments Section */}
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Comments</h3>
+                <form onSubmit={handleAddComment} style={styles.addForm}>
+                  <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Add a comment..."
+                    style={styles.textarea}
+                    rows={2}
+                  />
+                  <button type="submit" style={styles.addBtnSmall}>Add</button>
+                </form>
+                <div style={styles.commentsList}>
+                  {selectedTask.comments?.map((comment) => (
+                    <div key={comment._id} style={styles.commentItem}>
+                      <div style={styles.commentHeader}>
+                        <strong style={styles.commentAuthor}>{comment.authorName}</strong>
+                        <span style={styles.commentTime}>
+                          {new Date(comment.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <p style={styles.commentText}>{comment.content}</p>
+                    </div>
+                  ))}
+                  {(!selectedTask.comments || selectedTask.comments.length === 0) && (
+                    <p style={styles.emptyText}>No comments yet</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .clickable-card, .clickable-row { cursor: pointer; transition: all 0.2s ease; }
+        .clickable-card:hover, .clickable-row:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
@@ -394,4 +601,25 @@ const styles: Record<string, any> = {
   modalActions: { display: "flex", gap: "12px", marginTop: "24px" },
   cancelBtn: { flex: 1, padding: "14px", background: "#F2F2F7", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
   submitBtn: { flex: 1, padding: "14px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
+  taskDetailModal: { background: "#fff", borderRadius: "20px", width: "90%", maxWidth: "700px", maxHeight: "90vh", overflow: "auto", padding: "24px" },
+  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid #E5E5EA" },
+  closeBtn: { background: "none", border: "none", fontSize: "32px", cursor: "pointer", color: "#8E8E93", lineHeight: 1, padding: "0 4px" },
+  modalBody: { display: "flex", flexDirection: "column", gap: "16px" },
+  taskInfoSection: { display: "flex", flexDirection: "column", gap: "6px" },
+  taskInfoLabel: { fontSize: "12px", fontWeight: 600, color: "#8E8E93", textTransform: "uppercase", margin: 0 },
+  taskInfoValue: { fontSize: "14px", color: "#1C1C1E", margin: 0 },
+  section: { display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px", paddingTop: "16px", borderTop: "1px solid #E5E5EA" },
+  sectionTitle: { fontSize: "16px", fontWeight: 600, color: "#1C1C1E", margin: 0 },
+  addForm: { display: "flex", gap: "8px" },
+  addBtnSmall: { padding: "8px 16px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: 600, cursor: "pointer" },
+  subtasksList: { display: "flex", flexDirection: "column", gap: "8px" },
+  subtaskItem: { display: "flex", alignItems: "center", gap: "10px", padding: "8px", backgroundColor: "#F2F2F7", borderRadius: "8px" },
+  checkbox: { width: "16px", height: "16px", cursor: "pointer", accentColor: "#007AFF" },
+  subtaskText: { fontSize: "14px", color: "#1C1C1E", flex: 1 },
+  commentsList: { display: "flex", flexDirection: "column", gap: "12px" },
+  commentItem: { padding: "12px", backgroundColor: "#F2F2F7", borderRadius: "10px" },
+  commentHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" },
+  commentAuthor: { fontSize: "13px", fontWeight: 600, color: "#1C1C1E" },
+  commentTime: { fontSize: "11px", color: "#8E8E93" },
+  commentText: { fontSize: "14px", color: "#3A3A3C", margin: 0, lineHeight: 1.5 },
 };

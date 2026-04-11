@@ -96,3 +96,14 @@ export const getPublishedClients = async (): Promise<Client[]> => {
     throw getApiErrorMessage(error, 'Failed to fetch public clients');
   }
 };
+
+// Publish/unpublish client
+export const toggleClientPublish = async (id: string, published: boolean): Promise<Client> => {
+  try {
+    const response = await API.patch(`/clients/${id}/publish`, { published });
+    return response.data.data || response.data;
+  } catch (error: any) {
+    console.error('Toggle client publish error:', error);
+    throw getApiErrorMessage(error, 'Failed to update client publish status');
+  }
+};

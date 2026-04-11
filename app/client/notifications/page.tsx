@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, CheckCircle, Clock, MailOpen } from "lucide-react";
+import { Bell, CheckCircle, Clock, MailOpen, Filter, TrendingUp, LifeBuoy, Folder, Mail } from "lucide-react";
 import API from "../../../core/services/apiService";
 
 interface Notification {
@@ -16,6 +16,7 @@ export default function ClientNotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState<'all' | 'project' | 'task' | 'query' | 'general'>('all');
 
   const fetchNotifications = async () => {
     try {
@@ -53,6 +54,35 @@ export default function ClientNotificationsPage() {
     }
   };
 
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'project':
+        return { icon: Folder, color: '#007AFF', bg: '#E3F2FF' };
+      case 'task':
+        return { icon: TrendingUp, color: '#34C759', bg: '#E8F5E9' };
+      case 'query':
+      case 'ticket':
+        return { icon: LifeBuoy, color: '#FF9500', bg: '#FFF4E5' };
+      default:
+        return { icon: Bell, color: '#8E8E93', bg: '#F2F2F7' };
+    }
+  };
+
+  const getNotificationType = (notification: Notification): 'project' | 'task' | 'query' | 'general' => {
+    const message = notification.message.toLowerCase();
+    if (message.includes('project') || message.includes('status')) return 'project';
+    if (message.includes('task') || message.includes('complete')) return 'task';
+    if (message.includes('query') || message.includes('ticket') || message.includes('support')) return 'query';
+    return 'general';
+  };
+
+  const filteredNotifications = notifications.filter((notification) => {
+    if (filter === 'all') return true;
+    return getNotificationType(notification) === filter;
+  });
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -71,14 +101,21 @@ export default function ClientNotificationsPage() {
           <h1 style={styles.title}>Notifications</h1>
           <p style={styles.subtitle}>Track project assignment updates and account activity</p>
         </div>
-        <button
-          onClick={markAllAsRead}
-          style={styles.markReadBtn}
-          disabled={!notifications.some((item) => !item.isRead)}
-        >
-          <MailOpen size={18} />
-          <span>Mark all as read</span>
-        </button>
+        <div style={styles.headerActions}>
+          <button
+            onClick={markAllAsRead}
+            style={styles.markReadBtn}
+            disabled={!notifications.some((item) => !item.isRead)}
+          >
+            <MailOpen size={18} />
+            <span>Mark all as read</span>
+          </button>
+          {unreadCount > 0 && (
+            <div style={styles.unreadBadge}>
+              {unreadCount} unread
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -87,48 +124,108 @@ export default function ClientNotificationsPage() {
         </div>
       )}
 
+      {/* Filter Tabs */}
+      <div style={styles.filterContainer}>
+        <div style={styles.filterTabs}>
+          <button 
+            onClick={() => setFilter('all')} 
+            style={{
+              ...styles.filterTab,
+              ...(filter === 'all' ? styles.filterTabActive : {})
+            }}
+          >
+            <Bell size={14} />
+            All
+          </button>
+          <button 
+            onClick={() => setFilter('project')} 
+            style={{
+              ...styles.filterTab,
+              ...(filter === 'project' ? styles.filterTabActive : {})
+            }}
+          >
+            <Folder size={14} />
+            Projects
+          </button>
+          <button 
+            onClick={() => setFilter('task')} 
+            style={{
+              ...styles.filterTab,
+              ...(filter === 'task' ? styles.filterTabActive : {})
+            }}
+          >
+            <TrendingUp size={14} />
+            Tasks
+          </button>
+          <button 
+            onClick={() => setFilter('query')} 
+            style={{
+              ...styles.filterTab,
+              ...(filter === 'query' ? styles.filterTabActive : {})
+            }}
+          >
+            <LifeBuoy size={14} />
+            Queries
+          </button>
+        </div>
+      </div>
+
       <div style={styles.listContainer}>
-        {notifications.length === 0 ? (
+        {filteredNotifications.length === 0 ? (
           <div style={styles.emptyState}>
             <Bell size={48} color="#C6C6C8" />
-            <h3>No notifications yet</h3>
-            <p>Project assignment updates will appear here.</p>
+            <h3>No notifications found</h3>
+            <p>{filter === 'all' ? 'Project assignment updates will appear here.' : `No ${filter} notifications.`}</p>
           </div>
         ) : (
           <div style={styles.grid}>
-            {notifications.map((notification) => (
-              <div
-                key={notification._id}
-                style={{
-                  ...styles.notificationCard,
-                  ...(notification.isRead ? {} : styles.unreadCard),
-                }}
-                className="notification-item"
-              >
-                <div style={styles.cardInfo}>
-                  <div
-                    style={{
-                      ...styles.iconWrapper,
-                      backgroundColor: notification.isRead ? "#F2F2F7" : "#E3F2FF",
-                    }}
-                  >
-                    <Bell size={20} color={notification.isRead ? "#8E8E93" : "#007AFF"} />
-                  </div>
-                  <div style={styles.textContent}>
-                    <p style={styles.messageText}>{notification.message}</p>
-                    <div style={styles.metaInfo}>
-                      <Clock size={12} />
-                      <span>{new Date(notification.createdAt).toLocaleString()}</span>
+            {filteredNotifications.map((notification) => {
+              const notifType = getNotificationType(notification);
+              const iconConfig = getNotificationIcon(notifType);
+              const IconComponent = iconConfig.icon;
+              return (
+                <div
+                  key={notification._id}
+                  style={{
+                    ...styles.notificationCard,
+                    ...(notification.isRead ? {} : styles.unreadCard),
+                  }}
+                  className="notification-item"
+                >
+                  <div style={styles.cardInfo}>
+                    <div
+                      style={{
+                        ...styles.iconWrapper,
+                        backgroundColor: notification.isRead ? "#F2F2F7" : iconConfig.bg,
+                      }}
+                    >
+                      <IconComponent size={20} color={notification.isRead ? "#8E8E93" : iconConfig.color} />
+                    </div>
+                    <div style={styles.textContent}>
+                      <div style={styles.messageHeader}>
+                        <p style={styles.messageText}>{notification.message}</p>
+                        <span style={{
+                          ...styles.typeBadge,
+                          backgroundColor: iconConfig.bg,
+                          color: iconConfig.color
+                        }}>
+                          {notifType}
+                        </span>
+                      </div>
+                      <div style={styles.metaInfo}>
+                        <Clock size={12} />
+                        <span>{new Date(notification.createdAt).toLocaleString()}</span>
+                      </div>
                     </div>
                   </div>
+                  {!notification.isRead && (
+                    <button onClick={() => markAsRead(notification._id)} style={styles.actionBtn} title="Mark as read">
+                      <CheckCircle size={20} color="#34C759" />
+                    </button>
+                  )}
                 </div>
-                {!notification.isRead && (
-                  <button onClick={() => markAsRead(notification._id)} style={styles.actionBtn} title="Mark as read">
-                    <CheckCircle size={20} color="#34C759" />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -157,8 +254,10 @@ const styles: any = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: "32px",
+    marginBottom: "24px",
   },
+  headerActions: { display: "flex", alignItems: "center", gap: "12px" },
+  unreadBadge: { padding: "6px 12px", backgroundColor: "#007AFF", color: "#fff", borderRadius: "12px", fontSize: "12px", fontWeight: 700 },
   title: {
     fontSize: "34px",
     fontWeight: 600,
@@ -184,6 +283,10 @@ const styles: any = {
     cursor: "pointer",
     transition: "all 0.2s ease",
   },
+  filterContainer: { marginBottom: "20px" },
+  filterTabs: { display: "flex", gap: "8px", backgroundColor: "var(--bg-secondary)", padding: "4px", borderRadius: "12px", overflow: "auto" },
+  filterTab: { padding: "8px 16px", border: "none", backgroundColor: "transparent", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap" as const },
+  filterTabActive: { backgroundColor: "var(--bg-primary)", color: "#007AFF", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" },
   listContainer: {
     marginTop: "20px",
   },
@@ -231,8 +334,11 @@ const styles: any = {
   textContent: {
     display: "flex",
     flexDirection: "column",
-    gap: "4px",
+    gap: "6px",
+    flex: 1,
   },
+  messageHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" },
+  typeBadge: { padding: "2px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: 700, textTransform: "capitalize" as const, whiteSpace: "nowrap" as const },
   messageText: {
     fontSize: "15px",
     color: "#1C1C1E",

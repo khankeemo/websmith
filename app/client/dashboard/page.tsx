@@ -1,25 +1,54 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Folder, CreditCard, LifeBuoy, TrendingUp } from "lucide-react";
+import { Folder, CreditCard, LifeBuoy, TrendingUp, Calendar, Clock, AlertCircle, Activity } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import API from "../../../core/services/apiService";
 
 export default function ClientDashboardPage() {
-  const [stats, setStats] = useState({ projects: 0, clients: 0, tasks: 0, revenue: 0, completedTasks: 0, activeProjects: 0 });
+  const [stats, setStats] = useState({ 
+    projects: 0, 
+    clients: 0, 
+    tasks: 0, 
+    revenue: 0, 
+    completedTasks: 0, 
+    activeProjects: 0,
+    recentActivity: [] as Array<{ id: string; type: string; title: string; timestamp: string }>
+  });
   const [tickets, setTickets] = useState(0);
+  const [activeProjectsList, setActiveProjectsList] = useState<any[]>([]);
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsResponse, ticketsResponse] = await Promise.all([
+        const [statsResponse, ticketsResponse, projectsResponse] = await Promise.all([
           API.get("/stats"),
           API.get("/tickets"),
+          API.get("/projects"),
         ]);
 
-        setStats(statsResponse.data.data || { projects: 0, clients: 0, tasks: 0, revenue: 0 });
+        const statsData = statsResponse.data.data || { projects: 0, clients: 0, tasks: 0, revenue: 0, recentActivity: [] };
+        setStats(statsData);
         setTickets((ticketsResponse.data.data || []).length);
+        
+        // Get active projects with progress
+        const allProjects = projectsResponse.data.data || [];
+        const active = allProjects.filter((p: any) => p.status === 'pending' || p.status === 'in-progress');
+        setActiveProjectsList(active);
+        
+        // Find upcoming deadlines (within 7 days)
+        const now = new Date();
+        const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const deadlines = allProjects
+          .filter((p: any) => {
+            if (!p.expectedCompletionDate) return false;
+            const dueDate = new Date(p.expectedCompletionDate);
+            return dueDate >= now && dueDate <= sevenDaysFromNow;
+          })
+          .sort((a: any, b: any) => new Date(a.expectedCompletionDate).getTime() - new Date(b.expectedCompletionDate).getTime());
+        setUpcomingDeadlines(deadlines);
       } catch (error) {
         console.error("Client dashboard error:", error);
       } finally {
@@ -32,13 +61,10 @@ export default function ClientDashboardPage() {
 
   const cards = [
     { label: "Assigned Projects", value: stats.projects, icon: Folder, color: "#007AFF", bg: "#E3F2FF" },
+    { label: "Active Projects", value: stats.activeProjects, icon: Activity, color: "#14B8A6", bg: "#E6FFFB" },
     { label: "Completed Payments", value: stats.revenue, icon: CreditCard, color: "#34C759", bg: "#E8F5E9", currency: true },
     { label: "Open Tickets", value: tickets, icon: LifeBuoy, color: "#FF9500", bg: "#FFF4E5" },
-    { label: "Active Tasks", value: stats.tasks, icon: TrendingUp, color: "#AF52DE", bg: "#F3E8FF" },
-    { label: "Assigned Projects", value: stats.projects, icon: Folder, color: "#007AFF", bg: "rgba(0, 122, 255, 0.1)" },
-    { label: "Completed Payments", value: stats.revenue, icon: CreditCard, color: "#34C759", bg: "rgba(52, 199, 89, 0.1)", currency: true },
-    { label: "Open Tickets", value: tickets, icon: LifeBuoy, color: "#FF9500", bg: "rgba(255, 149, 0, 0.1)" },
-    { label: "Active Workflows", value: stats.tasks, icon: TrendingUp, color: "#AF52DE", bg: "rgba(175, 82, 222, 0.1)" },
+    { label: "Completed Tasks", value: stats.completedTasks, icon: TrendingUp, color: "#AF52DE", bg: "#F3E8FF" },
   ];
 
   if (loading) {
@@ -76,6 +102,132 @@ export default function ClientDashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* Main Content Grid */}
+      <div style={styles.mainGrid}>
+        {/* Recent Activity */}
+        <Card>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h3 style={styles.sectionTitle}>Recent Activity</h3>
+              <p style={styles.sectionSubtitle}>Latest updates from your projects</p>
+            </div>
+            <Activity size={20} color="#007AFF" />
+          </div>
+          <div style={styles.activityList}>
+            {stats.recentActivity.slice(0, 6).map((activity, index) => (
+              <div key={activity.id || index} style={styles.activityItem}>
+                <div style={{ 
+                  ...styles.activityDot, 
+                  backgroundColor: activity.type === "project" ? "#007AFF" : 
+                                  activity.type === "task" ? "#34C759" : "#FF9500" 
+                }}></div>
+                <div style={styles.activityContent}>
+                  <p style={styles.activityText}>{activity.title}</p>
+                  <p style={styles.activityTime}>
+                    {new Date(activity.timestamp).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {stats.recentActivity.length === 0 && (
+              <p style={styles.emptyText}>No recent activity</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Active Projects Progress */}
+        <Card>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h3 style={styles.sectionTitle}>Active Projects</h3>
+              <p style={styles.sectionSubtitle}>Track ongoing project progress</p>
+            </div>
+            <TrendingUp size={20} color="#14B8A6" />
+          </div>
+          <div style={styles.projectsList}>
+            {activeProjectsList.slice(0, 5).map((project) => (
+              <div key={project._id} style={styles.projectItem}>
+                <div style={styles.projectInfo}>
+                  <p style={styles.projectName}>{project.name}</p>
+                  <p style={styles.projectStatus}>{project.status.replace('-', ' ').toUpperCase()}</p>
+                </div>
+                <div style={styles.progressSection}>
+                  <div style={styles.progressHeader}>
+                    <span style={styles.progressLabel}>Progress</span>
+                    <span style={styles.progressValue}>{project.progress || 0}%</span>
+                  </div>
+                  <div style={styles.progressBar}>
+                    <div 
+                      style={{ 
+                        ...styles.progressFill, 
+                        width: `${project.progress || 0}%`,
+                        backgroundColor: (project.progress || 0) >= 75 ? '#34C759' : (project.progress || 0) >= 50 ? '#007AFF' : '#FF9500'
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {activeProjectsList.length === 0 && (
+              <p style={styles.emptyText}>No active projects</p>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Upcoming Deadlines */}
+      {upcomingDeadlines.length > 0 && (
+        <Card>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h3 style={styles.sectionTitle}>Upcoming Deadlines</h3>
+              <p style={styles.sectionSubtitle}>Projects due within the next 7 days</p>
+            </div>
+            <Calendar size={20} color="#FF9500" />
+          </div>
+          <div style={styles.deadlinesGrid}>
+            {upcomingDeadlines.map((project) => {
+              const daysLeft = Math.ceil((new Date(project.expectedCompletionDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              const isUrgent = daysLeft <= 3;
+              return (
+                <div key={project._id} style={{
+                  ...styles.deadlineCard,
+                  borderLeft: `4px solid ${isUrgent ? '#FF3B30' : '#FF9500'}`
+                }}>
+                  <div style={styles.deadlineHeader}>
+                    <strong style={styles.deadlineName}>{project.name}</strong>
+                    {isUrgent && (
+                      <span style={styles.urgentBadge}>
+                        <AlertCircle size={12} />
+                        <span>Urgent</span>
+                      </span>
+                    )}
+                  </div>
+                  <div style={styles.deadlineFooter}>
+                    <Clock size={14} color="#8E8E93" />
+                    <span style={styles.deadlineDate}>
+                      {daysLeft === 0 ? 'Due today' : daysLeft === 1 ? 'Due tomorrow' : `Due in ${daysLeft} days`}
+                    </span>
+                    <span style={styles.deadlineDateText}>
+                      {new Date(project.expectedCompletionDate).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

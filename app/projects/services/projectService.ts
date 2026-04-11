@@ -124,3 +124,14 @@ export const bulkUpdateProjectStatus = async (
     throw error.response?.data?.message || 'Failed to bulk update projects';
   }
 };
+
+// Publish/unpublish project
+export const toggleProjectPublish = async (id: string, published: boolean): Promise<Project> => {
+  try {
+    const response = await API.patch(`/projects/${id}/publish`, { published });
+    return response.data.data || response.data;
+  } catch (error: any) {
+    console.error('Toggle project publish error:', error);
+    throw error.response?.data?.message || 'Failed to update project publish status';
+  }
+};

@@ -1,25 +1,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FolderOpen, CheckCircle2, Clock3 } from "lucide-react";
+import { FolderOpen, CheckCircle2, Clock3, AlertTriangle, TrendingUp, Activity, Calendar } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import API from "../../../core/services/apiService";
 
 export default function DeveloperDashboardPage() {
-  const [stats, setStats] = useState({ projects: 0, clients: 0, tasks: 0, revenue: 0 });
+  const [stats, setStats] = useState<any>({
+    totalProjects: 0,
+    activeProjects: 0,
+    completedProjects: 0,
+    totalTasks: 0,
+    tasksByStatus: { pending: 0, inProgress: 0, review: 0, completed: 0 },
+    tasksByPriority: { high: 0, medium: 0, low: 0 },
+    upcomingDeadlines: 0,
+    overdueTasks: 0,
+  });
   const [loading, setLoading] = useState(true);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
+  const [overdueTasks, setOverdueTasks] = useState<any[]>([]);
 
   useEffect(() => {
-    API.get("/stats")
-      .then((response) => setStats(response.data.data))
-      .catch((error) => console.error("Developer dashboard error:", error))
-      .finally(() => setLoading(false));
+    const fetchData = async () => {
+      try {
+        const statsResponse = await API.get("/stats/developer");
+        const developerStats = statsResponse.data.data;
+        
+        setStats(developerStats);
+        setRecentActivity(developerStats.recentActivity || []);
+        setUpcomingDeadlines(developerStats.upcomingDeadlineTasks || []);
+        setOverdueTasks(developerStats.overdueTaskList || []);
+      } catch (error) {
+        console.error("Developer dashboard error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const cards = [
-    { label: "Assigned Projects", value: stats.projects, icon: FolderOpen, color: "#007AFF", bg: "rgba(0, 122, 255, 0.1)" },
-    { label: "Active Deliveries", value: stats.tasks, icon: Clock3, color: "#FF9500", bg: "rgba(255, 149, 0, 0.1)" },
-    { label: "Client Accounts", value: stats.clients, icon: CheckCircle2, color: "#34C759", bg: "rgba(52, 199, 89, 0.1)" },
+    { label: "Assigned Projects", value: stats.totalProjects, icon: FolderOpen, color: "#007AFF", bg: "#E3F2FF" },
+    { label: "Active Projects", value: stats.activeProjects, icon: Activity, color: "#FF9500", bg: "#FFF4E5" },
+    { label: "Total Tasks", value: stats.totalTasks, icon: CheckCircle2, color: "#34C759", bg: "#E8F5E9" },
+    { label: "In Progress", value: stats.tasksByStatus?.inProgress || 0, icon: Clock3, color: "#007AFF", bg: "#E3F2FF" },
   ];
 
   if (loading) {
@@ -52,6 +78,124 @@ export default function DeveloperDashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* Main Content Grid */}
+      <div style={styles.mainGrid}>
+        {/* Recent Activity */}
+        <Card>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h3 style={styles.sectionTitle}>Recent Activity</h3>
+              <p style={styles.sectionSubtitle}>Latest task updates and changes</p>
+            </div>
+            <Activity size={20} color="#007AFF" />
+          </div>
+          <div style={styles.activityList}>
+            {recentActivity.slice(0, 6).map((activity, index) => (
+              <div key={activity.id || index} style={styles.activityItem}>
+                <div style={{ 
+                  ...styles.activityDot, 
+                  backgroundColor: activity.type === "task" ? "#007AFF" : "#34C759"
+                }}></div>
+                <div style={styles.activityContent}>
+                  <p style={styles.activityText}>{activity.title}</p>
+                  <p style={styles.activityTime}>
+                    {new Date(activity.timestamp).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {recentActivity.length === 0 && (
+              <p style={styles.emptyText}>No recent activity</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Task Priority Distribution */}
+        <Card>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h3 style={styles.sectionTitle}>Task Priorities</h3>
+              <p style={styles.sectionSubtitle}>Workload distribution by priority</p>
+            </div>
+            <AlertTriangle size={20} color="#FF9500" />
+          </div>
+          <div style={styles.priorityList}>
+            {[
+              { label: 'High', count: stats.tasksByPriority?.high || 0, color: '#FF9500', bg: '#FFF4E5' },
+              { label: 'Medium', count: stats.tasksByPriority?.medium || 0, color: '#007AFF', bg: '#E3F2FF' },
+              { label: 'Low', count: stats.tasksByPriority?.low || 0, color: '#8E8E93', bg: '#F2F2F7' },
+            ].map((priority) => (
+              <div key={priority.label} style={styles.priorityItem}>
+                <div style={{
+                  ...styles.priorityDot,
+                  backgroundColor: priority.color
+                }}></div>
+                <div style={styles.priorityInfo}>
+                  <p style={styles.priorityLabel}>{priority.label}</p>
+                  <p style={styles.priorityCount}>{priority.count} tasks</p>
+                </div>
+              </div>
+            ))}
+            {stats.totalTasks === 0 && (
+              <p style={styles.emptyText}>No tasks assigned yet</p>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Upcoming Deadlines */}
+      {upcomingDeadlines.length > 0 && (
+        <Card>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h3 style={styles.sectionTitle}>Upcoming Deadlines</h3>
+              <p style={styles.sectionSubtitle}>Tasks due within the next 7 days</p>
+            </div>
+            <Calendar size={20} color="#FF9500" />
+          </div>
+          <div style={styles.deadlinesGrid}>
+            {upcomingDeadlines.map((task) => {
+              const daysLeft = Math.ceil((new Date(task.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              const isUrgent = daysLeft <= 2;
+              return (
+                <div key={task._id} style={{
+                  ...styles.deadlineCard,
+                  borderLeft: `4px solid ${isUrgent ? '#FF3B30' : '#FF9500'}`
+                }}>
+                  <div style={styles.deadlineHeader}>
+                    <strong style={styles.deadlineName}>{task.title}</strong>
+                    {isUrgent && (
+                      <span style={styles.urgentBadge}>
+                        <AlertTriangle size={12} />
+                        <span>Urgent</span>
+                      </span>
+                    )}
+                  </div>
+                  <div style={styles.deadlineFooter}>
+                    <Clock3 size={14} color="#8E8E93" />
+                    <span style={styles.deadlineDate}>
+                      {daysLeft === 0 ? 'Due today' : daysLeft === 1 ? 'Due tomorrow' : `Due in ${daysLeft} days`}
+                    </span>
+                    <span style={styles.deadlineDateText}>
+                      {new Date(task.dueDate).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
@@ -97,6 +241,31 @@ const styles: any = {
     color: "var(--text-primary)",
     letterSpacing: "-0.5px"
   },
+  mainGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "24px" },
+  sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" },
+  sectionTitle: { fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", margin: 0 },
+  sectionSubtitle: { fontSize: "13px", color: "var(--text-secondary)", margin: "4px 0 0 0" },
+  activityList: { display: "flex", flexDirection: "column" as const, gap: "16px" },
+  activityItem: { display: "flex", gap: "12px", alignItems: "flex-start" },
+  activityDot: { width: "10px", height: "10px", borderRadius: "50%", marginTop: "6px", flexShrink: 0 },
+  activityContent: { flex: 1 },
+  activityText: { fontSize: "14px", color: "var(--text-primary)", margin: 0, marginBottom: "4px", lineHeight: 1.5 },
+  activityTime: { fontSize: "12px", color: "var(--text-secondary)", margin: 0 },
+  priorityList: { display: "flex", flexDirection: "column" as const, gap: "12px" },
+  priorityItem: { display: "flex", alignItems: "center", gap: "12px", padding: "12px", backgroundColor: "var(--bg-secondary)", borderRadius: "10px" },
+  priorityDot: { width: "12px", height: "12px", borderRadius: "50%" },
+  priorityInfo: { flex: 1 },
+  priorityLabel: { fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", margin: 0 },
+  priorityCount: { fontSize: "12px", color: "var(--text-secondary)", margin: "2px 0 0 0" },
+  deadlinesGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" },
+  deadlineCard: { padding: "16px", backgroundColor: "var(--bg-secondary)", borderRadius: "12px" },
+  deadlineHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" },
+  deadlineName: { fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", flex: 1 },
+  urgentBadge: { display: "flex", alignItems: "center", gap: "4px", padding: "4px 8px", backgroundColor: "#FFEBEE", color: "#FF3B30", borderRadius: "6px", fontSize: "10px", fontWeight: 700 },
+  deadlineFooter: { display: "flex", alignItems: "center", gap: "8px" },
+  deadlineDate: { fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", flex: 1 },
+  deadlineDateText: { fontSize: "11px", color: "var(--text-secondary)" },
+  emptyText: { fontSize: "13px", color: "var(--text-secondary)", textAlign: "center" as const, padding: "20px" },
   loadingContainer: {
     display: "flex",
     flexDirection: "column",
