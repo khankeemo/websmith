@@ -5,7 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { AuthUser, getStoredUser, clearAuthSession, getToken, setAuthSession } from "../../lib/auth";
-import { LogOut, Bell, User, Settings, Sun, Moon, ChevronRight } from "lucide-react";
+import { 
+  LogOut, Bell, User, Settings, Sun, Moon, ChevronRight,
+  LayoutDashboard, Briefcase, Users, CheckSquare, Wrench,
+  Code2, ShieldCheck, MessageSquare, FileText, CreditCard, LifeBuoy
+} from "lucide-react";
 import API from "../../core/services/apiService";
 import ProfileModal from "./ProfileModal";
 
@@ -108,36 +112,37 @@ export default function Sidebar({
       ? [
           {
             title: "MAIN",
-            items: [{ name: "Dashboard", path: `${basePath}/dashboard` }],
+            items: [{ name: "Dashboard", path: `${basePath}/dashboard`, icon: LayoutDashboard }],
           },
           {
             title: "WORK",
             items: [
-              { name: "Projects", path: `${basePath}/projects` },
-              { name: "Clients", path: `${basePath}/clients` },
-              { name: "Tasks", path: `${basePath}/tasks` },
-              { name: "Services", path: `${basePath}/services` },
+              { name: "Projects", path: `${basePath}/projects`, icon: Briefcase },
+              { name: "Clients", path: `${basePath}/clients`, icon: Users },
+              { name: "Tasks", path: `${basePath}/tasks`, icon: CheckSquare },
+              { name: "Services", path: `${basePath}/services`, icon: Wrench },
             ],
           },
           {
             title: "TEAM",
             items: [
-              { name: "Team", path: `${basePath}/team` },
-              { name: "Messages", path: `${basePath}/messages` },
+              { name: "Developers", path: `${basePath}/team`, icon: Code2 },
+              { name: "Admins", path: `${basePath}/admins`, icon: ShieldCheck },
+              { name: "Messages", path: `${basePath}/messages`, icon: MessageSquare },
             ],
           },
           {
             title: "FINANCE",
             items: [
-              { name: "Invoices", path: `${basePath}/invoices` },
-              { name: "Payments", path: `${basePath}/payments` },
+              { name: "Invoices", path: `${basePath}/invoices`, icon: FileText },
+              { name: "Payments", path: `${basePath}/payments`, icon: CreditCard },
             ],
           },
           {
             title: "SYSTEM",
             items: [
-              { name: "Notifications", path: `${basePath}/notifications` },
-              { name: "Settings", path: `${basePath}/settings` }
+              { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
+              { name: "Settings", path: `${basePath}/settings`, icon: Settings }
             ],
           },
         ]
@@ -145,39 +150,39 @@ export default function Sidebar({
         ? [
             {
               title: "MAIN",
-              items: [{ name: "Dashboard", path: `${basePath}/dashboard` }],
+              items: [{ name: "Dashboard", path: `${basePath}/dashboard`, icon: LayoutDashboard }],
             },
             {
               title: "WORK",
               items: [
-                { name: "My Projects", path: `${basePath}/projects` },
-                { name: "Payments", path: `${basePath}/payments` },
-                { name: "Query", path: `${basePath}/tickets` },
-                { name: "Invoices", path: `${basePath}/invoices` },
+                { name: "My Projects", path: `${basePath}/projects`, icon: Briefcase },
+                { name: "Payments", path: `${basePath}/payments`, icon: CreditCard },
+                { name: "Query", path: `${basePath}/tickets`, icon: LifeBuoy },
+                { name: "Invoices", path: `${basePath}/invoices`, icon: FileText },
               ],
             },
             {
               title: "SYSTEM",
               items: [
-                { name: "Notifications", path: `${basePath}/notifications` },
-                { name: "Settings", path: `${basePath}/settings` }
+                { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
+                { name: "Settings", path: `${basePath}/settings`, icon: Settings }
               ],
             },
           ]
         : [
             {
               title: "MAIN",
-              items: [{ name: "Dashboard", path: `${basePath}/dashboard` }],
+              items: [{ name: "Dashboard", path: `${basePath}/dashboard`, icon: LayoutDashboard }],
             },
             {
               title: "WORK",
-              items: [{ name: "Projects", path: `${basePath}/projects` }],
+              items: [{ name: "Projects", path: `${basePath}/projects`, icon: Briefcase }],
             },
             {
               title: "SYSTEM",
               items: [
-                { name: "Notifications", path: `${basePath}/notifications` },
-                { name: "Settings", path: `${basePath}/settings` }
+                { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
+                { name: "Settings", path: `${basePath}/settings`, icon: Settings }
               ],
             },
           ];
@@ -276,8 +281,11 @@ export default function Sidebar({
                   e.currentTarget.style.transform = "translateX(4px)";
                 }}
               >
-                {item.name}
-                {(item.name === "Clients" || item.name === "Notifications") && role === "admin" && unreadCount > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {item.icon && <item.icon size={18} style={{ opacity: isActive ? 1 : 0.7 }} />}
+                  <span>{item.name}</span>
+                </div>
+                {(item.name === "Clients" || item.name === "Developers" || item.name === "Admins" || item.name === "Notifications") && role === "admin" && unreadCount > 0 && (
                   <span style={styles.badge}>{unreadCount}</span>
                 )}
               </Link>

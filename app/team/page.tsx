@@ -2,8 +2,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, X, Users, UserCheck, Code, Trash2, Edit2, Phone, Mail, Briefcase } from 'lucide-react';
+import { Plus, Search, X, Users, UserCheck, Code, Trash2, Edit2, Phone, Mail, Briefcase, Shield, Code2 } from 'lucide-react';
 import API from '@/core/services/apiService';
+import { RoleUser, getUsersByRole, createManagedUser, deleteManagedUser, ManagedUserPayload } from '@/core/services/userService';
 
 // Simple Badge component
 const Badge = ({ text, color }: { text: string; color: string }) => (
@@ -21,163 +22,107 @@ const Badge = ({ text, color }: { text: string; color: string }) => (
   </span>
 );
 
-// Team Member interface
-interface TeamMember {
-  _id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  role: string;
-  department: string;
-  skills: string[];
-  experience: number;
-  joinDate: string;
-  status: string;
-  bio?: string;
-}
+// Developer interface (using RoleUser from core)
+// interface TeamMember { ... } is replaced by RoleUser
 
-// Simple Team Card Component
-const TeamCard = ({ member, onEdit, onDelete }: { member: TeamMember; onEdit: (m: TeamMember) => void; onDelete: (id: string) => void }) => {
-  const getRoleColor = (role: string) => {
-    const colors: Record<string, string> = {
-      admin: '#FF3B30', developer: '#007AFF', designer: '#AF52DE',
-      manager: '#FF9500', intern: '#34C759'
-    };
-    return colors[role] || 'var(--text-secondary)';
-  };
-
+// Developer Card Component
+const DeveloperCard = ({ dev, onDelete }: { dev: RoleUser; onDelete: (id: string) => void }) => {
   return (
     <div style={styles.card} className="team-card">
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px' }}>
         <div style={{
           width: '64px', height: '64px', borderRadius: '18px',
-          background: `linear-gradient(135deg, ${getRoleColor(member.role)}20, ${getRoleColor(member.role)}40)`,
+          background: `linear-gradient(135deg, #007AFF20, #007AFF40)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px',
-          fontWeight: '700', color: getRoleColor(member.role), border: `1.5px solid ${getRoleColor(member.role)}20`
+          fontWeight: '700', color: '#007AFF', border: `1.5px solid #007AFF20`
         }}>
-          {member.name.charAt(0).toUpperCase()}
+          {dev.name.charAt(0).toUpperCase()}
         </div>
         <div style={{ flex: 1 }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px', letterSpacing: '-0.3px' }}>{member.name}</h3>
+          <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px', letterSpacing: '-0.3px' }}>{dev.name}</h3>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <Badge text={member.role} color={getRoleColor(member.role)} />
-            <Badge text={member.status} color={member.status === 'active' ? '#34C759' : 'var(--text-secondary)'} />
+            <Badge text={dev.role} color="#007AFF" />
+            <Badge text="active" color="#34C759" />
           </div>
         </div>
       </div>
       
       <div style={styles.cardDetails}>
-        <div style={styles.detailItem}><Mail size={14} color="var(--text-secondary)" /><span style={styles.detailText}>{member.email}</span></div>
-        {member.phone && <div style={styles.detailItem}><Phone size={14} color="var(--text-secondary)" /><span style={styles.detailText}>{member.phone}</span></div>}
-        <div style={styles.detailItem}><Briefcase size={14} color="var(--text-secondary)" /><span style={styles.detailText}>{member.department} • {member.experience}y Exp</span></div>
+        <div style={styles.detailItem}><Mail size={14} color="var(--text-secondary)" /><span style={styles.detailText}>{dev.email}</span></div>
+        {dev.phone && <div style={styles.detailItem}><Phone size={14} color="var(--text-secondary)" /><span style={styles.detailText}>{dev.phone}</span></div>}
+        <div style={styles.detailItem}><Briefcase size={14} color="var(--text-secondary)" /><span style={styles.detailText}>{dev.company || 'Private Entity'}</span></div>
       </div>
 
       <div style={styles.cardActions}>
-        <button onClick={() => onEdit(member)} style={styles.editBtn} className="action-btn">
-          <Edit2 size={16} /> <span>Edit</span>
-        </button>
-        <button onClick={() => onDelete(member._id)} style={styles.deleteBtn} className="action-btn">
-          <Trash2 size={16} /> <span>Delete</span>
+        <div style={{ flex: 1 }}></div>
+        <button onClick={() => onDelete(dev._id)} style={styles.deleteBtn} className="action-btn">
+          <Trash2 size={16} /> <span>Remove</span>
         </button>
       </div>
     </div>
   );
 };
 
-// Simple Modal Component
-const TeamModal = ({ isOpen, onClose, onSubmit, editingMember }: any) => {
+// Developer Modal Component
+const DeveloperModal = ({ isOpen, onClose, onSubmit, isSaving }: any) => {
   const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', role: 'developer', department: 'development',
-    skills: [] as string[], experience: 0, joinDate: new Date().toISOString().split('T')[0], status: 'active', bio: ''
+    name: '', email: '', phone: '', company: ''
   });
-  const [skillInput, setSkillInput] = useState('');
 
   useEffect(() => {
-    if (editingMember) {
-      setFormData({
-        name: editingMember.name, email: editingMember.email, phone: editingMember.phone || '',
-        role: editingMember.role, department: editingMember.department, skills: editingMember.skills,
-        experience: editingMember.experience, joinDate: editingMember.joinDate.split('T')[0],
-        status: editingMember.status, bio: editingMember.bio || ''
-      });
-    } else {
-      setFormData({
-        name: '', email: '', phone: '', role: 'developer', department: 'development',
-        skills: [], experience: 0, joinDate: new Date().toISOString().split('T')[0],
-        status: 'active', bio: ''
-      });
+    if (isOpen) {
+      setFormData({ name: '', email: '', phone: '', company: '' });
     }
-  }, [editingMember, isOpen]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const addSkill = () => { if (skillInput.trim()) { setFormData({ ...formData, skills: [...formData.skills, skillInput.trim()] }); setSkillInput(''); } };
-  const removeSkill = (skill: string) => setFormData({ ...formData, skills: formData.skills.filter(s => s !== skill) });
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSubmit(formData); };
+  const handleSubmit = (e: React.FormEvent) => { 
+    e.preventDefault(); 
+    onSubmit({ ...formData, role: 'developer' }); 
+  };
 
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={e => e.stopPropagation()}>
         <div style={styles.modalHeader}>
-          <h2 style={styles.modalTitle}>{editingMember ? 'Edit Team Member' : 'Add Team Member'}</h2>
+          <h2 style={styles.modalTitle}>Add New Developer</h2>
           <button onClick={onClose} style={styles.closeBtn}><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={styles.formRow}>
             <div style={styles.formGroup}>
               <label style={styles.inputLabel}>Full Name</label>
-              <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required style={styles.input} />
+              <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required style={styles.input} placeholder="John Doe" />
             </div>
             <div style={styles.formGroup}>
               <label style={styles.inputLabel}>Email Address</label>
-              <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required style={styles.input} />
+              <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required style={styles.input} placeholder="john@example.com" />
             </div>
           </div>
           
           <div style={styles.formRow}>
             <div style={styles.formGroup}>
               <label style={styles.inputLabel}>Phone Number</label>
-              <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} style={styles.input} />
+              <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} style={styles.input} placeholder="+1 234 567 890" />
             </div>
             <div style={styles.formGroup}>
-              <label style={styles.inputLabel}>Experience (Year)</label>
-              <input type="number" value={formData.experience} onChange={e => setFormData({ ...formData, experience: parseInt(e.target.value) })} style={styles.input} />
+              <label style={styles.inputLabel}>Company / Org</label>
+              <input type="text" value={formData.company} onChange={e => setFormData({ ...formData, company: e.target.value })} style={styles.input} placeholder="Freelance / Tech Co" />
             </div>
           </div>
 
-          <div style={styles.formRow}>
-            <div style={styles.formGroup}>
-              <label style={styles.inputLabel}>Role</label>
-              <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} style={styles.select}>
-                <option value="admin">Admin</option><option value="developer">Developer</option>
-                <option value="designer">Designer</option><option value="manager">Manager</option><option value="intern">Intern</option>
-              </select>
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.inputLabel}>Department</label>
-              <select value={formData.department} onChange={e => setFormData({ ...formData, department: e.target.value })} style={styles.select}>
-                <option value="development">Development</option><option value="design">Design</option>
-                <option value="management">Management</option><option value="sales">Sales</option><option value="support">Support</option>
-              </select>
-            </div>
+          <div style={styles.infoBox}>
+            <p style={styles.infoText}>
+              <strong>Note:</strong> Saving this developer will email their login credentials automatically.
+            </p>
           </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={styles.inputLabel}>Skills</label>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-              <input type="text" placeholder="e.g. React" value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addSkill())} style={styles.input} />
-              <button type="button" onClick={addSkill} style={styles.skillAddBtn}>Add</button>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {formData.skills.map((s, i) => (<span key={i} style={styles.skillChip}>{s} <button type="button" onClick={() => removeSkill(s)} style={styles.skillRemoveBtn}>×</button></span>))}
-            </div>
-          </div>
-
-          <textarea placeholder="Tell us a bit about this person..." value={formData.bio} onChange={e => setFormData({ ...formData, bio: e.target.value })} rows={3} style={{ ...styles.input, resize: 'none' }} />
           
           <div style={styles.modalFooter}>
-            <button type="button" onClick={onClose} style={styles.modalCancelBtn}>Cancel</button>
-            <button type="submit" style={styles.modalSubmitBtn}>{editingMember ? 'Update Member' : 'Add to Team'}</button>
+            <button type="button" onClick={onClose} style={styles.modalCancelBtn} disabled={isSaving}>Cancel</button>
+            <button type="submit" style={styles.modalSubmitBtn} disabled={isSaving}>
+              {isSaving ? 'Processing...' : 'Add Developer'}
+            </button>
           </div>
         </form>
       </div>
@@ -186,24 +131,22 @@ const TeamModal = ({ isOpen, onClose, onSubmit, editingMember }: any) => {
 };
 
 // Main Page Component
-export default function TeamPage() {
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+export default function DevelopersPage() {
+  const [developers, setDevelopers] = useState<RoleUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    setToken(localStorage.getItem('token'));
+    setToken(typeof window !== 'undefined' ? localStorage.getItem('token') : null);
   }, []);
 
-  const fetchTeamMembers = useCallback(async () => {
+  const fetchDevelopers = useCallback(async () => {
     try {
-      const response = await API.get('/team');
-      if (response.data.success || response.data.data) {
-        setTeamMembers(response.data.data || []);
-      }
+      const users = await getUsersByRole('developer');
+      setDevelopers(users);
     } catch (error) {
       console.error('Fetch error:', error);
     } finally {
@@ -212,74 +155,55 @@ export default function TeamPage() {
   }, []);
 
   useEffect(() => {
-    fetchTeamMembers();
-  }, [fetchTeamMembers]);
+    fetchDevelopers();
+  }, [fetchDevelopers]);
 
-  const createTeamMember = async (data: any) => {
+  const handleAddDeveloper = async (data: ManagedUserPayload) => {
+    setSaving(true);
     try {
-      const response = await API.post('/team', data);
-      if (response.status === 200 || response.status === 201) {
-        await fetchTeamMembers();
-        setIsModalOpen(false);
-      }
+      await createManagedUser(data);
+      await fetchDevelopers();
+      setIsModalOpen(false);
     } catch (error) {
       console.error('Create error:', error);
+      alert('Failed to add developer. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const updateTeamMember = async (id: string, data: any) => {
+  const handleRemoveDeveloper = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this developer? This will delete their account access.')) return;
     try {
-      const response = await API.put(`/team/${id}`, data);
-      if (response.status === 200) {
-        await fetchTeamMembers();
-        setIsModalOpen(false);
-        setEditingMember(null);
-      }
-    } catch (error) {
-      console.error('Update error:', error);
-    }
-  };
-
-  const deleteTeamMember = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this member?')) return;
-    try {
-      const response = await API.delete(`/team/${id}`);
-      if (response.status === 200) {
-        await fetchTeamMembers();
-      }
+      await deleteManagedUser(id);
+      await fetchDevelopers();
     } catch (error) {
       console.error('Delete error:', error);
+      alert('Failed to delete developer.');
     }
   };
 
-  const handleSubmit = (data: any) => {
-    if (editingMember) {
-      updateTeamMember(editingMember._id, data);
-    } else {
-      createTeamMember(data);
-    }
-  };
-
-  const filteredMembers = teamMembers.filter(m =>
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredDevelopers = developers.filter(d =>
+    d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    d.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (d.company && d.company.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const stats = {
-    total: teamMembers.length,
-    active: teamMembers.filter(m => m.status === 'active').length,
-    developers: teamMembers.filter(m => m.role === 'developer').length,
+    total: developers.length,
+    active: developers.length, // All role users are technically active
+    specialists: developers.length,
   };
 
   if (!token) {
-    return <div style={{ padding: '80px', textAlign: 'center', color: 'var(--text-secondary)' }}>Please login to view team members</div>;
+    return <div style={{ padding: '80px', textAlign: 'center', color: 'var(--text-secondary)' }}>Please login to view technical staff</div>;
   }
 
   if (loading) {
     return (
       <div style={styles.loadingWrapper}>
         <div style={styles.spinner}></div>
-        <p>Syncing team database...</p>
+        <p>Syncing developer database...</p>
       </div>
     );
   }
@@ -288,11 +212,11 @@ export default function TeamPage() {
     <div style={styles.container}>
       <div style={styles.pageHeader}>
         <div>
-          <h1 style={styles.pageTitle}>Team</h1>
-          <p style={styles.pageSubtitle}>Manage your internal workforce and departments</p>
+          <h1 style={styles.pageTitle}>Developers</h1>
+          <p style={styles.pageSubtitle}>Manage your technical workforce and role-based access</p>
         </div>
-        <button onClick={() => { setEditingMember(null); setIsModalOpen(true); }} style={styles.primaryBtn}>
-          <Plus size={20} /> Add Member
+        <button onClick={() => setIsModalOpen(true)} style={styles.primaryBtn}>
+          <Plus size={20} /> Add Developer
         </button>
       </div>
 
@@ -307,7 +231,7 @@ export default function TeamPage() {
         </div>
         <div style={styles.statCard}>
           <Code size={24} color="#AF52DE" />
-          <div><div style={styles.statValue}>{stats.developers}</div><div style={styles.statLabel}>Developers</div></div>
+          <div><div style={styles.statValue}>{stats.specialists}</div><div style={styles.statLabel}>Active Specialists</div></div>
         </div>
       </div>
 
@@ -316,22 +240,22 @@ export default function TeamPage() {
         <input type="text" placeholder="Search by name, email or skills..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={styles.searchInput} />
       </div>
 
-      {filteredMembers.length === 0 ? (
+      {filteredDevelopers.length === 0 ? (
         <div style={styles.emptyState}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
-          <h3 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>No team members found</h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Try adjusting your search or add a new teammate.</p>
-          <button onClick={() => setIsModalOpen(true)} style={styles.primaryBtn}>Add your first member</button>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>👨‍💻</div>
+          <h3 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>No developers found</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Try adjusting your search or add a new developer.</p>
+          <button onClick={() => setIsModalOpen(true)} style={styles.primaryBtn}>Add your first developer</button>
         </div>
       ) : (
         <div style={styles.teamGrid}>
-          {filteredMembers.map(member => (
-            <TeamCard key={member._id} member={member} onEdit={(m) => { setEditingMember(m); setIsModalOpen(true); }} onDelete={deleteTeamMember} />
+          {filteredDevelopers.map(dev => (
+            <DeveloperCard key={dev._id} dev={dev} onDelete={handleRemoveDeveloper} />
           ))}
         </div>
       )}
 
-      <TeamModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingMember(null); }} onSubmit={handleSubmit} editingMember={editingMember} />
+      <DeveloperModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddDeveloper} isSaving={saving} />
 
       <style>{`
         .team-card { transition: all 0.3s ease; }
@@ -634,6 +558,19 @@ const styles: any = {
     fontWeight: '700',
     cursor: 'pointer',
     boxShadow: '0 8px 20px rgba(0,122,255,0.2)'
+  },
+  infoBox: {
+    padding: '16px',
+    backgroundColor: 'rgba(0, 122, 255, 0.05)',
+    borderRadius: '12px',
+    border: '1px solid rgba(0, 122, 255, 0.1)',
+    marginBottom: '20px'
+  },
+  infoText: {
+    fontSize: '13px',
+    color: '#007AFF',
+    margin: 0,
+    lineHeight: '1.5'
   },
   emptyState: {
     textAlign: 'center',
