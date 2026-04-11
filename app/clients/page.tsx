@@ -12,202 +12,23 @@ import ClientCard from './components/ClientCard';
 import ClientModal from './components/ClientModal';
 import ConfirmationModal from '../../components/ui/ConfirmationModal';
 import { Client, ClientPayload } from './services/clientService';
-import { createManagedUser, deleteManagedUser, getUsersByRole, ManagedUserPayload, RoleUser } from '../../core/services/userService';
 
-type DeleteTarget =
-  | { type: 'client'; id: string }
-  | { type: 'developer' | 'admin'; id: string; name: string };
+type DeleteTarget = { type: 'client'; id: string };
 
-function ManagedUserModal({
-  isOpen,
-  role,
-  title,
-  isSaving,
-  submitError,
-  onClose,
-  onSave,
-}: {
-  isOpen: boolean;
-  role: 'admin' | 'developer';
-  title: string;
-  isSaving: boolean;
-  submitError?: string | null;
-  onClose: () => void;
-  onSave: (payload: ManagedUserPayload) => Promise<void>;
-}) {
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', company: '' });
 
-  useEffect(() => {
-    if (isOpen) {
-      setFormData({ name: '', email: '', phone: '', company: '' });
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onSave({
-      ...formData,
-      name: formData.name.trim(),
-      email: formData.email.trim().toLowerCase(),
-      phone: formData.phone.trim(),
-      company: formData.company.trim(),
-      role,
-    });
-  };
-
-  return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.modalHeader}>
-          <h2 style={styles.modalTitle}>{title}</h2>
-          <button onClick={onClose} style={styles.closeBtn}><X size={20} /></button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Name *</label>
-              <input
-                value={formData.name}
-                onChange={(e) => setFormData((current) => ({ ...current, name: e.target.value }))}
-                style={styles.input}
-                className="modal-input-focus"
-                required
-                disabled={isSaving}
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email *</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData((current) => ({ ...current, email: e.target.value }))}
-                style={styles.input}
-                className="modal-input-focus"
-                required
-                disabled={isSaving}
-              />
-            </div>
-          </div>
-
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Phone</label>
-              <input
-                value={formData.phone}
-                onChange={(e) => setFormData((current) => ({ ...current, phone: e.target.value }))}
-                style={styles.input}
-                className="modal-input-focus"
-                disabled={isSaving}
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Company</label>
-              <input
-                value={formData.company}
-                onChange={(e) => setFormData((current) => ({ ...current, company: e.target.value }))}
-                style={styles.input}
-                className="modal-input-focus"
-                disabled={isSaving}
-              />
-            </div>
-          </div>
-
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>
-              <strong>Note:</strong> Saving this {role} will email their login credentials automatically.
-            </p>
-          </div>
-
-          {submitError && <p style={styles.submitError}>{submitError}</p>}
-
-          <div style={styles.modalFooter}>
-            <button type="button" onClick={onClose} style={styles.cancelBtn} disabled={isSaving}>Cancel</button>
-            <button type="submit" style={styles.saveBtn} disabled={isSaving}>
-              {isSaving ? 'Saving...' : `Save ${role === 'admin' ? 'Admin' : 'Developer'}`}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function ManagedUserCard({
-  user,
-  onDelete,
-}: {
-  user: RoleUser;
-  onDelete: (user: RoleUser) => void;
-}) {
-  return (
-    <div style={styles.userCard} className="managed-user-card">
-      <div style={styles.userCardHeader}>
-        <div style={styles.userIcon}>
-          {user.role === 'admin' ? <Shield size={20} color="#007AFF" /> : <Code2 size={20} color="#007AFF" />}
-        </div>
-        <button onClick={() => onDelete(user)} style={styles.iconDeleteBtn} title={`Delete ${user.name}`} className="delete-btn-hover">
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <h3 style={styles.userName}>{user.name}</h3>
-      <p style={styles.userMeta}>{user.email}</p>
-      <p style={styles.userMeta}>{user.company || '-'}</p>
-      <div style={{ marginTop: '16px' }}>
-        <span style={{ 
-          ...styles.roleBadge,
-          backgroundColor: user.role === 'admin' ? 'rgba(0, 122, 255, 0.1)' : 'rgba(175, 82, 222, 0.1)',
-          color: user.role === 'admin' ? '#007AFF' : '#AF52DE'
-        }}>
-          {user.role === 'admin' ? ((user.adminLevel || 'super') === 'super' ? 'Super Admin' : 'Sub Admin') : 'Developer'}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export default function ClientsPage() {
-  const currentUser = getStoredUser();
-  const isSuperAdmin = currentUser?.role === 'admin' && (currentUser.adminLevel || 'super') === 'super';
   const { clients, loading, saving, error, addClient, editClient, removeClient, fetchClients, clearError } = useClients();
-  const [developers, setDevelopers] = useState<RoleUser[]>([]);
-  const [admins, setAdmins] = useState<RoleUser[]>([]);
-  const [roleLoading, setRoleLoading] = useState(false);
-  const [roleSaving, setRoleSaving] = useState(false);
-  const [roleError, setRoleError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDeveloperModalOpen, setIsDeveloperModalOpen] = useState(false);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
-  const loadRoleUsers = async () => {
-    setRoleLoading(true);
-    setRoleError(null);
-    try {
-      const developerUsers = await getUsersByRole('developer');
-      setDevelopers(developerUsers);
-      if (isSuperAdmin) {
-        const adminUsers = await getUsersByRole('admin');
-        setAdmins(adminUsers.filter((user) => (user.adminLevel || 'super') !== 'super'));
-      } else {
-        setAdmins([]);
-      }
-    } catch (err: any) {
-      setRoleError(typeof err === 'string' ? err : err?.message || 'Failed to fetch role accounts');
-    } finally {
-      setRoleLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadRoleUsers();
-  }, [isSuperAdmin]);
+    fetchClients();
+  }, [fetchClients]);
 
   const handleAddClient = () => {
     clearError();
@@ -247,35 +68,18 @@ export default function ClientsPage() {
     setEditingClient(null);
   };
 
-  const handleSaveManagedUser = async (payload: ManagedUserPayload) => {
-    setRoleSaving(true);
-    setRoleError(null);
-    setSuccessMessage(null);
-    try {
-      await createManagedUser(payload);
-      await loadRoleUsers();
-      setSuccessMessage(`${payload.role === 'admin' ? 'Admin' : 'Developer'} created successfully.`);
-      setIsDeveloperModalOpen(false);
-      setIsAdminModalOpen(false);
-    } catch (err: any) {
-      setRoleError(typeof err === 'string' ? err : err?.message || 'Failed to create account');
-    } finally {
-      setRoleSaving(false);
-    }
-  };
-
   const handleTogglePublish = async (client: Client) => {
     try {
       const { toggleClientPublish } = await import('./services/clientService');
       await toggleClientPublish(client._id!, !client.published);
       await fetchClients();
-      setSuccessMessage(`Client ${client.published ? 'unpublished' : 'published'} successfully`);
+      setSuccessMessage(`Client ${client.published ? 'published' : 'unpublished'} successfully`);
     } catch (error) {
       console.error('Toggle publish error:', error);
     }
   };
 
-  const confirmDelete = async () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
 
     setSuccessMessage(null);
@@ -284,17 +88,6 @@ export default function ClientsPage() {
       const removed = await removeClient(deleteTarget.id);
       if (removed) {
         setSuccessMessage('Client and associated user account deleted successfully.');
-      }
-    } else {
-      setRoleSaving(true);
-      try {
-        await deleteManagedUser(deleteTarget.id);
-        await loadRoleUsers();
-        setSuccessMessage(`${deleteTarget.type === 'admin' ? 'Admin' : 'Developer'} deleted successfully.`);
-      } catch (err: any) {
-        setRoleError(typeof err === 'string' ? err : err?.message || 'Failed to delete account');
-      } finally {
-        setRoleSaving(false);
       }
     }
 
@@ -308,36 +101,19 @@ export default function ClientsPage() {
     client.customId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredDevelopers = developers.filter((user) =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.company?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
-  const filteredAdmins = admins.filter((user) =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.company?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
+
 
   return (
     <div style={styles.container}>
       <div style={styles.header} className="clients-header">
         <div>
           <h1 style={styles.title}>Clients</h1>
-          <p style={styles.subtitle}>Manage clients, developers, and admin access from one place</p>
+          <p style={styles.subtitle}>Manage clients from one place</p>
         </div>
         <div style={styles.headerButtons}>
-          <button onClick={() => setIsDeveloperModalOpen(true)} style={styles.secondaryBtn} className="secondary-action-btn">
-            <Plus size={18} />
-            <span>Add Developer</span>
-          </button>
-          {isSuperAdmin && (
-            <button onClick={() => setIsAdminModalOpen(true)} style={styles.secondaryBtn} className="secondary-action-btn">
-              <Plus size={18} />
-              <span>Add Admin</span>
-            </button>
-          )}
+
           <button onClick={handleAddClient} style={styles.addBtn} className="add-btn">
             <Plus size={18} />
             <span>New Client</span>
@@ -364,13 +140,12 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {(error || roleError) && (
+      {error && (
         <div style={styles.errorContainer}>
-          <p style={styles.errorText}>{roleError || error}</p>
+          <p style={styles.errorText}>{error}</p>
           <button
             onClick={() => {
               fetchClients();
-              loadRoleUsers();
             }}
             style={styles.retryBtn}
           >
@@ -413,71 +188,9 @@ export default function ClientsPage() {
         )}
       </div>
 
-      <div style={styles.sectionBlock}>
-        <div style={styles.sectionHeader}>
-          <div>
-            <h2 style={styles.sectionTitle}>Developers</h2>
-            <p style={styles.sectionDescription}>Assign and manage technical access for your team.</p>
-          </div>
-        </div>
 
-        {roleLoading ? (
-          <div style={styles.loadingContainer}>
-            <div style={styles.spinner}></div>
-            <p style={{ color: "var(--text-secondary)" }}>Loading developers...</p>
-          </div>
-        ) : filteredDevelopers.length === 0 ? (
-          <div style={styles.emptyContainer}>
-            <Code2 size={48} color="var(--border-color)" />
-            <h3 style={styles.emptyTitle}>No developers found</h3>
-            <p style={styles.emptyText}>Add a developer account to get started.</p>
-          </div>
-        ) : (
-          <div style={styles.userGrid}>
-            {filteredDevelopers.map((user) => (
-              <ManagedUserCard
-                key={user._id}
-                user={user}
-                onDelete={(target) => setDeleteTarget({ type: 'developer', id: target._id, name: target.name })}
-              />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {isSuperAdmin && (
-        <div style={styles.sectionBlock}>
-          <div style={styles.sectionHeader}>
-            <div>
-              <h2 style={styles.sectionTitle}>Admins</h2>
-              <p style={styles.sectionDescription}>Manage sub-admin permissions and administrative access.</p>
-            </div>
-          </div>
 
-          {roleLoading ? (
-            <div style={styles.loadingContainer}>
-              <div style={styles.spinner}></div>
-              <p style={{ color: "var(--text-secondary)" }}>Loading admin accounts...</p>
-            </div>
-          ) : filteredAdmins.length === 0 ? (
-            <div style={styles.emptyContainer}>
-              <Shield size={48} color="var(--border-color)" />
-              <h3 style={styles.emptyTitle}>No sub-admins found</h3>
-              <p style={styles.emptyText}>Sharing access helps you manage the workload.</p>
-            </div>
-          ) : (
-            <div style={styles.userGrid}>
-              {filteredAdmins.map((user) => (
-                <ManagedUserCard
-                  key={user._id}
-                  user={user}
-                  onDelete={(target) => setDeleteTarget({ type: 'admin', id: target._id, name: target.name })}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       <ClientModal
         isOpen={isModalOpen}
@@ -492,40 +205,20 @@ export default function ClientsPage() {
         submitError={formError || error}
       />
 
-      <ManagedUserModal
-        isOpen={isDeveloperModalOpen}
-        role="developer"
-        title="New Developer"
-        isSaving={roleSaving}
-        submitError={roleError}
-        onClose={() => setIsDeveloperModalOpen(false)}
-        onSave={handleSaveManagedUser}
-      />
 
-      <ManagedUserModal
-        isOpen={isAdminModalOpen}
-        role="admin"
-        title="New Admin"
-        isSaving={roleSaving}
-        submitError={roleError}
-        onClose={() => setIsAdminModalOpen(false)}
-        onSave={handleSaveManagedUser}
-      />
+
+
 
       <ConfirmationModal
         isOpen={Boolean(deleteTarget)}
-        title={deleteTarget?.type === 'client' ? 'Delete Client' : deleteTarget?.type === 'admin' ? 'Delete Admin' : 'Delete Developer'}
-        message={
-          deleteTarget?.type === 'client'
-            ? 'Are you sure you want to delete this client? This will also permanently remove their account access and all associated data.'
-            : `Are you sure you want to delete this ${deleteTarget?.type} account?`
-        }
-        confirmLabel={deleteTarget?.type === 'client' ? 'Delete Client' : 'Delete Account'}
+        title="Delete Client"
+        message="Are you sure you want to delete this client? This will also permanently remove their account access and all associated data."
+        confirmLabel="Delete Client"
         cancelLabel="Cancel"
-        onConfirm={confirmDelete}
+        onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
         isDanger={true}
-        isLoading={saving || roleSaving}
+        isLoading={saving}
       />
 
       <style>{`
@@ -628,11 +321,7 @@ const styles: any = {
     gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
     gap: '24px',
   },
-  userGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: '24px',
-  },
+
   sectionBlock: {
     marginBottom: '56px',
   },
