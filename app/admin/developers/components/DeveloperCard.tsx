@@ -1,6 +1,6 @@
 "use client";
 
-import { RoleUser } from "../../../../../core/services/userService";
+import { RoleUser } from "../../../../core/services/userService";
 import { Edit, Trash2, UserCheck, Eye } from "lucide-react";
 
 interface DeveloperCardProps {

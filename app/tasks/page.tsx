@@ -5,11 +5,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, CheckSquare } from 'lucide-react';
+import { Plus, Search, CheckSquare, LayoutGrid, List, Kanban } from 'lucide-react';
 import { useTasks } from './hooks/useTasks';
 import TaskCard from './components/TaskCard';
 import TaskModal from './components/TaskModal';
-import { Task } from './services/taskService';
+import KanbanBoard from '../../components/ui/KanbanBoard';
+import { Task, bulkUpdateTaskStatus } from './services/taskService';
 
 export default function TasksPage() {
   const { tasks, loading, error, addTask, editTask, removeTask, fetchTasks } = useTasks();
@@ -17,6 +18,7 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban'>('grid');
 
   const handleAddTask = () => {
     setEditingTask(null);
@@ -43,6 +45,11 @@ export default function TasksPage() {
     if (confirm('Are you sure you want to delete this task?')) {
       await removeTask(id);
     }
+  };
+
+  const handleTaskDrop = async (cardId: string, _fromStatus: string, toStatus: string) => {
+    await bulkUpdateTaskStatus([{ id: cardId, status: toStatus }]);
+    await fetchTasks();
   };
 
   // Filter tasks
@@ -85,6 +92,11 @@ export default function TasksPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={styles.searchInput}
           />
+        </div>
+        <div style={styles.viewToggle}>
+          <button onClick={() => setViewMode('grid')} style={{ ...styles.toggleBtn, ...(viewMode === 'grid' ? styles.toggleActive : {}) }}><LayoutGrid size={16} /></button>
+          <button onClick={() => setViewMode('list')} style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleActive : {}) }}><List size={16} /></button>
+          <button onClick={() => setViewMode('kanban')} style={{ ...styles.toggleBtn, ...(viewMode === 'kanban' ? styles.toggleActive : {}) }}><Kanban size={16} /></button>
         </div>
         <div style={styles.filterTabs}>
           <button
@@ -144,7 +156,7 @@ export default function TasksPage() {
       )}
 
       {/* Tasks Grid */}
-      {!loading && !error && filteredTasks.length > 0 && (
+      {!loading && !error && filteredTasks.length > 0 && viewMode === 'grid' && (
         <div style={styles.grid}>
           {filteredTasks.map((task) => (
             <TaskCard
@@ -155,6 +167,40 @@ export default function TasksPage() {
             />
           ))}
         </div>
+      )}
+
+      {!loading && !error && filteredTasks.length > 0 && viewMode === 'list' && (
+        <div style={styles.list}>
+          {filteredTasks.map((task) => (
+            <div key={task._id} style={styles.listRow}>
+              <div>
+                <strong>{task.title}</strong>
+                <p style={styles.listMeta}>{task.assignee || 'Unassigned'}</p>
+              </div>
+              <span style={styles.listMeta}>{task.status.replace('-', ' ')}</span>
+              <span style={styles.listMeta}>{task.priority}</span>
+              <span style={styles.listMeta}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && !error && filteredTasks.length > 0 && viewMode === 'kanban' && (
+        <KanbanBoard
+          columns={[
+            { id: 'pending', title: 'Pending', status: 'pending', color: '#FF9500' },
+            { id: 'in-progress', title: 'In Progress', status: 'in-progress', color: '#007AFF' },
+            { id: 'review', title: 'Review', status: 'review', color: '#AF52DE' },
+            { id: 'completed', title: 'Completed', status: 'completed', color: '#34C759' },
+          ]}
+          cards={filteredTasks.map((task) => ({
+            ...task,
+            _id: task._id!,
+            title: task.title,
+            subtitle: `${task.assignee || 'Unassigned'} · ${task.priority}`,
+          }))}
+          onCardDrop={handleTaskDrop}
+        />
       )}
 
       {/* Modal */}
@@ -237,6 +283,10 @@ const styles: any = {
   },
   searchSection: {
     marginBottom: '32px',
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    alignItems: 'center',
   },
   searchBox: {
     display: 'flex',
@@ -263,6 +313,9 @@ const styles: any = {
     gap: '10px',
     flexWrap: 'wrap',
   },
+  viewToggle: { display: 'flex', background: 'var(--bg-secondary)', borderRadius: '12px', padding: '4px' },
+  toggleBtn: { border: 'none', background: 'transparent', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  toggleActive: { background: 'var(--bg-primary)' },
   filterTab: {
     padding: '8px 20px',
     backgroundColor: 'var(--bg-secondary)',
@@ -285,6 +338,9 @@ const styles: any = {
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
     gap: '24px',
   },
+  list: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  listRow: { display: 'grid', gridTemplateColumns: '1.5fr auto auto auto', gap: '16px', alignItems: 'center', padding: '16px 20px', border: '1.5px solid var(--border-color)', borderRadius: '16px', backgroundColor: 'var(--bg-primary)' },
+  listMeta: { margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'capitalize' },
   loadingContainer: {
     display: 'flex',
     flexDirection: 'column',

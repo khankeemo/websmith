@@ -2,19 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { RoleUser } from "@/core/services/userService";
+import { DeveloperPayload, RoleUser } from "@/core/services/userService";
 
 interface DeveloperModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Partial<RoleUser>) => void;
+  onSave: (data: DeveloperPayload) => void;
   developer: RoleUser | null;
   isSaving: boolean;
   submitError: string | null;
 }
 
 export default function DeveloperModal({ isOpen, onClose, onSave, developer, isSaving, submitError }: DeveloperModalProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    headline: string;
+    bio: string;
+    skills: string[];
+    experienceYears: number;
+    status: "active" | "inactive" | "on-leave";
+    published: boolean;
+  }>({
     name: "",
     email: "",
     phone: "",

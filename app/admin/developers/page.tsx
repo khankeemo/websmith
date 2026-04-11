@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Code, UserCheck } from "lucide-react";
+import { Plus, Search, Code, UserCheck, LayoutGrid, List } from "lucide-react";
 import { useDevelopers } from "./hooks/useDevelopers";
 import DeveloperCard from "./components/DeveloperCard";
 import DeveloperModal from "./components/DeveloperModal";
-import ConfirmationModal from "../../../../components/ui/ConfirmationModal";
-import { RoleUser } from "../../../../core/services/userService";
+import ConfirmationModal from "../../../components/ui/ConfirmationModal";
+import { RoleUser } from "../../../core/services/userService";
 
 type ViewMode = "grid" | "list";
 
@@ -40,7 +40,7 @@ export default function DevelopersPage() {
 
   const handleTogglePublish = async (developer: RoleUser) => {
     try {
-      const { updateDeveloper } = await import("../../../../core/services/userService");
+      const { updateDeveloper } = await import("../../../core/services/userService");
       await updateDeveloper(developer._id, { published: !developer.published });
       await fetchDevelopers();
       setSuccessMessage(`Developer ${developer.published ? "unpublished" : "published"} successfully`);
@@ -53,7 +53,7 @@ export default function DevelopersPage() {
     if (!developerToDelete) return;
     
     try {
-      const { deleteDeveloper } = await import("../../../../core/services/userService");
+      const { deleteDeveloper } = await import("../../../core/services/userService");
       await deleteDeveloper(developerToDelete);
       await fetchDevelopers();
       setSuccessMessage("Developer deleted successfully");
@@ -129,6 +129,14 @@ export default function DevelopersPage() {
             style={styles.searchInput}
           />
         </div>
+        <div style={styles.viewToggle}>
+          <button onClick={() => setViewMode("grid")} style={{ ...styles.toggleBtn, ...(viewMode === "grid" ? styles.toggleActive : {}) }}>
+            <LayoutGrid size={16} />
+          </button>
+          <button onClick={() => setViewMode("list")} style={{ ...styles.toggleBtn, ...(viewMode === "list" ? styles.toggleActive : {}) }}>
+            <List size={16} />
+          </button>
+        </div>
       </div>
 
       {successMessage && (
@@ -185,7 +193,7 @@ export default function DevelopersPage() {
         }}
         onSave={async (data) => {
           try {
-            const { createDeveloper, updateDeveloper } = await import("../../../../core/services/userService");
+            const { createDeveloper, updateDeveloper } = await import("../../../core/services/userService");
             if (editingDeveloper) {
               await updateDeveloper(editingDeveloper._id, data);
               setSuccessMessage("Developer updated successfully");
@@ -248,9 +256,12 @@ const styles: Record<string, any> = {
   statCard: { display: "flex", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "20px" },
   statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "#1C1C1E" },
   statLabel: { margin: "4px 0 0", fontSize: "13px", color: "#8E8E93" },
-  searchSection: { marginBottom: "24px" },
+  searchSection: { marginBottom: "24px", display: "flex", gap: "12px", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" },
   searchBox: { display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", backgroundColor: "#fff", border: "1px solid #E5E5EA", borderRadius: "12px" },
   searchInput: { border: "none", outline: "none", width: "100%", fontSize: "15px" },
+  viewToggle: { display: "flex", background: "#F2F2F7", borderRadius: "12px", padding: "4px" },
+  toggleBtn: { border: "none", background: "transparent", padding: "8px 10px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
+  toggleActive: { background: "#fff" },
   successContainer: { marginBottom: "20px", padding: "14px 16px", backgroundColor: "#E8F5E9", border: "1px solid #34C759", borderRadius: "12px" },
   successText: { color: "#1C1C1E", margin: 0, fontSize: "14px", fontWeight: 500 },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "20px" },

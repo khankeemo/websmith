@@ -11,7 +11,7 @@ interface Task {
   _id: string;
   title: string;
   description: string;
-  status: "todo" | "in-progress" | "review" | "done" | "pending" | "completed";
+  status: "pending" | "in-progress" | "review" | "completed";
   priority: "low" | "medium" | "high";
   project?: string;
   projectId?: { _id: string; name: string; status: string };
@@ -71,10 +71,10 @@ export default function DeveloperTasksPage() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      todo: "#8E8E93",
+      pending: "#8E8E93",
       "in-progress": "#007AFF",
       review: "#FF9500",
-      done: "#34C759",
+      completed: "#34C759",
     };
     return colors[status] || "#8E8E93";
   };
@@ -178,18 +178,18 @@ export default function DeveloperTasksPage() {
   };
 
   const kanbanColumns = [
-    { id: "todo", title: "To Do", status: "todo", color: "#8E8E93" },
+    { id: "pending", title: "To Do", status: "pending", color: "#8E8E93" },
     { id: "in-progress", title: "In Progress", status: "in-progress", color: "#007AFF" },
     { id: "review", title: "Review", status: "review", color: "#FF9500" },
-    { id: "done", title: "Done", status: "done", color: "#34C759" },
+    { id: "completed", title: "Done", status: "completed", color: "#34C759" },
   ];
 
   const stats = {
     total: tasks.length,
-    todo: tasks.filter((t) => t.status === "todo").length,
+    todo: tasks.filter((t) => t.status === "pending").length,
     inProgress: tasks.filter((t) => t.status === "in-progress").length,
     review: tasks.filter((t) => t.status === "review").length,
-    done: tasks.filter((t) => t.status === "done").length,
+    done: tasks.filter((t) => t.status === "completed").length,
   };
 
   if (loading) {
@@ -392,7 +392,6 @@ export default function DeveloperTasksPage() {
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
                   </select>
                 </div>
                 <div style={styles.formGroup}>

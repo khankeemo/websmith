@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import API from "../../../core/services/apiService";
 import { Project } from "../../projects/services/projectService";
+import { getStoredUser } from "../../../lib/auth";
 
 export default function ClientProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -30,6 +31,7 @@ export default function ClientProjectsPage() {
   const [activeTab, setActiveTab] = useState<'details' | 'messages' | 'feedback'>('details');
   const [messageText, setMessageText] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState(5);
   const [projectMessages, setProjectMessages] = useState<any[]>([]);
   const [projectFeedback, setProjectFeedback] = useState<any[]>([]);
 
@@ -61,7 +63,12 @@ export default function ClientProjectsPage() {
   const handleSendMessage = async () => {
     if (!selectedProject || !messageText.trim()) return;
     try {
-      await API.post(`/projects/${selectedProject._id}/messages`, { message: messageText });
+      const currentUser = getStoredUser();
+      await API.post(`/projects/${selectedProject._id}/messages`, {
+        sender: "client",
+        senderName: currentUser?.name || "Client",
+        message: messageText,
+      });
       setMessageText("");
       await fetchProjectDetails(selectedProject._id!);
     } catch (err) {
@@ -72,8 +79,14 @@ export default function ClientProjectsPage() {
   const handleSendFeedback = async () => {
     if (!selectedProject || !feedbackText.trim()) return;
     try {
-      await API.post(`/projects/${selectedProject._id}/feedback`, { feedback: feedbackText });
+      const currentUser = getStoredUser();
+      await API.post(`/projects/${selectedProject._id}/feedback`, {
+        rating: feedbackRating,
+        comment: feedbackText,
+        clientName: currentUser?.name || "Client",
+      });
       setFeedbackText("");
+      setFeedbackRating(5);
       await fetchProjectDetails(selectedProject._id!);
     } catch (err) {
       console.error("Failed to send feedback:", err);
@@ -431,7 +444,7 @@ export default function ClientProjectsPage() {
                     {projectMessages.map((msg: any, idx: number) => (
                       <div key={idx} style={styles.messageItem}>
                         <div style={styles.messageHeader}>
-                          <strong style={styles.messageAuthor}>{msg.author || 'Team Member'}</strong>
+                          <strong style={styles.messageAuthor}>{msg.senderName || msg.author || 'Team Member'}</strong>
                           <span style={styles.messageTime}>
                             {new Date(msg.timestamp || msg.createdAt).toLocaleDateString('en-US', { 
                               month: 'short', 
@@ -470,7 +483,7 @@ export default function ClientProjectsPage() {
                     {projectFeedback.map((fb: any, idx: number) => (
                       <div key={idx} style={styles.feedbackItem}>
                         <div style={styles.feedbackHeader}>
-                          <strong style={styles.feedbackAuthor}>{fb.author || 'Client'}</strong>
+                          <strong style={styles.feedbackAuthor}>{fb.clientName || fb.author || 'Client'}</strong>
                           <span style={styles.feedbackTime}>
                             {new Date(fb.timestamp || fb.createdAt).toLocaleDateString('en-US', { 
                               month: 'short', 
@@ -480,7 +493,8 @@ export default function ClientProjectsPage() {
                             })}
                           </span>
                         </div>
-                        <p style={styles.feedbackText}>{fb.feedback}</p>
+                        <p style={styles.feedbackText}>{fb.comment || fb.feedback}</p>
+                        {typeof fb.rating === 'number' && <p style={styles.feedbackRating}>Rating: {fb.rating}/5</p>}
                       </div>
                     ))}
                     {projectFeedback.length === 0 && (
@@ -488,6 +502,9 @@ export default function ClientProjectsPage() {
                     )}
                   </div>
                   <div style={styles.feedbackInputWrap}>
+                    <select value={feedbackRating} onChange={(e) => setFeedbackRating(Number(e.target.value))} style={styles.ratingSelect}>
+                      {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} Stars</option>)}
+                    </select>
                     <textarea 
                       value={feedbackText}
                       onChange={(e) => setFeedbackText(e.target.value)}
@@ -758,7 +775,9 @@ const styles: any = {
   feedbackAuthor: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' },
   feedbackTime: { fontSize: '11px', color: 'var(--text-secondary)' },
   feedbackText: { fontSize: '14px', color: 'var(--text-primary)', margin: 0, lineHeight: 1.6 },
+  feedbackRating: { fontSize: '12px', color: '#FF9500', margin: '8px 0 0 0', fontWeight: 700 },
   feedbackInputWrap: { display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' },
+  ratingSelect: { width: '180px', padding: '10px 12px', border: '1.5px solid var(--border-color)', borderRadius: '10px', fontFamily: 'inherit', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
   feedbackTextarea: { width: '100%', padding: '12px 14px', border: '1.5px solid var(--border-color)', borderRadius: '12px', fontSize: '14px', fontFamily: 'inherit', outline: 'none', resize: 'vertical' as const, backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
   emptyMessage: { textAlign: 'center' as const, padding: '40px 20px', color: 'var(--text-secondary)', fontSize: '14px' },
 };

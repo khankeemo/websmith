@@ -9,6 +9,13 @@ export interface RoleUser {
   phone?: string;
   company?: string;
   customId?: string;
+  published?: boolean;
+  headline?: string;
+  bio?: string;
+  skills?: string[];
+  status?: "active" | "inactive" | "on-leave";
+  experienceYears?: number;
+  joinedAt?: string | null;
 }
 
 export const getUsersByRole = async (role: RoleUser["role"]) => {
