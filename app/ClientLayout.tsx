@@ -126,7 +126,7 @@ export default function ClientLayout({
           </>
         )}
         <main className="app-main-shell" style={styles.main}>{children}</main>
-        {!shouldShowSidebar && !getToken() && !getStoredUser() && (
+        {!shouldShowSidebar && !getToken() && !getStoredUser() && mounted && (
           <button
             type="button"
             onClick={() => setPublicTheme((current) => (current === "light" ? "dark" : "light"))}

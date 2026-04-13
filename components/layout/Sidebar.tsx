@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { AuthUser, getStoredUser, clearAuthSession, getToken, setAuthSession } from "../../lib/auth";
 import { 
-  LogOut, Bell, User, Settings, Sun, Moon, ChevronRight,
+  LogOut, Bell, User, Sun, Moon, ChevronRight,
   LayoutDashboard, Briefcase, Users, CheckSquare, Wrench,
   Code2, ShieldCheck, MessageSquare, FileText, CreditCard, LifeBuoy
 } from "lucide-react";
@@ -141,8 +141,7 @@ export default function Sidebar({
           {
             title: "SYSTEM",
             items: [
-              { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
-              { name: "Settings", path: `${basePath}/settings`, icon: Settings }
+              { name: "Notifications", path: `${basePath}/notifications`, icon: Bell }
             ],
           },
         ]
@@ -164,8 +163,7 @@ export default function Sidebar({
             {
               title: "SYSTEM",
               items: [
-                { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
-                { name: "Settings", path: `${basePath}/settings`, icon: Settings }
+                { name: "Notifications", path: `${basePath}/notifications`, icon: Bell }
               ],
             },
           ]
@@ -181,8 +179,7 @@ export default function Sidebar({
             {
               title: "SYSTEM",
               items: [
-                { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
-                { name: "Settings", path: `${basePath}/settings`, icon: Settings }
+                { name: "Notifications", path: `${basePath}/notifications`, icon: Bell }
               ],
             },
           ];

@@ -170,7 +170,8 @@ export default function AdminsPage() {
     try {
       if (isSuperAdmin) {
         const adminUsers = await getUsersByRole('admin');
-        setAdmins(adminUsers.filter((u) => (u.adminLevel || 'super') !== 'super'));
+        // Show ALL sub-admins (adminLevel === 'sub')
+        setAdmins(adminUsers.filter((u) => (u.adminLevel || 'super') === 'sub'));
       }
     } catch (err) {
       console.error('Failed to fetch admins:', err);
