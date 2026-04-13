@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Plus, 
   Search, 
@@ -23,6 +23,7 @@ import API from "@/core/services/apiService";
 import Modal from "../../components/ui/Modal";
 import { getProjects, Project } from "../projects/services/projectService";
 import { getUsersByRole, RoleUser } from "../../core/services/userService";
+import { computeInvoiceDashboardStats } from "../../lib/invoiceStats";
 
 interface Invoice {
   _id: string;
@@ -75,17 +76,7 @@ export default function InvoicesPage() {
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
 
-  useEffect(() => {
-    fetchInvoices();
-    Promise.all([getProjects(), getUsersByRole("client")])
-      .then(([projectData, clientData]) => {
-        setProjects(projectData);
-        setClients(clientData);
-      })
-      .catch((error) => console.error("Invoice dependencies error:", error));
-  }, []);
-
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     try {
       const response = await API.get("/invoices");
       if (response.data.success || response.data.data) {
@@ -96,7 +87,31 @@ export default function InvoicesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchInvoices();
+    Promise.all([getProjects(), getUsersByRole("client")])
+      .then(([projectData, clientData]) => {
+        setProjects(projectData);
+        setClients(clientData);
+      })
+      .catch((error) => console.error("Invoice dependencies error:", error));
+  }, [fetchInvoices]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      fetchInvoices();
+    }, 45000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchInvoices();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [fetchInvoices]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this invoice?")) return;
@@ -151,13 +166,7 @@ export default function InvoicesPage() {
     return matchesSearch && matchesFilter;
   });
 
-  const stats = {
-    total: invoices.length,
-    paid: invoices.filter(i => i.status === "paid").length,
-    pending: invoices.filter(i => i.status === "pending").length,
-    overdue: invoices.filter(i => i.status === "overdue").length,
-    totalAmount: invoices.reduce((sum, i) => sum + i.amount, 0)
-  };
+  const stats = useMemo(() => computeInvoiceDashboardStats(invoices), [invoices]);
 
   const resetForm = () => {
     setFormState({

@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, X, Users, UserCheck, Code, Trash2, Edit2, Phone, Mail, Briefcase, Shield, Code2 } from 'lucide-react';
+import { Plus, Search, X, Users, UserCheck, Code, Trash2, Edit2, Phone, Mail, Briefcase } from 'lucide-react';
 import API from '@/core/services/apiService';
-import { RoleUser, getUsersByRole, createManagedUser, deleteManagedUser, ManagedUserPayload } from '@/core/services/userService';
+import { RoleUser, getUsersByRole, createManagedUser, deleteManagedUser, updateDeveloper, ManagedUserPayload } from '@/core/services/userService';
+import { ViewModeToggle, GridListView } from '@/components/ui/ViewModeToggle';
 
 // Simple Badge component
 const Badge = ({ text, color }: { text: string; color: string }) => (
@@ -26,7 +27,7 @@ const Badge = ({ text, color }: { text: string; color: string }) => (
 // interface TeamMember { ... } is replaced by RoleUser
 
 // Developer Card Component
-const DeveloperCard = ({ dev, onDelete }: { dev: RoleUser; onDelete: (id: string) => void }) => {
+const DeveloperCard = ({ dev, onDelete, onEdit }: { dev: RoleUser; onDelete: (id: string) => void; onEdit: (dev: RoleUser) => void }) => {
   return (
     <div style={styles.card} className="team-card">
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px' }}>
@@ -54,8 +55,10 @@ const DeveloperCard = ({ dev, onDelete }: { dev: RoleUser; onDelete: (id: string
       </div>
 
       <div style={styles.cardActions}>
-        <div style={{ flex: 1 }}></div>
-        <button onClick={() => onDelete(dev._id)} style={styles.deleteBtn} className="action-btn">
+        <button type="button" onClick={() => onEdit(dev)} style={styles.editBtn} className="action-btn">
+          <Edit2 size={16} /> <span>Edit</span>
+        </button>
+        <button type="button" onClick={() => onDelete(dev._id)} style={styles.deleteBtn} className="action-btn">
           <Trash2 size={16} /> <span>Remove</span>
         </button>
       </div>
@@ -64,29 +67,50 @@ const DeveloperCard = ({ dev, onDelete }: { dev: RoleUser; onDelete: (id: string
 };
 
 // Developer Modal Component
-const DeveloperModal = ({ isOpen, onClose, onSubmit, isSaving }: any) => {
+const DeveloperModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  isSaving,
+  editingUser,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: ManagedUserPayload) => void;
+  isSaving: boolean;
+  editingUser: RoleUser | null;
+}) => {
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', company: ''
   });
 
   useEffect(() => {
     if (isOpen) {
-      setFormData({ name: '', email: '', phone: '', company: '' });
+      if (editingUser) {
+        setFormData({
+          name: editingUser.name,
+          email: editingUser.email,
+          phone: editingUser.phone || '',
+          company: editingUser.company || '',
+        });
+      } else {
+        setFormData({ name: '', email: '', phone: '', company: '' });
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, editingUser]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => { 
-    e.preventDefault(); 
-    onSubmit({ ...formData, role: 'developer' }); 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({ ...formData, role: 'developer' });
   };
 
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={e => e.stopPropagation()}>
         <div style={styles.modalHeader}>
-          <h2 style={styles.modalTitle}>Add New Developer</h2>
+          <h2 style={styles.modalTitle}>{editingUser ? 'Edit Developer' : 'Add New Developer'}</h2>
           <button onClick={onClose} style={styles.closeBtn}><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit}>
@@ -112,16 +136,18 @@ const DeveloperModal = ({ isOpen, onClose, onSubmit, isSaving }: any) => {
             </div>
           </div>
 
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>
-              <strong>Note:</strong> Saving this developer will email their login credentials automatically.
-            </p>
-          </div>
-          
+          {!editingUser && (
+            <div style={styles.infoBox}>
+              <p style={styles.infoText}>
+                <strong>Note:</strong> Saving this developer will email their login credentials automatically.
+              </p>
+            </div>
+          )}
+
           <div style={styles.modalFooter}>
             <button type="button" onClick={onClose} style={styles.modalCancelBtn} disabled={isSaving}>Cancel</button>
             <button type="submit" style={styles.modalSubmitBtn} disabled={isSaving}>
-              {isSaving ? 'Processing...' : 'Add Developer'}
+              {isSaving ? 'Processing...' : editingUser ? 'Save changes' : 'Add Developer'}
             </button>
           </div>
         </form>
@@ -137,6 +163,8 @@ export default function DevelopersPage() {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<RoleUser | null>(null);
+  const [viewMode, setViewMode] = useState<GridListView>('grid');
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -158,15 +186,26 @@ export default function DevelopersPage() {
     fetchDevelopers();
   }, [fetchDevelopers]);
 
-  const handleAddDeveloper = async (data: ManagedUserPayload) => {
+  const handleSaveDeveloper = async (data: ManagedUserPayload) => {
     setSaving(true);
     try {
-      await createManagedUser(data);
+      if (editingUser) {
+        await updateDeveloper(editingUser._id, {
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          company: data.company,
+        });
+        setEditingUser(null);
+      } else {
+        await createManagedUser(data);
+        setIsModalOpen(false);
+      }
       await fetchDevelopers();
-      setIsModalOpen(false);
-    } catch (error) {
-      console.error('Create error:', error);
-      alert('Failed to add developer. Please try again.');
+    } catch (error: any) {
+      console.error('Save developer error:', error);
+      const msg = error?.response?.data?.message || error?.message || 'Request failed';
+      alert(editingUser ? `Failed to update developer: ${msg}` : `Failed to add developer: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -215,7 +254,13 @@ export default function DevelopersPage() {
           <h1 style={styles.pageTitle}>Developers</h1>
           <p style={styles.pageSubtitle}>Manage your technical workforce and role-based access</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} style={styles.primaryBtn}>
+        <button
+          onClick={() => {
+            setEditingUser(null);
+            setIsModalOpen(true);
+          }}
+          style={styles.primaryBtn}
+        >
           <Plus size={20} /> Add Developer
         </button>
       </div>
@@ -236,8 +281,11 @@ export default function DevelopersPage() {
       </div>
 
       <div style={styles.searchSection}>
-        <Search size={18} style={styles.searchIcon} />
-        <input type="text" placeholder="Search by name, email or skills..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={styles.searchInput} />
+        <div style={styles.searchInner}>
+          <Search size={18} style={styles.searchIcon} />
+          <input type="text" placeholder="Search by name, email or skills..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={styles.searchInput} />
+        </div>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {filteredDevelopers.length === 0 ? (
@@ -245,17 +293,57 @@ export default function DevelopersPage() {
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>👨‍💻</div>
           <h3 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>No developers found</h3>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Try adjusting your search or add a new developer.</p>
-          <button onClick={() => setIsModalOpen(true)} style={styles.primaryBtn}>Add your first developer</button>
+          <button
+            onClick={() => {
+              setEditingUser(null);
+              setIsModalOpen(true);
+            }}
+            style={styles.primaryBtn}
+          >
+            Add your first developer
+          </button>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div style={styles.teamGrid}>
           {filteredDevelopers.map(dev => (
-            <DeveloperCard key={dev._id} dev={dev} onDelete={handleRemoveDeveloper} />
+            <DeveloperCard
+              key={dev._id}
+              dev={dev}
+              onDelete={handleRemoveDeveloper}
+              onEdit={(d) => {
+                setIsModalOpen(false);
+                setEditingUser(d);
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={styles.devList}>
+          {filteredDevelopers.map((dev) => (
+            <div key={dev._id} style={styles.devListRow}>
+              <div style={styles.devListMain}>
+                <strong style={styles.devListName}>{dev.name}</strong>
+                <span style={styles.devListMeta}>{dev.email}</span>
+              </div>
+              <div style={styles.devListActions}>
+                <button type="button" onClick={() => { setIsModalOpen(false); setEditingUser(dev); }} style={styles.devListEdit}>Edit</button>
+                <button type="button" onClick={() => handleRemoveDeveloper(dev._id)} style={styles.devListRemove}>Remove</button>
+              </div>
+            </div>
           ))}
         </div>
       )}
 
-      <DeveloperModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddDeveloper} isSaving={saving} />
+      <DeveloperModal
+        isOpen={isModalOpen || !!editingUser}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingUser(null);
+        }}
+        onSubmit={handleSaveDeveloper}
+        isSaving={saving}
+        editingUser={editingUser}
+      />
 
       <style>{`
         .team-card { transition: all 0.3s ease; }
@@ -338,7 +426,15 @@ const styles: any = {
   },
   searchSection: {
     marginBottom: '32px',
-    position: 'relative'
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap' as const,
+  },
+  searchInner: {
+    position: 'relative',
+    flex: 1,
+    minWidth: '220px',
   },
   searchIcon: {
     position: 'absolute',
@@ -362,6 +458,42 @@ const styles: any = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
     gap: '24px'
+  },
+  devList: { display: 'flex', flexDirection: 'column' as const, gap: '10px' },
+  devListRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    padding: '14px 16px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '14px',
+    border: '1px solid var(--border-color)',
+    flexWrap: 'wrap' as const,
+  },
+  devListMain: { display: 'flex', flexDirection: 'column' as const, gap: '4px', minWidth: 0, flex: 1 },
+  devListName: { fontSize: '15px', color: 'var(--text-primary)' },
+  devListMeta: { fontSize: '13px', color: 'var(--text-secondary)' },
+  devListActions: { display: 'flex', gap: '8px' },
+  devListEdit: {
+    padding: '8px 14px',
+    borderRadius: '10px',
+    border: 'none',
+    background: '#007AFF',
+    color: '#fff',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  devListRemove: {
+    padding: '8px 14px',
+    borderRadius: '10px',
+    border: '1px solid rgba(255,59,48,0.35)',
+    background: 'transparent',
+    color: '#FF3B30',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
   },
   card: {
     background: 'var(--bg-primary)',

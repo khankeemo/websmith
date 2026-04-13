@@ -5,10 +5,24 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { AuthUser, getStoredUser, clearAuthSession, getToken, setAuthSession } from "../../lib/auth";
-import { 
-  LogOut, Bell, User, Settings, Sun, Moon, ChevronRight,
-  LayoutDashboard, Briefcase, Users, CheckSquare, Wrench,
-  Code2, ShieldCheck, MessageSquare, FileText, CreditCard, LifeBuoy
+import {
+  LogOut,
+  Bell,
+  User,
+  Sun,
+  Moon,
+  ChevronRight,
+  LayoutDashboard,
+  Briefcase,
+  Users,
+  CheckSquare,
+  Wrench,
+  Code2,
+  ShieldCheck,
+  MessageSquare,
+  FileText,
+  CreditCard,
+  LifeBuoy,
 } from "lucide-react";
 import API from "../../core/services/apiService";
 import ProfileModal from "./ProfileModal";
@@ -36,7 +50,7 @@ export default function Sidebar({
 
     if (storedUser?.role === "admin") {
       fetchUnreadNotifications();
-      const interval = setInterval(fetchUnreadNotifications, 30000); // Poll every 30s
+      const interval = setInterval(fetchUnreadNotifications, 30000);
       return () => clearInterval(interval);
     }
   }, [pathname]);
@@ -56,8 +70,8 @@ export default function Sidebar({
       const response = await API.get("/admin/notifications");
       const unread = response.data.data.filter((n: any) => !n.isRead).length;
       setUnreadCount(unread);
-    } catch (error) {
-      // Silently ignore — non-admins will hit 403, which is expected
+    } catch {
+      // non-admins: expected
     }
   };
 
@@ -71,7 +85,6 @@ export default function Sidebar({
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
 
-    // Apply theme immediately
     if (newTheme === "dark") {
       document.documentElement.classList.add("dark-theme");
     } else {
@@ -83,9 +96,9 @@ export default function Sidebar({
         ...user.preferences,
         theme: newTheme as "light" | "dark",
       };
-      
+
       const response = await API.put("/users/update", {
-        preferences: updatedPreferences
+        preferences: updatedPreferences,
       });
 
       if (response.data.success) {
@@ -104,7 +117,6 @@ export default function Sidebar({
   const role = user?.role || null;
   const basePath = role === "admin" ? "/admin" : role === "client" ? "/client" : "/developer";
 
-  // Don't render menu until user role is resolved
   if (!role) return <div style={styles.sidebar}></div>;
 
   const menu =
@@ -140,10 +152,7 @@ export default function Sidebar({
           },
           {
             title: "SYSTEM",
-            items: [
-              { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
-              { name: "Settings", path: `${basePath}/settings`, icon: Settings }
-            ],
+            items: [{ name: "Notifications", path: `${basePath}/notifications`, icon: Bell }],
           },
         ]
       : role === "client"
@@ -163,10 +172,7 @@ export default function Sidebar({
             },
             {
               title: "SYSTEM",
-              items: [
-                { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
-                { name: "Settings", path: `${basePath}/settings`, icon: Settings }
-              ],
+              items: [{ name: "Notifications", path: `${basePath}/notifications`, icon: Bell }],
             },
           ]
         : [
@@ -180,56 +186,47 @@ export default function Sidebar({
             },
             {
               title: "SYSTEM",
-              items: [
-                { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
-                { name: "Settings", path: `${basePath}/settings`, icon: Settings }
-              ],
+              items: [{ name: "Notifications", path: `${basePath}/notifications`, icon: Bell }],
             },
           ];
 
   return (
-    <div
-      className={`app-sidebar ${mobileOpen ? "app-sidebar-open" : ""}`}
-      style={styles.sidebar}
-    >
-      {/* LOGO CONTAINER */}
+    <div className={`app-sidebar ${mobileOpen ? "app-sidebar-open" : ""}`} style={styles.sidebar}>
       <div style={styles.logoContainer}>
-        {/* MASK CIRCLE - Separate hover */}
-        <div 
-          style={styles.maskCircle}
-          className="logo-image-hover"
-        >
+        <div style={styles.maskCircle} className="logo-image-hover">
           <Image
             src="/images/websmith.png"
             alt="Websmith Logo"
-            width={80}
-            height={80}
+            width={72}
+            height={72}
             style={styles.logoImage}
             loading="eager"
             priority={true}
           />
         </div>
-        
-        {/* WEBSMITH TEXT - Separate hover */}
-        <span 
-          style={styles.logoText}
-          className="logo-text-hover"
-        >
+        <span style={styles.logoText} className="logo-text-hover">
           Websmith
         </span>
       </div>
 
-      {/* PROFILE SECTION */}
-      <div 
-        style={styles.profileSection} 
-        onClick={() => router.push(`${basePath}/profile`)}
+      <div
+        style={styles.profileSection}
+        onClick={() => setIsProfileModalOpen(true)}
         className="profile-section-hover"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setIsProfileModalOpen(true);
+          }
+        }}
       >
         <div style={styles.profileAvatar}>
           {user?.avatar ? (
-            <img src={user.avatar} alt="Profile" style={styles.avatarImg} />
+            <img src={user.avatar} alt="" style={styles.avatarImg} />
           ) : (
-            <User size={20} color="#8e8e93" />
+            <User size={18} color="#8e8e93" />
           )}
         </div>
         <div style={styles.profileInfo}>
@@ -240,21 +237,16 @@ export default function Sidebar({
       </div>
 
       <div style={styles.quickActions}>
-        <button 
-          onClick={handleLogout} 
-          style={styles.logoutButton}
-          className="logout-button-hover"
-        >
-          <LogOut size={16} />
-          <span>Log Out</span>
-        </button>
-        <button onClick={toggleTheme} style={styles.themeToggleButton} aria-label="Toggle theme">
-          {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+        <button type="button" onClick={toggleTheme} style={styles.themeToggleButton} aria-label="Toggle theme">
+          {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
           <span>{theme === "light" ? "Dark" : "Light"}</span>
+        </button>
+        <button type="button" onClick={handleLogout} style={styles.logoutButton} className="logout-button-hover">
+          <LogOut size={14} />
+          <span>Log Out</span>
         </button>
       </div>
 
-      {/* MENU */}
       {menu.map((section) => (
         <div key={section.title} style={styles.section}>
           <p style={styles.sectionTitle}>{section.title}</p>
@@ -296,82 +288,75 @@ export default function Sidebar({
                   e.currentTarget.style.transform = "translateX(4px)";
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   {item.icon && <item.icon size={18} style={{ opacity: isActive ? 1 : 0.7 }} />}
                   <span>{item.name}</span>
                 </div>
-                {(item.name === "Clients" || item.name === "Developers" || item.name === "Admins" || item.name === "Notifications") && role === "admin" && unreadCount > 0 && (
-                  <span style={styles.badge}>{unreadCount}</span>
-                )}
+                {(item.name === "Clients" ||
+                  item.name === "Developers" ||
+                  item.name === "Admins" ||
+                  item.name === "Notifications") &&
+                  role === "admin" &&
+                  unreadCount > 0 && <span style={styles.badge}>{unreadCount}</span>}
               </Link>
             );
           })}
         </div>
       ))}
-      {/* Profile Modal */}
-      <ProfileModal 
+
+      <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         user={user}
         onUpdate={(updatedUser) => setUser(updatedUser)}
       />
 
-      {/* Hover Animation Styles */}
       <style>{`
         .app-sidebar {
           transition: transform 0.3s ease, box-shadow 0.3s ease;
+          display: flex;
+          flex-direction: column;
+          overflow-x: hidden;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          min-height: 0;
+          align-self: stretch;
         }
-        /* Image hover - ZOOM IN on enter, ZOOM OUT on leave */
         .logo-image-hover {
           transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
           cursor: pointer;
         }
-        
         .logo-image-hover:hover {
-          transform: scale(1.1) translateY(-3px);
+          transform: scale(1.08) translateY(-2px);
           box-shadow: 0 8px 20px rgba(0,0,0,0.12);
         }
-        
-        /* Text hover - ZOOM IN on enter, ZOOM OUT on leave */
         .logo-text-hover {
           transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
           cursor: pointer;
           display: inline-block;
         }
-        
         .logo-text-hover:hover {
-          transform: scale(1.05) translateY(-2px);
+          transform: scale(1.04) translateY(-1px);
         }
- 
         .logout-button-hover {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
- 
         .logout-button-hover:hover {
           background: #fff5f5 !important;
           color: #ff3b30 !important;
-          transform: translateY(-2px);
+          transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(255, 59, 48, 0.1);
         }
-
         .profile-section-hover {
           transition: all 0.3s ease;
           cursor: pointer;
         }
         .profile-section-hover:hover {
           background: var(--border-color);
-          transform: translateY(-2px);
+          transform: translateY(-1px);
         }
         .profile-section-hover:active {
           transform: scale(0.98);
-        }
-
-        .settings-item-hover {
-          transition: all 0.2s ease;
-          cursor: pointer;
-        }
-        .settings-item-hover:hover, .settings-link-hover:hover {
-          background: var(--border-color);
         }
         @media (max-width: 900px) {
           .app-sidebar {
@@ -382,8 +367,10 @@ export default function Sidebar({
             z-index: 1200;
             width: min(82vw, 320px) !important;
             height: calc(100dvh - 69px) !important;
+            max-height: calc(100dvh - 69px) !important;
             transform: translateX(-100%);
             box-shadow: none;
+            overflow-x: hidden;
             overflow-y: auto;
             border-top: 1px solid var(--border-color);
           }
@@ -405,14 +392,109 @@ export default function Sidebar({
 const styles: any = {
   sidebar: {
     width: "260px",
-    height: "100vh",
+    height: "100%",
+    maxHeight: "100%",
     background: "var(--bg-secondary)",
     color: "var(--text-primary)",
-    padding: "24px 16px",
+    padding: "16px 14px 20px",
     display: "flex",
     flexDirection: "column",
     borderRight: "1px solid var(--border-color)",
     minWidth: "260px",
+    minHeight: 0,
+    boxSizing: "border-box",
+    alignSelf: "stretch",
+  },
+
+  profileSection: {
+    display: "flex",
+    alignItems: "center",
+    padding: "8px 10px",
+    borderRadius: "12px",
+    backgroundColor: "var(--bg-primary)",
+    marginBottom: "8px",
+    marginTop: 0,
+    gap: "10px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+    border: "1px solid var(--border-color)",
+    flexShrink: 0,
+  },
+  profileAvatar: {
+    width: "34px",
+    height: "34px",
+    borderRadius: "50%",
+    backgroundColor: "var(--bg-secondary)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  avatarImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  profileInfo: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    minWidth: 0,
+  },
+  profileName: {
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "var(--text-primary)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  profileEmail: {
+    fontSize: "10px",
+    color: "var(--text-secondary)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+
+  quickActions: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "6px",
+    marginBottom: "14px",
+    flexShrink: 0,
+  },
+
+  logoutButton: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "7px 8px",
+    background: "transparent",
+    border: "1px solid rgba(255, 59, 48, 0.18)",
+    borderRadius: "10px",
+    color: "#ff3b30",
+    fontSize: "11px",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+  },
+  themeToggleButton: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "7px 8px",
+    background: "var(--bg-primary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "10px",
+    color: "var(--text-primary)",
+    fontSize: "11px",
+    fontWeight: 600,
+    cursor: "pointer",
   },
 
   logoContainer: {
@@ -420,13 +502,14 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: "40px",
-    gap: "12px",
+    marginBottom: "16px",
+    gap: "8px",
+    flexShrink: 0,
   },
 
   maskCircle: {
-    width: "96px",
-    height: "96px",
+    width: "80px",
+    height: "80px",
     borderRadius: "50%",
     background: "var(--bg-primary)",
     display: "flex",
@@ -445,7 +528,7 @@ const styles: any = {
   },
 
   logoText: {
-    fontSize: "18px",
+    fontSize: "16px",
     fontWeight: 600,
     letterSpacing: "-0.3px",
     color: "var(--text-primary)",
@@ -454,13 +537,13 @@ const styles: any = {
   },
 
   section: {
-    marginBottom: "24px",
+    marginBottom: "18px",
   },
 
   sectionTitle: {
     fontSize: "11px",
     color: "var(--text-secondary)",
-    marginBottom: "10px",
+    marginBottom: "8px",
     paddingLeft: "12px",
     letterSpacing: "0.8px",
     fontWeight: 500,
@@ -498,132 +581,5 @@ const styles: any = {
     borderLeft: "3px solid var(--text-primary)",
     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     fontWeight: 600,
-  },
- 
-  footer: {
-    marginTop: "auto",
-    paddingTop: "20px",
-    borderTop: "1px solid var(--border-color)",
-  },
-  quickActions: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "10px",
-    marginBottom: "24px",
-  },
- 
-  logoutButton: {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    padding: "12px",
-    background: "transparent",
-    border: "1px solid rgba(255, 59, 48, 0.18)",
-    borderRadius: "12px",
-    color: "#ff3b30",
-    fontSize: "14px",
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    justifyContent: "center",
-  },
-  themeToggleButton: {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "10px",
-    padding: "12px",
-    background: "var(--bg-primary)",
-    border: "1px solid var(--border-color)",
-    borderRadius: "12px",
-    color: "var(--text-primary)",
-    fontSize: "14px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-
-  profileSection: {
-    display: "flex",
-    alignItems: "center",
-    padding: "12px",
-    borderRadius: "16px",
-    backgroundColor: "var(--bg-primary)",
-    marginBottom: "24px",
-    gap: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-    border: "1px solid var(--border-color)",
-  },
-  profileAvatar: {
-    width: "40px",
-    height: "40px",
-    borderRadius: "50%",
-    backgroundColor: "var(--bg-secondary)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    flexShrink: 0,
-  },
-  avatarImg: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-  profileInfo: {
-    display: "flex",
-    flexDirection: "column",
-    flex: 1,
-    minWidth: 0,
-  },
-  profileName: {
-    fontSize: "14px",
-    fontWeight: 600,
-    color: "var(--text-primary)",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  profileEmail: {
-    fontSize: "11px",
-    color: "var(--text-secondary)",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  settingsItem: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "10px 12px",
-    borderRadius: "12px",
-    marginBottom: "4px",
-    color: "var(--text-primary)",
-    transition: "all 0.2s",
-  },
-  settingsLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    fontSize: "14px",
-    fontWeight: 500,
-  },
-  toggleSwitch: {
-    width: "32px",
-    height: "18px",
-    borderRadius: "10px",
-    padding: "2px",
-    transition: "background-color 0.3s",
-    display: "flex",
-    alignItems: "center",
-  },
-  toggleThumb: {
-    width: "14px",
-    height: "14px",
-    backgroundColor: "#ffffff",
-    borderRadius: "50%",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-    transition: "transform 0.3s",
   },
 };

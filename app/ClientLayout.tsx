@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { Menu, Moon, Sun, X } from "lucide-react";
@@ -79,7 +79,7 @@ export default function ClientLayout({
 
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMounted(true);
   }, []);
 
@@ -96,7 +96,7 @@ export default function ClientLayout({
 
   return (
     <LeadFunnelProvider>
-      <div style={styles.layoutShell}>
+      <div className="app-layout-shell" style={styles.layoutShell}>
         {shouldShowSidebar && (
           <>
             <div
@@ -125,8 +125,11 @@ export default function ClientLayout({
             <Sidebar mobileOpen={isMobileMenuOpen} onNavigate={() => setIsMobileMenuOpen(false)} />
           </>
         )}
-        <main className="app-main-shell" style={styles.main}>{children}</main>
-        {!shouldShowSidebar && !getToken() && !getStoredUser() && (
+        <main className="app-main-shell" style={styles.main}>
+          <div className="app-main-scroll">{children}</div>
+        </main>
+        {/* Only after mount: server has no localStorage, so auth checks must not run during SSR. */}
+        {mounted && !shouldShowSidebar && !getToken() && !getStoredUser() && (
           <button
             type="button"
             onClick={() => setPublicTheme((current) => (current === "light" ? "dark" : "light"))}
@@ -139,11 +142,36 @@ export default function ClientLayout({
       </div>
       <CrispChat />
       <style>{`
+        .app-layout-shell {
+          height: 100dvh;
+          max-height: 100dvh;
+          overflow: hidden;
+          box-sizing: border-box;
+        }
+        .app-main-shell {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          flex: 1;
+          overflow: hidden;
+          box-sizing: border-box;
+        }
+        .app-main-scroll {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
+          box-sizing: border-box;
+        }
         @media (max-width: 900px) {
           .app-main-shell {
             width: 100%;
             min-width: 0;
             padding: 76px 12px 20px !important;
+          }
+          .app-main-scroll {
+            padding: 0;
           }
           .app-mobile-topbar {
             display: flex !important;
@@ -166,13 +194,15 @@ export default function ClientLayout({
 const styles: any = {
   layoutShell: {
     display: "flex",
-    minHeight: "100vh",
+    flexDirection: "row",
+    alignItems: "stretch",
     backgroundColor: "var(--bg-primary)",
   },
   main: {
     flex: 1,
     backgroundColor: "var(--bg-primary)",
     minWidth: 0,
+    minHeight: 0,
     width: "100%",
     padding: "24px min(24px, 2vw)",
   },
@@ -195,8 +225,8 @@ const styles: any = {
     height: "40px",
     borderRadius: "12px",
     border: "1px solid var(--border-color)",
-    backgroundColor: "#FFFFFF",
-    color: "#1C1C1E",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -211,12 +241,12 @@ const styles: any = {
   mobileTopbarTitle: {
     fontSize: "16px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     lineHeight: 1.2,
   },
   mobileTopbarSubtitle: {
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     textTransform: "capitalize",
   },
   mobileOverlay: {

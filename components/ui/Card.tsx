@@ -31,8 +31,9 @@ const styles: any = {
     backgroundColor: "var(--bg-primary)",
     borderRadius: "14px",
     padding: "20px",
-    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+    boxShadow: "var(--card-shadow)",
     border: "1px solid var(--border-color)",
-    transition: "all 0.2s ease",
+    transition: "background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
+    color: "var(--text-primary)",
   },
 };

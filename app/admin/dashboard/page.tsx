@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
       label: "Total Projects",
       value: stats.projects,
       color: "#007AFF",
-      bg: "#E3F2FF",
+      bg: "rgba(0, 122, 255, 0.16)",
       trend: "+12%",
     },
     {
@@ -103,7 +103,7 @@ export default function AdminDashboardPage() {
       label: "Active Clients",
       value: stats.clients,
       color: "#34C759",
-      bg: "#E8F5E9",
+      bg: "rgba(52, 199, 89, 0.16)",
       trend: "+8%",
     },
     {
@@ -111,7 +111,7 @@ export default function AdminDashboardPage() {
       label: "Active Tasks",
       value: stats.tasks,
       color: "#FF9500",
-      bg: "#FFF4E5",
+      bg: "rgba(255, 149, 0, 0.16)",
       trend: "-3%",
     },
     {
@@ -119,7 +119,7 @@ export default function AdminDashboardPage() {
       label: "Total Revenue",
       value: `$${stats.revenue.toLocaleString()}`,
       color: "#AF52DE",
-      bg: "#F3E8FF",
+      bg: "rgba(175, 82, 222, 0.16)",
       trend: "+23%",
     },
     {
@@ -127,7 +127,7 @@ export default function AdminDashboardPage() {
       label: "Total Developers",
       value: stats.developers,
       color: "#14B8A6",
-      bg: "#E6FFFB",
+      bg: "rgba(20, 184, 166, 0.16)",
       trend: "+5%",
     },
   ];
@@ -189,27 +189,29 @@ export default function AdminDashboardPage() {
             <div style={styles.chartContainer}>
               <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={chartData}>
-                  <CartesianGrid stroke="#E5E5EA" strokeDasharray="3 3" />
+                  <CartesianGrid stroke="var(--border-color)" strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8E8E93", fontSize: 12 }}
+                    tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
                   />
                   <YAxis 
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#8E8E93", fontSize: 12 }}
+                    tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
                     tickFormatter={(value) => `$${value}`}
                   />
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: "#FFFFFF",
-                      border: "1px solid #E5E5EA",
+                      backgroundColor: "var(--bg-primary)",
+                      border: "1px solid var(--border-color)",
                       borderRadius: "12px",
                       padding: "8px 12px",
                       fontSize: "13px",
+                      color: "var(--text-primary)",
                     }}
+                    itemStyle={{ color: "#007AFF" }}
                   />
                   <Line
                     type="monotone"
@@ -328,6 +330,7 @@ const styles: any = {
     flexDirection: "column",
     gap: "32px",
     padding: "8px 4px",
+    backgroundColor: "var(--bg-primary)",
   },
   header: {
     display: "flex",
@@ -340,11 +343,11 @@ const styles: any = {
     fontSize: "34px",
     fontWeight: 600,
     letterSpacing: "-0.5px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   subtitle: {
     margin: "4px 0 0 0",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     fontSize: "15px",
   },
   headerBadge: {
@@ -352,11 +355,12 @@ const styles: any = {
     alignItems: "center",
     gap: "8px",
     padding: "8px 16px",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "100px",
     fontSize: "13px",
     fontWeight: 500,
     color: "#007AFF",
+    border: "1px solid var(--border-color)",
   },
   loadingContainer: {
     display: "flex",
@@ -369,13 +373,13 @@ const styles: any = {
   loadingSpinner: {
     width: "40px",
     height: "40px",
-    border: "3px solid #E5E5EA",
+    border: "3px solid var(--border-color)",
     borderTopColor: "#007AFF",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },
   loadingText: {
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     fontSize: "14px",
   },
   grid: {
@@ -404,18 +408,18 @@ const styles: any = {
     margin: 0,
     fontSize: "13px",
     fontWeight: 500,
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   cardValue: {
     margin: "6px 0 0 0",
     fontSize: "28px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   cardTrend: {
     margin: "8px 0 0 0",
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   main: {
     display: "grid",
@@ -438,10 +442,11 @@ const styles: any = {
     alignItems: "center",
     gap: "6px",
     padding: "4px 12px",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "100px",
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
+    border: "1px solid var(--border-color)",
   },
   chartContainer: {
     width: "100%",
@@ -452,12 +457,12 @@ const styles: any = {
     margin: 0,
     fontSize: "17px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   sectionSubtitle: {
     margin: "4px 0 0 0",
     fontSize: "13px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   activityList: {
     display: "flex",
@@ -470,7 +475,7 @@ const styles: any = {
     alignItems: "center",
     gap: "12px",
     padding: "8px 0",
-    borderBottom: "1px solid #E5E5EA",
+    borderBottom: "1px solid var(--border-color)",
   },
   activityDot: {
     width: "8px",
@@ -482,12 +487,12 @@ const styles: any = {
     margin: 0,
     fontSize: "14px",
     fontWeight: 500,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   activityTime: {
     margin: "4px 0 0 0",
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   quickStats: {
     display: "grid",
@@ -503,11 +508,11 @@ const styles: any = {
     margin: 0,
     fontSize: "24px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   quickStatLabel: {
     margin: 0,
     fontSize: "13px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
 };

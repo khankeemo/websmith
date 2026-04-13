@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Layers3 } from "lucide-react";
+import { ViewModeToggle, GridListView } from "@/components/ui/ViewModeToggle";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import ServiceModal from "./components/ServiceModal";
@@ -24,6 +25,7 @@ export default function AdminServicesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<GridListView>("grid");
 
   const activeCount = useMemo(() => services.filter((service) => service.isActive).length, [services]);
 
@@ -102,9 +104,12 @@ export default function AdminServicesPage() {
           <h1 style={styles.title}>Services</h1>
           <p style={styles.subtitle}>Manage the service cards displayed in the lead funnel.</p>
         </div>
-        <Button onClick={handleOpenCreate} leftIcon={<Plus size={18} />}>
-          New Service
-        </Button>
+        <div style={styles.headerActions}>
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          <Button onClick={handleOpenCreate} leftIcon={<Plus size={18} />}>
+            New Service
+          </Button>
+        </div>
       </div>
 
       <div style={styles.summary}>
@@ -129,7 +134,7 @@ export default function AdminServicesPage() {
       
       {error && <Card><p style={{ ...styles.message, color: "#FF3B30", fontWeight: 700 }}>{error}</p></Card>}
 
-      {!loading && !error && (
+      {!loading && !error && viewMode === "grid" && (
         <div style={styles.grid}>
           {services.map((service) => (
             <div key={service._id || service.name} style={styles.serviceCard} className="admin-service-card">
@@ -160,6 +165,31 @@ export default function AdminServicesPage() {
                     <Trash2 size={16} />
                   </button>
                 </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && !error && viewMode === "list" && (
+        <div style={styles.listWrap}>
+          {services.map((service) => (
+            <div key={service._id || service.name} style={styles.listRow}>
+              <div style={styles.listRowMain}>
+                <strong style={styles.listRowTitle}>{service.name}</strong>
+                <p style={styles.listRowDesc}>{service.description}</p>
+                <span style={styles.listRowPrice}>
+                  {typeof service.price === "number" ? `$${service.price.toLocaleString()}` : "Price TBD"} ·{" "}
+                  {service.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <div style={styles.listRowActions}>
+                <button type="button" onClick={() => handleOpenEdit(service)} style={styles.listActBtn}>
+                  <Pencil size={16} />
+                </button>
+                <button type="button" onClick={() => handleDelete(service)} style={{ ...styles.listActBtn, color: "#FF3B30" }}>
+                  <Trash2 size={16} />
+                </button>
               </div>
             </div>
           ))}
@@ -205,6 +235,39 @@ const styles: any = {
     gap: "16px",
     flexWrap: "wrap",
     marginBottom: "8px",
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+  listWrap: { display: "flex", flexDirection: "column", gap: "10px" },
+  listRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "16px",
+    padding: "16px 18px",
+    backgroundColor: "var(--bg-secondary)",
+    borderRadius: "16px",
+    border: "1px solid var(--border-color)",
+    flexWrap: "wrap",
+  },
+  listRowMain: { flex: 1, minWidth: 0 },
+  listRowTitle: { fontSize: "16px", color: "var(--text-primary)", display: "block", marginBottom: "6px" },
+  listRowDesc: { fontSize: "13px", color: "var(--text-secondary)", margin: "0 0 6px 0", lineHeight: 1.5 },
+  listRowPrice: { fontSize: "12px", color: "var(--text-secondary)", fontWeight: 600 },
+  listRowActions: { display: "flex", gap: "8px", flexShrink: 0 },
+  listActBtn: {
+    padding: "10px 12px",
+    borderRadius: "10px",
+    border: "1px solid var(--border-color)",
+    background: "var(--bg-primary)",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     margin: 0,

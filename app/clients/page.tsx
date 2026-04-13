@@ -5,7 +5,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Search, Shield, Users as UsersIcon, Code2, Trash2, X } from 'lucide-react';
+import { Plus, Search, Users as UsersIcon, Trash2, X, Mail, Phone, Building, Edit2 } from 'lucide-react';
+import { ViewModeToggle, GridListView } from '../../components/ui/ViewModeToggle';
 import { getStoredUser } from '../../lib/auth';
 import { useClients } from './hooks/useClients';
 import ClientCard from './components/ClientCard';
@@ -25,6 +26,7 @@ export default function ClientsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [viewMode, setViewMode] = useState<GridListView>('grid');
 
   useEffect(() => {
     fetchClients();
@@ -132,6 +134,7 @@ export default function ClientsPage() {
             style={styles.searchInput}
           />
         </div>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {successMessage && (
@@ -173,7 +176,7 @@ export default function ClientsPage() {
             <h3 style={styles.emptyTitle}>No clients found</h3>
             <p style={styles.emptyText}>{searchTerm ? 'Try adjusting your search' : 'Create your first client to get started'}</p>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div style={styles.grid} className="wsd-card-grid">
             {filteredClients.map((client) => (
               <ClientCard
@@ -183,6 +186,32 @@ export default function ClientsPage() {
                 onDelete={(id) => setDeleteTarget({ type: 'client', id })}
                 onTogglePublish={handleTogglePublish}
               />
+            ))}
+          </div>
+        ) : (
+          <div style={styles.listWrap}>
+            {filteredClients.map((client) => (
+              <div key={client._id} style={styles.listRow}>
+                <div style={styles.listRowMain}>
+                  <strong style={styles.listRowTitle}>{client.name}</strong>
+                  <div style={styles.listRowMeta}>
+                    <span><Mail size={12} /> {client.email}</span>
+                    {client.phone ? <span><Phone size={12} /> {client.phone}</span> : null}
+                    {client.company ? <span><Building size={12} /> {client.company}</span> : null}
+                  </div>
+                </div>
+                <div style={styles.listRowActions}>
+                  <button type="button" onClick={() => handleTogglePublish(client)} style={styles.listMiniBtn}>
+                    {client.published ? 'Unpublish' : 'Publish'}
+                  </button>
+                  <button type="button" onClick={() => handleEditClient(client)} style={styles.listMiniBtnPrimary}>
+                    <Edit2 size={14} /> Edit
+                  </button>
+                  <button type="button" onClick={() => setDeleteTarget({ type: 'client', id: client._id! })} style={styles.listMiniBtnDanger}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -296,6 +325,69 @@ const styles: any = {
   },
   searchSection: {
     marginBottom: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap' as const,
+  },
+  listWrap: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '12px',
+  },
+  listRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '16px',
+    padding: '16px 18px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+    flexWrap: 'wrap' as const,
+  },
+  listRowMain: { flex: 1, minWidth: 0 },
+  listRowTitle: { fontSize: '16px', color: 'var(--text-primary)', display: 'block', marginBottom: '8px' },
+  listRowMeta: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    gap: '12px',
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
+  },
+  listRowActions: { display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 },
+  listMiniBtn: {
+    padding: '8px 12px',
+    borderRadius: '10px',
+    border: '1px solid var(--border-color)',
+    background: 'var(--bg-primary)',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    color: 'var(--text-primary)',
+  },
+  listMiniBtnPrimary: {
+    padding: '8px 12px',
+    borderRadius: '10px',
+    border: 'none',
+    background: '#007AFF',
+    color: '#fff',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  listMiniBtnDanger: {
+    padding: '8px 10px',
+    borderRadius: '10px',
+    border: '1px solid rgba(255,59,48,0.3)',
+    background: 'transparent',
+    color: '#FF3B30',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
   },
   searchBox: {
     display: 'flex',

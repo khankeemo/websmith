@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, Shield, Trash2, X } from 'lucide-react';
+import { ViewModeToggle, GridListView } from '@/components/ui/ViewModeToggle';
 import { getStoredUser } from '@/lib/auth';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { createManagedUser, deleteManagedUser, getUsersByRole, ManagedUserPayload, RoleUser } from '@/core/services/userService';
@@ -160,6 +161,7 @@ export default function AdminsPage() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<RoleUser | null>(null);
+  const [viewMode, setViewMode] = useState<GridListView>('grid');
 
   const fetchUsers = useCallback(async () => {
     const user = getStoredUser();
@@ -238,6 +240,7 @@ export default function AdminsPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </section>
 
       <div style={styles.sectionBlock}>
@@ -252,7 +255,7 @@ export default function AdminsPage() {
             <h3 style={styles.emptyTitle}>No sub-admins found</h3>
             <p style={styles.emptyText}>Add an admin account to help manage the platform.</p>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div style={styles.userGrid}>
             {filteredAdmins.map((user) => (
               <ManagedUserCard
@@ -260,6 +263,21 @@ export default function AdminsPage() {
                 user={user}
                 onDelete={(target) => setDeleteTarget(target)}
               />
+            ))}
+          </div>
+        ) : (
+          <div style={styles.adminList}>
+            {filteredAdmins.map((user) => (
+              <div key={user._id} style={styles.adminListRow}>
+                <div>
+                  <strong style={styles.adminListName}>{user.name}</strong>
+                  <p style={styles.adminListMeta}>{user.email}</p>
+                  <p style={styles.adminListMeta}>{user.company || '—'}</p>
+                </div>
+                <button type="button" onClick={() => setDeleteTarget(user)} style={styles.adminListDelete}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -350,6 +368,10 @@ const styles: any = {
   },
   searchSection: {
     marginBottom: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap' as const,
   },
   searchBox: {
     display: 'flex',
@@ -359,6 +381,8 @@ const styles: any = {
     backgroundColor: 'var(--bg-secondary)',
     border: '1.5px solid var(--border-color)',
     borderRadius: '16px',
+    flex: 1,
+    minWidth: '240px',
   },
   searchInput: {
     flex: 1,
@@ -376,6 +400,29 @@ const styles: any = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
     gap: '24px',
+  },
+  adminList: { display: 'flex', flexDirection: 'column' as const, gap: '10px' },
+  adminListRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    padding: '14px 16px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '14px',
+    border: '1px solid var(--border-color)',
+  },
+  adminListName: { fontSize: '15px', color: 'var(--text-primary)' },
+  adminListMeta: { fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' },
+  adminListDelete: {
+    padding: '10px 12px',
+    borderRadius: '10px',
+    border: '1px solid rgba(255,59,48,0.25)',
+    background: 'transparent',
+    color: '#FF3B30',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
   },
   userCard: {
     backgroundColor: 'var(--bg-primary)',

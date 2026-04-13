@@ -12,6 +12,7 @@ export interface Notification {
     | "query_created"
     | "query_updated"
     | "project_status_changed"
+    | "invoice_created"
     | "other";
   message: string;
   isRead: boolean;

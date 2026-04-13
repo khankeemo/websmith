@@ -18,6 +18,8 @@ import {
   ArrowLeft
 } from "lucide-react";
 import API from "@/core/services/apiService";
+import { getStoredUser } from "@/lib/auth";
+import { ViewModeToggle, GridListView } from "@/components/ui/ViewModeToggle";
 
 interface Message {
   _id: string;
@@ -49,7 +51,15 @@ export default function MessagesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [convViewMode, setConvViewMode] = useState<GridListView>("list");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const u = getStoredUser();
+    setCurrentUserId(u?.id ?? null);
+  }, []);
 
   useEffect(() => {
     fetchConversations();
@@ -57,8 +67,11 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (selectedConversation) {
-      fetchMessages(selectedConversation._id);
+      const peerId = selectedConversation.participantId || selectedConversation._id;
+      fetchMessages(peerId);
       setShowMobileChat(true);
+      API.patch(`/messages/conversations/${peerId}/read`).catch(() => {});
+      fetchConversations();
     }
   }, [selectedConversation]);
 
@@ -72,53 +85,68 @@ export default function MessagesPage() {
 
   const fetchConversations = async () => {
     try {
+      setLoadError(null);
       const response = await API.get("/messages/conversations");
-      if (response.data.success || response.data.data) {
-        setConversations(response.data.data || sampleConversations);
-      }
-    } catch (error) {
+      const list = Array.isArray(response.data.data) ? response.data.data : [];
+      setConversations(list);
+    } catch (error: any) {
       console.error("Fetch conversations error:", error);
-      setConversations(sampleConversations);
+      setLoadError(error?.response?.data?.message || "Could not load conversations.");
+      setConversations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchMessages = async (conversationId: string) => {
+  const fetchMessages = async (peerId: string) => {
     try {
-      const response = await API.get(`/messages/${conversationId}`);
-      if (response.data.success || response.data.data) {
-        setMessages(response.data.data || sampleMessages);
-      }
-    } catch (error) {
+      const response = await API.get(`/messages/${peerId}`);
+      const list = Array.isArray(response.data.data) ? response.data.data : [];
+      setMessages(list);
+    } catch (error: any) {
       console.error("Fetch messages error:", error);
-      setMessages(sampleMessages);
+      setMessages([]);
     }
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
+    const text = newMessage.trim();
+    if (!text || !selectedConversation) return;
 
-    const tempMessage: Message = {
-      _id: Date.now().toString(),
-      senderId: "current-user",
-      receiverId: selectedConversation.participantId,
-      content: newMessage,
+    const receiverId = selectedConversation.participantId || selectedConversation._id;
+    const optimistic: Message = {
+      _id: `temp-${Date.now()}`,
+      senderId: currentUserId || "me",
+      receiverId,
+      content: text,
       type: "text",
       status: "sent",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
-    setMessages([...messages, tempMessage]);
+    setMessages((prev) => [...prev, optimistic]);
     setNewMessage("");
 
     try {
       const response = await API.post("/messages/send", {
-        receiverId: selectedConversation.participantId,
-        content: newMessage
+        receiverId,
+        content: text,
+        type: "text",
       });
-    } catch (error) {
+      const saved = response.data?.data;
+      if (saved?._id) {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === optimistic._id ? { ...saved, timestamp: saved.timestamp || optimistic.timestamp } : m))
+        );
+      } else {
+        await fetchMessages(receiverId);
+      }
+      await fetchConversations();
+    } catch (error: any) {
       console.error("Send message error:", error);
+      setMessages((prev) => prev.filter((m) => m._id !== optimistic._id));
+      setNewMessage(text);
+      alert(error?.response?.data?.message || "Failed to send message.");
     }
   };
 
@@ -161,7 +189,15 @@ export default function MessagesPage() {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p style={{ color: 'var(--text-secondary)' }}>Decrypting messages...</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Loading messages...</p>
+      </div>
+    );
+  }
+
+  if (!currentUserId) {
+    return (
+      <div style={styles.loadingContainer}>
+        <p style={{ color: "var(--text-secondary)" }}>Please log in to use messages.</p>
       </div>
     );
   }
@@ -178,19 +214,35 @@ export default function MessagesPage() {
       >
         <div style={styles.sidebarHeader}>
           <h2 style={styles.sidebarTitle}>Messages</h2>
-          <div style={styles.searchWrapper}>
-            <Search size={16} style={styles.searchIconSmall} />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.searchInputSmall}
-              className="input-focus"
-            />
+          {loadError && (
+            <p style={{ color: "#FF3B30", fontSize: "13px", marginBottom: "12px" }}>{loadError}</p>
+          )}
+          <div style={styles.searchRow}>
+            <div style={styles.searchWrapper}>
+              <Search size={16} style={styles.searchIconSmall} />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={styles.searchInputSmall}
+                className="input-focus"
+              />
+            </div>
+            <ViewModeToggle value={convViewMode} onChange={setConvViewMode} />
           </div>
         </div>
-        <div style={styles.conversationsList}>
+        <div
+          style={{
+            ...styles.conversationsList,
+            ...(convViewMode === "grid" ? styles.conversationsGrid : {}),
+          }}
+        >
+          {filteredConversations.length === 0 && !loadError && (
+            <p style={{ padding: "24px", color: "var(--text-secondary)", fontSize: "14px", textAlign: "center" }}>
+              No conversations yet. Messages appear here after someone sends you a message or you reply from another screen.
+            </p>
+          )}
           {filteredConversations.map((conv) => (
             <div
               key={conv._id}
@@ -200,6 +252,7 @@ export default function MessagesPage() {
               }}
               style={{
                 ...styles.conversationItem,
+                ...(convViewMode === "grid" ? styles.conversationItemGrid : {}),
                 ...(selectedConversation?._id === conv._id ? styles.conversationItemActive : {})
               }}
               className="conv-item"
@@ -269,7 +322,7 @@ export default function MessagesPage() {
           {/* Messages */}
           <div style={styles.messagesArea}>
             {messages.map((message) => {
-              const isOwn = message.senderId === "current-user";
+              const isOwn = currentUserId ? message.senderId === currentUserId : false;
               return (
                 <div
                   key={message._id}
@@ -387,19 +440,6 @@ export default function MessagesPage() {
   );
 }
 
-// Sample data for demo
-const sampleConversations: Conversation[] = [
-  { _id: "1", participantId: "2", participantName: "Sarah Johnson", participantAvatar: "S", participantRole: "Project Manager", lastMessage: "The project is on track for Friday", lastMessageTime: new Date().toISOString(), unreadCount: 2, online: true },
-  { _id: "2", participantId: "3", participantName: "Michael Chen", participantAvatar: "M", participantRole: "Lead Developer", lastMessage: "I've pushed the latest updates", lastMessageTime: new Date(Date.now() - 3600000).toISOString(), unreadCount: 0, online: true },
-  { _id: "3", participantId: "4", participantName: "Emily Rodriguez", participantAvatar: "E", participantRole: "UI/UX Designer", lastMessage: "Here are the new mockups", lastMessageTime: new Date(Date.now() - 86400000).toISOString(), unreadCount: 0, online: false }
-];
-
-const sampleMessages: Message[] = [
-  { _id: "1", senderId: "other", receiverId: "current-user", content: "Hey! How's the project going?", type: "text", status: "read", timestamp: new Date(Date.now() - 3600000).toISOString() },
-  { _id: "2", senderId: "current-user", receiverId: "other", content: "Going great! Almost done with the frontend.", type: "text", status: "read", timestamp: new Date(Date.now() - 3500000).toISOString() },
-  { _id: "3", senderId: "other", receiverId: "current-user", content: "Awesome! Let me know if you need anything.", type: "text", status: "read", timestamp: new Date(Date.now() - 3400000).toISOString() }
-];
-
 const styles: any = {
   container: {
     display: "flex",
@@ -447,7 +487,13 @@ const styles: any = {
     color: "var(--text-primary)",
     letterSpacing: '-0.5px'
   },
-  searchWrapper: { position: "relative", width: "100%" },
+  searchRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap" as const,
+  },
+  searchWrapper: { position: "relative", flex: 1, minWidth: "160px" },
   searchIconSmall: { position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" },
   searchInputSmall: {
     width: "100%",
@@ -460,6 +506,13 @@ const styles: any = {
     outline: "none",
   },
   conversationsList: { flex: 1, overflowY: "auto" },
+  conversationsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "10px",
+    padding: "12px",
+    alignContent: "start",
+  },
   conversationItem: {
     display: "flex",
     alignItems: "center",
@@ -467,6 +520,15 @@ const styles: any = {
     padding: "18px 24px",
     cursor: "pointer",
     borderBottom: "1px solid var(--border-color)",
+  },
+  conversationItemGrid: {
+    flexDirection: "column" as const,
+    alignItems: "stretch",
+    padding: "14px",
+    border: "1px solid var(--border-color)",
+    borderRadius: "14px",
+    borderBottom: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
   },
   conversationItemActive: {
     backgroundColor: "rgba(0, 122, 255, 0.08)",

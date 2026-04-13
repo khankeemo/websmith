@@ -67,12 +67,12 @@ export default function ClientDashboardPage() {
 
   const cards = useMemo(
     () => [
-      { label: "Assigned Projects", value: stats.projects, icon: FolderKanban, color: "#007AFF", bg: "#EAF2FF" },
-      { label: "Active Projects", value: stats.activeProjects, icon: TrendingUp, color: "#0F9D7A", bg: "#E7FBF4" },
-      { label: "Open Queries", value: stats.openQueries, icon: LifeBuoy, color: "#F59E0B", bg: "#FFF6E6" },
-      { label: "Unread Alerts", value: stats.unreadNotifications, icon: Bell, color: "#8B5CF6", bg: "#F4ECFF" },
-      { label: "Completed Payments", value: `$${Number(stats.revenue || 0).toLocaleString()}`, icon: CreditCard, color: "#10B981", bg: "#EAFBF3" },
-      { label: "Completed Tasks", value: stats.completedTasks, icon: CalendarClock, color: "#EF4444", bg: "#FEF0F0" },
+      { label: "Assigned Projects", value: stats.projects, icon: FolderKanban, color: "#007AFF", bg: "rgba(0, 122, 255, 0.16)" },
+      { label: "Active Projects", value: stats.activeProjects, icon: TrendingUp, color: "#0F9D7A", bg: "rgba(15, 157, 122, 0.16)" },
+      { label: "Open Queries", value: stats.openQueries, icon: LifeBuoy, color: "#F59E0B", bg: "rgba(245, 158, 11, 0.16)" },
+      { label: "Unread Alerts", value: stats.unreadNotifications, icon: Bell, color: "#8B5CF6", bg: "rgba(139, 92, 246, 0.16)" },
+      { label: "Completed Payments", value: `$${Number(stats.revenue || 0).toLocaleString()}`, icon: CreditCard, color: "#10B981", bg: "rgba(16, 185, 129, 0.16)" },
+      { label: "Completed Tasks", value: stats.completedTasks, icon: CalendarClock, color: "#EF4444", bg: "rgba(239, 68, 68, 0.16)" },
     ],
     [stats]
   );
@@ -171,7 +171,7 @@ export default function ClientDashboardPage() {
                     Missed {new Date(project.expectedCompletionDate).toLocaleDateString()} with status {project.status.replace("-", " ")}
                   </p>
                 </div>
-                <span style={{ ...styles.progressPill, backgroundColor: "#FEF0F0", color: "#DC2626" }}>
+                <span style={{ ...styles.progressPill, backgroundColor: "rgba(220, 38, 38, 0.2)", color: "var(--text-primary)" }}>
                   {project.progress || 0}%
                 </span>
               </div>
@@ -205,9 +205,24 @@ const styles: Record<string, any> = {
   alertList: { display: "flex", flexDirection: "column", gap: "12px" },
   alertCard: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "14px", border: "1px solid var(--border-color)", borderRadius: "14px", backgroundColor: "var(--bg-secondary)" },
   overdueList: { display: "flex", flexDirection: "column", gap: "12px" },
-  overdueCard: { display: "flex", alignItems: "center", gap: "12px", padding: "14px", border: "1px solid #FECACA", borderRadius: "14px", backgroundColor: "#FFF7F7" },
+  overdueCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "14px",
+    border: "1px solid rgba(220, 38, 38, 0.35)",
+    borderRadius: "14px",
+    backgroundColor: "rgba(220, 38, 38, 0.1)",
+  },
   alertTitle: { margin: 0, color: "var(--text-primary)", fontWeight: 600 },
   alertMeta: { margin: "4px 0 0", color: "var(--text-secondary)", fontSize: "13px" },
-  progressPill: { padding: "6px 10px", borderRadius: "999px", backgroundColor: "#EAF2FF", color: "#007AFF", fontSize: "12px", fontWeight: 700 },
+  progressPill: {
+    padding: "6px 10px",
+    borderRadius: "999px",
+    backgroundColor: "rgba(0, 122, 255, 0.16)",
+    color: "#0A84FF",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
   state: { padding: "48px 12px", color: "var(--text-secondary)" },
 };

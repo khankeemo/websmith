@@ -56,13 +56,15 @@ export default function Modal({
         style={{
           width: "100%",
           maxWidth: maxWidth,
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "var(--bg-primary)",
           borderRadius: "24px",
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+          border: "1px solid var(--border-color)",
+          boxShadow: "var(--card-shadow, 0 20px 40px rgba(0, 0, 0, 0.15))",
           display: "flex",
           flexDirection: "column",
           maxHeight: "90vh",
           overflow: "hidden",
+          color: "var(--text-primary)",
           animation: "modalSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -71,7 +73,7 @@ export default function Modal({
         <div
           style={{
             padding: "20px 24px",
-            borderBottom: "1px solid #F2F2F7",
+            borderBottom: "1px solid var(--border-color)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -81,7 +83,7 @@ export default function Modal({
             style={{
               fontSize: "18px",
               fontWeight: 600,
-              color: "#1C1C1E",
+              color: "var(--text-primary)",
               margin: 0,
             }}
           >
@@ -89,11 +91,12 @@ export default function Modal({
           </h2>
           <button
             onClick={onClose}
+            type="button"
             style={{
               background: "none",
               border: "none",
               cursor: "pointer",
-              color: "#8E8E93",
+              color: "var(--text-secondary)",
               padding: "4px",
               display: "flex",
               alignItems: "center",
@@ -101,6 +104,7 @@ export default function Modal({
               transition: "color 0.2s ease",
             }}
             className="wsd-modal-close"
+            aria-label="Close dialog"
           >
             <X size={20} />
           </button>
@@ -122,8 +126,8 @@ export default function Modal({
           <div
             style={{
               padding: "20px 24px",
-              borderTop: "1px solid #F2F2F7",
-              backgroundColor: "#F9F9FB",
+              borderTop: "1px solid var(--border-color)",
+              backgroundColor: "var(--bg-secondary)",
               display: "flex",
               justifyContent: "flex-end",
               gap: "12px",
@@ -139,7 +143,7 @@ export default function Modal({
           to { opacity: 1; transform: translateY(0); }
         }
         .wsd-modal-close:hover {
-          color: #1C1C1E !important;
+          color: var(--text-primary) !important;
         }
         @media (max-width: 640px) {
           .wsd-responsive-modal {

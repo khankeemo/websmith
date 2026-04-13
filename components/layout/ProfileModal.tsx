@@ -5,6 +5,8 @@ import { X, Camera, Loader2 } from "lucide-react";
 import { AuthUser, setAuthSession, getToken } from "../../lib/auth";
 import API from "../../core/services/apiService";
 
+type PanelMode = "view" | "edit-profile" | "edit-password";
+
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -18,6 +20,7 @@ export default function ProfileModal({
   user,
   onUpdate,
 }: ProfileModalProps) {
+  const [panelMode, setPanelMode] = useState<PanelMode>("view");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -25,13 +28,21 @@ export default function ProfileModal({
     company: "",
     avatar: "",
   });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (user && isOpen) {
+    if (!isOpen) return;
+    setPanelMode("view");
+    setError(null);
+    if (user) {
       setFormData({
         name: user.name || "",
         email: user.email || "",
@@ -40,11 +51,18 @@ export default function ProfileModal({
         avatar: user.avatar || "",
       });
       setPreviewUrl(user.avatar || "");
-      setError(null);
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
     }
   }, [user, isOpen]);
 
+  const handleClose = () => {
+    setPanelMode("view");
+    setError(null);
+    onClose();
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (panelMode !== "edit-profile") return;
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 1024 * 1024) {
@@ -62,7 +80,7 @@ export default function ProfileModal({
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
@@ -91,11 +109,9 @@ export default function ProfileModal({
         if (token) {
           setAuthSession(token, updatedUser);
         }
-        
+
         onUpdate(updatedUser);
-        onClose();
-        
-        // Dispatch custom event to notify other components (like Sidebar)
+        setPanelMode("view");
         window.dispatchEvent(new Event("userProfileUpdated"));
       } else {
         setError(response.data.message || "Failed to update profile");
@@ -108,136 +124,243 @@ export default function ProfileModal({
     }
   };
 
+  const handleSavePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError("New passwords do not match");
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      await API.post("/users/change-password", {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPanelMode("view");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to change password");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!isOpen) return null;
 
+  const readOnlyField = (label: string, value: string) => (
+    <div style={styles.formGroup}>
+      <span style={styles.readLabel}>{label}</span>
+      <div style={styles.readValue}>{value || "—"}</div>
+    </div>
+  );
+
   return (
-    <div style={styles.overlay} onClick={onClose}>
+    <div style={styles.overlay} onClick={handleClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
-          <h2 style={styles.title}>Edit Profile</h2>
-          <button onClick={onClose} style={styles.closeBtn}>
+          <h2 style={styles.title}>
+            {panelMode === "view" && "Profile"}
+            {panelMode === "edit-profile" && "Update profile"}
+            {panelMode === "edit-password" && "Update password"}
+          </h2>
+          <button type="button" onClick={handleClose} style={styles.closeBtn} aria-label="Close">
             <X size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleSave} style={styles.form}>
-          {/* Avatar Upload */}
-          <div style={styles.avatarSection}>
-            <div style={styles.avatarWrapper}>
-              {previewUrl ? (
-                <img src={previewUrl} alt="Preview" style={styles.avatarImage} />
-              ) : (
-                <div style={styles.avatarPlaceholder}>
-                  {formData.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                style={styles.uploadBtn}
-                title="Change Photo"
-              >
-                <Camera size={16} />
+        {panelMode === "view" && user && (
+          <div style={styles.viewBody}>
+            <div style={styles.avatarSection}>
+              <div style={styles.avatarWrapper}>
+                {previewUrl ? (
+                  <img src={previewUrl} alt="" style={styles.avatarImage} />
+                ) : (
+                  <div style={styles.avatarPlaceholder}>
+                    {(user.name || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+            </div>
+            {readOnlyField("Full name", user.name)}
+            {readOnlyField("Email", user.email)}
+            {readOnlyField("Phone", user.phone || "")}
+            {readOnlyField("Company", user.company || "")}
+
+            <div style={styles.actionRow}>
+              <button type="button" style={styles.primaryOutlineBtn} onClick={() => setPanelMode("edit-profile")}>
+                Update Profile
+              </button>
+              <button type="button" style={styles.primaryOutlineBtn} onClick={() => setPanelMode("edit-password")}>
+                Update Password
               </button>
             </div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-              style={{ display: "none" }}
-            />
-            <p style={styles.avatarHint}>Click camera to upload a new profile picture</p>
           </div>
+        )}
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Full Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              style={styles.input}
-              placeholder="Your Name"
-              required
-            />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Email Address</label>
-            <input
-              type="email"
-              value={formData.email}
-              style={{ ...styles.input, backgroundColor: "#f9f9f9", cursor: "not-allowed" }}
-              readOnly
-              title="Email cannot be changed"
-            />
-          </div>
-
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Phone Number</label>
+        {panelMode === "edit-profile" && user && (
+          <form onSubmit={handleSaveProfile} style={styles.form}>
+            <div style={styles.avatarSection}>
+              <div style={styles.avatarWrapper}>
+                {previewUrl ? (
+                  <img src={previewUrl} alt="Preview" style={styles.avatarImage} />
+                ) : (
+                  <div style={styles.avatarPlaceholder}>
+                    {formData.name.charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={styles.uploadBtn}
+                  title="Change photo"
+                >
+                  <Camera size={16} />
+                </button>
+              </div>
               <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                style={styles.input}
-                placeholder="+1 234 567 890"
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                style={{ display: "none" }}
               />
+              <p style={styles.avatarHint}>Camera icon to change picture</p>
             </div>
+
             <div style={styles.formGroup}>
-              <label style={styles.label}>Company</label>
+              <label style={styles.label}>Full Name</label>
               <input
                 type="text"
-                value={formData.company}
-                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 style={styles.input}
-                placeholder="Company Name"
+                required
               />
             </div>
-          </div>
 
-          {error && <p style={styles.errorText}>{error}</p>}
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                style={{ ...styles.input, opacity: 0.85 }}
+                readOnly
+                title="Email cannot be changed here"
+              />
+            </div>
 
-          <div style={styles.footer}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={styles.cancelBtn}
-              disabled={isSaving}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              style={styles.saveBtn}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 size={16} className="spinner" style={{ marginRight: 8 }} />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
+            <div style={styles.row}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Phone</label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Company</label>
+                <input
+                  type="text"
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+            </div>
 
-      <style>{`
+            {error && <p style={styles.errorText}>{error}</p>}
+
+            <div style={styles.footer}>
+              <button type="button" onClick={() => { setError(null); setPanelMode("view"); }} style={styles.cancelBtn} disabled={isSaving}>
+                Cancel
+              </button>
+              <button type="submit" style={styles.saveBtn} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 size={16} className="spinner" style={{ marginRight: 8 }} />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {panelMode === "edit-password" && (
+          <form onSubmit={handleSavePassword} style={styles.form}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Current password</label>
+              <input
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                style={styles.input}
+                required
+                autoComplete="current-password"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>New password</label>
+              <input
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                style={styles.input}
+                required
+                minLength={6}
+                autoComplete="new-password"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Confirm new password</label>
+              <input
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                style={styles.input}
+                required
+                autoComplete="new-password"
+              />
+            </div>
+
+            {error && <p style={styles.errorText}>{error}</p>}
+
+            <div style={styles.footer}>
+              <button type="button" onClick={() => { setError(null); setPanelMode("view"); }} style={styles.cancelBtn} disabled={isSaving}>
+                Cancel
+              </button>
+              <button type="submit" style={styles.saveBtn} disabled={isSaving}>
+                {isSaving ? "Updating..." : "Update password"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
         }
-        .spinner {
-          animation: spin 1s linear infinite;
-        }
+        .spinner { animation: spin 1s linear infinite; }
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
       `}</style>
+      </div>
     </div>
   );
 }
@@ -254,58 +377,97 @@ const styles: any = {
     zIndex: 2000,
   },
   modal: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "24px",
     width: "90%",
     maxWidth: "500px",
-    padding: "32px",
+    padding: "28px",
     boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
     animation: "fadeIn 0.3s ease-out",
+    border: "1px solid var(--border-color)",
+    color: "var(--text-primary)",
+    maxHeight: "90vh",
+    overflowY: "auto",
   },
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "24px",
+    marginBottom: "20px",
   },
   title: {
-    fontSize: "22px",
+    fontSize: "20px",
     fontWeight: 700,
-    color: "#1d1d1f",
     margin: 0,
   },
   closeBtn: {
-    background: "none",
-    border: "none",
+    background: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
     cursor: "pointer",
-    color: "#8e8e93",
-    padding: "4px",
-    borderRadius: "50%",
+    color: "var(--text-secondary)",
+    padding: "6px",
+    borderRadius: "10px",
     display: "flex",
-    transition: "background 0.2s",
+  },
+  viewBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+  },
+  readLabel: {
+    fontSize: "11px",
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.04em",
+  },
+  readValue: {
+    fontSize: "15px",
+    fontWeight: 500,
+    padding: "10px 12px",
+    borderRadius: "10px",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    marginTop: "4px",
+  },
+  actionRow: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "10px",
+    marginTop: "8px",
+  },
+  primaryOutlineBtn: {
+    padding: "12px 16px",
+    borderRadius: "12px",
+    border: "1px solid #007AFF",
+    background: "transparent",
+    color: "#007AFF",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
   },
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: "16px",
+    gap: "14px",
   },
   avatarSection: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    marginBottom: "8px",
+    marginBottom: "4px",
   },
   avatarWrapper: {
     position: "relative",
-    width: "90px",
-    height: "90px",
+    width: "88px",
+    height: "88px",
   },
   avatarImage: {
     width: "100%",
     height: "100%",
     borderRadius: "50%",
     objectFit: "cover",
-    border: "3px solid #f2f2f7",
+    border: "3px solid var(--border-color)",
   },
   avatarPlaceholder: {
     width: "100%",
@@ -316,7 +478,7 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "32px",
+    fontSize: "28px",
     fontWeight: 600,
   },
   uploadBtn: {
@@ -325,67 +487,67 @@ const styles: any = {
     right: 0,
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
-    width: "32px",
-    height: "32px",
+    width: "30px",
+    height: "30px",
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    border: "2px solid #FFFFFF",
+    border: "2px solid var(--bg-primary)",
     cursor: "pointer",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-    transition: "transform 0.2s",
   },
   avatarHint: {
-    fontSize: "12px",
-    color: "#8e8e93",
-    marginTop: "12px",
+    fontSize: "11px",
+    color: "var(--text-secondary)",
+    marginTop: "8px",
   },
   formGroup: {
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
+    gap: "6px",
     flex: 1,
   },
   label: {
     fontSize: "13px",
     fontWeight: 600,
-    color: "#1d1d1f",
   },
   input: {
-    padding: "12px 16px",
-    borderRadius: "12px",
-    border: "1.5px solid #e5e5ea",
-    fontSize: "15px",
+    padding: "11px 14px",
+    borderRadius: "10px",
+    border: "1.5px solid var(--border-color)",
+    fontSize: "14px",
     outline: "none",
-    transition: "border-color 0.2s",
     width: "100%",
+    boxSizing: "border-box" as const,
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
   },
   row: {
     display: "flex",
-    gap: "16px",
+    gap: "12px",
+    flexWrap: "wrap" as const,
   },
   footer: {
     display: "flex",
     justifyContent: "flex-end",
-    gap: "12px",
-    marginTop: "24px",
-    paddingTop: "24px",
-    borderTop: "1px solid #f2f2f7",
+    gap: "10px",
+    marginTop: "12px",
+    paddingTop: "16px",
+    borderTop: "1px solid var(--border-color)",
   },
   cancelBtn: {
-    padding: "12px 20px",
-    borderRadius: "12px",
+    padding: "10px 18px",
+    borderRadius: "10px",
     border: "none",
-    backgroundColor: "#f2f2f7",
-    color: "#1d1d1f",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
     fontSize: "14px",
     fontWeight: 600,
     cursor: "pointer",
   },
   saveBtn: {
-    padding: "12px 24px",
-    borderRadius: "12px",
+    padding: "10px 20px",
+    borderRadius: "10px",
     border: "none",
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
@@ -395,12 +557,12 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    minWidth: "140px",
+    minWidth: "120px",
   },
   errorText: {
     color: "#FF3B30",
     fontSize: "13px",
-    margin: "0 0 16px 0",
+    margin: 0,
     textAlign: "center",
   },
 };

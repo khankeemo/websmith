@@ -42,10 +42,10 @@ export default function DeveloperDashboardPage() {
   }, []);
 
   const cards = [
-    { label: "Assigned Projects", value: stats.totalProjects, icon: FolderOpen, color: "#007AFF", bg: "#E3F2FF" },
-    { label: "Active Projects", value: stats.activeProjects, icon: Activity, color: "#FF9500", bg: "#FFF4E5" },
-    { label: "Total Tasks", value: stats.totalTasks, icon: CheckCircle2, color: "#34C759", bg: "#E8F5E9" },
-    { label: "In Progress", value: stats.tasksByStatus?.inProgress || 0, icon: Clock3, color: "#007AFF", bg: "#E3F2FF" },
+    { label: "Assigned Projects", value: stats.totalProjects, icon: FolderOpen, color: "#007AFF", bg: "rgba(0, 122, 255, 0.16)" },
+    { label: "Active Projects", value: stats.activeProjects, icon: Activity, color: "#FF9500", bg: "rgba(255, 149, 0, 0.16)" },
+    { label: "Total Tasks", value: stats.totalTasks, icon: CheckCircle2, color: "#34C759", bg: "rgba(52, 199, 89, 0.16)" },
+    { label: "In Progress", value: stats.tasksByStatus?.inProgress || 0, icon: Clock3, color: "#007AFF", bg: "rgba(0, 122, 255, 0.16)" },
   ];
 
   if (loading) {
@@ -127,9 +127,9 @@ export default function DeveloperDashboardPage() {
           </div>
           <div style={styles.priorityList}>
             {[
-              { label: 'High', count: stats.tasksByPriority?.high || 0, color: '#FF9500', bg: '#FFF4E5' },
-              { label: 'Medium', count: stats.tasksByPriority?.medium || 0, color: '#007AFF', bg: '#E3F2FF' },
-              { label: 'Low', count: stats.tasksByPriority?.low || 0, color: '#8E8E93', bg: '#F2F2F7' },
+              { label: 'High', count: stats.tasksByPriority?.high || 0, color: '#FF9500', bg: 'rgba(255, 149, 0, 0.16)' },
+              { label: 'Medium', count: stats.tasksByPriority?.medium || 0, color: '#007AFF', bg: 'rgba(0, 122, 255, 0.16)' },
+              { label: 'Low', count: stats.tasksByPriority?.low || 0, color: '#AEAEB2', bg: 'rgba(142, 142, 147, 0.2)' },
             ].map((priority) => (
               <div key={priority.label} style={styles.priorityItem}>
                 <div style={{
@@ -178,7 +178,7 @@ export default function DeveloperDashboardPage() {
                     )}
                   </div>
                   <div style={styles.deadlineFooter}>
-                    <Clock3 size={14} color="#8E8E93" />
+                    <Clock3 size={14} color="var(--text-secondary)" />
                     <span style={styles.deadlineDate}>
                       {daysLeft === 0 ? 'Due today' : daysLeft === 1 ? 'Due tomorrow' : `Due in ${daysLeft} days`}
                     </span>
@@ -261,7 +261,17 @@ const styles: any = {
   deadlineCard: { padding: "16px", backgroundColor: "var(--bg-secondary)", borderRadius: "12px" },
   deadlineHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" },
   deadlineName: { fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", flex: 1 },
-  urgentBadge: { display: "flex", alignItems: "center", gap: "4px", padding: "4px 8px", backgroundColor: "#FFEBEE", color: "#FF3B30", borderRadius: "6px", fontSize: "10px", fontWeight: 700 },
+  urgentBadge: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    padding: "4px 8px",
+    backgroundColor: "rgba(255, 59, 48, 0.18)",
+    color: "#FF453A",
+    borderRadius: "6px",
+    fontSize: "10px",
+    fontWeight: 700,
+  },
   deadlineFooter: { display: "flex", alignItems: "center", gap: "8px" },
   deadlineDate: { fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", flex: 1 },
   deadlineDateText: { fontSize: "11px", color: "var(--text-secondary)" },
