@@ -36,6 +36,7 @@ const priorityOptions: { value: ProjectPriority; label: string }[] = [
 interface FormData {
   name: string;
   description: string;
+  publicUrl: string;
   client: string;
   clientId: string;
   assignedDevId: string;
@@ -53,6 +54,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
+    publicUrl: '',
     client: '',
     clientId: '',
     assignedDevId: '',
@@ -94,6 +96,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
       setFormData({
         name: project.name || '',
         description: project.description || '',
+        publicUrl: project.publicUrl || '',
         client: project.client || '',
         clientId: project.clientId || '',
         assignedDevId: project.assignedDevId || '',
@@ -110,6 +113,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
       setFormData({
         name: '',
         description: '',
+        publicUrl: '',
         client: '',
         clientId: '',
         assignedDevId: '',
@@ -324,6 +328,17 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
             </div>
           </div>
 
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Hosted Project URL</label>
+            <input
+              type="url"
+              value={formData.publicUrl}
+              onChange={(e) => updateField('publicUrl', e.target.value)}
+              style={styles.input}
+              placeholder="https://example.com"
+            />
+          </div>
+
           <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
             <input type="checkbox" checked={formData.published} onChange={(e) => setFormData((prev) => ({ ...prev, published: e.target.checked }))} />
             Publish this project on the public website
@@ -375,7 +390,7 @@ const styles: any = {
     zIndex: 1000,
   },
   modal: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--bg-primary)',
     borderRadius: '24px',
     padding: '28px',
     width: 'min(90%, 600px)',
@@ -393,7 +408,7 @@ const styles: any = {
   modalTitle: {
     fontSize: '24px',
     fontWeight: 600,
-    color: '#1C1C1E',
+    color: 'var(--text-primary)',
   },
   closeBtn: {
     background: 'none',
@@ -410,38 +425,43 @@ const styles: any = {
     display: 'block',
     fontSize: '14px',
     fontWeight: 500,
-    color: '#1C1C1E',
+    color: 'var(--text-primary)',
     marginBottom: '8px',
   },
   input: {
     width: '100%',
     padding: '12px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
+    border: '1.5px solid var(--border-color)',
     borderRadius: '12px',
     outline: 'none',
     fontFamily: 'inherit',
     transition: 'all 0.2s ease',
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
   },
   textarea: {
     width: '100%',
     padding: '12px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
+    border: '1.5px solid var(--border-color)',
     borderRadius: '12px',
     outline: 'none',
     fontFamily: 'inherit',
     resize: 'vertical',
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
   },
   select: {
     width: '100%',
     padding: '12px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
+    border: '1.5px solid var(--border-color)',
     borderRadius: '12px',
     outline: 'none',
     fontFamily: 'inherit',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
   },
   inputError: {
     borderColor: '#FF3B30',
@@ -462,17 +482,18 @@ const styles: any = {
     justifyContent: 'flex-end',
     marginTop: '24px',
     paddingTop: '16px',
-    borderTop: '1px solid #E5E5EA',
+    borderTop: '1px solid var(--border-color)',
   },
   cancelBtn: {
     padding: '10px 20px',
     fontSize: '14px',
     fontWeight: 500,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: 'var(--bg-secondary)',
     border: 'none',
     borderRadius: '10px',
     cursor: 'pointer',
     fontFamily: 'inherit',
+    color: 'var(--text-primary)',
   },
   saveBtn: {
     padding: '10px 20px',

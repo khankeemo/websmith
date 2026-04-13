@@ -9,6 +9,7 @@ export interface Project {
   name: string;
   description: string;
   client: string;
+  publicUrl?: string;
   clientId?: string | null;
   assignedDevId?: string | null;
   assignedDeveloperName?: string;

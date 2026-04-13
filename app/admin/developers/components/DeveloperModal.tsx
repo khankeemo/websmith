@@ -139,7 +139,7 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Headline</label>
+            <label style={styles.label}>Role</label>
             <input
               type="text"
               value={formData.headline}
@@ -233,25 +233,25 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
 
 const styles: Record<string, any> = {
   overlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
-  modal: { background: "#fff", borderRadius: "20px", width: "90%", maxWidth: "700px", maxHeight: "90vh", overflow: "auto", padding: "24px" },
+  modal: { background: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "20px", width: "90%", maxWidth: "700px", maxHeight: "90vh", overflow: "auto", padding: "24px", color: "var(--text-primary)" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" },
-  title: { margin: 0, fontSize: "24px", fontWeight: 600, color: "#1C1C1E" },
-  closeBtn: { background: "none", border: "none", cursor: "pointer", padding: "8px" },
+  title: { margin: 0, fontSize: "24px", fontWeight: 600, color: "var(--text-primary)" },
+  closeBtn: { background: "none", border: "none", cursor: "pointer", padding: "8px", color: "var(--text-secondary)" },
   formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
   formGroup: { marginBottom: "16px" },
-  label: { display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: 500, color: "#3A3A3C" },
-  input: { width: "100%", padding: "12px", border: "1px solid #E5E5EA", borderRadius: "10px", fontSize: "15px" },
-  textarea: { width: "100%", padding: "12px", border: "1px solid #E5E5EA", borderRadius: "10px", fontSize: "15px", fontFamily: "inherit", resize: "vertical" },
-  select: { width: "100%", padding: "12px", border: "1px solid #E5E5EA", borderRadius: "10px", fontSize: "15px" },
+  label: { display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" },
+  input: { width: "100%", padding: "12px", border: "1px solid var(--border-color)", borderRadius: "10px", fontSize: "15px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" },
+  textarea: { width: "100%", padding: "12px", border: "1px solid var(--border-color)", borderRadius: "10px", fontSize: "15px", fontFamily: "inherit", resize: "vertical", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" },
+  select: { width: "100%", padding: "12px", border: "1px solid var(--border-color)", borderRadius: "10px", fontSize: "15px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" },
   skillInputWrap: { display: "flex", gap: "8px" },
   addSkillBtn: { padding: "12px 20px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "10px", cursor: "pointer" },
   skillsList: { display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "12px" },
-  skillTag: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px", background: "#F2F2F7", borderRadius: "12px", fontSize: "13px" },
-  removeSkillBtn: { background: "none", border: "none", cursor: "pointer", fontSize: "16px", color: "#8E8E93" },
+  skillTag: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px", background: "var(--bg-secondary)", borderRadius: "12px", fontSize: "13px", color: "var(--text-primary)" },
+  removeSkillBtn: { background: "none", border: "none", cursor: "pointer", fontSize: "16px", color: "var(--text-secondary)" },
   checkboxLabel: { display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" },
   checkbox: { width: "18px", height: "18px" },
   errorText: { color: "#FF3B30", fontSize: "14px", marginBottom: "16px" },
   actions: { display: "flex", gap: "12px", marginTop: "24px" },
-  cancelBtn: { flex: 1, padding: "14px", background: "#F2F2F7", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
+  cancelBtn: { flex: 1, padding: "14px", background: "var(--bg-secondary)", color: "var(--text-primary)", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
   submitBtn: { flex: 1, padding: "14px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
 };

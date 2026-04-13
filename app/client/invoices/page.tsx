@@ -40,6 +40,7 @@ export default function ClientInvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "bank" | "cash" | "crypto">("card");
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
@@ -106,6 +107,23 @@ export default function ClientInvoicesPage() {
       setPaymentError(error?.response?.data?.message || "Failed to process payment");
     } finally {
       setPaymentLoading(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoice: Invoice) => {
+    try {
+      const response = await API.get(`/invoices/${invoice._id}/download`, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice-${invoice.invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Invoice download error:", error);
     }
   };
 
@@ -225,10 +243,10 @@ export default function ClientInvoicesPage() {
 
               <div style={styles.cardFooter}>
                 <div style={styles.footerActions}>
-                  <button style={styles.actionBtn} className="action-btn-hover">
+                  <button style={styles.actionBtn} className="action-btn-hover" onClick={() => setViewInvoice(invoice)}>
                     <Eye size={16} /> <span className="hide-mobile">Details</span>
                   </button>
-                  <button style={styles.actionBtn} className="action-btn-hover">
+                  <button style={styles.actionBtn} className="action-btn-hover" onClick={() => handleDownloadInvoice(invoice)}>
                     <Download size={16} /> <span className="hide-mobile">Receipt</span>
                   </button>
                 </div>
@@ -330,6 +348,27 @@ export default function ClientInvoicesPage() {
               <option value="crypto">Crypto</option>
             </select>
             {paymentError && <p style={styles.modalError}>{paymentError}</p>}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(viewInvoice)}
+        onClose={() => setViewInvoice(null)}
+        title={viewInvoice ? `Invoice ${viewInvoice.invoiceNumber}` : "Invoice Details"}
+      >
+        {viewInvoice && (
+          <div style={styles.paymentModalBody}>
+            <p style={styles.modalText}><strong>Client:</strong> {viewInvoice.clientName}</p>
+            <p style={styles.modalText}><strong>Status:</strong> {viewInvoice.status}</p>
+            <p style={styles.modalText}><strong>Issue Date:</strong> {formatDate(viewInvoice.issueDate)}</p>
+            <p style={styles.modalText}><strong>Due Date:</strong> {formatDate(viewInvoice.dueDate)}</p>
+            {viewInvoice.items.map((item, index) => (
+              <div key={`${item.description}-${index}`} style={styles.invoiceItemRow}>
+                <span>{item.description}</span>
+                <strong>{formatCurrency(item.amount)}</strong>
+              </div>
+            ))}
           </div>
         )}
       </Modal>
@@ -516,6 +555,15 @@ const styles: any = {
     color: "#FF3B30",
     fontSize: "13px",
     fontWeight: 500,
+  },
+  invoiceItemRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+    padding: "10px 12px",
+    borderRadius: "12px",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
   },
   modalPrimaryBtn: {
     padding: "10px 16px",

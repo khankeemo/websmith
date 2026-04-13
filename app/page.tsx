@@ -17,6 +17,9 @@ import {
   Users, 
   BarChart3,
   Briefcase,
+  ExternalLink,
+  Mail,
+  Building2,
   Menu,
   X
 } from "lucide-react";
@@ -24,6 +27,7 @@ import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
 import { getPublishedProjects } from "./projects/services/projectService";
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
+import { createPublicTicket } from "../core/services/ticketService";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -130,36 +134,48 @@ export default function LandingPage() {
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions" }
   ];
 
-  // Satisfied clients data
-  const satisfiedClients = [
-    { name: "Sarah Johnson", company: "TechCorp", project: "E-commerce Platform", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
-    { name: "Michael Chen", company: "FinanceHub", project: "Mobile Banking App", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" },
-    { name: "Emily Rodriguez", company: "HealthPlus", project: "Telemedicine Portal", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150" },
-    { name: "David Kim", company: "RetailPro", project: "Inventory Management", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150" },
-    { name: "Lisa Wang", company: "EduSmart", project: "Learning Management System", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150" },
-    { name: "James Wilson", company: "RealtyGroup", project: "Property Listing Platform", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150" },
-    { name: "Maria Garcia", company: "LogiTrack", project: "Fleet Management System", avatar: "https://images.unsplash.com/photo-1567532939604-b6c5b0ad2e01?auto=format&fit=crop&q=80&w=150" },
-    { name: "Robert Taylor", company: "MediaHub", project: "Content Streaming Platform", avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150" },
-    { name: "Jennifer Lee", company: "FoodDash", project: "Delivery Optimization App", avatar: "https://images.unsplash.com/photo-1554151228-14d9def656e4?auto=format&fit=crop&q=80&w=150" },
-    { name: "Thomas Brown", company: "TravelEasy", project: "Booking Management System", avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=150" }
-  ];
+  const publicClients = (publishedClients.length > 0 ? publishedClients : []).map((client: any, index: number) => ({
+    id: client._id || `client-${index}`,
+    name: client.name,
+    company: client.company || "Independent client",
+    description:
+      client.address ||
+      client.customId ||
+      "Partnered with Websmith on product delivery, design quality, and long-term support.",
+  }));
 
-  // Developers data
-  const developers = [
-    { id: 1, name: "Md Zahid Hussain", role: "Full Stack Developer", skills: ["React", "Node.js", "Backend Specialist"], experience: "8 years", rating: 4.9, avatar: "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&q=80&w=400", bgImage: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=400" },
-    { id: 2, name: "Md Jahangir", role: "UI/UX Specialist", skills: ["Figma", "TailwindCSS", "Adobe XD"], experience: "6 years", rating: 4.8, avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=400", bgImage: "https://images.unsplash.com/photo-1542744094-3a31f272c490?auto=format&fit=crop&q=80&w=400" },
-    { id: 3, name: "Mohammed Kalam Khan", role: "Senior Advisor & Analyst", skills: ["Strategy", "Architecture", "Cloud"], experience: "12 years", rating: 5.0, avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=400", bgImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=400" },
-    { id: 4, name: "Sarah Chen", role: "Mobile App Specialist", skills: ["React Native", "Flutter", "Swift"], experience: "7 years", rating: 4.9, avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150", bgImage: "https://images.unsplash.com/photo-1512941937669-90a1358233a4?auto=format&fit=crop&q=80&w=400" },
-    { id: 5, name: "Alex Rivera", role: "AI Engineer", skills: ["Python", "TensorFlow", "PyTorch"], experience: "5 years", rating: 4.7, avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150", bgImage: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?auto=format&fit=crop&q=80&w=400" },
-    { id: 6, name: "Priya Sharma", role: "QA Automation Lead", skills: ["Cypress", "Selenium", "Jest"], experience: "6 years", rating: 4.8, avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150", bgImage: "https://images.unsplash.com/photo-1484417894907-623942c8ee29?auto=format&fit=crop&q=80&w=400" },
-  ];
+  const publicDevelopers = publishedDevelopers.map((developer: any, index: number) => ({
+    id: developer._id || `dev-${index}`,
+    name: developer.name,
+    role: developer.headline || "Software Developer",
+    skills: developer.skills?.length ? developer.skills : ["Engineering", "Delivery"],
+    experience: developer.experienceYears || 0,
+    avatar: developer.avatar || "",
+    bio: developer.bio || "Experienced engineer focused on shipping resilient digital products.",
+  }));
 
-  // Testimonials
-  const testimonials = [
-    { name: "John Davis", company: "TechCorp", text: "Websmith transformed our business with their exceptional development team. Highly recommended!", rating: 5, avatar: "JD" },
-    { name: "Sarah Miller", company: "FinanceHub", text: "Professional, responsive, and technically brilliant. Best decision we made this year.", rating: 5, avatar: "SM" },
-    { name: "David Wilson", company: "HealthPlus", text: "The team delivered beyond our expectations. Outstanding quality and support.", rating: 5, avatar: "DW" }
-  ];
+  const reviewCards = [...Array(2)].flatMap((_, groupIndex) =>
+    [
+      ...publicClients.map((client, index) => ({
+        id: `client-review-${groupIndex}-${index}`,
+        name: client.name,
+        company: client.company,
+        quote: `${client.company} trusted Websmith for delivery clarity, product quality, and dependable communication.`,
+      })),
+      ...publicDevelopers.map((developer, index) => ({
+        id: `dev-review-${groupIndex}-${index}`,
+        name: developer.name,
+        company: developer.role,
+        quote: `${developer.name} brings strong ownership across ${developer.skills.slice(0, 2).join(" and ")}.`,
+      })),
+      ...publishedProjects.slice(0, 6).map((project: any, index: number) => ({
+        id: `project-review-${groupIndex}-${index}`,
+        name: project.name,
+        company: project.client || "Published Project",
+        quote: `${project.name} reflects Websmith's focus on polished execution and real-world launch readiness.`,
+      })),
+    ].slice(0, 12)
+  );
 
   return (
     <div style={styles.container}>
@@ -327,7 +343,7 @@ export default function LandingPage() {
       {publishedProjects.length > 0 && (
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>Published Projects</h2>
-          <p style={styles.sectionSubtitle}>Live work we are actively delivering for clients.</p>
+          <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
           <div style={styles.featuresGrid}>
             {publishedProjects.slice(0, 6).map((project: any) => (
               <div key={project._id} style={styles.featureCard} className="feature-card">
@@ -335,7 +351,14 @@ export default function LandingPage() {
                 <h3 style={styles.featureTitle}>{project.name}</h3>
                 <p style={styles.featureDesc}>{project.description}</p>
                 <p style={{ ...styles.clientCompany, marginTop: "12px" }}>{project.client}</p>
-                <p style={styles.clientProject}>{project.status} • {project.progress || 0}% complete</p>
+                {project.publicUrl ? (
+                  <a href={project.publicUrl} target="_blank" rel="noreferrer" style={styles.projectLink}>
+                    <span>{project.publicUrl}</span>
+                    <ExternalLink size={14} />
+                  </a>
+                ) : (
+                  <p style={styles.projectLinkMuted}>Hosted project URL will appear here once added from the admin panel.</p>
+                )}
               </div>
             ))}
           </div>
@@ -371,19 +394,14 @@ export default function LandingPage() {
         <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
         <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
         <div style={styles.clientGrid} className="landing-client-grid">
-          {(publishedClients.length > 0 ? publishedClients.map((client: any) => ({
-            name: client.name,
-            company: client.company || client.customId || "Featured Client",
-            project: client.customId || "Published profile",
-            avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150",
-          })) : satisfiedClients).map((client, index) => (
-            <div key={index} style={styles.clientCard} className="client-card">
+          {publicClients.map((client, index) => (
+            <div key={client.id || index} style={styles.clientCard} className="client-card">
               <div style={styles.clientAvatarContainer}>
-                <img src={client.avatar} alt={client.name} style={styles.clientAvatarImg} />
+                <Building2 size={22} color="#007AFF" />
               </div>
               <h4 style={styles.clientName}>{client.name}</h4>
               <p style={styles.clientCompany}>{client.company}</p>
-              <p style={styles.clientProject}>{client.project}</p>
+              <p style={styles.clientProject}>{client.description}</p>
             </div>
           ))}
         </div>
@@ -394,31 +412,17 @@ export default function LandingPage() {
         <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
         <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
         <div style={styles.developerGrid} className="landing-developer-grid">
-          {(publishedDevelopers.length > 0
-            ? publishedDevelopers.map((developer: any, index: number) => ({
-                id: developer._id || index,
-                name: developer.name,
-                role: developer.headline || "Developer",
-                skills: developer.skills?.length ? developer.skills : ["Delivery", "Engineering"],
-                experience: `${developer.experienceYears || 0} years`,
-                rating: 5,
-                avatar: developer.avatar || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150",
-                bgImage: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=400",
-              }))
-            : developers).map((dev) => (
+          {publicDevelopers.map((dev) => (
             <div 
               key={dev.id} 
               style={{
                 ...styles.developerCard,
-                backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)), url(${(dev as any).bgImage})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
+                background: "linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%)",
               }} 
               className="developer-card"
-              onClick={() => router.push(`/developer/${dev.id}`)}
             >
               <div style={styles.circleMask}>
-                <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} />
+                {dev.avatar ? <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} /> : <span style={styles.circleInitial}>{dev.name.charAt(0)}</span>}
               </div>
               <h4 style={styles.developerName}>{dev.name}</h4>
               <p style={styles.developerRole}>{dev.role}</p>
@@ -427,13 +431,8 @@ export default function LandingPage() {
                   <span key={i} style={styles.skillTag}>{skill}</span>
                 ))}
               </div>
-              <p style={styles.developerExperience}>📅 {dev.experience} experience</p>
-              <div style={styles.rating}>
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={14} fill={i < Math.floor(dev.rating) ? "#FFB800" : "none"} color="#FFB800" />
-                ))}
-                <span style={styles.ratingValue}>{dev.rating}</span>
-              </div>
+              <p style={styles.developerExperience}>{dev.experience}+ years experience</p>
+              <p style={styles.developerBlurb}>{dev.bio}</p>
             </div>
           ))}
         </div>
@@ -442,21 +441,23 @@ export default function LandingPage() {
       {/* Testimonials */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>What Our Clients Say</h2>
-        <p style={styles.sectionSubtitle}>Real stories from real customers</p>
-        <div style={styles.testimonialGrid}>
-          {testimonials.map((testimonial, index) => (
-            <div key={index} style={styles.testimonialCard} className="testimonial-card">
-              <div style={styles.testimonialAvatar}>{testimonial.avatar}</div>
+        <p style={styles.sectionSubtitle}>Continuous feedback highlights from across projects, clients, and delivery teams.</p>
+        <div style={styles.marqueeViewport}>
+          <div style={styles.marqueeTrack} className="landing-marquee-track">
+          {reviewCards.map((testimonial) => (
+            <div key={testimonial.id} style={styles.testimonialCard} className="testimonial-card">
+              <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
               <div style={styles.testimonialStars}>
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} size={16} fill="#FFB800" color="#FFB800" />
                 ))}
               </div>
-              <p style={styles.testimonialText}>"{testimonial.text}"</p>
+              <p style={styles.testimonialText}>"{testimonial.quote}"</p>
               <h4 style={styles.testimonialName}>{testimonial.name}</h4>
               <p style={styles.testimonialCompany}>{testimonial.company}</p>
             </div>
           ))}
+          </div>
         </div>
       </section>
 
@@ -502,16 +503,27 @@ export default function LandingPage() {
               <div style={styles.contactGlassCard}>
                 <form 
                   style={styles.contactForm}
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     setIsSubmitting(true);
-                    // Simulate API call
-                    setTimeout(() => {
-                      setIsSubmitting(false);
+                    setSubmitStatus(null);
+                    try {
+                      await createPublicTicket({
+                        name: contactState.name,
+                        email: contactState.email,
+                        company: "",
+                        subject: contactState.subject,
+                        message: contactState.message,
+                      });
                       setSubmitStatus("success");
                       setContactState({ name: "", email: "", subject: "", message: "" });
+                    } catch (error) {
+                      console.error("Public inquiry error:", error);
+                      setSubmitStatus("error");
+                    } finally {
+                      setIsSubmitting(false);
                       setTimeout(() => setSubmitStatus(null), 5000);
-                    }, 1500);
+                    }
                   }}
                 >
                   <div style={styles.formRow}>
@@ -573,7 +585,12 @@ export default function LandingPage() {
                   
                   {submitStatus === "success" && (
                     <p style={{ color: "#34C759", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
-                      Successfully sent! Our team will contact you soon.
+                      Inquiry submitted successfully. It is now available in the admin query thread.
+                    </p>
+                  )}
+                  {submitStatus === "error" && (
+                    <p style={{ color: "#FF3B30", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
+                      We could not send your message right now. Please try again.
                     </p>
                   )}
                 </form>
@@ -713,6 +730,18 @@ export default function LandingPage() {
         }
         .testimonial-card:hover { 
           transform: translateY(-3px); 
+        }
+
+        .landing-marquee-track {
+          animation: landingMarquee 34s linear infinite;
+          will-change: transform;
+        }
+        .landing-marquee-track:hover {
+          animation-play-state: paused;
+        }
+        @keyframes landingMarquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
         }
         
         /* Social Icon Hover */
@@ -1107,6 +1136,21 @@ const styles: any = {
     color: "#6C6C70",
     lineHeight: 1.5,
   },
+  projectLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    color: "#0A66FF",
+    fontSize: "13px",
+    fontWeight: 600,
+    textDecoration: "none",
+    wordBreak: "break-all" as const,
+  },
+  projectLinkMuted: {
+    margin: 0,
+    color: "#8E8E93",
+    fontSize: "12px",
+  },
   
   // Stats Section
   statsSection: {
@@ -1150,9 +1194,12 @@ const styles: any = {
     width: "60px",
     height: "60px",
     borderRadius: "50%",
-    overflow: "hidden",
     margin: "0 auto 16px",
     border: "2px solid #E3F2FF",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F2F7FF",
   },
   clientAvatarImg: {
     width: "100%",
@@ -1171,8 +1218,9 @@ const styles: any = {
     marginBottom: "8px",
   },
   clientProject: {
-    fontSize: "12px",
+    fontSize: "13px",
     color: "#6C6C70",
+    lineHeight: 1.6,
   },
   
   // Developer Grid
@@ -1238,6 +1286,12 @@ const styles: any = {
     color: "#6C6C70",
     marginBottom: "8px",
   },
+  developerBlurb: {
+    fontSize: "13px",
+    color: "#6C6C70",
+    lineHeight: 1.6,
+    margin: 0,
+  },
   rating: {
     display: "flex",
     alignItems: "center",
@@ -1257,12 +1311,24 @@ const styles: any = {
     gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
     gap: "24px",
   },
+  marqueeViewport: {
+    overflow: "hidden",
+    maskImage: "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+  },
+  marqueeTrack: {
+    display: "flex",
+    gap: "20px",
+    width: "max-content",
+    paddingRight: "20px",
+  },
   testimonialCard: {
     padding: "28px",
     backgroundColor: "#F9F9FB",
     borderRadius: "20px",
     border: "1px solid #E5E5EA",
     textAlign: "center",
+    width: "320px",
+    flexShrink: 0,
   },
   testimonialAvatar: {
     width: "60px",

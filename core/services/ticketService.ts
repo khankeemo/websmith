@@ -2,11 +2,15 @@ import API from "./apiService";
 
 export interface Ticket {
   _id: string;
+  source?: "client_portal" | "public_contact";
   clientId: {
     _id: string;
     name: string;
     email: string;
-  } | string;
+  } | string | null;
+  contactName?: string;
+  contactEmail?: string;
+  contactCompany?: string;
   developerId?: {
     _id: string;
     name: string;
@@ -52,11 +56,27 @@ export const createTicket = async (payload: {
   return response.data.data as Ticket;
 };
 
+export const createPublicTicket = async (payload: {
+  name: string;
+  email: string;
+  company?: string;
+  subject: string;
+  message: string;
+}) => {
+  const response = await API.post("/tickets/public", payload);
+  return response.data.data as Ticket;
+};
+
 export const updateTicketStatus = async (
   id: string,
   payload: { status: Ticket["status"]; resolution?: string; reopenMessage?: string }
 ) => {
   const response = await API.put(`/tickets/${id}/status`, payload);
+  return response.data.data as Ticket;
+};
+
+export const addTicketReply = async (id: string, message: string) => {
+  const response = await API.post(`/tickets/${id}/replies`, { message });
   return response.data.data as Ticket;
 };
 

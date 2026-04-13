@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createTicket, getTickets, Ticket, updateTicketStatus } from "../../../core/services/ticketService";
 import { getProjects, Project } from "../../projects/services/projectService";
 import { LayoutGrid, List, Columns, Eye, RotateCcw, X, Clock, CheckCircle, MessageSquarePlus } from "lucide-react";
+import Modal from "../../../components/ui/Modal";
 
 type ViewMode = "list" | "grid" | "kanban";
 
@@ -16,6 +17,7 @@ export default function ClientTicketsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
   const [form, setForm] = useState({
     projectId: "",
     subject: "",
@@ -42,7 +44,7 @@ export default function ClientTicketsPage() {
   }, []);
 
   const scrollToRaiseForm = () => {
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setIsQueryModalOpen(true);
   };
 
   const handleReopenTicket = async (ticket: Ticket) => {
@@ -67,6 +69,7 @@ export default function ClientTicketsPage() {
       setForm({ projectId: "", subject: "", description: "", priority: "medium" });
       setSubmitMessage("Your query was submitted successfully. It has been emailed to admin and added to the admin inbox.");
       await loadData();
+      setIsQueryModalOpen(false);
     } catch (error: any) {
       setSubmitError(typeof error === "string" ? error : error?.message || "Failed to submit query");
     } finally {
@@ -143,56 +146,14 @@ export default function ClientTicketsPage() {
             Raise Query
           </button>
 
-          <div ref={formRef}>
-            <form onSubmit={handleSubmit} style={styles.formCard}>
-              {submitMessage && <div style={styles.successBox}>{submitMessage}</div>}
-              {submitError && <div style={styles.errorBox}>{submitError}</div>}
-
-              <label style={styles.label}>Project</label>
-              <select
-                value={form.projectId}
-                onChange={(e) => setForm({ ...form, projectId: e.target.value })}
-                style={styles.input}
-              >
-                <option value="">General support</option>
-                {projects.map((project) => (
-                  <option key={project._id} value={project._id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-
-              <label style={styles.label}>Subject</label>
-              <input
-                value={form.subject}
-                onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                style={styles.input}
-                required
-              />
-
-              <label style={styles.label}>Description</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                style={styles.textarea}
-                required
-              />
-
-              <label style={styles.label}>Priority</label>
-              <select
-                value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value as any })}
-                style={styles.input}
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-
-              <button type="submit" style={styles.button} disabled={submitting}>
-                {submitting ? "Submitting..." : "Submit Query"}
-              </button>
-            </form>
+          <div ref={formRef} style={styles.formCard}>
+            <h3 style={styles.listTitle}>Raise a new query</h3>
+            <p style={styles.historySubtitle}>Open the form only when you need it, submit, and the dialog closes automatically.</p>
+            {submitMessage && <div style={styles.successBox}>{submitMessage}</div>}
+            {submitError && <div style={styles.errorBox}>{submitError}</div>}
+            <button type="button" onClick={() => setIsQueryModalOpen(true)} style={styles.button}>
+              Open Query Form
+            </button>
           </div>
 
           <button type="button" onClick={scrollToRaiseForm} style={styles.raiseQueryBtnOutline}>
@@ -424,6 +385,63 @@ export default function ClientTicketsPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={isQueryModalOpen}
+        onClose={() => setIsQueryModalOpen(false)}
+        title="Raise Query"
+        footer={
+          <>
+            <button type="button" onClick={() => setIsQueryModalOpen(false)} style={styles.modalSecondaryBtn}>Cancel</button>
+            <button type="submit" form="client-query-form" style={styles.modalPrimaryBtn} disabled={submitting}>
+              {submitting ? "Submitting..." : "Submit Query"}
+            </button>
+          </>
+        }
+      >
+        <form id="client-query-form" onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <label style={styles.label}>Project</label>
+          <select
+            value={form.projectId}
+            onChange={(e) => setForm({ ...form, projectId: e.target.value })}
+            style={styles.input}
+          >
+            <option value="">General support</option>
+            {projects.map((project) => (
+              <option key={project._id} value={project._id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+
+          <label style={styles.label}>Subject</label>
+          <input
+            value={form.subject}
+            onChange={(e) => setForm({ ...form, subject: e.target.value })}
+            style={styles.input}
+            required
+          />
+
+          <label style={styles.label}>Description</label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            style={styles.textarea}
+            required
+          />
+
+          <label style={styles.label}>Priority</label>
+          <select
+            value={form.priority}
+            onChange={(e) => setForm({ ...form, priority: e.target.value as any })}
+            style={styles.input}
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </form>
+      </Modal>
 
       <style>{`
         @media (max-width: 900px) {
@@ -686,5 +704,23 @@ const styles: any = {
     alignItems: "center",
     justifyContent: "center",
     gap: "8px",
+  },
+  modalPrimaryBtn: {
+    padding: "10px 16px",
+    borderRadius: "12px",
+    border: "none",
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  modalSecondaryBtn: {
+    padding: "10px 16px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    fontWeight: 600,
+    cursor: "pointer",
   },
 };
