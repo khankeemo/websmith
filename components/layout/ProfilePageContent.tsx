@@ -1,11 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Mail, Phone, Building, Edit3, Calendar } from "lucide-react";
+import { User, Mail, Phone, Building, Edit3, Calendar, Lock } from "lucide-react";
 import { AuthUser, getStoredUser } from "../../lib/auth";
+import API from "../../core/services/apiService";
+import ProfileModal from "./ProfileModal";
+import PasswordModal from "./PasswordModal";
 
 export default function ProfilePageContent() {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   useEffect(() => {
     const storedUser = getStoredUser();
@@ -40,7 +45,24 @@ export default function ProfilePageContent() {
             <h1 style={styles.name}>{user.name}</h1>
             <p style={styles.roleBadge}>{user.role.toUpperCase()}</p>
           </div>
-
+          <div style={styles.actionButtons}>
+            <button 
+              onClick={() => setIsProfileModalOpen(true)}
+              style={styles.editButton}
+              className="profile-edit-btn"
+            >
+              <Edit3 size={18} />
+              <span>Edit Profile</span>
+            </button>
+            <button 
+              onClick={() => setIsPasswordModalOpen(true)}
+              style={styles.passwordButton}
+              className="profile-password-btn"
+            >
+              <Lock size={18} />
+              <span>Change Password</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -99,7 +121,19 @@ export default function ProfilePageContent() {
         </div>
       </div>
 
+      {/* Profile Modal */}
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        user={user}
+        onUpdate={(updated) => setUser(updated)}
+      />
 
+      {/* Change Password Modal */}
+      <PasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
 
       <style>{`
         @keyframes slideUp {
@@ -113,6 +147,14 @@ export default function ProfilePageContent() {
           background-color: #0056b3 !important;
           transform: translateY(-2px);
           box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+        }
+        .profile-password-btn {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .profile-password-btn:hover {
+          background-color: #059669 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
         }
       `}</style>
     </div>
@@ -193,6 +235,11 @@ const styles: any = {
     borderRadius: "100px",
     letterSpacing: "1px",
   },
+  actionButtons: {
+    display: "flex",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
   editButton: {
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
@@ -205,7 +252,19 @@ const styles: any = {
     alignItems: "center",
     gap: "10px",
     cursor: "pointer",
-    marginBottom: "10px",
+  },
+  passwordButton: {
+    backgroundColor: "#10B981",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: "14px",
+    padding: "12px 24px",
+    fontSize: "15px",
+    fontWeight: 600,
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    cursor: "pointer",
   },
   detailsGrid: {
     display: "grid",

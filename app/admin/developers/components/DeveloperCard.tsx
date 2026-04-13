@@ -60,7 +60,7 @@ export default function DeveloperCard({ developer, viewMode, onEdit, onDelete, o
             {developer.status}
           </span>
           {developer.published && (
-            <span style={{ ...styles.statusBadge, backgroundColor: "#E3F2FF", color: "#007AFF" }}>
+            <span style={{ ...styles.statusBadge, backgroundColor: "rgba(0, 122, 255, 0.1)", color: "#007AFF" }}>
               Published
             </span>
           )}
@@ -110,28 +110,28 @@ export default function DeveloperCard({ developer, viewMode, onEdit, onDelete, o
 }
 
 const styles: Record<string, any> = {
-  card: { background: "#fff", border: "1px solid #E5E5EA", borderRadius: "20px", overflow: "hidden" },
+  card: { background: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "20px", overflow: "hidden" },
   cardHeader: { padding: "20px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
   avatarLarge: { width: "64px", height: "64px", borderRadius: "32px", background: "rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "28px", fontWeight: 700, color: "#fff" },
   badges: { display: "flex", gap: "8px" },
   statusBadge: { padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 600, textTransform: "capitalize" },
   cardBody: { padding: "20px" },
-  name: { margin: 0, fontSize: "20px", fontWeight: 600, color: "#1C1C1E" },
+  name: { margin: 0, fontSize: "20px", fontWeight: 600, color: "var(--text-primary)" },
   customId: { margin: "4px 0", fontSize: "13px", color: "#007AFF", fontWeight: 600 },
-  email: { margin: "4px 0 12px", fontSize: "14px", color: "#8E8E93" },
-  headline: { margin: "12px 0", fontSize: "14px", color: "#3A3A3C", fontStyle: "italic" },
+  email: { margin: "4px 0 12px", fontSize: "14px", color: "var(--text-secondary)" },
+  headline: { margin: "12px 0", fontSize: "14px", color: "var(--text-primary)", fontStyle: "italic" },
   skills: { display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" },
-  skill: { padding: "4px 10px", background: "#F2F2F7", borderRadius: "12px", fontSize: "12px", color: "#3A3A3C" },
-  moreSkill: { padding: "4px 10px", background: "#E5E5EA", borderRadius: "12px", fontSize: "12px", color: "#8E8E93" },
-  meta: { fontSize: "13px", color: "#8E8E93" },
-  cardActions: { display: "flex", gap: "8px", padding: "16px 20px", borderTop: "1px solid #E5E5EA" },
+  skill: { padding: "4px 10px", background: "var(--bg-secondary)", borderRadius: "12px", fontSize: "12px", color: "var(--text-primary)" },
+  moreSkill: { padding: "4px 10px", background: "var(--border-color)", borderRadius: "12px", fontSize: "12px", color: "var(--text-secondary)" },
+  meta: { fontSize: "13px", color: "var(--text-secondary)" },
+  cardActions: { display: "flex", gap: "8px", padding: "16px 20px", borderTop: "1px solid var(--border-color)" },
   primaryBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", padding: "10px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer" },
-  secondaryBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", padding: "10px", background: "#F2F2F7", color: "#1C1C1E", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer" },
+  secondaryBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", padding: "10px", background: "var(--bg-secondary)", color: "var(--text-primary)", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer" },
   dangerBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", padding: "10px", background: "#FF3B30", color: "#fff", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: 600, cursor: "pointer" },
-  listRow: { display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "16px 20px" },
+  listRow: { display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: "16px", background: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "16px 20px" },
   listInfo: { display: "flex", alignItems: "center", gap: "16px" },
   avatar: { width: "48px", height: "48px", borderRadius: "24px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: 700, color: "#fff" },
-  listMeta: { margin: "4px 0 0", fontSize: "13px", color: "#8E8E93" },
+  listMeta: { margin: "4px 0 0", fontSize: "13px", color: "var(--text-secondary)" },
   listActions: { display: "flex", alignItems: "center", gap: "12px" },
   iconBtn: { background: "none", border: "none", cursor: "pointer", padding: "6px" },
 };

@@ -45,6 +45,8 @@ interface Invoice {
     amount: number;
   }>;
   notes?: string;
+  tax?: number;
+  discount?: number;
   createdAt: string;
 }
 
@@ -124,6 +126,49 @@ export default function InvoicesPage() {
     } catch (error) {
       console.error("Delete error:", error);
     }
+  };
+
+  const handleDownload = async (invoice: Invoice) => {
+    try {
+      const response = await API.get(`/invoices/${invoice._id}/download`, {
+        responseType: 'blob'
+      });
+      
+      // Create blob and download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${invoice.invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      alert("Failed to download invoice PDF");
+    }
+  };
+
+  const handleEdit = (invoice: Invoice) => {
+    setEditingInvoice(invoice);
+    setFormState({
+      projectId: invoice.projectId || "",
+      clientId: invoice.clientId || "",
+      billingType: invoice.billingType || "project_completion",
+      milestoneLabel: invoice.milestoneLabel || "",
+      clientName: invoice.clientName,
+      clientEmail: invoice.clientEmail,
+      issueDate: new Date(invoice.issueDate).toISOString().split("T")[0],
+      dueDate: new Date(invoice.dueDate).toISOString().split("T")[0],
+      description: invoice.items[0]?.description || "",
+      quantity: String(invoice.items[0]?.quantity || 1),
+      rate: String(invoice.items[0]?.rate || 0),
+      tax: String(invoice.tax || 0),
+      discount: String(invoice.discount || 0),
+      notes: invoice.notes || "",
+    });
+    setIsModalOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -221,32 +266,59 @@ export default function InvoicesPage() {
     setFormLoading(true);
     setFormError("");
     try {
-      await API.post("/invoices", {
-        projectId: formState.projectId || undefined,
-        clientId: formState.clientId || undefined,
-        billingType: formState.billingType,
-        milestoneLabel: formState.billingType === "milestone" ? formState.milestoneLabel : "",
-        clientName: formState.clientName,
-        clientEmail: formState.clientEmail,
-        issueDate: formState.issueDate,
-        dueDate: formState.dueDate,
-        notes: formState.notes,
-        tax: Number(formState.tax || 0),
-        discount: Number(formState.discount || 0),
-        items: [
-          {
-            description: formState.description,
-            quantity: Number(formState.quantity || 1),
-            rate: Number(formState.rate || 0),
-            amount: Number(formState.quantity || 1) * Number(formState.rate || 0),
-          },
-        ],
-      });
+      if (editingInvoice) {
+        // Update existing invoice
+        await API.put(`/invoices/${editingInvoice._id}`, {
+          projectId: formState.projectId || undefined,
+          clientId: formState.clientId || undefined,
+          billingType: formState.billingType,
+          milestoneLabel: formState.billingType === "milestone" ? formState.milestoneLabel : "",
+          clientName: formState.clientName,
+          clientEmail: formState.clientEmail,
+          issueDate: formState.issueDate,
+          dueDate: formState.dueDate,
+          notes: formState.notes,
+          tax: Number(formState.tax || 0),
+          discount: Number(formState.discount || 0),
+          items: [
+            {
+              description: formState.description,
+              quantity: Number(formState.quantity || 1),
+              rate: Number(formState.rate || 0),
+              amount: Number(formState.quantity || 1) * Number(formState.rate || 0),
+            },
+          ],
+        });
+      } else {
+        // Create new invoice
+        await API.post("/invoices", {
+          projectId: formState.projectId || undefined,
+          clientId: formState.clientId || undefined,
+          billingType: formState.billingType,
+          milestoneLabel: formState.billingType === "milestone" ? formState.milestoneLabel : "",
+          clientName: formState.clientName,
+          clientEmail: formState.clientEmail,
+          issueDate: formState.issueDate,
+          dueDate: formState.dueDate,
+          notes: formState.notes,
+          tax: Number(formState.tax || 0),
+          discount: Number(formState.discount || 0),
+          items: [
+            {
+              description: formState.description,
+              quantity: Number(formState.quantity || 1),
+              rate: Number(formState.rate || 0),
+              amount: Number(formState.quantity || 1) * Number(formState.rate || 0),
+            },
+          ],
+        });
+      }
       setIsModalOpen(false);
+      setEditingInvoice(null);
       resetForm();
       await fetchInvoices();
     } catch (error: any) {
-      setFormError(error?.response?.data?.message || "Failed to create invoice");
+      setFormError(error?.response?.data?.message || "Failed to save invoice");
     } finally {
       setFormLoading(false);
     }
@@ -394,13 +466,10 @@ export default function InvoicesPage() {
                   </td>
                   <td style={styles.td}>
                     <div style={styles.actions}>
-                      <button style={styles.actionBtn} className="action-btn" title="View">
-                        <Eye size={16} />
-                      </button>
-                      <button style={styles.actionBtn} className="action-btn" title="Download">
+                      <button onClick={() => handleDownload(invoice)} style={styles.actionBtn} className="action-btn" title="Download">
                         <Download size={16} />
                       </button>
-                      <button style={styles.actionBtn} className="action-btn" title="Edit">
+                      <button onClick={() => handleEdit(invoice)} style={styles.actionBtn} className="action-btn" title="Edit">
                         <Edit2 size={16} />
                       </button>
                       <button onClick={() => handleDelete(invoice._id)} style={{ ...styles.actionBtn, ...styles.deleteBtn }} className="action-btn delete-hover" title="Delete">
@@ -437,14 +506,15 @@ export default function InvoicesPage() {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
+          setEditingInvoice(null);
           resetForm();
         }}
-        title="Create Invoice"
+        title={editingInvoice ? "Edit Invoice" : "Create Invoice"}
         footer={
           <>
-            <button type="button" onClick={() => setIsModalOpen(false)} style={styles.modalSecondaryBtn}>Cancel</button>
+            <button type="button" onClick={() => { setIsModalOpen(false); setEditingInvoice(null); resetForm(); }} style={styles.modalSecondaryBtn}>Cancel</button>
             <button type="button" onClick={handleCreateInvoice} style={styles.modalPrimaryBtn} disabled={formLoading}>
-              {formLoading ? "Creating..." : "Create Invoice"}
+              {formLoading ? (editingInvoice ? "Updating..." : "Creating...") : (editingInvoice ? "Update Invoice" : "Create Invoice")}
             </button>
           </>
         }
