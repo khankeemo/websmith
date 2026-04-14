@@ -17,12 +17,14 @@ import {
   Eye
 } from "lucide-react";
 import API from "@/core/services/apiService";
+import Modal from "@/components/ui/Modal";
 
 interface Payment {
   _id: string;
   invoiceId: string;
   invoiceNumber: string;
   clientName: string;
+  clientEmail: string;
   amount: number;
   method: "card" | "bank" | "cash" | "crypto";
   status: "completed" | "pending" | "failed" | "refunded";
@@ -36,6 +38,9 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   useEffect(() => {
     fetchPayments();
@@ -96,6 +101,37 @@ export default function PaymentsPage() {
     const matchesFilter = filterStatus === "all" || payment.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
+
+  const handleViewDetails = (payment: Payment) => {
+    setSelectedPayment(payment);
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedPayment(null);
+  };
+
+  const handleDownloadReceipt = async (payment: Payment) => {
+    try {
+      setIsDownloadingReceipt(true);
+      setDownloadError("");
+
+      const response = await API.get(`/payments/${payment._id}/receipt`, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `receipt-${payment.invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error("Receipt download error:", error);
+      setDownloadError(error?.response?.data?.message || "Failed to download receipt");
+    } finally {
+      setIsDownloadingReceipt(false);
+    }
+  };
 
   const stats = {
     total: payments.length,
@@ -189,6 +225,12 @@ export default function PaymentsPage() {
         </select>
       </div>
 
+      {downloadError && (
+        <div style={styles.errorBanner} role="alert">
+          {downloadError}
+        </div>
+      )}
+
       {/* Payments List */}
       {filteredPayments.length === 0 ? (
         <div style={styles.emptyState}>
@@ -230,17 +272,71 @@ export default function PaymentsPage() {
                 </div>
               </div>
               <div style={styles.paymentActions} className="payment-actions-stack">
-                <button style={styles.viewButton} className="action-btn">
+                <button style={styles.viewButton} className="action-btn" onClick={() => handleViewDetails(payment)}>
                   <Eye size={14} /> View Details
                 </button>
-                <button style={styles.downloadButton} className="action-btn">
-                  <Download size={14} /> Receipt
+                <button
+                  style={styles.downloadButton}
+                  className="action-btn"
+                  onClick={() => handleDownloadReceipt(payment)}
+                  disabled={isDownloadingReceipt}
+                >
+                  <Download size={14} /> {isDownloadingReceipt ? 'Downloading...' : 'Receipt'}
                 </button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(selectedPayment)}
+        onClose={handleCloseDetails}
+        title="Payment Details"
+        maxWidth="560px"
+      >
+        {selectedPayment ? (
+          <div style={styles.modalContent}>
+            <div style={styles.modalGrid}>
+              <div>
+                <div style={styles.modalLabel}>Invoice</div>
+                <div style={styles.modalValue}>#{selectedPayment.invoiceNumber}</div>
+              </div>
+              <div>
+                <div style={styles.modalLabel}>Status</div>
+                <div style={styles.modalValue}>{selectedPayment.status}</div>
+              </div>
+              <div>
+                <div style={styles.modalLabel}>Amount</div>
+                <div style={styles.modalValue}>{formatCurrency(selectedPayment.amount)}</div>
+              </div>
+              <div>
+                <div style={styles.modalLabel}>Payment Date</div>
+                <div style={styles.modalValue}>{formatDate(selectedPayment.date)}</div>
+              </div>
+              <div>
+                <div style={styles.modalLabel}>Payment Method</div>
+                <div style={styles.modalValue}>{selectedPayment.method}</div>
+              </div>
+              <div>
+                <div style={styles.modalLabel}>Transaction ID</div>
+                <div style={styles.modalValue}>{selectedPayment.transactionId}</div>
+              </div>
+            </div>
+            <div style={styles.modalSection}>
+              <div style={styles.modalLabel}>Client</div>
+              <div style={styles.modalValue}>{selectedPayment.clientName}</div>
+              <div style={styles.modalValue}>{selectedPayment.clientEmail}</div>
+            </div>
+            {selectedPayment.notes && (
+              <div style={styles.modalSection}>
+                <div style={styles.modalLabel}>Notes</div>
+                <div style={styles.modalValue}>{selectedPayment.notes}</div>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </Modal>
 
       <style>{`
         .input-focus:focus {
@@ -495,5 +591,42 @@ const styles: any = {
     fontSize: "13px",
     color: "#FFFFFF",
     fontWeight: 600,
+  },
+  errorBanner: {
+    backgroundColor: "#FFE9E9",
+    color: "#BF1E2E",
+    border: "1px solid #F5C6CB",
+    borderRadius: "12px",
+    padding: "14px 16px",
+    marginBottom: "20px",
+  },
+  modalContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px",
+  },
+  modalGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "16px",
+    marginBottom: "16px",
+  },
+  modalLabel: {
+    fontSize: "12px",
+    color: "var(--text-secondary)",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    marginBottom: "6px",
+  },
+  modalValue: {
+    fontSize: "14px",
+    color: "var(--text-primary)",
+    fontWeight: 600,
+    lineHeight: 1.6,
+  },
+  modalSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
   },
 };
