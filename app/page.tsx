@@ -292,7 +292,12 @@ export default function LandingPage() {
       "Partnered with Websmith on product delivery, design quality, and long-term support.",
   }));
 
-  const publicDevelopers = (publishedDevelopers.length > 0 ? publishedDevelopers : dummyDevelopers).map((developer: any, index: number) => ({
+  const effectiveDevelopers =
+    publishedDevelopers.length >= 3
+      ? publishedDevelopers
+      : [...publishedDevelopers, ...dummyDevelopers].slice(0, 6);
+
+  const publicDevelopers = effectiveDevelopers.map((developer: any, index: number) => ({
     id: developer._id || developer.id || `dev-${index}`,
     name: developer.name,
     role: developer.headline || developer.role || "Software Developer",
@@ -1354,7 +1359,7 @@ const styles: any = {
     display: "block",
     maxWidth: "1380px",
     margin: "0 auto",
-    padding: "0 16px",
+    padding: 0,
   },
   carouselViewport: {
     overflow: "hidden",
@@ -1366,7 +1371,7 @@ const styles: any = {
     display: "flex",
     width: "max-content",
     alignItems: "stretch",
-    padding: "6px 0",
+    padding: 0,
   },
   carouselSlide: {
     flexShrink: 0,
