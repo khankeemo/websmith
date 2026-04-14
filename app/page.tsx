@@ -9,8 +9,6 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { 
   ArrowRight, 
-  ChevronLeft,
-  ChevronRight,
   Star, 
   Code, 
   Rocket, 
@@ -53,6 +51,9 @@ function AutoCarousel<T>({
   const trackRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -90,31 +91,42 @@ function AutoCarousel<T>({
     return () => window.cancelAnimationFrame(rafId);
   }, [isPaused, isMobile, items.length, speedDesktop, speedMobile]);
 
-  const scrollByStep = (direction: 1 | -1) => {
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const track = trackRef.current;
     if (!track) return;
-    const step = Math.max(track.clientWidth * 0.75, itemMinWidth + gap);
-    track.scrollBy({ left: direction * step, behavior: "smooth" });
+    isDraggingRef.current = true;
+    dragStartXRef.current = event.clientX;
+    dragStartScrollRef.current = track.scrollLeft;
+    setIsPaused(true);
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const track = trackRef.current;
+    if (!track || !isDraggingRef.current) return;
+    const delta = event.clientX - dragStartXRef.current;
+    track.scrollLeft = dragStartScrollRef.current - delta;
+  };
+
+  const onPointerUpOrLeave = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsPaused(false);
   };
 
   const loopItems = [...items, ...items];
 
   return (
     <div style={styles.carouselRoot}>
-      <button
-        type="button"
-        aria-label={`Previous ${ariaLabel}`}
-        onClick={() => scrollByStep(1)}
-        style={styles.carouselArrow}
-        className="carousel-arrow"
-      >
-        <ChevronLeft size={18} />
-      </button>
       <div
         ref={trackRef}
         style={styles.carouselViewport}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUpOrLeave}
+        onPointerLeave={onPointerUpOrLeave}
+        onPointerCancel={onPointerUpOrLeave}
         onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
+        onMouseLeave={onPointerUpOrLeave}
         onTouchStart={() => setIsPaused(true)}
         onTouchEnd={() => setIsPaused(false)}
         aria-label={ariaLabel}
@@ -127,15 +139,6 @@ function AutoCarousel<T>({
           ))}
         </div>
       </div>
-      <button
-        type="button"
-        aria-label={`Next ${ariaLabel}`}
-        onClick={() => scrollByStep(-1)}
-        style={styles.carouselArrow}
-        className="carousel-arrow"
-      >
-        <ChevronRight size={18} />
-      </button>
     </div>
   );
 }
@@ -947,14 +950,6 @@ export default function LandingPage() {
           transform: translateX(4px);
         }
 
-        .carousel-arrow {
-          transition: all 0.2s ease;
-        }
-        .carousel-arrow:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 14px rgba(0,0,0,0.14);
-        }
-
         .public-mobile-menu-overlay {
           opacity: 1;
           transition: opacity 0.2s ease;
@@ -1025,10 +1020,6 @@ export default function LandingPage() {
           .landing-footer-content {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             gap: 24px !important;
-          }
-          .carousel-arrow {
-            width: 32px !important;
-            height: 32px !important;
           }
         }
 
@@ -1360,30 +1351,16 @@ const styles: any = {
     padding: "60px 0",
   },
   carouselRoot: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
+    display: "block",
     maxWidth: "1380px",
     margin: "0 auto",
-    padding: "0 12px",
-  },
-  carouselArrow: {
-    width: "36px",
-    height: "36px",
-    borderRadius: "999px",
-    border: "1px solid #D1D1D6",
-    backgroundColor: "#FFFFFF",
-    color: "#1C1C1E",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    flexShrink: 0,
+    padding: "0 16px",
   },
   carouselViewport: {
     overflow: "hidden",
-    flex: 1,
     minWidth: 0,
+    cursor: "grab",
+    touchAction: "pan-y",
   },
   carouselTrack: {
     display: "flex",
