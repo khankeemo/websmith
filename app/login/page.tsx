@@ -542,9 +542,9 @@ const styles: any = {
   },
 
   nav: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "16px 24px",
+    maxWidth: "100%",
+    margin: "0",
+    padding: "16px 0",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -554,6 +554,7 @@ const styles: any = {
     alignItems: "center",
     gap: "32px",
     minWidth: 0,
+    paddingLeft: "24px",
   },
 
   logoArea: {
@@ -592,6 +593,7 @@ const styles: any = {
     display: "flex",
     gap: "28px",
     alignItems: "center",
+    paddingRight: "24px",
   },
 
   navLink: {
@@ -607,6 +609,7 @@ const styles: any = {
     display: "flex",
     gap: "12px",
     alignItems: "center",
+    paddingRight: "24px",
   },
 
   loginButton: {

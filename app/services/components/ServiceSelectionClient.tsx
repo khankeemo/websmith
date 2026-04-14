@@ -150,8 +150,8 @@ export default function ServiceSelectionClient() {
 
 const styles: any = {
   wrapper: {
-    maxWidth: "1160px",
-    margin: "0 auto",
+    maxWidth: "100%",
+    margin: "0",
     padding: "40px 24px 80px",
     display: "flex",
     flexDirection: "column",
@@ -161,6 +161,9 @@ const styles: any = {
   },
   heroCard: {
     padding: "56px 48px",
+    maxWidth: "1200px",
+    margin: "0 auto",
+    width: "100%",
     borderRadius: "32px",
     background: "var(--bg-secondary)",
     border: "1.5px solid var(--border-color)",

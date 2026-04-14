@@ -894,9 +894,9 @@ const styles: any = {
     zIndex: 1300,
   },
   navContent: {
-    maxWidth: "1440px",
-    margin: "0 auto",
-    padding: "16px 24px",
+    maxWidth: "100%",
+    margin: "0",
+    padding: "16px 0",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -906,6 +906,7 @@ const styles: any = {
     alignItems: "center",
     gap: "32px",
     minWidth: 0,
+    paddingLeft: "24px",
   },
   logo: {
     display: "flex",
@@ -937,6 +938,7 @@ const styles: any = {
     display: "flex",
     gap: "32px",
     alignItems: "center",
+    paddingRight: "24px",
   },
   menuItem: {
     fontSize: "15px",
@@ -953,6 +955,7 @@ const styles: any = {
   navButtons: {
     display: "flex",
     gap: "12px",
+    paddingRight: "24px",
   },
   loginBtn: {
     padding: "8px 20px",
@@ -1034,7 +1037,7 @@ const styles: any = {
   },
   // Hero
   hero: {
-    padding: "60px 24px",
+    padding: "60px 0",
     textAlign: "center",
     position: "relative",
     color: "#FFFFFF",
@@ -1056,6 +1059,7 @@ const styles: any = {
   heroContent: {
     maxWidth: "800px",
     margin: "0 auto",
+    padding: "0 24px",
     position: "relative",
     zIndex: 2,
   },
@@ -1178,11 +1182,12 @@ const styles: any = {
   // Stats Section
   statsSection: {
     backgroundColor: "#1C1C1E",
-    padding: "60px 24px",
+    padding: "60px 0",
   },
   statsGrid: {
     maxWidth: "1000px",
     margin: "0 auto",
+    padding: "0 24px",
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
     gap: "32px",
@@ -1393,11 +1398,12 @@ const styles: any = {
   footer: {
     backgroundColor: "#F9F9FB",
     borderTop: "1px solid #E5E5EA",
-    padding: "48px 24px 24px",
+    padding: "48px 0 24px",
   },
   footerContent: {
-    maxWidth: "1200px",
-    margin: "0 auto",
+    maxWidth: "100%",
+    margin: "0",
+    padding: "0 24px",
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
     gap: "40px",
@@ -1433,11 +1439,12 @@ const styles: any = {
   // Diversity Section Styles
   diversitySection: {
     backgroundColor: "#F5F5F7",
-    padding: "100px 24px",
+    padding: "100px 0",
   },
   diversityContent: {
     maxWidth: "1380px",
     margin: "0 auto",
+    padding: "0 24px",
     display: "flex",
     alignItems: "center",
     gap: "60px",
@@ -1473,11 +1480,12 @@ const styles: any = {
   // Contact Section Styles
   contactSection: {
     backgroundColor: "#FBFBFE",
-    padding: "100px 24px",
+    padding: "100px 0",
   },
   contactContainer: {
     maxWidth: "1380px",
     margin: "0 auto",
+    padding: "0 24px",
   },
   contactHeader: {
     textAlign: "center",

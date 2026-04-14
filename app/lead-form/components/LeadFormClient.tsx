@@ -226,8 +226,8 @@ export default function LeadFormClient() {
 
 const styles: any = {
   wrapper: {
-    maxWidth: "920px",
-    margin: "0 auto",
+    maxWidth: "100%",
+    margin: "0",
     padding: "32px 24px 64px",
     display: "flex",
     flexDirection: "column",

@@ -168,7 +168,7 @@ export default function ClientLayout({
           .app-main-shell {
             width: 100%;
             min-width: 0;
-            padding: 76px 12px 20px !important;
+            padding: 76px 0 20px !important;
           }
           .app-main-scroll {
             padding: 0;
@@ -183,7 +183,7 @@ export default function ClientLayout({
         }
         @media (max-width: 480px) {
           .app-main-shell {
-            padding: 72px 10px 16px !important;
+            padding: 72px 0 16px !important;
           }
         }
       `}</style>
@@ -204,7 +204,7 @@ const styles: any = {
     minWidth: 0,
     minHeight: 0,
     width: "100%",
-    padding: "18px clamp(12px, 1.6vw, 22px)",
+    padding: "0",
   },
   mobileTopbar: {
     display: "none",
