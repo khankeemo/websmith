@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createTicket, getTickets, Ticket, updateTicketStatus } from "../../../core/services/ticketService";
 import { getProjects, Project } from "../../projects/services/projectService";
 import { LayoutGrid, List, Columns, Eye, RotateCcw, X, Clock, CheckCircle, MessageSquarePlus } from "lucide-react";
@@ -9,7 +9,6 @@ import Modal from "../../../components/ui/Modal";
 type ViewMode = "list" | "grid" | "kanban";
 
 export default function ClientTicketsPage() {
-  const formRef = useRef<HTMLDivElement>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -142,32 +141,16 @@ export default function ClientTicketsPage() {
       </div>
 
       <div style={styles.layout} className="client-query-layout">
-        <div style={styles.formColumn}>
-          <button type="button" onClick={scrollToRaiseForm} style={styles.raiseQueryBtn}>
-            <MessageSquarePlus size={18} />
-            Raise Query
-          </button>
-
-          <div ref={formRef} style={styles.formCard}>
-            <h3 style={styles.listTitle}>Raise a new query</h3>
-            <p style={styles.historySubtitle}>Open the form only when you need it, submit, and the dialog closes automatically.</p>
-            {submitMessage && <div style={styles.successBox}>{submitMessage}</div>}
-            {submitError && <div style={styles.errorBox}>{submitError}</div>}
-            <button type="button" onClick={() => setIsQueryModalOpen(true)} style={styles.button}>
-              Open Query Form
-            </button>
-          </div>
-
-          <button type="button" onClick={scrollToRaiseForm} style={styles.raiseQueryBtnOutline}>
-            <MessageSquarePlus size={18} />
-            Raise Query
-          </button>
-        </div>
-
         <div style={styles.historyColumn}>
           <div style={styles.historyHeader}>
-            <h2 style={styles.historyTitle}>Query history</h2>
-            <p style={styles.historySubtitle}>Open a past query or reopen one that has been closed</p>
+            <div style={styles.historyHeaderText}>
+              <h2 style={styles.historyTitle}>Query history</h2>
+              <p style={styles.historySubtitle}>Open a past query or reopen one that has been closed</p>
+            </div>
+            <button type="button" onClick={scrollToRaiseForm} style={styles.raiseQueryBtn}>
+              <MessageSquarePlus size={18} />
+              Raise Query
+            </button>
           </div>
 
           <div style={styles.compactHistory}>
@@ -506,7 +489,8 @@ const styles: any = {
     cursor: "pointer",
   },
   historyColumn: { display: "flex", flexDirection: "column" as const, gap: "16px", minWidth: 0 },
-  historyHeader: { marginBottom: "4px" },
+  historyHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" as const, marginBottom: "4px" },
+  historyHeaderText: { minWidth: 0, flex: 1 },
   historyTitle: { fontSize: "20px", fontWeight: 700, margin: "0 0 6px 0", color: "var(--text-primary)" },
   historySubtitle: { fontSize: "13px", color: "var(--text-secondary)", margin: 0 },
   compactHistory: {
@@ -553,7 +537,8 @@ const styles: any = {
     fontWeight: 600,
     cursor: "pointer",
   },
-  layout: { display: "grid", gridTemplateColumns: "minmax(300px, 400px) 1fr", gap: "24px", alignItems: "start" },
+  layout: { display: "grid", gridTemplateColumns: "1fr", gap: "24px", alignItems: "start" },
+  topHeaderActions: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", justifyContent: "flex-end" },
   formCard: {
     backgroundColor: "var(--bg-primary)",
     borderRadius: "20px",
