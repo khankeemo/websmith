@@ -69,8 +69,8 @@ export default function LoginPage() {
   return (
     <div style={styles.container}>
       {/* Header Menu */}
-      <header style={styles.headerMenu}>
-        <nav style={styles.nav}>
+      <header style={styles.headerMenu} className="login-nav-shell">
+        <nav style={styles.nav} className="login-nav-content">
           <div style={styles.leftNavGroup}>
             {/* Logo */}
             <a href="/" style={styles.logoArea}>
@@ -503,6 +503,13 @@ export default function LoginPage() {
         }
 
         @media (max-width: 768px) {
+          .login-nav-shell {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0;
+            right: 0;
+            width: 100%;
+          }
           .desktop-nav,
           .desktop-auth {
             display: none !important;
@@ -510,6 +517,10 @@ export default function LoginPage() {
 
           .mobile-menu-button {
             display: flex !important;
+          }
+
+          .login-nav-content {
+            padding: 10px 16px !important;
           }
         }
       `}</style>
@@ -544,7 +555,7 @@ const styles: any = {
   nav: {
     maxWidth: "100%",
     margin: "0",
-    padding: "16px 0",
+    padding: "12px 0",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -655,17 +666,17 @@ const styles: any = {
     padding: "16px",
     gap: "12px",
     position: "fixed",
-    top: "76px",
+    top: "64px",
     left: "16px",
     right: "16px",
     zIndex: 1302,
     boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
-    maxHeight: "calc(100dvh - 92px)",
+    maxHeight: "calc(100dvh - 80px)",
     overflowY: "auto",
   },
   mobileMenuOverlay: {
     position: "fixed",
-    top: "69px",
+    top: "57px",
     left: 0,
     right: 0,
     bottom: 0,

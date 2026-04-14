@@ -183,7 +183,7 @@ export default function LandingPage() {
     <div style={styles.container}>
       <LeadCapturePopup />
       {/* Navigation - WITH MENU ITEMS */}
-      <nav style={styles.nav}>
+      <nav style={styles.nav} className="landing-nav-shell">
         <div style={styles.navContent} className="landing-nav-content">
           <div style={styles.leftNavGroup}>
             {/* Logo */}
@@ -822,6 +822,13 @@ export default function LandingPage() {
         }
 
         @media (max-width: 768px) {
+          .landing-nav-shell {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0;
+            right: 0;
+            width: 100%;
+          }
           .desktop-menu,
           .nav-buttons {
             display: none !important;
@@ -831,11 +838,12 @@ export default function LandingPage() {
             display: flex !important;
           }
           .landing-nav-content {
-            padding: 14px 16px !important;
+            padding: 10px 16px !important;
           }
           .landing-hero {
             min-height: 62vh !important;
             padding: 56px 16px !important;
+            margin-top: 57px !important;
           }
           .landing-hero-title {
             font-size: 36px !important;
@@ -896,7 +904,7 @@ const styles: any = {
   navContent: {
     maxWidth: "100%",
     margin: "0",
-    padding: "16px 0",
+    padding: "12px 0",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -986,17 +994,17 @@ const styles: any = {
     borderRadius: "20px",
     backgroundColor: "#FFFFFF",
     position: "fixed",
-    top: "76px",
+    top: "64px",
     left: "16px",
     right: "16px",
     zIndex: 1302,
     boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
-    maxHeight: "calc(100dvh - 92px)",
+    maxHeight: "calc(100dvh - 80px)",
     overflowY: "auto",
   },
   mobileMenuOverlay: {
     position: "fixed",
-    top: "69px",
+    top: "57px",
     left: 0,
     right: 0,
     bottom: 0,
