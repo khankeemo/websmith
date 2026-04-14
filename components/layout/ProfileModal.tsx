@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { X, Camera, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { X, Camera, Loader2, Eye, EyeOff } from "lucide-react";
 import { AuthUser, setAuthSession, getToken } from "../../lib/auth";
 import API from "../../core/services/apiService";
 import {
+  getPasswordChecklistItems,
   getPasswordValidationMessage,
   validatePhone,
   validateStrongPassword,
@@ -41,7 +42,14 @@ export default function ProfileModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const passwordChecklist = useMemo(
+    () => getPasswordChecklistItems(passwordData.newPassword),
+    [passwordData.newPassword]
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -59,6 +67,35 @@ export default function ProfileModal({
       setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
     }
   }, [user, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const syncCurrentProfile = async () => {
+      try {
+        const response = await API.get("/users/profile");
+        const liveUser = response.data.user || response.data.data;
+        if (!liveUser) return;
+        const token = getToken();
+        if (token) {
+          setAuthSession(token, liveUser);
+        }
+        onUpdate(liveUser);
+        setFormData({
+          name: liveUser.name || "",
+          email: liveUser.email || "",
+          phone: liveUser.phone || "",
+          company: liveUser.company || "",
+          avatar: liveUser.avatar || "",
+        });
+        setPreviewUrl(liveUser.avatar || "");
+      } catch (err) {
+        console.error("Failed to refresh profile modal data:", err);
+      }
+    };
+
+    syncCurrentProfile();
+  }, [isOpen, onUpdate]);
 
   const handleClose = () => {
     setPanelMode("view");
@@ -314,38 +351,61 @@ export default function ProfileModal({
           <form onSubmit={handleSavePassword} style={styles.form}>
             <div style={styles.formGroup}>
               <label style={styles.label}>Current password</label>
-              <input
-                type="password"
-                value={passwordData.currentPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                style={styles.input}
-                required
-                autoComplete="current-password"
-              />
+              <div style={styles.inputWrap}>
+                <input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  style={styles.input}
+                  required
+                  autoComplete="current-password"
+                />
+                <button type="button" onClick={() => setShowCurrentPassword((value) => !value)} style={styles.inputEyeBtn}>
+                  {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>New password</label>
-              <input
-                type="password"
-                value={passwordData.newPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                style={styles.input}
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
+              <div style={styles.inputWrap}>
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  style={styles.input}
+                  required
+                  autoComplete="new-password"
+                />
+                <button type="button" onClick={() => setShowNewPassword((value) => !value)} style={styles.inputEyeBtn}>
+                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Confirm new password</label>
-              <input
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                style={styles.input}
-                required
-                autoComplete="new-password"
-              />
+              <div style={styles.inputWrap}>
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  style={styles.input}
+                  required
+                  autoComplete="new-password"
+                />
+                <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} style={styles.inputEyeBtn}>
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
               <p style={styles.helperText}>{getPasswordValidationMessage()}</p>
+            </div>
+
+            <div style={styles.passwordChecklist}>
+              {passwordChecklist.map((item) => (
+                <div key={item.key} style={styles.passwordChecklistRow}>
+                  <span style={{ ...styles.passwordChecklistDot, backgroundColor: item.met ? "#34C759" : "#D1D5DB" }} />
+                  <span>{item.label}</span>
+                </div>
+              ))}
             </div>
 
             {error && <p style={styles.errorText}>{error}</p>}
@@ -539,6 +599,20 @@ const styles: any = {
     gap: "12px",
     flexWrap: "wrap" as const,
   },
+  inputWrap: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  inputEyeBtn: {
+    position: "absolute",
+    right: "12px",
+    background: "transparent",
+    border: "none",
+    color: "var(--text-secondary)",
+    cursor: "pointer",
+    display: "flex",
+  },
   footer: {
     display: "flex",
     justifyContent: "flex-end",
@@ -582,5 +656,26 @@ const styles: any = {
     fontSize: "12px",
     margin: "4px 0 0 0",
     lineHeight: 1.4,
+  },
+  passwordChecklist: {
+    display: "grid",
+    gap: "8px",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "12px",
+    padding: "12px 14px",
+  },
+  passwordChecklistRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    fontSize: "13px",
+    color: "var(--text-primary)",
+  },
+  passwordChecklistDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "999px",
+    flexShrink: 0,
   },
 };

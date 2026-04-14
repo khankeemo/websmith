@@ -261,7 +261,7 @@ export default function LoginPage() {
         {/* Forgot password link */}
         <div style={styles.forgotContainer}>
           <a 
-            href="#" 
+            href="/forgot-password" 
             style={styles.forgotLink}
             className="forgot-link-hover"
           >

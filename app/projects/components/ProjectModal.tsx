@@ -48,6 +48,9 @@ interface FormData {
   expectedCompletionDate: string;
   budget: string;
   customClientId: string;
+  clientEmail: string;
+  clientPhone: string;
+  clientCompany: string;
   published: boolean;
 }
 
@@ -67,6 +70,9 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     expectedCompletionDate: '',
     budget: '',
     customClientId: '',
+    clientEmail: '',
+    clientPhone: '',
+    clientCompany: '',
     published: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -110,6 +116,9 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         expectedCompletionDate: project.expectedCompletionDate?.split('T')[0] || '',
         budget: project.budget?.toString() || '',
         customClientId: project.customClientId || '',
+        clientEmail: (project as any).clientEmail || '',
+        clientPhone: (project as any).clientPhone || '',
+        clientCompany: (project as any).clientCompany || '',
         published: Boolean(project.published),
       });
     } else {
@@ -128,6 +137,9 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         expectedCompletionDate: '',
         budget: '',
         customClientId: '',
+        clientEmail: '',
+        clientPhone: '',
+        clientCompany: '',
         published: false,
       });
     }
@@ -174,6 +186,9 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
       clientId: id,
       customClientId: selectedClient?.customId || '',
       client: selectedClient?.name || '',
+      clientEmail: selectedClient?.email || '',
+      clientPhone: selectedClient?.phone || '',
+      clientCompany: selectedClient?.company || '',
     }));
     if (errors.clientId || errors.client) {
       setErrors((prev) => ({ ...prev, clientId: '', client: '' }));
@@ -243,6 +258,27 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
                 style={{ ...styles.input, ...(errors.customClientId ? styles.inputError : {}) }}
               />
               {errors.customClientId && <p style={styles.errorText}>{errors.customClientId}</p>}
+            </div>
+          </div>
+
+          <div style={styles.clientSnapshot}>
+            <div style={styles.clientSnapshotHeader}>
+              <h3 style={styles.clientSnapshotTitle}>Client details</h3>
+              <p style={styles.clientSnapshotHint}>Auto-populated from the selected client to reduce manual entry.</p>
+            </div>
+            <div style={styles.row} className="wsd-form-row">
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Client Email</label>
+                <input type="email" value={formData.clientEmail} readOnly style={{ ...styles.input, ...styles.readOnlyInput }} />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Client Phone</label>
+                <input type="text" value={formData.clientPhone} readOnly style={{ ...styles.input, ...styles.readOnlyInput }} />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Company</label>
+                <input type="text" value={formData.clientCompany} readOnly style={{ ...styles.input, ...styles.readOnlyInput }} />
+              </div>
             </div>
           </div>
 
@@ -489,6 +525,31 @@ const styles: any = {
     fontSize: '12px',
     color: '#FF3B30',
     marginTop: '6px',
+  },
+  clientSnapshot: {
+    marginBottom: '20px',
+    padding: '18px',
+    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+    backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 92%, #ffffff 8%)',
+  },
+  clientSnapshotHeader: {
+    marginBottom: '14px',
+  },
+  clientSnapshotTitle: {
+    margin: 0,
+    fontSize: '15px',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+  },
+  clientSnapshotHint: {
+    margin: '6px 0 0 0',
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+  },
+  readOnlyInput: {
+    opacity: 0.9,
+    cursor: 'not-allowed',
   },
   row: {
     display: 'flex',

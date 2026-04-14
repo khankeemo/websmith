@@ -204,7 +204,7 @@ const styles: any = {
     minWidth: 0,
     minHeight: 0,
     width: "100%",
-    padding: "24px min(24px, 2vw)",
+    padding: "18px clamp(12px, 1.6vw, 22px)",
   },
   mobileTopbar: {
     display: "none",

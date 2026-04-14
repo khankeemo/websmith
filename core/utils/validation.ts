@@ -22,4 +22,15 @@ export const getPasswordChecklist = (value: string) => ({
 });
 
 export const getPasswordValidationMessage = () =>
-  "Password must include uppercase, lowercase, number, and special character.";
+  "Password must include uppercase, lowercase, number, and special character, with at least 8 characters.";
+
+export const getPasswordChecklistItems = (value: string) => {
+  const checklist = getPasswordChecklist(value);
+  return [
+    { key: "minLength", label: "At least 8 characters", met: checklist.minLength },
+    { key: "uppercase", label: "One uppercase letter", met: checklist.uppercase },
+    { key: "lowercase", label: "One lowercase letter", met: checklist.lowercase },
+    { key: "number", label: "One number", met: checklist.number },
+    { key: "special", label: "One special character", met: checklist.special },
+  ];
+};

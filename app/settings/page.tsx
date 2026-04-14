@@ -9,11 +9,18 @@ import { useRouter } from "next/navigation";
 import { 
   User, 
   Lock, 
-  Edit3
+  Edit3,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import API from "@/core/services/apiService";
 import { AuthUser, getStoredUser } from "../../lib/auth";
 import ProfileModal from "../../components/layout/ProfileModal";
+import {
+  getPasswordChecklistItems,
+  getPasswordValidationMessage,
+  validateStrongPassword,
+} from "@/core/utils/validation";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -23,6 +30,9 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // Password State
   const [passwordData, setPasswordData] = useState({
@@ -35,6 +45,15 @@ export default function SettingsPage() {
   useEffect(() => {
     const storedUser = getStoredUser();
     setUser(storedUser);
+    const loadUser = async () => {
+      try {
+        const response = await API.get("/users/profile");
+        setUser(response.data.user || response.data.data || storedUser);
+      } catch {
+        setUser(storedUser);
+      }
+    };
+    loadUser();
   }, []);
 
   // Update effect for storage changes
@@ -55,8 +74,8 @@ export default function SettingsPage() {
       return;
     }
     
-    if (passwordData.newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (!validateStrongPassword(passwordData.newPassword)) {
+      setError(getPasswordValidationMessage());
       return;
     }
 
@@ -88,6 +107,7 @@ export default function SettingsPage() {
     { id: "profile", label: "Profile", icon: User },
     { id: "password", label: "Password", icon: Lock },
   ];
+  const passwordChecklist = getPasswordChecklistItems(passwordData.newPassword);
 
   if (!user) return null;
 
@@ -169,39 +189,63 @@ export default function SettingsPage() {
           <form onSubmit={handlePasswordChange} style={styles.form}>
             <div style={styles.formGroup}>
               <label style={styles.label}>Current Password</label>
-              <input
-                type="password"
-                value={passwordData.currentPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                style={styles.input}
-                required
-                className="input-focus"
-              />
+              <div style={styles.passwordField}>
+                <input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  style={styles.input}
+                  required
+                  className="input-focus"
+                />
+                <button type="button" onClick={() => setShowCurrentPassword((value) => !value)} style={styles.passwordEyeBtn}>
+                  {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <div style={styles.formGroup}>
               <label style={styles.label}>New Password</label>
-              <input
-                type="password"
-                value={passwordData.newPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                style={styles.input}
-                required
-                className="input-focus"
-              />
-              <p style={styles.hint}>Minimum 6 characters</p>
+              <div style={styles.passwordField}>
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  style={styles.input}
+                  required
+                  className="input-focus"
+                />
+                <button type="button" onClick={() => setShowNewPassword((value) => !value)} style={styles.passwordEyeBtn}>
+                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              <p style={styles.hint}>{getPasswordValidationMessage()}</p>
             </div>
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Confirm New Password</label>
-              <input
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                style={styles.input}
-                required
-                className="input-focus"
-              />
+              <div style={styles.passwordField}>
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  style={styles.input}
+                  required
+                  className="input-focus"
+                />
+                <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} style={styles.passwordEyeBtn}>
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.passwordChecklist}>
+              {passwordChecklist.map((item) => (
+                <div key={item.key} style={styles.passwordChecklistRow}>
+                  <span style={{ ...styles.passwordChecklistDot, backgroundColor: item.met ? "#34C759" : "#D1D5DB" }} />
+                  <span>{item.label}</span>
+                </div>
+              ))}
             </div>
 
             <button type="submit" disabled={loading} style={styles.saveButton} className="save-btn">
@@ -318,6 +362,26 @@ const styles: any = {
   formGroup: { display: "flex", flexDirection: "column", gap: "8px" },
   label: { fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" },
   input: { padding: "12px 16px", fontSize: "15px", border: "1.5px solid var(--border-color)", borderRadius: "12px", outline: "none", backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" },
+  passwordField: { position: "relative", display: "flex", alignItems: "center" },
+  passwordEyeBtn: {
+    position: "absolute",
+    right: "14px",
+    border: "none",
+    background: "transparent",
+    color: "var(--text-secondary)",
+    display: "flex",
+    cursor: "pointer",
+  },
   hint: { fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px" },
+  passwordChecklist: {
+    display: "grid",
+    gap: "8px",
+    border: "1px solid var(--border-color)",
+    borderRadius: "14px",
+    padding: "14px",
+    backgroundColor: "var(--bg-secondary)",
+  },
+  passwordChecklistRow: { display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", color: "var(--text-primary)" },
+  passwordChecklistDot: { width: "10px", height: "10px", borderRadius: "999px", flexShrink: 0 },
   saveButton: { padding: "14px", fontSize: "15px", fontWeight: 700, color: "#FFFFFF", backgroundColor: "#007AFF", border: "none", borderRadius: "14px", marginTop: "8px" },
 };

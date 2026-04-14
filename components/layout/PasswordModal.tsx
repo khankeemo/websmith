@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { X, Lock, AlertCircle, CheckCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { X, Lock, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 import API from "../../core/services/apiService";
+import {
+  getPasswordChecklistItems,
+  getPasswordValidationMessage,
+  validateStrongPassword,
+} from "../../core/utils/validation";
 
 interface PasswordModalProps {
   isOpen: boolean;
@@ -18,6 +23,10 @@ export default function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const checklistItems = useMemo(() => getPasswordChecklistItems(formData.newPassword), [formData.newPassword]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,8 +38,8 @@ export default function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
       return;
     }
 
-    if (formData.newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (!validateStrongPassword(formData.newPassword)) {
+      setError(getPasswordValidationMessage());
       return;
     }
 
@@ -91,41 +100,63 @@ export default function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
         <form onSubmit={handleSubmit}>
           <div style={styles.formGroup}>
             <label style={styles.label}>Current Password</label>
-            <input
-              type="password"
-              value={formData.currentPassword}
-              onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-              style={styles.input}
-              required
-              disabled={loading}
-            />
+            <div style={styles.inputWrap}>
+              <input
+                type={showCurrentPassword ? "text" : "password"}
+                value={formData.currentPassword}
+                onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                style={styles.input}
+                required
+                disabled={loading}
+              />
+              <button type="button" onClick={() => setShowCurrentPassword((value) => !value)} style={styles.eyeBtn}>
+                {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <div style={styles.formGroup}>
             <label style={styles.label}>New Password</label>
-            <input
-              type="password"
-              value={formData.newPassword}
-              onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-              style={styles.input}
-              required
-              disabled={loading}
-              minLength={6}
-            />
-            <p style={styles.hint}>Minimum 6 characters</p>
+            <div style={styles.inputWrap}>
+              <input
+                type={showNewPassword ? "text" : "password"}
+                value={formData.newPassword}
+                onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                style={styles.input}
+                required
+                disabled={loading}
+              />
+              <button type="button" onClick={() => setShowNewPassword((value) => !value)} style={styles.eyeBtn}>
+                {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <p style={styles.hint}>{getPasswordValidationMessage()}</p>
           </div>
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Confirm New Password</label>
-            <input
-              type="password"
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              style={styles.input}
-              required
-              disabled={loading}
-              minLength={6}
-            />
+            <div style={styles.inputWrap}>
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                style={styles.input}
+                required
+                disabled={loading}
+              />
+              <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} style={styles.eyeBtn}>
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          <div style={styles.checklist}>
+            {checklistItems.map((item) => (
+              <div key={item.key} style={styles.checklistItem}>
+                <span style={{ ...styles.checkDot, backgroundColor: item.met ? "#34C759" : "#D1D5DB" }} />
+                <span>{item.label}</span>
+              </div>
+            ))}
           </div>
 
           <div style={styles.footer}>
@@ -251,10 +282,45 @@ const styles: Record<string, any> = {
     outline: "none",
     transition: "all 0.2s ease",
   },
+  inputWrap: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: "14px",
+    border: "none",
+    backgroundColor: "transparent",
+    color: "var(--text-secondary)",
+    cursor: "pointer",
+    display: "flex",
+  },
   hint: {
     fontSize: "12px",
     color: "var(--text-secondary)",
     margin: "4px 0 0 0",
+  },
+  checklist: {
+    display: "grid",
+    gap: "8px",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "14px",
+    padding: "14px",
+  },
+  checklistItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    fontSize: "13px",
+    color: "var(--text-primary)",
+  },
+  checkDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "999px",
+    flexShrink: 0,
   },
   footer: {
     display: "flex",

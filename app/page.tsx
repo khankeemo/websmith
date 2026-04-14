@@ -894,7 +894,7 @@ const styles: any = {
     zIndex: 1300,
   },
   navContent: {
-    maxWidth: "1200px",
+    maxWidth: "1440px",
     margin: "0 auto",
     padding: "16px 24px",
     display: "flex",
@@ -1096,7 +1096,7 @@ const styles: any = {
   
   // Section
   section: {
-    maxWidth: "1200px",
+    maxWidth: "1440px",
     margin: "0 auto",
     padding: "80px 24px",
   },
@@ -1436,7 +1436,7 @@ const styles: any = {
     padding: "100px 24px",
   },
   diversityContent: {
-    maxWidth: "1100px",
+    maxWidth: "1380px",
     margin: "0 auto",
     display: "flex",
     alignItems: "center",
@@ -1476,7 +1476,7 @@ const styles: any = {
     padding: "100px 24px",
   },
   contactContainer: {
-    maxWidth: "1100px",
+    maxWidth: "1380px",
     margin: "0 auto",
   },
   contactHeader: {

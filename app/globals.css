@@ -5,8 +5,8 @@
   --text-secondary: #86868b;
   --border-color: #e8e8ed;
   --card-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-  --content-max-width: 1280px;
-  --space-page: clamp(16px, 2vw, 28px);
+  --content-max-width: 1520px;
+  --space-page: clamp(12px, 1.6vw, 22px);
   --space-section: clamp(18px, 2.5vw, 32px);
 }
 
@@ -73,7 +73,7 @@ body > div:first-child {
 
 .wsd-page {
   width: 100%;
-  max-width: var(--content-max-width);
+  max-width: min(100%, var(--content-max-width));
   margin: 0 auto;
 }
 
