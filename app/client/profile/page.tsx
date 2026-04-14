@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { User, Mail, Phone, Building, Lock, Bell, Save, Eye, EyeOff } from "lucide-react";
 import API from "../../../core/services/apiService";
+import {
+  getPasswordValidationMessage,
+  validatePhone,
+  validateStrongPassword,
+} from "../../../core/utils/validation";
 
 export default function ClientProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -28,6 +33,7 @@ export default function ClientProfilePage() {
   });
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -72,6 +78,12 @@ export default function ClientProfilePage() {
     setMessage("");
     setError("");
 
+    if (profileForm.phone && !validatePhone(profileForm.phone)) {
+      setError("Please enter a valid phone number");
+      setSaving(false);
+      return;
+    }
+
     try {
       await API.put("/users/update", profileForm);
       setMessage("Profile updated successfully");
@@ -91,8 +103,8 @@ export default function ClientProfilePage() {
       return;
     }
 
-    if (passwordForm.newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (!validateStrongPassword(passwordForm.newPassword)) {
+      setError(getPasswordValidationMessage());
       return;
     }
 
@@ -277,7 +289,6 @@ export default function ClientProfilePage() {
                     onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                     style={styles.input}
                     required
-                    minLength={6}
                   />
                   <button
                     type="button"
@@ -294,14 +305,21 @@ export default function ClientProfilePage() {
                 <div style={styles.inputWrapper}>
                   <Lock size={16} color="var(--text-secondary)" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                     style={styles.input}
                     required
-                    minLength={6}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={styles.eyeBtn}
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
+                <p style={styles.hint}>{getPasswordValidationMessage()}</p>
               </div>
 
               <div style={styles.buttonGroup}>

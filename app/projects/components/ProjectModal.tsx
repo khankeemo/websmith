@@ -37,6 +37,7 @@ interface FormData {
   name: string;
   description: string;
   publicUrl: string;
+  previewImage: string;
   client: string;
   clientId: string;
   assignedDevId: string;
@@ -55,6 +56,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     name: '',
     description: '',
     publicUrl: '',
+    previewImage: '',
     client: '',
     clientId: '',
     assignedDevId: '',
@@ -97,6 +99,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         name: project.name || '',
         description: project.description || '',
         publicUrl: project.publicUrl || '',
+        previewImage: project.previewImage || '',
         client: project.client || '',
         clientId: project.clientId || '',
         assignedDevId: project.assignedDevId || '',
@@ -114,6 +117,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         name: '',
         description: '',
         publicUrl: '',
+        previewImage: '',
         client: '',
         clientId: '',
         assignedDevId: '',
@@ -134,9 +138,11 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) newErrors.name = 'Project name is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.client.trim()) newErrors.client = 'Client name is required';
+    if (!formData.clientId.trim()) newErrors.clientId = 'Client selection is required';
     if (!formData.customClientId.trim()) newErrors.customClientId = 'Client ID (e.g. CL-0001) is required';
     if (!formData.startDate) newErrors.startDate = 'Start date is required';
+    if (formData.publicUrl && !/^https?:\/\/.+/i.test(formData.publicUrl)) newErrors.publicUrl = 'Hosted URL must start with http:// or https://';
+    if (formData.previewImage && !/^https?:\/\/.+/i.test(formData.previewImage)) newErrors.previewImage = 'Preview image URL must start with http:// or https://';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -337,6 +343,19 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
               style={styles.input}
               placeholder="https://example.com"
             />
+            {errors.publicUrl && <p style={styles.errorText}>{errors.publicUrl}</p>}
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Project Preview Image URL</label>
+            <input
+              type="url"
+              value={formData.previewImage}
+              onChange={(e) => updateField('previewImage', e.target.value)}
+              style={{ ...styles.input, ...(errors.previewImage ? styles.inputError : {}) }}
+              placeholder="https://images.example.com/project-cover.jpg"
+            />
+            {errors.previewImage && <p style={styles.errorText}>{errors.previewImage}</p>}
           </div>
 
           <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>

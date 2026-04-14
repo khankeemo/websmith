@@ -7,6 +7,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import API from '../../../core/services/apiService';
+import { getDefaultRouteForRole, setAuthSession } from '../../../lib/auth';
 
 function AuthCallbackContent() {
   const router = useRouter();
@@ -38,7 +39,7 @@ function AuthCallbackContent() {
           const response = await API.post('/auth/oauth', userData);
           
           if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
+            setAuthSession(response.data.token, response.data.user);
             
             // Send message to parent window
             if (window.opener) {
@@ -48,7 +49,7 @@ function AuthCallbackContent() {
               }, window.location.origin);
               window.close();
             } else {
-              router.push('/dashboard');
+              router.push(getDefaultRouteForRole(response.data.user?.role));
             }
           }
         } else {
@@ -59,7 +60,7 @@ function AuthCallbackContent() {
           });
           
           if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
+            setAuthSession(response.data.token, response.data.user);
             
             if (window.opener) {
               window.opener.postMessage({
@@ -68,7 +69,7 @@ function AuthCallbackContent() {
               }, window.location.origin);
               window.close();
             } else {
-              router.push('/dashboard');
+              router.push(getDefaultRouteForRole(response.data.user?.role));
             }
           }
         }

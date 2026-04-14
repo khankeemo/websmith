@@ -108,9 +108,6 @@ export default function ServiceSelectionClient() {
                     </div>
                     <h3 style={styles.serviceTitle}>{service.name}</h3>
                     <p style={styles.serviceDescription}>{service.description}</p>
-                    {typeof service.price === "number" && (
-                      <p style={styles.price}>Starting at <span style={{fontSize: '18px'}}>${service.price.toLocaleString()}</span></p>
-                    )}
                   </Card>
                 </button>
               );

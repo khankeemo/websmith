@@ -119,19 +119,21 @@ export default function LandingPage() {
   const menuItems = [
     { name: "Home", href: "/" },
     { name: "Features", href: "/#features" },
-    { name: "Developers", href: "/#developers" },
+    { name: "Projects", href: "/#projects" },
     { name: "Clients", href: "/#clients" },
+    { name: "Developers", href: "/#developers" },
+    { name: "Testimonials", href: "/#testimonials" },
     { name: "Contact", href: "/#contact" },
   ];
 
   // Features data
   const features = [
-    { icon: Code, title: "Expert Developers", description: "Top-tier developers with proven experience in modern tech stacks" },
-    { icon: Rocket, title: "Fast Delivery", description: "Agile methodology ensuring quick turnaround without quality compromise" },
-    { icon: Shield, title: "Secure Code", description: "Enterprise-grade security practices and regular code audits" },
-    { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance" },
-    { icon: Users, title: "Dedicated Teams", description: "Build your dedicated development team tailored to your needs" },
-    { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions" }
+    { icon: Code, title: "Expert Developers", description: "Top-tier developers with proven experience in modern tech stacks", href: "#developers" },
+    { icon: Rocket, title: "Fast Delivery", description: "Agile methodology ensuring quick turnaround without quality compromise", href: "#projects" },
+    { icon: Shield, title: "Secure Code", description: "Enterprise-grade security practices and regular code audits", href: "#features" },
+    { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance", href: "#contact" },
+    { icon: Users, title: "Dedicated Teams", description: "Build your dedicated development team tailored to your needs", href: "#clients" },
+    { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
   ];
 
   const publicClients = (publishedClients.length > 0 ? publishedClients : []).map((client: any, index: number) => ({
@@ -300,8 +302,15 @@ export default function LandingPage() {
         <p style={styles.sectionSubtitle}>Everything you need to build exceptional digital products</p>
         <div style={styles.featuresGrid} className="landing-features-grid">
           {features.map((feature, index) => (
-            <div 
+            <button
               key={index} 
+              type="button"
+              onClick={() => {
+                const target = document.querySelector(feature.href);
+                if (target instanceof HTMLElement) {
+                  target.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
               style={{
                 ...styles.featureCard,
                 backgroundImage: `linear-gradient(rgba(249, 249, 251, 0.9), rgba(249, 249, 251, 0.9)), url(/images/assets/service_${index % 5 + 1}.png)`,
@@ -313,7 +322,7 @@ export default function LandingPage() {
               <div style={styles.featureIcon}>{<feature.icon size={28} />}</div>
               <h3 style={styles.featureTitle}>{feature.title}</h3>
               <p style={styles.featureDesc}>{feature.description}</p>
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -341,12 +350,15 @@ export default function LandingPage() {
       </section>
 
       {publishedProjects.length > 0 && (
-        <section style={styles.section}>
+        <section id="projects" style={styles.section}>
           <h2 style={styles.sectionTitle}>Published Projects</h2>
           <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
           <div style={styles.featuresGrid}>
             {publishedProjects.slice(0, 6).map((project: any) => (
               <div key={project._id} style={styles.featureCard} className="feature-card">
+                {project.previewImage ? (
+                  <img src={project.previewImage} alt={project.name} style={styles.projectPreviewImage} />
+                ) : null}
                 <div style={styles.featureIcon}><Briefcase size={28} /></div>
                 <h3 style={styles.featureTitle}>{project.name}</h3>
                 <p style={styles.featureDesc}>{project.description}</p>
@@ -439,7 +451,7 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials */}
-      <section style={styles.section}>
+      <section id="testimonials" style={styles.section}>
         <h2 style={styles.sectionTitle}>What Our Clients Say</h2>
         <p style={styles.sectionSubtitle}>Continuous feedback highlights from across projects, clients, and delivery teams.</p>
         <div style={styles.marqueeViewport}>
@@ -1113,6 +1125,9 @@ const styles: any = {
     backgroundColor: "#F9F9FB",
     borderRadius: "20px",
     border: "1px solid #E5E5EA",
+    textAlign: "left",
+    cursor: "pointer",
+    width: "100%",
   },
   featureIcon: {
     width: "56px",
@@ -1150,6 +1165,14 @@ const styles: any = {
     margin: 0,
     color: "#8E8E93",
     fontSize: "12px",
+  },
+  projectPreviewImage: {
+    width: "100%",
+    height: "190px",
+    objectFit: "cover",
+    borderRadius: "18px",
+    marginBottom: "18px",
+    border: "1px solid rgba(0,0,0,0.06)",
   },
   
   // Stats Section

@@ -19,6 +19,13 @@ import {
 } from "lucide-react";
 import API from "../../core/services/apiService";
 import { OAuthService } from "../../core/services/oauthService";
+import { getDefaultRouteForRole, setAuthSession } from "../../lib/auth";
+import {
+  getPasswordChecklist,
+  getPasswordValidationMessage,
+  validateEmail,
+  validateStrongPassword,
+} from "../../core/utils/validation";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -68,11 +75,11 @@ export default function RegisterPage() {
       });
       
       if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
+        setAuthSession(response.data.token, response.data.user);
         if (rememberMe) {
           localStorage.setItem('rememberMe', 'true');
         }
-        router.push('/dashboard');
+        router.push(getDefaultRouteForRole(response.data.user?.role));
       }
     } catch (err: any) {
       console.error(`${provider} OAuth error:`, err);
@@ -85,11 +92,12 @@ export default function RegisterPage() {
   // Password strength helper
   const getPasswordStrengthData = (pwd: string) => {
     let score = 0;
-    if (pwd.length >= 6) score++;
-    if (pwd.length >= 10) score++;
-    if (/[A-Z]/.test(pwd)) score++;
-    if (/[0-9]/.test(pwd)) score++;
-    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    const checklist = getPasswordChecklist(pwd);
+    if (checklist.minLength) score++;
+    if (checklist.uppercase) score++;
+    if (checklist.lowercase) score++;
+    if (checklist.number) score++;
+    if (checklist.special) score++;
     
     const finalScore = Math.min(score, 4);
     const messages = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
@@ -126,14 +134,14 @@ export default function RegisterPage() {
     
     if (!email.trim()) {
       errors.email = 'Email address is required';
-    } else if (!/^[^\s@]+@([^\s@]+\.)+[^\s@]+$/.test(email)) {
+    } else if (!validateEmail(email)) {
       errors.email = 'Please enter a valid email address';
     }
     
     if (!password) {
       errors.password = 'Password is required';
-    } else if (password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+    } else if (!validateStrongPassword(password)) {
+      errors.password = getPasswordValidationMessage();
     }
     
     if (!confirmPassword) {
@@ -164,11 +172,11 @@ export default function RegisterPage() {
       });
 
       if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
+        setAuthSession(response.data.token, response.data.user);
         if (rememberMe) {
           localStorage.setItem("rememberMe", "true");
         }
-        router.push("/dashboard");
+        router.push(getDefaultRouteForRole(response.data.user?.role));
       }
     } catch (err: any) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");
@@ -390,6 +398,7 @@ export default function RegisterPage() {
                   <p style={styles.strengthText}>
                     Password strength: <span style={{ color: passwordStrength.color }}>{passwordStrength.message}</span>
                   </p>
+                  <p style={styles.helperText}>{getPasswordValidationMessage()}</p>
                 </div>
               )}
               {validationErrors.password && <p style={styles.validationError}>{validationErrors.password}</p>}
@@ -749,6 +758,12 @@ const styles: any = {
     fontSize: "11px",
     color: "#8E8E93",
     margin: 0,
+  },
+  helperText: {
+    fontSize: "11px",
+    color: "#8E8E93",
+    margin: "6px 0 0 0",
+    lineHeight: 1.4,
   },
   checkboxGroup: {
     marginBottom: "16px",

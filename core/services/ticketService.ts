@@ -24,8 +24,11 @@ export interface Ticket {
   subject: string;
   description: string;
   priority: "low" | "medium" | "high";
-  status: "open" | "in_progress" | "resolved";
+  status: "open" | "in_progress" | "resolved" | "closed";
+  chatStatus?: "open" | "closed";
   resolution?: string;
+  closedAt?: string | null;
+  archiveAfter?: string | null;
   attachments?: Array<{
     _id?: string;
     name: string;

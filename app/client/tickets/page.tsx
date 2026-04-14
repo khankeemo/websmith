@@ -58,6 +58,8 @@ export default function ClientTicketsPage() {
     }
   };
 
+  const isTicketClosed = (ticket: Ticket) => ticket.chatStatus === "closed" || ticket.status === "closed" || ticket.status === "resolved";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -83,7 +85,7 @@ export default function ClientTicketsPage() {
         <Eye size={14} />
         Open
       </button>
-      {ticket.status === "resolved" && (
+      {isTicketClosed(ticket) && (
         <button type="button" onClick={() => handleReopenTicket(ticket)} style={styles.reopenBtn}>
           <RotateCcw size={14} />
           Reopen
@@ -165,7 +167,7 @@ export default function ClientTicketsPage() {
         <div style={styles.historyColumn}>
           <div style={styles.historyHeader}>
             <h2 style={styles.historyTitle}>Query history</h2>
-            <p style={styles.historySubtitle}>Open a past query or reopen one that was resolved</p>
+            <p style={styles.historySubtitle}>Open a past query or reopen one that has been closed</p>
           </div>
 
           <div style={styles.compactHistory}>
@@ -190,7 +192,7 @@ export default function ClientTicketsPage() {
                     <button type="button" onClick={() => setSelectedTicket(ticket)} style={styles.historyLinkBtn}>
                       Open
                     </button>
-                    {ticket.status === "resolved" && (
+                    {isTicketClosed(ticket) && (
                       <button type="button" onClick={() => handleReopenTicket(ticket)} style={styles.historyLinkBtnMuted}>
                         Reopen
                       </button>
@@ -237,7 +239,7 @@ export default function ClientTicketsPage() {
                       <Eye size={14} />
                       View Details
                     </button>
-                    {ticket.status === "resolved" && (
+                    {isTicketClosed(ticket) && (
                       <button type="button" onClick={() => handleReopenTicket(ticket)} style={styles.reopenBtn}>
                         <RotateCcw size={14} />
                         Reopen
@@ -249,7 +251,7 @@ export default function ClientTicketsPage() {
             </div>
           ) : (
             <div style={styles.kanban}>
-              {["open", "in_progress", "resolved"].map((status) => {
+              {["open", "in_progress", "resolved", "closed"].map((status) => {
                 const statusTickets = sortedHistory.filter((t) => t.status === status);
                 return (
                   <div key={status} style={styles.kanbanColumn}>

@@ -10,6 +10,7 @@ export interface Project {
   description: string;
   client: string;
   publicUrl?: string;
+  previewImage?: string;
   clientId?: string | null;
   assignedDevId?: string | null;
   assignedDeveloperName?: string;

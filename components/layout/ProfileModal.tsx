@@ -4,6 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { X, Camera, Loader2 } from "lucide-react";
 import { AuthUser, setAuthSession, getToken } from "../../lib/auth";
 import API from "../../core/services/apiService";
+import {
+  getPasswordValidationMessage,
+  validatePhone,
+  validateStrongPassword,
+} from "../../core/utils/validation";
 
 type PanelMode = "view" | "edit-profile" | "edit-password";
 
@@ -87,6 +92,12 @@ export default function ProfileModal({
     setIsSaving(true);
     setError(null);
 
+    if (formData.phone && !validatePhone(formData.phone)) {
+      setError("Please enter a valid phone number");
+      setIsSaving(false);
+      return;
+    }
+
     try {
       const response = await API.put("/users/update", {
         name: formData.name,
@@ -132,8 +143,8 @@ export default function ProfileModal({
       setError("New passwords do not match");
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (!validateStrongPassword(passwordData.newPassword)) {
+      setError(getPasswordValidationMessage());
       return;
     }
 
@@ -334,6 +345,7 @@ export default function ProfileModal({
                 required
                 autoComplete="new-password"
               />
+              <p style={styles.helperText}>{getPasswordValidationMessage()}</p>
             </div>
 
             {error && <p style={styles.errorText}>{error}</p>}
@@ -564,5 +576,11 @@ const styles: any = {
     fontSize: "13px",
     margin: 0,
     textAlign: "center",
+  },
+  helperText: {
+    color: "var(--text-secondary)",
+    fontSize: "12px",
+    margin: "4px 0 0 0",
+    lineHeight: 1.4,
   },
 };

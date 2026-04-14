@@ -3,7 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import API from '../../../core/services/apiService';
-import { Lock, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Lock, ShieldCheck, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import {
+  getPasswordChecklist,
+  getPasswordValidationMessage,
+  validateStrongPassword,
+} from '../../../core/utils/validation';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -12,6 +17,8 @@ export default function ChangePasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in and needs password change
@@ -34,8 +41,8 @@ export default function ChangePasswordPage() {
     e.preventDefault();
     setError('');
 
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
+    if (!validateStrongPassword(newPassword)) {
+      setError(getPasswordValidationMessage());
       return;
     }
 
@@ -69,6 +76,8 @@ export default function ChangePasswordPage() {
     }
   };
 
+  const checklist = getPasswordChecklist(newPassword);
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -101,14 +110,20 @@ export default function ChangePasswordPage() {
               <div style={styles.inputWrapper}>
                 <Lock style={styles.fieldIcon} size={18} color="#8E8E93" />
                 <input
-                  type="password"
-                  placeholder="At least 6 characters"
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="Create a strong password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   style={styles.input}
                   required
                 />
+                <button type="button" onClick={() => setShowNewPassword((value) => !value)} style={styles.eyeBtn}>
+                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
+              <p style={styles.helperText}>
+                {getPasswordValidationMessage()} Requirement status: {Object.values(checklist).filter(Boolean).length}/5
+              </p>
             </div>
 
             <div style={styles.formGroup}>
@@ -116,13 +131,16 @@ export default function ChangePasswordPage() {
               <div style={styles.inputWrapper}>
                 <Lock style={styles.fieldIcon} size={18} color="#8E8E93" />
                 <input
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Repeat your password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   style={styles.input}
                   required
                 />
+                <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} style={styles.eyeBtn}>
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 
@@ -239,7 +257,7 @@ const styles: any = {
   },
   input: {
     width: '100%',
-    padding: '14px 16px 14px 48px',
+    padding: '14px 48px 14px 48px',
     fontSize: '16px',
     backgroundColor: '#F2F2F7',
     border: '1.5px solid transparent',
@@ -260,5 +278,22 @@ const styles: any = {
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     fontFamily: 'inherit',
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: '16px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#8E8E93',
+    padding: 0,
+    display: 'flex',
+    alignItems: 'center',
+  },
+  helperText: {
+    margin: '8px 0 0 4px',
+    fontSize: '12px',
+    color: '#636366',
+    lineHeight: 1.4,
   },
 };

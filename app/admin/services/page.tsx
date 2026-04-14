@@ -154,9 +154,7 @@ export default function AdminServicesPage() {
               <h3 style={styles.cardTitle}>{service.name}</h3>
               <p style={styles.cardDescription}>{service.description}</p>
               <div style={styles.cardFooter}>
-                <p style={styles.cardPrice}>
-                  {typeof service.price === "number" ? `Starting at $${service.price.toLocaleString()}` : "Price TBD"}
-                </p>
+                <p style={styles.cardPrice}>{service.isActive ? "Visible in lead funnel" : "Hidden from lead funnel"}</p>
                 <div style={styles.cardActions}>
                   <button onClick={() => handleOpenEdit(service)} style={styles.iconBtn} title="Edit">
                     <Pencil size={16} color="var(--text-secondary)" />

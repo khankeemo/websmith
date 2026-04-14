@@ -122,6 +122,8 @@ export default function AdminMessagesClient() {
     }
   };
 
+  const isClosed = selectedTicket?.chatStatus === "closed" || selectedTicket?.status === "closed";
+
   return (
     <div style={styles.shell}>
       <div style={styles.sidebar}>
@@ -199,6 +201,9 @@ export default function AdminMessagesClient() {
                 <button type="button" onClick={() => handleStatus("resolved")} style={styles.primaryBtn} disabled={saving}>
                   Resolve
                 </button>
+                <button type="button" onClick={() => handleStatus("closed")} style={styles.secondaryBtn} disabled={saving}>
+                  Close Query
+                </button>
               </div>
             </div>
 
@@ -234,9 +239,15 @@ export default function AdminMessagesClient() {
 
             <div style={styles.composerCard}>
               <label style={styles.label}>Reply in thread</label>
-              <textarea value={reply} onChange={(event) => setReply(event.target.value)} style={styles.textarea} placeholder="Write a reply to continue the conversation..." />
+              <textarea
+                value={reply}
+                onChange={(event) => setReply(event.target.value)}
+                style={{ ...styles.textarea, ...(isClosed ? styles.textareaDisabled : {}) }}
+                placeholder={isClosed ? "This query is closed and read-only." : "Write a reply to continue the conversation..."}
+                disabled={isClosed}
+              />
               <div style={styles.composerFooter}>
-                <button type="button" onClick={handleReply} style={styles.primaryBtn} disabled={saving || !reply.trim()}>
+                <button type="button" onClick={handleReply} style={styles.primaryBtn} disabled={saving || !reply.trim() || isClosed}>
                   <Send size={14} />
                   Send Reply
                 </button>
@@ -400,6 +411,10 @@ const styles: Record<string, any> = {
     color: "var(--text-primary)",
     padding: "12px 14px",
     outline: "none",
+  },
+  textareaDisabled: {
+    opacity: 0.65,
+    cursor: "not-allowed",
   },
   composerFooter: { display: "flex", justifyContent: "flex-end", marginTop: "12px" },
 };

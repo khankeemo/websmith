@@ -17,7 +17,6 @@ interface ServiceModalProps {
 interface FormData {
   name: string;
   description: string;
-  price: string;
   isActive: boolean;
 }
 
@@ -32,7 +31,6 @@ export default function ServiceModal({
   const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
-    price: "",
     isActive: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,14 +40,12 @@ export default function ServiceModal({
       setFormData({
         name: service.name || "",
         description: service.description || "",
-        price: typeof service.price === "number" ? String(service.price) : "",
         isActive: service.isActive ?? true,
       });
     } else {
       setFormData({
         name: "",
         description: "",
-        price: "",
         isActive: true,
       });
     }
@@ -67,10 +63,6 @@ export default function ServiceModal({
       nextErrors.description = "Description is required";
     }
 
-    if (formData.price && (Number.isNaN(Number(formData.price)) || Number(formData.price) < 0)) {
-      nextErrors.price = "Price must be a valid positive number";
-    }
-
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -82,7 +74,6 @@ export default function ServiceModal({
     await onSave({
       name: formData.name.trim(),
       description: formData.description.trim(),
-      price: formData.price ? Number(formData.price) : null,
       isActive: formData.isActive,
     });
   };
@@ -136,22 +127,6 @@ export default function ServiceModal({
           </div>
 
           <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Starting Price ($)</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={formData.price}
-                onChange={(event) => updateField("price", event.target.value)}
-                style={{ ...styles.input, ...(errors.price ? styles.inputError : {}) }}
-                placeholder="2500"
-                disabled={isSaving}
-                className="modal-input-focus"
-              />
-              {errors.price && <p style={styles.errorText}>{errors.price}</p>}
-            </div>
-
             <div style={styles.formGroup}>
               <label style={styles.label}>Visibility</label>
               <div style={styles.selectWrapper}>
