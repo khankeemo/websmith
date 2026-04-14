@@ -5,10 +5,12 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { 
   ArrowRight, 
+  ChevronLeft,
+  ChevronRight,
   Star, 
   Code, 
   Rocket, 
@@ -28,6 +30,115 @@ import { getPublishedProjects } from "./projects/services/projectService";
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
 import { createPublicTicket } from "../core/services/ticketService";
+
+type AutoCarouselProps<T> = {
+  items: T[];
+  renderItem: (item: T, index: number) => ReactNode;
+  ariaLabel: string;
+  itemMinWidth?: number;
+  gap?: number;
+  speedDesktop?: number;
+  speedMobile?: number;
+};
+
+function AutoCarousel<T>({
+  items,
+  renderItem,
+  ariaLabel,
+  itemMinWidth = 280,
+  gap = 20,
+  speedDesktop = 0.032,
+  speedMobile = 0.05,
+}: AutoCarouselProps<T>) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => setIsMobile(window.innerWidth <= 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || items.length < 2) return;
+
+    let rafId = 0;
+    let lastTs = 0;
+    const speed = isMobile ? speedMobile : speedDesktop;
+
+    const loop = (ts: number) => {
+      if (lastTs === 0) lastTs = ts;
+      const delta = ts - lastTs;
+      lastTs = ts;
+
+      if (!isPaused) {
+        track.scrollLeft += delta * speed;
+        const half = track.scrollWidth / 2;
+        if (track.scrollLeft >= half) {
+          track.scrollLeft -= half;
+        }
+      }
+
+      rafId = window.requestAnimationFrame(loop);
+    };
+
+    rafId = window.requestAnimationFrame(loop);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isPaused, isMobile, items.length, speedDesktop, speedMobile]);
+
+  const scrollByStep = (direction: 1 | -1) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const step = Math.max(track.clientWidth * 0.75, itemMinWidth + gap);
+    track.scrollBy({ left: direction * step, behavior: "smooth" });
+  };
+
+  const loopItems = [...items, ...items];
+
+  return (
+    <div style={styles.carouselRoot}>
+      <button
+        type="button"
+        aria-label={`Previous ${ariaLabel}`}
+        onClick={() => scrollByStep(1)}
+        style={styles.carouselArrow}
+        className="carousel-arrow"
+      >
+        <ChevronLeft size={18} />
+      </button>
+      <div
+        ref={trackRef}
+        style={styles.carouselViewport}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onTouchStart={() => setIsPaused(true)}
+        onTouchEnd={() => setIsPaused(false)}
+        aria-label={ariaLabel}
+      >
+        <div style={{ ...styles.carouselTrack, gap: `${gap}px` }}>
+          {loopItems.map((item, index) => (
+            <div key={index} style={{ ...styles.carouselSlide, minWidth: `${itemMinWidth}px` }}>
+              {renderItem(item, index)}
+            </div>
+          ))}
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-label={`Next ${ariaLabel}`}
+        onClick={() => scrollByStep(-1)}
+        style={styles.carouselArrow}
+        className="carousel-arrow"
+      >
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const router = useRouter();
@@ -136,48 +247,80 @@ export default function LandingPage() {
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
   ];
 
-  const publicClients = (publishedClients.length > 0 ? publishedClients : []).map((client: any, index: number) => ({
-    id: client._id || `client-${index}`,
+  // Temporary dummy data for carousel QA; remove once testing sign-off is done.
+  const dummyClients = [
+    { id: "dc-1", name: "Avery Stone", company: "Nova Retail", description: "Scaled checkout performance for peak season launches." },
+    { id: "dc-2", name: "Mina Das", company: "CareBridge", description: "Delivered secure patient workflow dashboards and reports." },
+    { id: "dc-3", name: "James Cole", company: "FlowFleet", description: "Rolled out fleet monitoring with uptime-first architecture." },
+    { id: "dc-4", name: "Rhea Patel", company: "BrightNest", description: "Improved conversion with design-led funnel rebuild." },
+    { id: "dc-5", name: "Jonah Lee", company: "Cortex Labs", description: "Integrated analytics and deployment automation in one sprint." },
+  ];
+
+  const dummyDevelopers = [
+    { id: "dd-1", name: "Aisha Rahman", role: "Frontend Architect", skills: ["React", "Next.js", "Design Systems"], experience: 7, avatar: "", bio: "Builds resilient, high-conversion frontends for growth teams." },
+    { id: "dd-2", name: "Marcus Silva", role: "Backend Engineer", skills: ["Node.js", "MongoDB", "APIs"], experience: 6, avatar: "", bio: "Focuses on scalable APIs and operational reliability." },
+    { id: "dd-3", name: "Nadia Kim", role: "Mobile Specialist", skills: ["React Native", "iOS", "Android"], experience: 5, avatar: "", bio: "Ships polished mobile experiences with strong performance." },
+    { id: "dd-4", name: "Owen Hart", role: "DevOps Engineer", skills: ["CI/CD", "Docker", "Cloud"], experience: 8, avatar: "", bio: "Automates pipelines and keeps releases predictable." },
+  ];
+
+  const dummyProjects = [
+    { _id: "dp-1", name: "Commerce Pulse", description: "Realtime commerce insights dashboard with custom KPI streams.", client: "Nova Retail", publicUrl: "https://example.com/commerce-pulse", previewImage: "" },
+    { _id: "dp-2", name: "Clinic Bridge", description: "Patient onboarding and appointment lifecycle management portal.", client: "CareBridge", publicUrl: "https://example.com/clinic-bridge", previewImage: "" },
+    { _id: "dp-3", name: "Fleet Vision", description: "Route tracking and incident alerting platform for logistics teams.", client: "FlowFleet", publicUrl: "https://example.com/fleet-vision", previewImage: "" },
+    { _id: "dp-4", name: "Nest Growth", description: "A/B experimentation toolkit connected with sales funnels.", client: "BrightNest", publicUrl: "https://example.com/nest-growth", previewImage: "" },
+  ];
+
+  const dummyTestimonials = [
+    { id: "dt-1", name: "S. Jordan", company: "Nova Retail", quote: "Delivery was smooth, proactive, and always transparent." },
+    { id: "dt-2", name: "K. Morgan", company: "CareBridge", quote: "The team turned complex product goals into clear milestones." },
+    { id: "dt-3", name: "R. Blake", company: "FlowFleet", quote: "Excellent collaboration and dependable release quality." },
+    { id: "dt-4", name: "T. Diaz", company: "BrightNest", quote: "We saw measurable gains within the first release cycle." },
+  ];
+
+  const effectiveProjects = (publishedProjects.length > 0 ? publishedProjects : dummyProjects).slice(0, 8);
+  const publicClients = (publishedClients.length > 0 ? publishedClients : dummyClients).map((client: any, index: number) => ({
+    id: client._id || client.id || `client-${index}`,
     name: client.name,
     company: client.company || "Independent client",
     description:
       client.address ||
       client.customId ||
+      client.description ||
       "Partnered with Websmith on product delivery, design quality, and long-term support.",
   }));
 
-  const publicDevelopers = publishedDevelopers.map((developer: any, index: number) => ({
-    id: developer._id || `dev-${index}`,
+  const publicDevelopers = (publishedDevelopers.length > 0 ? publishedDevelopers : dummyDevelopers).map((developer: any, index: number) => ({
+    id: developer._id || developer.id || `dev-${index}`,
     name: developer.name,
-    role: developer.headline || "Software Developer",
+    role: developer.headline || developer.role || "Software Developer",
     skills: developer.skills?.length ? developer.skills : ["Engineering", "Delivery"],
-    experience: developer.experienceYears || 0,
+    experience: developer.experienceYears || developer.experience || 0,
     avatar: developer.avatar || "",
     bio: developer.bio || "Experienced engineer focused on shipping resilient digital products.",
   }));
 
-  const reviewCards = [...Array(2)].flatMap((_, groupIndex) =>
-    [
-      ...publicClients.map((client, index) => ({
-        id: `client-review-${groupIndex}-${index}`,
-        name: client.name,
-        company: client.company,
-        quote: `${client.company} trusted Websmith for delivery clarity, product quality, and dependable communication.`,
-      })),
-      ...publicDevelopers.map((developer, index) => ({
-        id: `dev-review-${groupIndex}-${index}`,
-        name: developer.name,
-        company: developer.role,
-        quote: `${developer.name} brings strong ownership across ${developer.skills.slice(0, 2).join(" and ")}.`,
-      })),
-      ...publishedProjects.slice(0, 6).map((project: any, index: number) => ({
-        id: `project-review-${groupIndex}-${index}`,
-        name: project.name,
-        company: project.client || "Published Project",
-        quote: `${project.name} reflects Websmith's focus on polished execution and real-world launch readiness.`,
-      })),
-    ].slice(0, 12)
-  );
+  const reviewCards = (publicClients.length > 0 || publicDevelopers.length > 0)
+    ? [
+        ...publicClients.slice(0, 5).map((client, index) => ({
+          id: `client-review-${index}`,
+          name: client.name,
+          company: client.company,
+          quote: `${client.company} trusted Websmith for delivery clarity, product quality, and dependable communication.`,
+        })),
+        ...publicDevelopers.slice(0, 4).map((developer, index) => ({
+          id: `dev-review-${index}`,
+          name: developer.name,
+          company: developer.role,
+          quote: `${developer.name} brings strong ownership across ${developer.skills.slice(0, 2).join(" and ")}.`,
+        })),
+      ]
+    : dummyTestimonials;
+
+  const statsCarouselItems = [
+    { id: "stat-clients", value: `${stats.clients}+`, label: "Happy Clients" },
+    { id: "stat-developers", value: `${stats.developers}+`, label: "Expert Developers" },
+    { id: "stat-countries", value: `${stats.countries}+`, label: "Countries Served" },
+  ];
 
   return (
     <div style={styles.container}>
@@ -329,53 +472,51 @@ export default function LandingPage() {
 
       {/* Stats Counters */}
       <section style={styles.statsSection}>
-        <div style={styles.statsGrid} className="landing-stats-grid">
-          <div style={styles.statCard}>
-            <h3 style={styles.statNumber}>{stats.projects}+</h3>
-            <p style={styles.statLabel}>Projects Completed</p>
-          </div>
-          <div style={styles.statCard}>
-            <h3 style={styles.statNumber}>{stats.clients}+</h3>
-            <p style={styles.statLabel}>Happy Clients</p>
-          </div>
-          <div style={styles.statCard}>
-            <h3 style={styles.statNumber}>{stats.developers}+</h3>
-            <p style={styles.statLabel}>Expert Developers</p>
-          </div>
-          <div style={styles.statCard}>
-            <h3 style={styles.statNumber}>{stats.countries}+</h3>
-            <p style={styles.statLabel}>Countries Served</p>
-          </div>
-        </div>
+        <AutoCarousel
+          items={statsCarouselItems}
+          ariaLabel="Stats carousel"
+          itemMinWidth={220}
+          speedDesktop={0.03}
+          speedMobile={0.045}
+          renderItem={(item) => (
+            <div style={styles.statCard}>
+              <h3 style={styles.statNumber}>{item.value}</h3>
+              <p style={styles.statLabel}>{item.label}</p>
+            </div>
+          )}
+        />
       </section>
 
-      {publishedProjects.length > 0 && (
-        <section id="projects" style={styles.section}>
-          <h2 style={styles.sectionTitle}>Published Projects</h2>
-          <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
-          <div style={styles.featuresGrid}>
-            {publishedProjects.slice(0, 6).map((project: any) => (
-              <div key={project._id} style={styles.featureCard} className="feature-card">
-                {project.previewImage ? (
-                  <img src={project.previewImage} alt={project.name} style={styles.projectPreviewImage} />
-                ) : null}
-                <div style={styles.featureIcon}><Briefcase size={28} /></div>
-                <h3 style={styles.featureTitle}>{project.name}</h3>
-                <p style={styles.featureDesc}>{project.description}</p>
-                <p style={{ ...styles.clientCompany, marginTop: "12px" }}>{project.client}</p>
-                {project.publicUrl ? (
-                  <a href={project.publicUrl} target="_blank" rel="noreferrer" style={styles.projectLink}>
-                    <span>{project.publicUrl}</span>
-                    <ExternalLink size={14} />
-                  </a>
-                ) : (
-                  <p style={styles.projectLinkMuted}>Hosted project URL will appear here once added from the admin panel.</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <section id="projects" style={styles.section}>
+        <h2 style={styles.sectionTitle}>Published Projects</h2>
+        <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
+        <AutoCarousel
+          items={effectiveProjects}
+          ariaLabel="Published projects carousel"
+          itemMinWidth={280}
+          speedDesktop={0.028}
+          speedMobile={0.043}
+          renderItem={(project: any) => (
+            <div style={{ ...styles.featureCard, ...styles.sliderCard }} className="feature-card">
+              {project.previewImage ? (
+                <img src={project.previewImage} alt={project.name} style={styles.projectPreviewImage} />
+              ) : null}
+              <div style={styles.featureIcon}><Briefcase size={28} /></div>
+              <h3 style={styles.featureTitle}>{project.name}</h3>
+              <p style={styles.featureDesc}>{project.description}</p>
+              <p style={{ ...styles.clientCompany, marginTop: "12px" }}>{project.client || "Published Project"}</p>
+              {project.publicUrl ? (
+                <a href={project.publicUrl} target="_blank" rel="noreferrer" style={styles.projectLink}>
+                  <span>{project.publicUrl}</span>
+                  <ExternalLink size={14} />
+                </a>
+              ) : (
+                <p style={styles.projectLinkMuted}>Hosted project URL will appear here once added from the admin panel.</p>
+              )}
+            </div>
+          )}
+        />
+      </section>
 
       {/* Global Diversity & Collaboration */}
       <section style={styles.diversitySection}>
@@ -405,9 +546,14 @@ export default function LandingPage() {
       <section id="clients" ref={clientsRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
         <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
-        <div style={styles.clientGrid} className="landing-client-grid">
-          {publicClients.map((client, index) => (
-            <div key={client.id || index} style={styles.clientCard} className="client-card">
+        <AutoCarousel
+          items={publicClients}
+          ariaLabel="Clients carousel"
+          itemMinWidth={260}
+          speedDesktop={0.03}
+          speedMobile={0.046}
+          renderItem={(client, index) => (
+            <div key={client.id || index} style={{ ...styles.clientCard, ...styles.sliderCard }} className="client-card">
               <div style={styles.clientAvatarContainer}>
                 <Building2 size={22} color="#007AFF" />
               </div>
@@ -415,20 +561,26 @@ export default function LandingPage() {
               <p style={styles.clientCompany}>{client.company}</p>
               <p style={styles.clientProject}>{client.description}</p>
             </div>
-          ))}
-        </div>
+          )}
+        />
       </section>
 
       {/* Developers - expert profiles */}
       <section id="developers" ref={developersRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
         <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
-        <div style={styles.developerGrid} className="landing-developer-grid">
-          {publicDevelopers.map((dev) => (
+        <AutoCarousel
+          items={publicDevelopers}
+          ariaLabel="Developers carousel"
+          itemMinWidth={280}
+          speedDesktop={0.03}
+          speedMobile={0.046}
+          renderItem={(dev) => (
             <div 
               key={dev.id} 
               style={{
                 ...styles.developerCard,
+                ...styles.sliderCard,
                 background: "linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%)",
               }} 
               className="developer-card"
@@ -446,18 +598,22 @@ export default function LandingPage() {
               <p style={styles.developerExperience}>{dev.experience}+ years experience</p>
               <p style={styles.developerBlurb}>{dev.bio}</p>
             </div>
-          ))}
-        </div>
+          )}
+        />
       </section>
 
       {/* Testimonials */}
       <section id="testimonials" style={styles.section}>
         <h2 style={styles.sectionTitle}>What Our Clients Say</h2>
         <p style={styles.sectionSubtitle}>Continuous feedback highlights from across projects, clients, and delivery teams.</p>
-        <div style={styles.marqueeViewport}>
-          <div style={styles.marqueeTrack} className="landing-marquee-track">
-          {reviewCards.map((testimonial) => (
-            <div key={testimonial.id} style={styles.testimonialCard} className="testimonial-card">
+        <AutoCarousel
+          items={reviewCards}
+          ariaLabel="Testimonials carousel"
+          itemMinWidth={280}
+          speedDesktop={0.028}
+          speedMobile={0.042}
+          renderItem={(testimonial) => (
+            <div key={testimonial.id} style={{ ...styles.testimonialCard, ...styles.sliderCard }} className="testimonial-card">
               <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
               <div style={styles.testimonialStars}>
                 {[...Array(5)].map((_, i) => (
@@ -468,9 +624,8 @@ export default function LandingPage() {
               <h4 style={styles.testimonialName}>{testimonial.name}</h4>
               <p style={styles.testimonialCompany}>{testimonial.company}</p>
             </div>
-          ))}
-          </div>
-        </div>
+          )}
+        />
       </section>
 
       {/* Contact Section */}
@@ -792,6 +947,14 @@ export default function LandingPage() {
           transform: translateX(4px);
         }
 
+        .carousel-arrow {
+          transition: all 0.2s ease;
+        }
+        .carousel-arrow:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 14px rgba(0,0,0,0.14);
+        }
+
         .public-mobile-menu-overlay {
           opacity: 1;
           transition: opacity 0.2s ease;
@@ -862,6 +1025,10 @@ export default function LandingPage() {
           .landing-footer-content {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             gap: 24px !important;
+          }
+          .carousel-arrow {
+            width: 32px !important;
+            height: 32px !important;
           }
         }
 
@@ -1192,6 +1359,44 @@ const styles: any = {
     backgroundColor: "#1C1C1E",
     padding: "60px 0",
   },
+  carouselRoot: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    maxWidth: "1380px",
+    margin: "0 auto",
+    padding: "0 12px",
+  },
+  carouselArrow: {
+    width: "36px",
+    height: "36px",
+    borderRadius: "999px",
+    border: "1px solid #D1D1D6",
+    backgroundColor: "#FFFFFF",
+    color: "#1C1C1E",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    flexShrink: 0,
+  },
+  carouselViewport: {
+    overflow: "hidden",
+    flex: 1,
+    minWidth: 0,
+  },
+  carouselTrack: {
+    display: "flex",
+    width: "max-content",
+    alignItems: "stretch",
+    padding: "6px 0",
+  },
+  carouselSlide: {
+    flexShrink: 0,
+  },
+  sliderCard: {
+    height: "100%",
+  },
   statsGrid: {
     maxWidth: "1000px",
     margin: "0 auto",
@@ -1201,7 +1406,17 @@ const styles: any = {
     gap: "32px",
     textAlign: "center",
   },
-  statCard: {},
+  statCard: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: "16px",
+    padding: "22px",
+    minHeight: "132px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    textAlign: "center",
+  },
   statNumber: {
     fontSize: "48px",
     fontWeight: 700,
