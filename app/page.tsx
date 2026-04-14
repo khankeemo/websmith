@@ -130,7 +130,7 @@ export default function LandingPage() {
   const features = [
     { icon: Code, title: "Expert Developers", description: "Top-tier developers with proven experience in modern tech stacks", href: "#developers" },
     { icon: Rocket, title: "Fast Delivery", description: "Agile methodology ensuring quick turnaround without quality compromise", href: "#projects" },
-    { icon: Shield, title: "Secure Code", description: "Enterprise-grade security practices and regular code audits", href: "#features" },
+    { icon: Shield, title: "Secure Code", description: "Enterprise-grade security practices and regular code audits", href: "#developers" },
     { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance", href: "#contact" },
     { icon: Users, title: "Dedicated Teams", description: "Build your dedicated development team tailored to your needs", href: "#clients" },
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
