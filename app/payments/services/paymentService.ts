@@ -97,6 +97,11 @@ class PaymentService {
     return response.data.data;
   }
 
+  async getGatewayPaymentStatus(id: string): Promise<Payment> {
+    const response = await apiService.get(`/payments/${id}/status`);
+    return response.data.data;
+  }
+
   // Create new payment
   async createPayment(data: CreatePaymentData): Promise<Payment> {
     const response = await apiService.post('/payments', data);

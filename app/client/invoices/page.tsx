@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Search, 
   Download, 
@@ -49,6 +49,8 @@ export default function ClientInvoicesPage() {
   const [gatewayLoading, setGatewayLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [gatewayMessage, setGatewayMessage] = useState("");
+  const [selectedGateway, setSelectedGateway] = useState<"stripe" | "razorpay" | null>(null);
+  const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     refreshBillingData();
@@ -63,16 +65,11 @@ export default function ClientInvoicesPage() {
     const paymentStatus = searchParams.get("paymentStatus");
     const provider = searchParams.get("provider");
     const paymentId = searchParams.get("paymentId");
-    const sessionId = searchParams.get("session_id");
-
-    if (paymentStatus === "success" && provider === "stripe" && paymentId && sessionId) {
-      confirmStripePayment(paymentId, sessionId);
-      return;
-    }
+    const invoiceId = searchParams.get("invoiceId");
 
     if (paymentStatus === "success") {
-      setGatewayMessage("Payment submitted successfully. Verification is in progress.");
-      refreshBillingData();
+      setGatewayMessage("Payment received. Processing securely via webhook. This can take a few seconds.");
+      void pollPaymentResult(invoiceId, paymentId);
     } else if (paymentStatus === "cancelled") {
       setPaymentError("Payment was cancelled before completion.");
     }
@@ -107,31 +104,57 @@ export default function ClientInvoicesPage() {
     }
   };
 
-  const confirmStripePayment = async (paymentId: string, sessionId: string) => {
-    try {
-      setGatewayLoading(true);
-      setPaymentError("");
-      setGatewayMessage("Confirming your Stripe payment...");
+  const pollPaymentResult = async (invoiceId?: string | null, paymentId?: string | null) => {
+    const maxAttempts = 15;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        if (paymentId) {
+          try {
+            await paymentService.getGatewayPaymentStatus(paymentId);
+          } catch (error) {
+            console.error("Gateway status reconciliation error:", error);
+          }
+        }
 
-      await paymentService.confirmGatewayPayment({
-        provider: "stripe",
-        paymentId,
-        sessionId,
+        const [invoiceResponse, paymentResponse] = await Promise.all([API.get("/invoices"), API.get("/payments")]);
+        const invoiceList: Invoice[] = invoiceResponse?.data?.data || [];
+        const paymentList: Payment[] = paymentResponse?.data?.data || [];
+        setInvoices(invoiceList);
+        setPayments(paymentList);
+
+        const matchedInvoice = invoiceId ? invoiceList.find((invoice) => invoice._id === invoiceId) : null;
+        const matchedPayment = paymentId ? paymentList.find((payment) => payment._id === paymentId) : null;
+
+        if (matchedPayment?.status === "failed") {
+          setPaymentError("Payment failed. Please retry.");
+          setGatewayMessage("");
+          return;
+        }
+
+        if (matchedInvoice?.status === "paid" || matchedPayment?.status === "completed") {
+          setGatewayMessage("Payment confirmed successfully. Receipt is now available.");
+          setPaymentError("");
+          return;
+        }
+      } catch (error) {
+        console.error("Payment polling error:", error);
+      }
+
+      await new Promise<void>((resolve) => {
+        pollingTimerRef.current = setTimeout(() => resolve(), 3000);
       });
-
-      setGatewayMessage("Payment confirmed successfully.");
-      await refreshBillingData();
-    } catch (error: any) {
-      setPaymentError(
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to confirm Stripe payment"
-      );
-    } finally {
-      setGatewayLoading(false);
     }
+
+    setGatewayMessage("Payment is still processing. Please refresh in a few moments.");
   };
+
+  useEffect(() => {
+    return () => {
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current);
+      }
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -182,9 +205,10 @@ export default function ClientInvoicesPage() {
   const handleGatewayPayment = async (provider: "stripe" | "razorpay") => {
     if (!selectedInvoice) return;
 
+    setSelectedGateway(provider);
     setGatewayLoading(true);
     setPaymentError("");
-    setGatewayMessage("");
+    setGatewayMessage("Initializing secure payment session...");
 
     try {
       const response = await paymentService.createGatewayPayment({
@@ -216,17 +240,9 @@ export default function ClientInvoicesPage() {
         description: `Invoice ${selectedInvoice.invoiceNumber}`,
         handler: async (gatewayResponse: any) => {
           try {
-            await paymentService.confirmGatewayPayment({
-              provider: "razorpay",
-              paymentId,
-              razorpayPaymentId: gatewayResponse.razorpay_payment_id,
-              razorpayOrderId: gatewayResponse.razorpay_order_id,
-              razorpaySignature: gatewayResponse.razorpay_signature,
-            });
-
-            setGatewayMessage("Payment confirmed successfully.");
+            setGatewayMessage("Payment submitted. Waiting for secure webhook confirmation...");
             setSelectedInvoice(null);
-            await refreshBillingData();
+            await pollPaymentResult(selectedInvoice._id, paymentId);
           } catch (error: any) {
             setPaymentError(
               error?.response?.data?.error ||
@@ -244,6 +260,12 @@ export default function ClientInvoicesPage() {
           invoiceId: selectedInvoice._id,
           paymentId,
         },
+        modal: {
+          ondismiss: () => {
+            setPaymentError("Payment was cancelled before completion.");
+            setSelectedGateway(null);
+          },
+        },
       };
 
       const razorpay = new (window as any).Razorpay(options);
@@ -255,6 +277,7 @@ export default function ClientInvoicesPage() {
         error?.message ||
         "Failed to process payment"
       );
+      setSelectedGateway(null);
     } finally {
       setGatewayLoading(false);
     }
@@ -264,7 +287,11 @@ export default function ClientInvoicesPage() {
     invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const hasCompletedPayment = (invoiceId: string) =>
+    payments.some((payment) => payment.invoiceId === invoiceId && payment.status === "completed");
+
   const hasPendingPayment = (invoiceId: string) =>
+    !hasCompletedPayment(invoiceId) &&
     payments.some((payment) => payment.invoiceId === invoiceId && payment.status === "pending");
 
   const handleDownloadInvoice = async (invoice: Invoice) => {
@@ -414,13 +441,14 @@ export default function ClientInvoicesPage() {
                     onClick={() => {
                       setPaymentError("");
                       setGatewayMessage("");
+                      setSelectedGateway(null);
                       setSelectedInvoice(invoice);
                     }}
                   >
                     <CreditCard size={18} /> Pay Now
                   </button>
                 )}
-                {hasPendingPayment(invoice._id) && (
+                {invoice.status !== "paid" && hasPendingPayment(invoice._id) && (
                   <div style={styles.pendingVerification}>
                     Payment verification in progress
                   </div>
@@ -500,17 +528,17 @@ export default function ClientInvoicesPage() {
                 type="button"
                 style={styles.gatewayButton}
                 onClick={() => handleGatewayPayment('razorpay')}
-                disabled={gatewayLoading}
+                disabled={gatewayLoading || (selectedGateway !== null && selectedGateway !== "razorpay")}
               >
-                {gatewayLoading ? "Processing..." : "Pay with Razorpay"}
+                {gatewayLoading && selectedGateway === "razorpay" ? "Processing..." : "Pay with Razorpay"}
               </button>
               <button
                 type="button"
                 style={styles.gatewayButton}
                 onClick={() => handleGatewayPayment('stripe')}
-                disabled={gatewayLoading}
+                disabled={gatewayLoading || (selectedGateway !== null && selectedGateway !== "stripe")}
               >
-                {gatewayLoading ? "Processing..." : "Pay with Stripe"}
+                {gatewayLoading && selectedGateway === "stripe" ? "Processing..." : "Pay with Stripe"}
               </button>
             </div>
 
