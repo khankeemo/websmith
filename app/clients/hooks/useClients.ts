@@ -30,7 +30,7 @@ export const useClients = (): UseClientsReturn => {
       const data = await getClients();
       setClients(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch clients');
+      setError(typeof err === 'string' ? err : err.message || 'Failed to fetch clients');
     } finally {
       setLoading(false);
     }
