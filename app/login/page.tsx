@@ -1,14 +1,15 @@
 // PATH: C:\websmith\app\login\page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { login } from "../../core/services/authService";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, Menu, X } from "lucide-react";
 import { getDefaultRouteForRole } from "../../lib/auth";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const showSessionExpiredNotice = searchParams.get("reason") === "session-expired";
 
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
@@ -209,6 +211,12 @@ export default function LoginPage() {
         {error && (
           <div style={styles.errorContainer}>
             <span style={styles.errorText}>{error}</span>
+          </div>
+        )}
+
+        {showSessionExpiredNotice && !error && (
+          <div style={styles.infoContainer}>
+            <span style={styles.infoText}>Your session expired. Please sign in again to continue.</span>
           </div>
         )}
 
@@ -528,6 +536,14 @@ export default function LoginPage() {
   );
 }
 
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
 const styles: any = {
   container: {
     minHeight: "100vh",
@@ -810,6 +826,21 @@ const styles: any = {
 
   errorText: {
     color: "#FF3B30",
+    fontSize: "13px",
+    fontWeight: 500,
+    margin: 0,
+  },
+
+  infoContainer: {
+    backgroundColor: "#E8F2FF",
+    border: "1px solid #007AFF",
+    borderRadius: "12px",
+    padding: "12px 16px",
+    marginBottom: "24px",
+  },
+
+  infoText: {
+    color: "#005FCC",
     fontSize: "13px",
     fontWeight: 500,
     margin: 0,
