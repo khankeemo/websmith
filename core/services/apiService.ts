@@ -2,8 +2,9 @@ import axios from "axios";
 import { clearAuthSession, getToken } from "../../lib/auth";
 
 /**
- * Browser on local Next: use same-origin `/api` so requests go through `next.config` rewrites
- * to wsd-server (avoids failed connections when only `next dev` is running).
+ * Browser defaults to the hosted API to avoid local proxy 500s when the local
+ * backend isn't running. Opt into local proxy by setting
+ * NEXT_PUBLIC_USE_LOCAL_API_PROXY=true.
  * Server-side: call the API process directly.
  */
 const getApiBaseUrl = () => {
@@ -15,7 +16,10 @@ const getApiBaseUrl = () => {
   if (typeof window !== "undefined") {
     const { hostname, origin } = window.location;
     if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return `${origin}/api`;
+      if (process.env.NEXT_PUBLIC_USE_LOCAL_API_PROXY === "true") {
+        return `${origin}/api`;
+      }
+      return "https://wsdserver.vercel.app/api";
     }
     return "https://wsdserver.vercel.app/api";
   }
