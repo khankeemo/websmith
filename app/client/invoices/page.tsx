@@ -20,13 +20,17 @@ import {
 import API from "@/core/services/apiService";
 import Modal from "../../../components/ui/Modal";
 import paymentService from "../../payments/services/paymentService";
+import type { Payment } from "../../payments/services/paymentService";
 
 interface Invoice {
   _id: string;
   invoiceNumber: string;
   clientName: string;
+  clientEmail?: string;
   amount: number;
-  status: "paid" | "pending" | "overdue";
+  paidAmount?: number;
+  dueAmount?: number;
+  status: "paid" | "pending" | "partially_paid" | "overdue";
   issueDate: string;
   dueDate: string;
   items: Array<{
@@ -41,12 +45,37 @@ export default function ClientInvoicesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "bank" | "cash" | "crypto">("card");
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [gatewayLoading, setGatewayLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [gatewayMessage, setGatewayMessage] = useState("");
 
   useEffect(() => {
-    fetchInvoices();
+    refreshBillingData();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const paymentStatus = searchParams.get("paymentStatus");
+    const provider = searchParams.get("provider");
+    const paymentId = searchParams.get("paymentId");
+    const sessionId = searchParams.get("session_id");
+
+    if (paymentStatus === "success" && provider === "stripe" && paymentId && sessionId) {
+      confirmStripePayment(paymentId, sessionId);
+      return;
+    }
+
+    if (paymentStatus === "success") {
+      setGatewayMessage("Payment submitted successfully. Verification is in progress.");
+      refreshBillingData();
+    } else if (paymentStatus === "cancelled") {
+      setPaymentError("Payment was cancelled before completion.");
+    }
   }, []);
 
   const fetchInvoices = async () => {
@@ -57,14 +86,57 @@ export default function ClientInvoicesPage() {
       }
     } catch (error) {
       console.error("Fetch invoices error:", error);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      const data = await paymentService.getAllPayments();
+      setPayments(data || []);
+    } catch (error) {
+      console.error("Fetch payments error:", error);
+    }
+  };
+
+  const refreshBillingData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([fetchInvoices(), fetchPayments()]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const confirmStripePayment = async (paymentId: string, sessionId: string) => {
+    try {
+      setGatewayLoading(true);
+      setPaymentError("");
+      setGatewayMessage("Confirming your Stripe payment...");
+
+      await paymentService.confirmGatewayPayment({
+        provider: "stripe",
+        paymentId,
+        sessionId,
+      });
+
+      setGatewayMessage("Payment confirmed successfully.");
+      await refreshBillingData();
+    } catch (error: any) {
+      setPaymentError(
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to confirm Stripe payment"
+      );
+    } finally {
+      setGatewayLoading(false);
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "paid": return "#34C759";
+      case "partially_paid": return "#007AFF";
       case "pending": return "#FF9500";
       case "overdue": return "#FF3B30";
       default: return "#8E8E93";
@@ -86,29 +158,114 @@ export default function ClientInvoicesPage() {
     });
   };
 
+  const loadRazorpayScript = () => {
+    return new Promise<void>((resolve, reject) => {
+      if (typeof window === "undefined") {
+        reject(new Error("Razorpay checkout requires a browser."));
+        return;
+      }
+
+      if ((window as any).Razorpay) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Failed to load Razorpay SDK."));
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleGatewayPayment = async (provider: "stripe" | "razorpay") => {
+    if (!selectedInvoice) return;
+
+    setGatewayLoading(true);
+    setPaymentError("");
+    setGatewayMessage("");
+
+    try {
+      const response = await paymentService.createGatewayPayment({
+        invoiceId: selectedInvoice._id,
+        provider,
+        amount: selectedInvoice.amount,
+        currency: provider === "razorpay" ? "INR" : "USD",
+        notes: `Client initiated payment for ${selectedInvoice.invoiceNumber}`,
+      });
+
+      if (response.provider === "stripe" && response.checkoutUrl) {
+        window.location.href = response.checkoutUrl;
+        return;
+      }
+
+      if (response.provider !== "razorpay") {
+        throw new Error("Unexpected payment gateway response.");
+      }
+
+      const { order, keyId, paymentId } = response;
+      await loadRazorpayScript();
+
+      const options = {
+        key: keyId,
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Websmith",
+        description: `Invoice ${selectedInvoice.invoiceNumber}`,
+        handler: async (gatewayResponse: any) => {
+          try {
+            await paymentService.confirmGatewayPayment({
+              provider: "razorpay",
+              paymentId,
+              razorpayPaymentId: gatewayResponse.razorpay_payment_id,
+              razorpayOrderId: gatewayResponse.razorpay_order_id,
+              razorpaySignature: gatewayResponse.razorpay_signature,
+            });
+
+            setGatewayMessage("Payment confirmed successfully.");
+            setSelectedInvoice(null);
+            await refreshBillingData();
+          } catch (error: any) {
+            setPaymentError(
+              error?.response?.data?.error ||
+              error?.response?.data?.message ||
+              error?.message ||
+              "Failed to confirm Razorpay payment"
+            );
+          }
+        },
+        prefill: {
+          name: selectedInvoice.clientName,
+          email: selectedInvoice.clientEmail,
+        },
+        notes: {
+          invoiceId: selectedInvoice._id,
+          paymentId,
+        },
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
+    } catch (error: any) {
+      setPaymentError(
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to process payment"
+      );
+    } finally {
+      setGatewayLoading(false);
+    }
+  };
+
   const filteredInvoices = invoices.filter(invoice => 
     invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handlePayInvoice = async () => {
-    if (!selectedInvoice) return;
-
-    setPaymentLoading(true);
-    setPaymentError("");
-    try {
-      await paymentService.createPayment({
-        invoiceId: selectedInvoice._id,
-        method: paymentMethod,
-        notes: `Client initiated payment for ${selectedInvoice.invoiceNumber}`,
-      });
-      setSelectedInvoice(null);
-      await fetchInvoices();
-    } catch (error: any) {
-      setPaymentError(error?.response?.data?.message || "Failed to process payment");
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
+  const hasPendingPayment = (invoiceId: string) =>
+    payments.some((payment) => payment.invoiceId === invoiceId && payment.status === "pending");
 
   const handleDownloadInvoice = async (invoice: Invoice) => {
     try {
@@ -130,8 +287,8 @@ export default function ClientInvoicesPage() {
   const stats = {
     total: invoices.length,
     pending: invoices.filter(i => i.status !== "paid").length,
-    totalDue: invoices.filter(i => i.status !== "paid").reduce((sum, i) => sum + i.amount, 0),
-    totalPaid: invoices.filter(i => i.status === "paid").reduce((sum, i) => sum + i.amount, 0),
+    totalDue: invoices.filter(i => i.status !== "paid").reduce((sum, i) => sum + (i.dueAmount ?? i.amount), 0),
+    totalPaid: invoices.reduce((sum, i) => sum + (i.paidAmount ?? (i.status === "paid" ? i.amount : 0)), 0),
   };
 
   if (loading) {
@@ -228,7 +385,7 @@ export default function ClientInvoicesPage() {
               <div style={styles.cardContent}>
                 <div style={styles.amountSection}>
                   <div style={styles.amountLabel}>Total Due</div>
-                  <div style={styles.amountValue}>{formatCurrency(invoice.amount)}</div>
+                  <div style={styles.amountValue}>{formatCurrency(invoice.dueAmount ?? invoice.amount)}</div>
                 </div>
                 <div style={styles.dateSection}>
                   <div style={styles.amountLabel}>Due Date</div>
@@ -250,18 +407,23 @@ export default function ClientInvoicesPage() {
                     <Download size={16} /> <span className="hide-mobile">Receipt</span>
                   </button>
                 </div>
-                {invoice.status !== "paid" && (
+                {invoice.status !== "paid" && !hasPendingPayment(invoice._id) && (
                   <button 
                     style={styles.payButton} 
                     className="pay-btn-hover"
                     onClick={() => {
-                      setPaymentMethod("card");
                       setPaymentError("");
+                      setGatewayMessage("");
                       setSelectedInvoice(invoice);
                     }}
                   >
                     <CreditCard size={18} /> Pay Now
                   </button>
+                )}
+                {hasPendingPayment(invoice._id) && (
+                  <div style={styles.pendingVerification}>
+                    Payment verification in progress
+                  </div>
                 )}
               </div>
             </div>
@@ -312,23 +474,13 @@ export default function ClientInvoicesPage() {
         }}
         title="Complete Payment"
         footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setSelectedInvoice(null)}
-              style={styles.modalSecondaryBtn}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handlePayInvoice}
-              style={styles.modalPrimaryBtn}
-              disabled={paymentLoading}
-            >
-              {paymentLoading ? "Processing..." : "Confirm Payment"}
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => setSelectedInvoice(null)}
+            style={styles.modalSecondaryBtn}
+          >
+            Close
+          </button>
         }
       >
         {selectedInvoice && (
@@ -336,17 +488,33 @@ export default function ClientInvoicesPage() {
             <p style={styles.modalText}>
               Invoice <strong>{selectedInvoice.invoiceNumber}</strong> for {formatCurrency(selectedInvoice.amount)}
             </p>
-            <label style={styles.modalLabel}>Payment Method</label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as any)}
-              style={styles.modalSelect}
-            >
-              <option value="card">Card</option>
-              <option value="bank">Bank</option>
-              <option value="cash">Cash</option>
-              <option value="crypto">Crypto</option>
-            </select>
+            {typeof selectedInvoice.paidAmount === "number" && selectedInvoice.paidAmount > 0 && (
+              <p style={styles.modalText}>
+                Paid so far: <strong>{formatCurrency(selectedInvoice.paidAmount)}</strong> | Remaining:{" "}
+                <strong>{formatCurrency(selectedInvoice.dueAmount ?? selectedInvoice.amount)}</strong>
+              </p>
+            )}
+            <label style={styles.modalLabel}>Choose Payment Gateway</label>
+            <div style={styles.gatewayButtons}>
+              <button
+                type="button"
+                style={styles.gatewayButton}
+                onClick={() => handleGatewayPayment('razorpay')}
+                disabled={gatewayLoading}
+              >
+                {gatewayLoading ? "Processing..." : "Pay with Razorpay"}
+              </button>
+              <button
+                type="button"
+                style={styles.gatewayButton}
+                onClick={() => handleGatewayPayment('stripe')}
+                disabled={gatewayLoading}
+              >
+                {gatewayLoading ? "Processing..." : "Pay with Stripe"}
+              </button>
+            </div>
+
+            {gatewayMessage && <p style={styles.gatewayMessage}>{gatewayMessage}</p>}
             {paymentError && <p style={styles.modalError}>{paymentError}</p>}
           </div>
         )}
@@ -520,6 +688,14 @@ const styles: any = {
     cursor: "pointer",
     boxShadow: '0 8px 20px rgba(0,122,255,0.2)',
   },
+  pendingVerification: {
+    padding: "12px 18px",
+    borderRadius: "14px",
+    backgroundColor: "rgba(255, 149, 0, 0.12)",
+    color: "#B26A00",
+    fontSize: "13px",
+    fontWeight: 700,
+  },
   emptyState: { 
     textAlign: "center", 
     padding: "100px 20px", 
@@ -542,13 +718,26 @@ const styles: any = {
     fontWeight: 600,
     color: "var(--text-primary)",
   },
-  modalSelect: {
-    width: "100%",
-    padding: "12px 14px",
+  gatewayButtons: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "12px",
+    marginTop: "10px",
+  },
+  gatewayButton: {
+    padding: "12px 16px",
     borderRadius: "12px",
     border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-secondary)",
-    color: "var(--text-primary)",
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  gatewayMessage: {
+    margin: 0,
+    color: "#0B6F44",
+    fontSize: "13px",
+    fontWeight: 500,
   },
   modalError: {
     margin: 0,
@@ -564,15 +753,6 @@ const styles: any = {
     borderRadius: "12px",
     backgroundColor: "var(--bg-secondary)",
     color: "var(--text-primary)",
-  },
-  modalPrimaryBtn: {
-    padding: "10px 16px",
-    borderRadius: "12px",
-    border: "none",
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-    fontWeight: 700,
-    cursor: "pointer",
   },
   modalSecondaryBtn: {
     padding: "10px 16px",

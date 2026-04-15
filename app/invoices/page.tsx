@@ -35,7 +35,9 @@ interface Invoice {
   clientName: string;
   clientEmail: string;
   amount: number;
-  status: "paid" | "pending" | "overdue" | "draft";
+  paidAmount?: number;
+  dueAmount?: number;
+  status: "paid" | "pending" | "partially_paid" | "overdue" | "draft";
   issueDate: string;
   dueDate: string;
   items: Array<{
@@ -174,6 +176,7 @@ export default function InvoicesPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "paid": return "#34C759";
+      case "partially_paid": return "#007AFF";
       case "pending": return "#FF9500";
       case "overdue": return "#FF3B30";
       default: return "#8E8E93";
@@ -183,6 +186,7 @@ export default function InvoicesPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "paid": return <CheckCircle size={14} />;
+      case "partially_paid": return <DollarSign size={14} />;
       case "pending": return <Clock size={14} />;
       case "overdue": return <AlertCircle size={14} />;
       default: return <FileText size={14} />;
@@ -406,6 +410,7 @@ export default function InvoicesPage() {
         >
           <option value="all">All Status</option>
           <option value="paid">Paid</option>
+          <option value="partially_paid">Partially Paid</option>
           <option value="pending">Pending</option>
           <option value="overdue">Overdue</option>
           <option value="draft">Draft</option>
@@ -453,7 +458,7 @@ export default function InvoicesPage() {
                   <td style={styles.td}>{formatDate(invoice.issueDate)}</td>
                   <td style={styles.td}>{formatDate(invoice.dueDate)}</td>
                   <td style={styles.td}>
-                    <span style={styles.amount}>{formatCurrency(invoice.amount)}</span>
+                    <span style={styles.amount}>{formatCurrency(invoice.dueAmount ?? invoice.amount)}</span>
                   </td>
                   <td style={styles.td}>
                     <span style={{
