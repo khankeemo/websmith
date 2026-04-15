@@ -47,6 +47,10 @@ API.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
       clearAuthSession();
+      const currentPath = window.location.pathname;
+      if (currentPath !== "/login") {
+        window.location.replace("/login?reason=session-expired");
+      }
     }
 
     return Promise.reject(error);
