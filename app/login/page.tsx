@@ -17,7 +17,9 @@ function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const showSessionExpiredNotice = searchParams.get("reason") === "session-expired";
+  const loginReason = searchParams.get("reason");
+  const showSessionExpiredNotice = loginReason === "session-expired";
+  const showPasswordUpdateRequiredNotice = loginReason === "password-update-required";
 
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
@@ -217,6 +219,12 @@ function LoginPageContent() {
         {showSessionExpiredNotice && !error && (
           <div style={styles.infoContainer}>
             <span style={styles.infoText}>Your session expired. Please sign in again to continue.</span>
+          </div>
+        )}
+
+        {showPasswordUpdateRequiredNotice && !error && (
+          <div style={styles.infoContainer}>
+            <span style={styles.infoText}>You must update your password after signing in with a temporary password.</span>
           </div>
         )}
 
