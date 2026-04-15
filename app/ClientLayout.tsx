@@ -10,7 +10,8 @@ import { useRouter } from "next/navigation";
 import { Menu, Moon, Sun, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
-import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken } from "../lib/auth";
+import ForcedPasswordResetModal from "../components/auth/ForcedPasswordResetModal";
+import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, setAuthSession } from "../lib/auth";
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
 
 export default function ClientLayout({
@@ -22,6 +23,7 @@ export default function ClientLayout({
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [publicTheme, setPublicTheme] = useState<"light" | "dark">("light");
+  const [showForcedPasswordResetModal, setShowForcedPasswordResetModal] = useState(false);
   
   const publicPaths = ["/", "/login", "/register", "/auth/callback", "/services", "/lead-form", "/success", "/auth/change-password"];
   const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
@@ -46,11 +48,6 @@ export default function ClientLayout({
 
     const defaultRoute = getDefaultRouteForRole(user.role);
 
-    if (user.role === "client" && user.isTemporaryPassword && pathname !== "/auth/change-password") {
-      router.replace("/auth/change-password");
-      return;
-    }
-
     if (legacyProtectedPaths.includes(pathname)) {
       router.replace(defaultRoute);
       return;
@@ -71,6 +68,7 @@ export default function ClientLayout({
     }
 
     document.documentElement.classList.toggle("dark-theme", user.preferences?.theme === "dark");
+    setShowForcedPasswordResetModal(Boolean(user.isTemporaryPassword));
   }, [pathname, publicTheme, router]);
 
   useEffect(() => {
@@ -85,6 +83,28 @@ export default function ClientLayout({
 
   const shouldShowSidebar = !publicPaths.includes(pathname);
   const user = getStoredUser();
+
+  const handleForcedPasswordResetCompleted = () => {
+    const latestUser = getStoredUser();
+    if (!latestUser) {
+      setShowForcedPasswordResetModal(false);
+      return;
+    }
+    const updatedUser = { ...latestUser, isTemporaryPassword: false, setupCompleted: true, isApproved: true };
+    const token = getToken();
+    if (token) {
+      setAuthSession(token, updatedUser);
+    } else {
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+    }
+    setShowForcedPasswordResetModal(false);
+  };
+
+  const handleForcedPasswordResetLogout = () => {
+    clearAuthSession();
+    setShowForcedPasswordResetModal(false);
+    router.replace("/login?reason=password-update-required");
+  };
 
   useEffect(() => {
     if (!shouldShowSidebar) return;
@@ -140,6 +160,11 @@ export default function ClientLayout({
           </button>
         )}
       </div>
+      <ForcedPasswordResetModal
+        isOpen={shouldShowSidebar && showForcedPasswordResetModal}
+        onCompleted={handleForcedPasswordResetCompleted}
+        onLogout={handleForcedPasswordResetLogout}
+      />
       <CrispChat />
       <style>{`
         .app-layout-shell {
