@@ -182,7 +182,10 @@ export default function Sidebar({
             },
             {
               title: "WORK",
-              items: [{ name: "Projects", path: `${basePath}/projects`, icon: Briefcase }],
+              items: [
+                { name: "Projects", path: `${basePath}/projects`, icon: Briefcase },
+                { name: "Tasks", path: `${basePath}/tasks`, icon: CheckSquare },
+              ],
             },
             {
               title: "SYSTEM",

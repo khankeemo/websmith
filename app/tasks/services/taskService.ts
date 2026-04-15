@@ -22,6 +22,19 @@ export interface Task {
   createdAt?: string;
 }
 
+const isMongoObjectIdString = (s: unknown): s is string =>
+  typeof s === "string" && /^[a-f0-9]{24}$/i.test(s);
+
+/** Resolve developer id for API; never treat assignee display name as an id. */
+const resolveDeveloperId = (task: Partial<Task>) => {
+  if (task.developerId === "" || task.developerId === null) return null;
+  if (typeof task.developerId === "object" && task.developerId) return task.developerId._id;
+  if (typeof task.developerId === "string" && task.developerId) return task.developerId;
+  if (task.assignee === "") return null;
+  if (isMongoObjectIdString(task.assignee)) return task.assignee;
+  return undefined;
+};
+
 const normalizeTaskPayload = (task: Partial<Task>) => ({
   ...task,
   title: task.title?.trim() ?? task.title,
@@ -29,12 +42,7 @@ const normalizeTaskPayload = (task: Partial<Task>) => ({
   assignee: task.assignee ?? "",
   projectId: task.projectId === "" ? null : typeof task.projectId === "object" ? task.projectId?._id : task.projectId,
   clientId: task.clientId === "" ? null : typeof task.clientId === "object" ? task.clientId?._id : task.clientId,
-  developerId:
-    task.developerId === ""
-      ? null
-      : typeof task.developerId === "object"
-        ? task.developerId?._id
-        : task.developerId || task.assignee,
+  developerId: resolveDeveloperId(task),
   dueDate: task.dueDate === "" ? null : task.dueDate,
 });
 

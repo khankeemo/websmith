@@ -36,6 +36,7 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
     published: false,
   });
   const [skillInput, setSkillInput] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (developer) {
@@ -76,9 +77,49 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
     setFormData({ ...formData, skills: formData.skills.filter((s) => s !== skill) });
   };
 
+  const validateAndBuildPayload = (publish = false): DeveloperPayload | null => {
+    setLocalError(null);
+    const trimmedName = formData.name.trim();
+    const trimmedEmail = formData.email.trim().toLowerCase();
+    const trimmedPhone = formData.phone.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[+]?[0-9()\-\s]{7,20}$/;
+
+    if (!trimmedName) {
+      setLocalError("Developer name is required.");
+      return null;
+    }
+
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setLocalError("Please enter a valid email ID.");
+      return null;
+    }
+
+    if (trimmedPhone && !phoneRegex.test(trimmedPhone)) {
+      setLocalError("Please enter a valid phone number.");
+      return null;
+    }
+
+    return {
+      ...formData,
+      name: trimmedName,
+      email: trimmedEmail,
+      phone: trimmedPhone,
+      published: publish ? true : formData.published,
+    };
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const payload = validateAndBuildPayload(false);
+    if (!payload) return;
+    onSave(payload);
+  };
+
+  const handlePublish = () => {
+    const payload = validateAndBuildPayload(true);
+    if (!payload) return;
+    onSave(payload);
   };
 
   if (!isOpen) return null;
@@ -96,7 +137,7 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Name *</label>
+              <label style={styles.label}>Developer Name *</label>
               <input
                 type="text"
                 value={formData.name}
@@ -107,7 +148,7 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Email *</label>
+              <label style={styles.label}>Email ID *</label>
               <input
                 type="email"
                 value={formData.email}
@@ -118,7 +159,7 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Phone</label>
+              <label style={styles.label}>Phone Number</label>
               <input
                 type="tel"
                 value={formData.phone}
@@ -138,6 +179,7 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
             </div>
           </div>
 
+          <div style={styles.sectionTitle}>Role</div>
           <div style={styles.formGroup}>
             <label style={styles.label}>Role</label>
             <input
@@ -149,8 +191,9 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
             />
           </div>
 
+          <div style={styles.sectionTitle}>Description</div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Bio</label>
+            <label style={styles.label}>Description</label>
             <textarea
               value={formData.bio}
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
@@ -188,6 +231,7 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
             )}
           </div>
 
+          <div style={styles.sectionTitle}>Experience</div>
           <div style={styles.formGrid}>
             <div style={styles.formGroup}>
               <label style={styles.label}>Status</label>
@@ -215,11 +259,14 @@ export default function DeveloperModal({ isOpen, onClose, onSave, developer, isS
             </div>
           </div>
 
-          {submitError && <p style={styles.errorText}>{submitError}</p>}
+          {(localError || submitError) && <p style={styles.errorText}>{localError || submitError}</p>}
 
           <div style={styles.actions}>
             <button type="button" onClick={onClose} style={styles.cancelBtn}>
               Cancel
+            </button>
+            <button type="button" onClick={handlePublish} style={styles.publishBtn} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Publish"}
             </button>
             <button type="submit" style={styles.submitBtn} disabled={isSaving}>
               {isSaving ? "Saving..." : developer ? "Update" : "Create"}
@@ -237,6 +284,7 @@ const styles: Record<string, any> = {
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" },
   title: { margin: 0, fontSize: "24px", fontWeight: 600, color: "var(--text-primary)" },
   closeBtn: { background: "none", border: "none", cursor: "pointer", padding: "8px", color: "var(--text-secondary)" },
+  sectionTitle: { margin: "8px 0 10px", fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" },
   formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
   formGroup: { marginBottom: "16px" },
   label: { display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" },
@@ -253,5 +301,6 @@ const styles: Record<string, any> = {
   errorText: { color: "#FF3B30", fontSize: "14px", marginBottom: "16px" },
   actions: { display: "flex", gap: "12px", marginTop: "24px" },
   cancelBtn: { flex: 1, padding: "14px", background: "var(--bg-secondary)", color: "var(--text-primary)", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
+  publishBtn: { flex: 1, padding: "14px", background: "#34C759", color: "#fff", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 700, cursor: "pointer" },
   submitBtn: { flex: 1, padding: "14px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" },
 };

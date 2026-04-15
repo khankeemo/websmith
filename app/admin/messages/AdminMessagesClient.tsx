@@ -28,10 +28,6 @@ export default function AdminMessagesClient() {
     try {
       const data = await getTickets();
       setTickets(data);
-      if (!selectedId && data[0]?._id) {
-        setSelectedId(data[0]._id);
-        setResolution(data[0].resolution || "");
-      }
     } finally {
       setLoading(false);
     }
@@ -192,6 +188,9 @@ export default function AdminMessagesClient() {
                 </p>
               </div>
               <div style={styles.actionGroup}>
+                <button type="button" onClick={() => setSelectedId(null)} style={styles.secondaryBtn} disabled={saving}>
+                  Close Query Panel
+                </button>
                 <button type="button" onClick={() => handleStatus("open")} style={styles.secondaryBtn} disabled={saving}>
                   Open
                 </button>
@@ -202,7 +201,7 @@ export default function AdminMessagesClient() {
                   Resolve
                 </button>
                 <button type="button" onClick={() => handleStatus("closed")} style={styles.secondaryBtn} disabled={saving}>
-                  Close Query
+                  Mark Closed
                 </button>
               </div>
             </div>

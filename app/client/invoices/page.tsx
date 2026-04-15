@@ -411,8 +411,11 @@ export default function ClientInvoicesPage() {
               
               <div style={styles.cardContent}>
                 <div style={styles.amountSection}>
-                  <div style={styles.amountLabel}>Total Due</div>
-                  <div style={styles.amountValue}>{formatCurrency(invoice.dueAmount ?? invoice.amount)}</div>
+                  <div style={styles.amountLabel}>Invoice Total</div>
+                  <div style={styles.amountValue}>{formatCurrency(invoice.amount)}</div>
+                  <div style={styles.dueValue}>
+                    Remaining Due: {formatCurrency(invoice.dueAmount ?? invoice.amount)}
+                  </div>
                 </div>
                 <div style={styles.dateSection}>
                   <div style={styles.amountLabel}>Due Date</div>
@@ -686,6 +689,12 @@ const styles: any = {
   dateSection: { display: "flex", flexDirection: "column", gap: "6px", alignItems: "flex-end" },
   amountLabel: { fontSize: "12px", color: "var(--text-secondary)", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' },
   amountValue: { fontSize: "26px", fontWeight: 800, color: 'var(--text-primary)' },
+  dueValue: {
+    fontSize: "13px",
+    color: "var(--text-secondary)",
+    fontWeight: 600,
+    marginTop: "6px",
+  },
   dateValue: { fontSize: "16px", fontWeight: 700 },
   cardFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" },
   footerActions: { display: "flex", gap: "10px" },

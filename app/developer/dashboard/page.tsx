@@ -17,12 +17,14 @@ export default function DeveloperDashboardPage() {
     overdueTasks: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
+      setStatsError(null);
       try {
         const statsResponse = await API.get("/stats/developer");
         const developerStats = statsResponse.data.data;
@@ -31,8 +33,14 @@ export default function DeveloperDashboardPage() {
         setRecentActivity(developerStats.recentActivity || []);
         setUpcomingDeadlines(developerStats.upcomingDeadlineTasks || []);
         setOverdueTasks(developerStats.overdueTaskList || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Developer dashboard error:", error);
+        const msg =
+          error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          "Could not load dashboard statistics.";
+        setStatsError(typeof msg === "string" ? msg : "Could not load dashboard statistics.");
       } finally {
         setLoading(false);
       }
@@ -63,6 +71,11 @@ export default function DeveloperDashboardPage() {
         <h1 style={styles.title}>Dashboard</h1>
         <p style={styles.subtitle}>Manage delivery timelines and publish project progress</p>
       </div>
+      {statsError && (
+        <div style={styles.errorBanner} role="alert">
+          <p style={styles.errorBannerText}>{statsError}</p>
+        </div>
+      )}
       <div style={styles.grid}>
         {cards.map((card) => (
           <Card key={card.label}>
@@ -100,12 +113,14 @@ export default function DeveloperDashboardPage() {
                 <div style={styles.activityContent}>
                   <p style={styles.activityText}>{activity.title}</p>
                   <p style={styles.activityTime}>
-                    {new Date(activity.timestamp).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {activity.timestamp
+                      ? new Date(activity.timestamp).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      : '—'}
                   </p>
                 </div>
               </div>
@@ -276,6 +291,13 @@ const styles: any = {
   deadlineDate: { fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", flex: 1 },
   deadlineDateText: { fontSize: "11px", color: "var(--text-secondary)" },
   emptyText: { fontSize: "13px", color: "var(--text-secondary)", textAlign: "center" as const, padding: "20px" },
+  errorBanner: {
+    padding: "12px 16px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+  },
+  errorBannerText: { margin: 0, fontSize: "14px", color: "var(--text-primary)" },
   loadingContainer: {
     display: "flex",
     flexDirection: "column",

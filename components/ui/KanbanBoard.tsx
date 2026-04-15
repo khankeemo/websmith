@@ -87,7 +87,7 @@ export default function KanbanBoard({ columns, cards, onCardDrop, renderCard }: 
             style={{
               ...styles.column,
               border: isDragOver ? `2px dashed ${column.color}` : "2px solid transparent",
-              backgroundColor: isDragOver ? `${column.color}08` : "#F9F9FB",
+              backgroundColor: isDragOver ? `${column.color}12` : "var(--bg-secondary)",
             }}
             onDragOver={(e) => handleDragOver(e, column.id)}
             onDragLeave={handleDragLeave}
@@ -95,7 +95,7 @@ export default function KanbanBoard({ columns, cards, onCardDrop, renderCard }: 
           >
             <div style={styles.columnHeader}>
               <h3 style={{ ...styles.columnTitle, color: column.color }}>{column.title}</h3>
-              <span style={{ ...styles.cardCount, backgroundColor: `${column.color}20`, color: column.color }}>
+              <span style={{ ...styles.cardCount, backgroundColor: `${column.color}22`, color: column.color }}>
                 {columnCards.length}
               </span>
             </div>
@@ -118,7 +118,7 @@ export default function KanbanBoard({ columns, cards, onCardDrop, renderCard }: 
                   ) : (
                     <>
                       <div style={styles.cardHeader}>
-                        <strong style={styles.cardTitle}>{card.title}</strong>
+                        <strong style={{ ...styles.cardTitle, color: "var(--text-primary)" }}>{card.title}</strong>
                         {card.priority && (
                           <span
                             style={{
@@ -170,12 +170,14 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
     gap: "20px",
     minHeight: "500px",
+    color: "var(--text-primary)",
   },
   column: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "16px",
     padding: "16px",
     transition: "all 0.2s ease",
+    border: "1px solid var(--border-color)",
   },
   columnHeader: {
     display: "flex",
@@ -183,7 +185,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     marginBottom: "16px",
     paddingBottom: "12px",
-    borderBottom: "2px solid #E5E5EA",
+    borderBottom: "2px solid var(--border-color)",
   },
   columnTitle: {
     margin: 0,
@@ -203,11 +205,11 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: "100px",
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "12px",
     padding: "14px",
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #E5E5EA",
+    boxShadow: "var(--card-shadow)",
+    border: "1px solid var(--border-color)",
     transition: "all 0.2s ease",
   },
   cardHeader: {
@@ -220,7 +222,6 @@ const styles: Record<string, React.CSSProperties> = {
   cardTitle: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#1C1C1E",
     flex: 1,
   },
   priorityBadge: {
@@ -233,7 +234,7 @@ const styles: Record<string, React.CSSProperties> = {
   cardSubtitle: {
     margin: 0,
     fontSize: "13px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     lineHeight: 1.4,
   },
   emptyColumn: {
@@ -241,12 +242,13 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     minHeight: "100px",
-    border: "2px dashed #D1D5DB",
+    border: "2px dashed var(--border-color)",
     borderRadius: "12px",
+    backgroundColor: "color-mix(in srgb, var(--bg-primary) 60%, transparent)",
   },
   emptyText: {
     margin: 0,
     fontSize: "13px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
 };

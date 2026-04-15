@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import API from "@/core/services/apiService";
 import Modal from "../../components/ui/Modal";
+import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
 import { getProjects, Project } from "../projects/services/projectService";
 import { getUsersByRole, RoleUser } from "../../core/services/userService";
 import { computeInvoiceDashboardStats } from "../../lib/invoiceStats";
@@ -61,6 +62,9 @@ export default function InvoicesPage() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<RoleUser[]>([]);
+  const [clientProjects, setClientProjects] = useState<Project[]>([]);
+  const [selectedProjectDetails, setSelectedProjectDetails] = useState<Project | null>(null);
+  const [clientNotFound, setClientNotFound] = useState(false);
   const [formState, setFormState] = useState({
     projectId: "",
     clientId: "",
@@ -79,6 +83,7 @@ export default function InvoicesPage() {
   });
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -237,29 +242,85 @@ export default function InvoicesPage() {
     setFormError("");
   };
 
+  const findClientByIdOrCustomId = (id: string) => {
+    const trimmed = id.trim();
+    if (!trimmed) return undefined;
+    return clients.find((item) => item._id === trimmed || item.customId === trimmed);
+  };
+
+  const filterProjectsByClient = (client: RoleUser | undefined) => {
+    if (!client) return [];
+    return projects.filter(
+      (project) =>
+        String(project.clientId || "") === client._id ||
+        (!!project.customClientId && project.customClientId === client.customId)
+    );
+  };
+
+  const buildLineItemDescription = (
+    billingType: "project_completion" | "advance_payment" | "milestone",
+    project: Project | null,
+    milestoneLabel: string
+  ) => {
+    const projectName = project?.name || "project";
+    if (billingType === "advance_payment") {
+      return `Advance payment for ${projectName}`;
+    }
+    if (billingType === "milestone") {
+      return `Milestone: ${milestoneLabel || "Project milestone"} for ${projectName}`;
+    }
+    return `Project completion for ${projectName}`;
+  };
+
   const handleProjectSelect = (projectId: string) => {
-    const project = projects.find((item) => item._id === projectId);
-    const client = clients.find((item) => item._id === project?.clientId);
+    const project =
+      clientProjects.find((item) => item._id === projectId) ||
+      projects.find((item) => item._id === projectId) ||
+      null;
+    const client = findClientByIdOrCustomId(formState.clientId);
+
+    setSelectedProjectDetails(project);
     setFormState((prev) => ({
       ...prev,
       projectId,
       clientId: project?.clientId || prev.clientId,
       clientName: project?.client || prev.clientName,
       clientEmail: client?.email || prev.clientEmail,
-      description:
-        prev.description || (project ? `${prev.billingType === "advance_payment" ? "Advance payment" : prev.billingType === "milestone" ? `Milestone: ${prev.milestoneLabel || "Project milestone"}` : "Project completion"} for ${project.name}` : ""),
+      rate: project?.budget ? String(project.budget) : prev.rate,
+      description: buildLineItemDescription(prev.billingType, project, prev.milestoneLabel),
     }));
   };
 
-  const handleClientSelect = (clientId: string) => {
-    const client = clients.find((item) => item._id === clientId);
+  const handleClientIdChange = (clientId: string) => {
+    const resolvedClient = findClientByIdOrCustomId(clientId);
+    const projectsForClient = filterProjectsByClient(resolvedClient);
+
+    setClientProjects(projectsForClient);
+    setSelectedProjectDetails((current) =>
+      current && projectsForClient.some((project) => project._id === current._id)
+        ? current
+        : null
+    );
     setFormState((prev) => ({
       ...prev,
-      clientId,
-      clientName: client?.name || prev.clientName,
-      clientEmail: client?.email || prev.clientEmail,
+      clientId: clientId.trim(),
+      clientName: resolvedClient?.name || "",
+      clientEmail: resolvedClient?.email || "",
+      projectId: projectsForClient.some((project) => project._id === prev.projectId)
+        ? prev.projectId
+        : "",
     }));
+    setClientNotFound(Boolean(clientId.trim() && !resolvedClient));
   };
+
+  const invoiceTotal = useMemo(() => {
+    const quantity = Number(formState.quantity) || 0;
+    const rate = Number(formState.rate) || 0;
+    const tax = Number(formState.tax) || 0;
+    const discount = Number(formState.discount) || 0;
+    const subtotal = quantity * rate;
+    return Math.max(0, subtotal + tax - discount);
+  }, [formState.quantity, formState.rate, formState.tax, formState.discount]);
 
   const handleCreateInvoice = async () => {
     if (!formState.clientName || !formState.clientEmail || !formState.description || !formState.rate) {
@@ -415,6 +476,7 @@ export default function InvoicesPage() {
           <option value="overdue">Overdue</option>
           <option value="draft">Draft</option>
         </select>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {/* Invoices Table */}
@@ -428,6 +490,51 @@ export default function InvoicesPage() {
               Create Invoice
             </button>
           )}
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div style={styles.invoiceGrid} className="wsd-card-grid">
+          {filteredInvoices.map((invoice) => (
+            <div key={invoice._id} style={styles.invoiceCard} className="invoice-card">
+              <div style={styles.invoiceCardHeader}>
+                <div>
+                  <div style={styles.invoiceNumber}>{invoice.invoiceNumber}</div>
+                  <div style={styles.clientName}>{invoice.clientName}</div>
+                </div>
+                <span style={{
+                  ...styles.statusBadge,
+                  backgroundColor: `${getStatusColor(invoice.status)}15`,
+                  color: getStatusColor(invoice.status)
+                }}>
+                  {getStatusIcon(invoice.status)} {invoice.status}
+                </span>
+              </div>
+              <div style={styles.invoiceCardBody}>
+                <div style={styles.detailRow}>
+                  <span style={styles.detailLabel}>Amount:</span>
+                  <span style={styles.detailValue}>{formatCurrency(invoice.amount)}</span>
+                </div>
+                <div style={styles.detailRow}>
+                  <span style={styles.detailLabel}>Issue:</span>
+                  <span style={styles.detailValue}>{formatDate(invoice.issueDate)}</span>
+                </div>
+                <div style={styles.detailRow}>
+                  <span style={styles.detailLabel}>Due:</span>
+                  <span style={styles.detailValue}>{formatDate(invoice.dueDate)}</span>
+                </div>
+              </div>
+              <div style={styles.invoiceCardActions}>
+                <button onClick={() => handleDownload(invoice)} style={styles.cardActionBtn} title="Download">
+                  <Download size={14} />
+                </button>
+                <button onClick={() => handleEdit(invoice)} style={styles.cardActionBtn} title="Edit">
+                  <Edit2 size={14} />
+                </button>
+                <button onClick={() => handleDelete(invoice._id)} style={{ ...styles.cardActionBtn, ...styles.deleteBtn }} title="Delete">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div style={styles.tableContainer} className="wsd-table-scroll">
@@ -458,7 +565,10 @@ export default function InvoicesPage() {
                   <td style={styles.td}>{formatDate(invoice.issueDate)}</td>
                   <td style={styles.td}>{formatDate(invoice.dueDate)}</td>
                   <td style={styles.td}>
-                    <span style={styles.amount}>{formatCurrency(invoice.dueAmount ?? invoice.amount)}</span>
+                    <span style={styles.amount}>{formatCurrency(invoice.amount)}</span>
+                    <div style={styles.amountSubtext}>
+                      Due: {formatCurrency(invoice.dueAmount ?? invoice.amount)}
+                    </div>
                   </td>
                   <td style={styles.td}>
                     <span style={{
@@ -526,26 +636,99 @@ export default function InvoicesPage() {
       >
         <div style={styles.modalGrid}>
           <div style={styles.modalField}>
-            <label style={styles.modalLabel}>Project</label>
-            <select value={formState.projectId} onChange={(e) => handleProjectSelect(e.target.value)} style={styles.modalInput}>
-              <option value="">Select project (optional)</option>
-              {projects.map((project) => (
-                <option key={project._id} value={project._id}>{project.name}</option>
+            <label style={styles.modalLabel}>Client ID</label>
+            <input
+              type="text"
+              list="clientIds"
+              value={String(formState.clientId)}
+              onChange={(e) => handleClientIdChange(e.target.value)}
+              placeholder="Enter client ID or custom client ID"
+              style={styles.modalInput}
+            />
+            <datalist id="clientIds">
+              {clients.map((client) => (
+                <option key={client._id} value={String(client.customId || client._id)} />
               ))}
-            </select>
+            </datalist>
+            {clientNotFound && (
+              <span style={styles.helpText}>No client found for this Client ID.</span>
+            )}
           </div>
           <div style={styles.modalField}>
-            <label style={styles.modalLabel}>Client</label>
-            <select value={formState.clientId} onChange={(e) => handleClientSelect(e.target.value)} style={styles.modalInput}>
-              <option value="">Select client</option>
-              {clients.map((client) => (
-                <option key={client._id} value={client._id}>{client.name}</option>
+            <label style={styles.modalLabel}>Client Name</label>
+            <input
+              value={formState.clientName}
+              readOnly
+              placeholder="Client name will populate automatically"
+              style={styles.modalInput}
+            />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Client Email</label>
+            <input
+              value={formState.clientEmail}
+              readOnly
+              placeholder="Client email will populate automatically"
+              style={styles.modalInput}
+            />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Project</label>
+            <select
+              value={String(formState.projectId)}
+              onChange={(e) => handleProjectSelect(e.target.value)}
+              style={styles.modalInput}
+              disabled={!formState.clientId || clientNotFound}
+            >
+              <option value="">
+                {formState.clientId && !clientNotFound
+                  ? clientProjects.length > 0
+                    ? "Select project"
+                    : "No projects found for this client"
+                  : "Enter Client ID first"}
+              </option>
+              {clientProjects.map((project) => (
+                <option key={project._id} value={String(project._id)}>{project.name}</option>
               ))}
             </select>
           </div>
+          {selectedProjectDetails && (
+            <div style={{ ...styles.detailCard, gridColumn: "1 / -1" }}>
+              <div style={styles.detailTitle}>Project details</div>
+              <div style={styles.detailRow}>
+                <span style={styles.detailLabel}>Name:</span>
+                <span style={styles.detailValue}>{selectedProjectDetails.name}</span>
+              </div>
+              <div style={styles.detailRow}>
+                <span style={styles.detailLabel}>Total Amount:</span>
+                <span style={styles.detailValue}>{selectedProjectDetails.budget ? formatCurrency(selectedProjectDetails.budget) : "N/A"}</span>
+              </div>
+              {selectedProjectDetails.description && (
+                <div style={styles.detailRow}>
+                  <span style={styles.detailLabel}>Description:</span>
+                  <span style={styles.detailValue}>{selectedProjectDetails.description}</span>
+                </div>
+              )}
+              <div style={styles.detailRow}>
+                <span style={styles.detailLabel}>Status:</span>
+                <span style={styles.detailValue}>{selectedProjectDetails.status}</span>
+              </div>
+            </div>
+          )}
           <div style={styles.modalField}>
             <label style={styles.modalLabel}>Billing Type</label>
-            <select value={formState.billingType} onChange={(e) => setFormState((prev) => ({ ...prev, billingType: e.target.value as any }))} style={styles.modalInput}>
+            <select
+              value={formState.billingType}
+              onChange={(e) => {
+                const billingType = e.target.value as "project_completion" | "advance_payment" | "milestone";
+                setFormState((prev) => ({
+                  ...prev,
+                  billingType,
+                  description: buildLineItemDescription(billingType, selectedProjectDetails, prev.milestoneLabel),
+                }));
+              }}
+              style={styles.modalInput}
+            >
               <option value="project_completion">Project Completion</option>
               <option value="advance_payment">Advance Payment</option>
               <option value="milestone">Milestone</option>
@@ -554,17 +737,20 @@ export default function InvoicesPage() {
           {formState.billingType === "milestone" && (
             <div style={styles.modalField}>
               <label style={styles.modalLabel}>Milestone Label</label>
-              <input value={formState.milestoneLabel} onChange={(e) => setFormState((prev) => ({ ...prev, milestoneLabel: e.target.value }))} style={styles.modalInput} />
+              <input
+                value={formState.milestoneLabel}
+                onChange={(e) => {
+                  const milestoneLabel = e.target.value;
+                  setFormState((prev) => ({
+                    ...prev,
+                    milestoneLabel,
+                    description: buildLineItemDescription(prev.billingType, selectedProjectDetails, milestoneLabel),
+                  }));
+                }}
+                style={styles.modalInput}
+              />
             </div>
           )}
-          <div style={styles.modalField}>
-            <label style={styles.modalLabel}>Client Name</label>
-            <input value={formState.clientName} onChange={(e) => setFormState((prev) => ({ ...prev, clientName: e.target.value }))} style={styles.modalInput} />
-          </div>
-          <div style={styles.modalField}>
-            <label style={styles.modalLabel}>Client Email</label>
-            <input value={formState.clientEmail} onChange={(e) => setFormState((prev) => ({ ...prev, clientEmail: e.target.value }))} style={styles.modalInput} />
-          </div>
           <div style={styles.modalField}>
             <label style={styles.modalLabel}>Issue Date</label>
             <input type="date" value={formState.issueDate} onChange={(e) => setFormState((prev) => ({ ...prev, issueDate: e.target.value }))} style={styles.modalInput} />
@@ -592,6 +778,10 @@ export default function InvoicesPage() {
           <div style={styles.modalField}>
             <label style={styles.modalLabel}>Discount</label>
             <input type="number" min="0" value={formState.discount} onChange={(e) => setFormState((prev) => ({ ...prev, discount: e.target.value }))} style={styles.modalInput} />
+          </div>
+          <div style={styles.modalField}>
+            <label style={styles.modalLabel}>Total</label>
+            <input value={formatCurrency(invoiceTotal)} readOnly style={styles.modalInput} />
           </div>
           <div style={{ ...styles.modalField, gridColumn: "1 / -1" }}>
             <label style={styles.modalLabel}>Notes</label>
@@ -789,6 +979,48 @@ const styles: any = {
     fontWeight: 700,
     color: "#007AFF",
   },
+  invoiceGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: "20px",
+  },
+  invoiceCard: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "16px",
+    padding: "20px",
+    borderRadius: "24px",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.04)",
+  },
+  invoiceCardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "14px",
+  },
+  invoiceCardBody: {
+    display: "grid",
+    gap: "10px",
+  },
+  invoiceCardActions: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap" as const,
+  },
+  cardActionBtn: {
+    padding: "10px 12px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    cursor: "pointer",
+    fontSize: "13px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+  },
   clientName: {
     fontWeight: 700,
     fontSize: '15px',
@@ -802,6 +1034,12 @@ const styles: any = {
   amount: {
     fontWeight: 800,
     fontSize: '15px',
+  },
+  amountSubtext: {
+    marginTop: "4px",
+    fontSize: "12px",
+    color: "var(--text-secondary)",
+    fontWeight: 600,
   },
   statusBadge: {
     display: "inline-flex",
@@ -866,6 +1104,42 @@ const styles: any = {
     backgroundColor: "var(--bg-secondary)",
     color: "var(--text-primary)",
     resize: "vertical",
+  },
+  helpText: {
+    marginTop: "6px",
+    fontSize: "12px",
+    color: "#FF3B30",
+    fontWeight: 500,
+  },
+  detailCard: {
+    gridColumn: "1 / -1",
+    padding: "18px",
+    borderRadius: "18px",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    display: "grid",
+    gap: "12px",
+  },
+  detailTitle: {
+    fontSize: "15px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+  },
+  detailRow: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap" as const,
+    alignItems: "baseline",
+    fontSize: "14px",
+    color: "var(--text-primary)",
+  },
+  detailLabel: {
+    fontWeight: 700,
+    color: "var(--text-secondary)",
+  },
+  detailValue: {
+    fontWeight: 600,
+    color: "var(--text-primary)",
   },
   modalError: {
     gridColumn: "1 / -1",
