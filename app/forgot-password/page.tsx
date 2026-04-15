@@ -1,36 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import {
-  issueTemporaryPasswordWithOtp,
   requestPasswordResetOtp,
+  resetPasswordWithOtp,
   verifyPasswordResetOtp,
 } from "@/core/services/authService";
-import { validateEmail } from "@/core/utils/validation";
+import {
+  getPasswordChecklistItems,
+  getPasswordValidationMessage,
+  validateEmail,
+  validateStrongPassword,
+} from "@/core/utils/validation";
 
-type ResetStep = "request" | "verify" | "done";
-const RESEND_COOLDOWN_SECONDS = 60;
+type ResetStep = "request" | "verify" | "reset" | "done";
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<ResetStep>("request");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
 
-  useEffect(() => {
-    if (resendSecondsLeft <= 0) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setResendSecondsLeft((value) => value - 1);
-    }, 1000);
-    return () => window.clearTimeout(timer);
-  }, [resendSecondsLeft]);
+  const checklistItems = useMemo(() => getPasswordChecklistItems(newPassword), [newPassword]);
 
   const handleRequestOtp = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -45,8 +45,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const response = await requestPasswordResetOtp(email);
-      setMessage(response.message || "If the account is eligible, an OTP has been sent.");
-      setResendSecondsLeft(RESEND_COOLDOWN_SECONDS);
+      setMessage(response.message || "If an account exists, an OTP has been sent.");
       setStep("verify");
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to send OTP.");
@@ -68,35 +67,38 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const response = await verifyPasswordResetOtp(email, otp.trim());
-      await issueTemporaryPasswordWithOtp(email, response.verificationToken);
-      setMessage("OTP verified. Temporary password has been sent to your email. Please sign in and update your password immediately.");
-      setStep("done");
+      setResetToken(response.resetToken);
+      setMessage(response.message || "OTP verified.");
+      setStep("reset");
     } catch (err: any) {
-      setError(err.response?.data?.message || "OTP is incorrect or expired. Please try again.");
+      setError(err.response?.data?.message || "Failed to verify OTP.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendOtp = async () => {
-    if (resendSecondsLeft > 0 || loading) {
-      return;
-    }
+  const handleResetPassword = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError("");
     setMessage("");
 
-    if (!validateEmail(email)) {
-      setError("Please enter a valid email address.");
+    if (!validateStrongPassword(newPassword)) {
+      setError(getPasswordValidationMessage());
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
     setLoading(true);
     try {
-      const response = await requestPasswordResetOtp(email);
-      setMessage(response.message || "If the account is eligible, an OTP has been sent.");
-      setResendSecondsLeft(RESEND_COOLDOWN_SECONDS);
+      const response = await resetPasswordWithOtp(email, resetToken, newPassword);
+      setMessage(response.message || "Password reset successfully.");
+      setStep("done");
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to send OTP.");
+      setError(err.response?.data?.message || "Failed to reset password.");
     } finally {
       setLoading(false);
     }
@@ -118,7 +120,8 @@ export default function ForgotPasswordPage() {
           <p style={styles.subtitle}>
             {step === "request" && "Enter your email to receive a one-time password."}
             {step === "verify" && "Check your inbox and enter the 6-digit OTP."}
-            {step === "done" && "Temporary password sent. Sign in to continue, then update your password immediately."}
+            {step === "reset" && "Create a new strong password for your account."}
+            {step === "done" && "Your password has been updated. You can sign in now."}
           </p>
         </div>
 
@@ -153,8 +156,52 @@ export default function ForgotPasswordPage() {
             <button type="submit" style={styles.primaryButton} disabled={loading}>
               {loading ? "Verifying..." : "Verify OTP"}
             </button>
-            <button type="button" onClick={handleResendOtp} style={styles.secondaryButton} disabled={loading || resendSecondsLeft > 0}>
-              {resendSecondsLeft > 0 ? `Resend OTP in ${resendSecondsLeft}s` : "Resend OTP"}
+          </form>
+        )}
+
+        {step === "reset" && (
+          <form onSubmit={handleResetPassword} style={styles.form}>
+            <label style={styles.label}>New password</label>
+            <div style={styles.inputWrap}>
+              <KeyRound size={18} style={styles.inputIcon} />
+              <input
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                type={showNewPassword ? "text" : "password"}
+                style={styles.input}
+                placeholder="Enter a strong password"
+              />
+              <button type="button" onClick={() => setShowNewPassword((value) => !value)} style={styles.eyeButton}>
+                {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            <label style={styles.label}>Confirm password</label>
+            <div style={styles.inputWrap}>
+              <KeyRound size={18} style={styles.inputIcon} />
+              <input
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                type={showConfirmPassword ? "text" : "password"}
+                style={styles.input}
+                placeholder="Re-enter your password"
+              />
+              <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} style={styles.eyeButton}>
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            <div style={styles.checklist}>
+              {checklistItems.map((item) => (
+                <div key={item.key} style={styles.checklistItem}>
+                  <span style={{ ...styles.checkDot, backgroundColor: item.met ? "#10B981" : "#D1D5DB" }} />
+                  <span style={{ color: item.met ? "#111827" : "#6B7280" }}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <button type="submit" style={styles.primaryButton} disabled={loading}>
+              {loading ? "Updating password..." : "Reset password"}
             </button>
           </form>
         )}
@@ -162,7 +209,7 @@ export default function ForgotPasswordPage() {
         {step === "done" && (
           <div style={styles.doneState}>
             <Link href="/login" style={styles.primaryLinkButton}>
-              Sign in with temporary password
+              Go to login
             </Link>
           </div>
         )}
@@ -224,6 +271,15 @@ const styles: Record<string, any> = {
     outline: "none",
     backgroundColor: "#F9FAFB",
   },
+  eyeButton: {
+    position: "absolute",
+    right: "14px",
+    border: "none",
+    background: "transparent",
+    color: "#6B7280",
+    cursor: "pointer",
+    display: "flex",
+  },
   primaryButton: {
     marginTop: "6px",
     border: "none",
@@ -233,17 +289,6 @@ const styles: Record<string, any> = {
     padding: "14px 16px",
     fontSize: "15px",
     fontWeight: 700,
-    cursor: "pointer",
-  },
-  secondaryButton: {
-    marginTop: "6px",
-    border: "1px solid #D1D5DB",
-    borderRadius: "16px",
-    backgroundColor: "#FFFFFF",
-    color: "#1F2937",
-    padding: "14px 16px",
-    fontSize: "15px",
-    fontWeight: 600,
     cursor: "pointer",
   },
   successBox: {
@@ -264,6 +309,17 @@ const styles: Record<string, any> = {
     marginBottom: "18px",
     fontSize: "14px",
   },
+  checklist: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "8px",
+    backgroundColor: "#F9FAFB",
+    border: "1px solid #E5E7EB",
+    borderRadius: "16px",
+    padding: "14px",
+  },
+  checklistItem: { display: "flex", alignItems: "center", gap: "10px", fontSize: "14px" },
+  checkDot: { width: "10px", height: "10px", borderRadius: "999px", flexShrink: 0 },
   doneState: { display: "flex", justifyContent: "flex-start" },
   primaryLinkButton: {
     display: "inline-flex",
