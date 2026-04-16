@@ -30,7 +30,11 @@ export default function ClientLayout({
     const user = getStoredUser();
     const isPublic = isPublicPath(pathname);
 
-    console.log(`[ClientLayout] pathname: "${pathname}", isPublic: ${isPublic}`);
+    if (typeof window !== "undefined") {
+      (window as any).__LAST_PATH__ = pathname;
+    }
+
+    console.error(`[ClientLayout] pathname: "${pathname}", isPublic: ${isPublic}`);
 
     if (isPublic) {
       document.documentElement.classList.toggle(
@@ -41,11 +45,12 @@ export default function ClientLayout({
     }
 
     if (!token || !user) {
-      console.warn(`[ClientLayout] NOT PUBLIC and NO SESSION. Redirecting to /login...`);
+      console.error(`[ClientLayout] NOT PUBLIC and NO SESSION. Redirecting to /login...`);
       clearAuthSession();
       router.replace("/login");
       return;
     }
+
 
 
 

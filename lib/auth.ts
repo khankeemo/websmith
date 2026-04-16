@@ -87,11 +87,23 @@ export const isPublicPath = (pathname: string) => {
   // Normalize: lowercase, then remove all trailing slashes
   const normalized = pathname.toLowerCase().replace(/\/+$/, "") || "/";
 
-  return PUBLIC_PATHS.some((p) => {
+  // Strict check
+  const isMatch = PUBLIC_PATHS.some((p) => {
     const pNormalized = p.toLowerCase().replace(/\/+$/, "") || "/";
     return pNormalized === normalized;
   });
+
+  if (isMatch) return true;
+
+  // Fuzzy check for critical auth paths (fallback fix for Vercel trailing slash/hyphen oddities)
+  const lowerPath = pathname.toLowerCase();
+  if (lowerPath.includes("forgot") || lowerPath.includes("reset")) {
+    return true;
+  }
+
+  return false;
 };
+
 
 
 export const getDefaultRouteForRole = (role?: string | null) => {
