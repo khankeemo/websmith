@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import API from "@/core/services/apiService";
 import { AuthUser, getStoredUser } from "../../lib/auth";
-import ProfileModal from "../../components/layout/ProfileModal";
 import {
   getPasswordChecklistItems,
   getPasswordValidationMessage,
@@ -29,7 +28,6 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -173,7 +171,7 @@ export default function SettingsPage() {
               <h3 style={styles.sectionTitle}>Account Actions</h3>
               <p style={styles.sectionHint}>Update your personal information, contact details, and profile picture.</p>
               <button 
-                onClick={() => setIsProfileModalOpen(true)}
+                onClick={() => router.push(`/${user.role}/profile`)}
                 style={styles.updateButton}
                 className="save-btn"
               >
@@ -255,14 +253,6 @@ export default function SettingsPage() {
         )}
 
       </div>
-
-      <ProfileModal 
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        user={user}
-        onUpdate={(updated) => setUser(updated)}
-      />
-
       <style>{`
         .tab-hover { transition: all 0.25s ease; }
         .tab-hover:hover { background-color: var(--bg-secondary); transform: translateY(-1px); }
