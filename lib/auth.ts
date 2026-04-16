@@ -67,6 +67,7 @@ export const PUBLIC_PATHS = [
   "/login",
   "/register",
   "/forgot-password",
+  "/reset-password",
   "/auth/callback",
   "/services",
   "/lead-form",
@@ -75,14 +76,20 @@ export const PUBLIC_PATHS = [
 ];
 
 /**
- * Checks if a pathname is a public route, handling trailing slashes.
+ * Checks if a pathname is a public route, handling trailing slashes and casing.
  */
 export const isPublicPath = (pathname: string) => {
-  // Normalize by removing trailing slash (unless it's the root "/")
-  const normalized = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  if (!pathname) return false;
 
-  return PUBLIC_PATHS.includes(normalized);
+  // Normalize: lowercase, then remove all trailing slashes
+  const normalized = pathname.toLowerCase().replace(/\/+$/, "") || "/";
+
+  return PUBLIC_PATHS.some((p) => {
+    const pNormalized = p.toLowerCase().replace(/\/+$/, "") || "/";
+    return pNormalized === normalized;
+  });
 };
+
 
 export const getDefaultRouteForRole = (role?: string | null) => {
   if (role === "admin") {

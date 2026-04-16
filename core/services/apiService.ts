@@ -48,8 +48,12 @@ API.interceptors.response.use(
       
       // Only redirect if NOT on a public page (forgot password, login, etc.)
       if (!isPublicPath(currentPath)) {
+        console.warn(`[AuthInterceptor] 401 on protected route "${currentPath}". Redirecting to login.`);
         window.location.replace("/login?reason=session-expired");
+      } else {
+        console.log(`[AuthInterceptor] 401 on public route "${currentPath}". Bypass redirect.`);
       }
+
     }
 
     return Promise.reject(error);
