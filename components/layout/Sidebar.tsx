@@ -25,7 +25,6 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import API from "../../core/services/apiService";
-import ProfileModal from "./ProfileModal";
 
 export default function Sidebar({
   mobileOpen = false,
@@ -38,7 +37,6 @@ export default function Sidebar({
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -54,6 +52,26 @@ export default function Sidebar({
       return () => clearInterval(interval);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    const syncLiveProfile = async () => {
+      try {
+        const response = await API.get("/users/profile");
+        const liveUser = response.data.user || response.data.data;
+        if (!liveUser) return;
+
+        const token = getToken();
+        if (token) {
+          setAuthSession(token, liveUser);
+        }
+        setUser(liveUser);
+      } catch {
+        // Keep the last known session snapshot if profile refresh fails.
+      }
+    };
+
+    syncLiveProfile();
+  }, []);
 
   useEffect(() => {
     const handleProfileUpdate = () => {
@@ -214,14 +232,14 @@ export default function Sidebar({
 
       <div
         style={styles.profileSection}
-        onClick={() => setIsProfileModalOpen(true)}
+        onClick={() => router.push(`${basePath}/profile`)}
         className="profile-section-hover"
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setIsProfileModalOpen(true);
+            router.push(`${basePath}/profile`);
           }
         }}
       >
@@ -306,13 +324,6 @@ export default function Sidebar({
           })}
         </div>
       ))}
-
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        user={user}
-        onUpdate={(updatedUser) => setUser(updatedUser)}
-      />
 
       <style>{`
         .app-sidebar {
