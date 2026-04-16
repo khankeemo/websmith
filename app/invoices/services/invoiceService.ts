@@ -21,7 +21,9 @@ export interface Invoice {
   clientEmail: string;
   clientAddress?: string;
   amount: number;
-  status: 'paid' | 'pending' | 'overdue' | 'draft';
+  paidAmount?: number;
+  dueAmount?: number;
+  status: 'paid' | 'pending' | 'partially_paid' | 'overdue' | 'draft';
   issueDate: string;
   dueDate: string;
   items: InvoiceItem[];
@@ -99,6 +101,8 @@ class InvoiceService {
     pending: number;
     overdue: number;
     totalAmount: number;
+    totalPaidAmount?: number;
+    totalPendingAmount?: number;
   }> {
     const response = await apiService.get('/invoices/stats');
     return response.data.data;

@@ -129,8 +129,8 @@ export default function Sidebar({
           {
             title: "WORK",
             items: [
-              { name: "Projects", path: `${basePath}/projects`, icon: Briefcase },
               { name: "Clients", path: `${basePath}/clients`, icon: Users },
+              { name: "Projects", path: `${basePath}/projects`, icon: Briefcase },
               { name: "Tasks", path: `${basePath}/tasks`, icon: CheckSquare },
               { name: "Services", path: `${basePath}/services`, icon: Wrench },
             ],
@@ -182,7 +182,10 @@ export default function Sidebar({
             },
             {
               title: "WORK",
-              items: [{ name: "Projects", path: `${basePath}/projects`, icon: Briefcase }],
+              items: [
+                { name: "Projects", path: `${basePath}/projects`, icon: Briefcase },
+                { name: "Tasks", path: `${basePath}/tasks`, icon: CheckSquare },
+              ],
             },
             {
               title: "SYSTEM",

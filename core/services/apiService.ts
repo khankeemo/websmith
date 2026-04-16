@@ -2,9 +2,9 @@ import axios from "axios";
 import { clearAuthSession, getToken } from "../../lib/auth";
 
 /**
- * Browser defaults to the hosted API to avoid local proxy 500s when the local
- * backend isn't running. Opt into local proxy by setting
- * NEXT_PUBLIC_USE_LOCAL_API_PROXY=true.
+ * Local development should prefer Next.js rewrites so the browser hits the
+ * local Express API (`/api/*` -> backendUrl in next.config.ts).
+ * Hosted environments can still use NEXT_PUBLIC_API_URL when provided.
  * Server-side: call the API process directly.
  */
 const getApiBaseUrl = () => {
@@ -16,10 +16,7 @@ const getApiBaseUrl = () => {
   if (typeof window !== "undefined") {
     const { hostname, origin } = window.location;
     if (hostname === "localhost" || hostname === "127.0.0.1") {
-      if (process.env.NEXT_PUBLIC_USE_LOCAL_API_PROXY === "true") {
-        return `${origin}/api`;
-      }
-      return "https://wsdserver.vercel.app/api";
+      return `${origin}/api`;
     }
     return "https://wsdserver.vercel.app/api";
   }

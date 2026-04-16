@@ -26,6 +26,17 @@ interface FormData {
   priority: 'low' | 'medium' | 'high';
   dueDate: string;
   assignee: string;
+  completionNote: string;
+}
+
+function assigneeIdForSelect(task: Task): string {
+  if (task.developerId && typeof task.developerId === 'object' && '_id' in task.developerId) {
+    return String((task.developerId as { _id: string })._id);
+  }
+  if (typeof task.developerId === 'string' && task.developerId) {
+    return task.developerId;
+  }
+  return '';
 }
 
 export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalProps) {
@@ -38,6 +49,7 @@ export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalPr
     priority: 'medium',
     dueDate: '',
     assignee: '',
+    completionNote: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [projects, setProjects] = useState<Project[]>([]);
@@ -63,7 +75,8 @@ export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalPr
         status: task.status || 'pending',
         priority: task.priority || 'medium',
         dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
-        assignee: typeof task.developerId === 'object' ? task.developerId?._id || '' : task.assignee || '',
+        assignee: assigneeIdForSelect(task),
+        completionNote: task.completionNote || '',
       });
     } else {
       setFormData({
@@ -75,6 +88,7 @@ export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalPr
         priority: 'medium',
         dueDate: '',
         assignee: '',
+        completionNote: '',
       });
     }
     setErrors({});
@@ -199,13 +213,13 @@ export default function TaskModal({ isOpen, onClose, onSave, task }: TaskModalPr
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Developer Notes</label>
+              <label style={styles.label}>Completion notes</label>
               <input
                 type="text"
-                value={formData.description}
-                onChange={(e) => updateField('description', e.target.value)}
+                value={formData.completionNote}
+                onChange={(e) => updateField('completionNote', e.target.value)}
                 style={styles.input}
-                placeholder="Optional extra notes"
+                placeholder="Optional notes when completing the task"
               />
             </div>
           </div>
@@ -248,7 +262,9 @@ const styles: any = {
     zIndex: 1000,
   },
   modal: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border-color)',
     borderRadius: '24px',
     padding: '28px',
     width: 'min(90%, 600px)',
@@ -266,13 +282,13 @@ const styles: any = {
   modalTitle: {
     fontSize: '24px',
     fontWeight: 600,
-    color: '#1C1C1E',
+    color: 'var(--text-primary)',
   },
   closeBtn: {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    color: '#8E8E93',
+    color: 'var(--text-secondary)',
     padding: '4px',
   },
   formGroup: {
@@ -283,45 +299,50 @@ const styles: any = {
     display: 'block',
     fontSize: '14px',
     fontWeight: 500,
-    color: '#1C1C1E',
+    color: 'var(--text-primary)',
     marginBottom: '8px',
   },
   input: {
     width: '100%',
     padding: '12px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
+    border: '1.5px solid var(--border-color)',
     borderRadius: '12px',
     outline: 'none',
     fontFamily: 'inherit',
     transition: 'all 0.2s ease',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
   },
   textarea: {
     width: '100%',
     padding: '12px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
+    border: '1.5px solid var(--border-color)',
     borderRadius: '12px',
     outline: 'none',
     fontFamily: 'inherit',
     resize: 'vertical',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
   },
   select: {
     width: '100%',
     padding: '12px 16px',
     fontSize: '15px',
-    border: '1.5px solid #E5E5EA',
+    border: '1.5px solid var(--border-color)',
     borderRadius: '12px',
     outline: 'none',
     fontFamily: 'inherit',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
   },
   inputError: {
     borderColor: '#FF3B30',
   },
   errorText: {
     fontSize: '12px',
-    color: '#FF3B30',
+    color: '#FF453A',
     marginTop: '6px',
   },
   row: {
@@ -335,13 +356,14 @@ const styles: any = {
     justifyContent: 'flex-end',
     marginTop: '24px',
     paddingTop: '16px',
-    borderTop: '1px solid #E5E5EA',
+    borderTop: '1px solid var(--border-color)',
   },
   cancelBtn: {
     padding: '10px 20px',
     fontSize: '14px',
     fontWeight: 500,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
     border: 'none',
     borderRadius: '10px',
     cursor: 'pointer',

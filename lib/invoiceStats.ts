@@ -4,6 +4,8 @@ export type InvoiceLike = {
   status: string;
   dueDate: string | Date;
   amount?: number;
+  paidAmount?: number;
+  dueAmount?: number;
 };
 
 export function isInvoiceOverdue(inv: InvoiceLike): boolean {
@@ -13,13 +15,13 @@ export function isInvoiceOverdue(inv: InvoiceLike): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
-  return due < today && (inv.status === "pending" || inv.status === "draft");
+  return due < today && (inv.status === "pending" || inv.status === "partially_paid" || inv.status === "draft");
 }
 
 export function isInvoicePendingDisplay(inv: InvoiceLike): boolean {
   if (inv.status === "paid" || inv.status === "overdue") return false;
   if (isInvoiceOverdue(inv)) return false;
-  return inv.status === "pending" || inv.status === "draft";
+  return inv.status === "pending" || inv.status === "partially_paid" || inv.status === "draft";
 }
 
 export function computeInvoiceDashboardStats(invoices: InvoiceLike[]) {

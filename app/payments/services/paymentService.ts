@@ -10,6 +10,9 @@ export interface Payment {
   clientName: string;
   clientEmail: string;
   amount: number;
+  currency?: string;
+  provider?: 'stripe' | 'razorpay' | 'manual';
+  providerPaymentId?: string;
   method: 'card' | 'bank' | 'cash' | 'crypto';
   status: 'completed' | 'pending' | 'failed' | 'refunded';
   transactionId: string;
@@ -27,6 +30,44 @@ export interface CreatePaymentData {
   transactionId?: string;
   date?: string;
   notes?: string;
+}
+
+export interface CreateGatewayPaymentData {
+  invoiceId: string;
+  provider: 'stripe' | 'razorpay';
+  amount?: number;
+  currency?: string;
+  notes?: string;
+}
+
+export interface StripeGatewayPaymentResponse {
+  provider: 'stripe';
+  checkoutUrl: string;
+  paymentId: string;
+}
+
+export interface RazorpayGatewayPaymentResponse {
+  provider: 'razorpay';
+  order: {
+    id: string;
+    amount: number;
+    currency: string;
+    receipt: string;
+    status: string;
+  };
+  keyId: string;
+  paymentId: string;
+}
+
+export type GatewayPaymentResponse = StripeGatewayPaymentResponse | RazorpayGatewayPaymentResponse;
+
+export interface ConfirmGatewayPaymentData {
+  provider: 'stripe' | 'razorpay';
+  paymentId: string;
+  sessionId?: string;
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
+  razorpaySignature?: string;
 }
 
 export interface PaymentStats {
@@ -56,9 +97,34 @@ class PaymentService {
     return response.data.data;
   }
 
+  async getGatewayPaymentStatus(id: string): Promise<Payment> {
+    const response = await apiService.get(`/payments/${id}/status`);
+    return response.data.data;
+  }
+
   // Create new payment
   async createPayment(data: CreatePaymentData): Promise<Payment> {
     const response = await apiService.post('/payments', data);
+    return response.data.data;
+  }
+
+  // Create gateway payment session or order
+  async createGatewayPayment(data: CreateGatewayPaymentData): Promise<GatewayPaymentResponse> {
+    const payload = JSON.stringify(data);
+    const response = await apiService.post('/payments/create', payload, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.data.data;
+  }
+
+  async confirmGatewayPayment(data: ConfirmGatewayPaymentData): Promise<Payment> {
+    const response = await apiService.post('/payments/confirm', data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
     return response.data.data;
   }
 

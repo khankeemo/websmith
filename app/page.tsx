@@ -20,10 +20,9 @@ import {
   ExternalLink,
   Mail,
   Building2,
-  Menu,
-  X
 } from "lucide-react";
 import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
+import PublicSiteNav from "../components/layout/PublicSiteNav";
 import { getPublishedProjects } from "./projects/services/projectService";
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
@@ -145,7 +144,6 @@ function AutoCarousel<T>({
 
 export default function LandingPage() {
   const router = useRouter();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Refs for smooth scroll
   const featuresRef = useRef<HTMLElement>(null);
@@ -203,42 +201,14 @@ export default function LandingPage() {
     });
   }, []);
 
-  useEffect(() => {
-    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMobileMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [mobileMenuOpen]);
-
   // Smooth scroll function
   const scrollToSection = (ref: React.RefObject<HTMLElement>) => {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    setMobileMenuOpen(false);
   };
 
   const handleGetStarted = () => {
     router.push('/services');
   };
-
-  // Menu items
-  const menuItems = [
-    { name: "Home", href: "/" },
-    { name: "Features", href: "/#features" },
-    { name: "Projects", href: "/#projects" },
-    { name: "Clients", href: "/#clients" },
-    { name: "Developers", href: "/#developers" },
-    { name: "Testimonials", href: "/#testimonials" },
-    { name: "Contact", href: "/#contact" },
-  ];
 
   // Features data
   const features = [
@@ -333,90 +303,7 @@ export default function LandingPage() {
   return (
     <div style={styles.container}>
       <LeadCapturePopup />
-      {/* Navigation - WITH MENU ITEMS */}
-      <nav style={styles.nav} className="landing-nav-shell">
-        <div style={styles.navContent} className="landing-nav-content">
-          <div style={styles.leftNavGroup}>
-            {/* Logo */}
-            <a href="/" style={styles.logo} className="logo-hover">
-              <div style={styles.logoCircle}>W</div>
-              <span style={styles.logoText}>Websmith</span>
-            </a>
-            
-            {/* Desktop Menu */}
-            <div style={styles.desktopMenu} className="desktop-menu">
-              {menuItems.map((item, index) => (
-                <a
-                  key={index}
-                  href={item.href}
-                  style={styles.menuItem}
-                  className="menu-item-hover"
-                >
-                  {item.name}
-                </a>
-              ))}
-            </div>
-          </div>
-          
-          {/* Desktop Buttons */}
-          <div style={styles.navButtons} className="nav-buttons">
-            <button onClick={() => router.push('/login')} style={styles.loginBtn} className="login-btn-hover">Log in</button>
-          </div>
-          
-          {/* Mobile Menu Button */}
-          <button 
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
-            style={styles.mobileMenuBtn}
-            className="mobile-menu-btn"
-            aria-expanded={mobileMenuOpen}
-            aria-controls="public-mobile-navigation"
-            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-        
-        {/* Mobile Menu Dropdown */}
-        {mobileMenuOpen && (
-          <>
-            <button
-              type="button"
-              style={styles.mobileMenuOverlay}
-              className="public-mobile-menu-overlay"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-label="Close navigation menu"
-            />
-            <div
-              id="public-mobile-navigation"
-              style={styles.mobileMenu}
-              className="public-mobile-menu-panel"
-            >
-              {menuItems.map((item, index) => (
-                <a
-                  key={index} 
-                  href={item.href}
-                  style={styles.mobileMenuItem}
-                  className="mobile-menu-item"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item.name}
-                </a>
-              ))}
-              <div style={styles.mobileMenuDivider} />
-              <button 
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  router.push('/login');
-                }} 
-                style={styles.mobileLoginBtn}
-                className="mobile-login-btn"
-              >
-                Log in
-              </button>
-            </div>
-          </>
-        )}
-      </nav>
+      <PublicSiteNav />
 
       {/* Hero Section */}
       <section style={styles.hero} className="landing-hero">
@@ -1051,160 +938,8 @@ export default function LandingPage() {
 const styles: any = {
   container: {
     minHeight: "100vh",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  
-  // Navigation
-  nav: {
-    position: "sticky",
-    top: 0,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    backdropFilter: "blur(10px)",
-    borderBottom: "1px solid #E5E5EA",
-    zIndex: 1300,
-  },
-  navContent: {
-    maxWidth: "100%",
-    margin: "0",
-    padding: "12px 0",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  leftNavGroup: {
-    display: "flex",
-    alignItems: "center",
-    gap: "32px",
-    minWidth: 0,
-    paddingLeft: "24px",
-  },
-  logo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    cursor: "pointer",
-    textDecoration: "none",
-  },
-  logoCircle: {
-    width: "36px",
-    height: "36px",
-    backgroundColor: "#1C1C1E",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#FFFFFF",
-    fontWeight: 700,
-    fontSize: "18px",
-  },
-  logoText: {
-    fontSize: "20px",
-    fontWeight: 600,
-    color: "#1C1C1E",
-  },
-  
-  // Desktop Menu
-  desktopMenu: {
-    display: "flex",
-    gap: "32px",
-    alignItems: "center",
-    paddingRight: "24px",
-  },
-  menuItem: {
-    fontSize: "15px",
-    fontWeight: 500,
-    color: "#1C1C1E",
-    cursor: "pointer",
-    padding: "8px 0",
-    fontFamily: "inherit",
-    backgroundColor: "transparent",
-    textDecoration: "none",
-  },
-  
-  // Buttons
-  navButtons: {
-    display: "flex",
-    gap: "12px",
-    paddingRight: "24px",
-  },
-  loginBtn: {
-    padding: "8px 20px",
-    fontSize: "14px",
-    fontWeight: 500,
-    backgroundColor: "transparent",
-    border: "1px solid #D1D1D6",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-  },
-  // Mobile Menu Button
-  mobileMenuBtn: {
-    display: "none",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "8px",
-    borderRadius: "8px",
-  },
-  
-  // Mobile Menu
-  mobileMenu: {
-    display: "flex",
-    flexDirection: "column",
-    padding: "16px",
-    border: "1px solid #E5E5EA",
-    borderRadius: "20px",
-    backgroundColor: "#FFFFFF",
-    position: "fixed",
-    top: "64px",
-    left: "16px",
-    right: "16px",
-    zIndex: 1302,
-    boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
-    maxHeight: "calc(100dvh - 80px)",
-    overflowY: "auto",
-  },
-  mobileMenuOverlay: {
-    position: "fixed",
-    top: "57px",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    border: "none",
-    backgroundColor: "rgba(0,0,0,0.22)",
-    zIndex: 1301,
-    cursor: "pointer",
-  },
-  mobileMenuItem: {
-    padding: "12px 16px",
-    fontSize: "16px",
-    fontWeight: 500,
-    background: "none",
-    border: "none",
-    textAlign: "left",
-    cursor: "pointer",
-    borderRadius: "8px",
-    fontFamily: "inherit",
-    color: "#1C1C1E",
-    textDecoration: "none",
-    display: "block",
-  },
-  mobileMenuDivider: {
-    height: "1px",
-    backgroundColor: "#E5E5EA",
-    margin: "12px 0",
-  },
-  mobileLoginBtn: {
-    padding: "12px 16px",
-    fontSize: "16px",
-    fontWeight: 500,
-    backgroundColor: "transparent",
-    border: "1px solid #D1D1D6",
-    borderRadius: "8px",
-    cursor: "pointer",
-    marginBottom: "8px",
-    fontFamily: "inherit",
   },
   // Hero
   hero: {

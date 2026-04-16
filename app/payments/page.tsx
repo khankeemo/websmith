@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import API from "@/core/services/apiService";
 import Modal from "@/components/ui/Modal";
+import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
 
 interface Payment {
   _id: string;
@@ -38,6 +39,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
   const [downloadError, setDownloadError] = useState("");
@@ -223,6 +225,7 @@ export default function PaymentsPage() {
           <option value="failed">Failed</option>
           <option value="refunded">Refunded</option>
         </select>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {downloadError && (
@@ -238,8 +241,8 @@ export default function PaymentsPage() {
           <h3 style={{color: 'var(--text-primary)'}}>No payments found</h3>
           <p style={{color: 'var(--text-secondary)'}}>When you receive payments, they will appear here</p>
         </div>
-      ) : (
-        <div style={styles.paymentsList}>
+      ) : viewMode === 'grid' ? (
+        <div style={styles.paymentsGrid}>
           {filteredPayments.map((payment) => (
             <div key={payment._id} style={styles.paymentCard} className="payment-card">
               <div style={styles.paymentHeader}>
@@ -286,6 +289,57 @@ export default function PaymentsPage() {
               </div>
             </div>
           ))}
+        </div>
+      ) : (
+        <div style={styles.tableContainer}>
+          <table style={styles.paymentsTable}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Invoice #</th>
+                <th style={styles.th}>Client</th>
+                <th style={styles.th}>Amount</th>
+                <th style={styles.th}>Status</th>
+                <th style={styles.th}>Date</th>
+                <th style={styles.th}>Transaction</th>
+                <th style={styles.th}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPayments.map((payment) => (
+                <tr key={payment._id} style={styles.tableRow} className="table-row">
+                  <td style={styles.td}>{payment.invoiceNumber}</td>
+                  <td style={styles.td}>{payment.clientName}</td>
+                  <td style={styles.td}>{formatCurrency(payment.amount)}</td>
+                  <td style={styles.td}>
+                    <span style={{
+                      ...styles.statusBadge,
+                      backgroundColor: `${getStatusColor(payment.status)}15`,
+                      color: getStatusColor(payment.status)
+                    }}>
+                      {payment.status}
+                    </span>
+                  </td>
+                  <td style={styles.td}>{formatDate(payment.date)}</td>
+                  <td style={styles.td}>{payment.transactionId}</td>
+                  <td style={styles.td}>
+                    <div style={styles.paymentActions} className="payment-actions-stack">
+                      <button style={styles.viewButton} className="action-btn" onClick={() => handleViewDetails(payment)}>
+                        <Eye size={14} /> View
+                      </button>
+                      <button
+                        style={styles.downloadButton}
+                        className="action-btn"
+                        onClick={() => handleDownloadReceipt(payment)}
+                        disabled={isDownloadingReceipt}
+                      >
+                        <Download size={14} /> Receipt
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -496,6 +550,43 @@ const styles: any = {
     display: "flex",
     flexDirection: "column" as const,
     gap: "16px",
+  },
+  paymentsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: "16px",
+  },
+  tableContainer: {
+    overflowX: "auto" as const,
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.04)",
+  },
+  paymentsTable: {
+    width: "100%",
+    borderCollapse: "collapse" as const,
+    minWidth: "780px",
+  },
+  th: {
+    padding: "18px 16px",
+    textAlign: "left" as const,
+    fontSize: "12px",
+    fontWeight: 700,
+    color: "var(--text-secondary)",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+    borderBottom: "1px solid var(--border-color)",
+  },
+  td: {
+    padding: "16px",
+    borderBottom: "1px solid var(--border-color)",
+    color: "var(--text-primary)",
+    verticalAlign: "middle" as const,
+    fontSize: "14px",
+  },
+  tableRow: {
+    transition: "background-color 0.2s ease",
   },
   paymentCard: {
     backgroundColor: "var(--bg-primary)",

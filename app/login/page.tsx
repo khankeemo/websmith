@@ -1,11 +1,12 @@
 // PATH: C:\websmith\app\login\page.tsx
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { login } from "../../core/services/authService";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock, Menu, X } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { getDefaultRouteForRole } from "../../lib/auth";
+import PublicSiteNav from "../../components/layout/PublicSiteNav";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -16,24 +17,9 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const showSessionExpiredNotice = searchParams.get("reason") === "session-expired";
-
-  useEffect(() => {
-    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMobileMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [mobileMenuOpen]);
+  const loginReason = searchParams.get("reason");
+  const showSessionExpiredNotice = loginReason === "session-expired";
+  const showPasswordUpdateRequiredNotice = loginReason === "password-update-required";
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -60,125 +46,9 @@ function LoginPageContent() {
     }
   };
 
-  const navItems = [
-    { name: "Home", href: "/" },
-    { name: "Features", href: "/#features" },
-    { name: "Developers", href: "/#developers" },
-    { name: "Clients", href: "/#clients" },
-    { name: "Contact", href: "/#contact" },
-  ];
-
   return (
     <div style={styles.container}>
-      {/* Header Menu */}
-      <header style={styles.headerMenu} className="login-nav-shell">
-        <nav style={styles.nav} className="login-nav-content">
-          <div style={styles.leftNavGroup}>
-            {/* Logo */}
-            <a href="/" style={styles.logoArea}>
-              <div 
-                style={styles.logoCircle}
-                className="logo-circle"
-              >
-                <span style={styles.logoCircleText}>W</span>
-              </div>
-              <span style={styles.logoText} className="logo-text">
-                Websmith
-              </span>
-            </a>
-
-            {/* Desktop Navigation */}
-            <div style={styles.navLinks} className="desktop-nav">
-              {navItems.map((item, index) => (
-                <a
-                  key={index}
-                  href={item.href}
-                  style={styles.navLink}
-                  className="nav-link"
-                >
-                  {item.name}
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Desktop Auth Buttons */}
-          <div style={styles.authButtons} className="desktop-auth">
-            <button
-              onClick={() => router.push("/login")}
-              style={styles.loginButton}
-              className="login-button"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => router.push("/services")}
-              style={styles.getStartedButton}
-              className="get-started-button"
-            >
-              Get Started 🚀
-            </button>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            style={styles.mobileMenuButton}
-            className="mobile-menu-button"
-            aria-expanded={mobileMenuOpen}
-            aria-controls="login-public-navigation"
-            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </nav>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <>
-          <button
-            type="button"
-            style={styles.mobileMenuOverlay}
-            className="public-login-menu-overlay"
-            onClick={() => setMobileMenuOpen(false)}
-            aria-label="Close navigation menu"
-          />
-          <div style={styles.mobileMenu} id="login-public-navigation" className="public-login-menu-panel">
-            {navItems.map((item, index) => (
-              <a
-                key={index}
-                href={item.href}
-                style={styles.mobileNavLink}
-                className="mobile-nav-link"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {item.name}
-              </a>
-            ))}
-            <div style={styles.mobileAuthButtons}>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  router.push("/login");
-                }}
-                style={styles.mobileLoginButton}
-              >
-                Login
-              </button>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  router.push("/services");
-                }}
-                style={styles.mobileGetStartedButton}
-              >
-                Get Started 🚀
-              </button>
-            </div>
-          </div>
-          </>
-        )}
-      </header>
+      <PublicSiteNav variant="auth" />
 
       {/* Background gradient */}
       <div style={styles.background}></div>
@@ -316,116 +186,6 @@ function LoginPageContent() {
 
       {/* All Animations */}
       <style>{`
-        /* Logo Circle Hover */
-        .logo-circle {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          cursor: pointer;
-        }
-        .logo-circle:hover {
-          transform: scale(1.05);
-          background: #007AFF;
-        }
-        
-        /* Logo Text Hover */
-        .logo-text {
-          transition: all 0.3s ease;
-          cursor: pointer;
-        }
-        .logo-text:hover {
-          color: #007AFF;
-        }
-        
-        /* Nav Link Hover - Slide Right Effect */
-        .nav-link {
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-          position: relative;
-        }
-        .nav-link:hover {
-          color: #007AFF;
-          transform: translateX(4px);
-        }
-        .nav-link::after {
-          content: '';
-          position: absolute;
-          bottom: -4px;
-          left: 0;
-          width: 0;
-          height: 2px;
-          background: #007AFF;
-          transition: width 0.3s ease;
-        }
-        .nav-link:hover::after {
-          width: 100%;
-        }
-        
-        /* Login Button Hover */
-        .login-button {
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .login-button:hover {
-          background: #007AFF;
-          color: white;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,122,255,0.3);
-        }
-        
-        /* Get Started Button Hover */
-        .get-started-button {
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-          position: relative;
-          overflow: hidden;
-        }
-        .get-started-button:hover {
-          background: #34C759;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(52,199,89,0.3);
-          padding-left: 20px;
-          padding-right: 20px;
-        }
-        .get-started-button:active {
-          transform: translateY(0);
-        }
-        
-        /* Mobile Menu Button Hover */
-        .mobile-menu-button {
-          display: none;
-          transition: all 0.2s ease;
-        }
-        .mobile-menu-button:hover {
-          background: #F2F2F7;
-          transform: scale(1.05);
-        }
-        
-        /* Mobile Nav Link Hover */
-        .mobile-nav-link {
-          transition: all 0.2s ease;
-        }
-        .mobile-nav-link:hover {
-          background: #F2F2F7;
-          padding-left: 24px;
-          color: #007AFF;
-        }
-
-        .public-login-menu-overlay {
-          opacity: 1;
-          transition: opacity 0.2s ease;
-        }
-
-        .public-login-menu-panel {
-          animation: loginMenuSlideDown 0.22s ease;
-        }
-
-        @keyframes loginMenuSlideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
         /* Circle Mask Hover - Zoom In */
         .circle-mask-hover {
           transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -509,28 +269,6 @@ function LoginPageContent() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
-
-        @media (max-width: 768px) {
-          .login-nav-shell {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0;
-            right: 0;
-            width: 100%;
-          }
-          .desktop-nav,
-          .desktop-auth {
-            display: none !important;
-          }
-
-          .mobile-menu-button {
-            display: flex !important;
-          }
-
-          .login-nav-content {
-            padding: 10px 16px !important;
-          }
-        }
       `}</style>
     </div>
   );
@@ -555,189 +293,6 @@ const styles: any = {
     position: "relative",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-
-  headerMenu: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1300,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    backdropFilter: "blur(20px)",
-    borderBottom: "1px solid rgba(224,224,230,0.5)",
-  },
-
-  nav: {
-    maxWidth: "100%",
-    margin: "0",
-    padding: "12px 0",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  leftNavGroup: {
-    display: "flex",
-    alignItems: "center",
-    gap: "32px",
-    minWidth: 0,
-    paddingLeft: "24px",
-  },
-
-  logoArea: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    cursor: "pointer",
-    textDecoration: "none",
-  },
-
-  logoCircle: {
-    width: "36px",
-    height: "36px",
-    backgroundColor: "#1C1C1E",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.3s ease",
-  },
-
-  logoCircleText: {
-    fontSize: "18px",
-    fontWeight: 700,
-    color: "#FFFFFF",
-  },
-
-  logoText: {
-    fontSize: "20px",
-    fontWeight: 600,
-    color: "#1C1C1E",
-    letterSpacing: "-0.5px",
-  },
-
-  navLinks: {
-    display: "flex",
-    gap: "28px",
-    alignItems: "center",
-    paddingRight: "24px",
-  },
-
-  navLink: {
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#3A3A3C",
-    textDecoration: "none",
-    transition: "all 0.25s ease",
-    cursor: "pointer",
-  },
-
-  authButtons: {
-    display: "flex",
-    gap: "12px",
-    alignItems: "center",
-    paddingRight: "24px",
-  },
-
-  loginButton: {
-    padding: "8px 20px",
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#007AFF",
-    backgroundColor: "transparent",
-    border: "1px solid #007AFF",
-    borderRadius: "20px",
-    cursor: "pointer",
-    transition: "all 0.25s ease",
-  },
-
-  getStartedButton: {
-    padding: "8px 20px",
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#FFFFFF",
-    backgroundColor: "#007AFF",
-    border: "none",
-    borderRadius: "20px",
-    cursor: "pointer",
-    transition: "all 0.25s ease",
-  },
-
-  mobileMenuButton: {
-    display: "none",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "8px",
-    borderRadius: "8px",
-    transition: "all 0.2s ease",
-  },
-
-  mobileMenu: {
-    display: "flex",
-    flexDirection: "column",
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E5EA",
-    borderRadius: "20px",
-    padding: "16px",
-    gap: "12px",
-    position: "fixed",
-    top: "64px",
-    left: "16px",
-    right: "16px",
-    zIndex: 1302,
-    boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
-    maxHeight: "calc(100dvh - 80px)",
-    overflowY: "auto",
-  },
-  mobileMenuOverlay: {
-    position: "fixed",
-    top: "57px",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    border: "none",
-    backgroundColor: "rgba(0,0,0,0.22)",
-    zIndex: 1301,
-    cursor: "pointer",
-  },
-
-  mobileNavLink: {
-    padding: "12px 16px",
-    fontSize: "16px",
-    color: "#1C1C1E",
-    textDecoration: "none",
-    borderRadius: "12px",
-    transition: "all 0.2s ease",
-  },
-
-  mobileAuthButtons: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    marginTop: "8px",
-  },
-
-  mobileLoginButton: {
-    padding: "12px",
-    fontSize: "16px",
-    fontWeight: 500,
-    color: "#007AFF",
-    backgroundColor: "transparent",
-    border: "1px solid #007AFF",
-    borderRadius: "12px",
-    cursor: "pointer",
-  },
-
-  mobileGetStartedButton: {
-    padding: "12px",
-    fontSize: "16px",
-    fontWeight: 500,
-    color: "#FFFFFF",
-    backgroundColor: "#007AFF",
-    border: "none",
-    borderRadius: "12px",
-    cursor: "pointer",
   },
 
   background: {
