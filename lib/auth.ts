@@ -87,7 +87,7 @@ export const isPublicPath = (pathname: string) => {
   // Normalize: lowercase, then remove all trailing slashes
   const normalized = pathname.toLowerCase().replace(/\/+$/, "") || "/";
 
-  // Strict check
+  // Strict check against PUBLIC_PATHS list
   const isMatch = PUBLIC_PATHS.some((p) => {
     const pNormalized = p.toLowerCase().replace(/\/+$/, "") || "/";
     return pNormalized === normalized;
@@ -97,7 +97,14 @@ export const isPublicPath = (pathname: string) => {
 
   // Fuzzy check for critical auth paths (fallback fix for Vercel trailing slash/hyphen oddities)
   const lowerPath = pathname.toLowerCase();
-  if (lowerPath.includes("forgot") || lowerPath.includes("reset")) {
+  
+  // More aggressive defensive check for forgot/reset routes
+  if (
+    lowerPath.includes("/forgot") || 
+    lowerPath.includes("/reset") ||
+    lowerPath.startsWith("forgot") ||
+    lowerPath.startsWith("reset")
+  ) {
     return true;
   }
 
