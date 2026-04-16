@@ -48,140 +48,135 @@ function LoginPageContent() {
 
   return (
     <div style={styles.container}>
-      <PublicSiteNav variant="auth" />
+      <PublicSiteNav />
+ 
+      {/* Main content area (centers card without moving the navbar) */}
+      <div style={styles.main}>
+        {/* Background gradient */}
+        <div style={styles.background}></div>
 
-      {/* Background gradient */}
-      <div style={styles.background}></div>
+        {/* Main content */}
+        <div style={styles.card}>
+          {/* Logo - Circle Mask with WSD */}
+          <div style={styles.logoContainer}>
+            <div style={styles.circleMask} className="circle-mask-hover">
+              <span style={styles.circleText}>WSD</span>
+            </div>
+            <h1 style={styles.logoTextLarge} className="logo-text-hover">
+              Web Smith Digital
+            </h1>
+          </div>
 
-      {/* Main content */}
-      <div style={styles.card}>
-        {/* Logo - Circle Mask with WSD */}
-        <div style={styles.logoContainer}>
-          <div 
-            style={styles.circleMask}
-            className="circle-mask-hover"
+          {/* Welcome text */}
+          <div style={styles.headerText}>
+            <h2 style={styles.title}>Welcome back</h2>
+            <p style={styles.subtitle}>Sign in to continue to your workspace</p>
+          </div>
+
+          {/* Error message */}
+          {error && (
+            <div style={styles.errorContainer}>
+              <span style={styles.errorText}>{error}</span>
+            </div>
+          )}
+
+          {showSessionExpiredNotice && !error && (
+            <div style={styles.infoContainer}>
+              <span style={styles.infoText}>Your session expired. Please sign in again to continue.</span>
+            </div>
+          )}
+
+          {showPasswordUpdateRequiredNotice && !error && (
+            <div style={styles.infoContainer}>
+              <span style={styles.infoText}>You must update your password after signing in with a temporary password.</span>
+            </div>
+          )}
+
+          {/* Email input */}
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Email or Client ID</label>
+            <div style={styles.inputWrapper}>
+              <Mail size={18} style={styles.inputIcon} />
+              <input
+                suppressHydrationWarning
+                type="text"
+                placeholder="Email or CL-0000"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                onKeyPress={handleKeyPress}
+                style={styles.input}
+                disabled={isLoading}
+                className="input-focus"
+              />
+            </div>
+          </div>
+
+          {/* Password input */}
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Password</label>
+            <div style={styles.inputWrapper}>
+              <Lock size={18} style={styles.inputIcon} />
+              <input
+                suppressHydrationWarning
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
+                style={styles.input}
+                disabled={isLoading}
+                className="input-focus"
+              />
+              <button
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+                type="button"
+                className="eye-button-hover"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Forgot password link */}
+          <div style={styles.forgotContainer}>
+            <a href="/forgot-password" style={styles.forgotLink} className="forgot-link-hover">
+              Forgot password?
+            </a>
+          </div>
+
+          {/* Sign In button */}
+          <button
+            onClick={handleLogin}
+            disabled={isLoading}
+            style={{
+              ...styles.signinButton,
+              ...(isLoading ? styles.signinButtonDisabled : {}),
+            }}
+            className="signin-button"
           >
-            <span style={styles.circleText}>WSD</span>
-          </div>
-          <h1 
-            style={styles.logoTextLarge}
-            className="logo-text-hover"
-          >
-            Web Smith Digital
-          </h1>
-        </div>
+            {isLoading ? <div style={styles.spinner}></div> : "Sign In"}
+          </button>
 
-        {/* Welcome text */}
-        <div style={styles.headerText}>
-          <h2 style={styles.title}>Welcome back</h2>
-          <p style={styles.subtitle}>Sign in to continue to your workspace</p>
-        </div>
-
-        {/* Error message */}
-        {error && (
-          <div style={styles.errorContainer}>
-            <span style={styles.errorText}>{error}</span>
-          </div>
-        )}
-
-        {showSessionExpiredNotice && !error && (
-          <div style={styles.infoContainer}>
-            <span style={styles.infoText}>Your session expired. Please sign in again to continue.</span>
-          </div>
-        )}
-
-        {/* Email input */}
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Email or Client ID</label>
-          <div style={styles.inputWrapper}>
-            <Mail size={18} style={styles.inputIcon} />
-            <input
-              suppressHydrationWarning
-              type="text"
-              placeholder="Email or CL-0000"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              onKeyPress={handleKeyPress}
-              style={styles.input}
-              disabled={isLoading}
-              className="input-focus"
-            />
-          </div>
-        </div>
-
-        {/* Password input */}
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Password</label>
-          <div style={styles.inputWrapper}>
-            <Lock size={18} style={styles.inputIcon} />
-            <input
-              suppressHydrationWarning
-              type={showPassword ? "text" : "password"}
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={handleKeyPress}
-              style={styles.input}
-              disabled={isLoading}
-              className="input-focus"
-            />
+          {/* Sign up link */}
+          <div style={styles.signupContainer}>
+            <span style={styles.signupText}>Need a new project?</span>
             <button
-              onClick={() => setShowPassword(!showPassword)}
-              style={styles.eyeButton}
-              type="button"
-              className="eye-button-hover"
+              onClick={() => router.push("/services")}
+              style={styles.signupButton}
+              className="signup-button"
             >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              Get started
             </button>
           </div>
         </div>
 
-        {/* Forgot password link */}
-        <div style={styles.forgotContainer}>
-          <a 
-            href="/forgot-password" 
-            style={styles.forgotLink}
-            className="forgot-link-hover"
-          >
-            Forgot password?
-          </a>
+        {/* Footer - Copyright */}
+        <div style={styles.footer}>
+          <p style={styles.copyright}>
+            © {new Date().getFullYear()} Websmith. All rights reserved.
+          </p>
         </div>
-
-        {/* Sign In button */}
-        <button
-          onClick={handleLogin}
-          disabled={isLoading}
-          style={{
-            ...styles.signinButton,
-            ...(isLoading ? styles.signinButtonDisabled : {}),
-          }}
-          className="signin-button"
-        >
-          {isLoading ? (
-            <div style={styles.spinner}></div>
-          ) : (
-            "Sign In"
-          )}
-        </button>
-
-        {/* Sign up link */}
-        <div style={styles.signupContainer}>
-          <span style={styles.signupText}>Need a new project?</span>
-          <button 
-            onClick={() => router.push("/services")} 
-            style={styles.signupButton}
-            className="signup-button"
-          >
-            Get started
-          </button>
-        </div>
-      </div>
-
-      {/* Footer - Copyright */}
-      <div style={styles.footer}>
-        <p style={styles.copyright}>
-          © {new Date().getFullYear()} Websmith. All rights reserved.
-        </p>
       </div>
 
       {/* All Animations */}
@@ -288,11 +283,21 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     backgroundColor: "#F2F2F7",
     position: "relative",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  },
+
+  main: {
+    flex: 1,
+    width: "100%",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   background: {
@@ -315,7 +320,7 @@ const styles: any = {
     border: "1px solid rgba(224,224,230,0.5)",
     position: "relative",
     zIndex: 1,
-    marginTop: "80px",
+    marginTop: 0,
   },
 
   logoContainer: {

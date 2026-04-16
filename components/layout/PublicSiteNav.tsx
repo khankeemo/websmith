@@ -169,6 +169,20 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             padding-right: 8px;
           }
         }
+
+        /* Keep mobile nav behavior consistent with the home page */
+        @media (max-width: 768px) {
+          .landing-nav-shell {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0;
+            width: 100%;
+          }
+          .landing-nav-content {
+            padding: 10px 16px !important;
+          }
+        }
       `}</style>
     </nav>
   );
@@ -179,6 +193,7 @@ const styles: Record<string, CSSProperties> = {
     position: "sticky",
     top: 0,
     zIndex: 1300,
+    width: "100%",
     backgroundColor: "var(--bg-primary)",
     borderBottom: "1px solid var(--border-color)",
     boxShadow: "var(--card-shadow)",
@@ -210,6 +225,7 @@ const styles: Record<string, CSSProperties> = {
     backdropFilter: "blur(10px)",
     borderBottom: "1px solid var(--border-color)",
     zIndex: 1300,
+    width: "100%",
   },
   navContent: {
     maxWidth: "100%",
