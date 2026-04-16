@@ -55,15 +55,19 @@ export default function Sidebar({
 
   useEffect(() => {
     const syncLiveProfile = async () => {
+      const token = getToken();
+      const storedUser = getStoredUser();
+      
+      // Only sync if we already have a session. 
+      // Prevents 401s on public pages if Sidebar happens to mount or re-render.
+      if (!token || !storedUser) return;
+
       try {
         const response = await API.get("/users/profile");
         const liveUser = response.data.user || response.data.data;
         if (!liveUser) return;
 
-        const token = getToken();
-        if (token) {
-          setAuthSession(token, liveUser);
-        }
+        setAuthSession(token, liveUser);
         setUser(liveUser);
       } catch {
         // Keep the last known session snapshot if profile refresh fails.
@@ -72,6 +76,7 @@ export default function Sidebar({
 
     syncLiveProfile();
   }, []);
+
 
   useEffect(() => {
     const handleProfileUpdate = () => {

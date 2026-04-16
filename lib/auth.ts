@@ -62,6 +62,28 @@ export const clearAuthSession = () => {
   localStorage.removeItem(USER_KEY);
 };
 
+export const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/auth/callback",
+  "/services",
+  "/lead-form",
+  "/success",
+  "/auth/change-password",
+];
+
+/**
+ * Checks if a pathname is a public route, handling trailing slashes.
+ */
+export const isPublicPath = (pathname: string) => {
+  // Normalize by removing trailing slash (unless it's the root "/")
+  const normalized = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+
+  return PUBLIC_PATHS.includes(normalized);
+};
+
 export const getDefaultRouteForRole = (role?: string | null) => {
   if (role === "admin") {
     return "/admin/dashboard";
@@ -77,3 +99,4 @@ export const getDefaultRouteForRole = (role?: string | null) => {
 
   return "/login";
 };
+

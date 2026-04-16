@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { Menu, Moon, Sun, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
-import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken } from "../lib/auth";
+import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, isPublicPath, PUBLIC_PATHS } from "../lib/auth";
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
 
 export default function ClientLayout({
@@ -23,14 +23,12 @@ export default function ClientLayout({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [publicTheme, setPublicTheme] = useState<"light" | "dark">("light");
   
-  const publicPaths = ["/", "/login", "/register", "/forgot-password", "/auth/callback", "/services", "/lead-form", "/success", "/auth/change-password"];
-  const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
-  
   useEffect(() => {
     const token = getToken();
     const user = getStoredUser();
+    const isPublic = isPublicPath(pathname);
 
-    if (publicPaths.includes(pathname)) {
+    if (isPublic) {
       document.documentElement.classList.toggle(
         "dark-theme",
         token && user ? user.preferences?.theme === "dark" : publicTheme === "dark"
@@ -44,12 +42,15 @@ export default function ClientLayout({
       return;
     }
 
+
     const defaultRoute = getDefaultRouteForRole(user.role);
 
     if (user.role === "client" && user.isTemporaryPassword && pathname !== "/auth/change-password") {
       router.replace("/auth/change-password");
       return;
     }
+
+    const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
 
     if (legacyProtectedPaths.includes(pathname)) {
       router.replace(defaultRoute);
@@ -83,7 +84,8 @@ export default function ClientLayout({
     setMounted(true);
   }, []);
 
-  const shouldShowSidebar = !publicPaths.includes(pathname);
+  const shouldShowSidebar = !isPublicPath(pathname);
+
   const user = getStoredUser();
 
   useEffect(() => {

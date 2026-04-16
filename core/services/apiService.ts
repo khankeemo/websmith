@@ -1,5 +1,5 @@
 import axios from "axios";
-import { clearAuthSession, getToken } from "../../lib/auth";
+import { clearAuthSession, getToken, isPublicPath } from "../../lib/auth";
 
 /**
  * Local development should prefer Next.js rewrites so the browser hits the
@@ -45,7 +45,9 @@ API.interceptors.response.use(
     if (error.response?.status === 401 && typeof window !== "undefined") {
       clearAuthSession();
       const currentPath = window.location.pathname;
-      if (currentPath !== "/login") {
+      
+      // Only redirect if NOT on a public page (forgot password, login, etc.)
+      if (!isPublicPath(currentPath)) {
         window.location.replace("/login?reason=session-expired");
       }
     }
@@ -55,3 +57,4 @@ API.interceptors.response.use(
 );
 
 export default API;
+
