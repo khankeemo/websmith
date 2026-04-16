@@ -24,9 +24,13 @@ export default function ClientLayout({
   const [publicTheme, setPublicTheme] = useState<"light" | "dark">("light");
   
   useEffect(() => {
+    if (pathname === null) return; // Wait for router to be ready
+
     const token = getToken();
     const user = getStoredUser();
     const isPublic = isPublicPath(pathname);
+
+    console.log(`[ClientLayout] pathname: "${pathname}", isPublic: ${isPublic}`);
 
     if (isPublic) {
       document.documentElement.classList.toggle(
@@ -37,10 +41,12 @@ export default function ClientLayout({
     }
 
     if (!token || !user) {
+      console.warn(`[ClientLayout] NOT PUBLIC and NO SESSION. Redirecting to /login...`);
       clearAuthSession();
       router.replace("/login");
       return;
     }
+
 
 
     const defaultRoute = getDefaultRouteForRole(user.role);

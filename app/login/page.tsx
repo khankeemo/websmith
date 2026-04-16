@@ -2,6 +2,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { login } from "../../core/services/authService";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
@@ -140,9 +141,9 @@ function LoginPageContent() {
 
           {/* Forgot password link */}
           <div style={styles.forgotContainer}>
-            <a href="/forgot-password" style={styles.forgotLink} className="forgot-link-hover">
+            <Link href="/forgot-password" style={styles.forgotLink} className="forgot-link-hover">
               Forgot password?
-            </a>
+            </Link>
           </div>
 
           {/* Sign In button */}

@@ -67,8 +67,11 @@ export const PUBLIC_PATHS = [
   "/login",
   "/register",
   "/forgot-password",
+  "/forgotpassword",
   "/reset-password",
+  "/resetpassword",
   "/auth/callback",
+
   "/services",
   "/lead-form",
   "/success",
