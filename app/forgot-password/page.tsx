@@ -21,7 +21,6 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<ResetStep>("request");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -45,10 +44,10 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const response = await requestPasswordResetOtp(email);
-      setMessage(response.message || "If an account exists, an OTP has been sent.");
+      setMessage(response.message || "OTP has been sent to your registered email.");
       setStep("verify");
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to send OTP.");
+      setError(err.response?.data?.message || "Email not found. Please register first.");
     } finally {
       setLoading(false);
     }
@@ -66,12 +65,11 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const response = await verifyPasswordResetOtp(email, otp.trim());
-      setResetToken(response.resetToken);
-      setMessage(response.message || "OTP verified.");
+      await verifyPasswordResetOtp(email, otp.trim());
+      setMessage("OTP verified successfully.");
       setStep("reset");
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to verify OTP.");
+      setError(err.response?.data?.message || "OTP is incorrect or expired. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -94,7 +92,7 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const response = await resetPasswordWithOtp(email, resetToken, newPassword);
+      const response = await resetPasswordWithOtp(email, newPassword, confirmPassword);
       setMessage(response.message || "Password reset successfully.");
       setStep("done");
     } catch (err: any) {
@@ -106,113 +104,131 @@ export default function ForgotPasswordPage() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.card}>
-        <Link href="/login" style={styles.backLink}>
-          <ArrowLeft size={16} />
-          Back to login
-        </Link>
-
-        <div style={styles.hero}>
-          <div style={styles.iconWrap}>
-            {step === "done" ? <CheckCircle2 size={28} color="#10B981" /> : <ShieldCheck size={28} color="#007AFF" />}
-          </div>
-          <h1 style={styles.title}>Reset your password</h1>
-          <p style={styles.subtitle}>
-            {step === "request" && "Enter your email to receive a one-time password."}
-            {step === "verify" && "Check your inbox and enter the 6-digit OTP."}
-            {step === "reset" && "Create a new strong password for your account."}
-            {step === "done" && "Your password has been updated. You can sign in now."}
-          </p>
-        </div>
-
-        {message ? <div style={styles.successBox}>{message}</div> : null}
-        {error ? <div style={styles.errorBox}>{error}</div> : null}
-
-        {step === "request" && (
-          <form onSubmit={handleRequestOtp} style={styles.form}>
-            <label style={styles.label}>Email address</label>
-            <div style={styles.inputWrap}>
-              <Mail size={18} style={styles.inputIcon} />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" style={styles.input} placeholder="name@example.com" />
+      <header style={styles.headerMenu}>
+        <nav style={styles.nav}>
+          <Link href="/" style={styles.logoArea}>
+            <div style={styles.logoCircle}>
+              <span style={styles.logoCircleText}>W</span>
             </div>
-            <button type="submit" style={styles.primaryButton} disabled={loading}>
-              {loading ? "Sending OTP..." : "Send OTP"}
-            </button>
-          </form>
-        )}
-
-        {step === "verify" && (
-          <form onSubmit={handleVerifyOtp} style={styles.form}>
-            <label style={styles.label}>Email address</label>
-            <div style={styles.inputWrap}>
-              <Mail size={18} style={styles.inputIcon} />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" style={styles.input} />
-            </div>
-            <label style={styles.label}>OTP</label>
-            <div style={styles.inputWrap}>
-              <KeyRound size={18} style={styles.inputIcon} />
-              <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} type="text" style={styles.input} placeholder="123456" />
-            </div>
-            <button type="submit" style={styles.primaryButton} disabled={loading}>
-              {loading ? "Verifying..." : "Verify OTP"}
-            </button>
-          </form>
-        )}
-
-        {step === "reset" && (
-          <form onSubmit={handleResetPassword} style={styles.form}>
-            <label style={styles.label}>New password</label>
-            <div style={styles.inputWrap}>
-              <KeyRound size={18} style={styles.inputIcon} />
-              <input
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                type={showNewPassword ? "text" : "password"}
-                style={styles.input}
-                placeholder="Enter a strong password"
-              />
-              <button type="button" onClick={() => setShowNewPassword((value) => !value)} style={styles.eyeButton}>
-                {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            <label style={styles.label}>Confirm password</label>
-            <div style={styles.inputWrap}>
-              <KeyRound size={18} style={styles.inputIcon} />
-              <input
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                type={showConfirmPassword ? "text" : "password"}
-                style={styles.input}
-                placeholder="Re-enter your password"
-              />
-              <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} style={styles.eyeButton}>
-                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            <div style={styles.checklist}>
-              {checklistItems.map((item) => (
-                <div key={item.key} style={styles.checklistItem}>
-                  <span style={{ ...styles.checkDot, backgroundColor: item.met ? "#10B981" : "#D1D5DB" }} />
-                  <span style={{ color: item.met ? "#111827" : "#6B7280" }}>{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <button type="submit" style={styles.primaryButton} disabled={loading}>
-              {loading ? "Updating password..." : "Reset password"}
-            </button>
-          </form>
-        )}
-
-        {step === "done" && (
-          <div style={styles.doneState}>
-            <Link href="/login" style={styles.primaryLinkButton}>
-              Go to login
+            <span style={styles.logoText}>Websmith</span>
+          </Link>
+          <div style={styles.navActions}>
+            <Link href="/login" style={styles.navButton}>
+              Back to login
             </Link>
           </div>
-        )}
+        </nav>
+      </header>
+
+      <div style={styles.dialogArea}>
+        <div style={styles.card}>
+          <Link href="/login" style={styles.backLink}>
+            <ArrowLeft size={16} />
+            Back to login
+          </Link>
+
+          <div style={styles.hero}>
+            <div style={styles.iconWrap}>
+              {step === "done" ? <CheckCircle2 size={28} color="#10B981" /> : <ShieldCheck size={28} color="#007AFF" />}
+            </div>
+            <h1 style={styles.title}>Reset your password</h1>
+            <p style={styles.subtitle}>
+              {step === "request" && "Enter your registered organization email address."}
+              {step === "verify" && "Enter the OTP sent to your email."}
+              {step === "reset" && "Create your new password to complete reset."}
+              {step === "done" && "Your password has been changed successfully."}
+            </p>
+          </div>
+
+          {message ? <div style={styles.successBox}>{message}</div> : null}
+          {error ? <div style={styles.errorBox}>{error}</div> : null}
+
+          {step === "request" && (
+            <form onSubmit={handleRequestOtp} style={styles.form}>
+              <label style={styles.label}>Registered email address</label>
+              <div style={styles.inputWrap}>
+                <Mail size={18} style={styles.inputIcon} />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" style={styles.input} placeholder="name@example.com" />
+              </div>
+              <button type="submit" style={styles.primaryButton} disabled={loading}>
+                {loading ? "Sending OTP..." : "Send OTP"}
+              </button>
+            </form>
+          )}
+
+          {step === "verify" && (
+            <form onSubmit={handleVerifyOtp} style={styles.form}>
+              <label style={styles.label}>Registered email address</label>
+              <div style={styles.inputWrap}>
+                <Mail size={18} style={styles.inputIcon} />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" style={styles.input} />
+              </div>
+              <label style={styles.label}>OTP</label>
+              <div style={styles.inputWrap}>
+                <KeyRound size={18} style={styles.inputIcon} />
+                <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} type="text" style={styles.input} placeholder="123456" />
+              </div>
+              <button type="submit" style={styles.primaryButton} disabled={loading}>
+                {loading ? "Verifying..." : "Verify OTP"}
+              </button>
+            </form>
+          )}
+
+          {step === "reset" && (
+            <form onSubmit={handleResetPassword} style={styles.form}>
+              <label style={styles.label}>New password</label>
+              <div style={styles.inputWrap}>
+                <KeyRound size={18} style={styles.inputIcon} />
+                <input
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  type={showNewPassword ? "text" : "password"}
+                  style={styles.input}
+                  placeholder="Enter a strong password"
+                />
+                <button type="button" onClick={() => setShowNewPassword((value) => !value)} style={styles.eyeButton}>
+                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              <label style={styles.label}>Confirm password</label>
+              <div style={styles.inputWrap}>
+                <KeyRound size={18} style={styles.inputIcon} />
+                <input
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  type={showConfirmPassword ? "text" : "password"}
+                  style={styles.input}
+                  placeholder="Re-enter your password"
+                />
+                <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} style={styles.eyeButton}>
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              <div style={styles.checklist}>
+                {checklistItems.map((item) => (
+                  <div key={item.key} style={styles.checklistItem}>
+                    <span style={{ ...styles.checkDot, backgroundColor: item.met ? "#10B981" : "#D1D5DB" }} />
+                    <span style={{ color: item.met ? "#111827" : "#6B7280" }}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button type="submit" style={styles.primaryButton} disabled={loading}>
+                {loading ? "Updating password..." : "Reset password"}
+              </button>
+            </form>
+          )}
+
+          {step === "done" && (
+            <div style={styles.doneState}>
+              <Link href="/login" style={styles.primaryLinkButton}>
+                Go to login
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -221,19 +237,80 @@ export default function ForgotPasswordPage() {
 const styles: Record<string, any> = {
   page: {
     minHeight: "100vh",
+    backgroundColor: "#F3F4F6",
+    position: "relative",
+  },
+  headerMenu: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    backgroundColor: "rgba(255,255,255,0.97)",
+    borderBottom: "1px solid #E5E7EB",
+    backdropFilter: "blur(10px)",
+  },
+  nav: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "12px 24px",
+  },
+  logoArea: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "10px",
+    textDecoration: "none",
+  },
+  logoCircle: {
+    width: "34px",
+    height: "34px",
+    borderRadius: "999px",
+    backgroundColor: "#1F2937",
+    color: "#FFFFFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "24px",
-    background: "linear-gradient(135deg, #eef5ff 0%, #ffffff 55%, #f7fbff 100%)",
+    fontWeight: 700,
+  },
+  logoCircleText: {
+    fontSize: "16px",
+  },
+  logoText: {
+    color: "#111827",
+    fontSize: "18px",
+    fontWeight: 700,
+  },
+  navActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  },
+  navButton: {
+    textDecoration: "none",
+    border: "1px solid #D1D5DB",
+    color: "#111827",
+    borderRadius: "999px",
+    padding: "8px 14px",
+    fontSize: "14px",
+    fontWeight: 600,
+  },
+  dialogArea: {
+    minHeight: "100vh",
+    paddingTop: "80px",
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    backgroundColor: "rgba(17, 24, 39, 0.2)",
   },
   card: {
     width: "100%",
     maxWidth: "520px",
-    borderRadius: "28px",
+    marginTop: "34px",
+    borderRadius: "20px",
     backgroundColor: "#FFFFFF",
     border: "1px solid #E5E7EB",
-    boxShadow: "0 30px 80px rgba(15, 23, 42, 0.08)",
+    boxShadow: "0 24px 50px rgba(15, 23, 42, 0.2)",
     padding: "32px",
   },
   backLink: {
