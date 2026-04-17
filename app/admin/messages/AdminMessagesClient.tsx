@@ -8,7 +8,6 @@ import { addTicketReply, getTickets, Ticket, updateTicketStatus } from "@/core/s
 type QueryGroup = {
   key: string;
   label: string;
-  subtitle: string;
   tickets: Ticket[];
 };
 
@@ -29,6 +28,7 @@ export default function AdminMessagesClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [resolution, setResolution] = useState("");
+  const [nextStatus, setNextStatus] = useState<Ticket["status"]>("open");
   const [saving, setSaving] = useState(false);
 
   const loadTickets = async () => {
@@ -69,10 +69,9 @@ export default function AdminMessagesClient() {
       const project = typeof ticket.projectId === "object" ? ticket.projectId : null;
       const key = project?._id || (ticket.projectId ? String(ticket.projectId) : "general");
       const label = project?.name || (ticket.projectId ? "Linked project" : "General and public queries");
-      const subtitle = project?.status ? `Project status: ${project.status.replace("-", " ")}` : "No project selected";
 
       if (!groups.has(key)) {
-        groups.set(key, { key, label, subtitle, tickets: [] });
+        groups.set(key, { key, label, tickets: [] });
       }
 
       groups.get(key)!.tickets.push(ticket);
@@ -93,6 +92,7 @@ export default function AdminMessagesClient() {
   useEffect(() => {
     if (selectedTicket) {
       setResolution(selectedTicket.resolution || "");
+      setNextStatus(selectedTicket.status);
     }
   }, [selectedTicket?._id]);
 
@@ -150,6 +150,11 @@ export default function AdminMessagesClient() {
   };
 
   const isClosed = selectedTicket?.chatStatus === "closed" || selectedTicket?.status === "closed";
+  const isResolvedOrClosed = selectedTicket?.status === "resolved" || selectedTicket?.status === "closed";
+  const projectGroups = groupedTickets.filter((group) => group.key !== "general");
+  const generalGroup = groupedTickets.find((group) => group.key === "general");
+
+  const getStatusLabel = (status: Ticket["status"]) => status.replace("_", " ");
 
   return (
     <div style={styles.shell}>
@@ -176,36 +181,70 @@ export default function AdminMessagesClient() {
           ) : filteredTickets.length === 0 ? (
             <p style={styles.emptyText}>No queries match your search.</p>
           ) : (
-            groupedTickets.map((group) => (
-              <div key={group.key} style={styles.projectGroup}>
-                <div style={styles.projectGroupHeader}>
-                  <strong style={styles.projectGroupTitle}>{group.label}</strong>
-                  <span style={styles.projectGroupCount}>{group.tickets.length}</span>
-                </div>
-                <p style={styles.projectGroupSubtitle}>{group.subtitle}</p>
-                {group.tickets.map((ticket) => {
-                  const requester = getRequester(ticket);
-                  return (
-                    <button
-                      key={ticket._id}
-                      type="button"
-                      onClick={() => setSelectedId(ticket._id)}
-                      style={{
-                        ...styles.ticketRow,
-                        ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
-                      }}
-                    >
-                      <div style={styles.ticketRowTop}>
-                        <strong style={styles.ticketSubject}>{ticket.subject}</strong>
-                        <span style={styles.ticketStatus}>{ticket.status.replace("_", " ")}</span>
+            <>
+              {projectGroups.length > 0 && (
+                <div style={styles.groupSection}>
+                  <p style={styles.groupSectionTitle}>Project-based queries</p>
+                  {projectGroups.map((group) => (
+                    <div key={group.key} style={styles.projectGroup}>
+                      <div style={styles.projectGroupHeader}>
+                        <strong style={styles.projectGroupTitle}>{group.label}</strong>
+                        <span style={styles.projectGroupCount}>{group.tickets.length}</span>
                       </div>
-                      <p style={styles.ticketMeta}>{requester.name}</p>
-                      <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            ))
+                      {group.tickets.map((ticket) => {
+                        const requester = getRequester(ticket);
+                        return (
+                          <button
+                            key={ticket._id}
+                            type="button"
+                            onClick={() => setSelectedId(ticket._id)}
+                            style={{
+                              ...styles.ticketRow,
+                              ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
+                            }}
+                          >
+                            <div style={styles.ticketRowTop}>
+                              <strong style={styles.ticketSubject}>{ticket.subject}</strong>
+                              <span style={styles.ticketStatus}>{getStatusLabel(ticket.status)}</span>
+                            </div>
+                            <p style={styles.ticketMeta}>{requester.name}</p>
+                            <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {generalGroup && (
+                <div style={styles.groupSection}>
+                  <p style={styles.groupSectionTitle}>General and public queries</p>
+                  <div style={styles.projectGroup}>
+                    {generalGroup.tickets.map((ticket) => {
+                      const requester = getRequester(ticket);
+                      return (
+                        <button
+                          key={ticket._id}
+                          type="button"
+                          onClick={() => setSelectedId(ticket._id)}
+                          style={{
+                            ...styles.ticketRow,
+                            ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
+                          }}
+                        >
+                          <div style={styles.ticketRowTop}>
+                            <strong style={styles.ticketSubject}>{ticket.subject}</strong>
+                            <span style={styles.ticketStatus}>{getStatusLabel(ticket.status)}</span>
+                          </div>
+                          <p style={styles.ticketMeta}>{requester.name}</p>
+                          <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -225,27 +264,33 @@ export default function AdminMessagesClient() {
                   {getRequester(selectedTicket).name}
                   {" · "}
                   {typeof selectedTicket.projectId === "object" && selectedTicket.projectId?.name
-                    ? `${selectedTicket.projectId.name} Â· `
+                    ? `${selectedTicket.projectId.name} - `
                     : ""}
                   {selectedTicket.source === "public_contact" ? "Public contact" : "Client portal"}
                 </p>
               </div>
-              <div style={styles.actionGroup}>
+              <div style={styles.headerControls}>
                 <button type="button" onClick={() => setSelectedId(null)} style={styles.secondaryBtn} disabled={saving}>
                   Close Query Panel
                 </button>
-                <button type="button" onClick={() => handleStatus("open")} style={styles.secondaryBtn} disabled={saving}>
-                  Open
-                </button>
-                <button type="button" onClick={() => handleStatus("in_progress")} style={styles.secondaryBtn} disabled={saving}>
-                  In Progress
-                </button>
-                <button type="button" onClick={() => handleStatus("resolved")} style={styles.primaryBtn} disabled={saving}>
-                  Resolve
-                </button>
-                <button type="button" onClick={() => handleStatus("closed")} style={styles.secondaryBtn} disabled={saving}>
-                  Mark Closed
-                </button>
+                <div style={styles.statusControl}>
+                  <label style={styles.statusLabel}>Status</label>
+                  <select
+                    value={nextStatus}
+                    onChange={(event) => {
+                      const status = event.target.value as Ticket["status"];
+                      setNextStatus(status);
+                      handleStatus(status).catch((error) => console.error("Update status error:", error));
+                    }}
+                    style={styles.statusSelect}
+                    disabled={saving}
+                  >
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -298,9 +343,24 @@ export default function AdminMessagesClient() {
 
             <div style={styles.composerCard}>
               <label style={styles.label}>Resolution summary</label>
-              <textarea value={resolution} onChange={(event) => setResolution(event.target.value)} style={styles.textarea} placeholder="Document the final answer or delivery outcome..." />
+              <textarea
+                value={resolution}
+                onChange={(event) => setResolution(event.target.value)}
+                style={{ ...styles.textarea, ...(!isResolvedOrClosed ? styles.textareaDisabled : {}) }}
+                placeholder={
+                  isResolvedOrClosed
+                    ? "Document the final answer or delivery outcome..."
+                    : "Mark this query as Resolved or Closed to activate summary."
+                }
+                disabled={!isResolvedOrClosed}
+              />
               <div style={styles.composerFooter}>
-                <button type="button" onClick={handleResolutionEmail} style={styles.secondaryBtn} disabled={saving || !resolution.trim()}>
+                <button
+                  type="button"
+                  onClick={handleResolutionEmail}
+                  style={styles.secondaryBtn}
+                  disabled={saving || !isResolvedOrClosed || !resolution.trim()}
+                >
                   Send Resolution Email
                 </button>
               </div>
@@ -315,8 +375,8 @@ export default function AdminMessagesClient() {
 const styles: Record<string, any> = {
   shell: {
     display: "grid",
-    gridTemplateColumns: "340px minmax(0, 1fr)",
-    gap: "20px",
+    gridTemplateColumns: "360px minmax(0, 1fr)",
+    gap: "24px",
     padding: "24px",
     minHeight: "calc(100vh - 48px)",
   },
@@ -351,17 +411,17 @@ const styles: Record<string, any> = {
     color: "var(--text-primary)",
     width: "100%",
   },
-  ticketList: { display: "flex", flexDirection: "column", padding: "12px" },
+  ticketList: { display: "flex", flexDirection: "column", padding: "14px", gap: "14px", overflowY: "auto" },
+  groupSection: { display: "flex", flexDirection: "column", gap: "10px" },
+  groupSectionTitle: { margin: "0 4px", fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" },
   projectGroup: {
     border: "1px solid var(--border-color)",
     borderRadius: "18px",
     padding: "12px",
-    marginBottom: "12px",
     backgroundColor: "var(--bg-secondary)",
   },
   projectGroupHeader: { display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center" },
   projectGroupTitle: { color: "var(--text-primary)", fontSize: "14px" },
-  projectGroupSubtitle: { margin: "4px 0 10px 0", color: "var(--text-secondary)", fontSize: "12px", textTransform: "capitalize" },
   projectGroupCount: {
     minWidth: "24px",
     height: "24px",
@@ -407,7 +467,20 @@ const styles: Record<string, any> = {
   threadHeader: { display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" },
   threadTitle: { margin: 0, fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" },
   threadSubtitle: { margin: "6px 0 0 0", color: "var(--text-secondary)", fontSize: "14px" },
-  actionGroup: { display: "flex", gap: "10px", flexWrap: "wrap" },
+  headerControls: { display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "flex-end" },
+  statusControl: { display: "flex", flexDirection: "column", gap: "6px" },
+  statusLabel: { fontSize: "12px", color: "var(--text-secondary)", fontWeight: 600 },
+  statusSelect: {
+    minWidth: "170px",
+    border: "1px solid var(--border-color)",
+    borderRadius: "12px",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    padding: "10px 12px",
+    textTransform: "capitalize",
+    outline: "none",
+    fontWeight: 600,
+  },
   primaryBtn: {
     display: "inline-flex",
     alignItems: "center",
