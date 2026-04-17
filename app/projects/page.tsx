@@ -5,12 +5,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, FolderOpen, LayoutGrid, List, Kanban } from 'lucide-react';
+import { Plus, Search, FolderOpen, LayoutGrid, List, Kanban, MessageSquareQuote, Star, X } from 'lucide-react';
 import { useProjects } from './hooks/useProjects';
 import ProjectCard from './components/ProjectCard';
 import ProjectModal from './components/ProjectModal';
 import KanbanBoard from '../../components/ui/KanbanBoard';
-import { Project, bulkUpdateProjectStatus } from './services/projectService';
+import { Project, bulkUpdateProjectStatus, getProjectFeedback, toggleFeedbackTestimonial, updateProjectStatus } from './services/projectService';
 
 export default function ProjectsPage() {
   const { projects, loading, error, addProject, editProject, removeProject, fetchProjects } = useProjects();
@@ -19,6 +19,9 @@ export default function ProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban'>('grid');
+  const [feedbackProject, setFeedbackProject] = useState<Project | null>(null);
+  const [feedbackItems, setFeedbackItems] = useState<NonNullable<Project['feedback']>>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   const handleAddProject = () => {
     setEditingProject(null);
@@ -54,6 +57,43 @@ export default function ProjectsPage() {
       await fetchProjects();
     } catch (error) {
       console.error('Toggle publish error:', error);
+    }
+  };
+
+  const handleMarkCompleted = async (project: Project) => {
+    try {
+      await updateProjectStatus(project._id!, {
+        status: 'completed',
+        progress: 100,
+        note: 'Project marked as completed',
+      });
+      await fetchProjects();
+    } catch (error) {
+      console.error('Mark completed error:', error);
+    }
+  };
+
+  const handleViewFeedback = async (project: Project) => {
+    setFeedbackProject(project);
+    setFeedbackLoading(true);
+    try {
+      const feedback = await getProjectFeedback(project._id!);
+      setFeedbackItems(feedback);
+    } catch (error) {
+      console.error('Load project feedback error:', error);
+      setFeedbackItems([]);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const handleToggleTestimonial = async (feedbackId: string, published: boolean) => {
+    if (!feedbackProject) return;
+    try {
+      const feedback = await toggleFeedbackTestimonial(feedbackProject._id!, feedbackId, published);
+      setFeedbackItems(feedback);
+    } catch (error) {
+      console.error('Toggle testimonial error:', error);
     }
   };
 
@@ -178,6 +218,8 @@ export default function ProjectsPage() {
               onEdit={handleEditProject}
               onDelete={handleDeleteProject}
               onTogglePublish={handleTogglePublish}
+              onMarkCompleted={handleMarkCompleted}
+              onViewFeedback={handleViewFeedback}
             />
           ))}
         </div>
@@ -194,6 +236,10 @@ export default function ProjectsPage() {
               <span style={styles.listMeta}>{project.status.replace('-', ' ')}</span>
               <span style={styles.listMeta}>{project.expectedCompletionDate ? new Date(project.expectedCompletionDate).toLocaleDateString() : 'No due date'}</span>
               <div style={styles.listActions}>
+                {project.status !== 'completed' && (
+                  <button onClick={() => handleMarkCompleted(project)} style={{ ...styles.listBtn, color: '#16A34A' }}>Mark as Done</button>
+                )}
+                <button onClick={() => handleViewFeedback(project)} style={styles.listBtn}>Feedback</button>
                 <button onClick={() => handleEditProject(project)} style={styles.listBtn}>Edit</button>
                 <button onClick={() => handleDeleteProject(project._id!)} style={{ ...styles.listBtn, color: '#FF3B30' }}>Delete</button>
               </div>
@@ -230,6 +276,62 @@ export default function ProjectsPage() {
         onSave={handleSaveProject}
         project={editingProject}
       />
+
+      {feedbackProject && (
+        <div style={styles.feedbackModalBackdrop} onClick={() => setFeedbackProject(null)}>
+          <div style={styles.feedbackModal} onClick={(event) => event.stopPropagation()}>
+            <div style={styles.feedbackModalHeader}>
+              <div>
+                <h2 style={styles.feedbackModalTitle}>Project Feedback</h2>
+                <p style={styles.feedbackModalSubtitle}>{feedbackProject.name} · {feedbackProject.client}</p>
+              </div>
+              <button type="button" onClick={() => setFeedbackProject(null)} style={styles.iconBtn}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {feedbackLoading ? (
+              <p style={styles.feedbackEmpty}>Loading feedback...</p>
+            ) : feedbackItems.length === 0 ? (
+              <p style={styles.feedbackEmpty}>No client feedback has been submitted yet.</p>
+            ) : (
+              <div style={styles.feedbackList}>
+                {feedbackItems.map((feedback) => (
+                  <div key={feedback._id} style={styles.feedbackItem}>
+                    <div style={styles.feedbackItemHeader}>
+                      <div>
+                        <strong style={styles.feedbackClient}>{feedback.clientName || feedbackProject.client}</strong>
+                        <p style={styles.feedbackMeta}>
+                          {feedback.date ? new Date(feedback.date).toLocaleDateString() : 'No date'} · {feedbackProject.clientEmail || 'No email'}
+                        </p>
+                      </div>
+                      <div style={styles.feedbackStars}>
+                        {[...Array(feedback.rating || 0)].map((_, index) => (
+                          <Star key={index} size={14} fill="#FFB800" color="#FFB800" />
+                        ))}
+                      </div>
+                    </div>
+                    <p style={styles.feedbackQuote}>{feedback.comment || 'No comment provided.'}</p>
+                    {feedback._id && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleTestimonial(feedback._id!, !feedback.publishedAsTestimonial)}
+                        style={{
+                          ...styles.testimonialBtn,
+                          ...(feedback.publishedAsTestimonial ? styles.testimonialBtnActive : {}),
+                        }}
+                      >
+                        <MessageSquareQuote size={14} />
+                        {feedback.publishedAsTestimonial ? 'Unpublish Testimonial' : 'Publish as Testimonial'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <style>{`
         .add-btn {
@@ -359,7 +461,7 @@ const styles: any = {
   list: { display: 'flex', flexDirection: 'column', gap: '12px' },
   listRow: { display: 'grid', gridTemplateColumns: '1.5fr auto auto auto', gap: '16px', alignItems: 'center', padding: '16px 20px', border: '1.5px solid var(--border-color)', borderRadius: '16px', backgroundColor: 'var(--bg-primary)' },
   listMeta: { margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'capitalize' },
-  listActions: { display: 'flex', gap: '8px' },
+  listActions: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
   listBtn: { padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 },
   loadingContainer: {
     display: 'flex',
@@ -427,4 +529,20 @@ const styles: any = {
     fontWeight: 700,
     fontFamily: 'inherit',
   },
+  feedbackModalBackdrop: { position: 'fixed' as const, inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '20px' },
+  feedbackModal: { width: '100%', maxWidth: '680px', maxHeight: '86vh', overflow: 'auto', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
+  feedbackModalHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' },
+  feedbackModalTitle: { margin: 0, color: 'var(--text-primary)', fontSize: '22px', fontWeight: 700 },
+  feedbackModalSubtitle: { margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px' },
+  iconBtn: { border: 'none', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', borderRadius: '8px', padding: '8px', cursor: 'pointer', display: 'flex' },
+  feedbackEmpty: { color: 'var(--text-secondary)', textAlign: 'center' as const, padding: '36px 12px', margin: 0 },
+  feedbackList: { display: 'flex', flexDirection: 'column' as const, gap: '14px' },
+  feedbackItem: { padding: '16px', border: '1px solid var(--border-color)', borderRadius: '12px', backgroundColor: 'var(--bg-secondary)' },
+  feedbackItemHeader: { display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' },
+  feedbackClient: { color: 'var(--text-primary)', fontSize: '14px' },
+  feedbackMeta: { margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '12px' },
+  feedbackStars: { display: 'flex', gap: '2px', flexShrink: 0 },
+  feedbackQuote: { margin: '0 0 14px 0', color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6 },
+  testimonialBtn: { padding: '9px 12px', border: '1px solid rgba(0, 122, 255, 0.2)', backgroundColor: 'rgba(0, 122, 255, 0.08)', color: '#007AFF', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' },
+  testimonialBtnActive: { borderColor: 'rgba(217, 119, 6, 0.25)', backgroundColor: '#FEF3C7', color: '#D97706' },
 };

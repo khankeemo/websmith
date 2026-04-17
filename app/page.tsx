@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
-import { getPublishedProjects } from "./projects/services/projectService";
+import { getPublishedProjects, getPublishedTestimonials } from "./projects/services/projectService";
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
 import { createPublicTicket } from "../core/services/ticketService";
@@ -172,6 +172,7 @@ export default function LandingPage() {
   const [publishedProjects, setPublishedProjects] = useState<any[]>([]);
   const [publishedClients, setPublishedClients] = useState<any[]>([]);
   const [publishedDevelopers, setPublishedDevelopers] = useState<any[]>([]);
+  const [publishedTestimonials, setPublishedTestimonials] = useState<any[]>([]);
 
   useEffect(() => {
     // Animate stats
@@ -194,10 +195,11 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    Promise.allSettled([getPublishedProjects(), getPublishedClients(), getPublishedDevelopers()]).then((results) => {
+    Promise.allSettled([getPublishedProjects(), getPublishedClients(), getPublishedDevelopers(), getPublishedTestimonials()]).then((results) => {
       if (results[0].status === "fulfilled") setPublishedProjects(results[0].value);
       if (results[1].status === "fulfilled") setPublishedClients(results[1].value);
       if (results[2].status === "fulfilled") setPublishedDevelopers(results[2].value);
+      if (results[3].status === "fulfilled") setPublishedTestimonials(results[3].value);
     });
   }, []);
 
@@ -244,10 +246,10 @@ export default function LandingPage() {
   ];
 
   const dummyTestimonials = [
-    { id: "dt-1", name: "S. Jordan", company: "Nova Retail", quote: "Delivery was smooth, proactive, and always transparent." },
-    { id: "dt-2", name: "K. Morgan", company: "CareBridge", quote: "The team turned complex product goals into clear milestones." },
-    { id: "dt-3", name: "R. Blake", company: "FlowFleet", quote: "Excellent collaboration and dependable release quality." },
-    { id: "dt-4", name: "T. Diaz", company: "BrightNest", quote: "We saw measurable gains within the first release cycle." },
+    { id: "dt-1", name: "S. Jordan", company: "Nova Retail", quote: "Delivery was smooth, proactive, and always transparent.", rating: 5 },
+    { id: "dt-2", name: "K. Morgan", company: "CareBridge", quote: "The team turned complex product goals into clear milestones.", rating: 5 },
+    { id: "dt-3", name: "R. Blake", company: "FlowFleet", quote: "Excellent collaboration and dependable release quality.", rating: 5 },
+    { id: "dt-4", name: "T. Diaz", company: "BrightNest", quote: "We saw measurable gains within the first release cycle.", rating: 5 },
   ];
 
   const effectiveProjects = (publishedProjects.length > 0 ? publishedProjects : dummyProjects).slice(0, 8);
@@ -277,19 +279,29 @@ export default function LandingPage() {
     bio: developer.bio || "Experienced engineer focused on shipping resilient digital products.",
   }));
 
-  const reviewCards = (publicClients.length > 0 || publicDevelopers.length > 0)
+  const reviewCards = publishedTestimonials.length > 0
+    ? publishedTestimonials.map((testimonial: any, index: number) => ({
+        id: testimonial.id || `testimonial-${index}`,
+        name: testimonial.name,
+        company: testimonial.company || testimonial.projectName || "Websmith client",
+        quote: testimonial.quote,
+        rating: testimonial.rating || 5,
+      }))
+    : (publicClients.length > 0 || publicDevelopers.length > 0)
     ? [
         ...publicClients.slice(0, 5).map((client, index) => ({
           id: `client-review-${index}`,
           name: client.name,
           company: client.company,
           quote: `${client.company} trusted Websmith for delivery clarity, product quality, and dependable communication.`,
+          rating: 5,
         })),
         ...publicDevelopers.slice(0, 4).map((developer, index) => ({
           id: `dev-review-${index}`,
           name: developer.name,
           company: developer.role,
           quote: `${developer.name} brings strong ownership across ${developer.skills.slice(0, 2).join(" and ")}.`,
+          rating: 5,
         })),
       ]
     : dummyTestimonials;
@@ -511,7 +523,7 @@ export default function LandingPage() {
             <div key={testimonial.id} style={{ ...styles.testimonialCard, ...styles.sliderCard }} className="testimonial-card">
               <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
               <div style={styles.testimonialStars}>
-                {[...Array(5)].map((_, i) => (
+                {[...Array(testimonial.rating || 5)].map((_, i) => (
                   <Star key={i} size={16} fill="#FFB800" color="#FFB800" />
                 ))}
               </div>

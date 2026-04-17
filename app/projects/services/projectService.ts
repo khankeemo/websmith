@@ -9,6 +9,8 @@ export interface Project {
   name: string;
   description: string;
   client: string;
+  clientEmail?: string;
+  clientCompany?: string;
   publicUrl?: string;
   previewImage?: string;
   clientId?: string | null;
@@ -47,6 +49,15 @@ export interface Project {
     progress: number;
     note: string;
     createdAt: string;
+  }>;
+  feedback?: Array<{
+    _id?: string;
+    rating: number;
+    comment: string;
+    date: string;
+    clientName: string;
+    publishedAsTestimonial?: boolean;
+    testimonialPublishedAt?: string | null;
   }>;
   createdAt?: string;
 }
@@ -121,6 +132,53 @@ export const updateProjectStatus = async (
   } catch (error: any) {
     console.error('Update project status error:', error);
     throw error.response?.data?.message || 'Failed to update project status';
+  }
+};
+
+export const getProjectFeedback = async (id: string) => {
+  try {
+    const response = await API.get(`/projects/${id}/feedback`);
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('Get project feedback error:', error);
+    throw error.response?.data?.message || 'Failed to fetch project feedback';
+  }
+};
+
+export const submitProjectFeedback = async (
+  id: string,
+  payload: { rating: number; comment: string; clientName?: string }
+) => {
+  try {
+    const response = await API.post(`/projects/${id}/feedback`, payload);
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('Submit project feedback error:', error);
+    throw error.response?.data?.message || 'Failed to submit project feedback';
+  }
+};
+
+export const toggleFeedbackTestimonial = async (
+  projectId: string,
+  feedbackId: string,
+  published: boolean
+) => {
+  try {
+    const response = await API.patch(`/projects/${projectId}/feedback/${feedbackId}/testimonial`, { published });
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('Toggle feedback testimonial error:', error);
+    throw error.response?.data?.message || 'Failed to update testimonial status';
+  }
+};
+
+export const getPublishedTestimonials = async () => {
+  try {
+    const response = await API.get('/projects/public/testimonials');
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('Get published testimonials error:', error);
+    throw error.response?.data?.message || 'Failed to fetch testimonials';
   }
 };
 

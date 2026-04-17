@@ -78,65 +78,12 @@ export default function ClientTicketsPage() {
     }
   };
 
-  const renderHistoryItemActions = (ticket: Ticket) => (
-    <div style={styles.ticketActions}>
-      <button type="button" onClick={() => setSelectedTicket(ticket)} style={styles.viewBtnSmall}>
-        <Eye size={14} />
-        Open
-      </button>
-      {isTicketClosed(ticket) && (
-        <button type="button" onClick={() => handleReopenTicket(ticket)} style={styles.reopenBtn}>
-          <RotateCcw size={14} />
-          Reopen
-        </button>
-      )}
-    </div>
-  );
-
   return (
     <div style={styles.container}>
       <div style={styles.topHeader}>
         <div>
           <h1 style={styles.title}>Query</h1>
           <p style={styles.subtitle}>Send a query to admin and keep track of your previous submissions</p>
-        </div>
-        <div style={styles.viewToggle}>
-          <button
-            type="button"
-            onClick={() => setViewMode("list")}
-            style={{
-              ...styles.viewBtnIcon,
-              backgroundColor: viewMode === "list" ? "#007AFF" : "var(--bg-secondary)",
-              color: viewMode === "list" ? "#fff" : "var(--text-secondary)",
-            }}
-            aria-pressed={viewMode === "list"}
-          >
-            <List size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("grid")}
-            style={{
-              ...styles.viewBtnIcon,
-              backgroundColor: viewMode === "grid" ? "#007AFF" : "var(--bg-secondary)",
-              color: viewMode === "grid" ? "#fff" : "var(--text-secondary)",
-            }}
-            aria-pressed={viewMode === "grid"}
-          >
-            <LayoutGrid size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("kanban")}
-            style={{
-              ...styles.viewBtnIcon,
-              backgroundColor: viewMode === "kanban" ? "#007AFF" : "var(--bg-secondary)",
-              color: viewMode === "kanban" ? "#fff" : "var(--text-secondary)",
-            }}
-            aria-pressed={viewMode === "kanban"}
-          >
-            <Columns size={16} />
-          </button>
         </div>
       </div>
 
@@ -147,13 +94,57 @@ export default function ClientTicketsPage() {
               <h2 style={styles.historyTitle}>Query history</h2>
               <p style={styles.historySubtitle}>Open a past query or reopen one that has been closed</p>
             </div>
-            <button type="button" onClick={scrollToRaiseForm} style={styles.raiseQueryBtn}>
-              <MessageSquarePlus size={18} />
-              Raise Query
-            </button>
+            <div style={styles.historyHeaderActions}>
+              <div style={styles.viewToggle}>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  style={{
+                    ...styles.viewBtnIcon,
+                    backgroundColor: viewMode === "list" ? "#007AFF" : "var(--bg-secondary)",
+                    color: viewMode === "list" ? "#fff" : "var(--text-secondary)",
+                  }}
+                  aria-label="List view"
+                  aria-pressed={viewMode === "list"}
+                >
+                  <List size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  style={{
+                    ...styles.viewBtnIcon,
+                    backgroundColor: viewMode === "grid" ? "#007AFF" : "var(--bg-secondary)",
+                    color: viewMode === "grid" ? "#fff" : "var(--text-secondary)",
+                  }}
+                  aria-label="Grid view"
+                  aria-pressed={viewMode === "grid"}
+                >
+                  <LayoutGrid size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("kanban")}
+                  style={{
+                    ...styles.viewBtnIcon,
+                    backgroundColor: viewMode === "kanban" ? "#007AFF" : "var(--bg-secondary)",
+                    color: viewMode === "kanban" ? "#fff" : "var(--text-secondary)",
+                  }}
+                  aria-label="Kanban view"
+                  aria-pressed={viewMode === "kanban"}
+                >
+                  <Columns size={16} />
+                </button>
+              </div>
+              <button type="button" onClick={scrollToRaiseForm} style={styles.raiseQueryBtn}>
+                <MessageSquarePlus size={18} />
+                Raise Query
+              </button>
+            </div>
           </div>
 
-          <div style={styles.compactHistory}>
+          {viewMode === "list" ? (
+            <div style={styles.compactHistory}>
             {sortedHistory.length === 0 ? (
               <p style={styles.historyEmpty}>No queries yet. Submit your first one using the form.</p>
             ) : (
@@ -184,54 +175,40 @@ export default function ClientTicketsPage() {
                 </div>
               ))
             )}
-          </div>
-
-          {viewMode === "list" ? (
-            <div style={styles.listCard}>
-              <h3 style={styles.listTitle}>All queries</h3>
-              <div style={styles.ticketList}>
+            </div>
+          ) : viewMode === "grid" ? (
+            sortedHistory.length === 0 ? (
+              <div style={styles.compactHistory}>
+                <p style={styles.historyEmpty}>No queries yet. Submit your first one using the form.</p>
+              </div>
+            ) : (
+              <div style={styles.grid}>
                 {sortedHistory.map((ticket) => (
-                  <div key={ticket._id} style={styles.ticketItem}>
-                    <div style={styles.ticketTop}>
-                      <strong style={styles.ticketSubject}>{ticket.subject}</strong>
-                      <span style={styles.ticketStatus}>{ticket.status.replace("_", " ")}</span>
+                  <div key={ticket._id} style={styles.gridCard}>
+                    <div style={styles.gridHeader}>
+                      <strong style={styles.gridSubject}>{ticket.subject}</strong>
+                      <span style={styles.gridStatus}>{ticket.status.replace("_", " ")}</span>
                     </div>
-                    <p style={styles.ticketDescription}>{ticket.description}</p>
-                    <div style={styles.ticketFooter}>
-                      <span style={styles.ticketMeta}>Priority: {ticket.priority}</span>
-                      {renderHistoryItemActions(ticket)}
+                    <p style={styles.gridDescription}>{ticket.description}</p>
+                    <div style={styles.gridMeta}>
+                      <span>Priority: {ticket.priority}</span>
+                    </div>
+                    <div style={styles.gridActions}>
+                      <button type="button" onClick={() => setSelectedTicket(ticket)} style={styles.viewBtn}>
+                        <Eye size={14} />
+                        View Details
+                      </button>
+                      {isTicketClosed(ticket) && (
+                        <button type="button" onClick={() => handleReopenTicket(ticket)} style={styles.reopenBtn}>
+                          <RotateCcw size={14} />
+                          Reopen
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          ) : viewMode === "grid" ? (
-            <div style={styles.grid}>
-              {sortedHistory.map((ticket) => (
-                <div key={ticket._id} style={styles.gridCard}>
-                  <div style={styles.gridHeader}>
-                    <strong style={styles.gridSubject}>{ticket.subject}</strong>
-                    <span style={styles.gridStatus}>{ticket.status.replace("_", " ")}</span>
-                  </div>
-                  <p style={styles.gridDescription}>{ticket.description}</p>
-                  <div style={styles.gridMeta}>
-                    <span>Priority: {ticket.priority}</span>
-                  </div>
-                  <div style={styles.gridActions}>
-                    <button type="button" onClick={() => setSelectedTicket(ticket)} style={styles.viewBtn}>
-                      <Eye size={14} />
-                      View Details
-                    </button>
-                    {isTicketClosed(ticket) && (
-                      <button type="button" onClick={() => handleReopenTicket(ticket)} style={styles.reopenBtn}>
-                        <RotateCcw size={14} />
-                        Reopen
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            )
           ) : (
             <div style={styles.kanban}>
               {["open", "in_progress", "resolved", "closed"].map((status) => {
@@ -243,39 +220,43 @@ export default function ClientTicketsPage() {
                       <span style={styles.kanbanCount}>{statusTickets.length}</span>
                     </div>
                     <div style={styles.kanbanCards}>
-                      {statusTickets.map((ticket) => (
-                        <div key={ticket._id} style={styles.kanbanCard}>
-                          <div style={styles.kanbanCardHeader}>
-                            <strong style={styles.kanbanCardSubject}>{ticket.subject}</strong>
-                            <span
-                              style={{
-                                ...styles.priorityBadge,
-                                backgroundColor:
-                                  ticket.priority === "high"
-                                    ? "#FF3B30"
-                                    : ticket.priority === "medium"
-                                      ? "#FF9500"
-                                      : "#34C759",
-                              }}
-                            >
-                              {ticket.priority}
-                            </span>
-                          </div>
-                          <p style={styles.kanbanCardDesc}>{ticket.description}</p>
-                          <div style={styles.kanbanCardFooter}>
-                            <button type="button" onClick={() => setSelectedTicket(ticket)} style={styles.kanbanViewBtn}>
-                              <Eye size={12} />
-                              View
-                            </button>
-                            {status === "resolved" && (
-                              <button type="button" onClick={() => handleReopenTicket(ticket)} style={styles.kanbanReopenBtn}>
-                                <RotateCcw size={12} />
-                                Reopen
+                      {statusTickets.length === 0 ? (
+                        <p style={styles.historyEmpty}>No queries</p>
+                      ) : (
+                        statusTickets.map((ticket) => (
+                          <div key={ticket._id} style={styles.kanbanCard}>
+                            <div style={styles.kanbanCardHeader}>
+                              <strong style={styles.kanbanCardSubject}>{ticket.subject}</strong>
+                              <span
+                                style={{
+                                  ...styles.priorityBadge,
+                                  backgroundColor:
+                                    ticket.priority === "high"
+                                      ? "#FF3B30"
+                                      : ticket.priority === "medium"
+                                        ? "#FF9500"
+                                        : "#34C759",
+                                }}
+                              >
+                                {ticket.priority}
+                              </span>
+                            </div>
+                            <p style={styles.kanbanCardDesc}>{ticket.description}</p>
+                            <div style={styles.kanbanCardFooter}>
+                              <button type="button" onClick={() => setSelectedTicket(ticket)} style={styles.kanbanViewBtn}>
+                                <Eye size={12} />
+                                View
                               </button>
-                            )}
+                              {isTicketClosed(ticket) && (
+                                <button type="button" onClick={() => handleReopenTicket(ticket)} style={styles.kanbanReopenBtn}>
+                                  <RotateCcw size={12} />
+                                  Reopen
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                 );
@@ -490,6 +471,7 @@ const styles: any = {
   },
   historyColumn: { display: "flex", flexDirection: "column" as const, gap: "16px", minWidth: 0 },
   historyHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" as const, marginBottom: "4px" },
+  historyHeaderActions: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" as const, justifyContent: "flex-end" },
   historyHeaderText: { minWidth: 0, flex: 1 },
   historyTitle: { fontSize: "20px", fontWeight: 700, margin: "0 0 6px 0", color: "var(--text-primary)" },
   historySubtitle: { fontSize: "13px", color: "var(--text-secondary)", margin: 0 },

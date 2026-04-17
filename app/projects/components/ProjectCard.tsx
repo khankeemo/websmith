@@ -5,13 +5,15 @@
 'use client';
 
 import { Project } from '../services/projectService';
-import { Folder, Calendar, DollarSign, Edit2, Trash2 } from 'lucide-react';
+import { CheckCircle, Folder, Calendar, DollarSign, Edit2, MessageSquareQuote, Trash2 } from 'lucide-react';
 
 interface ProjectCardProps {
   project: Project;
   onEdit: (project: Project) => void;
   onDelete: (id: string) => void;
   onTogglePublish?: (project: Project) => void;
+  onMarkCompleted?: (project: Project) => void;
+  onViewFeedback?: (project: Project) => void;
 }
 
 const statusColors = {
@@ -27,7 +29,7 @@ const priorityColors = {
   'high': { bg: 'rgba(255, 59, 48, 0.1)', color: '#FF3B30', text: 'High' },
 };
 
-export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish }: ProjectCardProps) {
+export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish, onMarkCompleted, onViewFeedback }: ProjectCardProps) {
   const status = statusColors[project.status] || { bg: 'var(--bg-secondary)', color: 'var(--text-secondary)', text: project.status };
   const priority = priorityColors[project.priority] || { bg: 'var(--bg-secondary)', color: 'var(--text-secondary)', text: project.priority };
   const latestUpdate = project.statusUpdates?.[project.statusUpdates.length - 1];
@@ -105,6 +107,18 @@ export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish
             className="card-action-btn"
           >
             <span>{project.published ? 'Unpublish' : 'Publish'}</span>
+          </button>
+        )}
+        {onMarkCompleted && project.status !== 'completed' && (
+          <button onClick={() => onMarkCompleted(project)} style={styles.completeBtn} className="card-action-btn">
+            <CheckCircle size={16} />
+            <span>Mark as Done</span>
+          </button>
+        )}
+        {onViewFeedback && (
+          <button onClick={() => onViewFeedback(project)} style={styles.feedbackBtn} className="card-action-btn">
+            <MessageSquareQuote size={16} />
+            <span>Feedback</span>
           </button>
         )}
         <button onClick={() => onEdit(project)} style={styles.editBtn} className="card-action-btn">
@@ -245,6 +259,7 @@ const styles: any = {
   cardActions: {
     display: 'flex',
     gap: '12px',
+    flexWrap: 'wrap',
     marginTop: 'auto',
   },
   publishBtn: {
@@ -255,6 +270,38 @@ const styles: any = {
     fontSize: '13px',
     fontWeight: 500,
     cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  completeBtn: {
+    flex: 1,
+    padding: '10px',
+    backgroundColor: 'rgba(52, 199, 89, 0.1)',
+    border: '1px solid rgba(52, 199, 89, 0.2)',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#16A34A',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    fontFamily: 'inherit',
+  },
+  feedbackBtn: {
+    flex: 1,
+    padding: '10px',
+    backgroundColor: 'rgba(0, 122, 255, 0.08)',
+    border: '1px solid rgba(0, 122, 255, 0.16)',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#007AFF',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
     fontFamily: 'inherit',
   },
   editBtn: {

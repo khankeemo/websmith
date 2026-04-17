@@ -11,14 +11,13 @@ import {
   Search,
   Target,
   Eye,
-  MessageSquare,
   FileText,
   X,
   Send,
   TrendingUp
 } from "lucide-react";
 import API from "../../../core/services/apiService";
-import { Project } from "../../projects/services/projectService";
+import { getProjectFeedback, Project, submitProjectFeedback } from "../../projects/services/projectService";
 import { getStoredUser } from "../../../lib/auth";
 
 export default function ClientProjectsPage() {
@@ -28,12 +27,11 @@ export default function ClientProjectsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban'>('grid');
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'messages' | 'feedback'>('details');
-  const [messageText, setMessageText] = useState("");
+  const [activeTab, setActiveTab] = useState<'details' | 'feedback'>('details');
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackRating, setFeedbackRating] = useState(5);
-  const [projectMessages, setProjectMessages] = useState<any[]>([]);
   const [projectFeedback, setProjectFeedback] = useState<any[]>([]);
+  const [feedbackError, setFeedbackError] = useState("");
 
   const fetchProjects = async () => {
     try {
@@ -49,54 +47,45 @@ export default function ClientProjectsPage() {
 
   const fetchProjectDetails = async (projectId: string) => {
     try {
-      const [messagesRes, feedbackRes] = await Promise.all([
-        API.get(`/projects/${projectId}/messages`),
-        API.get(`/projects/${projectId}/feedback`)
-      ]);
-      setProjectMessages(messagesRes.data.data || []);
-      setProjectFeedback(feedbackRes.data.data || []);
+      const feedback = await getProjectFeedback(projectId);
+      setProjectFeedback(feedback);
     } catch (err) {
       console.error("Failed to fetch project details:", err);
+      setProjectFeedback([]);
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!selectedProject || !messageText.trim()) return;
-    try {
-      const currentUser = getStoredUser();
-      await API.post(`/projects/${selectedProject._id}/messages`, {
-        sender: "client",
-        senderName: currentUser?.name || "Client",
-        message: messageText,
-      });
-      setMessageText("");
-      await fetchProjectDetails(selectedProject._id!);
-    } catch (err) {
-      console.error("Failed to send message:", err);
-    }
-  };
+  const isProjectCompleted = (project?: Project | null) => project?.status === "completed";
 
   const handleSendFeedback = async () => {
     if (!selectedProject || !feedbackText.trim()) return;
+    if (!isProjectCompleted(selectedProject)) return;
     try {
+      setFeedbackError("");
       const currentUser = getStoredUser();
-      await API.post(`/projects/${selectedProject._id}/feedback`, {
+      const feedback = await submitProjectFeedback(selectedProject._id!, {
         rating: feedbackRating,
         comment: feedbackText,
         clientName: currentUser?.name || "Client",
       });
       setFeedbackText("");
       setFeedbackRating(5);
-      await fetchProjectDetails(selectedProject._id!);
-    } catch (err) {
+      setProjectFeedback(feedback);
+    } catch (err: any) {
       console.error("Failed to send feedback:", err);
+      setFeedbackError(typeof err === "string" ? err : "Failed to submit feedback");
     }
   };
 
   const handleProjectClick = async (project: Project) => {
     setSelectedProject(project);
     setActiveTab('details');
-    await fetchProjectDetails(project._id!);
+    setFeedbackError("");
+    if (isProjectCompleted(project)) {
+      await fetchProjectDetails(project._id!);
+    } else {
+      setProjectFeedback([]);
+    }
   };
 
   useEffect(() => {
@@ -366,26 +355,18 @@ export default function ClientProjectsPage() {
                 <TrendingUp size={14} />
                 Details
               </button>
-              <button 
-                onClick={() => setActiveTab('messages')}
-                style={{
-                  ...styles.tabBtn,
-                  ...(activeTab === 'messages' ? styles.tabBtnActive : {})
-                }}
-              >
-                <MessageSquare size={14} />
-                Messages ({projectMessages.length})
-              </button>
-              <button 
-                onClick={() => setActiveTab('feedback')}
-                style={{
-                  ...styles.tabBtn,
-                  ...(activeTab === 'feedback' ? styles.tabBtnActive : {})
-                }}
-              >
-                <FileText size={14} />
-                Feedback ({projectFeedback.length})
-              </button>
+              {isProjectCompleted(selectedProject) && (
+                <button
+                  onClick={() => setActiveTab('feedback')}
+                  style={{
+                    ...styles.tabBtn,
+                    ...(activeTab === 'feedback' ? styles.tabBtnActive : {})
+                  }}
+                >
+                  <FileText size={14} />
+                  Feedback ({projectFeedback.length})
+                </button>
+              )}
             </div>
 
             {/* Tab Content */}
@@ -438,46 +419,7 @@ export default function ClientProjectsPage() {
                 </div>
               )}
 
-              {activeTab === 'messages' && (
-                <div style={styles.messagesTab}>
-                  <div style={styles.messagesList}>
-                    {projectMessages.map((msg: any, idx: number) => (
-                      <div key={idx} style={styles.messageItem}>
-                        <div style={styles.messageHeader}>
-                          <strong style={styles.messageAuthor}>{msg.senderName || msg.author || 'Team Member'}</strong>
-                          <span style={styles.messageTime}>
-                            {new Date(msg.timestamp || msg.createdAt).toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        </div>
-                        <p style={styles.messageText}>{msg.message}</p>
-                      </div>
-                    ))}
-                    {projectMessages.length === 0 && (
-                      <p style={styles.emptyMessage}>No messages yet</p>
-                    )}
-                  </div>
-                  <div style={styles.messageInputWrap}>
-                    <textarea 
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      placeholder="Type your message..."
-                      style={styles.messageTextarea}
-                      rows={3}
-                    />
-                    <button onClick={handleSendMessage} style={styles.sendBtn} disabled={!messageText.trim()}>
-                      <Send size={14} />
-                      Send Message
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'feedback' && (
+              {activeTab === 'feedback' && isProjectCompleted(selectedProject) && (
                 <div style={styles.feedbackTab}>
                   <div style={styles.feedbackList}>
                     {projectFeedback.map((fb: any, idx: number) => (
@@ -502,6 +444,7 @@ export default function ClientProjectsPage() {
                     )}
                   </div>
                   <div style={styles.feedbackInputWrap}>
+                    {feedbackError && <p style={styles.feedbackError}>{feedbackError}</p>}
                     <select value={feedbackRating} onChange={(e) => setFeedbackRating(Number(e.target.value))} style={styles.ratingSelect}>
                       {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} Stars</option>)}
                     </select>
@@ -758,15 +701,6 @@ const styles: any = {
   detailValue: { fontSize: '13px', fontWeight: 600, padding: '4px 12px', borderRadius: '8px' },
   progressSection: { marginTop: '8px' },
   sectionTitle: { fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' },
-  messagesTab: { display: 'flex', flexDirection: 'column', gap: '16px' },
-  messagesList: { display: 'flex', flexDirection: 'column' as const, gap: '12px', maxHeight: '300px', overflow: 'auto' },
-  messageItem: { padding: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' },
-  messageHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '8px' },
-  messageAuthor: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' },
-  messageTime: { fontSize: '11px', color: 'var(--text-secondary)' },
-  messageText: { fontSize: '14px', color: 'var(--text-primary)', margin: 0, lineHeight: 1.6 },
-  messageInputWrap: { display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' },
-  messageTextarea: { width: '100%', padding: '12px 14px', border: '1.5px solid var(--border-color)', borderRadius: '12px', fontSize: '14px', fontFamily: 'inherit', outline: 'none', resize: 'vertical' as const, backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
   sendBtn: { padding: '10px 16px', backgroundColor: '#007AFF', color: '#FFFFFF', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' },
   feedbackTab: { display: 'flex', flexDirection: 'column', gap: '16px' },
   feedbackList: { display: 'flex', flexDirection: 'column' as const, gap: '12px', maxHeight: '300px', overflow: 'auto' },
@@ -777,6 +711,7 @@ const styles: any = {
   feedbackText: { fontSize: '14px', color: 'var(--text-primary)', margin: 0, lineHeight: 1.6 },
   feedbackRating: { fontSize: '12px', color: '#FF9500', margin: '8px 0 0 0', fontWeight: 700 },
   feedbackInputWrap: { display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' },
+  feedbackError: { fontSize: '13px', color: '#FF3B30', margin: 0, fontWeight: 600 },
   ratingSelect: { width: '180px', padding: '10px 12px', border: '1.5px solid var(--border-color)', borderRadius: '10px', fontFamily: 'inherit', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
   feedbackTextarea: { width: '100%', padding: '12px 14px', border: '1.5px solid var(--border-color)', borderRadius: '12px', fontSize: '14px', fontFamily: 'inherit', outline: 'none', resize: 'vertical' as const, backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
   emptyMessage: { textAlign: 'center' as const, padding: '40px 20px', color: 'var(--text-secondary)', fontSize: '14px' },
