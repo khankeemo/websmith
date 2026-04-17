@@ -85,7 +85,7 @@ export default function ClientNotificationsPage() {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div style={styles.container} className="wsd-page">
         <div style={styles.loadingContainer}>
           <div style={styles.spinner}></div>
           <p>Loading notifications...</p>
@@ -95,7 +95,7 @@ export default function ClientNotificationsPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Notifications</h1>
@@ -248,7 +248,7 @@ export default function ClientNotificationsPage() {
 
 const styles: any = {
   container: {
-    padding: "8px 4px",
+    padding: 0,
   },
   header: {
     display: "flex",

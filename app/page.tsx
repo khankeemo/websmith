@@ -6,13 +6,11 @@
 "use client";
 
 import { useState, useEffect, useRef, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { 
   ArrowRight, 
   Star, 
   Code, 
   Rocket, 
-  Shield, 
   Zap, 
   Users, 
   BarChart3,
@@ -27,123 +25,57 @@ import { getPublishedProjects, getPublishedTestimonials } from "./projects/servi
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
 import { createPublicTicket } from "../core/services/ticketService";
+import { useLeadFunnel } from "./providers/LeadFunnelProvider";
 
-type AutoCarouselProps<T> = {
+type HorizontalCardStripProps<T> = {
   items: T[];
   renderItem: (item: T, index: number) => ReactNode;
   ariaLabel: string;
   itemMinWidth?: number;
   gap?: number;
-  speedDesktop?: number;
-  speedMobile?: number;
 };
 
-function AutoCarousel<T>({
+/** Manual horizontal scroll (no auto marquee). */
+function HorizontalCardStrip<T>({
   items,
   renderItem,
   ariaLabel,
   itemMinWidth = 280,
   gap = 20,
-  speedDesktop = 0.032,
-  speedMobile = 0.05,
-}: AutoCarouselProps<T>) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const isDraggingRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragStartScrollRef = useRef(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const update = () => setIsMobile(window.innerWidth <= 768);
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track || items.length < 2) return;
-
-    let rafId = 0;
-    let lastTs = 0;
-    const speed = isMobile ? speedMobile : speedDesktop;
-
-    const loop = (ts: number) => {
-      if (lastTs === 0) lastTs = ts;
-      const delta = ts - lastTs;
-      lastTs = ts;
-
-      if (!isPaused) {
-        track.scrollLeft += delta * speed;
-        const half = track.scrollWidth / 2;
-        if (track.scrollLeft >= half) {
-          track.scrollLeft -= half;
-        }
-      }
-
-      rafId = window.requestAnimationFrame(loop);
-    };
-
-    rafId = window.requestAnimationFrame(loop);
-    return () => window.cancelAnimationFrame(rafId);
-  }, [isPaused, isMobile, items.length, speedDesktop, speedMobile]);
-
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    const track = trackRef.current;
-    if (!track) return;
-    isDraggingRef.current = true;
-    dragStartXRef.current = event.clientX;
-    dragStartScrollRef.current = track.scrollLeft;
-    setIsPaused(true);
-  };
-
-  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const track = trackRef.current;
-    if (!track || !isDraggingRef.current) return;
-    const delta = event.clientX - dragStartXRef.current;
-    track.scrollLeft = dragStartScrollRef.current - delta;
-  };
-
-  const onPointerUpOrLeave = () => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    setIsPaused(false);
-  };
-
-  const loopItems = [...items, ...items];
-
+}: HorizontalCardStripProps<T>) {
   return (
-    <div style={styles.carouselRoot}>
-      <div
-        ref={trackRef}
-        style={styles.carouselViewport}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUpOrLeave}
-        onPointerLeave={onPointerUpOrLeave}
-        onPointerCancel={onPointerUpOrLeave}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={onPointerUpOrLeave}
-        onTouchStart={() => setIsPaused(true)}
-        onTouchEnd={() => setIsPaused(false)}
-        aria-label={ariaLabel}
-      >
-        <div style={{ ...styles.carouselTrack, gap: `${gap}px` }}>
-          {loopItems.map((item, index) => (
-            <div key={index} style={{ ...styles.carouselSlide, minWidth: `${itemMinWidth}px` }}>
-              {renderItem(item, index)}
-            </div>
-          ))}
-        </div>
+    <div style={styles.hScrollOuter} role="region" aria-label={ariaLabel}>
+      <div style={{ ...styles.hScrollInner, gap: `${gap}px` }}>
+        {items.map((item, index) => (
+          <div
+            key={index}
+            style={{ ...styles.hScrollCell, minWidth: `${itemMinWidth}px`, scrollSnapAlign: "start" as const }}
+          >
+            {renderItem(item, index)}
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
+type StatSlide = { id: string; value: string; label: string };
+
+function StatsStrip({ items }: { items: StatSlide[] }) {
+  return (
+    <div style={styles.statsStaticRow}>
+      {items.map((item) => (
+        <article key={item.id} style={styles.statStaticCard}>
+          <p style={styles.statStaticValue}>{item.value}</p>
+          <p style={styles.statStaticLabel}>{item.label}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export default function LandingPage() {
-  const router = useRouter();
+  const { openLeadServicesModal } = useLeadFunnel();
   
   // Refs for smooth scroll
   const featuresRef = useRef<HTMLElement>(null);
@@ -209,14 +141,13 @@ export default function LandingPage() {
   };
 
   const handleGetStarted = () => {
-    router.push('/services');
+    openLeadServicesModal();
   };
 
   // Features data
   const features = [
     { icon: Code, title: "Expert Developers", description: "Top-tier developers with proven experience in modern tech stacks", href: "#developers" },
     { icon: Rocket, title: "Fast Delivery", description: "Agile methodology ensuring quick turnaround without quality compromise", href: "#projects" },
-    { icon: Shield, title: "Secure Code", description: "Enterprise-grade security practices and regular code audits", href: "#developers" },
     { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance", href: "#contact" },
     { icon: Users, title: "Dedicated Teams", description: "Build your dedicated development team tailored to your needs", href: "#clients" },
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
@@ -346,7 +277,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Grid - 6 cards */}
+      {/* Features Grid */}
       <section id="features" ref={featuresRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Why Choose Websmith</h2>
         <p style={styles.sectionSubtitle}>Everything you need to build exceptional digital products</p>
@@ -363,7 +294,7 @@ export default function LandingPage() {
               }}
               style={{
                 ...styles.featureCard,
-                backgroundImage: `linear-gradient(rgba(249, 249, 251, 0.9), rgba(249, 249, 251, 0.9)), url(/images/assets/service_${index % 5 + 1}.png)`,
+                backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-secondary) 92%, transparent)), url(/images/assets/service_${index % 5 + 1}.png)`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }} 
@@ -377,34 +308,25 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Stats Counters */}
+      {/* Stats — static cards (no marquee) */}
       <section style={styles.statsSection}>
-        <AutoCarousel
-          items={statsCarouselItems}
-          ariaLabel="Stats carousel"
-          itemMinWidth={220}
-          speedDesktop={0.03}
-          speedMobile={0.045}
-          renderItem={(item) => (
-            <div style={styles.statCard}>
-              <h3 style={styles.statNumber}>{item.value}</h3>
-              <p style={styles.statLabel}>{item.label}</p>
-            </div>
-          )}
-        />
+        <div style={styles.statsIntro}>
+          <p style={styles.statsEyebrow}>Trust at scale</p>
+          <h2 style={styles.statsHeading}>Momentum you can see</h2>
+          <p style={styles.statsSub}>Numbers that reflect how teams ship with Websmith.</p>
+        </div>
+        <StatsStrip items={statsCarouselItems} />
       </section>
 
       <section id="projects" style={styles.section}>
         <h2 style={styles.sectionTitle}>Published Projects</h2>
         <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
-        <AutoCarousel
+        <HorizontalCardStrip
           items={effectiveProjects}
-          ariaLabel="Published projects carousel"
+          ariaLabel="Published projects"
           itemMinWidth={280}
-          speedDesktop={0.028}
-          speedMobile={0.043}
           renderItem={(project: any) => (
-            <div style={{ ...styles.featureCard, ...styles.sliderCard }} className="feature-card">
+            <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard }} className="feature-card">
               {project.previewImage ? (
                 <img src={project.previewImage} alt={project.name} style={styles.projectPreviewImage} />
               ) : null}
@@ -429,8 +351,8 @@ export default function LandingPage() {
       <section style={styles.diversitySection}>
           <div style={styles.diversityContent} className="landing-diversity-content">
           <div style={styles.diversityText}>
-            <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "#1C1C1E" }}>Global Collaboration & Technical Excellence</h2>
-            <p style={{ fontSize: "18px", color: "#6C6C70", lineHeight: 1.6, marginBottom: "24px" }}>
+            <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "var(--text-primary)" }}>Global Collaboration & Technical Excellence</h2>
+            <p style={{ fontSize: "18px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "24px" }}>
               Our team brings together diverse perspectives and world-class expertise to solve complex challenges. 
               We believe in the power of inclusive collaboration to build the next generation of digital products.
             </p>
@@ -453,14 +375,12 @@ export default function LandingPage() {
       <section id="clients" ref={clientsRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
         <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
-        <AutoCarousel
+        <HorizontalCardStrip
           items={publicClients}
-          ariaLabel="Clients carousel"
+          ariaLabel="Satisfied clients"
           itemMinWidth={260}
-          speedDesktop={0.03}
-          speedMobile={0.046}
           renderItem={(client, index) => (
-            <div key={client.id || index} style={{ ...styles.clientCard, ...styles.sliderCard }} className="client-card">
+            <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="client-card">
               <div style={styles.clientAvatarContainer}>
                 <Building2 size={22} color="#007AFF" />
               </div>
@@ -476,22 +396,12 @@ export default function LandingPage() {
       <section id="developers" ref={developersRef} style={styles.section}>
         <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
         <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
-        <AutoCarousel
+        <HorizontalCardStrip
           items={publicDevelopers}
-          ariaLabel="Developers carousel"
+          ariaLabel="Expert developers"
           itemMinWidth={280}
-          speedDesktop={0.03}
-          speedMobile={0.046}
           renderItem={(dev) => (
-            <div 
-              key={dev.id} 
-              style={{
-                ...styles.developerCard,
-                ...styles.sliderCard,
-                background: "linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%)",
-              }} 
-              className="developer-card"
-            >
+            <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="developer-card">
               <div style={styles.circleMask}>
                 {dev.avatar ? <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} /> : <span style={styles.circleInitial}>{dev.name.charAt(0)}</span>}
               </div>
@@ -513,14 +423,12 @@ export default function LandingPage() {
       <section id="testimonials" style={styles.section}>
         <h2 style={styles.sectionTitle}>What Our Clients Say</h2>
         <p style={styles.sectionSubtitle}>Continuous feedback highlights from across projects, clients, and delivery teams.</p>
-        <AutoCarousel
+        <HorizontalCardStrip
           items={reviewCards}
-          ariaLabel="Testimonials carousel"
+          ariaLabel="Client testimonials"
           itemMinWidth={280}
-          speedDesktop={0.028}
-          speedMobile={0.042}
           renderItem={(testimonial) => (
-            <div key={testimonial.id} style={{ ...styles.testimonialCard, ...styles.sliderCard }} className="testimonial-card">
+            <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="testimonial-card">
               <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
               <div style={styles.testimonialStars}>
                 {[...Array(testimonial.rating || 5)].map((_, i) => (
@@ -689,20 +597,20 @@ export default function LandingPage() {
           </div>
           <div style={styles.footerSection}>
             <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Company</h4>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>About Us</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Careers</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Blog</a>
+            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>About Us</a>
+            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Careers</a>
+            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Blog</a>
           </div>
           <div style={styles.footerSection}>
             <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Resources</h4>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Documentation</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Support</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Contact</a>
+            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Documentation</a>
+            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Support</a>
+            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Contact</a>
           </div>
           <div style={styles.footerSection}>
             <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Legal</h4>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Privacy Policy</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Terms of Service</a>
+            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Privacy Policy</a>
+            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Terms of Service</a>
           </div>
         </div>
         <div style={styles.copyright}>
@@ -770,52 +678,25 @@ export default function LandingPage() {
           transform: scale(0.98); 
         }
         
-        /* Card Hover Effects */
-        .feature-card { 
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-          cursor: pointer; 
+        /* Card hover: subtle shadow only (no lateral or lift motion) */
+        .feature-card,
+        .client-card,
+        .developer-card,
+        .testimonial-card {
+          transition: box-shadow 0.2s ease, border-color 0.2s ease;
+          cursor: default;
         }
-        .feature-card:hover { 
-          transform: translateY(-5px); 
-          box-shadow: 0 12px 24px rgba(0,0,0,0.1); 
+        .feature-card:hover,
+        .client-card:hover,
+        .developer-card:hover,
+        .testimonial-card:hover {
+          box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
         }
-        
-        .client-card { 
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-          cursor: pointer; 
-        }
-        .client-card:hover { 
-          transform: translateY(-3px); 
-          box-shadow: 0 8px 16px rgba(0,0,0,0.08); 
-        }
-        
-        .developer-card { 
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-          cursor: pointer; 
-        }
-        .developer-card:hover { 
-          transform: translateY(-5px); 
-          box-shadow: 0 12px 28px rgba(0,0,0,0.12); 
-        }
-        
-        .testimonial-card { 
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-          cursor: pointer; 
-        }
-        .testimonial-card:hover { 
-          transform: translateY(-3px); 
-        }
-
-        .landing-marquee-track {
-          animation: landingMarquee 34s linear infinite;
-          will-change: transform;
-        }
-        .landing-marquee-track:hover {
-          animation-play-state: paused;
-        }
-        @keyframes landingMarquee {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
+        .dark-theme .feature-card:hover,
+        .dark-theme .client-card:hover,
+        .dark-theme .developer-card:hover,
+        .dark-theme .testimonial-card:hover {
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
         }
         
         /* Social Icon Hover */
@@ -950,8 +831,10 @@ export default function LandingPage() {
 const styles: any = {
   container: {
     minHeight: "100vh",
+    width: "100%",
     backgroundColor: "var(--bg-primary)",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    color: "var(--text-primary)",
+    fontFamily: "var(--font-sans)",
   },
   // Hero
   hero: {
@@ -1018,22 +901,25 @@ const styles: any = {
   
   // Section
   section: {
-    maxWidth: "1440px",
-    margin: "0 auto",
-    padding: "80px 24px",
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: "clamp(48px, 7vw, 88px) clamp(16px, 4vw, 48px)",
+    boxSizing: "border-box",
   },
   sectionTitle: {
-    fontSize: "36px",
+    fontSize: "clamp(26px, 4vw, 36px)",
     fontWeight: 600,
     textAlign: "center",
     marginBottom: "16px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   sectionSubtitle: {
-    fontSize: "18px",
-    color: "#6C6C70",
+    fontSize: "clamp(16px, 2vw, 18px)",
+    color: "var(--text-secondary)",
     textAlign: "center",
     marginBottom: "48px",
+    lineHeight: 1.45,
   },
   
   // Features Grid
@@ -1044,9 +930,9 @@ const styles: any = {
   },
   featureCard: {
     padding: "28px",
-    backgroundColor: "#F9F9FB",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "20px",
-    border: "1px solid #E5E5EA",
+    border: "1px solid var(--border-color)",
     textAlign: "left",
     cursor: "pointer",
     width: "100%",
@@ -1066,11 +952,11 @@ const styles: any = {
     fontSize: "20px",
     fontWeight: 600,
     marginBottom: "12px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   featureDesc: {
     fontSize: "15px",
-    color: "#6C6C70",
+    color: "var(--text-secondary)",
     lineHeight: 1.5,
   },
   projectLink: {
@@ -1100,28 +986,99 @@ const styles: any = {
   // Stats Section
   statsSection: {
     backgroundColor: "#1C1C1E",
-    padding: "60px 0",
-  },
-  carouselRoot: {
-    display: "block",
-    maxWidth: "1380px",
-    margin: "0 auto",
-    padding: 0,
-  },
-  carouselViewport: {
+    padding: "clamp(40px, 6vw, 72px) 0",
     overflow: "hidden",
-    minWidth: 0,
-    cursor: "grab",
-    touchAction: "pan-y",
   },
-  carouselTrack: {
+  statsIntro: {
+    textAlign: "center" as const,
+    padding: "0 20px 28px",
+    maxWidth: "720px",
+    margin: "0 auto",
+  },
+  statsEyebrow: {
+    margin: 0,
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase" as const,
+    color: "rgba(255,255,255,0.5)",
+  },
+  statsHeading: {
+    margin: "10px 0 0",
+    fontSize: "clamp(22px, 3vw, 30px)",
+    fontWeight: 700,
+    color: "#FFFFFF",
+  },
+  statsSub: {
+    margin: "12px 0 0",
+    fontSize: "15px",
+    lineHeight: 1.55,
+    color: "rgba(255,255,255,0.65)",
+  },
+  hScrollOuter: {
+    width: "100%",
+    maxWidth: "100%",
+    overflowX: "auto" as const,
+    overflowY: "hidden",
+    WebkitOverflowScrolling: "touch",
+    padding: "4px clamp(4px, 2vw, 12px) 12px",
+    boxSizing: "border-box" as const,
+    scrollSnapType: "x mandatory",
+  },
+  hScrollInner: {
     display: "flex",
-    width: "max-content",
+    flexDirection: "row" as const,
     alignItems: "stretch",
-    padding: 0,
+    width: "max-content",
+    minHeight: "100%",
   },
-  carouselSlide: {
+  hScrollCell: {
     flexShrink: 0,
+  },
+  horizontalCardSurface: {
+    padding: "24px",
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    background: "linear-gradient(180deg, var(--bg-primary) 0%, color-mix(in srgb, var(--bg-secondary) 88%, #007AFF) 100%)",
+    textAlign: "left" as const,
+    boxSizing: "border-box" as const,
+  },
+  horizontalCardSurfaceCenter: {
+    padding: "24px",
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    background: "linear-gradient(180deg, var(--bg-primary) 0%, color-mix(in srgb, var(--bg-secondary) 88%, #007AFF) 100%)",
+    textAlign: "center" as const,
+    boxSizing: "border-box" as const,
+  },
+  statsStaticRow: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    justifyContent: "center",
+    gap: "22px",
+    padding: "0 clamp(12px, 3vw, 28px)",
+  },
+  statStaticCard: {
+    flex: "0 1 auto",
+    width: "min(280px, 88vw)",
+    padding: "22px 20px",
+    borderRadius: "18px",
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(255,255,255,0.14)",
+    boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
+  },
+  statStaticValue: {
+    margin: "0 0 8px",
+    fontSize: "clamp(36px, 6vw, 48px)",
+    fontWeight: 800,
+    color: "#fff",
+    letterSpacing: "-0.02em",
+  },
+  statStaticLabel: {
+    margin: 0,
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "rgba(255,255,255,0.72)",
   },
   sliderCard: {
     height: "100%",
@@ -1165,9 +1122,9 @@ const styles: any = {
   },
   clientCard: {
     padding: "24px",
-    backgroundColor: "#F9F9FB",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "20px",
-    border: "1px solid #E5E5EA",
+    border: "1px solid var(--border-color)",
     textAlign: "center",
   },
   clientAvatarContainer: {
@@ -1190,7 +1147,7 @@ const styles: any = {
     fontSize: "16px",
     fontWeight: 600,
     marginBottom: "4px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   clientCompany: {
     fontSize: "13px",
@@ -1211,9 +1168,9 @@ const styles: any = {
   },
   developerCard: {
     padding: "24px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "20px",
-    border: "1px solid #E5E5EA",
+    border: "1px solid var(--border-color)",
     textAlign: "center",
     cursor: "pointer",
   },
@@ -1235,12 +1192,18 @@ const styles: any = {
     fontSize: "40px",
     fontWeight: 600,
     color: "#FFFFFF",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    height: "100%",
+    background: "linear-gradient(135deg, #007AFF, #34C759)",
   },
   developerName: {
     fontSize: "18px",
     fontWeight: 600,
     marginBottom: "4px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   developerRole: {
     fontSize: "13px",
@@ -1256,19 +1219,19 @@ const styles: any = {
   },
   skillTag: {
     padding: "4px 10px",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "20px",
     fontSize: "11px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   developerExperience: {
     fontSize: "12px",
-    color: "#6C6C70",
+    color: "var(--text-secondary)",
     marginBottom: "8px",
   },
   developerBlurb: {
     fontSize: "13px",
-    color: "#6C6C70",
+    color: "var(--text-secondary)",
     lineHeight: 1.6,
     margin: 0,
   },
@@ -1303,9 +1266,9 @@ const styles: any = {
   },
   testimonialCard: {
     padding: "28px",
-    backgroundColor: "#F9F9FB",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "20px",
-    border: "1px solid #E5E5EA",
+    border: "1px solid var(--border-color)",
     textAlign: "center",
     width: "320px",
     flexShrink: 0,
@@ -1331,7 +1294,7 @@ const styles: any = {
   },
   testimonialText: {
     fontSize: "15px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     lineHeight: 1.5,
     marginBottom: "16px",
     fontStyle: "italic",
@@ -1343,19 +1306,19 @@ const styles: any = {
   },
   testimonialCompany: {
     fontSize: "13px",
-    color: "#6C6C70",
+    color: "var(--text-secondary)",
   },
   
   // Footer
   footer: {
-    backgroundColor: "#F9F9FB",
-    borderTop: "1px solid #E5E5EA",
+    backgroundColor: "var(--bg-secondary)",
+    borderTop: "1px solid var(--border-color)",
     padding: "48px 0 24px",
   },
   footerContent: {
     maxWidth: "100%",
     margin: "0",
-    padding: "0 24px",
+    padding: "0 clamp(16px, 4vw, 48px)",
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
     gap: "40px",
@@ -1373,7 +1336,7 @@ const styles: any = {
   },
   footerDesc: {
     fontSize: "14px",
-    color: "#6C6C70",
+    color: "var(--text-secondary)",
   },
   socialLinks: {
     display: "flex",
@@ -1383,20 +1346,22 @@ const styles: any = {
   copyright: {
     textAlign: "center",
     paddingTop: "24px",
-    borderTop: "1px solid #E5E5EA",
+    borderTop: "1px solid var(--border-color)",
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
 
   // Diversity Section Styles
   diversitySection: {
-    backgroundColor: "#F5F5F7",
-    padding: "100px 0",
+    backgroundColor: "var(--bg-secondary)",
+    padding: "clamp(56px, 8vw, 100px) 0",
+    width: "100%",
   },
   diversityContent: {
-    maxWidth: "1380px",
-    margin: "0 auto",
-    padding: "0 24px",
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: "0 clamp(16px, 4vw, 48px)",
     display: "flex",
     alignItems: "center",
     gap: "60px",
@@ -1420,24 +1385,26 @@ const styles: any = {
   },
   diversityBadge: {
     padding: "8px 16px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "20px",
     fontSize: "14px",
     fontWeight: 600,
     color: "#007AFF",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    boxShadow: "var(--card-shadow)",
     display: "inline-block",
   },
 
   // Contact Section Styles
   contactSection: {
-    backgroundColor: "#FBFBFE",
-    padding: "100px 0",
+    backgroundColor: "var(--bg-primary)",
+    padding: "clamp(56px, 8vw, 100px) 0",
+    width: "100%",
   },
   contactContainer: {
-    maxWidth: "1380px",
-    margin: "0 auto",
-    padding: "0 24px",
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: "0 clamp(16px, 4vw, 48px)",
   },
   contactHeader: {
     textAlign: "center",
@@ -1455,12 +1422,12 @@ const styles: any = {
   contactInfoTitle: {
     fontSize: "24px",
     fontWeight: 700,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     marginBottom: "16px",
   },
   contactInfoDesc: {
     fontSize: "16px",
-    color: "#6C6C70",
+    color: "var(--text-secondary)",
     lineHeight: 1.6,
     marginBottom: "40px",
   },
@@ -1477,18 +1444,18 @@ const styles: any = {
   infoIcon: {
     width: "48px",
     height: "48px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "12px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "20px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    boxShadow: "var(--card-shadow)",
   },
   infoLabel: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     marginBottom: "4px",
     textTransform: "uppercase",
     letterSpacing: "0.05em",
@@ -1496,18 +1463,18 @@ const styles: any = {
   infoValue: {
     fontSize: "16px",
     fontWeight: 500,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   contactFormContainer: {
     flex: 1.5,
     minWidth: "320px",
   },
   contactGlassCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     padding: "40px",
     borderRadius: "24px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.05)",
-    border: "1px solid #E5E5EA",
+    boxShadow: "var(--card-shadow)",
+    border: "1px solid var(--border-color)",
   },
   contactForm: {
     display: "flex",
@@ -1529,29 +1496,31 @@ const styles: any = {
   formLabel: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   formInput: {
     padding: "14px 16px",
     borderRadius: "12px",
-    border: "1px solid #D1D1D6",
+    border: "1px solid var(--border-color)",
     fontSize: "16px",
     fontFamily: "inherit",
     outline: "none",
     transition: "all 0.2s ease",
-    backgroundColor: "#F5F5F7",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
   },
   formTextarea: {
     padding: "14px 16px",
     borderRadius: "12px",
-    border: "1px solid #D1D1D6",
+    border: "1px solid var(--border-color)",
     fontSize: "16px",
     fontFamily: "inherit",
     outline: "none",
     minHeight: "150px",
     resize: "vertical" as any,
     transition: "all 0.2s ease",
-    backgroundColor: "#F5F5F7",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
   },
   submitBtn: {
     padding: "16px 32px",

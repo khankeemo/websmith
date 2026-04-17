@@ -26,7 +26,7 @@ type ViewMode = "grid" | "list" | "kanban";
 export default function DeveloperTasksPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>("kanban");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showTaskDetail, setShowTaskDetail] = useState(false);
@@ -162,7 +162,7 @@ export default function DeveloperTasksPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header}>
         <div>
@@ -428,7 +428,7 @@ export default function DeveloperTasksPage() {
 }
 
 const styles: Record<string, any> = {
-  container: { padding: "24px", backgroundColor: "var(--bg-primary)", minHeight: "100vh" },
+  container: { padding: 0, backgroundColor: "var(--bg-primary)", minHeight: "100vh" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "24px" },
   title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "var(--text-primary)" },
   subtitle: { margin: "8px 0 0", color: "var(--text-secondary)" },

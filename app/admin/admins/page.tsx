@@ -219,7 +219,7 @@ export default function AdminsPage() {
   );
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <header style={styles.header}>
         <div>
           <h1 style={styles.title}>Admins</h1>
@@ -330,9 +330,10 @@ export default function AdminsPage() {
 
 const styles: any = {
   container: {
-    padding: '40px',
-    maxWidth: '1400px',
-    margin: '0 auto',
+    padding: 0,
+    width: '100%',
+    maxWidth: '100%',
+    margin: 0,
   },
   header: {
     display: 'flex',

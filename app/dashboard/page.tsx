@@ -88,7 +88,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div style={styles.container} className="wsd-page">
         <div style={styles.loadingContainer}>
           <div style={styles.loadingSpinner}></div>
           <p style={styles.loadingText}>Loading dashboard...</p>
@@ -133,7 +133,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* HEADER SECTION */}
       <div style={styles.header} className="dashboard-header">
         <div>
@@ -357,7 +357,7 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     gap: "32px",
-    padding: "8px 4px",
+    padding: 0,
     backgroundColor: "var(--bg-primary)",
   },
 

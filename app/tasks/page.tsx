@@ -242,7 +242,7 @@ export default function TasksPage() {
 
 const styles: any = {
   container: { 
-    padding: '8px 4px',
+    padding: 0,
     backgroundColor: 'var(--bg-primary)',
     minHeight: '100vh',
     color: 'var(--text-primary)'

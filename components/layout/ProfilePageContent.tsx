@@ -306,7 +306,7 @@ export default function ProfilePageContent() {
   const isDeveloperPanel = activePanel === "Developer";
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="wsd-page">
       <div style={styles.heroCard}>
         <div style={styles.heroGradient} />
         <div style={styles.heroContent}>
@@ -605,9 +605,10 @@ export default function ProfilePageContent() {
 
 const styles: Record<string, any> = {
   page: {
-    padding: "28px 24px 40px",
-    maxWidth: "1240px",
-    margin: "0 auto",
+    padding: 0,
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
     color: "var(--text-primary)",
   },
   heroCard: {

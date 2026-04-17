@@ -11,7 +11,15 @@ import Button from "../../../components/ui/Button";
 import { getPublicServices, PublicService } from "../../../core/services/leadService";
 import { useLeadFunnel } from "../../providers/LeadFunnelProvider";
 
-export default function ServiceSelectionClient() {
+type ServiceSelectionClientProps = {
+  variant?: "page" | "modal" | "wizard";
+  onRequestClose?: () => void;
+  /** When `variant` is `wizard`, continue stays inside the parent modal (no navigation). */
+  onWizardContinue?: () => void;
+};
+
+export default function ServiceSelectionClient(props?: ServiceSelectionClientProps) {
+  const { variant = "page", onRequestClose, onWizardContinue } = props ?? {};
   const router = useRouter();
   const { selectedServices, toggleService, setSelectedServices } = useLeadFunnel();
   const [services, setServices] = useState<PublicService[]>([]);
@@ -45,8 +53,13 @@ export default function ServiceSelectionClient() {
     fetchServices();
   }, [selectedServices, setSelectedServices]);
 
+  const wrapperStyle =
+    variant === "modal" || variant === "wizard"
+      ? { ...styles.wrapper, ...styles.wrapperModal }
+      : styles.wrapper;
+
   return (
-    <div style={styles.wrapper}>
+    <div style={wrapperStyle}>
       <div style={styles.heroCard}>
         <p style={styles.eyebrow}>Step 1 of 3</p>
         <h1 style={styles.title}>Choose the services you want help with</h1>
@@ -94,7 +107,7 @@ export default function ServiceSelectionClient() {
                     borderColor: selected ? '#007AFF' : 'var(--border-color)',
                     backgroundColor: selected ? 'rgba(0, 122, 255, 0.05)' : 'var(--bg-primary)',
                     boxShadow: selected ? '0 12px 32px rgba(0,122,255,0.12)' : '0 4px 12px rgba(0,0,0,0.02)',
-                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                    transition: 'background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
                   }}>
                     <div style={styles.cardTop}>
                       <div style={{
@@ -114,7 +127,7 @@ export default function ServiceSelectionClient() {
             })}
           </div>
 
-          <div style={styles.footerCard}>
+          <div style={variant === "modal" || variant === "wizard" ? { ...styles.footerCard, ...styles.footerCardModal } : styles.footerCard}>
             <div style={styles.footerInfo}>
               <p style={styles.footerLabel}>Selected Services</p>
               <div style={styles.selectedList}>
@@ -130,7 +143,15 @@ export default function ServiceSelectionClient() {
 
             <Button
               size="lg"
-              onClick={() => router.push("/lead-form")}
+              onClick={() => {
+                if (selectedServices.length === 0) return;
+                if (variant === "wizard" && onWizardContinue) {
+                  onWizardContinue();
+                  return;
+                }
+                router.push("/lead-form");
+                onRequestClose?.();
+              }}
               disabled={selectedServices.length === 0}
               rightIcon={<ArrowRight size={20} />}
               style={{ padding: '0 36px', height: '58px', borderRadius: '16px', fontSize: '16px', fontWeight: 700 }}
@@ -152,17 +173,22 @@ const styles: any = {
   wrapper: {
     maxWidth: "100%",
     margin: "0",
-    padding: "40px 24px 80px",
+    padding: "var(--space-section) var(--space-page-x) 80px",
     display: "flex",
     flexDirection: "column",
     gap: "40px",
     backgroundColor: 'var(--bg-primary)',
     color: 'var(--text-primary)',
   },
+  wrapperModal: {
+    padding: "0 0 8px",
+    gap: "24px",
+    backgroundColor: "transparent",
+  },
   heroCard: {
-    padding: "56px 48px",
-    maxWidth: "1200px",
-    margin: "0 auto",
+    padding: "clamp(32px, 5vw, 56px) clamp(24px, 4vw, 48px)",
+    maxWidth: "100%",
+    margin: "0",
     width: "100%",
     borderRadius: "32px",
     background: "var(--bg-secondary)",
@@ -230,11 +256,9 @@ const styles: any = {
     textAlign: "left",
     cursor: "pointer",
     borderRadius: "24px",
-    transition: "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
   },
-  serviceButtonSelected: {
-    transform: "translateY(-6px)",
-  },
+  serviceButtonSelected: {},
   cardTop: {
     display: "flex",
     justifyContent: "space-between",
@@ -288,6 +312,14 @@ const styles: any = {
     bottom: '32px',
     zIndex: 100,
     backdropFilter: 'blur(20px)',
+  },
+  footerCardModal: {
+    position: "static",
+    bottom: "auto",
+    padding: "20px 24px",
+    marginTop: "8px",
+    backdropFilter: "none",
+    boxShadow: "var(--card-shadow)",
   },
   footerInfo: {
     flex: 1,

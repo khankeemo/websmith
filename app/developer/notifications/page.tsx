@@ -95,7 +95,7 @@ export default function DeveloperNotificationsPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header}>
         <div>
@@ -197,29 +197,29 @@ export default function DeveloperNotificationsPage() {
 }
 
 const styles: Record<string, any> = {
-  container: { padding: "24px" },
+  container: { padding: 0 },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "24px" },
-  title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "#1C1C1E" },
-  subtitle: { margin: "8px 0 0", color: "#8E8E93" },
+  title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "var(--text-primary)" },
+  subtitle: { margin: "8px 0 0", color: "var(--text-secondary)" },
   markAllBtn: { display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", backgroundColor: "#007AFF", color: "#fff", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer" },
   statsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "24px" },
-  statCard: { display: "flex", alignItems: "center", gap: "16px", background: "#fff", border: "1px solid #E5E5EA", borderRadius: "16px", padding: "20px" },
-  statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "#1C1C1E" },
-  statLabel: { margin: "4px 0 0", fontSize: "13px", color: "#8E8E93" },
+  statCard: { display: "flex", alignItems: "center", gap: "16px", background: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "20px" },
+  statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "var(--text-primary)" },
+  statLabel: { margin: "4px 0 0", fontSize: "13px", color: "var(--text-secondary)" },
   filterTabs: { display: "flex", gap: "12px", marginBottom: "24px" },
-  filterBtn: { padding: "10px 20px", background: "#F2F2F7", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 500, cursor: "pointer", color: "#8E8E93" },
+  filterBtn: { padding: "10px 20px", background: "var(--bg-secondary)", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 500, cursor: "pointer", color: "var(--text-secondary)" },
   filterActive: { background: "#007AFF", color: "#fff" },
   notificationsList: { display: "flex", flexDirection: "column", gap: "12px" },
   notificationItem: { display: "flex", gap: "16px", padding: "16px", transition: "all 0.2s ease" },
   notificationIcon: { fontSize: "32px", flexShrink: 0 },
   notificationContent: { flex: 1 },
-  notificationTitle: { margin: "0 0 8px", fontSize: "16px", fontWeight: 600, color: "#1C1C1E" },
-  notificationMessage: { margin: "0 0 12px", fontSize: "14px", color: "#3A3A3C", lineHeight: 1.5 },
-  notificationMeta: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#8E8E93" },
+  notificationTitle: { margin: "0 0 8px", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" },
+  notificationMessage: { margin: "0 0 12px", fontSize: "14px", color: "var(--text-secondary)", lineHeight: 1.5 },
+  notificationMeta: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" },
   markReadBtn: { padding: "8px 16px", background: "#007AFF", color: "#fff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: 500, cursor: "pointer", alignSelf: "center" },
   loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px", gap: "16px" },
-  spinner: { width: "40px", height: "40px", border: "3px solid #E5E5EA", borderTopColor: "#007AFF", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
+  spinner: { width: "40px", height: "40px", border: "3px solid var(--border-color)", borderTopColor: "#007AFF", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
   emptyContainer: { textAlign: "center", padding: "60px" },
-  emptyTitle: { fontSize: "20px", fontWeight: 600, color: "#1C1C1E", marginTop: "16px", marginBottom: "8px" },
-  emptyText: { fontSize: "14px", color: "#8E8E93" },
+  emptyTitle: { fontSize: "20px", fontWeight: 600, color: "var(--text-primary)", marginTop: "16px", marginBottom: "8px" },
+  emptyText: { fontSize: "14px", color: "var(--text-secondary)" },
 };

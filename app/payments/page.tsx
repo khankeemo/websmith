@@ -433,9 +433,10 @@ export default function PaymentsPage() {
 
 const styles: any = {
   container: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "32px 24px",
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: 0,
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
     minHeight: "100vh",

@@ -1,17 +1,25 @@
 "use client";
 
 import { createContext, useContext, useMemo, useState } from "react";
+import LeadFunnelWizardModal from "../../components/lead-funnel/LeadFunnelWizardModal";
 
 export interface SelectedLeadService {
   id: string;
   name: string;
 }
 
+export type LeadWizardStep = "services" | "details" | "success";
+
 interface LeadFunnelContextValue {
   selectedServices: SelectedLeadService[];
   setSelectedServices: (services: SelectedLeadService[]) => void;
   toggleService: (service: SelectedLeadService) => void;
   clearSelectedServices: () => void;
+  leadServicesModalOpen: boolean;
+  leadWizardStep: LeadWizardStep;
+  setLeadWizardStep: (step: LeadWizardStep) => void;
+  openLeadServicesModal: () => void;
+  closeLeadServicesModal: () => void;
 }
 
 const LeadFunnelContext = createContext<LeadFunnelContextValue | undefined>(undefined);
@@ -34,6 +42,8 @@ const getInitialServices = (): SelectedLeadService[] => {
 
 export function LeadFunnelProvider({ children }: { children: React.ReactNode }) {
   const [selectedServices, setSelectedServicesState] = useState<SelectedLeadService[]>(getInitialServices);
+  const [leadServicesModalOpen, setLeadServicesModalOpen] = useState(false);
+  const [leadWizardStep, setLeadWizardStep] = useState<LeadWizardStep>("services");
 
   const persist = (services: SelectedLeadService[]) => {
     setSelectedServicesState(services);
@@ -64,11 +74,33 @@ export function LeadFunnelProvider({ children }: { children: React.ReactNode }) 
       setSelectedServices: persist,
       toggleService,
       clearSelectedServices,
+      leadServicesModalOpen,
+      leadWizardStep,
+      setLeadWizardStep,
+      openLeadServicesModal: () => {
+        setLeadWizardStep("services");
+        setLeadServicesModalOpen(true);
+      },
+      closeLeadServicesModal: () => {
+        setLeadServicesModalOpen(false);
+        setLeadWizardStep("services");
+      },
     }),
-    [selectedServices]
+    [selectedServices, leadServicesModalOpen, leadWizardStep]
   );
 
-  return <LeadFunnelContext.Provider value={value}>{children}</LeadFunnelContext.Provider>;
+  return (
+    <LeadFunnelContext.Provider value={value}>
+      {children}
+      <LeadFunnelWizardModal
+        isOpen={leadServicesModalOpen}
+        onClose={() => {
+          setLeadServicesModalOpen(false);
+          setLeadWizardStep("services");
+        }}
+      />
+    </LeadFunnelContext.Provider>
+  );
 }
 
 export function useLeadFunnel() {

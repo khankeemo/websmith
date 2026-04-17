@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquare, MessageSquarePlus, Send } from "lucide-react";
+import { ChevronDown, ChevronUp, ImagePlus, MessageSquare, MessageSquarePlus, Send, X } from "lucide-react";
 import Modal from "../../../components/ui/Modal";
-import { addTicketReply, createTicket, getTickets, Ticket } from "../../../core/services/ticketService";
+import {
+  addTicketReply,
+  createTicket,
+  getTickets,
+  resolveTicketFileUrl,
+  Ticket,
+  uploadTicketImage,
+} from "../../../core/services/ticketService";
 import { getProjects, Project } from "../../projects/services/projectService";
 
 export default function ClientTicketsPage() {
@@ -16,7 +23,15 @@ export default function ClientTicketsPage() {
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
+  const [threadExpanded, setThreadExpanded] = useState(false);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
+  const replyFileInputRef = useRef<HTMLInputElement | null>(null);
+  const newQueryFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [replyAttachments, setReplyAttachments] = useState<Array<{ name: string; url: string }>>([]);
+  const [newQueryAttachments, setNewQueryAttachments] = useState<Array<{ name: string; url: string }>>([]);
+  const [uploadingReply, setUploadingReply] = useState(false);
+  const [uploadingNewQuery, setUploadingNewQuery] = useState(false);
 
   const [form, setForm] = useState({
     projectId: "",
@@ -49,7 +64,7 @@ export default function ClientTicketsPage() {
     const [ticketData, projectData] = await Promise.all([getTickets(), getProjects()]);
     setTickets(ticketData);
     setProjects(projectData);
-    setSelectedId((prev) => prev ?? ticketData[0]?._id ?? null);
+    setSelectedId((prev) => (prev && ticketData.some((t) => t._id === prev) ? prev : null));
   };
 
   useEffect(() => {
@@ -57,21 +72,71 @@ export default function ClientTicketsPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedTicket) return;
+    setThreadExpanded(false);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!selectedTicket || !threadExpanded) return;
     threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedTicket?._id, selectedTicket?.history?.length]);
+  }, [selectedTicket?._id, selectedTicket?.history?.length, threadExpanded]);
 
   const handleReply = async () => {
-    if (!selectedTicket || !replyMessage.trim() || isReadonly) return;
+    if (!selectedTicket || isReadonly) return;
+    if (!replyMessage.trim() && replyAttachments.length === 0) return;
     setSendingReply(true);
     try {
-      await addTicketReply(selectedTicket._id, replyMessage.trim());
+      await addTicketReply(
+        selectedTicket._id,
+        replyMessage.trim(),
+        replyAttachments.length ? replyAttachments : undefined
+      );
       setReplyMessage("");
+      setReplyAttachments([]);
       await loadData();
     } catch (error) {
       console.error("Reply error:", error);
     } finally {
       setSendingReply(false);
+    }
+  };
+
+  const handleReplyFiles = async (files: FileList | null) => {
+    if (!files?.length || uploadingReply) return;
+    setUploadingReply(true);
+    try {
+      const next: Array<{ name: string; url: string }> = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith("image/")) continue;
+        const uploaded = await uploadTicketImage(file);
+        next.push({ name: uploaded.name, url: uploaded.url });
+      }
+      if (next.length) setReplyAttachments((prev) => [...prev, ...next]);
+    } catch (e) {
+      console.error("Upload failed:", e);
+    } finally {
+      setUploadingReply(false);
+      if (replyFileInputRef.current) replyFileInputRef.current.value = "";
+    }
+  };
+
+  const handleNewQueryFiles = async (files: FileList | null) => {
+    if (!files?.length || uploadingNewQuery) return;
+    setUploadingNewQuery(true);
+    try {
+      const next: Array<{ name: string; url: string }> = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith("image/")) continue;
+        const uploaded = await uploadTicketImage(file);
+        next.push({ name: uploaded.name, url: uploaded.url });
+      }
+      if (next.length) setNewQueryAttachments((prev) => [...prev, ...next]);
+    } catch (e) {
+      console.error("Upload failed:", e);
+    } finally {
+      setUploadingNewQuery(false);
+      if (newQueryFileInputRef.current) newQueryFileInputRef.current.value = "";
     }
   };
 
@@ -82,8 +147,12 @@ export default function ClientTicketsPage() {
     setSubmitError("");
 
     try {
-      await createTicket(form);
+      await createTicket({
+        ...form,
+        attachments: newQueryAttachments.length ? newQueryAttachments : undefined,
+      });
       setForm({ projectId: "", subject: "", description: "", priority: "medium" });
+      setNewQueryAttachments([]);
       setSubmitMessage("Your query was submitted successfully.");
       await loadData();
       setIsQueryModalOpen(false);
@@ -107,7 +176,7 @@ export default function ClientTicketsPage() {
   const statusLabel = (status: Ticket["status"]) => status.replace("_", " ");
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <div style={styles.topHeader}>
         <div>
           <h1 style={styles.title}>Queries</h1>
@@ -130,7 +199,10 @@ export default function ClientTicketsPage() {
                 <button
                   key={ticket._id}
                   type="button"
-                  onClick={() => setSelectedId(ticket._id)}
+                  onClick={() => {
+                    setSelectedId(ticket._id);
+                    setThreadExpanded(false);
+                  }}
                   style={{
                     ...styles.historyRow,
                     ...(ticket._id === selectedTicket?._id ? styles.historyRowActive : {}),
@@ -159,50 +231,144 @@ export default function ClientTicketsPage() {
                 <h2 style={styles.detailsTitle}>{selectedTicket.subject}</h2>
                 <div style={styles.detailsHeaderActions}>
                   <span style={styles.readOnlyStatus}>{statusLabel(selectedTicket.status)}</span>
-                  <button type="button" onClick={() => setSelectedId(null)} style={styles.closeChatBtn}>
-                    Close Chat
-                  </button>
-                </div>
-              </div>
-
-              <div style={styles.thread}>
-                {selectedTicket.history?.map((item, index) => (
-                  <div
-                    key={`${item.createdAt}-${index}`}
-                    style={{
-                      ...styles.messageItem,
-                      ...(item.actorRole === "client" ? styles.messageClient : styles.messageAdmin),
-                    }}
-                  >
-                    <p style={styles.messageRole}>{item.actorRole.replace("_", " ")}</p>
-                    <p style={styles.messageText}>{item.message || "No message provided."}</p>
-                    <p style={styles.messageTime}>{formatDate(item.createdAt)}</p>
-                  </div>
-                ))}
-                <div ref={threadEndRef} />
-              </div>
-
-              <div style={styles.replyCard}>
-                <label style={styles.label}>Reply</label>
-                <textarea
-                  value={replyMessage}
-                  onChange={(event) => setReplyMessage(event.target.value)}
-                  style={{ ...styles.textarea, ...(isReadonly ? styles.readonlyInput : {}) }}
-                  placeholder={isReadonly ? "Replies are disabled for resolved or closed queries." : "Write your reply..."}
-                  disabled={isReadonly}
-                />
-                <div style={styles.replyFooter}>
                   <button
                     type="button"
-                    onClick={handleReply}
-                    style={styles.modalPrimaryBtn}
-                    disabled={isReadonly || sendingReply || !replyMessage.trim()}
+                    onClick={() => {
+                      setSelectedId(null);
+                      setThreadExpanded(false);
+                    }}
+                    style={styles.closeChatBtn}
                   >
-                    <Send size={14} />
-                    {sendingReply ? "Sending..." : "Send Reply"}
+                    Close
                   </button>
                 </div>
               </div>
+
+              <div style={styles.threadToggleRow}>
+                <p style={styles.threadToggleHint}>
+                  {selectedTicket.history?.length
+                    ? `${selectedTicket.history.length} message${selectedTicket.history.length === 1 ? "" : "s"} in this thread.`
+                    : "No messages yet."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setThreadExpanded((prev) => !prev)}
+                  style={styles.toggleThreadBtn}
+                  aria-expanded={threadExpanded}
+                >
+                  {threadExpanded ? (
+                    <>
+                      <ChevronUp size={16} />
+                      Hide conversation
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={16} />
+                      View conversation
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {threadExpanded && (
+                <>
+                  <div style={styles.thread}>
+                    {selectedTicket.history?.map((item, index) => (
+                      <div
+                        key={`${item.createdAt}-${index}`}
+                        style={{
+                          ...styles.messageItem,
+                          ...(item.actorRole === "client" ? styles.messageClient : styles.messageAdmin),
+                        }}
+                      >
+                        <p style={styles.messageRole}>{item.actorRole.replace("_", " ")}</p>
+                        {item.message?.trim() ? (
+                          <p style={styles.messageText}>{item.message}</p>
+                        ) : item.attachments?.length ? null : (
+                          <p style={styles.messageText}>No message provided.</p>
+                        )}
+                        {item.attachments && item.attachments.length > 0 && (
+                          <div style={styles.attachmentRow}>
+                            {item.attachments.map((att, ai) => (
+                              <a
+                                key={`${att.url}-${ai}`}
+                                href={resolveTicketFileUrl(att.url)}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={styles.attachmentThumbLink}
+                              >
+                                <img src={resolveTicketFileUrl(att.url)} alt={att.name} style={styles.attachmentThumb} />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        <p style={styles.messageTime}>{formatDate(item.createdAt)}</p>
+                      </div>
+                    ))}
+                    <div ref={threadEndRef} />
+                  </div>
+
+                  <div style={styles.replyCard}>
+                    <label style={styles.label}>Reply</label>
+                    <textarea
+                      value={replyMessage}
+                      onChange={(event) => setReplyMessage(event.target.value)}
+                      style={{ ...styles.textarea, ...(isReadonly ? styles.readonlyInput : {}) }}
+                      placeholder={isReadonly ? "Replies are disabled for resolved or closed queries." : "Write your reply..."}
+                      disabled={isReadonly}
+                    />
+                    <input
+                      ref={replyFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      multiple
+                      style={{ display: "none" }}
+                      onChange={(e) => handleReplyFiles(e.target.files)}
+                    />
+                    {replyAttachments.length > 0 && (
+                      <div style={styles.pendingAttachments}>
+                        {replyAttachments.map((att, i) => (
+                          <div key={`${att.url}-${i}`} style={styles.pendingChip}>
+                            <img src={resolveTicketFileUrl(att.url)} alt="" style={styles.pendingThumb} />
+                            <button
+                              type="button"
+                              aria-label="Remove attachment"
+                              style={styles.pendingRemove}
+                              onClick={() => setReplyAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={styles.replyFooter}>
+                      <button
+                        type="button"
+                        onClick={() => replyFileInputRef.current?.click()}
+                        style={styles.attachBtn}
+                        disabled={isReadonly || uploadingReply}
+                      >
+                        <ImagePlus size={16} />
+                        {uploadingReply ? "Uploading…" : "Add images"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleReply}
+                        style={styles.modalPrimaryBtn}
+                        disabled={
+                          isReadonly ||
+                          sendingReply ||
+                          (!replyMessage.trim() && replyAttachments.length === 0)
+                        }
+                      >
+                        <Send size={14} />
+                        {sendingReply ? "Sending..." : "Send Reply"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -257,6 +423,40 @@ export default function ClientTicketsPage() {
             required
           />
 
+          <label style={styles.label}>Images (optional)</label>
+          <input
+            ref={newQueryFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => handleNewQueryFiles(e.target.files)}
+          />
+          <div style={{ display: "flex", flexWrap: "wrap" as const, gap: "10px", alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => newQueryFileInputRef.current?.click()}
+              style={styles.attachBtn}
+              disabled={uploadingNewQuery}
+            >
+              <ImagePlus size={16} />
+              {uploadingNewQuery ? "Uploading…" : "Add images"}
+            </button>
+            {newQueryAttachments.map((att, i) => (
+              <div key={`${att.url}-${i}`} style={styles.pendingChip}>
+                <img src={resolveTicketFileUrl(att.url)} alt="" style={styles.pendingThumb} />
+                <button
+                  type="button"
+                  aria-label="Remove"
+                  style={styles.pendingRemove}
+                  onClick={() => setNewQueryAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+
           <label style={styles.label}>Priority</label>
           <select
             value={form.priority}
@@ -283,7 +483,7 @@ export default function ClientTicketsPage() {
 
 const styles: any = {
   container: {
-    padding: "12px 8px",
+    padding: 0,
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
     minHeight: "100vh",
@@ -353,7 +553,7 @@ const styles: any = {
     display: "flex",
     flexDirection: "column" as const,
     gap: "16px",
-    minHeight: "70vh",
+    minHeight: "min(70vh, 640px)",
   },
   detailsHeader: {
     display: "flex",
@@ -383,6 +583,33 @@ const styles: any = {
     fontSize: "12px",
     fontWeight: 600,
     cursor: "pointer",
+  },
+  threadToggleRow: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "12px",
+    alignItems: "stretch",
+  },
+  threadToggleHint: {
+    margin: 0,
+    fontSize: "14px",
+    color: "var(--text-secondary)",
+    lineHeight: 1.5,
+  },
+  toggleThreadBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    padding: "10px 14px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    alignSelf: "flex-start",
   },
   thread: {
     display: "flex",
@@ -435,7 +662,56 @@ const styles: any = {
     boxSizing: "border-box" as const,
   },
   readonlyInput: { opacity: 0.65, cursor: "not-allowed" },
-  replyFooter: { display: "flex", justifyContent: "flex-end", marginTop: "12px" },
+  replyFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" as const, marginTop: "12px" },
+  attachBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 14px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  attachmentRow: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: "8px",
+    marginTop: "8px",
+  },
+  attachmentThumbLink: { display: "block", borderRadius: "10px", overflow: "hidden" as const },
+  attachmentThumb: {
+    maxWidth: "180px",
+    maxHeight: "140px",
+    width: "auto",
+    height: "auto",
+    display: "block",
+    objectFit: "cover" as const,
+    borderRadius: "10px",
+    border: "1px solid var(--border-color)",
+  },
+  pendingAttachments: { display: "flex", flexWrap: "wrap" as const, gap: "8px", marginTop: "10px" },
+  pendingChip: { position: "relative" as const, width: "64px", height: "64px", borderRadius: "10px", overflow: "hidden" as const },
+  pendingThumb: { width: "100%", height: "100%", objectFit: "cover" as const, display: "block" },
+  pendingRemove: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: "24px",
+    height: "24px",
+    borderRadius: "8px",
+    border: "none",
+    background: "rgba(0,0,0,0.55)",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    padding: 0,
+  },
   successBox: {
     padding: "10px 12px",
     backgroundColor: "rgba(52, 199, 89, 0.1)",

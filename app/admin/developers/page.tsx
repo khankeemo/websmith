@@ -79,7 +79,7 @@ export default function DevelopersPage() {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header}>
         <div>
@@ -247,7 +247,7 @@ export default function DevelopersPage() {
 }
 
 const styles: Record<string, any> = {
-  container: { padding: "24px" },
+  container: { padding: 0 },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "24px" },
   title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "var(--text-primary)" },
   subtitle: { margin: "8px 0 0", color: "var(--text-secondary)" },

@@ -444,7 +444,7 @@ export default function DevelopersPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <div style={styles.pageHeader}>
         <div>
           <h1 style={styles.pageTitle}>Developers</h1>
@@ -558,9 +558,10 @@ export default function DevelopersPage() {
 
 const styles: any = {
   container: {
-    padding: '8px 4px',
-    maxWidth: '1400px',
-    margin: '0 auto',
+    padding: 0,
+    width: '100%',
+    maxWidth: '100%',
+    margin: 0,
     backgroundColor: 'var(--bg-primary)',
     minHeight: '100vh',
     color: 'var(--text-primary)',

@@ -122,7 +122,7 @@ export default function ClientProjectsPage() {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div style={styles.container} className="wsd-page">
         <div style={styles.loadingContainer}>
           <div style={styles.spinner}></div>
           <p style={{ color: "var(--text-secondary)" }}>Loading your projects...</p>
@@ -132,7 +132,7 @@ export default function ClientProjectsPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header} className="client-projects-header">
         <div>
@@ -514,7 +514,7 @@ export default function ClientProjectsPage() {
 
 const styles: any = {
   container: { 
-    padding: '8px 4px',
+    padding: 0,
     backgroundColor: 'var(--bg-primary)',
     color: 'var(--text-primary)',
     minHeight: '100vh',

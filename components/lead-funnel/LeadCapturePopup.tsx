@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
+import { useLeadFunnel } from "../../app/providers/LeadFunnelProvider";
 
 const SESSION_KEY = "wsd_lead_popup_seen";
 
 export default function LeadCapturePopup() {
-  const router = useRouter();
+  const { openLeadServicesModal } = useLeadFunnel();
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export default function LeadCapturePopup() {
 
   const handleStart = () => {
     setIsOpen(false);
-    router.push("/services");
+    openLeadServicesModal();
   };
 
   return (
@@ -72,15 +72,16 @@ const styles: any = {
     gap: "8px",
     padding: "8px 14px",
     borderRadius: "999px",
-    backgroundColor: "#E8F5E9",
-    color: "#1B5E20",
+    backgroundColor: "color-mix(in srgb, #22C55E 18%, var(--bg-secondary))",
+    color: "var(--text-primary)",
     fontSize: "13px",
     fontWeight: 600,
     marginBottom: "16px",
+    border: "1px solid var(--border-color)",
   },
   description: {
     margin: 0,
-    color: "#4B5563",
+    color: "var(--text-secondary)",
     fontSize: "15px",
     lineHeight: 1.7,
   },

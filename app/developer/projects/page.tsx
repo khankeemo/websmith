@@ -13,7 +13,7 @@ type ViewMode = "grid" | "list" | "kanban";
 export default function DeveloperProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("kanban");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const loadProjects = async () => {
     try {
@@ -74,7 +74,7 @@ export default function DeveloperProjectsPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Projects</h1>
@@ -184,7 +184,7 @@ export default function DeveloperProjectsPage() {
 
 const styles: any = {
   container: { 
-    padding: "8px 4px",
+    padding: 0,
     backgroundColor: 'var(--bg-primary)',
     minHeight: '100vh',
     color: 'var(--text-primary)'

@@ -110,7 +110,7 @@ export default function SettingsPage() {
   if (!user) return null;
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header}>
         <h1 style={styles.title}>Settings</h1>
@@ -266,9 +266,10 @@ export default function SettingsPage() {
 
 const styles: any = {
   container: {
-    maxWidth: "800px",
-    margin: "0 auto",
-    padding: "40px 24px",
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: 0,
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
     minHeight: "100vh",

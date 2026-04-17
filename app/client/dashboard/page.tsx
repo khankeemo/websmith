@@ -86,7 +86,7 @@ export default function ClientDashboardPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Dashboard</h1>
@@ -184,7 +184,7 @@ export default function ClientDashboardPage() {
 }
 
 const styles: Record<string, any> = {
-  container: { padding: "8px 4px", display: "flex", flexDirection: "column", gap: "24px" },
+  container: { padding: 0, display: "flex", flexDirection: "column", gap: "24px" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center" },
   title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "var(--text-primary)" },
   subtitle: { margin: "8px 0 0", color: "var(--text-secondary)" },

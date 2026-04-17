@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, Moon, Sun, X } from "lucide-react";
+import { getStoredUser, getToken } from "../../lib/auth";
+import { usePublicTheme } from "../../app/providers/PublicThemeProvider";
+import { useLeadFunnel } from "../../app/providers/LeadFunnelProvider";
 
 export const PUBLIC_SITE_NAV_ITEMS = [
   { name: "Home", href: "/" },
@@ -27,8 +30,17 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [navMounted, setNavMounted] = useState(false);
+  const { publicTheme, togglePublicTheme } = usePublicTheme();
+  const { openLeadServicesModal } = useLeadFunnel();
   const isLogin = pathname === "/login";
   const isAuthLayout = variant === "auth";
+
+  useLayoutEffect(() => {
+    setNavMounted(true);
+  }, []);
+
+  const showGuestThemeToggle = navMounted && !getToken() && !getStoredUser();
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
@@ -54,7 +66,17 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             <a href="/" style={styles.authTextLink}>
               Home
             </a>
-            <button type="button" onClick={() => router.push("/services")} style={styles.ctaBtn} className="cta-hover public-nav-cta">
+            {showGuestThemeToggle && (
+              <button
+                type="button"
+                onClick={togglePublicTheme}
+                style={styles.themeToggleBtn}
+                aria-label={`Switch to ${publicTheme === "light" ? "dark" : "light"} mode`}
+              >
+                {publicTheme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+              </button>
+            )}
+            <button type="button" onClick={() => openLeadServicesModal()} style={styles.ctaBtn} className="cta-hover public-nav-cta">
               Get Started
             </button>
           </div>
@@ -81,12 +103,22 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
         </div>
 
         <div style={styles.navButtons} className="nav-buttons">
+          {showGuestThemeToggle && (
+            <button
+              type="button"
+              onClick={togglePublicTheme}
+              style={styles.themeToggleBtn}
+              aria-label={`Switch to ${publicTheme === "light" ? "dark" : "light"} mode`}
+            >
+              {publicTheme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
+          )}
           {!isLogin && (
             <button type="button" onClick={() => router.push("/login")} style={styles.loginBtn} className="login-btn-hover">
               Log in
             </button>
           )}
-          <button type="button" onClick={() => router.push("/services")} style={styles.ctaBtn} className="cta-hover public-nav-cta">
+          <button type="button" onClick={() => openLeadServicesModal()} style={styles.ctaBtn} className="cta-hover public-nav-cta">
             Get Started
           </button>
         </div>
@@ -126,6 +158,21 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
               </a>
             ))}
             <div style={styles.mobileMenuDivider} />
+            {showGuestThemeToggle && (
+              <button type="button" onClick={togglePublicTheme} style={styles.mobileThemeBtn} className="mobile-theme-btn">
+                {publicTheme === "light" ? (
+                  <>
+                    <Moon size={18} style={{ marginRight: 8, verticalAlign: "middle" }} />
+                    Dark mode
+                  </>
+                ) : (
+                  <>
+                    <Sun size={18} style={{ marginRight: 8, verticalAlign: "middle" }} />
+                    Light mode
+                  </>
+                )}
+              </button>
+            )}
             {!isLogin && (
               <button
                 type="button"
@@ -143,7 +190,7 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
               type="button"
               onClick={() => {
                 setMobileOpen(false);
-                router.push("/services");
+                openLeadServicesModal();
               }}
               style={styles.mobileCtaBtn}
               className="cta-hover"
@@ -199,9 +246,10 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: "var(--card-shadow)",
   },
   navAuthInner: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "14px 24px",
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: "14px clamp(16px, 4vw, 40px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -228,9 +276,10 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
   },
   navContent: {
+    width: "100%",
     maxWidth: "100%",
     margin: 0,
-    padding: "12px 0",
+    padding: "12px clamp(16px, 4vw, 40px)",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -240,7 +289,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: "32px",
     minWidth: 0,
-    paddingLeft: "24px",
+    paddingLeft: 0,
   },
   logo: {
     display: "flex",
@@ -285,8 +334,22 @@ const styles: Record<string, CSSProperties> = {
   navButtons: {
     display: "flex",
     gap: "12px",
-    paddingRight: "24px",
+    paddingRight: 0,
     alignItems: "center",
+  },
+  themeToggleBtn: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    flexShrink: 0,
+    transition: "background-color 0.2s ease, border-color 0.2s ease",
   },
   loginBtn: {
     padding: "8px 20px",
@@ -364,6 +427,21 @@ const styles: Record<string, CSSProperties> = {
     height: "1px",
     backgroundColor: "var(--border-color)",
     margin: "12px 0",
+  },
+  mobileThemeBtn: {
+    padding: "12px 16px",
+    fontSize: "16px",
+    fontWeight: 500,
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "8px",
+    cursor: "pointer",
+    marginBottom: "8px",
+    fontFamily: "inherit",
+    color: "var(--text-primary)",
+    textAlign: "left",
+    display: "flex",
+    alignItems: "center",
   },
   mobileLoginBtn: {
     padding: "12px 16px",

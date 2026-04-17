@@ -1,5 +1,14 @@
 import API from "./apiService";
 
+/** Resolve stored ticket file paths for <img src> (same-origin `/api` in dev). */
+export const resolveTicketFileUrl = (url: string) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (typeof window === "undefined") return url;
+  const path = url.startsWith("/") ? url : `/${url}`;
+  return `${window.location.origin}${path}`;
+};
+
 export interface Ticket {
   _id: string;
   source?: "client_portal" | "public_contact";
@@ -38,6 +47,7 @@ export interface Ticket {
     action: string;
     actorRole: "admin" | "client" | "developer" | "system";
     message?: string;
+    attachments?: Array<{ name: string; url: string }>;
     createdAt: string;
   }>;
   createdAt: string;
@@ -78,8 +88,24 @@ export const updateTicketStatus = async (
   return response.data.data as Ticket;
 };
 
-export const addTicketReply = async (id: string, message: string) => {
-  const response = await API.post(`/tickets/${id}/replies`, { message });
+export const uploadTicketImage = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await API.post("/tickets/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data.data as { url: string; name: string; type: string };
+};
+
+export const addTicketReply = async (
+  id: string,
+  message: string,
+  attachments?: Array<{ name: string; url: string }>
+) => {
+  const response = await API.post(`/tickets/${id}/replies`, {
+    message,
+    attachments: attachments && attachments.length ? attachments : [],
+  });
   return response.data.data as Ticket;
 };
 
