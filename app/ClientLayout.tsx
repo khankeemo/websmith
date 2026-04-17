@@ -12,6 +12,9 @@ import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
 import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, isPublicPath, PUBLIC_PATHS } from "../lib/auth";
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
+import Footer from "./footer/Footer";
+import PublicSiteNav from "../components/layout/PublicSiteNav";
+
 
 export default function ClientLayout({
   children,
@@ -34,8 +37,6 @@ export default function ClientLayout({
       (window as any).__LAST_PATH__ = pathname;
     }
 
-    console.error(`[ClientLayout] pathname: "${pathname}", isPublic: ${isPublic}`);
-
     if (isPublic) {
       document.documentElement.classList.toggle(
         "dark-theme",
@@ -45,7 +46,6 @@ export default function ClientLayout({
     }
 
     if (!token || !user) {
-      console.error(`[ClientLayout] NOT PUBLIC and NO SESSION. Redirecting to /login...`);
       clearAuthSession();
       router.replace("/login");
       return;
@@ -139,8 +139,19 @@ export default function ClientLayout({
           </>
         )}
         <main className="app-main-shell" style={styles.main}>
-          <div className="app-main-scroll">{children}</div>
+          <div className="app-main-scroll">
+            {!shouldShowSidebar && (
+              <PublicSiteNav variant={(pathname === "/login" || pathname === "/register" || pathname === "/forgot-password") ? "auth" : "full"} />
+            )}
+            
+            {children}
+            
+            {!shouldShowSidebar && pathname !== "/login" && pathname !== "/register" && pathname !== "/forgot-password" && (
+              <Footer />
+            )}
+          </div>
         </main>
+
         {/* Only after mount: server has no localStorage, so auth checks must not run during SSR. */}
         {mounted && !shouldShowSidebar && !getToken() && !getStoredUser() && (
           <button

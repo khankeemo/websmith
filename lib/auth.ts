@@ -76,7 +76,15 @@ export const PUBLIC_PATHS = [
   "/lead-form",
   "/success",
   "/auth/change-password",
+  "/about",
+  "/careers",
+  "/blog",
+  "/documentation",
+  "/support",
+  "/privacy",
+  "/terms",
 ];
+
 
 /**
  * Checks if a pathname is a public route, handling trailing slashes and casing.

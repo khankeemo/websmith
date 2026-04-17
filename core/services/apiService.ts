@@ -43,24 +43,31 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
-      clearAuthSession();
       const currentPath = window.location.pathname;
+      const requestUrl = error.config?.url || "";
       
-      // Only redirect if NOT on a public page (forgot password, login, etc.)
-      // Added secondary check for "forgot" or "reset" directly in case normalization fails on Vercel
-      if (!isPublicPath(currentPath) && !currentPath.toLowerCase().includes("forgot") && !currentPath.toLowerCase().includes("reset")) {
-        console.error(`[AuthInterceptor] 401 on protected route "${currentPath}". Redirecting to login.`);
-        window.location.replace("/login?reason=session-expired");
-      } else {
-        console.error(`[AuthInterceptor] 401 on public route "${currentPath}". Bypass redirect.`);
+      // Determine if this is a "public" page or request that should NOT trigger a login redirect
+      const isPublicPage = isPublicPath(currentPath);
+      const isPublicRequest = 
+        requestUrl.includes("/auth/login") || 
+        requestUrl.includes("/auth/forgot-password") || 
+        requestUrl.includes("/auth/reset-password") ||
+        requestUrl.includes("/auth/register");
+
+      if (isPublicPage || isPublicRequest) {
+        // Silently bypass for public routes to keep console clean
+        return Promise.reject(error);
       }
 
-
+      // Legitimate session expiration on protected route
+      clearAuthSession();
+      window.location.replace("/login?reason=session-expired");
     }
 
     return Promise.reject(error);
   }
 );
+
 
 export default API;
 

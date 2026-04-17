@@ -49,9 +49,9 @@ function LoginPageContent() {
 
   return (
     <div style={styles.container}>
-      <PublicSiteNav />
- 
+     
       {/* Main content area (centers card without moving the navbar) */}
+
       <div style={styles.main}>
         {/* Background gradient */}
         <div style={styles.background}></div>
