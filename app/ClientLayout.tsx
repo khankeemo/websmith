@@ -10,9 +10,11 @@ import { useRouter } from "next/navigation";
 import { Menu, Moon, Sun, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
-import ForcedPasswordResetModal from "../components/auth/ForcedPasswordResetModal";
-import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, setAuthSession } from "../lib/auth";
+import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, isPublicPath, PUBLIC_PATHS } from "../lib/auth";
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
+import Footer from "./footer/Footer";
+import PublicSiteNav from "../components/layout/PublicSiteNav";
+
 
 export default function ClientLayout({
   children,
@@ -25,14 +27,18 @@ export default function ClientLayout({
   const [publicTheme, setPublicTheme] = useState<"light" | "dark">("light");
   const [showForcedPasswordResetModal, setShowForcedPasswordResetModal] = useState(false);
   
-  const publicPaths = ["/", "/login", "/register", "/forgot-password", "/auth/callback", "/services", "/lead-form", "/success", "/auth/change-password"];
-  const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
-  
   useEffect(() => {
+    if (pathname === null) return; // Wait for router to be ready
+
     const token = getToken();
     const user = getStoredUser();
+    const isPublic = isPublicPath(pathname);
 
-    if (publicPaths.includes(pathname)) {
+    if (typeof window !== "undefined") {
+      (window as any).__LAST_PATH__ = pathname;
+    }
+
+    if (isPublic) {
       document.documentElement.classList.toggle(
         "dark-theme",
         token && user ? user.preferences?.theme === "dark" : publicTheme === "dark"
@@ -46,7 +52,17 @@ export default function ClientLayout({
       return;
     }
 
+
+
+
     const defaultRoute = getDefaultRouteForRole(user.role);
+
+    if (user.role === "client" && user.isTemporaryPassword && pathname !== "/auth/change-password") {
+      router.replace("/auth/change-password");
+      return;
+    }
+
+    const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
 
     if (legacyProtectedPaths.includes(pathname)) {
       router.replace(defaultRoute);
@@ -68,7 +84,6 @@ export default function ClientLayout({
     }
 
     document.documentElement.classList.toggle("dark-theme", user.preferences?.theme === "dark");
-    setShowForcedPasswordResetModal(Boolean(user.isTemporaryPassword));
   }, [pathname, publicTheme, router]);
 
   useEffect(() => {
@@ -81,30 +96,9 @@ export default function ClientLayout({
     setMounted(true);
   }, []);
 
-  const shouldShowSidebar = !publicPaths.includes(pathname);
+  const shouldShowSidebar = !isPublicPath(pathname);
+
   const user = getStoredUser();
-
-  const handleForcedPasswordResetCompleted = () => {
-    const latestUser = getStoredUser();
-    if (!latestUser) {
-      setShowForcedPasswordResetModal(false);
-      return;
-    }
-    const updatedUser = { ...latestUser, isTemporaryPassword: false, setupCompleted: true, isApproved: true };
-    const token = getToken();
-    if (token) {
-      setAuthSession(token, updatedUser);
-    } else {
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-    }
-    setShowForcedPasswordResetModal(false);
-  };
-
-  const handleForcedPasswordResetLogout = () => {
-    clearAuthSession();
-    setShowForcedPasswordResetModal(false);
-    router.replace("/login?reason=password-update-required");
-  };
 
   useEffect(() => {
     if (!shouldShowSidebar) return;
@@ -146,8 +140,19 @@ export default function ClientLayout({
           </>
         )}
         <main className="app-main-shell" style={styles.main}>
-          <div className="app-main-scroll">{children}</div>
+          <div className="app-main-scroll">
+            {!shouldShowSidebar && (
+              <PublicSiteNav variant={(pathname === "/login" || pathname === "/register" || pathname === "/forgot-password") ? "auth" : "full"} />
+            )}
+            
+            {children}
+            
+            {!shouldShowSidebar && pathname !== "/login" && pathname !== "/register" && pathname !== "/forgot-password" && (
+              <Footer />
+            )}
+          </div>
         </main>
+
         {/* Only after mount: server has no localStorage, so auth checks must not run during SSR. */}
         {mounted && !shouldShowSidebar && !getToken() && !getStoredUser() && (
           <button
@@ -160,11 +165,6 @@ export default function ClientLayout({
           </button>
         )}
       </div>
-      <ForcedPasswordResetModal
-        isOpen={shouldShowSidebar && showForcedPasswordResetModal}
-        onCompleted={handleForcedPasswordResetCompleted}
-        onLogout={handleForcedPasswordResetLogout}
-      />
       <CrispChat />
       <style>{`
         .app-layout-shell {

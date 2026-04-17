@@ -62,6 +62,65 @@ export const clearAuthSession = () => {
   localStorage.removeItem(USER_KEY);
 };
 
+export const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/forgotpassword",
+  "/reset-password",
+  "/resetpassword",
+  "/auth/callback",
+
+  "/services",
+  "/lead-form",
+  "/success",
+  "/auth/change-password",
+  "/about",
+  "/careers",
+  "/blog",
+  "/documentation",
+  "/support",
+  "/privacy",
+  "/terms",
+];
+
+
+/**
+ * Checks if a pathname is a public route, handling trailing slashes and casing.
+ */
+export const isPublicPath = (pathname: string) => {
+  if (!pathname) return false;
+
+  // Normalize: lowercase, then remove all trailing slashes
+  const normalized = pathname.toLowerCase().replace(/\/+$/, "") || "/";
+
+  // Strict check against PUBLIC_PATHS list
+  const isMatch = PUBLIC_PATHS.some((p) => {
+    const pNormalized = p.toLowerCase().replace(/\/+$/, "") || "/";
+    return pNormalized === normalized;
+  });
+
+  if (isMatch) return true;
+
+  // Fuzzy check for critical auth paths (fallback fix for Vercel trailing slash/hyphen oddities)
+  const lowerPath = pathname.toLowerCase();
+  
+  // More aggressive defensive check for forgot/reset routes
+  if (
+    lowerPath.includes("/forgot") || 
+    lowerPath.includes("/reset") ||
+    lowerPath.startsWith("forgot") ||
+    lowerPath.startsWith("reset")
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+
+
 export const getDefaultRouteForRole = (role?: string | null) => {
   if (role === "admin") {
     return "/admin/dashboard";
@@ -77,3 +136,4 @@ export const getDefaultRouteForRole = (role?: string | null) => {
 
   return "/login";
 };
+

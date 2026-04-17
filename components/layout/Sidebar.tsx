@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { AuthUser, getStoredUser, clearAuthSession, getToken, setAuthSession } from "../../lib/auth";
+import { AuthUser, getStoredUser, clearAuthSession, getToken, setAuthSession, isPublicPath } from "../../lib/auth";
 import {
   LogOut,
   Bell,
@@ -55,15 +55,19 @@ export default function Sidebar({
 
   useEffect(() => {
     const syncLiveProfile = async () => {
+      const token = getToken();
+      const storedUser = getStoredUser();
+      
+      // Only sync if we already have a session. 
+      // Prevents 401s on public pages if Sidebar happens to mount or re-render.
+      if (!token || !storedUser || isPublicPath(window.location.pathname)) return;
+
       try {
         const response = await API.get("/users/profile");
         const liveUser = response.data.user || response.data.data;
         if (!liveUser) return;
 
-        const token = getToken();
-        if (token) {
-          setAuthSession(token, liveUser);
-        }
+        setAuthSession(token, liveUser);
         setUser(liveUser);
       } catch {
         // Keep the last known session snapshot if profile refresh fails.
@@ -72,6 +76,7 @@ export default function Sidebar({
 
     syncLiveProfile();
   }, []);
+
 
   useEffect(() => {
     const handleProfileUpdate = () => {

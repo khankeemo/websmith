@@ -315,7 +315,6 @@ export default function LandingPage() {
   return (
     <div style={styles.container}>
       <LeadCapturePopup />
-      <PublicSiteNav />
 
       {/* Hero Section */}
       <section style={styles.hero} className="landing-hero">
@@ -674,41 +673,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer id="footer" ref={footerRef} style={styles.footer}>
-        <div style={styles.footerContent} className="landing-footer-content">
-          <div style={styles.footerSection}>
-            <h3 style={styles.footerLogo}>Websmith</h3>
-            <p style={styles.footerDesc}>Your trusted partner for digital excellence.</p>
-            <div style={styles.socialLinks}>
-              <span className="social-icon" style={{ fontSize: "18px", cursor: "pointer" }}>🐦</span>
-              <span className="social-icon" style={{ fontSize: "18px", cursor: "pointer" }}>💼</span>
-              <span className="social-icon" style={{ fontSize: "18px", cursor: "pointer" }}>🐙</span>
-              <span className="social-icon" style={{ fontSize: "18px", cursor: "pointer" }}>📘</span>
-            </div>
-          </div>
-          <div style={styles.footerSection}>
-            <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Company</h4>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>About Us</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Careers</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Blog</a>
-          </div>
-          <div style={styles.footerSection}>
-            <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Resources</h4>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Documentation</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Support</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Contact</a>
-          </div>
-          <div style={styles.footerSection}>
-            <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Legal</h4>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Privacy Policy</a>
-            <a href="#" style={{ fontSize: "14px", color: "#6C6C70", textDecoration: "none" }}>Terms of Service</a>
-          </div>
-        </div>
-        <div style={styles.copyright}>
-          <p>© 2024 Websmith. All rights reserved. Developed with ❤️ by Websmith Team</p>
-        </div>
-      </footer>
 
       <style>{`
         /* Logo Hover */
@@ -1345,50 +1309,9 @@ const styles: any = {
     fontSize: "13px",
     color: "#6C6C70",
   },
-  
-  // Footer
-  footer: {
-    backgroundColor: "#F9F9FB",
-    borderTop: "1px solid #E5E5EA",
-    padding: "48px 0 24px",
-  },
-  footerContent: {
-    maxWidth: "100%",
-    margin: "0",
-    padding: "0 24px",
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "40px",
-    marginBottom: "40px",
-  },
-  footerSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
-  footerLogo: {
-    fontSize: "20px",
-    fontWeight: 600,
-    marginBottom: "8px",
-  },
-  footerDesc: {
-    fontSize: "14px",
-    color: "#6C6C70",
-  },
-  socialLinks: {
-    display: "flex",
-    gap: "16px",
-    marginTop: "8px",
-  },
-  copyright: {
-    textAlign: "center",
-    paddingTop: "24px",
-    borderTop: "1px solid #E5E5EA",
-    fontSize: "12px",
-    color: "#8E8E93",
-  },
 
   // Diversity Section Styles
+
   diversitySection: {
     backgroundColor: "#F5F5F7",
     padding: "100px 0",
