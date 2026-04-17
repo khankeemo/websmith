@@ -5,6 +5,13 @@ import { Clock3, Mail, MessageSquare, Search, Send, ShieldCheck } from "lucide-r
 import API from "@/core/services/apiService";
 import { addTicketReply, getTickets, Ticket, updateTicketStatus } from "@/core/services/ticketService";
 
+type QueryGroup = {
+  key: string;
+  label: string;
+  subtitle: string;
+  tickets: Ticket[];
+};
+
 const formatDate = (value?: string) =>
   value
     ? new Date(value).toLocaleString("en-US", {
@@ -44,6 +51,7 @@ export default function AdminMessagesClient() {
           ticket.subject,
           ticket.description,
           typeof ticket.clientId === "object" ? ticket.clientId?.name : "",
+          typeof ticket.projectId === "object" ? ticket.projectId?.name : "",
           ticket.contactName || "",
           ticket.contactEmail || "",
         ]
@@ -53,6 +61,29 @@ export default function AdminMessagesClient() {
       ),
     [tickets, searchTerm]
   );
+
+  const groupedTickets = useMemo<QueryGroup[]>(() => {
+    const groups = new Map<string, QueryGroup>();
+
+    filteredTickets.forEach((ticket) => {
+      const project = typeof ticket.projectId === "object" ? ticket.projectId : null;
+      const key = project?._id || (ticket.projectId ? String(ticket.projectId) : "general");
+      const label = project?.name || (ticket.projectId ? "Linked project" : "General and public queries");
+      const subtitle = project?.status ? `Project status: ${project.status.replace("-", " ")}` : "No project selected";
+
+      if (!groups.has(key)) {
+        groups.set(key, { key, label, subtitle, tickets: [] });
+      }
+
+      groups.get(key)!.tickets.push(ticket);
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.key === "general") return 1;
+      if (b.key === "general") return -1;
+      return a.label.localeCompare(b.label);
+    });
+  }, [filteredTickets]);
 
   const selectedTicket =
     filteredTickets.find((ticket) => ticket._id === selectedId) ||
@@ -145,27 +176,36 @@ export default function AdminMessagesClient() {
           ) : filteredTickets.length === 0 ? (
             <p style={styles.emptyText}>No queries match your search.</p>
           ) : (
-            filteredTickets.map((ticket) => {
-              const requester = getRequester(ticket);
-              return (
-                <button
-                  key={ticket._id}
-                  type="button"
-                  onClick={() => setSelectedId(ticket._id)}
-                  style={{
-                    ...styles.ticketRow,
-                    ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
-                  }}
-                >
-                  <div style={styles.ticketRowTop}>
-                    <strong style={styles.ticketSubject}>{ticket.subject}</strong>
-                    <span style={styles.ticketStatus}>{ticket.status.replace("_", " ")}</span>
-                  </div>
-                  <p style={styles.ticketMeta}>{requester.name}</p>
-                  <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
-                </button>
-              );
-            })
+            groupedTickets.map((group) => (
+              <div key={group.key} style={styles.projectGroup}>
+                <div style={styles.projectGroupHeader}>
+                  <strong style={styles.projectGroupTitle}>{group.label}</strong>
+                  <span style={styles.projectGroupCount}>{group.tickets.length}</span>
+                </div>
+                <p style={styles.projectGroupSubtitle}>{group.subtitle}</p>
+                {group.tickets.map((ticket) => {
+                  const requester = getRequester(ticket);
+                  return (
+                    <button
+                      key={ticket._id}
+                      type="button"
+                      onClick={() => setSelectedId(ticket._id)}
+                      style={{
+                        ...styles.ticketRow,
+                        ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
+                      }}
+                    >
+                      <div style={styles.ticketRowTop}>
+                        <strong style={styles.ticketSubject}>{ticket.subject}</strong>
+                        <span style={styles.ticketStatus}>{ticket.status.replace("_", " ")}</span>
+                      </div>
+                      <p style={styles.ticketMeta}>{requester.name}</p>
+                      <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            ))
           )}
         </div>
       </div>
@@ -184,6 +224,9 @@ export default function AdminMessagesClient() {
                 <p style={styles.threadSubtitle}>
                   {getRequester(selectedTicket).name}
                   {" · "}
+                  {typeof selectedTicket.projectId === "object" && selectedTicket.projectId?.name
+                    ? `${selectedTicket.projectId.name} Â· `
+                    : ""}
                   {selectedTicket.source === "public_contact" ? "Public contact" : "Client portal"}
                 </p>
               </div>
@@ -309,13 +352,36 @@ const styles: Record<string, any> = {
     width: "100%",
   },
   ticketList: { display: "flex", flexDirection: "column", padding: "12px" },
+  projectGroup: {
+    border: "1px solid var(--border-color)",
+    borderRadius: "18px",
+    padding: "12px",
+    marginBottom: "12px",
+    backgroundColor: "var(--bg-secondary)",
+  },
+  projectGroupHeader: { display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center" },
+  projectGroupTitle: { color: "var(--text-primary)", fontSize: "14px" },
+  projectGroupSubtitle: { margin: "4px 0 10px 0", color: "var(--text-secondary)", fontSize: "12px", textTransform: "capitalize" },
+  projectGroupCount: {
+    minWidth: "24px",
+    height: "24px",
+    borderRadius: "999px",
+    backgroundColor: "#007AFF",
+    color: "#fff",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
   ticketRow: {
     textAlign: "left",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-primary)",
     borderRadius: "16px",
     padding: "14px",
-    marginBottom: "10px",
+    marginBottom: "8px",
+    width: "100%",
     cursor: "pointer",
   },
   ticketRowActive: {

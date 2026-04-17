@@ -60,6 +60,10 @@ export default function ClientProjectsPage() {
   const handleSendFeedback = async () => {
     if (!selectedProject || !feedbackText.trim()) return;
     if (!isProjectCompleted(selectedProject)) return;
+    if (projectFeedback.length > 0) {
+      setFeedbackError("Feedback has already been submitted for this project.");
+      return;
+    }
     try {
       setFeedbackError("");
       const currentUser = getStoredUser();
@@ -443,23 +447,27 @@ export default function ClientProjectsPage() {
                       <p style={styles.emptyMessage}>No feedback yet</p>
                     )}
                   </div>
-                  <div style={styles.feedbackInputWrap}>
-                    {feedbackError && <p style={styles.feedbackError}>{feedbackError}</p>}
-                    <select value={feedbackRating} onChange={(e) => setFeedbackRating(Number(e.target.value))} style={styles.ratingSelect}>
-                      {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} Stars</option>)}
-                    </select>
-                    <textarea 
-                      value={feedbackText}
-                      onChange={(e) => setFeedbackText(e.target.value)}
-                      placeholder="Provide feedback..."
-                      style={styles.feedbackTextarea}
-                      rows={3}
-                    />
-                    <button onClick={handleSendFeedback} style={styles.sendBtn} disabled={!feedbackText.trim()}>
-                      <Send size={14} />
-                      Send Feedback
-                    </button>
-                  </div>
+                  {projectFeedback.length === 0 ? (
+                    <div style={styles.feedbackInputWrap}>
+                      {feedbackError && <p style={styles.feedbackError}>{feedbackError}</p>}
+                      <select value={feedbackRating} onChange={(e) => setFeedbackRating(Number(e.target.value))} style={styles.ratingSelect}>
+                        {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} Stars</option>)}
+                      </select>
+                      <textarea 
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        placeholder="Provide feedback..."
+                        style={styles.feedbackTextarea}
+                        rows={3}
+                      />
+                      <button onClick={handleSendFeedback} style={styles.sendBtn} disabled={!feedbackText.trim()}>
+                        <Send size={14} />
+                        Send Feedback
+                      </button>
+                    </div>
+                  ) : (
+                    <p style={styles.feedbackSubmitted}>Feedback has already been submitted for this project.</p>
+                  )}
                 </div>
               )}
             </div>
@@ -712,6 +720,7 @@ const styles: any = {
   feedbackRating: { fontSize: '12px', color: '#FF9500', margin: '8px 0 0 0', fontWeight: 700 },
   feedbackInputWrap: { display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' },
   feedbackError: { fontSize: '13px', color: '#FF3B30', margin: 0, fontWeight: 600 },
+  feedbackSubmitted: { fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0', fontWeight: 600 },
   ratingSelect: { width: '180px', padding: '10px 12px', border: '1.5px solid var(--border-color)', borderRadius: '10px', fontFamily: 'inherit', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
   feedbackTextarea: { width: '100%', padding: '12px 14px', border: '1.5px solid var(--border-color)', borderRadius: '12px', fontSize: '14px', fontFamily: 'inherit', outline: 'none', resize: 'vertical' as const, backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' },
   emptyMessage: { textAlign: 'center' as const, padding: '40px 20px', color: 'var(--text-secondary)', fontSize: '14px' },

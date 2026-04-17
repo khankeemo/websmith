@@ -10,7 +10,7 @@ import { useProjects } from './hooks/useProjects';
 import ProjectCard from './components/ProjectCard';
 import ProjectModal from './components/ProjectModal';
 import KanbanBoard from '../../components/ui/KanbanBoard';
-import { Project, bulkUpdateProjectStatus, getProjectFeedback, toggleFeedbackTestimonial, updateProjectStatus } from './services/projectService';
+import { Project, bulkUpdateProjectStatus, deleteProjectFeedback, getProjectFeedback, toggleFeedbackTestimonial, updateProjectStatus } from './services/projectService';
 
 export default function ProjectsPage() {
   const { projects, loading, error, addProject, editProject, removeProject, fetchProjects } = useProjects();
@@ -94,6 +94,17 @@ export default function ProjectsPage() {
       setFeedbackItems(feedback);
     } catch (error) {
       console.error('Toggle testimonial error:', error);
+    }
+  };
+
+  const handleDeleteFeedback = async (feedbackId: string) => {
+    if (!feedbackProject) return;
+    if (!confirm('Delete this feedback?')) return;
+    try {
+      const feedback = await deleteProjectFeedback(feedbackProject._id!, feedbackId);
+      setFeedbackItems(feedback);
+    } catch (error) {
+      console.error('Delete feedback error:', error);
     }
   };
 
@@ -313,17 +324,22 @@ export default function ProjectsPage() {
                     </div>
                     <p style={styles.feedbackQuote}>{feedback.comment || 'No comment provided.'}</p>
                     {feedback._id && (
-                      <button
-                        type="button"
-                        onClick={() => handleToggleTestimonial(feedback._id!, !feedback.publishedAsTestimonial)}
-                        style={{
-                          ...styles.testimonialBtn,
-                          ...(feedback.publishedAsTestimonial ? styles.testimonialBtnActive : {}),
-                        }}
-                      >
-                        <MessageSquareQuote size={14} />
-                        {feedback.publishedAsTestimonial ? 'Unpublish Testimonial' : 'Publish as Testimonial'}
-                      </button>
+                      <div style={styles.feedbackActions}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTestimonial(feedback._id!, !feedback.publishedAsTestimonial)}
+                          style={{
+                            ...styles.testimonialBtn,
+                            ...(feedback.publishedAsTestimonial ? styles.testimonialBtnActive : {}),
+                          }}
+                        >
+                          <MessageSquareQuote size={14} />
+                          {feedback.publishedAsTestimonial ? 'Unpublish Testimonial' : 'Publish as Testimonial'}
+                        </button>
+                        <button type="button" onClick={() => handleDeleteFeedback(feedback._id!)} style={styles.deleteFeedbackBtn}>
+                          Delete Feedback
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -543,6 +559,8 @@ const styles: any = {
   feedbackMeta: { margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '12px' },
   feedbackStars: { display: 'flex', gap: '2px', flexShrink: 0 },
   feedbackQuote: { margin: '0 0 14px 0', color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6 },
+  feedbackActions: { display: 'flex', gap: '10px', flexWrap: 'wrap' },
   testimonialBtn: { padding: '9px 12px', border: '1px solid rgba(0, 122, 255, 0.2)', backgroundColor: 'rgba(0, 122, 255, 0.08)', color: '#007AFF', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' },
   testimonialBtnActive: { borderColor: 'rgba(217, 119, 6, 0.25)', backgroundColor: '#FEF3C7', color: '#D97706' },
+  deleteFeedbackBtn: { padding: '9px 12px', border: '1px solid rgba(255, 59, 48, 0.18)', backgroundColor: 'rgba(255, 59, 48, 0.08)', color: '#FF3B30', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 },
 };

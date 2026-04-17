@@ -172,6 +172,16 @@ export const toggleFeedbackTestimonial = async (
   }
 };
 
+export const deleteProjectFeedback = async (projectId: string, feedbackId: string) => {
+  try {
+    const response = await API.delete(`/projects/${projectId}/feedback/${feedbackId}`);
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('Delete project feedback error:', error);
+    throw error.response?.data?.message || 'Failed to delete project feedback';
+  }
+};
+
 export const getPublishedTestimonials = async () => {
   try {
     const response = await API.get('/projects/public/testimonials');
