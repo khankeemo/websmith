@@ -38,6 +38,7 @@ export interface CreateGatewayPaymentData {
   amount?: number;
   currency?: string;
   notes?: string;
+  frontendBaseUrl?: string;
 }
 
 export interface StripeGatewayPaymentResponse {

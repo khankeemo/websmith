@@ -63,7 +63,6 @@ export default function ClientInvoicesPage() {
 
     const searchParams = new URLSearchParams(window.location.search);
     const paymentStatus = searchParams.get("paymentStatus");
-    const provider = searchParams.get("provider");
     const paymentId = searchParams.get("paymentId");
     const invoiceId = searchParams.get("invoiceId");
 
@@ -72,6 +71,12 @@ export default function ClientInvoicesPage() {
       void pollPaymentResult(invoiceId, paymentId);
     } else if (paymentStatus === "cancelled") {
       setPaymentError("Payment was cancelled before completion.");
+      if (paymentId) {
+        void paymentService.getGatewayPaymentStatus(paymentId).catch((error) => {
+          console.error("Gateway cancellation reconciliation error:", error);
+        });
+      }
+      void refreshBillingData();
     }
   }, []);
 
@@ -89,7 +94,23 @@ export default function ClientInvoicesPage() {
   const fetchPayments = async () => {
     try {
       const data = await paymentService.getAllPayments();
-      setPayments(data || []);
+      const paymentList = data || [];
+      setPayments(paymentList);
+
+      const pendingGatewayPayments = paymentList.filter(
+        (payment) =>
+          payment.status === "pending" &&
+          (payment.provider === "stripe" || payment.provider === "razorpay") &&
+          Boolean(payment._id)
+      );
+
+      if (pendingGatewayPayments.length > 0) {
+        await Promise.allSettled(
+          pendingGatewayPayments.map((payment) => paymentService.getGatewayPaymentStatus(payment._id))
+        );
+        const refreshedPayments = await paymentService.getAllPayments();
+        setPayments(refreshedPayments || []);
+      }
     } catch (error) {
       console.error("Fetch payments error:", error);
     }
@@ -217,6 +238,7 @@ export default function ClientInvoicesPage() {
         amount: selectedInvoice.amount,
         currency: provider === "razorpay" ? "INR" : "USD",
         notes: `Client initiated payment for ${selectedInvoice.invoiceNumber}`,
+        frontendBaseUrl: typeof window !== "undefined" ? window.location.origin : undefined,
       });
 
       if (response.provider === "stripe" && response.checkoutUrl) {
@@ -437,7 +459,7 @@ export default function ClientInvoicesPage() {
                     <Download size={16} /> <span className="hide-mobile">Receipt</span>
                   </button>
                 </div>
-                {invoice.status !== "paid" && !hasPendingPayment(invoice._id) && (
+                {invoice.status !== "paid" && (
                   <button 
                     style={styles.payButton} 
                     className="pay-btn-hover"
@@ -448,12 +470,12 @@ export default function ClientInvoicesPage() {
                       setSelectedInvoice(invoice);
                     }}
                   >
-                    <CreditCard size={18} /> Pay Now
+                    <CreditCard size={18} /> {hasPendingPayment(invoice._id) ? "Retry Payment" : "Pay Now"}
                   </button>
                 )}
                 {invoice.status !== "paid" && hasPendingPayment(invoice._id) && (
                   <div style={styles.pendingVerification}>
-                    Payment verification in progress
+                    Verification pending. You can retry if this takes too long.
                   </div>
                 )}
               </div>
