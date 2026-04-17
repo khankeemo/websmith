@@ -16,10 +16,14 @@ export const requestPasswordResetOtp = async (email: string) => {
 
 export const verifyPasswordResetOtp = async (email: string, otp: string) => {
   const res = await API.post("/auth/forgot-password/verify", { email, otp });
-  return res.data as { success: boolean; message: string; verificationToken: string };
+  return res.data as { success: boolean; message: string };
 };
 
-export const issueTemporaryPasswordWithOtp = async (email: string, verificationToken: string) => {
-  const res = await API.post("/auth/forgot-password/issue-temp-password", { email, verificationToken });
+export const resetPasswordWithOtp = async (payload: {
+  email: string;
+  newPassword: string;
+  confirmPassword: string;
+}) => {
+  const res = await API.post("/auth/forgot-password/reset", payload);
   return res.data;
 };

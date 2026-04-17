@@ -25,7 +25,7 @@ export default function ClientLayout({
   const [publicTheme, setPublicTheme] = useState<"light" | "dark">("light");
   const [showForcedPasswordResetModal, setShowForcedPasswordResetModal] = useState(false);
   
-  const publicPaths = ["/", "/login", "/register", "/auth/callback", "/services", "/lead-form", "/success", "/auth/change-password"];
+  const publicPaths = ["/", "/login", "/register", "/forgot-password", "/auth/callback", "/services", "/lead-form", "/success", "/auth/change-password"];
   const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
   
   useEffect(() => {

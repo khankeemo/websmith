@@ -4,19 +4,21 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import {
-  issueTemporaryPasswordWithOtp,
   requestPasswordResetOtp,
+  resetPasswordWithOtp,
   verifyPasswordResetOtp,
 } from "@/core/services/authService";
 import { validateEmail } from "@/core/utils/validation";
 
-type ResetStep = "request" | "verify" | "done";
+type ResetStep = "request" | "verify" | "reset" | "done";
 const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<ResetStep>("request");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -68,11 +70,40 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const response = await verifyPasswordResetOtp(email, otp.trim());
-      await issueTemporaryPasswordWithOtp(email, response.verificationToken);
-      setMessage("OTP verified. Temporary password has been sent to your email. Please sign in and update your password immediately.");
-      setStep("done");
+      setMessage(response.message || "OTP verified. Please set your new password.");
+      setStep("reset");
     } catch (err: any) {
       setError(err.response?.data?.message || "OTP is incorrect or expired. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await resetPasswordWithOtp({
+        email,
+        newPassword,
+        confirmPassword,
+      });
+      setMessage(response.message || "Password updated successfully. You can now sign in.");
+      setStep("done");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to reset password. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -118,7 +149,8 @@ export default function ForgotPasswordPage() {
           <p style={styles.subtitle}>
             {step === "request" && "Enter your email to receive a one-time password."}
             {step === "verify" && "Check your inbox and enter the 6-digit OTP."}
-            {step === "done" && "Temporary password sent. Sign in to continue, then update your password immediately."}
+            {step === "reset" && "Create a new password for your account."}
+            {step === "done" && "Your password has been reset successfully. Sign in with your new password."}
           </p>
         </div>
 
@@ -162,9 +194,41 @@ export default function ForgotPasswordPage() {
         {step === "done" && (
           <div style={styles.doneState}>
             <Link href="/login" style={styles.primaryLinkButton}>
-              Sign in with temporary password
+              Sign in
             </Link>
           </div>
+        )}
+
+        {step === "reset" && (
+          <form onSubmit={handleResetPassword} style={styles.form}>
+            <label style={styles.label}>New password</label>
+            <div style={styles.inputWrap}>
+              <KeyRound size={18} style={styles.inputIcon} />
+              <input
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                type="password"
+                style={styles.input}
+                placeholder="Enter new password"
+              />
+            </div>
+
+            <label style={styles.label}>Confirm new password</label>
+            <div style={styles.inputWrap}>
+              <KeyRound size={18} style={styles.inputIcon} />
+              <input
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                type="password"
+                style={styles.input}
+                placeholder="Re-enter new password"
+              />
+            </div>
+
+            <button type="submit" style={styles.primaryButton} disabled={loading}>
+              {loading ? "Resetting password..." : "Reset Password"}
+            </button>
+          </form>
         )}
       </div>
     </div>
