@@ -12,11 +12,11 @@ export default function AboutPage() {
   return (
     <PublicPage
       eyebrow="About Websmith"
-      title="A product delivery partner built for clarity, momentum, and trust."
-      description="Websmith combines public credibility, delivery operations, and client collaboration into one connected experience so growing teams can launch with fewer gaps."
+      title="A delivery partner designed to make product work feel clear, steady, and trustworthy."
+      description="Websmith brings together public presence, execution systems, and client collaboration so teams can move from idea to launch without the usual handoff chaos."
       cta={homeFooterCta}
     >
-      <Section title="Mission and Vision">
+      <Section title="What we are building" description="The company is shaped around a simple belief: delivery quality improves when communication, visibility, and execution live in the same system.">
         <CardGrid>
           {aboutHighlights.map((item) => (
             <Card key={item.label} accent="#007AFF">
@@ -27,7 +27,7 @@ export default function AboutPage() {
         </CardGrid>
       </Section>
 
-      <Section title="What makes Websmith different" description="These are operating choices, not generic promises.">
+      <Section title="What makes Websmith different" description="These are operating decisions that influence how projects feel day to day, not just positioning lines on a website.">
         <CardGrid>
           {aboutDifferentiators.map((item) => (
             <Card key={item.title}>
@@ -42,21 +42,21 @@ export default function AboutPage() {
         <TwoColumn
           left={
             <Card>
-              <h3 style={styles.heading}>Why clients choose us</h3>
+              <h3 style={styles.heading}>Why clients stay with us</h3>
               <BulletList
                 items={[
-                  "A single workspace for project updates, files, support, invoices, and communication",
-                  "Delivery visibility without exposing internal-only admin workflows",
-                  "Structured support and launch continuity after the build phase",
+                  "One place for updates, files, support, invoices, approvals, and delivery communication",
+                  "Client-friendly visibility without exposing noisy internal-only workflows",
+                  "Launch continuity so post-release support feels like part of the same engagement",
                 ]}
               />
             </Card>
           }
           right={
             <Card>
-              <h3 style={styles.heading}>Team snapshot</h3>
+              <h3 style={styles.heading}>Operating snapshot</h3>
               <p style={styles.body}>
-                Cross-functional operators across engineering, design, and delivery keep the work moving from idea to launch.
+                We work across engineering, design, and delivery operations so product progress does not stall between specialties.
               </p>
               <div style={styles.metricList}>
                 {aboutMetrics.map((item) => (
@@ -71,10 +71,27 @@ export default function AboutPage() {
         />
       </Section>
 
+      <Section title="How partnerships usually start" description="Most teams come to us when they need both execution and confidence: a reliable way to ship, communicate, and support the work afterward.">
+        <CardGrid>
+          <Card accent="#22C55E">
+            <h3 style={styles.heading}>Discovery and framing</h3>
+            <p style={styles.body}>We help clarify scope, constraints, milestones, and the real operating picture before delivery starts.</p>
+          </Card>
+          <Card accent="#F59E0B">
+            <h3 style={styles.heading}>Structured delivery</h3>
+            <p style={styles.body}>Once work begins, clients should always know what changed, what is blocked, and what comes next.</p>
+          </Card>
+          <Card accent="#007AFF">
+            <h3 style={styles.heading}>Launch and continuity</h3>
+            <p style={styles.body}>Documentation, support pathways, and post-launch follow-through are treated as part of the job, not cleanup work.</p>
+          </Card>
+        </CardGrid>
+      </Section>
+
       <Section title="Start a project with us">
         <Card accent="#22C55E">
           <p style={styles.body}>
-            If you need a team that can shape public experience, delivery operations, and launch support as one system, we should talk.
+            If you need a team that can shape customer-facing experience, delivery systems, and support continuity as one connected flow, we should talk.
           </p>
           <Link href={homeFooterCta.href} style={styles.inlineCta}>
             {homeFooterCta.label}

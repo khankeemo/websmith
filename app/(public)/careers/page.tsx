@@ -6,11 +6,11 @@ export default function CareersPage() {
   return (
     <PublicPage
       eyebrow="Careers"
-      title="Join a team that values calm execution and strong craft."
-      description="We look for people who care about shipping well, communicating clearly, and helping clients feel confident throughout the work."
+      title="Join a team that values calm execution, strong craft, and useful collaboration."
+      description="We want people who ship thoughtfully, communicate without drama, and care about making clients and teammates feel supported throughout the work."
       cta={{ href: "mailto:careers@websmith.dev", label: "Apply by Email" }}
     >
-      <Section title="Why work with us">
+      <Section title="Why work with us" description="The environment is built for people who want meaningful ownership without chaotic process or performative urgency.">
         <CardGrid>
           <Card accent="#007AFF">
             <h3 style={styles.heading}>Ownership with support</h3>
@@ -27,13 +27,30 @@ export default function CareersPage() {
         </CardGrid>
       </Section>
 
-      <Section title="Culture overview">
+      <Section title="Culture overview" description="These are the values that tend to matter most in the day-to-day working relationship.">
         <Card>
           <BulletList items={careerValues} />
         </Card>
       </Section>
 
-      <Section title="Open roles" description="Current opportunities are listed dynamically from the public site config.">
+      <Section title="What good work looks like here">
+        <CardGrid>
+          <Card>
+            <h3 style={styles.heading}>Clarity over theatre</h3>
+            <p style={styles.body}>We prefer honest progress, clean tradeoff thinking, and useful updates over busy-looking activity.</p>
+          </Card>
+          <Card>
+            <h3 style={styles.heading}>Craft with context</h3>
+            <p style={styles.body}>Good implementation includes product judgment, communication quality, and respect for how work connects across the system.</p>
+          </Card>
+          <Card>
+            <h3 style={styles.heading}>Steady pace</h3>
+            <p style={styles.body}>We want durable momentum, not short bursts of unsustainable output that create hidden cleanup later.</p>
+          </Card>
+        </CardGrid>
+      </Section>
+
+      <Section title="Open roles" description="Current opportunities reflect the roles that help us strengthen product delivery, frontend quality, and operational clarity.">
         <CardGrid>
           {careerRoles.map((role) => (
             <Card key={role.id}>
@@ -52,7 +69,7 @@ export default function CareersPage() {
         </CardGrid>
       </Section>
 
-      <Section title="Application method">
+      <Section title="Application method" description="A concise, thoughtful application is more useful than a polished wall of buzzwords.">
         <Card>
           <p style={styles.body}>
             Send your portfolio, resume, and a short note to <a href="mailto:careers@websmith.dev" style={styles.inlineLink}>careers@websmith.dev</a>. We care more about clarity and evidence of craft than polished buzzwords.

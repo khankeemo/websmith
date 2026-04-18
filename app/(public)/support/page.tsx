@@ -8,16 +8,33 @@ export default function SupportPage() {
     <PublicPage
       eyebrow="Support"
       title="Need help with delivery, access, billing, or a live issue?"
-      description="Support is structured to give clients a clear next step, fast routing, and a dependable response path."
+      description="Support is designed to give clients a clear next action, quick routing, and a response path that feels steady instead of confusing."
       cta={{ href: "/#contact", label: "Contact Support" }}
     >
-      <Section title={supportStatus.label}>
+      <Section title={supportStatus.label} description="A quick signal for the main support-facing systems and delivery operations.">
         <Card accent="#22C55E">
           <div style={styles.statusRow}>
             <span style={styles.statusPill}>{supportStatus.state}</span>
             <p style={styles.body}>{supportStatus.detail}</p>
           </div>
         </Card>
+      </Section>
+
+      <Section title="What support can help with">
+        <CardGrid>
+          <Card>
+            <h3 style={styles.heading}>Client access and account issues</h3>
+            <p style={styles.body}>Login trouble, portal questions, access flow confusion, and workspace orientation.</p>
+          </Card>
+          <Card>
+            <h3 style={styles.heading}>Billing and project coordination</h3>
+            <p style={styles.body}>Invoice follow-up, milestone clarification, delivery questions, and administrative support.</p>
+          </Card>
+          <Card>
+            <h3 style={styles.heading}>Launch and live-product concerns</h3>
+            <p style={styles.body}>Escalations for active issues, release questions, and requests that need the right team quickly.</p>
+          </Card>
+        </CardGrid>
       </Section>
 
       <Section title="Frequently asked questions">
@@ -31,7 +48,7 @@ export default function SupportPage() {
         </CardGrid>
       </Section>
 
-      <Section title="Contact support">
+      <Section title="Contact support" description="If the answer is not already here, the landing-page form is the fastest way to route the request into the main support flow.">
         <Card>
           <p style={styles.body}>
             For account, billing, project, or launch support, use the landing page contact form or email{" "}
