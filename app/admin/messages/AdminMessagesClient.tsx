@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Clock3, Mail, MessageSquare, Search, Send, ShieldCheck } from "lucide-react";
 import API from "@/core/services/apiService";
-import { addTicketReply, getTickets, Ticket, updateTicketStatus } from "@/core/services/ticketService";
+import { addTicketReply, getTickets, resolveTicketFileUrl, Ticket, updateTicketStatus } from "@/core/services/ticketService";
 
 type QueryGroup = {
   key: string;
@@ -317,7 +317,30 @@ export default function AdminMessagesClient() {
                     <p style={styles.timelineLabel}>
                       {entry.actorRole.replace("_", " ")} · {entry.action}
                     </p>
-                    <p style={styles.timelineMessage}>{entry.message || "No message provided."}</p>
+                    {entry.message?.trim() ? (
+                      <p style={styles.timelineMessage}>{entry.message}</p>
+                    ) : entry.attachments?.length ? null : (
+                      <p style={styles.timelineMessage}>No message provided.</p>
+                    )}
+                    {entry.attachments && entry.attachments.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+                        {entry.attachments.map((att, ai) => (
+                          <a
+                            key={`${att.url}-${ai}`}
+                            href={resolveTicketFileUrl(att.url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ borderRadius: "10px", overflow: "hidden", display: "block" }}
+                          >
+                            <img
+                              src={resolveTicketFileUrl(att.url)}
+                              alt={att.name}
+                              style={{ maxWidth: "180px", maxHeight: "140px", objectFit: "cover", borderRadius: "10px", border: "1px solid var(--border-color)" }}
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     <p style={styles.timelineTime}>{formatDate(entry.createdAt)}</p>
                   </div>
                 </div>

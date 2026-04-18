@@ -57,14 +57,14 @@ export default function ClientNotificationsPage() {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'project':
-        return { icon: Folder, color: '#007AFF', bg: '#E3F2FF' };
+        return { icon: Folder, color: '#007AFF', bg: 'color-mix(in srgb, #007AFF 16%, var(--bg-secondary))' };
       case 'task':
-        return { icon: TrendingUp, color: '#34C759', bg: '#E8F5E9' };
+        return { icon: TrendingUp, color: '#34C759', bg: 'color-mix(in srgb, #34C759 16%, var(--bg-secondary))' };
       case 'query':
       case 'ticket':
-        return { icon: LifeBuoy, color: '#FF9500', bg: '#FFF4E5' };
+        return { icon: LifeBuoy, color: '#FF9500', bg: 'color-mix(in srgb, #FF9500 16%, var(--bg-secondary))' };
       default:
-        return { icon: Bell, color: '#8E8E93', bg: '#F2F2F7' };
+        return { icon: Bell, color: 'var(--text-secondary)', bg: 'var(--bg-secondary)' };
     }
   };
 
@@ -85,7 +85,7 @@ export default function ClientNotificationsPage() {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div style={styles.container} className="wsd-page">
         <div style={styles.loadingContainer}>
           <div style={styles.spinner}></div>
           <p>Loading notifications...</p>
@@ -95,7 +95,7 @@ export default function ClientNotificationsPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Notifications</h1>
@@ -196,10 +196,10 @@ export default function ClientNotificationsPage() {
                     <div
                       style={{
                         ...styles.iconWrapper,
-                        backgroundColor: notification.isRead ? "#F2F2F7" : iconConfig.bg,
+                        backgroundColor: notification.isRead ? "var(--bg-primary)" : iconConfig.bg,
                       }}
                     >
-                      <IconComponent size={20} color={notification.isRead ? "#8E8E93" : iconConfig.color} />
+                      <IconComponent size={20} color={notification.isRead ? "var(--text-secondary)" : iconConfig.color} />
                     </div>
                     <div style={styles.textContent}>
                       <div style={styles.messageHeader}>
@@ -248,7 +248,9 @@ export default function ClientNotificationsPage() {
 
 const styles: any = {
   container: {
-    padding: "8px 4px",
+    padding: 0,
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
   },
   header: {
     display: "flex",
@@ -262,21 +264,21 @@ const styles: any = {
     fontSize: "34px",
     fontWeight: 600,
     letterSpacing: "-0.5px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     marginBottom: "8px",
   },
   subtitle: {
     fontSize: "15px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   markReadBtn: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
     padding: "10px 20px",
-    backgroundColor: "#F2F2F7",
-    color: "#1C1C1E",
-    border: "none",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    border: "1px solid var(--border-color)",
     borderRadius: "12px",
     fontSize: "14px",
     fontWeight: 600,
@@ -308,13 +310,13 @@ const styles: any = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "16px 20px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-secondary)",
     borderRadius: "16px",
-    border: "1px solid #E5E5EA",
+    border: "1px solid var(--border-color)",
   },
   unreadCard: {
     borderLeft: "4px solid #007AFF",
-    backgroundColor: "#FAFBFF",
+    backgroundColor: "color-mix(in srgb, #007AFF 8%, var(--bg-secondary))",
   },
   cardInfo: {
     display: "flex",
@@ -341,7 +343,7 @@ const styles: any = {
   typeBadge: { padding: "2px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: 700, textTransform: "capitalize" as const, whiteSpace: "nowrap" as const },
   messageText: {
     fontSize: "15px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     fontWeight: 500,
     margin: 0,
   },
@@ -350,7 +352,7 @@ const styles: any = {
     alignItems: "center",
     gap: "6px",
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   actionBtn: {
     background: "none",
@@ -368,16 +370,16 @@ const styles: any = {
   spinner: {
     width: "32px",
     height: "32px",
-    border: "3px solid #E5E5EA",
+    border: "3px solid var(--border-color)",
     borderTopColor: "#007AFF",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },
   errorContainer: {
     padding: "14px 16px",
-    backgroundColor: "#FEF2F0",
-    border: "1px solid #FF3B30",
+    backgroundColor: "color-mix(in srgb, #FF3B30 12%, var(--bg-secondary))",
+    border: "1px solid color-mix(in srgb, #FF3B30 45%, var(--border-color))",
     borderRadius: "12px",
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
 };

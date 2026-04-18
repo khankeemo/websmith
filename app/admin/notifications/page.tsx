@@ -57,7 +57,7 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div style={styles.container} className="wsd-page">
         <div style={styles.loadingContainer}>
           <div style={styles.spinner}></div>
           <p style={{ color: 'var(--text-secondary)' }}>Loading notifications...</p>
@@ -67,7 +67,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header}>
         <div>
@@ -160,7 +160,7 @@ export default function NotificationsPage() {
 
 const styles: any = {
   container: {
-    padding: '8px 4px',
+    padding: 0,
     backgroundColor: 'var(--bg-primary)',
     minHeight: '100vh',
     color: 'var(--text-primary)',

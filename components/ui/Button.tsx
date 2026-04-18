@@ -26,7 +26,11 @@ export default function Button({
       case "primary":
         return { backgroundColor: "#007AFF", color: "#FFFFFF", border: "none" };
       case "secondary":
-        return { backgroundColor: "#F2F2F7", color: "#1C1C1E", border: "none" };
+        return {
+          backgroundColor: "var(--bg-secondary)",
+          color: "var(--text-primary)",
+          border: "1px solid var(--border-color)",
+        };
       case "outline":
         return { backgroundColor: "transparent", color: "#007AFF", border: "1px solid #007AFF" };
       case "danger":

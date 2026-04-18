@@ -25,6 +25,7 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import API from "../../core/services/apiService";
+import { getUnreadCount } from "../../core/services/notificationService";
 
 export default function Sidebar({
   mobileOpen = false,
@@ -46,7 +47,7 @@ export default function Sidebar({
       setTheme(storedUser.preferences.theme);
     }
 
-    if (storedUser?.role === "admin") {
+    if (storedUser?.role === "admin" || storedUser?.role === "client" || storedUser?.role === "developer") {
       fetchUnreadNotifications();
       const interval = setInterval(fetchUnreadNotifications, 30000);
       return () => clearInterval(interval);
@@ -90,11 +91,10 @@ export default function Sidebar({
 
   const fetchUnreadNotifications = async () => {
     try {
-      const response = await API.get("/admin/notifications");
-      const unread = response.data.data.filter((n: any) => !n.isRead).length;
+      const unread = await getUnreadCount();
       setUnreadCount(unread);
     } catch {
-      // non-admins: expected
+      setUnreadCount(0);
     }
   };
 
@@ -318,12 +318,9 @@ export default function Sidebar({
                   {item.icon && <item.icon size={18} style={{ opacity: isActive ? 1 : 0.7 }} />}
                   <span>{item.name}</span>
                 </div>
-                {(item.name === "Clients" ||
-                  item.name === "Developers" ||
-                  item.name === "Admins" ||
-                  item.name === "Notifications") &&
-                  role === "admin" &&
-                  unreadCount > 0 && <span style={styles.badge}>{unreadCount}</span>}
+                {item.name === "Notifications" && unreadCount > 0 && (
+                  <span style={styles.badge}>{unreadCount > 99 ? "99+" : unreadCount}</span>
+                )}
               </Link>
             );
           })}

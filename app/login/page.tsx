@@ -8,9 +8,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { getDefaultRouteForRole } from "../../lib/auth";
 import PublicSiteNav from "../../components/layout/PublicSiteNav";
+import { useLeadFunnel } from "../providers/LeadFunnelProvider";
 
 function LoginPageContent() {
   const router = useRouter();
+  const { openLeadServicesModal } = useLeadFunnel();
   const searchParams = useSearchParams();
 
   const [identifier, setIdentifier] = useState("");
@@ -48,8 +50,7 @@ function LoginPageContent() {
   };
 
   return (
-    <div style={styles.container}>
-     
+    <div style={styles.container} className="login-page-shell">
       {/* Main content area (centers card without moving the navbar) */}
 
       <div style={styles.main}>
@@ -163,7 +164,8 @@ function LoginPageContent() {
           <div style={styles.signupContainer}>
             <span style={styles.signupText}>Need a new project?</span>
             <button
-              onClick={() => router.push("/services")}
+              type="button"
+              onClick={() => openLeadServicesModal()}
               style={styles.signupButton}
               className="signup-button"
             >
@@ -285,10 +287,9 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "flex-start",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "var(--bg-secondary)",
     position: "relative",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    fontFamily: "var(--font-sans)",
   },
 
   main: {
@@ -307,18 +308,18 @@ const styles: any = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: "radial-gradient(circle at 20% 50%, rgba(0,122,255,0.08) 0%, rgba(242,242,247,0) 50%)",
+    background: "radial-gradient(circle at 20% 50%, color-mix(in srgb, #007AFF 14%, transparent) 0%, transparent 55%)",
     pointerEvents: "none",
   },
 
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "var(--bg-primary)",
     borderRadius: "28px",
     padding: "48px 40px",
     width: "100%",
     maxWidth: "440px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.03)",
-    border: "1px solid rgba(224,224,230,0.5)",
+    boxShadow: "var(--card-shadow)",
+    border: "1px solid var(--border-color)",
     position: "relative",
     zIndex: 1,
     marginTop: 0,
@@ -352,7 +353,7 @@ const styles: any = {
   logoTextLarge: {
     fontSize: "18px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     letterSpacing: "-0.3px",
     margin: 0,
   },
@@ -365,7 +366,7 @@ const styles: any = {
   title: {
     fontSize: "28px",
     fontWeight: 600,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     letterSpacing: "-0.5px",
     margin: 0,
     marginBottom: "8px",
@@ -373,13 +374,13 @@ const styles: any = {
 
   subtitle: {
     fontSize: "15px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     margin: 0,
   },
 
   errorContainer: {
-    backgroundColor: "#FFE5E5",
-    border: "1px solid #FF3B30",
+    backgroundColor: "color-mix(in srgb, #FF3B30 12%, var(--bg-secondary))",
+    border: "1px solid color-mix(in srgb, #FF3B30 45%, var(--border-color))",
     borderRadius: "12px",
     padding: "12px 16px",
     marginBottom: "24px",
@@ -393,15 +394,15 @@ const styles: any = {
   },
 
   infoContainer: {
-    backgroundColor: "#E8F2FF",
-    border: "1px solid #007AFF",
+    backgroundColor: "color-mix(in srgb, #007AFF 12%, var(--bg-secondary))",
+    border: "1px solid color-mix(in srgb, #007AFF 40%, var(--border-color))",
     borderRadius: "12px",
     padding: "12px 16px",
     marginBottom: "24px",
   },
 
   infoText: {
-    color: "#005FCC",
+    color: "#007AFF",
     fontSize: "13px",
     fontWeight: 500,
     margin: 0,
@@ -415,7 +416,7 @@ const styles: any = {
     display: "block",
     fontSize: "13px",
     fontWeight: 500,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     marginBottom: "8px",
     letterSpacing: "-0.2px",
   },
@@ -429,7 +430,7 @@ const styles: any = {
   inputIcon: {
     position: "absolute",
     left: "16px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     pointerEvents: "none",
   },
 
@@ -437,10 +438,10 @@ const styles: any = {
     width: "100%",
     padding: "14px 16px 14px 44px",
     fontSize: "16px",
-    border: "1.5px solid #E5E5EA",
+    border: "1.5px solid var(--border-color)",
     borderRadius: "12px",
-    backgroundColor: "#FFFFFF",
-    color: "#1C1C1E",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
     transition: "all 0.2s ease",
     outline: "none",
     fontFamily: "inherit",
@@ -452,7 +453,7 @@ const styles: any = {
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     padding: 0,
     display: "flex",
     alignItems: "center",
@@ -506,7 +507,7 @@ const styles: any = {
 
   signupText: {
     fontSize: "14px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     marginRight: "6px",
   },
 
@@ -532,7 +533,7 @@ const styles: any = {
 
   copyright: {
     fontSize: "12px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
     margin: 0,
   },
 };

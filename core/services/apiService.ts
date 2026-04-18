@@ -24,12 +24,38 @@ const getApiBaseUrl = () => {
   return process.env.API_URL_INTERNAL || "http://127.0.0.1:5000/api";
 };
 
-const API = axios.create({
-  baseURL: getApiBaseUrl(),
-});
+const API = axios.create();
+
+const isAuthSessionFailure = (error: any) => {
+  const status = error.response?.status;
+  if (status !== 401) {
+    return false;
+  }
+
+  const code = error.response?.data?.code;
+  const message = String(error.response?.data?.message || "").toLowerCase();
+  const sessionFailureCodes = new Set([
+    "AUTH_TOKEN_MISSING",
+    "AUTH_TOKEN_INVALID",
+    "AUTH_TOKEN_EXPIRED",
+    "AUTH_USER_NOT_FOUND",
+  ]);
+
+  if (typeof code === "string" && sessionFailureCodes.has(code)) {
+    return true;
+  }
+
+  return (
+    message.includes("token") ||
+    message.includes("session") ||
+    message.includes("authorization denied") ||
+    message.includes("please login again")
+  );
+};
 
 // attach token automatically
 API.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   const token = getToken();
 
   if (token) {
@@ -42,7 +68,7 @@ API.interceptors.request.use((config) => {
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
+    if (isAuthSessionFailure(error) && typeof window !== "undefined") {
       const currentPath = window.location.pathname;
       const requestUrl = error.config?.url || "";
       

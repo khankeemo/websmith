@@ -329,7 +329,7 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     gap: "32px",
-    padding: "8px 4px",
+    padding: 0,
     backgroundColor: "var(--bg-primary)",
   },
   header: {

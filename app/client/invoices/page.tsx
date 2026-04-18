@@ -350,7 +350,7 @@ export default function ClientInvoicesPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header}>
         <div>
@@ -599,9 +599,10 @@ export default function ClientInvoicesPage() {
 
 const styles: any = {
   container: {
-    maxWidth: "1000px",
-    margin: "0 auto",
-    padding: "40px 24px",
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: 0,
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
     minHeight: '100vh',

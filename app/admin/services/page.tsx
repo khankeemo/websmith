@@ -98,7 +98,7 @@ export default function AdminServicesPage() {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Services</h1>
@@ -221,7 +221,7 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     gap: "32px",
-    padding: "8px 4px",
+    padding: 0,
     backgroundColor: 'var(--bg-primary)',
     minHeight: '100vh',
     color: 'var(--text-primary)',

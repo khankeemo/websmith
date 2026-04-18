@@ -196,7 +196,7 @@ export default function ProjectStatusPage() {
     : null;
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       {/* Header */}
       <div style={styles.header}>
         <button onClick={() => router.back()} style={styles.backBtn}>
@@ -461,10 +461,11 @@ export default function ProjectStatusPage() {
 
 const styles: any = {
   container: {
-    padding: '24px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    padding: 0,
+    width: '100%',
+    maxWidth: '100%',
+    margin: 0,
+    fontFamily: 'var(--font-sans)',
   },
   header: {
     display: 'flex',

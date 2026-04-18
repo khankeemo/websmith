@@ -2,11 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import { createLead } from "../../../core/services/leadService";
 import { useLeadFunnel } from "../../providers/LeadFunnelProvider";
+
+type LeadFormClientProps = {
+  variant?: "page" | "wizard";
+  onBack?: () => void;
+  onSuccess?: () => void;
+};
 
 interface FormState {
   name: string;
@@ -45,9 +52,10 @@ const timelineOptions = [
   "1 Year",
 ];
 
-export default function LeadFormClient() {
+export default function LeadFormClient({ variant = "page", onBack, onSuccess }: LeadFormClientProps) {
   const router = useRouter();
-  const { selectedServices, clearSelectedServices } = useLeadFunnel();
+  const { selectedServices, clearSelectedServices, openLeadServicesModal } = useLeadFunnel();
+  const isWizard = variant === "wizard";
   const [form, setForm] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -102,7 +110,11 @@ export default function LeadFormClient() {
       });
 
       clearSelectedServices();
-      router.push("/success");
+      if (isWizard && onSuccess) {
+        onSuccess();
+      } else {
+        router.push("/success");
+      }
     } catch (error: any) {
       setSubmitError(error.message || "Failed to submit lead");
     } finally {
@@ -112,21 +124,35 @@ export default function LeadFormClient() {
 
   if (selectedServices.length === 0) {
     return (
-      <div style={styles.wrapper}>
+      <div style={isWizard ? { ...styles.wrapper, ...styles.wrapperWizard } : styles.wrapper}>
         <Card>
           <h1 style={styles.emptyTitle}>Select services before filling the form</h1>
           <p style={styles.emptyText}>
             We need your selected services to adapt the questions and submit a qualified lead to the sales team.
           </p>
-          <Button onClick={() => router.push("/services")}>Go to Services</Button>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" as const }}>
+            {isWizard && onBack && (
+              <Button variant="secondary" type="button" onClick={onBack} leftIcon={<ArrowLeft size={16} />}>
+                Back
+              </Button>
+            )}
+            <Button onClick={() => openLeadServicesModal()}>Choose services</Button>
+          </div>
         </Card>
       </div>
     );
   }
 
   return (
-    <div style={styles.wrapper}>
-      <div style={styles.header}>
+    <div style={isWizard ? { ...styles.wrapper, ...styles.wrapperWizard } : styles.wrapper}>
+      {isWizard && onBack && (
+        <div style={{ marginBottom: "8px" }}>
+          <Button variant="secondary" type="button" size="sm" onClick={onBack} leftIcon={<ArrowLeft size={16} />}>
+            Back to services
+          </Button>
+        </div>
+      )}
+      <div style={isWizard ? { ...styles.header, ...styles.headerWizard } : styles.header}>
         <p style={styles.eyebrow}>Step 2 of 3</p>
         <h1 style={styles.title}>Share a few details and we&apos;ll take it from there</h1>
         <p style={styles.subtitle}>
@@ -155,7 +181,7 @@ export default function LeadFormClient() {
                 onChange={(e) => setField("timeline", e.target.value)}
                 style={{
                   ...styles.select,
-                  borderColor: errors.timeline ? "#FF3B30" : "#E5E5EA",
+                  borderColor: errors.timeline ? "#FF3B30" : "var(--border-color)",
                 }}
               >
                 <option value="">Select timeline</option>
@@ -186,7 +212,7 @@ export default function LeadFormClient() {
                 onChange={(e) => setField("appPlatform", e.target.value)}
                 style={{
                   ...styles.select,
-                  borderColor: errors.appPlatform ? "#FF3B30" : "#E5E5EA",
+                  borderColor: errors.appPlatform ? "#FF3B30" : "var(--border-color)",
                 }}
               >
                 <option value="">Select platform</option>
@@ -233,11 +259,19 @@ const styles: any = {
     flexDirection: "column",
     gap: "24px",
   },
+  wrapperWizard: {
+    padding: "0 0 12px",
+    gap: "16px",
+  },
   header: {
     padding: "32px",
     borderRadius: "24px",
-    background: "linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 100%)",
-    border: "1px solid #F3E8FF",
+    background: "linear-gradient(135deg, color-mix(in srgb, #7C3AED 12%, var(--bg-secondary)) 0%, var(--bg-primary) 100%)",
+    border: "1px solid var(--border-color)",
+  },
+  headerWizard: {
+    padding: "20px 22px",
+    borderRadius: "18px",
   },
   eyebrow: {
     margin: 0,
@@ -251,12 +285,12 @@ const styles: any = {
     margin: "12px 0 10px",
     fontSize: "34px",
     fontWeight: 700,
-    color: "#111827",
+    color: "var(--text-primary)",
     letterSpacing: "-0.02em",
   },
   subtitle: {
     margin: 0,
-    color: "#6B7280",
+    color: "var(--text-secondary)",
     fontSize: "16px",
     lineHeight: 1.7,
   },
@@ -269,10 +303,11 @@ const styles: any = {
   selectedChip: {
     padding: "8px 14px",
     borderRadius: "999px",
-    backgroundColor: "#EEF6FF",
+    backgroundColor: "color-mix(in srgb, #007AFF 14%, var(--bg-secondary))",
     color: "#007AFF",
     fontSize: "13px",
     fontWeight: 600,
+    border: "1px solid color-mix(in srgb, #007AFF 25%, transparent)",
   },
   grid: {
     display: "grid",
@@ -286,15 +321,16 @@ const styles: any = {
     display: "block",
     fontSize: "13px",
     fontWeight: 500,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
     marginBottom: "8px",
   },
   select: {
     width: "100%",
     padding: "12px 16px",
     fontSize: "14px",
-    background: "#FFFFFF",
-    border: "1px solid #E5E5EA",
+    background: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    border: "1px solid var(--border-color)",
     borderRadius: "12px",
     outline: "none",
   },
@@ -302,8 +338,9 @@ const styles: any = {
     width: "100%",
     padding: "12px 16px",
     fontSize: "14px",
-    background: "#FFFFFF",
-    border: "1px solid #E5E5EA",
+    background: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    border: "1px solid var(--border-color)",
     borderRadius: "12px",
     outline: "none",
     resize: "vertical",
@@ -319,7 +356,7 @@ const styles: any = {
   footer: {
     marginTop: "8px",
     paddingTop: "20px",
-    borderTop: "1px solid #F2F2F7",
+    borderTop: "1px solid var(--border-color)",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -329,18 +366,18 @@ const styles: any = {
   footerText: {
     margin: 0,
     fontSize: "13px",
-    color: "#8E8E93",
+    color: "var(--text-secondary)",
   },
   emptyTitle: {
     margin: "0 0 12px",
     fontSize: "28px",
     fontWeight: 700,
-    color: "#1C1C1E",
+    color: "var(--text-primary)",
   },
   emptyText: {
     margin: "0 0 20px",
     fontSize: "15px",
-    color: "#6B7280",
+    color: "var(--text-secondary)",
     lineHeight: 1.7,
   },
 };

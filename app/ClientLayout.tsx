@@ -7,16 +7,31 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { Menu, Moon, Sun, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
-import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, isPublicPath, PUBLIC_PATHS } from "../lib/auth";
+import ForcedPasswordResetModal from "../components/auth/ForcedPasswordResetModal";
+import { isPublicRoute } from "../core/constants/routes";
+import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, setAuthSession } from "../lib/auth";
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
-import Footer from "./footer/Footer";
+import { PublicThemeProvider, usePublicTheme } from "./providers/PublicThemeProvider";
+import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
-
+import { Moon, Sun } from "lucide-react";
 
 export default function ClientLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <PublicThemeProvider>
+      <ClientLayoutInner>{children}</ClientLayoutInner>
+    </PublicThemeProvider>
+  );
+}
+
+function ClientLayoutInner({
   children,
 }: {
   children: React.ReactNode;
@@ -24,9 +39,26 @@ export default function ClientLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [publicTheme, setPublicTheme] = useState<"light" | "dark">("light");
+  const { publicTheme } = usePublicTheme();
   const [showForcedPasswordResetModal, setShowForcedPasswordResetModal] = useState(false);
   
+  const handleForcedPasswordResetCompleted = () => {
+    setShowForcedPasswordResetModal(false);
+  };
+
+  const handleForcedPasswordResetLogout = () => {
+    setShowForcedPasswordResetModal(false);
+    clearAuthSession();
+    router.replace("/login");
+  };
+
+  useEffect(() => {
+    const user = getStoredUser();
+    const token = getToken();
+    if (token && user?.isForcedPasswordReset) {
+      setShowForcedPasswordResetModal(true);
+    }
+  }, [pathname]);
   useEffect(() => {
     if (pathname === null) return; // Wait for router to be ready
 
@@ -38,7 +70,7 @@ export default function ClientLayout({
       (window as any).__LAST_PATH__ = pathname;
     }
 
-    if (isPublic) {
+    if (isPublicRoute(pathname)) {
       document.documentElement.classList.toggle(
         "dark-theme",
         token && user ? user.preferences?.theme === "dark" : publicTheme === "dark"
@@ -96,8 +128,7 @@ export default function ClientLayout({
     setMounted(true);
   }, []);
 
-  const shouldShowSidebar = !isPublicPath(pathname);
-
+  const shouldShowSidebar = !isPublicRoute(pathname);
   const user = getStoredUser();
 
   useEffect(() => {
@@ -139,7 +170,7 @@ export default function ClientLayout({
             <Sidebar mobileOpen={isMobileMenuOpen} onNavigate={() => setIsMobileMenuOpen(false)} />
           </>
         )}
-        <main className="app-main-shell" style={styles.main}>
+        <main className="app-main-shell" style={styles.main} data-shell={shouldShowSidebar ? "panel" : "public"}>
           <div className="app-main-scroll">
             {!shouldShowSidebar && (
               <PublicSiteNav variant={(pathname === "/login" || pathname === "/register" || pathname === "/forgot-password") ? "auth" : "full"} />
@@ -148,7 +179,7 @@ export default function ClientLayout({
             {children}
             
             {!shouldShowSidebar && pathname !== "/login" && pathname !== "/register" && pathname !== "/forgot-password" && (
-              <Footer />
+              <PublicFooter />
             )}
           </div>
         </main>
@@ -157,7 +188,7 @@ export default function ClientLayout({
         {mounted && !shouldShowSidebar && !getToken() && !getStoredUser() && (
           <button
             type="button"
-            onClick={() => setPublicTheme((current) => (current === "light" ? "dark" : "light"))}
+            onClick={() => setPublicTheme((current: string) => (current === "light" ? "dark" : "light"))}
             style={styles.publicThemeButton}
             aria-label={`Switch to ${publicTheme === "light" ? "dark" : "light"} mode`}
           >
@@ -165,6 +196,13 @@ export default function ClientLayout({
           </button>
         )}
       </div>
+
+      <ForcedPasswordResetModal
+        isOpen={shouldShowSidebar && showForcedPasswordResetModal}
+        onCompleted={handleForcedPasswordResetCompleted}
+        onLogout={handleForcedPasswordResetLogout}
+      />
+
       <CrispChat />
       <style>{`
         .app-layout-shell {
@@ -193,10 +231,11 @@ export default function ClientLayout({
           .app-main-shell {
             width: 100%;
             min-width: 0;
-            padding: 76px 0 20px !important;
+            padding: 76px 0 0 !important;
           }
-          .app-main-scroll {
-            padding: 0;
+          .app-main-shell[data-shell="panel"] .app-main-scroll {
+            padding-top: 12px;
+            padding-bottom: 20px;
           }
           .app-mobile-topbar {
             display: flex !important;
@@ -290,22 +329,5 @@ const styles: any = {
   mobileOverlayVisible: {
     opacity: 1,
     pointerEvents: "auto",
-  },
-  publicThemeButton: {
-    position: "fixed",
-    right: "16px",
-    bottom: "16px",
-    zIndex: 1250,
-    width: "44px",
-    height: "44px",
-    borderRadius: "999px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-secondary)",
-    color: "var(--text-primary)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    boxShadow: "0 12px 24px rgba(0,0,0,0.12)",
   },
 };

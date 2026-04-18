@@ -83,7 +83,7 @@ export default function InvoicesPage() {
   });
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -796,9 +796,10 @@ export default function InvoicesPage() {
 
 const styles: any = {
   container: {
-    maxWidth: "1400px",
-    margin: "0 auto",
-    padding: "32px 24px",
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: 0,
     backgroundColor: 'var(--bg-primary)',
     minHeight: '100vh',
     color: 'var(--text-primary)',

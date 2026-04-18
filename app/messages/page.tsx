@@ -53,7 +53,7 @@ export default function MessagesPage() {
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [convViewMode, setConvViewMode] = useState<GridListView>("list");
+  const [convViewMode, setConvViewMode] = useState<GridListView>("grid");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -203,7 +203,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div style={styles.container} className="messages-page-shell wsd-page">
+    <div style={styles.container} className="messages-page-shell">
       {/* Chat Sidebar */}
       <div
         style={{
@@ -443,13 +443,15 @@ export default function MessagesPage() {
 const styles: any = {
   container: {
     display: "flex",
-    height: "calc(100vh - 40px)",
+    height: "calc(100dvh - 2 * var(--space-page-y) - 8px)",
+    maxHeight: "calc(100dvh - 2 * var(--space-page-y) - 8px)",
     backgroundColor: "var(--bg-primary)",
     borderRadius: "24px",
     overflow: "hidden",
-    margin: "12px",
+    margin: "var(--space-page-y) var(--space-page-x)",
     border: "1.5px solid var(--border-color)",
-    boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
+    boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+    boxSizing: "border-box",
   },
   loadingContainer: {
     display: "flex",

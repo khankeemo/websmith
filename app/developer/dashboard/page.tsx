@@ -66,7 +66,7 @@ export default function DeveloperDashboardPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="wsd-page">
       <div style={styles.header}>
         <h1 style={styles.title}>Dashboard</h1>
         <p style={styles.subtitle}>Manage delivery timelines and publish project progress</p>
@@ -217,7 +217,7 @@ export default function DeveloperDashboardPage() {
 
 const styles: any = {
   container: { 
-    padding: "8px 4px", 
+    padding: 0, 
     display: "flex", 
     flexDirection: "column", 
     gap: "24px",
