@@ -14,7 +14,10 @@ import {
   FileText,
   X,
   Send,
-  TrendingUp
+  TrendingUp,
+  Link as LinkIcon,
+  Flag,
+  Timer
 } from "lucide-react";
 import API from "../../../core/services/apiService";
 import { getProjectFeedback, Project, submitProjectFeedback } from "../../projects/services/projectService";
@@ -108,6 +111,14 @@ export default function ClientProjectsPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const getLiveProjectUrl = (project: Project) => project.publicUrl?.trim() || "";
+
+  const getTimelineSummary = (project: Project) => {
+    const start = formatDate(project.startDate);
+    const end = project.expectedCompletionDate ? formatDate(project.expectedCompletionDate) : "Timeline pending";
+    return `${start} - ${end}`;
   };
 
   const getStatusStyle = (status: string) => {
@@ -208,6 +219,18 @@ export default function ClientProjectsPage() {
                         <strong style={styles.kanbanCardName}>{project.name}</strong>
                       </div>
                       <p style={styles.kanbanCardDesc}>{project.description}</p>
+                      <div style={styles.kanbanMetaStack}>
+                        <div style={styles.metaPill}>
+                          <Timer size={12} />
+                          <span>{getTimelineSummary(project)}</span>
+                        </div>
+                        {getLiveProjectUrl(project) && (
+                          <a href={getLiveProjectUrl(project)} target="_blank" rel="noreferrer" style={styles.liveLink}>
+                            <LinkIcon size={12} />
+                            View Live Project
+                          </a>
+                        )}
+                      </div>
                       {project.progress !== undefined && (
                         <div style={styles.kanbanProgress}>
                           <div style={styles.progressHeader}>
@@ -263,6 +286,16 @@ export default function ClientProjectsPage() {
               
               <h3 style={styles.projectName}>{project.name}</h3>
               <p style={styles.projectDesc}>{project.description}</p>
+              <div style={styles.cardHighlights}>
+                <div style={styles.metaPill}>
+                  <Flag size={12} />
+                  <span>{getStatusStyle(project.status).text}</span>
+                </div>
+                <div style={styles.metaPill}>
+                  <Timer size={12} />
+                  <span>{getTimelineSummary(project)}</span>
+                </div>
+              </div>
               
               <div style={styles.cardFooter}>
                 <div style={styles.dateInfo}>
@@ -276,6 +309,12 @@ export default function ClientProjectsPage() {
                       Delivery: {formatDate(project.expectedCompletionDate)}
                     </span>
                   </div>
+                )}
+                {getLiveProjectUrl(project) && (
+                  <a href={getLiveProjectUrl(project)} target="_blank" rel="noreferrer" style={styles.liveLink}>
+                    <LinkIcon size={14} />
+                    View Live Project
+                  </a>
                 )}
                 <button onClick={() => handleProjectClick(project)} style={styles.viewProjectBtn}>
                   <Eye size={14} />
@@ -292,6 +331,7 @@ export default function ClientProjectsPage() {
             <div style={styles.colStatus}>Status</div>
             <div style={styles.colStart}>Start Date</div>
             <div style={styles.colDelivery}>Est. Delivery</div>
+            <div style={styles.colDelivery}>Hosting</div>
           </div>
           {filteredProjects.map(project => (
             <div key={project._id} style={styles.listItem} className="list-item client-projects-list-item">
@@ -321,6 +361,16 @@ export default function ClientProjectsPage() {
                      {formatDate(project.expectedCompletionDate)}
                    </span>
                  ) : '-'}
+              </div>
+              <div style={styles.colDelivery}>
+                {getLiveProjectUrl(project) ? (
+                  <a href={getLiveProjectUrl(project)} target="_blank" rel="noreferrer" style={styles.liveLink}>
+                    <LinkIcon size={14} />
+                    View Live Project
+                  </a>
+                ) : (
+                  <span style={{ color: 'var(--text-secondary)' }}>Not added</span>
+                )}
               </div>
               <div style={styles.colActions}>
                 <button onClick={() => handleProjectClick(project)} style={styles.viewProjectBtn}>
@@ -378,6 +428,10 @@ export default function ClientProjectsPage() {
               {activeTab === 'details' && (
                 <div style={styles.detailsTab}>
                   <div style={styles.detailGrid}>
+                    <div style={styles.detailRowWide}>
+                      <span style={styles.detailLabel}>Project Description:</span>
+                      <p style={styles.detailParagraph}>{selectedProject.description}</p>
+                    </div>
                     <div style={styles.detailRow}>
                       <span style={styles.detailLabel}>Status:</span>
                       <span style={{
@@ -401,6 +455,21 @@ export default function ClientProjectsPage() {
                     <div style={styles.detailRow}>
                       <span style={styles.detailLabel}>Expected Delivery:</span>
                       <span style={styles.detailValue}>{formatDate(selectedProject.expectedCompletionDate)}</span>
+                    </div>
+                    <div style={styles.detailRowWide}>
+                      <span style={styles.detailLabel}>Timeline:</span>
+                      <span style={styles.detailParagraph}>{getTimelineSummary(selectedProject)}</span>
+                    </div>
+                    <div style={styles.detailRowWide}>
+                      <span style={styles.detailLabel}>Hosting URL:</span>
+                      {getLiveProjectUrl(selectedProject) ? (
+                        <a href={getLiveProjectUrl(selectedProject)} target="_blank" rel="noreferrer" style={styles.liveLink}>
+                          <LinkIcon size={14} />
+                          View Live Project
+                        </a>
+                      ) : (
+                        <span style={styles.detailParagraph}>Hosting URL will appear here once it is added by the admin.</span>
+                      )}
                     </div>
                   </div>
                   
@@ -597,6 +666,8 @@ const styles: any = {
   },
   projectName: { fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 },
   projectDesc: { fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 },
+  cardHighlights: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+  metaPill: { display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'fit-content', padding: '6px 10px', borderRadius: '999px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600 },
   cardFooter: {
     marginTop: '8px',
     paddingTop: '16px',
@@ -607,6 +678,7 @@ const styles: any = {
   },
   dateInfo: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' },
   deliveryDate: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' },
+  liveLink: { display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#007AFF', textDecoration: 'none', fontSize: '13px', fontWeight: 700, width: 'fit-content' },
   viewProjectBtn: { 
     marginTop: '8px',
     padding: '8px 16px', 
@@ -634,7 +706,7 @@ const styles: any = {
   list: { backgroundColor: 'var(--bg-primary)', borderRadius: '20px', border: '1.5px solid var(--border-color)', overflow: 'hidden' },
   listHeader: {
     display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1fr 1fr',
+    gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto',
     padding: '16px 24px',
     backgroundColor: 'var(--bg-secondary)',
     borderBottom: '1.5px solid var(--border-color)',
@@ -644,7 +716,7 @@ const styles: any = {
   },
   listItem: {
     display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1fr 1fr',
+    gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto',
     padding: '20px 24px',
     alignItems: 'center',
     borderBottom: '1px solid var(--border-color)',
@@ -683,6 +755,7 @@ const styles: any = {
   kanbanCardHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' },
   kanbanCardName: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' },
   kanbanCardDesc: { fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.5 },
+  kanbanMetaStack: { display: 'flex', flexDirection: 'column' as const, gap: '8px', marginBottom: '12px' },
   kanbanProgress: { marginBottom: '12px' },
   progressHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '6px' },
   progressLabel: { fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 },
@@ -705,8 +778,10 @@ const styles: any = {
   detailsTab: { display: 'flex', flexDirection: 'column', gap: '24px' },
   detailGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' },
   detailRow: { display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' },
+  detailRowWide: { display: 'grid', gap: '8px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)', gridColumn: '1 / -1' },
   detailLabel: { fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 },
   detailValue: { fontSize: '13px', fontWeight: 600, padding: '4px 12px', borderRadius: '8px' },
+  detailParagraph: { margin: 0, color: 'var(--text-primary)', lineHeight: 1.6, fontSize: '14px' },
   progressSection: { marginTop: '8px' },
   sectionTitle: { fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' },
   sendBtn: { padding: '10px 16px', backgroundColor: '#007AFF', color: '#FFFFFF', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' },

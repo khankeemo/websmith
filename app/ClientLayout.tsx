@@ -11,6 +11,7 @@ import { Menu, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
 import ForcedPasswordResetModal from "../components/auth/ForcedPasswordResetModal";
+import { isPublicRoute } from "../core/constants/routes";
 import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, setAuthSession } from "../lib/auth";
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
 import { PublicThemeProvider, usePublicTheme } from "./providers/PublicThemeProvider";
@@ -38,14 +39,13 @@ function ClientLayoutInner({
   const { publicTheme } = usePublicTheme();
   const [showForcedPasswordResetModal, setShowForcedPasswordResetModal] = useState(false);
   
-  const publicPaths = ["/", "/login", "/register", "/forgot-password", "/auth/callback", "/services", "/lead-form", "/success", "/auth/change-password"];
   const legacyProtectedPaths = ["/dashboard", "/projects", "/clients", "/tasks", "/team", "/messages", "/invoices", "/payments", "/settings"];
   
   useEffect(() => {
     const token = getToken();
     const user = getStoredUser();
 
-    if (publicPaths.includes(pathname)) {
+    if (isPublicRoute(pathname)) {
       document.documentElement.classList.toggle(
         "dark-theme",
         token && user ? user.preferences?.theme === "dark" : publicTheme === "dark"
@@ -94,7 +94,7 @@ function ClientLayoutInner({
     setMounted(true);
   }, []);
 
-  const shouldShowSidebar = !publicPaths.includes(pathname);
+  const shouldShowSidebar = !isPublicRoute(pathname);
   const user = getStoredUser();
 
   const handleForcedPasswordResetCompleted = () => {
@@ -167,7 +167,7 @@ function ClientLayoutInner({
         onCompleted={handleForcedPasswordResetCompleted}
         onLogout={handleForcedPasswordResetLogout}
       />
-      <CrispChat />
+      {!shouldShowSidebar && <CrispChat />}
       <style>{`
         .app-layout-shell {
           height: 100dvh;

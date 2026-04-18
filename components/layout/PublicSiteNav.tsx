@@ -14,7 +14,7 @@ export const PUBLIC_SITE_NAV_ITEMS = [
   { name: "Clients", href: "/#clients" },
   { name: "Developers", href: "/#developers" },
   { name: "Testimonials", href: "/#testimonials" },
-  { name: "Contact", href: "/#contact" },
+  { name: "Contact", href: "/contact" },
 ];
 
 type PublicSiteNavProps = {

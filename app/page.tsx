@@ -5,7 +5,9 @@
 
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   ArrowRight, 
   Star, 
@@ -20,11 +22,11 @@ import {
   Building2,
 } from "lucide-react";
 import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
+import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
 import { getPublishedProjects, getPublishedTestimonials } from "./projects/services/projectService";
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
-import { createPublicTicket } from "../core/services/ticketService";
 import { useLeadFunnel } from "./providers/LeadFunnelProvider";
 
 type HorizontalCardStripProps<T> = {
@@ -33,25 +35,130 @@ type HorizontalCardStripProps<T> = {
   ariaLabel: string;
   itemMinWidth?: number;
   gap?: number;
+  autoLoopCount?: number;
+  dragThreshold?: number;
 };
 
-/** Manual horizontal scroll (no auto marquee). */
 function HorizontalCardStrip<T>({
   items,
   renderItem,
   ariaLabel,
   itemMinWidth = 280,
   gap = 20,
+  autoLoopCount = 6,
+  dragThreshold = 8,
 }: HorizontalCardStripProps<T>) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef({ active: false, startX: 0, startScrollLeft: 0 });
+  const hoverPausedRef = useRef(false);
+  const loopSpeedRef = useRef(-0.45);
+  const animationFrameRef = useRef<number | null>(null);
+  const autoLoop = items.length === autoLoopCount;
+  const dragEnabled = items.length > dragThreshold || autoLoop;
+  const renderedItems = autoLoop ? [...items, ...items, ...items] : items;
+
+  useEffect(() => {
+    const outer = outerRef.current;
+    if (!outer || !autoLoop) return;
+
+    const resetToMiddle = () => {
+      outer.scrollLeft = outer.scrollWidth / 3;
+    };
+
+    resetToMiddle();
+
+    const step = () => {
+      if (!outerRef.current || dragState.current.active || hoverPausedRef.current) {
+        animationFrameRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+
+      const viewport = outerRef.current;
+      const singleLoopWidth = viewport.scrollWidth / 3;
+      viewport.scrollLeft += loopSpeedRef.current;
+
+      if (viewport.scrollLeft >= singleLoopWidth * 2) {
+        viewport.scrollLeft -= singleLoopWidth;
+      } else if (viewport.scrollLeft <= 0) {
+        viewport.scrollLeft += singleLoopWidth;
+      }
+
+      animationFrameRef.current = window.requestAnimationFrame(step);
+    };
+
+    animationFrameRef.current = window.requestAnimationFrame(step);
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [autoLoop, items.length]);
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const outer = outerRef.current;
+    if (!outer || !dragEnabled) return;
+    dragState.current = {
+      active: true,
+      startX: event.clientX,
+      startScrollLeft: outer.scrollLeft,
+    };
+    outer.setPointerCapture(event.pointerId);
+    outer.style.cursor = "grabbing";
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const outer = outerRef.current;
+    if (!outer || !dragEnabled || !dragState.current.active) return;
+    const deltaX = event.clientX - dragState.current.startX;
+    outer.scrollLeft = dragState.current.startScrollLeft - deltaX;
+
+    if (autoLoop) {
+      const singleLoopWidth = outer.scrollWidth / 3;
+      if (outer.scrollLeft >= singleLoopWidth * 2) outer.scrollLeft -= singleLoopWidth;
+      if (outer.scrollLeft <= 0) outer.scrollLeft += singleLoopWidth;
+    }
+  };
+
+  const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const outer = outerRef.current;
+    dragState.current.active = false;
+    if (!outer || !dragEnabled) return;
+    outer.releasePointerCapture(event.pointerId);
+    outer.style.cursor = "grab";
+  };
+
   return (
-    <div style={styles.hScrollOuter} role="region" aria-label={ariaLabel}>
+    <div
+      ref={outerRef}
+      className="landing-card-strip"
+      style={{
+        ...styles.hScrollOuter,
+        overflowX: dragEnabled ? ("auto" as const) : ("hidden" as const),
+        cursor: dragEnabled ? ("grab" as const) : ("default" as const),
+      }}
+      role="region"
+      aria-label={ariaLabel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onPointerLeave={(event) => {
+        if (dragState.current.active) handlePointerEnd(event);
+      }}
+      onMouseEnter={() => {
+        hoverPausedRef.current = true;
+      }}
+      onMouseLeave={() => {
+        hoverPausedRef.current = false;
+      }}
+    >
       <div style={{ ...styles.hScrollInner, gap: `${gap}px` }}>
-        {items.map((item, index) => (
+        {renderedItems.map((item, index) => (
           <div
-            key={index}
+            key={`${index}-${autoLoop ? index % items.length : index}`}
             style={{ ...styles.hScrollCell, minWidth: `${itemMinWidth}px`, scrollSnapAlign: "start" as const }}
           >
-            {renderItem(item, index)}
+            {renderItem(item, index % items.length)}
           </div>
         ))}
       </div>
@@ -63,36 +170,30 @@ type StatSlide = { id: string; value: string; label: string };
 
 function StatsStrip({ items }: { items: StatSlide[] }) {
   return (
-    <div style={styles.statsStaticRow}>
-      {items.map((item) => (
+    <HorizontalCardStrip
+      items={items}
+      ariaLabel="Websmith stats"
+      itemMinWidth={220}
+      gap={18}
+      autoLoopCount={items.length}
+      renderItem={(item) => (
         <article key={item.id} style={styles.statStaticCard}>
           <p style={styles.statStaticValue}>{item.value}</p>
           <p style={styles.statStaticLabel}>{item.label}</p>
         </article>
-      ))}
-    </div>
+      )}
+    />
   );
 }
 
 export default function LandingPage() {
+  const router = useRouter();
   const { openLeadServicesModal } = useLeadFunnel();
   
   // Refs for smooth scroll
   const featuresRef = useRef<HTMLElement>(null);
   const developersRef = useRef<HTMLElement>(null);
   const clientsRef = useRef<HTMLElement>(null);
-  const footerRef = useRef<HTMLElement>(null);
-  const contactFormRef = useRef<HTMLElement>(null);
-  
-  // Contact form state
-  const [contactState, setContactState] = useState({
-    name: "",
-    email: "",
-    subject: "",
-    message: ""
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<null | "success" | "error">(null);
   
   // Stats counter animation
   const [stats, setStats] = useState({
@@ -148,7 +249,7 @@ export default function LandingPage() {
   const features = [
     { icon: Code, title: "Expert Developers", description: "Top-tier developers with proven experience in modern tech stacks", href: "#developers" },
     { icon: Rocket, title: "Fast Delivery", description: "Agile methodology ensuring quick turnaround without quality compromise", href: "#projects" },
-    { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance", href: "#contact" },
+    { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance", href: "/contact" },
     { icon: Users, title: "Dedicated Teams", description: "Build your dedicated development team tailored to your needs", href: "#clients" },
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
   ];
@@ -183,7 +284,7 @@ export default function LandingPage() {
     { id: "dt-4", name: "T. Diaz", company: "BrightNest", quote: "We saw measurable gains within the first release cycle.", rating: 5 },
   ];
 
-  const effectiveProjects = (publishedProjects.length > 0 ? publishedProjects : dummyProjects).slice(0, 8);
+  const effectiveProjects = publishedProjects.length > 0 ? publishedProjects : dummyProjects;
   const publicClients = (publishedClients.length > 0 ? publishedClients : dummyClients).map((client: any, index: number) => ({
     id: client._id || client.id || `client-${index}`,
     name: client.name,
@@ -238,9 +339,12 @@ export default function LandingPage() {
     : dummyTestimonials;
 
   const statsCarouselItems = [
-    { id: "stat-clients", value: `${stats.clients}+`, label: "Happy Clients" },
-    { id: "stat-developers", value: `${stats.developers}+`, label: "Expert Developers" },
+    { id: "stat-projects", value: `${stats.projects}+`, label: "Projects Delivered" },
+    { id: "stat-clients", value: `${stats.clients}+`, label: "Active Client Partnerships" },
+    { id: "stat-developers", value: `${stats.developers}+`, label: "Specialist Developers" },
     { id: "stat-countries", value: `${stats.countries}+`, label: "Countries Served" },
+    { id: "stat-support", value: "24h", label: "Support Response Target" },
+    { id: "stat-visibility", value: "100%", label: "Shared Delivery Visibility" },
   ];
 
   return (
@@ -287,9 +391,13 @@ export default function LandingPage() {
               key={index} 
               type="button"
               onClick={() => {
-                const target = document.querySelector(feature.href);
-                if (target instanceof HTMLElement) {
-                  target.scrollIntoView({ behavior: "smooth", block: "start" });
+                if (feature.href.startsWith("/")) {
+                  router.push(feature.href);
+                } else {
+                  const target = document.querySelector(feature.href);
+                  if (target instanceof HTMLElement) {
+                    target.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
                 }
               }}
               style={{
@@ -443,12 +551,12 @@ export default function LandingPage() {
         />
       </section>
 
-      {/* Contact Section */}
-      <section id="contact" ref={contactFormRef} style={styles.contactSection}>
+      {/* Contact CTA */}
+      <section style={styles.contactSection}>
         <div style={styles.contactContainer}>
           <div style={styles.contactHeader}>
-            <h2 style={styles.sectionTitle}>Get in Touch</h2>
-            <p style={styles.sectionSubtitle}>Have a project in mind? Let's build something amazing together.</p>
+            <h2 style={styles.sectionTitle}>Use One Central Contact Page</h2>
+            <p style={styles.sectionSubtitle}>All contact actions now route to a single dedicated page for inquiries, support, and project conversations.</p>
           </div>
           
           <div style={styles.contactGrid}>
@@ -483,140 +591,19 @@ export default function LandingPage() {
             
             <div style={styles.contactFormContainer}>
               <div style={styles.contactGlassCard}>
-                <form 
-                  style={styles.contactForm}
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setIsSubmitting(true);
-                    setSubmitStatus(null);
-                    try {
-                      await createPublicTicket({
-                        name: contactState.name,
-                        email: contactState.email,
-                        company: "",
-                        subject: contactState.subject,
-                        message: contactState.message,
-                      });
-                      setSubmitStatus("success");
-                      setContactState({ name: "", email: "", subject: "", message: "" });
-                    } catch (error) {
-                      console.error("Public inquiry error:", error);
-                      setSubmitStatus("error");
-                    } finally {
-                      setIsSubmitting(false);
-                      setTimeout(() => setSubmitStatus(null), 5000);
-                    }
-                  }}
-                >
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel}>Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="John Doe" 
-                        style={styles.formInput}
-                        required
-                        value={contactState.name}
-                        onChange={(e) => setContactState({ ...contactState, name: e.target.value })}
-                      />
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel}>Email</label>
-                      <input 
-                        type="email" 
-                        placeholder="john@example.com" 
-                        style={styles.formInput}
-                        required
-                        value={contactState.email}
-                        onChange={(e) => setContactState({ ...contactState, email: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div style={styles.formGroup}>
-                    <label style={styles.formLabel}>Subject</label>
-                    <input 
-                      type="text" 
-                      placeholder="Project Inquiry" 
-                      style={styles.formInput}
-                      required
-                      value={contactState.subject}
-                      onChange={(e) => setContactState({ ...contactState, subject: e.target.value })}
-                    />
-                  </div>
-                  
-                  <div style={styles.formGroup}>
-                    <label style={styles.formLabel}>Message</label>
-                    <textarea 
-                      placeholder="Tell us about your project..." 
-                      style={styles.formTextarea}
-                      required
-                      value={contactState.message}
-                      onChange={(e) => setContactState({ ...contactState, message: e.target.value })}
-                    />
-                  </div>
-                  
-                  <button 
-                    type="submit" 
-                    disabled={isSubmitting}
-                    style={styles.submitBtn} 
-                    className="cta-hover"
-                  >
-                    {isSubmitting ? "Sending..." : (submitStatus === "success" ? "Message Sent!" : "Send Message")}
-                  </button>
-                  
-                  {submitStatus === "success" && (
-                    <p style={{ color: "#34C759", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
-                      Inquiry submitted successfully. It is now available in the admin query thread.
-                    </p>
-                  )}
-                  {submitStatus === "error" && (
-                    <p style={{ color: "#FF3B30", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
-                      We could not send your message right now. Please try again.
-                    </p>
-                  )}
-                </form>
+                <p style={styles.contactInfoDesc}>
+                  We now use one centralized contact page for all project inquiries, support requests, and business conversations.
+                </p>
+                <Link href="/contact" style={styles.contactRedirectButton}>
+                  Open Contact Page
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer id="footer" ref={footerRef} style={styles.footer}>
-        <div style={styles.footerContent} className="landing-footer-content">
-          <div style={styles.footerSection}>
-            <h3 style={styles.footerLogo}>Websmith</h3>
-            <p style={styles.footerDesc}>Your trusted partner for digital excellence.</p>
-            <div style={styles.socialLinks}>
-              <span className="social-icon" style={{ fontSize: "18px", cursor: "pointer" }}>🐦</span>
-              <span className="social-icon" style={{ fontSize: "18px", cursor: "pointer" }}>💼</span>
-              <span className="social-icon" style={{ fontSize: "18px", cursor: "pointer" }}>🐙</span>
-              <span className="social-icon" style={{ fontSize: "18px", cursor: "pointer" }}>📘</span>
-            </div>
-          </div>
-          <div style={styles.footerSection}>
-            <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Company</h4>
-            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>About Us</a>
-            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Careers</a>
-            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Blog</a>
-          </div>
-          <div style={styles.footerSection}>
-            <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Resources</h4>
-            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Documentation</a>
-            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Support</a>
-            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Contact</a>
-          </div>
-          <div style={styles.footerSection}>
-            <h4 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>Legal</h4>
-            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Privacy Policy</a>
-            <a href="#" style={{ fontSize: "14px", color: "var(--text-secondary)", textDecoration: "none" }}>Terms of Service</a>
-          </div>
-        </div>
-        <div style={styles.copyright}>
-          <p>© 2024 Websmith. All rights reserved. Developed with ❤️ by Websmith Team</p>
-        </div>
-      </footer>
+      <PublicFooter />
 
       <style>{`
         /* Logo Hover */
@@ -678,25 +665,38 @@ export default function LandingPage() {
           transform: scale(0.98); 
         }
         
-        /* Card hover: subtle shadow only (no lateral or lift motion) */
+        /* Card hover: restore stronger lift/highlight treatment */
         .feature-card,
         .client-card,
         .developer-card,
         .testimonial-card {
-          transition: box-shadow 0.2s ease, border-color 0.2s ease;
-          cursor: default;
+          transition:
+            transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+            border-color 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+            filter 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+          cursor: pointer;
+          will-change: transform, box-shadow;
         }
         .feature-card:hover,
         .client-card:hover,
         .developer-card:hover,
         .testimonial-card:hover {
-          box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+          transform: translateY(-6px) scale(1.01);
+          border-color: #007AFF66 !important;
+          box-shadow: 0 18px 38px rgba(0, 122, 255, 0.14), 0 12px 28px rgba(15, 23, 42, 0.1);
+          filter: saturate(1.04);
         }
         .dark-theme .feature-card:hover,
         .dark-theme .client-card:hover,
         .dark-theme .developer-card:hover,
         .dark-theme .testimonial-card:hover {
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+          box-shadow: 0 20px 42px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(0, 122, 255, 0.25);
+          filter: brightness(1.03) saturate(1.06);
+        }
+
+        .landing-card-strip::-webkit-scrollbar {
+          display: none;
         }
         
         /* Social Icon Hover */
@@ -1023,7 +1023,11 @@ const styles: any = {
     WebkitOverflowScrolling: "touch",
     padding: "4px clamp(4px, 2vw, 12px) 12px",
     boxSizing: "border-box" as const,
-    scrollSnapType: "x mandatory",
+    scrollSnapType: "x proximity",
+    scrollbarWidth: "none" as const,
+    msOverflowStyle: "none" as const,
+    cursor: "grab",
+    userSelect: "none" as const,
   },
   hScrollInner: {
     display: "flex",
@@ -1534,6 +1538,20 @@ const styles: any = {
     marginTop: "10px",
     transition: "all 0.3s ease",
     width: "100%",
+  },
+  contactRedirectButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "14px 20px",
+    borderRadius: "12px",
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    textDecoration: "none",
+    fontSize: "15px",
+    fontWeight: 700,
+    width: "fit-content",
+    marginTop: "12px",
   },
 };
 

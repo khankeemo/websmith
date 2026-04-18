@@ -743,6 +743,7 @@ const styles: Record<string, any> = {
   primaryColumn: {
     display: "grid",
     gap: "24px",
+    width: "100%",
   },
   secondaryColumn: {
     display: "grid",
@@ -754,6 +755,7 @@ const styles: Record<string, any> = {
     border: "1px solid var(--border-color)",
     boxShadow: "0 10px 30px rgba(15, 23, 42, 0.04)",
     padding: "24px",
+    width: "100%",
   },
   cardHeader: {
     marginBottom: "20px",
