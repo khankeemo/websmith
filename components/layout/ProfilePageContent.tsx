@@ -449,7 +449,7 @@ export default function ProfilePageContent() {
                     </button>
                     <button
                       type="button"
-                      style={{ ...styles.secondaryButton, marginLeft: 12 }}
+                      style={styles.secondaryButton}
                       onClick={handleShowPasswordForm}
                     >
                       <Lock size={16} />
@@ -464,7 +464,7 @@ export default function ProfilePageContent() {
                     </button>
                     <button
                       type="button"
-                      style={{ ...styles.secondaryButton, marginLeft: 12 }}
+                      style={styles.secondaryButton}
                       onClick={handleCancelEdit}
                       disabled={profileSaving}
                     >
@@ -472,7 +472,7 @@ export default function ProfilePageContent() {
                     </button>
                     <button
                       type="button"
-                      style={{ ...styles.secondaryButton, marginLeft: 12 }}
+                      style={styles.secondaryButton}
                       onClick={handleShowPasswordForm}
                     >
                       <Lock size={16} />
@@ -587,7 +587,7 @@ export default function ProfilePageContent() {
                   </button>
                   <button
                     type="button"
-                    style={{ ...styles.secondaryButton, marginLeft: 12 }}
+                    style={styles.secondaryButton}
                     onClick={handleClosePasswordForm}
                     disabled={passwordSaving}
                   >
@@ -736,9 +736,10 @@ const styles: Record<string, any> = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.6fr) minmax(320px, 0.9fr)",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "24px",
     alignItems: "start",
+    width: "100%",
   },
   primaryColumn: {
     display: "grid",
@@ -754,7 +755,7 @@ const styles: Record<string, any> = {
     borderRadius: "24px",
     border: "1px solid var(--border-color)",
     boxShadow: "0 10px 30px rgba(15, 23, 42, 0.04)",
-    padding: "24px",
+    padding: "clamp(20px, 3vw, 32px)",
     width: "100%",
   },
   cardHeader: {
@@ -785,8 +786,9 @@ const styles: Record<string, any> = {
   },
   formGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "16px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: "18px",
+    width: "100%",
   },
   field: {
     display: "grid",
@@ -879,6 +881,10 @@ const styles: Record<string, any> = {
   actionRow: {
     display: "flex",
     justifyContent: "flex-start",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "12px",
+    width: "100%",
   },
   primaryButton: {
     display: "inline-flex",
