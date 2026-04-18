@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import CrispChat from "../components/ui/crispchat";
-import ForcedPasswordResetModal from "../components/auth/ForcedPasswordResetModal";
+import ForcedPasswordResetModal from "@/components/auth/ForcedPasswordResetModal";
 import { isPublicRoute } from "../core/constants/routes";
 import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, setAuthSession } from "../lib/auth";
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
@@ -39,7 +39,7 @@ function ClientLayoutInner({
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { publicTheme } = usePublicTheme();
+  const { publicTheme, togglePublicTheme } = usePublicTheme();
   const [showForcedPasswordResetModal, setShowForcedPasswordResetModal] = useState(false);
   
   const handleForcedPasswordResetCompleted = () => {
@@ -64,7 +64,6 @@ function ClientLayoutInner({
 
     const token = getToken();
     const user = getStoredUser();
-    const isPublic = isPublicPath(pathname);
 
     if (typeof window !== "undefined") {
       (window as any).__LAST_PATH__ = pathname;
@@ -188,7 +187,7 @@ function ClientLayoutInner({
         {mounted && !shouldShowSidebar && !getToken() && !getStoredUser() && (
           <button
             type="button"
-            onClick={() => setPublicTheme((current: string) => (current === "light" ? "dark" : "light"))}
+            onClick={() => togglePublicTheme()}
             style={styles.publicThemeButton}
             aria-label={`Switch to ${publicTheme === "light" ? "dark" : "light"} mode`}
           >

@@ -10,6 +10,7 @@ export interface AuthUser {
   avatar?: string;
   adminLevel?: "super" | "sub" | null;
   isTemporaryPassword?: boolean;
+  isForcedPasswordReset?: boolean;
   setupCompleted?: boolean;
   preferences?: {
     theme: "light" | "dark";
