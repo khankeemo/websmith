@@ -1,5 +1,5 @@
-import ContactPageClient from "./ContactPageClient";
+import { redirect } from "next/navigation";
 
 export default function ContactPage() {
-  return <ContactPageClient />;
+  redirect("/#contact");
 }

@@ -6,8 +6,6 @@
 "use client";
 
 import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { 
   ArrowRight, 
   Star, 
@@ -27,6 +25,7 @@ import PublicSiteNav from "../components/layout/PublicSiteNav";
 import { getPublishedProjects, getPublishedTestimonials } from "./projects/services/projectService";
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
+import { createPublicTicket } from "../core/services/ticketService";
 import { useLeadFunnel } from "./providers/LeadFunnelProvider";
 
 type HorizontalCardStripProps<T> = {
@@ -50,49 +49,9 @@ function HorizontalCardStrip<T>({
 }: HorizontalCardStripProps<T>) {
   const outerRef = useRef<HTMLDivElement>(null);
   const dragState = useRef({ active: false, startX: 0, startScrollLeft: 0 });
-  const hoverPausedRef = useRef(false);
-  const loopSpeedRef = useRef(-0.45);
-  const animationFrameRef = useRef<number | null>(null);
   const autoLoop = items.length === autoLoopCount;
-  const dragEnabled = items.length > dragThreshold || autoLoop;
-  const renderedItems = autoLoop ? [...items, ...items, ...items] : items;
-
-  useEffect(() => {
-    const outer = outerRef.current;
-    if (!outer || !autoLoop) return;
-
-    const resetToMiddle = () => {
-      outer.scrollLeft = outer.scrollWidth / 3;
-    };
-
-    resetToMiddle();
-
-    const step = () => {
-      if (!outerRef.current || dragState.current.active || hoverPausedRef.current) {
-        animationFrameRef.current = window.requestAnimationFrame(step);
-        return;
-      }
-
-      const viewport = outerRef.current;
-      const singleLoopWidth = viewport.scrollWidth / 3;
-      viewport.scrollLeft += loopSpeedRef.current;
-
-      if (viewport.scrollLeft >= singleLoopWidth * 2) {
-        viewport.scrollLeft -= singleLoopWidth;
-      } else if (viewport.scrollLeft <= 0) {
-        viewport.scrollLeft += singleLoopWidth;
-      }
-
-      animationFrameRef.current = window.requestAnimationFrame(step);
-    };
-
-    animationFrameRef.current = window.requestAnimationFrame(step);
-    return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [autoLoop, items.length]);
+  const dragEnabled = items.length > dragThreshold && !autoLoop;
+  const renderedItems = autoLoop ? [...items, ...items] : items;
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const outer = outerRef.current;
@@ -133,7 +92,7 @@ function HorizontalCardStrip<T>({
       className="landing-card-strip"
       style={{
         ...styles.hScrollOuter,
-        overflowX: dragEnabled ? ("auto" as const) : ("hidden" as const),
+        overflowX: autoLoop ? ("hidden" as const) : dragEnabled ? ("auto" as const) : ("hidden" as const),
         cursor: dragEnabled ? ("grab" as const) : ("default" as const),
       }}
       role="region"
@@ -145,14 +104,11 @@ function HorizontalCardStrip<T>({
       onPointerLeave={(event) => {
         if (dragState.current.active) handlePointerEnd(event);
       }}
-      onMouseEnter={() => {
-        hoverPausedRef.current = true;
-      }}
-      onMouseLeave={() => {
-        hoverPausedRef.current = false;
-      }}
     >
-      <div style={{ ...styles.hScrollInner, gap: `${gap}px` }}>
+      <div
+        style={{ ...styles.hScrollInner, gap: `${gap}px` }}
+        className={autoLoop ? "landing-marquee-track" : undefined}
+      >
         {renderedItems.map((item, index) => (
           <div
             key={`${index}-${autoLoop ? index % items.length : index}`}
@@ -187,13 +143,23 @@ function StatsStrip({ items }: { items: StatSlide[] }) {
 }
 
 export default function LandingPage() {
-  const router = useRouter();
   const { openLeadServicesModal } = useLeadFunnel();
   
   // Refs for smooth scroll
   const featuresRef = useRef<HTMLElement>(null);
   const developersRef = useRef<HTMLElement>(null);
   const clientsRef = useRef<HTMLElement>(null);
+  const contactFormRef = useRef<HTMLElement>(null);
+  
+  // Contact form state
+  const [contactState, setContactState] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<null | "success" | "error">(null);
   
   // Stats counter animation
   const [stats, setStats] = useState({
@@ -249,7 +215,7 @@ export default function LandingPage() {
   const features = [
     { icon: Code, title: "Expert Developers", description: "Top-tier developers with proven experience in modern tech stacks", href: "#developers" },
     { icon: Rocket, title: "Fast Delivery", description: "Agile methodology ensuring quick turnaround without quality compromise", href: "#projects" },
-    { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance", href: "/contact" },
+    { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance", href: "#contact" },
     { icon: Users, title: "Dedicated Teams", description: "Build your dedicated development team tailored to your needs", href: "#clients" },
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
   ];
@@ -391,13 +357,9 @@ export default function LandingPage() {
               key={index} 
               type="button"
               onClick={() => {
-                if (feature.href.startsWith("/")) {
-                  router.push(feature.href);
-                } else {
-                  const target = document.querySelector(feature.href);
-                  if (target instanceof HTMLElement) {
-                    target.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }
+                const target = document.querySelector(feature.href);
+                if (target instanceof HTMLElement) {
+                  target.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
               style={{
@@ -433,6 +395,7 @@ export default function LandingPage() {
           items={effectiveProjects}
           ariaLabel="Published projects"
           itemMinWidth={280}
+          autoLoopCount={effectiveProjects.length}
           renderItem={(project: any) => (
             <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard }} className="feature-card">
               {project.previewImage ? (
@@ -487,6 +450,7 @@ export default function LandingPage() {
           items={publicClients}
           ariaLabel="Satisfied clients"
           itemMinWidth={260}
+          autoLoopCount={publicClients.length}
           renderItem={(client, index) => (
             <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="client-card">
               <div style={styles.clientAvatarContainer}>
@@ -508,6 +472,7 @@ export default function LandingPage() {
           items={publicDevelopers}
           ariaLabel="Expert developers"
           itemMinWidth={280}
+          autoLoopCount={publicDevelopers.length}
           renderItem={(dev) => (
             <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="developer-card">
               <div style={styles.circleMask}>
@@ -535,6 +500,7 @@ export default function LandingPage() {
           items={reviewCards}
           ariaLabel="Client testimonials"
           itemMinWidth={280}
+          autoLoopCount={reviewCards.length}
           renderItem={(testimonial) => (
             <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="testimonial-card">
               <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
@@ -551,12 +517,12 @@ export default function LandingPage() {
         />
       </section>
 
-      {/* Contact CTA */}
-      <section style={styles.contactSection}>
+      {/* Contact Section */}
+      <section id="contact" ref={contactFormRef} style={styles.contactSection}>
         <div style={styles.contactContainer}>
           <div style={styles.contactHeader}>
-            <h2 style={styles.sectionTitle}>Use One Central Contact Page</h2>
-            <p style={styles.sectionSubtitle}>All contact actions now route to a single dedicated page for inquiries, support, and project conversations.</p>
+            <h2 style={styles.sectionTitle}>Get in Touch</h2>
+            <p style={styles.sectionSubtitle}>Have a project in mind? Let&apos;s build something amazing together.</p>
           </div>
           
           <div style={styles.contactGrid}>
@@ -591,12 +557,99 @@ export default function LandingPage() {
             
             <div style={styles.contactFormContainer}>
               <div style={styles.contactGlassCard}>
-                <p style={styles.contactInfoDesc}>
-                  We now use one centralized contact page for all project inquiries, support requests, and business conversations.
-                </p>
-                <Link href="/contact" style={styles.contactRedirectButton}>
-                  Open Contact Page
-                </Link>
+                <form 
+                  style={styles.contactForm}
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setIsSubmitting(true);
+                    setSubmitStatus(null);
+                    try {
+                      await createPublicTicket({
+                        name: contactState.name,
+                        email: contactState.email,
+                        company: "",
+                        subject: contactState.subject,
+                        message: contactState.message,
+                      });
+                      setSubmitStatus("success");
+                      setContactState({ name: "", email: "", subject: "", message: "" });
+                    } catch (error) {
+                      console.error("Public inquiry error:", error);
+                      setSubmitStatus("error");
+                    } finally {
+                      setIsSubmitting(false);
+                      setTimeout(() => setSubmitStatus(null), 5000);
+                    }
+                  }}
+                >
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="John Doe" 
+                        style={styles.formInput}
+                        required
+                        value={contactState.name}
+                        onChange={(e) => setContactState({ ...contactState, name: e.target.value })}
+                      />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>Email</label>
+                      <input 
+                        type="email" 
+                        placeholder="john@example.com" 
+                        style={styles.formInput}
+                        required
+                        value={contactState.email}
+                        onChange={(e) => setContactState({ ...contactState, email: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Subject</label>
+                    <input 
+                      type="text" 
+                      placeholder="Project Inquiry" 
+                      style={styles.formInput}
+                      required
+                      value={contactState.subject}
+                      onChange={(e) => setContactState({ ...contactState, subject: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Message</label>
+                    <textarea 
+                      placeholder="Tell us about your project..." 
+                      style={styles.formTextarea}
+                      required
+                      value={contactState.message}
+                      onChange={(e) => setContactState({ ...contactState, message: e.target.value })}
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    style={styles.submitBtn} 
+                    className="cta-hover"
+                  >
+                    {isSubmitting ? "Sending..." : (submitStatus === "success" ? "Message Sent!" : "Send Message")}
+                  </button>
+                  
+                  {submitStatus === "success" && (
+                    <p style={{ color: "#34C759", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
+                      Inquiry submitted successfully. It is now available in the admin query thread.
+                    </p>
+                  )}
+                  {submitStatus === "error" && (
+                    <p style={{ color: "#FF3B30", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
+                      We could not send your message right now. Please try again.
+                    </p>
+                  )}
+                </form>
               </div>
             </div>
           </div>
@@ -665,38 +718,48 @@ export default function LandingPage() {
           transform: scale(0.98); 
         }
         
-        /* Card hover: restore stronger lift/highlight treatment */
         .feature-card,
         .client-card,
         .developer-card,
         .testimonial-card {
-          transition:
-            transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-            box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-            border-color 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-            filter 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           cursor: pointer;
-          will-change: transform, box-shadow;
         }
-        .feature-card:hover,
-        .client-card:hover,
-        .developer-card:hover,
+        .feature-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        }
+        .client-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+        }
+        .developer-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+        }
         .testimonial-card:hover {
-          transform: translateY(-6px) scale(1.01);
-          border-color: #007AFF66 !important;
-          box-shadow: 0 18px 38px rgba(0, 122, 255, 0.14), 0 12px 28px rgba(15, 23, 42, 0.1);
-          filter: saturate(1.04);
-        }
-        .dark-theme .feature-card:hover,
-        .dark-theme .client-card:hover,
-        .dark-theme .developer-card:hover,
-        .dark-theme .testimonial-card:hover {
-          box-shadow: 0 20px 42px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(0, 122, 255, 0.25);
-          filter: brightness(1.03) saturate(1.06);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 16px rgba(0,0,0,0.08);
         }
 
         .landing-card-strip::-webkit-scrollbar {
           display: none;
+        }
+
+        .landing-marquee-track {
+          animation: landingMarquee 28s linear infinite;
+          will-change: transform;
+        }
+        .landing-marquee-track:hover {
+          animation-play-state: paused;
+        }
+        @keyframes landingMarquee {
+          from {
+            transform: translateX(-50%);
+          }
+          to {
+            transform: translateX(0);
+          }
         }
         
         /* Social Icon Hover */
@@ -1538,20 +1601,6 @@ const styles: any = {
     marginTop: "10px",
     transition: "all 0.3s ease",
     width: "100%",
-  },
-  contactRedirectButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "14px 20px",
-    borderRadius: "12px",
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-    textDecoration: "none",
-    fontSize: "15px",
-    fontWeight: 700,
-    width: "fit-content",
-    marginTop: "12px",
   },
 };
 

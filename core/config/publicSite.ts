@@ -64,7 +64,7 @@ export const publicPrimaryNav = [
   { name: "Blog", href: "/blog" },
   { name: "Documentation", href: "/documentation" },
   { name: "Support", href: "/support" },
-  { name: "Contact", href: "/contact" },
+  { name: "Contact", href: "/#contact" },
 ] as const;
 
 export const publicFooterConfig = {
@@ -92,7 +92,7 @@ export const publicFooterConfig = {
       links: [
         { label: "Documentation", href: "/documentation" },
         { label: "Support", href: "/support" },
-        { label: "Contact", href: "/contact" },
+        { label: "Contact", href: "/#contact" },
       ],
     },
     {

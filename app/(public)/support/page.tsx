@@ -9,7 +9,7 @@ export default function SupportPage() {
       eyebrow="Support"
       title="Need help with delivery, access, billing, or a live issue?"
       description="Support is structured to give clients a clear next step, fast routing, and a dependable response path."
-      cta={{ href: "/contact", label: "Contact Support" }}
+      cta={{ href: "/#contact", label: "Contact Support" }}
     >
       <Section title={supportStatus.label}>
         <Card accent="#22C55E">
@@ -34,11 +34,11 @@ export default function SupportPage() {
       <Section title="Contact support">
         <Card>
           <p style={styles.body}>
-            For account, billing, project, or launch support, use the contact page or email{" "}
+            For account, billing, project, or launch support, use the landing page contact form or email{" "}
             <a href="mailto:support@websmith.dev" style={styles.link}>support@websmith.dev</a>.
           </p>
-          <Link href="/contact" style={styles.link}>
-            Open the support contact form
+          <Link href="/#contact" style={styles.link}>
+            Open the landing page contact form
           </Link>
         </Card>
       </Section>

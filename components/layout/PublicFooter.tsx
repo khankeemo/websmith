@@ -9,12 +9,21 @@ export default function PublicFooter() {
 
   return (
     <footer style={styles.footer}>
-      <div style={styles.content}>
-        <div style={styles.brandColumn}>
+      <div style={styles.content} className="landing-footer-content">
+        <div style={styles.section}>
           <h3 style={styles.brandName}>{publicFooterConfig.brand.name}</h3>
-          <p style={styles.tagline}>{publicFooterConfig.brand.tagline}</p>
+          <p style={styles.tagline}>{publicFooterConfig.brand.tagline}.</p>
           <div style={styles.socialRow}>
             {publicFooterConfig.socials.map((social) => {
+              const shortLabel =
+                social.label === "Twitter"
+                  ? "TW"
+                  : social.label === "LinkedIn"
+                    ? "IN"
+                    : social.label === "GitHub"
+                      ? "GH"
+                      : "FB";
+
               return (
                 <a
                   key={social.label}
@@ -23,8 +32,9 @@ export default function PublicFooter() {
                   rel="noreferrer"
                   aria-label={social.label}
                   style={styles.socialLink}
+                  className="social-icon"
                 >
-                  {social.label.slice(0, 2)}
+                  {shortLabel}
                 </a>
               );
             })}
@@ -34,18 +44,16 @@ export default function PublicFooter() {
         {publicFooterConfig.sections.map((section) => (
           <div key={section.title} style={styles.section}>
             <h4 style={styles.sectionTitle}>{section.title}</h4>
-            <div style={styles.linkList}>
-              {section.links.map((link) => (
-                <Link key={`${section.title}-${link.href}`} href={link.href} style={styles.link}>
-                  {link.label}
-                </Link>
-              ))}
-            </div>
+            {section.links.map((link) => (
+              <Link key={`${section.title}-${link.href}`} href={link.href} style={styles.link}>
+                {link.label}
+              </Link>
+            ))}
           </div>
         ))}
       </div>
       <div style={styles.bottomBar}>
-        <p style={styles.bottomText}>© {year} Websmith. All rights reserved.</p>
+        <p style={styles.bottomText}>(c) {year} Websmith. All rights reserved. Developed with care by Websmith Team</p>
       </div>
     </footer>
   );
@@ -53,86 +61,76 @@ export default function PublicFooter() {
 
 const styles: Record<string, CSSProperties> = {
   footer: {
+    backgroundColor: "var(--bg-secondary)",
     borderTop: "1px solid var(--border-color)",
-    background:
-      "linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 94%, #007AFF 6%) 0%, var(--bg-secondary) 100%)",
-    padding: "48px clamp(16px, 4vw, 48px) 20px",
+    padding: "48px 0 24px",
   },
   content: {
     display: "grid",
-    gridTemplateColumns: "minmax(220px, 1.2fr) repeat(3, minmax(160px, 0.8fr))",
-    gap: "32px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: "40px",
     width: "100%",
-    alignItems: "start",
+    maxWidth: "100%",
+    margin: 0,
+    padding: "0 clamp(16px, 4vw, 48px)",
+    marginBottom: "40px",
   },
-  brandColumn: {
-    display: "grid",
+  section: {
+    display: "flex",
+    flexDirection: "column",
     gap: "12px",
   },
   brandName: {
     margin: 0,
-    fontSize: "22px",
-    fontWeight: 700,
+    fontSize: "20px",
+    fontWeight: 600,
     color: "var(--text-primary)",
   },
   tagline: {
     margin: 0,
-    color: "color-mix(in srgb, var(--text-secondary) 92%, var(--text-primary) 8%)",
-    lineHeight: 1.6,
     fontSize: "14px",
-    maxWidth: "320px",
+    color: "var(--text-secondary)",
+    lineHeight: 1.6,
   },
   socialRow: {
     display: "flex",
-    gap: "12px",
-    flexWrap: "wrap",
-    marginTop: "6px",
+    gap: "16px",
+    marginTop: "8px",
   },
   socialLink: {
-    width: "38px",
-    height: "38px",
-    borderRadius: "10px",
+    width: "36px",
+    height: "36px",
+    borderRadius: "999px",
     border: "1px solid var(--border-color)",
-    backgroundColor: "color-mix(in srgb, var(--bg-primary) 92%, transparent)",
+    backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     textDecoration: "none",
-  },
-  section: {
-    display: "grid",
-    alignContent: "start",
-    gap: "14px",
+    fontSize: "11px",
+    fontWeight: 700,
   },
   sectionTitle: {
     margin: 0,
+    fontSize: "16px",
+    fontWeight: 600,
     color: "var(--text-primary)",
-    fontSize: "14px",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-  },
-  linkList: {
-    display: "grid",
-    gap: "12px",
   },
   link: {
-    color: "color-mix(in srgb, var(--text-secondary) 92%, var(--text-primary) 8%)",
-    textDecoration: "none",
     fontSize: "14px",
+    color: "var(--text-secondary)",
+    textDecoration: "none",
   },
   bottomBar: {
-    marginTop: "28px",
-    paddingTop: "18px",
+    textAlign: "center",
+    paddingTop: "24px",
     borderTop: "1px solid var(--border-color)",
-    display: "flex",
-    justifyContent: "center",
+    margin: "0 clamp(16px, 4vw, 48px)",
   },
   bottomText: {
     margin: 0,
     color: "var(--text-secondary)",
-    fontSize: "13px",
-    letterSpacing: "0.01em",
+    fontSize: "12px",
   },
 };
