@@ -316,7 +316,6 @@ export default function LandingPage() {
   return (
     <div style={styles.container}>
       <LeadCapturePopup />
-      <PublicSiteNav />
 
       {/* Hero Section */}
       <section style={styles.hero} className="landing-hero">
@@ -656,7 +655,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <PublicFooter />
+
 
       <style>{`
         /* Logo Hover */
@@ -1375,50 +1374,10 @@ const styles: any = {
     fontSize: "13px",
     color: "var(--text-secondary)",
   },
-  
-  // Footer
-  footer: {
-    backgroundColor: "var(--bg-secondary)",
-    borderTop: "1px solid var(--border-color)",
-    padding: "48px 0 24px",
-  },
-  footerContent: {
-    maxWidth: "100%",
-    margin: "0",
-    padding: "0 clamp(16px, 4vw, 48px)",
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "40px",
-    marginBottom: "40px",
-  },
-  footerSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
-  footerLogo: {
-    fontSize: "20px",
-    fontWeight: 600,
-    marginBottom: "8px",
-  },
-  footerDesc: {
-    fontSize: "14px",
-    color: "var(--text-secondary)",
-  },
-  socialLinks: {
-    display: "flex",
-    gap: "16px",
-    marginTop: "8px",
-  },
-  copyright: {
-    textAlign: "center",
-    paddingTop: "24px",
-    borderTop: "1px solid var(--border-color)",
-    fontSize: "12px",
-    color: "var(--text-secondary)",
-  },
+
 
   // Diversity Section Styles
+
   diversitySection: {
     backgroundColor: "var(--bg-secondary)",
     padding: "clamp(56px, 8vw, 100px) 0",
