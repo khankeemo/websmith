@@ -40,7 +40,7 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
     setNavMounted(true);
   }, []);
 
-  const showGuestThemeToggle = navMounted && !getToken() && !getStoredUser();
+  const showGuestThemeToggle = navMounted;
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
