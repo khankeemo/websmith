@@ -146,7 +146,8 @@ function HorizontalCardStrip<T>({
         ...styles.hScrollOuter,
         overflowX: "auto",
         cursor: "grab",
-        touchAction: "pan-y", // Important for mobile: allow vertical scroll, handle horizontal drag
+        touchAction: "pan-y", 
+        scrollBehavior: "auto",
       }}
       role="region"
       aria-label={ariaLabel}
