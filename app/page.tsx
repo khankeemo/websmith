@@ -36,6 +36,8 @@ type HorizontalCardStripProps<T> = {
   gap?: number;
   autoLoopCount?: number;
   dragThreshold?: number;
+  direction?: "left-to-right" | "right-to-left";
+  scale?: number;
 };
 
 function HorizontalCardStrip<T>({
@@ -44,46 +46,96 @@ function HorizontalCardStrip<T>({
   ariaLabel,
   itemMinWidth = 280,
   gap = 20,
-  autoLoopCount = 6,
-  dragThreshold = 8,
+  autoLoopCount = 1,
+  dragThreshold = 0,
+  direction = "right-to-left",
+  scale = 1,
 }: HorizontalCardStripProps<T>) {
   const outerRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef({ active: false, startX: 0, startScrollLeft: 0 });
-  const autoLoop = items.length === autoLoopCount;
-  const dragEnabled = items.length > dragThreshold && !autoLoop;
-  const renderedItems = autoLoop ? [...items, ...items] : items;
+  const dragState = useRef({ active: false, startX: 0, startScrollLeft: 0, lastX: 0, velocity: 0 });
+  const autoLoop = items.length >= autoLoopCount;
+  
+  // We use triple items for seamless looping
+  const renderedItems = autoLoop ? [...items, ...items, ...items] : items;
+  
+  useEffect(() => {
+    const outer = outerRef.current;
+    if (!outer || !autoLoop) return;
+
+    let initialized = false;
+    let frameId: number;
+    const speed = 0.5;
+
+    const step = () => {
+      if (!dragState.current.active && outer) {
+        const singleLoopWidth = outer.scrollWidth / 3;
+        
+        if (singleLoopWidth > 0) {
+          if (!initialized) {
+            outer.scrollLeft = (direction === "left-to-right") ? singleLoopWidth * 1.5 : singleLoopWidth;
+            initialized = true;
+          }
+
+          if (direction === "left-to-right") {
+            outer.scrollLeft -= speed;
+            if (outer.scrollLeft <= singleLoopWidth * 0.5) {
+              outer.scrollLeft += singleLoopWidth;
+            }
+          } else {
+            outer.scrollLeft += speed;
+            if (outer.scrollLeft >= singleLoopWidth * 2) {
+              outer.scrollLeft -= singleLoopWidth;
+            }
+          }
+        }
+      }
+      frameId = requestAnimationFrame(step);
+    };
+
+    frameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frameId);
+  }, [autoLoop, items.length, direction]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const outer = outerRef.current;
-    if (!outer || !dragEnabled) return;
+    if (!outer) return;
     dragState.current = {
       active: true,
       startX: event.clientX,
       startScrollLeft: outer.scrollLeft,
+      lastX: event.clientX,
+      velocity: 0
     };
     outer.setPointerCapture(event.pointerId);
     outer.style.cursor = "grabbing";
+    outer.style.scrollSnapType = "none"; // Disable snapping while dragging
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const outer = outerRef.current;
-    if (!outer || !dragEnabled || !dragState.current.active) return;
+    if (!outer || !dragState.current.active) return;
+    
     const deltaX = event.clientX - dragState.current.startX;
     outer.scrollLeft = dragState.current.startScrollLeft - deltaX;
-
-    if (autoLoop) {
-      const singleLoopWidth = outer.scrollWidth / 3;
-      if (outer.scrollLeft >= singleLoopWidth * 2) outer.scrollLeft -= singleLoopWidth;
-      if (outer.scrollLeft <= 0) outer.scrollLeft += singleLoopWidth;
+    
+    // Boundary check during drag for infinite loop
+    const singleLoopWidth = outer.scrollWidth / 3;
+    if (outer.scrollLeft >= singleLoopWidth * 2) {
+      outer.scrollLeft -= singleLoopWidth;
+      dragState.current.startX += singleLoopWidth; // Adjust startX to maintain delta
+    } else if (outer.scrollLeft <= singleLoopWidth * 0.5) {
+      outer.scrollLeft += singleLoopWidth;
+      dragState.current.startX -= singleLoopWidth;
     }
   };
 
   const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
     const outer = outerRef.current;
     dragState.current.active = false;
-    if (!outer || !dragEnabled) return;
+    if (!outer) return;
     outer.releasePointerCapture(event.pointerId);
     outer.style.cursor = "grab";
+    outer.style.scrollSnapType = "none";
   };
 
   return (
@@ -92,8 +144,9 @@ function HorizontalCardStrip<T>({
       className="landing-card-strip"
       style={{
         ...styles.hScrollOuter,
-        overflowX: autoLoop ? ("hidden" as const) : dragEnabled ? ("auto" as const) : ("hidden" as const),
-        cursor: dragEnabled ? ("grab" as const) : ("default" as const),
+        overflowX: "auto",
+        cursor: "grab",
+        touchAction: "pan-y", // Important for mobile: allow vertical scroll, handle horizontal drag
       }}
       role="region"
       aria-label={ariaLabel}
@@ -101,18 +154,25 @@ function HorizontalCardStrip<T>({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
-      onPointerLeave={(event) => {
-        if (dragState.current.active) handlePointerEnd(event);
-      }}
     >
       <div
-        style={{ ...styles.hScrollInner, gap: `${gap}px` }}
-        className={autoLoop ? "landing-marquee-track" : undefined}
+        style={{ 
+          ...styles.hScrollInner, 
+          gap: `${gap * scale}px`,
+          padding: "10px 0" 
+        }}
       >
         {renderedItems.map((item, index) => (
           <div
-            key={`${index}-${autoLoop ? index % items.length : index}`}
-            style={{ ...styles.hScrollCell, minWidth: `${itemMinWidth}px`, scrollSnapAlign: "start" as const }}
+            key={`${index}-${index % items.length}`}
+            style={{ 
+              ...styles.hScrollCell, 
+              minWidth: `${itemMinWidth * scale}px`, 
+              scrollSnapAlign: "start" as const,
+              transform: `scale(${scale})`,
+              transformOrigin: "center center",
+              transition: "transform 0.3s ease"
+            }}
           >
             {renderItem(item, index % items.length)}
           </div>
@@ -131,7 +191,9 @@ function StatsStrip({ items }: { items: StatSlide[] }) {
       ariaLabel="Websmith stats"
       itemMinWidth={220}
       gap={18}
-      autoLoopCount={items.length}
+      autoLoopCount={1}
+      direction="left-to-right"
+      scale={1}
       renderItem={(item) => (
         <article key={item.id} style={styles.statStaticCard}>
           <p style={styles.statStaticValue}>{item.value}</p>
@@ -377,7 +439,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Stats — static cards (no marquee) */}
+      {/* Stats — looping carousel */}
       <section style={styles.statsSection}>
         <div style={styles.statsIntro}>
           <p style={styles.statsEyebrow}>Trust at scale</p>
@@ -388,13 +450,15 @@ export default function LandingPage() {
       </section>
 
       <section id="projects" style={styles.section}>
-        <h2 style={styles.sectionTitle}>Published Projects</h2>
+        <h2 style={styles.sectionTitle}>Projects</h2>
         <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
         <HorizontalCardStrip
           items={effectiveProjects}
           ariaLabel="Published projects"
-          itemMinWidth={280}
-          autoLoopCount={effectiveProjects.length}
+          itemMinWidth={260}
+          autoLoopCount={1}
+          direction="right-to-left"
+          scale={0.95}
           renderItem={(project: any) => (
             <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard }} className="feature-card">
               {project.previewImage ? (
@@ -448,8 +512,10 @@ export default function LandingPage() {
         <HorizontalCardStrip
           items={publicClients}
           ariaLabel="Satisfied clients"
-          itemMinWidth={260}
-          autoLoopCount={publicClients.length}
+          itemMinWidth={240}
+          autoLoopCount={1}
+          direction="left-to-right"
+          scale={0.90}
           renderItem={(client, index) => (
             <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="client-card">
               <div style={styles.clientAvatarContainer}>
@@ -470,8 +536,10 @@ export default function LandingPage() {
         <HorizontalCardStrip
           items={publicDevelopers}
           ariaLabel="Expert developers"
-          itemMinWidth={280}
-          autoLoopCount={publicDevelopers.length}
+          itemMinWidth={260}
+          autoLoopCount={1}
+          direction="right-to-left"
+          scale={0.85}
           renderItem={(dev) => (
             <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="developer-card">
               <div style={styles.circleMask}>
@@ -498,8 +566,10 @@ export default function LandingPage() {
         <HorizontalCardStrip
           items={reviewCards}
           ariaLabel="Client testimonials"
-          itemMinWidth={280}
-          autoLoopCount={reviewCards.length}
+          itemMinWidth={240}
+          autoLoopCount={1}
+          direction="left-to-right"
+          scale={0.80}
           renderItem={(testimonial) => (
             <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="testimonial-card">
               <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
@@ -745,21 +815,7 @@ export default function LandingPage() {
           display: none;
         }
 
-        .landing-marquee-track {
-          animation: landingMarquee 28s linear infinite;
-          will-change: transform;
-        }
-        .landing-marquee-track:hover {
-          animation-play-state: paused;
-        }
-        @keyframes landingMarquee {
-          from {
-            transform: translateX(-50%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
+        /* Removed landing-marquee-track animation as it is now handled via JS for drag support */
         
         /* Social Icon Hover */
         .social-icon { 
@@ -1085,7 +1141,7 @@ const styles: any = {
     WebkitOverflowScrolling: "touch",
     padding: "4px clamp(4px, 2vw, 12px) 12px",
     boxSizing: "border-box" as const,
-    scrollSnapType: "x proximity",
+    scrollSnapType: "none",
     scrollbarWidth: "none" as const,
     msOverflowStyle: "none" as const,
     cursor: "grab",

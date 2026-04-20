@@ -184,16 +184,7 @@ function ClientLayoutInner({
         </main>
 
         {/* Only after mount: server has no localStorage, so auth checks must not run during SSR. */}
-        {mounted && !shouldShowSidebar && !getToken() && !getStoredUser() && (
-          <button
-            type="button"
-            onClick={() => togglePublicTheme()}
-            style={styles.publicThemeButton}
-            aria-label={`Switch to ${publicTheme === "light" ? "dark" : "light"} mode`}
-          >
-            {publicTheme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
-        )}
+
       </div>
 
       <ForcedPasswordResetModal
