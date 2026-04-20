@@ -72,7 +72,7 @@ function ClientLayoutInner({
     if (isPublicRoute(pathname)) {
       document.documentElement.classList.toggle(
         "dark-theme",
-        token && user ? user.preferences?.theme === "dark" : publicTheme === "dark"
+        publicTheme === "dark"
       );
       return;
     }

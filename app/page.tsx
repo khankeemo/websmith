@@ -45,7 +45,7 @@ function HorizontalCardStrip<T>({
   renderItem,
   ariaLabel,
   itemMinWidth = 280,
-  gap = 20,
+  gap = 14,
   autoLoopCount = 1,
   dragThreshold = 0,
   direction = "right-to-left",
@@ -459,7 +459,7 @@ export default function LandingPage() {
           itemMinWidth={260}
           autoLoopCount={1}
           direction="right-to-left"
-          scale={0.95}
+          scale={1}
           renderItem={(project: any) => (
             <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard }} className="feature-card">
               {project.previewImage ? (
@@ -516,7 +516,7 @@ export default function LandingPage() {
           itemMinWidth={240}
           autoLoopCount={1}
           direction="left-to-right"
-          scale={0.90}
+          scale={1}
           renderItem={(client, index) => (
             <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="client-card">
               <div style={styles.clientAvatarContainer}>
@@ -540,7 +540,7 @@ export default function LandingPage() {
           itemMinWidth={260}
           autoLoopCount={1}
           direction="right-to-left"
-          scale={0.85}
+          scale={1}
           renderItem={(dev) => (
             <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="developer-card">
               <div style={styles.circleMask}>
@@ -570,7 +570,7 @@ export default function LandingPage() {
           itemMinWidth={240}
           autoLoopCount={1}
           direction="left-to-right"
-          scale={0.80}
+          scale={1}
           renderItem={(testimonial) => (
             <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="testimonial-card">
               <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
