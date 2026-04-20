@@ -18,30 +18,23 @@ function AuthCallbackContent() {
   useEffect(() => {
     const handleOAuthCallback = async () => {
       try {
-        // Get token from URL fragment or query params
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const idToken = hashParams.get('id_token');
-        
-        // Get provider from state
-        const state = searchParams.get('state');
+        const state = searchParams.get('state') || hashParams.get('state');
         const provider = state?.split('_')[0] || 'unknown';
 
         if (!accessToken && !idToken) {
-          // Demo mode - simulate successful auth
           const userData = {
             provider,
             email: `demo.${provider}@example.com`,
             name: `Demo ${provider} User`,
           };
           
-          // Send to backend
-          const response = await API.post('/auth/oauth', userData);
+          const response = await API.post('/auth/oauth/register', userData);
           
           if (response.data.token) {
             setAuthSession(response.data.token, response.data.user);
-            
-            // Send message to parent window
             if (window.opener) {
               window.opener.postMessage({
                 type: 'oauth_success',
@@ -53,7 +46,6 @@ function AuthCallbackContent() {
             }
           }
         } else {
-          // Real OAuth - verify token with backend
           const response = await API.post('/auth/oauth/verify', {
             provider,
             token: accessToken || idToken,
@@ -73,7 +65,7 @@ function AuthCallbackContent() {
             }
           }
         }
-        
+
         setStatus('success');
       } catch (error) {
         setStatus('error');

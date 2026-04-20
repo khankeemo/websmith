@@ -55,6 +55,7 @@ export default function MessagesPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [convViewMode, setConvViewMode] = useState<GridListView>("grid");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const u = getStoredUser();
@@ -109,29 +110,34 @@ export default function MessagesPage() {
     }
   };
 
-  const sendMessage = async () => {
-    const text = newMessage.trim();
-    if (!text || !selectedConversation) return;
+  const sendMessage = async (payload?: { content: string; type: "text" | "image" | "file" }) => {
+    if (!selectedConversation) return;
+
+    const content = payload?.content ?? newMessage.trim();
+    const type = payload?.type ?? "text";
+    if (!content) return;
 
     const receiverId = selectedConversation.participantId || selectedConversation._id;
     const optimistic: Message = {
       _id: `temp-${Date.now()}`,
       senderId: currentUserId || "me",
       receiverId,
-      content: text,
-      type: "text",
+      content,
+      type,
       status: "sent",
       timestamp: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, optimistic]);
-    setNewMessage("");
+    if (type === "text") {
+      setNewMessage("");
+    }
 
     try {
       const response = await API.post("/messages/send", {
         receiverId,
-        content: text,
-        type: "text",
+        content,
+        type,
       });
       const saved = response.data?.data;
       if (saved?._id) {
@@ -145,8 +151,38 @@ export default function MessagesPage() {
     } catch (error: any) {
       console.error("Send message error:", error);
       setMessages((prev) => prev.filter((m) => m._id !== optimistic._id));
-      setNewMessage(text);
+      if (type === "text") {
+        setNewMessage(content);
+      }
       alert(error?.response?.data?.message || "Failed to send message.");
+    }
+  };
+
+  const handleAttachmentSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file || !selectedConversation) {
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadResponse = await API.post("/messages/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const uploadData = uploadResponse.data?.data;
+      if (!uploadData?.url || !uploadData?.type) {
+        throw new Error("Attachment upload did not return a usable file.");
+      }
+
+      await sendMessage({ content: uploadData.url, type: uploadData.type });
+    } catch (error: any) {
+      console.error("Attachment upload error:", error);
+      alert(error?.response?.data?.message || "Failed to upload attachment.");
     }
   };
 
@@ -184,6 +220,33 @@ export default function MessagesPage() {
     conv.participantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     conv.participantRole.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const renderMessageContent = (message: Message) => {
+    if (message.type === "image") {
+      return (
+        <img
+          src={message.content}
+          alt="Attachment"
+          style={styles.messageImage}
+        />
+      );
+    }
+
+    if (message.type === "file") {
+      return (
+        <a
+          href={message.content}
+          target="_blank"
+          rel="noreferrer"
+          style={styles.fileLink}
+        >
+          Open attachment
+        </a>
+      );
+    }
+
+    return message.content;
+  };
 
   if (loading) {
     return (
@@ -344,7 +407,7 @@ export default function MessagesPage() {
                       }}
                       className="message-bubble"
                     >
-                      {message.content}
+                      {renderMessageContent(message)}
                     </div>
                     <div style={styles.messageMeta}>
                       <span style={styles.messageTime}>{formatTime(message.timestamp)}</span>
@@ -359,7 +422,18 @@ export default function MessagesPage() {
 
           {/* Message Input */}
           <div style={styles.messageInputContainer} className="messages-input-row">
-            <button style={styles.attachBtn} className="chat-input-btn">
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              onChange={handleAttachmentSelect}
+              style={{ display: "none" }}
+              accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx"
+            />
+            <button
+              style={styles.attachBtn}
+              className="chat-input-btn"
+              onClick={() => attachmentInputRef.current?.click()}
+            >
               <Paperclip size={20} />
             </button>
             <textarea
@@ -373,7 +447,7 @@ export default function MessagesPage() {
             <button style={styles.emojiBtn} className="chat-input-btn">
               <Smile size={20} />
             </button>
-            <button onClick={sendMessage} style={styles.sendBtn} className="send-btn">
+            <button onClick={() => { void sendMessage(); }} style={styles.sendBtn} className="send-btn">
               <Send size={18} />
             </button>
           </div>
@@ -615,6 +689,18 @@ const styles: any = {
   messageBubble: { padding: "14px 20px", borderRadius: "20px", fontSize: "15px", lineHeight: 1.5 },
   messageBubbleOwn: { backgroundColor: "#007AFF", color: "#FFFFFF", borderBottomRightRadius: "4px", boxShadow: '0 4px 12px rgba(0,122,255,0.2)' },
   messageBubbleOther: { backgroundColor: "var(--bg-primary)", color: "var(--text-primary)", borderBottomLeftRadius: "4px", border: '1px solid var(--border-color)' },
+  messageImage: {
+    maxWidth: "240px",
+    maxHeight: "240px",
+    display: "block",
+    borderRadius: "12px",
+  },
+  fileLink: {
+    color: "inherit",
+    fontWeight: 600,
+    textDecoration: "underline",
+    textUnderlineOffset: "3px",
+  },
   messageMeta: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px", marginTop: "6px" },
   messageTime: { fontSize: "11px", color: "var(--text-secondary)", fontWeight: 500 },
   messageInputContainer: { display: "flex", alignItems: "center", gap: "16px", padding: "20px 32px", borderTop: "1.5px solid var(--border-color)", backgroundColor: "var(--bg-primary)" },
