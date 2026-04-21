@@ -187,8 +187,8 @@ export const getPublishedTestimonials = async () => {
     const response = await API.get('/projects/public/testimonials');
     return response.data.data || [];
   } catch (error: any) {
-    console.error('Get published testimonials error:', error);
-    throw error.response?.data?.message || 'Failed to fetch testimonials';
+    console.warn('Get published testimonials error:', error);
+    return [];
   }
 };
 
@@ -197,8 +197,8 @@ export const getPublishedProjects = async (): Promise<Project[]> => {
     const response = await API.get('/projects/public');
     return response.data.data || [];
   } catch (error: any) {
-    console.error('Get public projects error:', error);
-    throw error.response?.data?.message || 'Failed to fetch public projects';
+    console.warn('Get public projects error:', error);
+    return [];
   }
 };
 

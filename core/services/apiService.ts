@@ -15,7 +15,15 @@ const getApiBaseUrl = () => {
 
   if (typeof window !== "undefined") {
     const { hostname, origin } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local");
+    const isPrivateIpv4 =
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+
+    // In local development, prefer the same-origin Next.js rewrite so browser
+    // requests always hit the paired local Express server even over LAN IPs.
+    if (process.env.NODE_ENV === "development" || isLocalhost || isPrivateIpv4) {
       return `${origin}/api`;
     }
     return "https://wsdserver.vercel.app/api";

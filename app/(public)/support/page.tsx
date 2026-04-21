@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { supportFaqs, supportStatus } from "../../../core/config/publicSite";
-import { Card, CardGrid, PublicPage, Section } from "../_components/PublicPage";
+import { PublicPage } from "../_components/PublicPage";
+import { SimplePublicBody, SimplePublicList, SimplePublicSection } from "../_components/SimplePublicContent";
 
 export default function SupportPage() {
   return (
@@ -11,62 +12,61 @@ export default function SupportPage() {
       description="Support is designed to give clients a clear next action, quick routing, and a response path that feels steady instead of confusing."
       cta={{ href: "/#contact", label: "Contact Support" }}
     >
-      <Section title={supportStatus.label} description="A quick signal for the main support-facing systems and delivery operations.">
-        <Card accent="#22C55E">
+      <SimplePublicBody>
+        <SimplePublicSection
+          title={supportStatus.label}
+          description="A quick signal for the main support-facing systems and delivery operations."
+        >
           <div style={styles.statusRow}>
             <span style={styles.statusPill}>{supportStatus.state}</span>
             <p style={styles.body}>{supportStatus.detail}</p>
           </div>
-        </Card>
-      </Section>
+        </SimplePublicSection>
 
-      <Section title="What support can help with">
-        <CardGrid>
-          <Card>
-            <h3 style={styles.heading}>Client access and account issues</h3>
-            <p style={styles.body}>Login trouble, portal questions, access flow confusion, and workspace orientation.</p>
-          </Card>
-          <Card>
-            <h3 style={styles.heading}>Billing and project coordination</h3>
-            <p style={styles.body}>Invoice follow-up, milestone clarification, delivery questions, and administrative support.</p>
-          </Card>
-          <Card>
-            <h3 style={styles.heading}>Launch and live-product concerns</h3>
-            <p style={styles.body}>Escalations for active issues, release questions, and requests that need the right team quickly.</p>
-          </Card>
-        </CardGrid>
-      </Section>
+        <SimplePublicSection title="What support can help with">
+          <SimplePublicList
+            items={[
+              "Client access and account issues, including login trouble, portal questions, access flow confusion, and workspace orientation.",
+              "Billing and project coordination, including invoice follow-up, milestone clarification, delivery questions, and administrative support.",
+              "Launch and live-product concerns, including escalations for active issues, release questions, and requests that need the right team quickly.",
+            ]}
+          />
+        </SimplePublicSection>
 
-      <Section title="Frequently asked questions">
-        <CardGrid>
+        <SimplePublicSection title="Frequently asked questions">
           {supportFaqs.map((faq) => (
-            <Card key={faq.question}>
+            <div key={faq.question} style={styles.faqBlock}>
               <h3 style={styles.heading}>{faq.question}</h3>
               <p style={styles.body}>{faq.answer}</p>
-            </Card>
+            </div>
           ))}
-        </CardGrid>
-      </Section>
+        </SimplePublicSection>
 
-      <Section title="Contact support" description="If the answer is not already here, the landing-page form is the fastest way to route the request into the main support flow.">
-        <Card>
+        <SimplePublicSection
+          title="Contact support"
+          description="If the answer is not already here, the landing-page form is the fastest way to route the request into the main support flow."
+        >
           <p style={styles.body}>
             For account, billing, project, or launch support, use the landing page contact form or email{" "}
-            <a href="mailto:support@websmith.dev" style={styles.link}>support@websmith.dev</a>.
+            <a href="mailto:support@websmith.dev" style={styles.link}>
+              support@websmith.dev
+            </a>
+            .
           </p>
-          <Link href="/#contact" style={styles.link}>
+          <Link href="/#contact" style={styles.link} className="simple-public-link">
             Open the landing page contact form
           </Link>
-        </Card>
-      </Section>
+        </SimplePublicSection>
+      </SimplePublicBody>
     </PublicPage>
   );
 }
 
 const styles: Record<string, CSSProperties> = {
   statusRow: { display: "grid", gap: "12px" },
+  faqBlock: { display: "grid", gap: "10px", paddingTop: "18px", borderTop: "1px solid var(--border-color)" },
   statusPill: { display: "inline-flex", width: "fit-content", padding: "6px 10px", borderRadius: "999px", backgroundColor: "rgba(34, 197, 94, 0.14)", color: "#16A34A", fontWeight: 700, fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.08em" },
   heading: { margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" },
-  body: { margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 },
+  body: { margin: 0, color: "var(--text-secondary)", lineHeight: 1.8, fontSize: "15px" },
   link: { color: "#007AFF", textDecoration: "none", fontWeight: 700 },
 };

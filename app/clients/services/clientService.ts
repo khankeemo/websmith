@@ -92,8 +92,8 @@ export const getPublishedClients = async (): Promise<Client[]> => {
     const response = await API.get('/clients/public');
     return response.data.data || [];
   } catch (error: any) {
-    console.error('Get public clients error:', error);
-    throw getApiErrorMessage(error, 'Failed to fetch public clients');
+    console.warn('Get public clients error:', error);
+    return [];
   }
 };
 

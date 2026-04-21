@@ -30,24 +30,6 @@ export function PublicPage({
               </Link>
             ) : null}
           </div>
-          <div style={styles.heroPanel}>
-            <p style={styles.panelEyebrow}>Built like the landing experience</p>
-            <p style={styles.panelTitle}>Clear sections, strong contrast, and polished cards that feel connected to the main site.</p>
-            <div style={styles.panelMetrics} className="public-page-panel-metrics">
-              <div style={styles.metricCard}>
-                <span style={styles.metricValue}>01</span>
-                <span style={styles.metricLabel}>Focused story</span>
-              </div>
-              <div style={styles.metricCard}>
-                <span style={styles.metricValue}>02</span>
-                <span style={styles.metricLabel}>Better hierarchy</span>
-              </div>
-              <div style={styles.metricCard}>
-                <span style={styles.metricValue}>03</span>
-                <span style={styles.metricLabel}>Landing-page tone</span>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
       <div style={styles.body}>
@@ -81,9 +63,6 @@ export function PublicPage({
             grid-template-columns: 1fr !important;
           }
           .public-page-docs-layout {
-            grid-template-columns: 1fr !important;
-          }
-          .public-page-panel-metrics {
             grid-template-columns: 1fr !important;
           }
         }
@@ -200,7 +179,7 @@ const styles: Record<string, CSSProperties> = {
     position: "relative",
     zIndex: 1,
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.2fr) minmax(280px, 0.8fr)",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "28px",
     alignItems: "end",
     width: "100%",
@@ -242,55 +221,6 @@ const styles: Record<string, CSSProperties> = {
     color: "#FFFFFF",
     fontWeight: 700,
     boxShadow: "0 10px 24px rgba(0, 122, 255, 0.18)",
-  },
-  heroPanel: {
-    display: "grid",
-    gap: "16px",
-    padding: "24px",
-    borderRadius: "24px",
-    border: "1px solid rgba(255,255,255,0.08)",
-    background:
-      "linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, #007AFF 8%) 0%, color-mix(in srgb, var(--bg-primary) 96%, transparent) 100%)",
-    boxShadow: "0 18px 40px rgba(15, 23, 42, 0.08)",
-    backdropFilter: "blur(10px)",
-  },
-  panelEyebrow: {
-    margin: 0,
-    color: "#007AFF",
-    fontSize: "11px",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.12em",
-  },
-  panelTitle: {
-    margin: 0,
-    color: "var(--text-primary)",
-    fontSize: "16px",
-    lineHeight: 1.65,
-    fontWeight: 600,
-  },
-  panelMetrics: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: "12px",
-  },
-  metricCard: {
-    display: "grid",
-    gap: "8px",
-    padding: "14px",
-    borderRadius: "18px",
-    backgroundColor: "color-mix(in srgb, var(--bg-primary) 84%, transparent)",
-    border: "1px solid var(--border-color)",
-  },
-  metricValue: {
-    fontSize: "20px",
-    fontWeight: 800,
-    color: "var(--text-primary)",
-  },
-  metricLabel: {
-    fontSize: "12px",
-    color: "var(--text-secondary)",
-    lineHeight: 1.5,
   },
   body: {
     display: "grid",

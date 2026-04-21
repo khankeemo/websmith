@@ -185,6 +185,8 @@ function HorizontalCardStrip<T>({
 
 type StatSlide = { id: string; value: string; label: string };
 
+const clampStatCount = (count: number) => Math.max(0, Math.min(10, count));
+
 function StatsStrip({ items }: { items: StatSlide[] }) {
   return (
     <HorizontalCardStrip
@@ -229,32 +231,12 @@ export default function LandingPage() {
     projects: 0,
     clients: 0,
     developers: 0,
-    countries: 0
+    countries: 0,
   });
   const [publishedProjects, setPublishedProjects] = useState<any[]>([]);
   const [publishedClients, setPublishedClients] = useState<any[]>([]);
   const [publishedDevelopers, setPublishedDevelopers] = useState<any[]>([]);
   const [publishedTestimonials, setPublishedTestimonials] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Animate stats
-    const targets = { projects: 500, clients: 280, developers: 45, countries: 12 };
-    const duration = 2000;
-    const stepTime = 20;
-    const steps = duration / stepTime;
-    
-    let currentStep = 0;
-    const interval = setInterval(() => {
-      currentStep++;
-      setStats({
-        projects: Math.min(targets.projects, Math.floor((currentStep / steps) * targets.projects)),
-        clients: Math.min(targets.clients, Math.floor((currentStep / steps) * targets.clients)),
-        developers: Math.min(targets.developers, Math.floor((currentStep / steps) * targets.developers)),
-        countries: Math.min(targets.countries, Math.floor((currentStep / steps) * targets.countries)),
-      });
-      if (currentStep >= steps) clearInterval(interval);
-    }, stepTime);
-  }, []);
 
   useEffect(() => {
     Promise.allSettled([getPublishedProjects(), getPublishedClients(), getPublishedDevelopers(), getPublishedTestimonials()]).then((results) => {
@@ -340,6 +322,44 @@ export default function LandingPage() {
     bio: developer.bio || "Experienced engineer focused on shipping resilient digital products.",
   }));
 
+  const statTargets = {
+    projects: clampStatCount(publishedProjects.length),
+    clients: clampStatCount(publishedClients.length),
+    developers: clampStatCount(publishedDevelopers.length),
+    countries: clampStatCount(
+      new Set(
+        publishedClients
+          .map((client: any) => String(client.address || "").trim())
+          .filter(Boolean)
+      ).size
+    ),
+  };
+
+  useEffect(() => {
+    const duration = 1200;
+    const stepTime = 30;
+    const steps = Math.max(1, Math.floor(duration / stepTime));
+
+    let currentStep = 0;
+    const interval = setInterval(() => {
+      currentStep += 1;
+      const progress = currentStep / steps;
+
+      setStats({
+        projects: Math.round(statTargets.projects * progress),
+        clients: Math.round(statTargets.clients * progress),
+        developers: Math.round(statTargets.developers * progress),
+        countries: Math.round(statTargets.countries * progress),
+      });
+
+      if (currentStep >= steps) {
+        clearInterval(interval);
+      }
+    }, stepTime);
+
+    return () => clearInterval(interval);
+  }, [statTargets.projects, statTargets.clients, statTargets.developers, statTargets.countries]);
+
   const reviewCards = publishedTestimonials.length > 0
     ? publishedTestimonials.map((testimonial: any, index: number) => ({
         id: testimonial.id || `testimonial-${index}`,
@@ -368,11 +388,11 @@ export default function LandingPage() {
     : dummyTestimonials;
 
   const statsCarouselItems = [
-    { id: "stat-projects", value: `${stats.projects}+`, label: "Projects Delivered" },
-    { id: "stat-clients", value: `${stats.clients}+`, label: "Active Client Partnerships" },
-    { id: "stat-developers", value: `${stats.developers}+`, label: "Specialist Developers" },
-    { id: "stat-countries", value: `${stats.countries}+`, label: "Countries Served" },
-    { id: "stat-support", value: "24h", label: "Support Response Target" },
+    { id: "stat-projects", value: String(stats.projects), label: "Projects Delivered" },
+    { id: "stat-clients", value: String(stats.clients), label: "Active Client Partnerships" },
+    { id: "stat-developers", value: String(stats.developers), label: "Specialist Developers" },
+    { id: "stat-countries", value: String(stats.countries), label: "Countries Served" },
+    { id: "stat-support", value: "2h", label: "Support Response Target" },
     { id: "stat-visibility", value: "100%", label: "Shared Delivery Visibility" },
   ];
 
@@ -1183,23 +1203,23 @@ const styles: any = {
   },
   statStaticCard: {
     flex: "0 1 auto",
-    width: "min(280px, 88vw)",
-    padding: "22px 20px",
-    borderRadius: "18px",
+    width: "min(240px, 82vw)",
+    padding: "18px 18px",
+    borderRadius: "16px",
     background: "rgba(255,255,255,0.07)",
     border: "1px solid rgba(255,255,255,0.14)",
     boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
   },
   statStaticValue: {
-    margin: "0 0 8px",
-    fontSize: "clamp(36px, 6vw, 48px)",
+    margin: "0 0 6px",
+    fontSize: "clamp(30px, 5vw, 40px)",
     fontWeight: 800,
     color: "#fff",
     letterSpacing: "-0.02em",
   },
   statStaticLabel: {
     margin: 0,
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: 600,
     color: "rgba(255,255,255,0.72)",
   },

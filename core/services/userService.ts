@@ -60,8 +60,13 @@ export const getDevelopers = async () => {
 };
 
 export const getPublishedDevelopers = async () => {
-  const response = await API.get("/users/public/developers");
-  return response.data.data;
+  try {
+    const response = await API.get("/users/public/developers");
+    return response.data.data || [];
+  } catch (error) {
+    console.warn("Get public developers error:", error);
+    return [];
+  }
 };
 
 export const createDeveloper = async (payload: DeveloperPayload) => {

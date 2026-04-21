@@ -32,7 +32,7 @@ export default function PublicFooter() {
                   rel="noreferrer"
                   aria-label={social.label}
                   style={styles.socialLink}
-                  className="social-icon"
+                  className="public-footer-social"
                 >
                   {shortLabel}
                 </a>
@@ -45,7 +45,7 @@ export default function PublicFooter() {
           <div key={section.title} style={styles.section}>
             <h4 style={styles.sectionTitle}>{section.title}</h4>
             {section.links.map((link) => (
-              <Link key={`${section.title}-${link.href}`} href={link.href} style={styles.link}>
+              <Link key={`${section.title}-${link.href}`} href={link.href} style={styles.link} className="public-footer-link">
                 {link.label}
               </Link>
             ))}
@@ -55,6 +55,22 @@ export default function PublicFooter() {
       <div style={styles.bottomBar}>
         <p style={styles.bottomText}>(c) {year} Websmith. All rights reserved. Developed with care by Websmith Team</p>
       </div>
+      <style>{`
+        .public-footer-link,
+        .public-footer-social {
+          transition: all 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .public-footer-link:hover {
+          color: #007AFF !important;
+          transform: translateX(4px);
+        }
+        .public-footer-social:hover {
+          border-color: rgba(0, 122, 255, 0.35) !important;
+          color: #007AFF !important;
+          transform: translateY(-3px);
+          box-shadow: 0 12px 24px rgba(0, 122, 255, 0.14);
+        }
+      `}</style>
     </footer>
   );
 }
