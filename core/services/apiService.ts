@@ -7,6 +7,8 @@ import { clearAuthSession, getToken, isPublicPath } from "../../lib/auth";
  * Hosted environments can still use NEXT_PUBLIC_API_URL when provided.
  * Server-side: call the API process directly.
  */
+const PROD_API_URL = "https://api.websmithdigital.com/api";
+
 const getApiBaseUrl = () => {
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
   if (fromEnv) {
@@ -15,7 +17,7 @@ const getApiBaseUrl = () => {
 
   if (typeof window !== "undefined") {
     const { hostname, origin } = window.location;
-    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local");
+    const isLoopback = hostname === "127.0.0.1" || hostname.endsWith(".local");
     const isPrivateIpv4 =
       /^10\./.test(hostname) ||
       /^192\.168\./.test(hostname) ||
@@ -23,13 +25,13 @@ const getApiBaseUrl = () => {
 
     // In local development, prefer the same-origin Next.js rewrite so browser
     // requests always hit the paired local Express server even over LAN IPs.
-    if (process.env.NODE_ENV === "development" || isLocalhost || isPrivateIpv4) {
+    if (process.env.NODE_ENV === "development" || isLoopback || isPrivateIpv4) {
       return `${origin}/api`;
     }
-    return "https://wsdserver.vercel.app/api";
+    return PROD_API_URL;
   }
 
-  return process.env.API_URL_INTERNAL || "http://127.0.0.1:5000/api";
+  return process.env.API_URL_INTERNAL || PROD_API_URL;
 };
 
 const API = axios.create();
