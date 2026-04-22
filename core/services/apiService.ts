@@ -9,10 +9,15 @@ import { clearAuthSession, getToken, isPublicPath } from "../../lib/auth";
  */
 const PROD_API_URL = "https://api.websmithdigital.com/api";
 
+const normalizeApiBaseUrl = (value: string) => {
+  const trimmed = value.replace(/\/$/, "");
+  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
+};
+
 const getApiBaseUrl = () => {
-  const fromEnv = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (fromEnv) {
-    return fromEnv;
+    return normalizeApiBaseUrl(fromEnv);
   }
 
   if (typeof window !== "undefined") {
@@ -31,7 +36,8 @@ const getApiBaseUrl = () => {
     return PROD_API_URL;
   }
 
-  return process.env.API_URL_INTERNAL || PROD_API_URL;
+  const internalUrl = process.env.API_URL_INTERNAL?.trim();
+  return internalUrl ? normalizeApiBaseUrl(internalUrl) : PROD_API_URL;
 };
 
 const API = axios.create();
