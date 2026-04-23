@@ -69,8 +69,8 @@ export const publicPrimaryNav = [
 
 export const publicFooterConfig = {
   brand: {
-    name: "Websmith",
-    tagline: "Your trusted partner for digital excellence",
+    name: "WebSmith Digital",
+    tagline: "Building powerful digital ecosystems and smart solutions that work for your business.",
   },
   socials: [
     { label: "Twitter", href: "https://twitter.com/websmith" },

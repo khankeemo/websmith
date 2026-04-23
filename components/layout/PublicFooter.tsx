@@ -12,7 +12,10 @@ export default function PublicFooter() {
       <div style={styles.content} className="landing-footer-content">
         <div style={styles.section}>
           <h3 style={styles.brandName}>{publicFooterConfig.brand.name}</h3>
-          <p style={styles.tagline}>{publicFooterConfig.brand.tagline}.</p>
+          <p style={styles.tagline}>{publicFooterConfig.brand.tagline}</p>
+          <p style={styles.aboutSummary}>
+            We design smart solutions and build powerful digital ecosystems that help businesses grow and automate through innovation and practicality.
+          </p>
           <div style={styles.socialRow}>
             {publicFooterConfig.socials.map((social) => {
               const shortLabel =
@@ -107,6 +110,13 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "14px",
     color: "var(--text-secondary)",
     lineHeight: 1.6,
+  },
+  aboutSummary: {
+    margin: "8px 0 0",
+    fontSize: "13px",
+    color: "var(--text-secondary)",
+    lineHeight: 1.6,
+    opacity: 0.8,
   },
   socialRow: {
     display: "flex",
