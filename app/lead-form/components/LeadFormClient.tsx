@@ -283,7 +283,7 @@ const styles: any = {
   },
   title: {
     margin: "12px 0 10px",
-    fontSize: "34px",
+    fontSize: "28px",
     fontWeight: 700,
     color: "var(--text-primary)",
     letterSpacing: "-0.02em",

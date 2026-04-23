@@ -115,9 +115,9 @@ export default function ServiceSelectionClient(props?: ServiceSelectionClientPro
                         background: selected ? 'linear-gradient(135deg, #007AFF 0%, #34C759 100%)' : 'var(--bg-secondary)',
                         border: selected ? 'none' : '1px solid var(--border-color)'
                       }}>
-                        <Layers3 size={24} color={selected ? "#FFFFFF" : "#007AFF"} />
+                        <Layers3 size={18} color={selected ? "#FFFFFF" : "#007AFF"} />
                       </div>
-                      <CheckCircle2 size={26} color={selected ? "#34C759" : "var(--border-color)"} fill={selected ? "#34C75922" : "transparent"} />
+                      <CheckCircle2 size={20} color={selected ? "#34C759" : "var(--border-color)"} fill={selected ? "#34C75922" : "transparent"} />
                     </div>
                     <h3 style={styles.serviceTitle}>{service.name}</h3>
                     <p style={styles.serviceDescription}>{service.description}</p>
@@ -182,40 +182,40 @@ const styles: any = {
   },
   wrapperModal: {
     padding: "0 0 8px",
-    gap: "24px",
+    gap: "16px",
     backgroundColor: "transparent",
   },
   heroCard: {
-    padding: "clamp(32px, 5vw, 56px) clamp(24px, 4vw, 48px)",
+    padding: "28px 32px",
     maxWidth: "100%",
     margin: "0",
     width: "100%",
-    borderRadius: "32px",
+    borderRadius: "24px",
     background: "var(--bg-secondary)",
-    border: "1.5px solid var(--border-color)",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.02)",
+    border: "1px solid var(--border-color)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.02)",
   },
   eyebrow: {
-    margin: "0 0 20px 0",
+    margin: "0 0 12px 0",
     color: "#007AFF",
-    fontSize: "13px",
+    fontSize: "12px",
     fontWeight: 800,
-    letterSpacing: "0.15em",
+    letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
   title: {
-    margin: "0 0 20px",
-    fontSize: "46px",
-    fontWeight: 800,
+    margin: "0 0 12px",
+    fontSize: "28px",
+    fontWeight: 700,
     color: "var(--text-primary)",
-    letterSpacing: "-0.04em",
-    lineHeight: 1.05,
+    letterSpacing: "-0.02em",
+    lineHeight: 1.2,
   },
   subtitle: {
     margin: 0,
     maxWidth: "840px",
     color: "var(--text-secondary)",
-    fontSize: "19px",
+    fontSize: "15px",
     lineHeight: 1.5,
     fontWeight: 500,
   },
@@ -246,8 +246,8 @@ const styles: any = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-    gap: "28px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: "20px",
   },
   serviceButton: {
     background: "transparent",
@@ -263,29 +263,29 @@ const styles: any = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: '24px',
+    marginBottom: '16px',
   },
   iconWrap: {
-    width: "56px",
-    height: "56px",
-    borderRadius: "18px",
+    width: "42px",
+    height: "42px",
+    borderRadius: "12px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   serviceTitle: {
-    margin: "0 0 12px",
-    fontSize: "22px",
+    margin: "0 0 8px",
+    fontSize: "18px",
     fontWeight: 700,
     color: "var(--text-primary)",
-    letterSpacing: '-0.5px',
+    letterSpacing: '-0.3px',
   },
   serviceDescription: {
     margin: 0,
-    fontSize: "16px",
+    fontSize: "14px",
     color: "var(--text-secondary)",
-    lineHeight: 1.6,
-    minHeight: "80px",
+    lineHeight: 1.5,
+    minHeight: "60px",
   },
   price: {
     margin: "24px 0 0",
@@ -316,7 +316,7 @@ const styles: any = {
   footerCardModal: {
     position: "static",
     bottom: "auto",
-    padding: "20px 24px",
+    padding: "16px 20px",
     marginTop: "8px",
     backdropFilter: "none",
     boxShadow: "var(--card-shadow)",
