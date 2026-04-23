@@ -80,7 +80,7 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
   },
   footerContent: {
-    maxWidth: "1380px",
+    maxWidth: "1600px",
     margin: "0 auto",
     padding: "0 24px",
     display: "grid",

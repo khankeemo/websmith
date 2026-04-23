@@ -59,7 +59,7 @@ export function SimplePublicList({ items }: { items: string[] }) {
 const styles: Record<string, CSSProperties> = {
   body: {
     width: "100%",
-    maxWidth: "860px",
+    maxWidth: "1400px",
     margin: "0 auto",
     padding: "clamp(28px, 4vw, 48px) clamp(16px, 4vw, 32px) clamp(56px, 7vw, 88px)",
     display: "grid",

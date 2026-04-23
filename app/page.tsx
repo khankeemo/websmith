@@ -625,21 +625,21 @@ export default function LandingPage() {
                   <div style={styles.infoIcon}>📍</div>
                   <div>
                     <h4 style={styles.infoLabel}>Headquarters</h4>
-                    <p style={styles.infoValue}>123 Tech Avenue, Silicon Valley, CA</p>
+                    <p style={styles.infoValue}>under maintenance</p>
                   </div>
                 </div>
                 <div style={styles.infoItem}>
                   <div style={styles.infoIcon}>📧</div>
                   <div>
                     <h4 style={styles.infoLabel}>Email</h4>
-                    <p style={styles.infoValue}>hello@websmith.com</p>
+                    <p style={styles.infoValue}>sales@websmithdigital.com</p>
                   </div>
                 </div>
                 <div style={styles.infoItem}>
                   <div style={styles.infoIcon}>📞</div>
                   <div>
                     <h4 style={styles.infoLabel}>Phone</h4>
-                    <p style={styles.infoValue}>+1 (555) 000-0000</p>
+                    <p style={styles.infoValue}>under maintenance</p>
                   </div>
                 </div>
               </div>
@@ -677,7 +677,7 @@ export default function LandingPage() {
                       <label style={styles.formLabel}>Name</label>
                       <input 
                         type="text" 
-                        placeholder="John Doe" 
+                        placeholder="Your Name" 
                         style={styles.formInput}
                         required
                         value={contactState.name}

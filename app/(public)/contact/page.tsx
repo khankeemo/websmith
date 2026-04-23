@@ -40,12 +40,12 @@ export default function ContactPage() {
           <div style={styles.infoCard}>
             <span style={styles.cardLabel}>Call Us</span>
             <h3 style={styles.cardTitle}>Phone Number</h3>
-            <span style={styles.cardText}>+91 ____________</span>
+            <span style={styles.cardText}>under maintenance</span>
           </div>
           <div style={styles.infoCard}>
             <span style={styles.cardLabel}>Business Hours</span>
             <h3 style={styles.cardTitle}>Monday to Saturday</h3>
-            <span style={styles.cardText}>Time: ____________</span>
+            <span style={styles.cardText}>under maintenance</span>
           </div>
         </section>
 
@@ -136,7 +136,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "16px",
     lineHeight: 1.8,
     color: "var(--text-secondary)",
-    maxWidth: "850px",
+    maxWidth: "1200px",
   },
   infoCard: {
     padding: "24px",
@@ -228,6 +228,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "16px",
     lineHeight: 1.8,
     color: "var(--text-secondary)",
-    maxWidth: "600px",
+    maxWidth: "1200px",
   },
 };

@@ -131,7 +131,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "16px",
     lineHeight: 1.8,
     color: "var(--text-secondary)",
-    maxWidth: "850px",
+    maxWidth: "1200px",
   },
   narrativeLarge: {
     margin: 0,
@@ -179,7 +179,7 @@ const styles: Record<string, CSSProperties> = {
     fontStyle: "italic",
     lineHeight: 1.6,
     color: "var(--text-secondary)",
-    maxWidth: "700px",
+    maxWidth: "1200px",
   },
   reasonList: {
     display: "grid",

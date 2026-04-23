@@ -158,14 +158,14 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "16px",
     lineHeight: 1.8,
     color: "var(--text-secondary)",
-    maxWidth: "850px",
+    maxWidth: "1200px",
   },
   narrativeCenter: {
     margin: "0 auto 32px auto",
     fontSize: "16px",
     lineHeight: 1.8,
     color: "var(--text-secondary)",
-    maxWidth: "600px",
+    maxWidth: "1200px",
     textAlign: "center",
   },
   narrativeLarge: {
@@ -260,7 +260,7 @@ const styles: Record<string, CSSProperties> = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
     gap: "24px",
-    maxWidth: "800px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
   contactCard: {

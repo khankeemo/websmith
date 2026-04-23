@@ -201,11 +201,11 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "clamp(34px, 6vw, 62px)",
     lineHeight: 0.98,
     letterSpacing: "-0.05em",
-    maxWidth: "900px",
+    maxWidth: "1400px",
   },
   description: {
     margin: 0,
-    maxWidth: "760px",
+    maxWidth: "1400px",
     color: "var(--text-secondary)",
     fontSize: "clamp(16px, 2vw, 18px)",
     lineHeight: 1.75,
@@ -235,7 +235,7 @@ const styles: Record<string, CSSProperties> = {
   sectionHeader: {
     display: "grid",
     gap: "8px",
-    maxWidth: "820px",
+    maxWidth: "1400px",
   },
   sectionTitle: {
     margin: 0,
