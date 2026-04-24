@@ -74,7 +74,7 @@ export const publicFooterConfig = {
   },
   socials: [
     { label: "Twitter", href: "https://twitter.com/websmith" },
-    { label: "LinkedIn", href: "https://linkedin.com/company/websmith" },
+    { label: "Instagram", href: "https://instagram.com/websmith" },
     { label: "GitHub", href: "https://github.com/websmith" },
     { label: "Facebook", href: "https://facebook.com/websmith" },
   ] satisfies SocialLink[],
@@ -99,7 +99,7 @@ export const publicFooterConfig = {
       title: "Legal",
       links: [
         { label: "Privacy Policy", href: "/privacy" },
-        { label: "Terms of Service", href: "/terms" },
+        { label: "Terms of Services", href: "/terms" },
       ],
     },
   ] satisfies FooterSection[],

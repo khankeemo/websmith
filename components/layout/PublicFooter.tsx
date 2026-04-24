@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { FaFacebook, FaTwitter, FaInstagram, FaGithub } from "react-icons/fa";
 import { publicFooterConfig } from "../../core/config/publicSite";
 
 export default function PublicFooter() {
@@ -18,14 +19,14 @@ export default function PublicFooter() {
           </p>
           <div style={styles.socialRow}>
             {publicFooterConfig.socials.map((social) => {
-              const shortLabel =
+              const Icon =
                 social.label === "Twitter"
-                  ? "TW"
-                  : social.label === "LinkedIn"
-                    ? "IN"
+                  ? FaTwitter
+                  : social.label === "Instagram"
+                    ? FaInstagram
                     : social.label === "GitHub"
-                      ? "GH"
-                      : "FB";
+                      ? FaGithub
+                      : FaFacebook;
 
               return (
                 <a
@@ -37,7 +38,7 @@ export default function PublicFooter() {
                   style={styles.socialLink}
                   className="public-footer-social"
                 >
-                  {shortLabel}
+                  <Icon size={18} />
                 </a>
               );
             })}
@@ -72,6 +73,12 @@ export default function PublicFooter() {
           color: #007AFF !important;
           transform: translateY(-3px);
           box-shadow: 0 12px 24px rgba(0, 122, 255, 0.14);
+        }
+        @media (max-width: 600px) {
+          .landing-footer-content {
+            grid-template-columns: 1fr !important;
+            gap: 32px !important;
+          }
         }
       `}</style>
     </footer>
