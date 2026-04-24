@@ -66,6 +66,12 @@ export function PublicPage({
             grid-template-columns: 1fr !important;
           }
         }
+        @media (max-width: 520px) {
+          .public-page-card {
+            padding: 16px !important;
+            border-radius: 20px !important;
+          }
+        }
       `}</style>
     </div>
   );
@@ -252,20 +258,22 @@ const styles: Record<string, CSSProperties> = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: "18px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(clamp(150px, 45vw, 180px), 1fr))",
+    gap: "clamp(14px, 3vw, 18px)",
   },
   card: {
     display: "grid",
     gap: "14px",
-    padding: "24px",
+    padding: "clamp(16px, 3vw, 24px)",
     borderRadius: "24px",
     border: "1px solid var(--border-color)",
     borderTop: "1px solid var(--border-color)",
     background:
       "linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 78%, transparent) 0%, color-mix(in srgb, var(--bg-secondary) 92%, #007AFF 8%) 100%)",
     boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)",
+    minHeight: "220px",
   },
+
   list: {
     display: "grid",
     gap: "12px",

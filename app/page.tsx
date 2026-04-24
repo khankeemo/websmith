@@ -168,7 +168,7 @@ function HorizontalCardStrip<T>({
             key={`${index}-${index % items.length}`}
             style={{ 
               ...styles.hScrollCell, 
-              minWidth: `${itemMinWidth * scale}px`, 
+              minWidth: `var(--h-card-min-width, ${itemMinWidth * scale}px)`, 
               scrollSnapAlign: "start" as const,
               transform: `scale(${scale})`,
               transformOrigin: "center center",
@@ -265,38 +265,8 @@ export default function LandingPage() {
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
   ];
 
-  // Temporary dummy data for carousel QA; remove once testing sign-off is done.
-  const dummyClients = [
-    { id: "dc-1", name: "Avery Stone", company: "Nova Retail", description: "Scaled checkout performance for peak season launches." },
-    { id: "dc-2", name: "Mina Das", company: "CareBridge", description: "Delivered secure patient workflow dashboards and reports." },
-    { id: "dc-3", name: "James Cole", company: "FlowFleet", description: "Rolled out fleet monitoring with uptime-first architecture." },
-    { id: "dc-4", name: "Rhea Patel", company: "BrightNest", description: "Improved conversion with design-led funnel rebuild." },
-    { id: "dc-5", name: "Jonah Lee", company: "Cortex Labs", description: "Integrated analytics and deployment automation in one sprint." },
-  ];
-
-  const dummyDevelopers = [
-    { id: "dd-1", name: "Aisha Rahman", role: "Frontend Architect", skills: ["React", "Next.js", "Design Systems"], experience: 7, avatar: "", bio: "Builds resilient, high-conversion frontends for growth teams." },
-    { id: "dd-2", name: "Marcus Silva", role: "Backend Engineer", skills: ["Node.js", "MongoDB", "APIs"], experience: 6, avatar: "", bio: "Focuses on scalable APIs and operational reliability." },
-    { id: "dd-3", name: "Nadia Kim", role: "Mobile Specialist", skills: ["React Native", "iOS", "Android"], experience: 5, avatar: "", bio: "Ships polished mobile experiences with strong performance." },
-    { id: "dd-4", name: "Owen Hart", role: "DevOps Engineer", skills: ["CI/CD", "Docker", "Cloud"], experience: 8, avatar: "", bio: "Automates pipelines and keeps releases predictable." },
-  ];
-
-  const dummyProjects = [
-    { _id: "dp-1", name: "Commerce Pulse", description: "Realtime commerce insights dashboard with custom KPI streams.", client: "Nova Retail", publicUrl: "https://example.com/commerce-pulse", previewImage: "" },
-    { _id: "dp-2", name: "Clinic Bridge", description: "Patient onboarding and appointment lifecycle management portal.", client: "CareBridge", publicUrl: "https://example.com/clinic-bridge", previewImage: "" },
-    { _id: "dp-3", name: "Fleet Vision", description: "Route tracking and incident alerting platform for logistics teams.", client: "FlowFleet", publicUrl: "https://example.com/fleet-vision", previewImage: "" },
-    { _id: "dp-4", name: "Nest Growth", description: "A/B experimentation toolkit connected with sales funnels.", client: "BrightNest", publicUrl: "https://example.com/nest-growth", previewImage: "" },
-  ];
-
-  const dummyTestimonials = [
-    { id: "dt-1", name: "S. Jordan", company: "Nova Retail", quote: "Delivery was smooth, proactive, and always transparent.", rating: 5 },
-    { id: "dt-2", name: "K. Morgan", company: "CareBridge", quote: "The team turned complex product goals into clear milestones.", rating: 5 },
-    { id: "dt-3", name: "R. Blake", company: "FlowFleet", quote: "Excellent collaboration and dependable release quality.", rating: 5 },
-    { id: "dt-4", name: "T. Diaz", company: "BrightNest", quote: "We saw measurable gains within the first release cycle.", rating: 5 },
-  ];
-
-  const effectiveProjects = publishedProjects.length > 0 ? publishedProjects : dummyProjects;
-  const publicClients = (publishedClients.length > 0 ? publishedClients : dummyClients).map((client: any, index: number) => ({
+  const effectiveProjects = publishedProjects;
+  const publicClients = publishedClients.map((client: any, index: number) => ({
     id: client._id || client.id || `client-${index}`,
     name: client.name,
     company: client.company || "Independent client",
@@ -307,10 +277,7 @@ export default function LandingPage() {
       "Partnered with Websmith on product delivery, design quality, and long-term support.",
   }));
 
-  const effectiveDevelopers =
-    publishedDevelopers.length >= 3
-      ? publishedDevelopers
-      : [...publishedDevelopers, ...dummyDevelopers].slice(0, 6);
+  const effectiveDevelopers = publishedDevelopers;
 
   const publicDevelopers = effectiveDevelopers.map((developer: any, index: number) => ({
     id: developer._id || developer.id || `dev-${index}`,
@@ -360,32 +327,14 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, [statTargets.projects, statTargets.clients, statTargets.developers, statTargets.countries]);
 
-  const reviewCards = publishedTestimonials.length > 0
-    ? publishedTestimonials.map((testimonial: any, index: number) => ({
-        id: testimonial.id || `testimonial-${index}`,
-        name: testimonial.name,
-        company: testimonial.company || testimonial.projectName || "Websmith client",
-        quote: testimonial.quote,
-        rating: testimonial.rating || 5,
-      }))
-    : (publicClients.length > 0 || publicDevelopers.length > 0)
-    ? [
-        ...publicClients.slice(0, 5).map((client, index) => ({
-          id: `client-review-${index}`,
-          name: client.name,
-          company: client.company,
-          quote: `${client.company} trusted Websmith for delivery clarity, product quality, and dependable communication.`,
-          rating: 5,
-        })),
-        ...publicDevelopers.slice(0, 4).map((developer, index) => ({
-          id: `dev-review-${index}`,
-          name: developer.name,
-          company: developer.role,
-          quote: `${developer.name} brings strong ownership across ${developer.skills.slice(0, 2).join(" and ")}.`,
-          rating: 5,
-        })),
-      ]
-    : dummyTestimonials;
+  const reviewCards = publishedTestimonials.map((testimonial: any, index: number) => ({
+    id: testimonial.id || `testimonial-${index}`,
+    name: testimonial.name,
+    company: testimonial.company || testimonial.projectName || "Websmith client",
+    quote: testimonial.quote,
+    rating: testimonial.rating || 5,
+  }));
+
 
   const statsCarouselItems = [
     { id: "stat-projects", value: String(stats.projects), label: "Projects Delivered" },
@@ -470,37 +419,40 @@ export default function LandingPage() {
         <StatsStrip items={statsCarouselItems} />
       </section>
 
-      <section id="projects" style={styles.section}>
-        <h2 style={styles.sectionTitle}>Projects</h2>
-        <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
-        <HorizontalCardStrip
-          items={effectiveProjects}
-          ariaLabel="Published projects"
-          itemMinWidth={260}
-          autoLoopCount={1}
-          direction="right-to-left"
-          scale={1}
-          renderItem={(project: any) => (
-            <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard }} className="feature-card">
-              {project.previewImage ? (
-                <img src={project.previewImage} alt={project.name} style={styles.projectPreviewImage} />
-              ) : null}
-              <div style={styles.featureIcon}><Briefcase size={28} /></div>
-              <h3 style={styles.featureTitle}>{project.name}</h3>
-              <p style={styles.featureDesc}>{project.description}</p>
-              <p style={{ ...styles.clientCompany, marginTop: "12px" }}>{project.client || "Published Project"}</p>
-              {project.publicUrl ? (
-                <a href={project.publicUrl} target="_blank" rel="noreferrer" style={styles.projectLink}>
-                  <span>{project.publicUrl}</span>
-                  <ExternalLink size={14} />
-                </a>
-              ) : (
-                <p style={styles.projectLinkMuted}>Hosted project URL will appear here once added from the admin panel.</p>
-              )}
-            </div>
-          )}
-        />
-      </section>
+      {effectiveProjects.length > 0 && (
+        <section id="projects" style={styles.section}>
+          <h2 style={styles.sectionTitle}>Projects</h2>
+          <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
+          <HorizontalCardStrip
+            items={effectiveProjects}
+            ariaLabel="Published projects"
+            itemMinWidth={180}
+            autoLoopCount={1}
+            direction="right-to-left"
+            scale={1}
+            renderItem={(project: any) => (
+              <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard }} className="feature-card">
+                {project.previewImage ? (
+                  <img src={project.previewImage} alt={project.name} style={styles.projectPreviewImage} />
+                ) : null}
+                <div style={styles.featureIcon}><Briefcase size={28} /></div>
+                <h3 style={styles.featureTitle}>{project.name}</h3>
+                <p style={styles.featureDesc}>{project.description}</p>
+                <p style={{ ...styles.clientCompany, marginTop: "12px" }}>{project.client || "Published Project"}</p>
+                {project.publicUrl ? (
+                  <a href={project.publicUrl} target="_blank" rel="noreferrer" style={styles.projectLink}>
+                    <span>{project.publicUrl}</span>
+                    <ExternalLink size={14} />
+                  </a>
+                ) : (
+                  <p style={styles.projectLinkMuted}>Hosted project URL will appear here once added from the admin panel.</p>
+                )}
+              </div>
+            )}
+          />
+        </section>
+      )}
+
 
       {/* Global Diversity & Collaboration */}
       <section style={styles.diversitySection}>
@@ -527,85 +479,94 @@ export default function LandingPage() {
       </section>
 
       {/* Satisfied Clients - 10 Rectangle Cards */}
-      <section id="clients" ref={clientsRef} style={styles.section}>
-        <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
-        <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
-        <HorizontalCardStrip
-          items={publicClients}
-          ariaLabel="Satisfied clients"
-          itemMinWidth={240}
-          autoLoopCount={1}
-          direction="left-to-right"
-          scale={1}
-          renderItem={(client, index) => (
-            <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="client-card">
-              <div style={styles.clientAvatarContainer}>
-                <Building2 size={22} color="#007AFF" />
+      {publicClients.length > 0 && (
+        <section id="clients" ref={clientsRef} style={styles.section}>
+          <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
+          <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
+          <HorizontalCardStrip
+            items={publicClients}
+            ariaLabel="Satisfied clients"
+            itemMinWidth={180}
+            autoLoopCount={1}
+            direction="left-to-right"
+            scale={1}
+            renderItem={(client, index) => (
+              <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="client-card">
+                <div style={styles.clientAvatarContainer}>
+                  <Building2 size={22} color="#007AFF" />
+                </div>
+                <h4 style={styles.clientName}>{client.name}</h4>
+                <p style={styles.clientCompany}>{client.company}</p>
+                <p style={styles.clientProject}>{client.description}</p>
               </div>
-              <h4 style={styles.clientName}>{client.name}</h4>
-              <p style={styles.clientCompany}>{client.company}</p>
-              <p style={styles.clientProject}>{client.description}</p>
-            </div>
-          )}
-        />
-      </section>
+            )}
+          />
+        </section>
+      )}
+
 
       {/* Developers - expert profiles */}
-      <section id="developers" ref={developersRef} style={styles.section}>
-        <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
-        <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
-        <HorizontalCardStrip
-          items={publicDevelopers}
-          ariaLabel="Expert developers"
-          itemMinWidth={260}
-          autoLoopCount={1}
-          direction="right-to-left"
-          scale={1}
-          renderItem={(dev) => (
-            <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="developer-card">
-              <div style={styles.circleMask}>
-                {dev.avatar ? <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} /> : <span style={styles.circleInitial}>{dev.name.charAt(0)}</span>}
+      {publicDevelopers.length > 0 && (
+        <section id="developers" ref={developersRef} style={styles.section}>
+          <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
+          <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
+          <HorizontalCardStrip
+            items={publicDevelopers}
+            ariaLabel="Expert developers"
+            itemMinWidth={180}
+            autoLoopCount={1}
+            direction="right-to-left"
+            scale={1}
+            renderItem={(dev) => (
+              <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="developer-card">
+                <div style={styles.circleMask}>
+                  {dev.avatar ? <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} /> : <span style={styles.circleInitial}>{dev.name.charAt(0)}</span>}
+                </div>
+                <h4 style={styles.developerName}>{dev.name}</h4>
+                <p style={styles.developerRole}>{dev.role}</p>
+                <div style={styles.skillTags}>
+                  {dev.skills.slice(0, 3).map((skill, i) => (
+                    <span key={i} style={styles.skillTag}>{skill}</span>
+                  ))}
+                </div>
+                <p style={styles.developerExperience}>{dev.experience}+ years experience</p>
+                <p style={styles.developerBlurb}>{dev.bio}</p>
               </div>
-              <h4 style={styles.developerName}>{dev.name}</h4>
-              <p style={styles.developerRole}>{dev.role}</p>
-              <div style={styles.skillTags}>
-                {dev.skills.slice(0, 3).map((skill, i) => (
-                  <span key={i} style={styles.skillTag}>{skill}</span>
-                ))}
-              </div>
-              <p style={styles.developerExperience}>{dev.experience}+ years experience</p>
-              <p style={styles.developerBlurb}>{dev.bio}</p>
-            </div>
-          )}
-        />
-      </section>
+            )}
+          />
+        </section>
+      )}
+
 
       {/* Testimonials */}
-      <section id="testimonials" style={styles.section}>
-        <h2 style={styles.sectionTitle}>What Our Clients Say</h2>
-        <p style={styles.sectionSubtitle}>Continuous feedback highlights from across projects, clients, and delivery teams.</p>
-        <HorizontalCardStrip
-          items={reviewCards}
-          ariaLabel="Client testimonials"
-          itemMinWidth={240}
-          autoLoopCount={1}
-          direction="left-to-right"
-          scale={1}
-          renderItem={(testimonial) => (
-            <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="testimonial-card">
-              <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
-              <div style={styles.testimonialStars}>
-                {[...Array(testimonial.rating || 5)].map((_, i) => (
-                  <Star key={i} size={16} fill="#FFB800" color="#FFB800" />
-                ))}
+      {reviewCards.length > 0 && (
+        <section id="testimonials" style={styles.section}>
+          <h2 style={styles.sectionTitle}>What Our Clients Say</h2>
+          <p style={styles.sectionSubtitle}>Continuous feedback highlights from across projects, clients, and delivery teams.</p>
+          <HorizontalCardStrip
+            items={reviewCards}
+            ariaLabel="Client testimonials"
+            itemMinWidth={180}
+            autoLoopCount={1}
+            direction="left-to-right"
+            scale={1}
+            renderItem={(testimonial) => (
+              <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="testimonial-card">
+                <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
+                <div style={styles.testimonialStars}>
+                  {[...Array(testimonial.rating || 5)].map((_, i) => (
+                    <Star key={i} size={16} fill="#FFB800" color="#FFB800" />
+                  ))}
+                </div>
+                <p style={styles.testimonialText}>"{testimonial.quote}"</p>
+                <h4 style={styles.testimonialName}>{testimonial.name}</h4>
+                <p style={styles.testimonialCompany}>{testimonial.company}</p>
               </div>
-              <p style={styles.testimonialText}>"{testimonial.quote}"</p>
-              <h4 style={styles.testimonialName}>{testimonial.name}</h4>
-              <p style={styles.testimonialCompany}>{testimonial.company}</p>
-            </div>
-          )}
-        />
-      </section>
+            )}
+          />
+        </section>
+      )}
+
 
       {/* Contact Section */}
       <section id="contact" ref={contactFormRef} style={styles.contactSection}>
@@ -954,12 +915,16 @@ export default function LandingPage() {
           .landing-hero-subtitle {
             font-size: 15px !important;
           }
+          .landing-card-strip {
+            --h-card-min-width: 150px !important;
+          }
           .landing-features-grid,
           .landing-client-grid,
           .landing-developer-grid,
           .landing-footer-content,
           .landing-stats-grid {
-            grid-template-columns: 1fr !important;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+            gap: 14px !important;
           }
         }
       `}</style>
@@ -1043,61 +1008,66 @@ const styles: any = {
     width: "100%",
     maxWidth: "100%",
     margin: 0,
-    padding: "clamp(48px, 7vw, 88px) clamp(16px, 4vw, 48px)",
+    padding: "clamp(40px, 7vw, 88px) clamp(16px, 4vw, 48px)",
     boxSizing: "border-box",
   },
   sectionTitle: {
-    fontSize: "clamp(26px, 4vw, 36px)",
+    fontSize: "clamp(24px, 4vw, 36px)",
     fontWeight: 600,
     textAlign: "center",
     marginBottom: "16px",
     color: "var(--text-primary)",
   },
   sectionSubtitle: {
-    fontSize: "clamp(16px, 2vw, 18px)",
+    fontSize: "clamp(15px, 2vw, 18px)",
     color: "var(--text-secondary)",
     textAlign: "center",
-    marginBottom: "48px",
+    marginBottom: "clamp(32px, 5vw, 48px)",
     lineHeight: 1.45,
   },
   
   // Features Grid
   featuresGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-    gap: "24px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(clamp(140px, 45vw, 180px), 1fr))",
+    gap: "clamp(14px, 3vw, 24px)",
   },
   featureCard: {
-    padding: "28px",
+    padding: "clamp(16px, 3vw, 28px)",
     backgroundColor: "var(--bg-secondary)",
     borderRadius: "20px",
     border: "1px solid var(--border-color)",
     textAlign: "left",
     cursor: "pointer",
     width: "100%",
+    minHeight: "200px",
+    display: "flex",
+    flexDirection: "column",
   },
+
   featureIcon: {
-    width: "56px",
-    height: "56px",
+    width: "clamp(40px, 5vw, 56px)",
+    height: "clamp(40px, 5vw, 56px)",
     backgroundColor: "#E3F2FF",
     borderRadius: "16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "#007AFF",
-    marginBottom: "20px",
+    marginBottom: "clamp(12px, 2vw, 20px)",
   },
   featureTitle: {
-    fontSize: "20px",
+    fontSize: "clamp(17px, 2vw, 20px)",
     fontWeight: 600,
-    marginBottom: "12px",
+    marginBottom: "clamp(8px, 1.5vw, 12px)",
     color: "var(--text-primary)",
   },
   featureDesc: {
-    fontSize: "15px",
+    fontSize: "clamp(13px, 1.5vw, 15px)",
     color: "var(--text-secondary)",
     lineHeight: 1.5,
   },
+
   projectLink: {
     display: "inline-flex",
     alignItems: "center",
@@ -1179,7 +1149,7 @@ const styles: any = {
     flexShrink: 0,
   },
   horizontalCardSurface: {
-    padding: "24px",
+    padding: "clamp(16px, 3vw, 24px)",
     borderRadius: "20px",
     border: "1px solid var(--border-color)",
     background: "linear-gradient(180deg, var(--bg-primary) 0%, color-mix(in srgb, var(--bg-secondary) 88%, #007AFF) 100%)",
@@ -1187,13 +1157,14 @@ const styles: any = {
     boxSizing: "border-box" as const,
   },
   horizontalCardSurfaceCenter: {
-    padding: "24px",
+    padding: "clamp(16px, 3vw, 24px)",
     borderRadius: "20px",
     border: "1px solid var(--border-color)",
     background: "linear-gradient(180deg, var(--bg-primary) 0%, color-mix(in srgb, var(--bg-secondary) 88%, #007AFF) 100%)",
     textAlign: "center" as const,
     boxSizing: "border-box" as const,
   },
+
   statsStaticRow: {
     display: "flex",
     flexWrap: "wrap" as const,
@@ -1225,7 +1196,11 @@ const styles: any = {
   },
   sliderCard: {
     height: "100%",
+    minHeight: "280px",
+    display: "flex",
+    flexDirection: "column",
   },
+
   statsGrid: {
     maxWidth: "1000px",
     margin: "0 auto",
@@ -1264,15 +1239,15 @@ const styles: any = {
     gap: "24px",
   },
   clientCard: {
-    padding: "24px",
+    padding: "clamp(16px, 3vw, 24px)",
     backgroundColor: "var(--bg-secondary)",
     borderRadius: "20px",
     border: "1px solid var(--border-color)",
     textAlign: "center",
   },
   clientAvatarContainer: {
-    width: "60px",
-    height: "60px",
+    width: "clamp(48px, 6vw, 60px)",
+    height: "clamp(48px, 6vw, 60px)",
     borderRadius: "50%",
     margin: "0 auto 16px",
     border: "2px solid #E3F2FF",
@@ -1287,7 +1262,7 @@ const styles: any = {
     objectFit: "cover",
   },
   clientName: {
-    fontSize: "16px",
+    fontSize: "clamp(15px, 2vw, 16px)",
     fontWeight: 600,
     marginBottom: "4px",
     color: "var(--text-primary)",
@@ -1298,7 +1273,7 @@ const styles: any = {
     marginBottom: "8px",
   },
   clientProject: {
-    fontSize: "13px",
+    fontSize: "clamp(12px, 1.5vw, 13px)",
     color: "#6C6C70",
     lineHeight: 1.6,
   },
@@ -1310,7 +1285,7 @@ const styles: any = {
     gap: "24px",
   },
   developerCard: {
-    padding: "24px",
+    padding: "clamp(16px, 3vw, 24px)",
     backgroundColor: "var(--bg-primary)",
     borderRadius: "20px",
     border: "1px solid var(--border-color)",
@@ -1318,8 +1293,8 @@ const styles: any = {
     cursor: "pointer",
   },
   circleMask: {
-    width: "100px",
-    height: "100px",
+    width: "clamp(70px, 8vw, 100px)",
+    height: "clamp(70px, 8vw, 100px)",
     borderRadius: "50%",
     overflow: "hidden",
     margin: "0 auto 16px",
@@ -1332,7 +1307,7 @@ const styles: any = {
     objectFit: "cover",
   },
   circleInitial: {
-    fontSize: "40px",
+    fontSize: "clamp(28px, 4vw, 40px)",
     fontWeight: 600,
     color: "#FFFFFF",
     display: "flex",
@@ -1343,11 +1318,12 @@ const styles: any = {
     background: "linear-gradient(135deg, #007AFF, #34C759)",
   },
   developerName: {
-    fontSize: "18px",
+    fontSize: "clamp(16px, 2vw, 18px)",
     fontWeight: 600,
     marginBottom: "4px",
     color: "var(--text-primary)",
   },
+
   developerRole: {
     fontSize: "13px",
     color: "#007AFF",
@@ -1408,14 +1384,15 @@ const styles: any = {
     paddingRight: "20px",
   },
   testimonialCard: {
-    padding: "28px",
+    padding: "clamp(16px, 3vw, 28px)",
     backgroundColor: "var(--bg-secondary)",
     borderRadius: "20px",
     border: "1px solid var(--border-color)",
     textAlign: "center",
-    width: "320px",
+    width: "clamp(170px, 80vw, 320px)",
     flexShrink: 0,
   },
+
   testimonialAvatar: {
     width: "60px",
     height: "60px",
