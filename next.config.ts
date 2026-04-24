@@ -4,6 +4,7 @@ import type { NextConfig } from "next";
 const backendUrl = process.env.BACKEND_URL || "http://127.0.0.1:5000";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   async rewrites() {
     // On Vercel, call the real API via NEXT_PUBLIC_API_URL from the client — do not proxy.
     if (process.env.VERCEL) {
