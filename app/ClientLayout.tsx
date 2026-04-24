@@ -218,10 +218,13 @@ function ClientLayoutInner({
           box-sizing: border-box;
         }
         @media (max-width: 900px) {
-          .app-main-shell {
+          .app-main-shell[data-shell="panel"] {
             width: 100%;
             min-width: 0;
             padding: 76px 0 0 !important;
+          }
+          .app-main-shell[data-shell="public"] {
+            padding: 0 !important;
           }
           .app-main-shell[data-shell="panel"] .app-main-scroll {
             padding-top: 12px;
@@ -236,10 +239,11 @@ function ClientLayoutInner({
           }
         }
         @media (max-width: 480px) {
-          .app-main-shell {
+          .app-main-shell[data-shell="panel"] {
             padding: 72px 0 16px !important;
           }
         }
+
       `}</style>
     </LeadFunnelProvider>
   );
