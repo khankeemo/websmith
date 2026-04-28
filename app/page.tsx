@@ -427,7 +427,7 @@ export default function LandingPage() {
             items={effectiveProjects}
             ariaLabel="Published projects"
             itemMinWidth={180}
-            autoLoopCount={1}
+            autoLoopCount={6}
             direction="right-to-left"
             scale={1}
             renderItem={(project: any) => (
@@ -487,7 +487,7 @@ export default function LandingPage() {
             items={publicClients}
             ariaLabel="Satisfied clients"
             itemMinWidth={180}
-            autoLoopCount={1}
+            autoLoopCount={6}
             direction="left-to-right"
             scale={1}
             renderItem={(client, index) => (
@@ -514,7 +514,7 @@ export default function LandingPage() {
             items={publicDevelopers}
             ariaLabel="Expert developers"
             itemMinWidth={180}
-            autoLoopCount={1}
+            autoLoopCount={6}
             direction="right-to-left"
             scale={1}
             renderItem={(dev) => (
@@ -547,7 +547,7 @@ export default function LandingPage() {
             items={reviewCards}
             ariaLabel="Client testimonials"
             itemMinWidth={180}
-            autoLoopCount={1}
+            autoLoopCount={6}
             direction="left-to-right"
             scale={1}
             renderItem={(testimonial) => (

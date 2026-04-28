@@ -471,7 +471,7 @@ const styles: any = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
     gap: '24px',
   },
   list: { display: 'flex', flexDirection: 'column', gap: '12px' },
