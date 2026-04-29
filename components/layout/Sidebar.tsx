@@ -23,6 +23,7 @@ import {
   FileText,
   CreditCard,
   LifeBuoy,
+  Database,
 } from "lucide-react";
 import API from "../../core/services/apiService";
 import { getUnreadCount } from "../../core/services/notificationService";
@@ -147,7 +148,10 @@ export default function Sidebar({
       ? [
           {
             title: "MAIN",
-            items: [{ name: "Dashboard", path: `${basePath}/dashboard`, icon: LayoutDashboard }],
+            items: [
+              { name: "Dashboard", path: `${basePath}/dashboard`, icon: LayoutDashboard },
+              { name: "Databox", path: `${basePath}/databox`, icon: Database },
+            ],
           },
           {
             title: "WORK",
