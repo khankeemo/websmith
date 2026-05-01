@@ -5,6 +5,7 @@
 
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
@@ -233,7 +234,7 @@ export default function RegisterPage() {
         {/* Logo Section */}
         <div style={styles.logoContainer}>
           <div style={styles.circleMask} className="circle-mask-hover">
-            <span style={styles.circleText}>WSD</span>
+            <Image src="/images/websmith.png" alt="Websmith logo" width={64} height={64} style={styles.logoImage} priority />
           </div>
           <h1 style={styles.logoText} className="logo-text-hover">
             {step === 'provider' ? 'Join Websmith' : 'Create Account'}
@@ -550,18 +551,19 @@ const styles: any = {
   circleMask: {
     width: "64px",
     height: "64px",
-    backgroundColor: "#1C1C1E",
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: "16px",
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
   },
-  circleText: {
-    fontSize: "20px",
-    fontWeight: 700,
-    color: "#FFFFFF",
-    letterSpacing: "0.5px",
+  logoImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
   },
   logoText: {
     fontSize: "18px",

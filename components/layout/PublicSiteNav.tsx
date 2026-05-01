@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, Moon, Sun, X } from "lucide-react";
@@ -59,7 +60,9 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
       <nav style={styles.navAuth} className="landing-nav-shell public-site-nav public-site-nav--auth">
         <div style={styles.navAuthInner} className="landing-nav-content">
           <a href="/" style={styles.logo} className="logo-hover" onClick={() => setMobileOpen(false)}>
-            <div style={styles.logoCircle}>W</div>
+            <div style={styles.logoCircle}>
+              <Image src="/images/websmith.png" alt="Websmith logo" width={36} height={36} style={styles.logoImage} priority />
+            </div>
             <span style={styles.logoText}>Websmith</span>
           </a>
           <div style={styles.authNavRight}>
@@ -90,7 +93,9 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
       <div style={styles.navContent} className="landing-nav-content">
         <div style={styles.leftNavGroup}>
           <a href="/" style={styles.logo} className="logo-hover" onClick={() => setMobileOpen(false)}>
-            <div style={styles.logoCircle}>W</div>
+            <div style={styles.logoCircle}>
+              <Image src="/images/websmith.png" alt="Websmith logo" width={36} height={36} style={styles.logoImage} priority />
+            </div>
             <span style={styles.logoText}>Websmith</span>
           </a>
           <div style={styles.desktopMenu} className="desktop-menu">
@@ -301,14 +306,19 @@ const styles: Record<string, CSSProperties> = {
   logoCircle: {
     width: "36px",
     height: "36px",
-    backgroundColor: "var(--text-primary)",
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "var(--bg-primary)",
-    fontWeight: 700,
-    fontSize: "18px",
+    overflow: "hidden",
+    backgroundColor: "var(--bg-secondary)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    flexShrink: 0,
+  },
+  logoImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
   },
   logoText: {
     fontSize: "20px",

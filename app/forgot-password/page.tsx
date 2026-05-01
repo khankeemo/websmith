@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -130,7 +131,7 @@ export default function ForgotPasswordPage() {
         <nav style={styles.nav}>
           <Link href="/" style={styles.logoArea}>
             <div style={styles.logoCircle}>
-              <span style={styles.logoCircleText}>W</span>
+              <Image src="/images/websmith.png" alt="Websmith logo" width={34} height={34} style={styles.logoImage} priority />
             </div>
             <span style={styles.logoText}>Websmith</span>
           </Link>
@@ -291,15 +292,17 @@ const styles: Record<string, any> = {
     width: "34px",
     height: "34px",
     borderRadius: "999px",
-    backgroundColor: "#1F2937",
-    color: "#FFFFFF",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontWeight: 700,
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.12)",
   },
-  logoCircleText: {
-    fontSize: "16px",
+  logoImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
   },
   logoText: {
     color: "#111827",
