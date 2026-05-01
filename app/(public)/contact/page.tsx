@@ -3,8 +3,30 @@
 import type { CSSProperties } from "react";
 import { PublicPage } from "../_components/PublicPage";
 import { SimplePublicBody } from "../_components/SimplePublicContent";
+import { useState, useEffect } from "react";
+import API from "../../../core/services/apiService";
 
 export default function ContactPage() {
+  const [contactInfo, setContactInfo] = useState({
+    headquarters: 'under maintenance',
+    email: 'sales@websmithdigital.com',
+    phone: 'under maintenance'
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await API.get('/settings/public/contact_info');
+        if (res.data && res.data.success && res.data.data) {
+          setContactInfo(res.data.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch contact settings', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   return (
     <PublicPage
       eyebrow="Get in Touch"
@@ -30,22 +52,26 @@ export default function ContactPage() {
           <div style={styles.infoCard}>
             <span style={styles.cardLabel}>General Inquiries</span>
             <h3 style={styles.cardTitle}>Support & Support</h3>
-            <a href="mailto:support@websmithdigital.com" style={styles.cardLink}>support@websmithdigital.com</a>
+            <a href={`mailto:${contactInfo.email}`} style={styles.cardLink}>{contactInfo.email}</a>
           </div>
           <div style={styles.infoCard}>
             <span style={styles.cardLabel}>Sales & Business</span>
             <h3 style={styles.cardTitle}>Consultation</h3>
-            <a href="mailto:sales@websmithdigital.com" style={styles.cardLink}>sales@websmithdigital.com</a>
+            <a href={`mailto:${contactInfo.email}`} style={styles.cardLink}>{contactInfo.email}</a>
           </div>
           <div style={styles.infoCard}>
             <span style={styles.cardLabel}>Call Us</span>
             <h3 style={styles.cardTitle}>Phone Number</h3>
-            <span style={styles.cardText}>under maintenance</span>
+            <span style={styles.cardText}>
+              <a href={`tel:${contactInfo.phone}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                {contactInfo.phone}
+              </a>
+            </span>
           </div>
           <div style={styles.infoCard}>
-            <span style={styles.cardLabel}>Business Hours</span>
-            <h3 style={styles.cardTitle}>Monday to Saturday</h3>
-            <span style={styles.cardText}>under maintenance</span>
+            <span style={styles.cardLabel}>Headquarters</span>
+            <h3 style={styles.cardTitle}>Address</h3>
+            <span style={styles.cardText} className="whitespace-pre-wrap">{contactInfo.headquarters}</span>
           </div>
         </section>
 

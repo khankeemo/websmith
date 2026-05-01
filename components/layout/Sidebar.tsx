@@ -24,6 +24,7 @@ import {
   CreditCard,
   LifeBuoy,
   Database,
+  Monitor,
 } from "lucide-react";
 import API from "../../core/services/apiService";
 import { getUnreadCount } from "../../core/services/notificationService";
@@ -150,7 +151,6 @@ export default function Sidebar({
             title: "MAIN",
             items: [
               { name: "Dashboard", path: `${basePath}/dashboard`, icon: LayoutDashboard },
-              { name: "Databox", path: `${basePath}/databox`, icon: Database },
             ],
           },
           {
@@ -179,7 +179,11 @@ export default function Sidebar({
           },
           {
             title: "SYSTEM",
-            items: [{ name: "Notifications", path: `${basePath}/notifications`, icon: Bell }],
+            items: [
+              { name: "Data Box", path: `${basePath}/data-box`, icon: Database },
+              { name: "Manage Page", path: `${basePath}/manage-page`, icon: Monitor },
+              { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
+            ],
           },
         ]
       : role === "client"

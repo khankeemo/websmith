@@ -23,6 +23,7 @@ import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
 import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
 import { getPublishedProjects, getPublishedTestimonials } from "./projects/services/projectService";
+import API from "../core/services/apiService";
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
 import { createPublicTicket } from "../core/services/ticketService";
@@ -226,6 +227,12 @@ export default function LandingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<null | "success" | "error">(null);
   
+  const [contactInfo, setContactInfo] = useState({
+    headquarters: 'under maintenance',
+    email: 'sales@websmithdigital.com',
+    phone: 'under maintenance'
+  });
+  
   // Stats counter animation
   const [stats, setStats] = useState({
     projects: 0,
@@ -239,11 +246,20 @@ export default function LandingPage() {
   const [publishedTestimonials, setPublishedTestimonials] = useState<any[]>([]);
 
   useEffect(() => {
-    Promise.allSettled([getPublishedProjects(), getPublishedClients(), getPublishedDevelopers(), getPublishedTestimonials()]).then((results) => {
+    Promise.allSettled([
+      getPublishedProjects(), 
+      getPublishedClients(), 
+      getPublishedDevelopers(), 
+      getPublishedTestimonials(),
+      API.get('/settings/public/contact_info')
+    ]).then((results) => {
       if (results[0].status === "fulfilled") setPublishedProjects(results[0].value);
       if (results[1].status === "fulfilled") setPublishedClients(results[1].value);
       if (results[2].status === "fulfilled") setPublishedDevelopers(results[2].value);
       if (results[3].status === "fulfilled") setPublishedTestimonials(results[3].value);
+      if (results[4].status === "fulfilled" && results[4].value?.data?.success) {
+        setContactInfo(results[4].value.data.data);
+      }
     });
   }, []);
 
@@ -586,21 +602,29 @@ export default function LandingPage() {
                   <div style={styles.infoIcon}>📍</div>
                   <div>
                     <h4 style={styles.infoLabel}>Headquarters</h4>
-                    <p style={styles.infoValue}>under maintenance</p>
+                    <p style={styles.infoValue} className="whitespace-pre-wrap">{contactInfo.headquarters}</p>
                   </div>
                 </div>
                 <div style={styles.infoItem}>
                   <div style={styles.infoIcon}>📧</div>
                   <div>
                     <h4 style={styles.infoLabel}>Email</h4>
-                    <p style={styles.infoValue}>sales@websmithdigital.com</p>
+                    <p style={styles.infoValue}>
+                      <a href={`mailto:${contactInfo.email}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                        {contactInfo.email}
+                      </a>
+                    </p>
                   </div>
                 </div>
                 <div style={styles.infoItem}>
                   <div style={styles.infoIcon}>📞</div>
                   <div>
                     <h4 style={styles.infoLabel}>Phone</h4>
-                    <p style={styles.infoValue}>under maintenance</p>
+                    <p style={styles.infoValue}>
+                      <a href={`tel:${contactInfo.phone}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                        {contactInfo.phone}
+                      </a>
+                    </p>
                   </div>
                 </div>
               </div>
