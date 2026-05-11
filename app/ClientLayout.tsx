@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
-import CrispChat from "../components/ui/crispchat";
+import LeadConnectorChat from "../components/ui/leadconnectorchat";
 import ForcedPasswordResetModal from "@/components/auth/ForcedPasswordResetModal";
 import { isPublicRoute } from "../core/constants/routes";
 import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken, setAuthSession } from "../lib/auth";
@@ -193,7 +193,7 @@ function ClientLayoutInner({
         onLogout={handleForcedPasswordResetLogout}
       />
 
-      <CrispChat />
+      <LeadConnectorChat />
       <style>{`
         .app-layout-shell {
           height: 100dvh;
