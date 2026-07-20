@@ -933,7 +933,7 @@ export function LicenseManagerTab() {
           EDIT MODAL
           ============================================================ */}
       {showEditModal && selectedLicense && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onKeyDown={(e) => { if (e.key === 'Escape') { setShowEditModal(false); } }}>
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[var(--text-primary)]">
@@ -958,6 +958,7 @@ export function LicenseManagerTab() {
                   onChange={(e) =>
                     setEditForm({ ...editForm, customer_name: e.target.value })
                   }
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !editing) { e.preventDefault(); handleEditSave(); } }}
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
               </div>
@@ -972,6 +973,7 @@ export function LicenseManagerTab() {
                   onChange={(e) =>
                     setEditForm({ ...editForm, customer_email: e.target.value })
                   }
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !editing) { e.preventDefault(); handleEditSave(); } }}
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
               </div>
@@ -986,6 +988,7 @@ export function LicenseManagerTab() {
                   onChange={(e) =>
                     setEditForm({ ...editForm, customer_username: e.target.value })
                   }
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !editing) { e.preventDefault(); handleEditSave(); } }}
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
               </div>
@@ -1040,6 +1043,7 @@ export function LicenseManagerTab() {
                   onChange={(e) =>
                     setEditForm({ ...editForm, expiry_date: e.target.value })
                   }
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !editing) { e.preventDefault(); handleEditSave(); } }}
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
               </div>
@@ -1059,6 +1063,7 @@ export function LicenseManagerTab() {
                       max_devices: parseInt(e.target.value) || 1,
                     })
                   }
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !editing) { e.preventDefault(); handleEditSave(); } }}
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
               </div>
@@ -1078,6 +1083,7 @@ export function LicenseManagerTab() {
                       duration_days: parseInt(e.target.value) || 365,
                     })
                   }
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !editing) { e.preventDefault(); handleEditSave(); } }}
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
               </div>
@@ -1092,6 +1098,7 @@ export function LicenseManagerTab() {
                   onChange={(e) =>
                     setEditForm({ ...editForm, notes: e.target.value })
                   }
+                  onKeyDown={(e) => { if ((e.key === 'Enter' && e.ctrlKey) && !editing) { e.preventDefault(); handleEditSave(); } }}
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm resize-none"
                 />
               </div>
@@ -1127,7 +1134,7 @@ export function LicenseManagerTab() {
           HISTORY MODAL
           ============================================================ */}
       {showHistoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onKeyDown={(e) => { if (e.key === 'Escape') { setShowHistoryModal(false); } }}>
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[var(--text-primary)]">
@@ -1200,7 +1207,7 @@ export function LicenseManagerTab() {
           BULK ACTION CONFIRMATION MODAL
           ============================================================ */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onKeyDown={(e) => { if (e.key === 'Escape') { setShowBulkModal(false); } }}>
           <div className="w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4 text-[var(--text-primary)]">
               {bulkActionType === 'delete' ? (
@@ -1238,6 +1245,7 @@ export function LicenseManagerTab() {
                   type="email"
                   value={bulkEmailValue}
                   onChange={(e) => setBulkEmailValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !bulkProcessing && bulkEmailValue && bulkEmailValue.includes('@')) { handleBulkAction(); } }}
                   placeholder="customer@example.com"
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
@@ -1279,7 +1287,7 @@ export function LicenseManagerTab() {
           DEACTIVATE CONFIRMATION MODAL
           ============================================================ */}
       {showDeactivateConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onKeyDown={(e) => { if (e.key === 'Escape') { setShowDeactivateConfirm(false); setLicenseToDeactivate(null); setDeactivateConfirmText(""); } }}>
           <div className="w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4 text-amber-400">
               <Ban className="h-6 w-6" />
@@ -1308,6 +1316,7 @@ export function LicenseManagerTab() {
                 type="text"
                 value={deactivateConfirmText}
                 onChange={(e) => setDeactivateConfirmText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !deactivating && deactivateConfirmText.trim().toUpperCase() === 'DEACTIVATE') { handleDeactivateConfirm(); } }}
                 placeholder="DEACTIVATE"
                 className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50 text-sm font-mono"
               />
@@ -1340,7 +1349,7 @@ export function LicenseManagerTab() {
           REVOKE CONFIRMATION MODAL
           ============================================================ */}
       {showRevokeConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onKeyDown={(e) => { if (e.key === 'Escape') { setShowRevokeConfirm(false); setLicenseToRevoke(null); setRevokeConfirmText(""); } }}>
           <div className="w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4 text-red-400">
               <XCircle className="h-6 w-6" />
@@ -1373,6 +1382,7 @@ export function LicenseManagerTab() {
                 type="text"
                 value={revokeConfirmText}
                 onChange={(e) => setRevokeConfirmText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !revoking && revokeConfirmText.trim().toUpperCase() === 'REVOKE') { handleRevokeConfirm(); } }}
                 placeholder="REVOKE"
                 className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-red-500/50 text-sm font-mono"
               />
@@ -1405,7 +1415,7 @@ export function LicenseManagerTab() {
           DELETE CONFIRMATION MODAL
           ============================================================ */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onKeyDown={(e) => { if (e.key === 'Escape') { setShowDeleteConfirm(false); } }}>
           <div className="w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4 text-red-400">
               <AlertCircle className="h-6 w-6" />

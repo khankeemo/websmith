@@ -73,17 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "License has expired" }, { status: 403 });
     }
 
-    // Step 3: Check if license is already active and device_count >= max_devices
-    if (license.device_count >= license.max_devices) {
-      client.release();
-      return NextResponse.json({
-        success: false,
-        error: `Device limit reached (${license.max_devices} devices max)`,
-        device_limit_reached: true,
-      }, { status: 403 });
-    }
-
-    // Step 4: Check if hardware is already activated on this license
+    // Step 3: Check if hardware is already activated on this license
     const existingResult = await client.query(
       `SELECT * FROM activations WHERE license_key = $1 AND hardware_id = $2 AND is_active = TRUE`,
       [license.license_key, hardware_id]
@@ -101,6 +91,16 @@ export async function POST(request: NextRequest) {
         already_activated: true,
         days_left: Math.max(0, Math.ceil((new Date(license.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))),
       });
+    }
+
+    // Step 4: Check device limit only after confirming device not already activated
+    if (license.device_count >= license.max_devices) {
+      client.release();
+      return NextResponse.json({
+        success: false,
+        error: `Device limit reached (${license.max_devices} devices max)`,
+        device_limit_reached: true,
+      }, { status: 403 });
     }
 
     // Step 5: Create activation record

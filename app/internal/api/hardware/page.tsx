@@ -546,7 +546,7 @@ export default function HardwarePage() {
       </div>
     
     {showBindModal && (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onKeyDown={(e) => { if (e.key === 'Escape') { setShowBindModal(false); } }}>
         <div className="bg-[var(--bg-secondary)] rounded-2xl max-w-md w-full p-6 border border-[var(--border-color)]">
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Bind Device</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">Bind this hardware to the selected license?</p>
@@ -566,12 +566,12 @@ export default function HardwarePage() {
             </div>
             <div>
               <label className="block text-sm text-[var(--text-secondary)] mb-1">Type <span className="font-mono font-bold text-[var(--text-primary)]">BIND</span> to confirm</label>
-              <input type="text" value={bindConfirm} onChange={e => setBindConfirm(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 font-mono" placeholder="Type BIND" />
+              <input type="text" value={bindConfirm} onChange={e => setBindConfirm(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !modalSubmitting && bindConfirm.trim().toUpperCase() === "BIND" && bindForm.license_key && bindForm.hardware_id) { document.getElementById('bind-submit-btn')?.click(); } }} className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 font-mono" placeholder="Type BIND" />
             </div>
           </div>
           <div className="flex gap-3 mt-6">
             <button onClick={() => setShowBindModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/50">Cancel</button>
-            <button onClick={async () => {
+            <button id="bind-submit-btn" onClick={async () => {
               if (bindConfirm.trim().toUpperCase() !== "BIND") { setModalError("Type BIND to confirm"); return; }
               if (!bindForm.license_key || !bindForm.hardware_id) { setModalError("License key and hardware ID are required"); return; }
               setModalSubmitting(true); setModalError(null);
@@ -592,7 +592,7 @@ export default function HardwarePage() {
         REPLACE DEVICE MODAL
     ============================================================ */}
     {showReplaceModal && selectedDevice && (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onKeyDown={(e) => { if (e.key === 'Escape') { setShowReplaceModal(false); } }}>
         <div className="bg-[var(--bg-secondary)] rounded-2xl max-w-md w-full p-6 border border-[var(--border-color)]">
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Replace Device</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">This will replace the current hardware. Replace <strong className="text-[var(--text-primary)]">{selectedDevice.device_name || selectedDevice.hardware_id}</strong> with a new device.</p>
@@ -608,12 +608,12 @@ export default function HardwarePage() {
             </div>
             <div>
               <label className="block text-sm text-[var(--text-secondary)] mb-1">Type <span className="font-mono font-bold text-[var(--text-primary)]">REPLACE</span> to confirm</label>
-              <input type="text" value={replaceConfirm} onChange={e => setReplaceConfirm(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 font-mono" placeholder="Type REPLACE" />
+              <input type="text" value={replaceConfirm} onChange={e => setReplaceConfirm(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !modalSubmitting && replaceConfirm.trim().toUpperCase() === "REPLACE" && replaceForm.new_hardware_id) { document.getElementById('replace-submit-btn')?.click(); } }} className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 font-mono" placeholder="Type REPLACE" />
             </div>
           </div>
           <div className="flex gap-3 mt-6">
             <button onClick={() => setShowReplaceModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/50">Cancel</button>
-            <button onClick={async () => {
+            <button id="replace-submit-btn" onClick={async () => {
               if (replaceConfirm.trim().toUpperCase() !== "REPLACE") { setModalError("Type REPLACE to confirm"); return; }
               if (!replaceForm.new_hardware_id) { setModalError("New hardware ID is required"); return; }
               setModalSubmitting(true); setModalError(null);
@@ -634,7 +634,7 @@ export default function HardwarePage() {
         RESET DEVICE MODAL
     ============================================================ */}
     {showResetModal && selectedDevice && (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onKeyDown={(e) => { if (e.key === 'Escape') { setShowResetModal(false); } }}>
         <div className="bg-[var(--bg-secondary)] rounded-2xl max-w-md w-full p-6 border border-[var(--border-color)]">
           <div className="flex items-center gap-3 mb-4">
             <AlertCircle className="h-6 w-6 text-amber-400" />
@@ -645,12 +645,12 @@ export default function HardwarePage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-[var(--text-secondary)] mb-1">Type <span className="font-mono font-bold text-[var(--text-primary)]">RESET</span> to confirm</label>
-              <input type="text" value={resetConfirm} onChange={e => setResetConfirm(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 font-mono" placeholder="Type RESET" />
+              <input type="text" value={resetConfirm} onChange={e => setResetConfirm(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !modalSubmitting && resetConfirm.trim().toUpperCase() === "RESET") { document.getElementById('reset-submit-btn')?.click(); } }} className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 font-mono" placeholder="Type RESET" />
             </div>
           </div>
           <div className="flex gap-3 mt-6">
             <button onClick={() => setShowResetModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/50">Cancel</button>
-            <button onClick={async () => {
+            <button id="reset-submit-btn" onClick={async () => {
               if (resetConfirm.trim().toUpperCase() !== "RESET") { setModalError("Type RESET to confirm"); return; }
               setModalSubmitting(true);
               try {
@@ -670,7 +670,7 @@ export default function HardwarePage() {
         UNBIND DEVICE MODAL
     ============================================================ */}
     {showUnbindModal && selectedDevice && (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onKeyDown={(e) => { if (e.key === 'Escape') { setShowUnbindModal(false); } }}>
         <div className="bg-[var(--bg-secondary)] rounded-2xl max-w-md w-full p-6 border border-[var(--border-color)]">
           <div className="flex items-center gap-3 mb-4">
             <AlertCircle className="h-6 w-6 text-red-400" />
@@ -681,12 +681,12 @@ export default function HardwarePage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-[var(--text-secondary)] mb-1">Type <span className="font-mono font-bold text-[var(--text-primary)]">UNBIND</span> to confirm</label>
-              <input type="text" value={unbindConfirm} onChange={e => setUnbindConfirm(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 font-mono" placeholder="Type UNBIND" />
+              <input type="text" value={unbindConfirm} onChange={e => setUnbindConfirm(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !modalSubmitting && unbindConfirm.trim().toUpperCase() === "UNBIND") { document.getElementById('unbind-submit-btn')?.click(); } }} className="w-full px-3 py-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500 font-mono" placeholder="Type UNBIND" />
             </div>
           </div>
           <div className="flex gap-3 mt-6">
             <button onClick={() => setShowUnbindModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/50">Cancel</button>
-            <button onClick={async () => {
+            <button id="unbind-submit-btn" onClick={async () => {
               if (unbindConfirm.trim().toUpperCase() !== "UNBIND") { setModalError("Type UNBIND to confirm"); return; }
               setModalSubmitting(true);
               try {
