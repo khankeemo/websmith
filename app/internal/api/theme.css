@@ -1,0 +1,149 @@
+/* ============================================================
+   API CENTER THEME - CSS Variables for Tailwind Classes
+   This file defines all color variables used in API Center
+   ============================================================ */
+
+/* LIGHT THEME VARIABLES (default) */
+:root {
+  /* Background Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f7;
+  --bg-tertiary: #e8e8ed;
+  
+  /* Text Colors */
+  --text-primary: #1d1d1f;
+  --text-secondary: #86868b;
+  --text-muted: #6b6b70;
+  
+  /* Border Colors */
+  --border-color: #e8e8ed;
+  
+  /* Card Shadow */
+  --card-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  
+  /* ============================================================
+     BRAND COLORS WITH OPACITY - Light Theme
+     ============================================================ */
+  
+  /* Blue */
+  --api-blue-500: #3b82f6;
+  --api-blue-400: #60a5fa;
+  --api-blue-500-5: rgba(59, 130, 246, 0.05);
+  --api-blue-500-10: rgba(59, 130, 246, 0.10);
+  --api-blue-500-20: rgba(59, 130, 246, 0.20);
+  --api-blue-500-30: rgba(59, 130, 246, 0.30);
+  
+  /* Green */
+  --api-green-500: #22c55e;
+  --api-green-400: #4ade80;
+  --api-green-500-5: rgba(34, 197, 94, 0.05);
+  --api-green-500-10: rgba(34, 197, 94, 0.10);
+  --api-green-500-20: rgba(34, 197, 94, 0.20);
+  
+  /* Purple */
+  --api-purple-500: #a855f7;
+  --api-purple-400: #c084fc;
+  --api-purple-500-5: rgba(168, 85, 247, 0.05);
+  --api-purple-500-10: rgba(168, 85, 247, 0.10);
+  --api-purple-500-20: rgba(168, 85, 247, 0.20);
+  
+  /* Cyan */
+  --api-cyan-500: #06b6d4;
+  --api-cyan-400: #22d3ee;
+  --api-cyan-500-5: rgba(6, 182, 212, 0.05);
+  --api-cyan-500-10: rgba(6, 182, 212, 0.10);
+  --api-cyan-500-20: rgba(6, 182, 212, 0.20);
+  
+  /* Amber */
+  --api-amber-500: #f59e0b;
+  --api-amber-400: #fbbf24;
+  --api-amber-500-5: rgba(245, 158, 11, 0.05);
+  --api-amber-500-10: rgba(245, 158, 11, 0.10);
+  --api-amber-500-20: rgba(245, 158, 11, 0.20);
+  
+  /* Red */
+  --api-red-500: #ef4444;
+  --api-red-400: #f87171;
+  --api-red-500-5: rgba(239, 68, 68, 0.05);
+  --api-red-500-10: rgba(239, 68, 68, 0.10);
+  --api-red-500-20: rgba(239, 68, 68, 0.20);
+  
+  /* Pink */
+  --api-pink-500: #ec4899;
+  --api-pink-400: #f472b6;
+  --api-pink-500-5: rgba(236, 72, 153, 0.05);
+  --api-pink-500-10: rgba(236, 72, 153, 0.10);
+  --api-pink-500-20: rgba(236, 72, 153, 0.20);
+  
+  /* Indigo */
+  --api-indigo-500: #6366f1;
+  --api-indigo-400: #818cf8;
+  --api-indigo-500-5: rgba(99, 102, 241, 0.05);
+  --api-indigo-500-10: rgba(99, 102, 241, 0.10);
+  --api-indigo-500-20: rgba(99, 102, 241, 0.20);
+}
+
+/* DARK THEME VARIABLES */
+.dark-theme {
+  /* Background Colors */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  
+  /* Text Colors */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  /* Border Colors */
+  --border-color: #334155;
+  
+  /* Card Shadow */
+  --card-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  
+  /* ============================================================
+     BRAND COLORS WITH OPACITY - Dark Theme
+     Slightly higher opacity for better visibility on dark backgrounds
+     ============================================================ */
+  
+  /* Blue */
+  --api-blue-500-5: rgba(59, 130, 246, 0.08);
+  --api-blue-500-10: rgba(59, 130, 246, 0.15);
+  --api-blue-500-20: rgba(59, 130, 246, 0.25);
+  --api-blue-500-30: rgba(59, 130, 246, 0.35);
+  
+  /* Green */
+  --api-green-500-5: rgba(34, 197, 94, 0.08);
+  --api-green-500-10: rgba(34, 197, 94, 0.15);
+  --api-green-500-20: rgba(34, 197, 94, 0.25);
+  
+  /* Purple */
+  --api-purple-500-5: rgba(168, 85, 247, 0.08);
+  --api-purple-500-10: rgba(168, 85, 247, 0.15);
+  --api-purple-500-20: rgba(168, 85, 247, 0.25);
+  
+  /* Cyan */
+  --api-cyan-500-5: rgba(6, 182, 212, 0.08);
+  --api-cyan-500-10: rgba(6, 182, 212, 0.15);
+  --api-cyan-500-20: rgba(6, 182, 212, 0.25);
+  
+  /* Amber */
+  --api-amber-500-5: rgba(245, 158, 11, 0.08);
+  --api-amber-500-10: rgba(245, 158, 11, 0.15);
+  --api-amber-500-20: rgba(245, 158, 11, 0.25);
+  
+  /* Red */
+  --api-red-500-5: rgba(239, 68, 68, 0.08);
+  --api-red-500-10: rgba(239, 68, 68, 0.15);
+  --api-red-500-20: rgba(239, 68, 68, 0.25);
+  
+  /* Pink */
+  --api-pink-500-5: rgba(236, 72, 153, 0.08);
+  --api-pink-500-10: rgba(236, 72, 153, 0.15);
+  --api-pink-500-20: rgba(236, 72, 153, 0.25);
+  
+  /* Indigo */
+  --api-indigo-500-5: rgba(99, 102, 241, 0.08);
+  --api-indigo-500-10: rgba(99, 102, 241, 0.15);
+  --api-indigo-500-20: rgba(99, 102, 241, 0.25);
+}

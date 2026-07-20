@@ -1,0 +1,637 @@
+
+PAGE: app\(public)\_components\PublicPage.tsx
+Links: 1
+
+PAGE: app\(public)\about\page.tsx
+Links: 1
+
+PAGE: app\(public)\blog\[slug]\page.tsx
+Cards: 1
+
+PAGE: app\(public)\store\page.tsx
+Buttons: 1
+Icons: 3
+Links: 2
+
+PAGE: app\ClientLayout.tsx
+Buttons: 1
+
+PAGE: app\admin\admins\page.tsx
+Buttons: 6
+Forms: 1
+Icons: 4
+Inputs: 5
+Labels: 4
+
+PAGE: app\admin\dashboard\page.tsx
+Cards: 5
+Icons: 8
+
+PAGE: app\admin\developers\components\DeveloperCard.tsx
+Buttons: 6
+Icons: 4
+
+PAGE: app\admin\developers\components\DeveloperModal.tsx
+Buttons: 6
+Forms: 1
+Inputs: 7
+Labels: 9
+Selects: 1
+TextAreas: 1
+
+PAGE: app\admin\developers\page.tsx
+Buttons: 4
+Inputs: 1
+
+PAGE: app\admin\manage-page\page.tsx
+Buttons: 1
+Forms: 1
+Icons: 1
+Inputs: 2
+Labels: 3
+TextAreas: 1
+
+PAGE: app\admin\messages\AdminMessagesClient.tsx
+Buttons: 5
+Inputs: 1
+Labels: 3
+Selects: 1
+TextAreas: 2
+
+PAGE: app\admin\notifications\page.tsx
+Buttons: 2
+Icons: 2
+
+PAGE: app\admin\services\components\ServiceModal.tsx
+Buttons: 3
+Forms: 2
+Inputs: 1
+Labels: 3
+Selects: 1
+TextAreas: 1
+
+PAGE: app\admin\services\page.tsx
+Buttons: 5
+Cards: 2
+Icons: 6
+
+PAGE: app\admin\software-store\page.tsx
+Buttons: 4
+Forms: 1
+Icons: 4
+Inputs: 8
+Labels: 2
+Selects: 3
+TextAreas: 1
+
+PAGE: app\auth\callback\page.tsx
+Buttons: 1
+Icons: 4
+
+PAGE: app\auth\change-password\page.tsx
+Buttons: 3
+Forms: 1
+Icons: 5
+Inputs: 2
+Labels: 2
+
+PAGE: app\client\dashboard\page.tsx
+Cards: 5
+Icons: 9
+
+PAGE: app\client\invoices\page.tsx
+Buttons: 6
+Icons: 6
+Inputs: 1
+Labels: 1
+Modals: 2
+
+PAGE: app\client\notifications\page.tsx
+Buttons: 6
+Icons: 17
+
+PAGE: app\client\projects\page.tsx
+Buttons: 11
+Icons: 9
+Inputs: 1
+Links: 4
+Selects: 1
+TextAreas: 1
+
+PAGE: app\client\tickets\page.tsx
+Buttons: 11
+Forms: 1
+Inputs: 3
+Labels: 6
+Modals: 1
+Selects: 2
+TextAreas: 2
+
+PAGE: app\clients\components\ClientCard.tsx
+Buttons: 3
+Icons: 2
+
+PAGE: app\clients\components\ClientModal.tsx
+Buttons: 3
+Forms: 2
+Inputs: 5
+Labels: 7
+Selects: 1
+TextAreas: 1
+
+PAGE: app\clients\page.tsx
+Buttons: 5
+Icons: 4
+Inputs: 1
+
+PAGE: app\dashboard\page.tsx
+Cards: 5
+Icons: 7
+
+PAGE: app\developer\dashboard\page.tsx
+Cards: 5
+Icons: 7
+
+PAGE: app\developer\notifications\page.tsx
+Buttons: 4
+Cards: 1
+Icons: 4
+
+PAGE: app\developer\projects\page.tsx
+Buttons: 3
+Icons: 8
+Labels: 1
+Selects: 1
+
+PAGE: app\developer\tasks\page.tsx
+Buttons: 6
+Cards: 1
+Labels: 1
+TextAreas: 1
+
+PAGE: app\footer\Footer.tsx
+Icons: 11
+Links: 8
+
+PAGE: app\internal\api\analytics\page.tsx
+Buttons: 6
+Icons: 42
+
+PAGE: app\internal\api\auth\forgot-password\page.tsx
+Buttons: 7
+Forms: 3
+Inputs: 4
+Labels: 4
+
+PAGE: app\internal\api\auth\login\page.tsx
+Buttons: 2
+Forms: 1
+Inputs: 3
+Labels: 3
+
+PAGE: app\internal\api\auth\profile\page.tsx
+Buttons: 11
+Inputs: 6
+Labels: 5
+
+PAGE: app\internal\api\auth\register\page.tsx
+Buttons: 4
+Forms: 1
+Inputs: 4
+Labels: 4
+
+PAGE: app\internal\api\auth\reset-password\page.tsx
+Buttons: 4
+Forms: 1
+Inputs: 4
+Labels: 4
+
+PAGE: app\internal\api\customers\[id]\journey\page.tsx
+Buttons: 4
+Icons: 5
+
+PAGE: app\internal\api\customers\[id]\page.tsx
+Buttons: 2
+Icons: 13
+Links: 3
+
+PAGE: app\internal\api\customers\page.tsx
+Buttons: 6
+Icons: 9
+Inputs: 1
+
+PAGE: app\internal\api\dashboard\page.tsx
+Buttons: 12
+Icons: 21
+
+PAGE: app\internal\api\developers\integrations\page.tsx
+Buttons: 7
+Cards: 3
+Icons: 15
+Inputs: 3
+Labels: 5
+Links: 1
+Selects: 2
+
+PAGE: app\internal\api\docs\page.tsx
+Buttons: 9
+Icons: 11
+Inputs: 2
+Links: 2
+Selects: 1
+
+PAGE: app\internal\api\docs\public-api\page.tsx
+Buttons: 2
+
+PAGE: app\internal\api\hardware\page.tsx
+Buttons: 11
+Icons: 11
+Inputs: 1
+Links: 1
+
+PAGE: app\internal\api\licenses\[licenseKey]\page.tsx
+Buttons: 9
+Labels: 1
+Selects: 1
+
+PAGE: app\internal\api\licenses\generate\components\GlobalSearchBar.tsx
+Buttons: 4
+Inputs: 4
+Labels: 1
+Selects: 3
+
+PAGE: app\internal\api\licenses\generate\page.tsx
+Buttons: 2
+Icons: 13
+Inputs: 1
+
+PAGE: app\internal\api\licenses\generate\tabs\BulkOperationsTab.tsx
+Buttons: 4
+Inputs: 1
+
+PAGE: app\internal\api\licenses\generate\tabs\GenerateLicenseTab.tsx
+Buttons: 9
+Forms: 1
+Inputs: 6
+Labels: 7
+Selects: 3
+TextAreas: 1
+
+PAGE: app\internal\api\licenses\generate\tabs\HardwareSummaryTab.tsx
+Buttons: 1
+Links: 2
+
+PAGE: app\internal\api\licenses\generate\tabs\LicenseManagerTab.tsx
+Buttons: 14
+Icons: 1
+Inputs: 10
+Labels: 10
+Selects: 5
+TextAreas: 1
+
+PAGE: app\internal\api\licenses\generate\tabs\LogsSummaryTab.tsx
+Buttons: 1
+
+PAGE: app\internal\api\licenses\generate\tabs\RenewalsTab.tsx
+Buttons: 1
+Inputs: 2
+Selects: 2
+
+PAGE: app\internal\api\licenses\generate\tabs\TrialsTab.tsx
+Buttons: 2
+Icons: 2
+
+PAGE: app\internal\api\licenses\generate\tabs\ValidationCenterTab.tsx
+Buttons: 1
+Inputs: 1
+
+PAGE: app\internal\api\logs\page.tsx
+Buttons: 5
+Icons: 13
+Inputs: 1
+Links: 1
+Selects: 2
+
+PAGE: app\internal\api\products\[productId]\settings\page.tsx
+Buttons: 13
+Inputs: 13
+Labels: 17
+TextAreas: 3
+
+PAGE: app\internal\api\products\page.tsx
+Buttons: 15
+Forms: 1
+Icons: 2
+Inputs: 12
+Labels: 16
+Links: 1
+Selects: 2
+TextAreas: 1
+
+PAGE: app\internal\api\public-api\keys\page.tsx
+Buttons: 16
+Forms: 1
+Inputs: 5
+Labels: 6
+Selects: 2
+Tables: 1
+
+PAGE: app\internal\api\sales\purchase\page.tsx
+Buttons: 3
+Forms: 1
+Inputs: 4
+Labels: 7
+Selects: 2
+TextAreas: 1
+
+PAGE: app\internal\api\settings\page.tsx
+Buttons: 3
+Icons: 10
+Inputs: 2
+Labels: 2
+Selects: 1
+
+PAGE: app\internal\api\trial\trial-templates\page.tsx
+Buttons: 11
+Forms: 1
+Icons: 9
+Inputs: 12
+Labels: 12
+TextAreas: 1
+
+PAGE: app\invoices\components\InvoiceCard.tsx
+Buttons: 3
+Icons: 7
+
+PAGE: app\invoices\page.tsx
+Buttons: 10
+Icons: 10
+Inputs: 13
+Labels: 15
+Modals: 1
+Selects: 3
+Tables: 1
+TextAreas: 1
+
+PAGE: app\layout.tsx
+Icons: 7
+
+PAGE: app\lead-form\components\LeadFormClient.tsx
+Buttons: 4
+Cards: 2
+Forms: 2
+Icons: 2
+Inputs: 6
+Labels: 3
+Selects: 2
+TextAreas: 1
+
+PAGE: app\login\page.tsx
+Buttons: 3
+Icons: 3
+Inputs: 2
+Labels: 2
+Links: 1
+
+PAGE: app\messages\components\ChatList.tsx
+Icons: 6
+Inputs: 1
+
+PAGE: app\messages\components\ChatMessage.tsx
+Buttons: 1
+Icons: 4
+
+PAGE: app\messages\components\ChatWindow.tsx
+Buttons: 6
+Icons: 4
+TextAreas: 1
+
+PAGE: app\messages\page.tsx
+Buttons: 7
+Icons: 6
+Inputs: 2
+TextAreas: 1
+
+PAGE: app\page.tsx
+Buttons: 3
+Forms: 1
+Icons: 16
+Inputs: 3
+Labels: 4
+TextAreas: 1
+
+PAGE: app\payments\components\PaymentCard.tsx
+Buttons: 4
+Icons: 14
+
+PAGE: app\payments\page.tsx
+Buttons: 4
+Icons: 11
+Inputs: 1
+Modals: 1
+Selects: 1
+Tables: 1
+
+PAGE: app\projects\components\ProjectCard.tsx
+Buttons: 5
+Icons: 2
+
+PAGE: app\projects\components\ProjectModal.tsx
+Buttons: 3
+Forms: 2
+Inputs: 12
+Labels: 17
+Selects: 4
+TextAreas: 1
+
+PAGE: app\projects\page.tsx
+Buttons: 17
+Icons: 2
+Inputs: 1
+
+PAGE: app\projects\status\page.tsx
+Buttons: 12
+Inputs: 1
+TextAreas: 1
+
+PAGE: app\providers\LeadFunnelProvider.tsx
+Selects: 1
+
+PAGE: app\register\page.tsx
+Buttons: 7
+Icons: 13
+Inputs: 6
+Labels: 6
+
+PAGE: app\services\components\ServiceSelectionClient.tsx
+Buttons: 2
+Cards: 1
+Icons: 3
+
+PAGE: app\settings\page.tsx
+Buttons: 6
+Forms: 1
+Icons: 4
+Inputs: 4
+Labels: 4
+
+PAGE: app\software-store\page.tsx
+Icons: 6
+Inputs: 1
+Links: 1
+
+PAGE: app\success\page.tsx
+Buttons: 2
+Cards: 1
+Links: 1
+
+PAGE: app\tasks\components\TaskCard.tsx
+Buttons: 2
+Icons: 2
+
+PAGE: app\tasks\components\TaskModal.tsx
+Buttons: 3
+Forms: 2
+Inputs: 3
+Labels: 8
+Selects: 4
+TextAreas: 1
+
+PAGE: app\tasks\page.tsx
+Buttons: 9
+Inputs: 1
+
+PAGE: app\team\components\TeamCard.tsx
+Buttons: 2
+Icons: 4
+
+PAGE: app\team\components\TeamModal.tsx
+Buttons: 5
+Forms: 1
+Inputs: 7
+Labels: 11
+Selects: 3
+TextAreas: 1
+
+PAGE: app\team\page.tsx
+Buttons: 14
+Forms: 1
+Icons: 2
+Inputs: 8
+Labels: 9
+Selects: 1
+TextAreas: 1
+
+PAGE: components\admin\NavbarVisibilityToggle.tsx
+Inputs: 1
+Labels: 1
+
+PAGE: components\auth\ForcedPasswordResetModal.tsx
+Buttons: 2
+Forms: 1
+Icons: 3
+Inputs: 2
+Labels: 2
+
+PAGE: components\internal-api\NotificationBell.tsx
+Buttons: 1
+Icons: 1
+
+PAGE: components\internal-api\NotificationDropdown.tsx
+Buttons: 3
+
+PAGE: components\internal-api\NotificationItem.tsx
+Buttons: 1
+Icons: 8
+
+PAGE: components\internal-api\Sidebar.tsx
+Buttons: 1
+Icons: 7
+Links: 1
+
+PAGE: components\internal-api\ThemeSwitcher.tsx
+Buttons: 3
+
+PAGE: components\internal-api\Topbar.tsx
+Buttons: 6
+
+PAGE: components\internal-api\sdk\CloseConfirmDialog.tsx
+Buttons: 3
+
+PAGE: components\internal-api\sdk\FileProgress.tsx
+Icons: 3
+
+PAGE: components\internal-api\sdk\LiveLogs.tsx
+Buttons: 1
+
+PAGE: components\internal-api\sdk\RetryInfo.tsx
+Icons: 1
+
+PAGE: components\internal-api\sdk\SDKGenerationDialog.tsx
+Buttons: 6
+Icons: 2
+
+PAGE: components\internal-api\sdk\StepTimeline.tsx
+Icons: 2
+
+PAGE: components\internal-api\sdk\SuccessActions.tsx
+Buttons: 2
+
+PAGE: components\layout\PasswordModal.tsx
+Buttons: 6
+Forms: 1
+Inputs: 3
+Labels: 3
+
+PAGE: components\layout\ProfileModal.tsx
+Buttons: 11
+Forms: 2
+Icons: 1
+Inputs: 8
+Labels: 7
+
+PAGE: components\layout\ProfilePageContent.tsx
+Buttons: 11
+Forms: 2
+Inputs: 8
+Labels: 7
+
+PAGE: components\layout\PublicFooter.tsx
+Icons: 3
+Links: 1
+
+PAGE: components\layout\PublicSiteNav.tsx
+Buttons: 10
+
+PAGE: components\layout\Sidebar.tsx
+Buttons: 2
+Icons: 26
+Links: 1
+
+PAGE: components\lead-funnel\LeadCapturePopup.tsx
+Buttons: 2
+Icons: 1
+Modals: 1
+
+PAGE: components\lead-funnel\LeadFunnelWizardModal.tsx
+Buttons: 1
+Modals: 1
+
+PAGE: components\ui\Button.tsx
+Buttons: 1
+Icons: 6
+
+PAGE: components\ui\ConfirmationModal.tsx
+Buttons: 3
+Icons: 2
+
+PAGE: components\ui\Input.tsx
+Icons: 10
+Inputs: 1
+Labels: 1
+
+PAGE: components\ui\Modal.tsx
+Buttons: 1
+
+PAGE: components\ui\ViewModeToggle.tsx
+Buttons: 2

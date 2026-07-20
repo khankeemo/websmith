@@ -1,0 +1,11 @@
+{
+  "name": "${package_name}",
+  "version": "${product_version}",
+  "description": "${product_description} — Node.js SDK",
+  "main": "index.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "license": "MIT",
+  "private": false
+}

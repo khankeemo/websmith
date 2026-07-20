@@ -1,0 +1,1385 @@
+URL: /
+PAGE COMPONENT: page.tsx
+LAYOUT: layout.tsx
+API ROUTES: None
+DEPENDENCIES:
+  • ../components/layout/PublicFooter
+  • ../components/layout/PublicSiteNav
+  • ../components/lead-funnel/LeadCapturePopup
+  • ../core/config/site
+  • ../core/services/apiService
+  • ../core/services/ticketService
+  • ../core/services/userService
+  • ./ClientLayout
+  • ./clients/services/clientService
+  • ./projects/services/projectService
+  • ./providers/LeadFunnelProvider
+  • next
+  • react
+----------------------------------------
+URL: /(public)/about
+PAGE COMPONENT: (public)\about\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/config/publicSite
+  • ../_components/PublicPage
+  • ../_components/SimplePublicContent
+  • next/link
+  • react
+----------------------------------------
+URL: /(public)/blog
+PAGE COMPONENT: (public)\blog\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../_components/PublicPage
+  • ../_components/SimplePublicContent
+  • react
+----------------------------------------
+URL: /(public)/blog/[slug]
+PAGE COMPONENT: (public)\blog\[slug]\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../../core/config/publicSite
+  • ../../_components/PublicPage
+  • next/navigation
+  • react
+----------------------------------------
+URL: /(public)/careers
+PAGE COMPONENT: (public)\careers\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../_components/PublicPage
+  • ../_components/SimplePublicContent
+  • next/link
+  • react
+----------------------------------------
+URL: /(public)/contact
+PAGE COMPONENT: (public)\contact\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/services/apiService
+  • ../_components/PublicPage
+  • ../_components/SimplePublicContent
+  • next/script
+  • react
+----------------------------------------
+URL: /(public)/documentation
+PAGE COMPONENT: (public)\documentation\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../_components/PublicPage
+  • ../_components/SimplePublicContent
+  • next/link
+  • react
+----------------------------------------
+URL: /(public)/privacy
+PAGE COMPONENT: (public)\privacy\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../_components/PublicPage
+  • ../_components/SimplePublicContent
+  • react
+----------------------------------------
+URL: /(public)/store
+PAGE COMPONENT: (public)\store\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/link
+  • react
+----------------------------------------
+URL: /(public)/support
+PAGE COMPONENT: (public)\support\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../_components/PublicPage
+  • ../_components/SimplePublicContent
+  • react
+----------------------------------------
+URL: /(public)/terms
+PAGE COMPONENT: (public)\terms\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../_components/PublicPage
+  • ../_components/SimplePublicContent
+  • react
+----------------------------------------
+URL: /admin/admins
+PAGE COMPONENT: admin\admins\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • @/components/ui/ConfirmationModal
+  • @/components/ui/ViewModeToggle
+  • @/core/services/userService
+  • @/lib/auth
+  • lucide-react
+  • react
+----------------------------------------
+URL: /admin/clients
+PAGE COMPONENT: admin\clients\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../clients/page
+----------------------------------------
+URL: /admin/dashboard
+PAGE COMPONENT: admin\dashboard\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/Card
+  • ../../../core/services/apiService
+  • next/navigation
+  • react
+----------------------------------------
+URL: /admin/databox
+PAGE COMPONENT: admin\databox\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+----------------------------------------
+URL: /admin/developers
+PAGE COMPONENT: admin\developers\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/ConfirmationModal
+  • ../../../core/services/userService
+  • ./components/DeveloperCard
+  • ./components/DeveloperModal
+  • ./hooks/useDevelopers
+  • lucide-react
+  • react
+----------------------------------------
+URL: /admin/invoices
+PAGE COMPONENT: admin\invoices\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../invoices/page
+----------------------------------------
+URL: /admin/manage-page
+PAGE COMPONENT: admin\manage-page\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/services/apiService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /admin/messages
+PAGE COMPONENT: admin\messages\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ./AdminMessagesClient
+----------------------------------------
+URL: /admin/notifications
+PAGE COMPONENT: admin\notifications\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/services/apiService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /admin/payments
+PAGE COMPONENT: admin\payments\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../payments/page
+----------------------------------------
+URL: /admin/profile
+PAGE COMPONENT: admin\profile\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/layout/ProfilePageContent
+----------------------------------------
+URL: /admin/projects
+PAGE COMPONENT: admin\projects\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../projects/page
+----------------------------------------
+URL: /admin/services
+PAGE COMPONENT: admin\services\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ./components/ServiceModal
+  • @/components/ui/Button
+  • @/components/ui/Card
+  • @/components/ui/ViewModeToggle
+  • lucide-react
+  • react
+----------------------------------------
+URL: /admin/settings
+PAGE COMPONENT: admin\settings\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../settings/page
+----------------------------------------
+URL: /admin/software-store
+PAGE COMPONENT: admin\software-store\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • @/components/admin/NavbarVisibilityToggle
+  • lucide-react
+  • react
+----------------------------------------
+URL: /admin/tasks
+PAGE COMPONENT: admin\tasks\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../tasks/page
+----------------------------------------
+URL: /admin/team
+PAGE COMPONENT: admin\team\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../team/page
+----------------------------------------
+URL: /api/internal/publisher/download/[filename]
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: api\internal\publisher\download\[filename]\route.ts
+DEPENDENCIES:
+  • @/lib/public-api/audit
+  • fs
+  • fs/promises
+  • next/server
+  • path
+  • stream
+----------------------------------------
+URL: /api/internal/publisher/publish-product
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: api\internal\publisher\publish-product\route.ts
+DEPENDENCIES:
+  • @/app/internal/publisher
+  • @/lib/public-api/audit
+  • @/lib/public-api/auth
+  • @/lib/public-api/queue
+  • @/lib/public-api/rate-limit
+  • next/server
+----------------------------------------
+URL: /api/internal/publisher/status/[jobId]
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: api\internal\publisher\status\[jobId]\route.ts
+DEPENDENCIES:
+  • @/lib/public-api/queue
+  • next/server
+----------------------------------------
+URL: /api/upstash/logs
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: api\upstash\logs\route.ts
+DEPENDENCIES:
+  • fs/promises
+  • next/server
+  • path
+----------------------------------------
+URL: /api/upstash/workflow
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: api\upstash\workflow\route.ts
+DEPENDENCIES:
+  • ../../../../app/internal/publisher
+  • @upstash/workflow/nextjs
+  • fs/promises
+  • next/server
+  • path
+----------------------------------------
+URL: /api/v1/device
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: api\v1\device\route.ts
+DEPENDENCIES:
+  • @/lib/public-api/audit
+  • @/lib/public-api/auth
+  • @/lib/public-api/rate-limit
+  • @/lib/public-api/signature
+  • next/server
+  • pg
+----------------------------------------
+URL: /api/v1/license
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: api\v1\license\route.ts
+DEPENDENCIES:
+  • @/lib/public-api/audit
+  • @/lib/public-api/auth
+  • @/lib/public-api/rate-limit
+  • @/lib/public-api/signature
+  • next/server
+  • pg
+----------------------------------------
+URL: /api/v1/trial
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: api\v1\trial\route.ts
+DEPENDENCIES:
+  • @/lib/public-api/audit
+  • @/lib/public-api/auth
+  • @/lib/public-api/rate-limit
+  • @/lib/public-api/signature
+  • next/server
+  • pg
+----------------------------------------
+URL: /auth/callback
+PAGE COMPONENT: auth\callback\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/services/apiService
+  • ../../../lib/auth
+  • next/navigation
+  • react
+----------------------------------------
+URL: /auth/change-password
+PAGE COMPONENT: auth\change-password\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/services/apiService
+  • lucide-react
+  • next/navigation
+  • react
+----------------------------------------
+URL: /client/dashboard
+PAGE COMPONENT: client\dashboard\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/Card
+  • ../../../core/services/apiService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /client/invoices
+PAGE COMPONENT: client\invoices\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/Modal
+  • ../../payments/services/paymentService
+  • @/core/services/apiService
+  • react
+----------------------------------------
+URL: /client/notifications
+PAGE COMPONENT: client\notifications\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/services/apiService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /client/payments
+PAGE COMPONENT: client\payments\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../payments/page
+----------------------------------------
+URL: /client/profile
+PAGE COMPONENT: client\profile\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/layout/ProfilePageContent
+----------------------------------------
+URL: /client/projects
+PAGE COMPONENT: client\projects\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/services/apiService
+  • ../../../lib/auth
+  • ../../projects/services/projectService
+  • react
+----------------------------------------
+URL: /client/settings
+PAGE COMPONENT: client\settings\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../settings/page
+----------------------------------------
+URL: /client/tickets
+PAGE COMPONENT: client\tickets\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/Modal
+  • ../../projects/services/projectService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /clients
+PAGE COMPONENT: clients\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../components/admin/NavbarVisibilityToggle
+  • ../../components/ui/ConfirmationModal
+  • ../../components/ui/ViewModeToggle
+  • ../../lib/auth
+  • ./components/ClientCard
+  • ./components/ClientModal
+  • ./hooks/useClients
+  • ./services/clientService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /dashboard
+PAGE COMPONENT: dashboard\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../components/ui/Card
+  • ../../core/services/apiService
+  • ../../core/services/ticketService
+  • next/navigation
+  • react
+----------------------------------------
+URL: /developer/dashboard
+PAGE COMPONENT: developer\dashboard\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/Card
+  • ../../../core/services/apiService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /developer/notifications
+PAGE COMPONENT: developer\notifications\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/Card
+  • ../../../core/services/apiService
+  • lucide-react
+  • next/navigation
+  • react
+----------------------------------------
+URL: /developer/profile
+PAGE COMPONENT: developer\profile\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/layout/ProfilePageContent
+----------------------------------------
+URL: /developer/projects
+PAGE COMPONENT: developer\projects\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/Card
+  • ../../../components/ui/KanbanBoard
+  • ../../../core/services/apiService
+  • ../../projects/services/projectService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /developer/settings
+PAGE COMPONENT: developer\settings\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../settings/page
+----------------------------------------
+URL: /developer/tasks
+PAGE COMPONENT: developer\tasks\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../components/ui/Card
+  • ../../../components/ui/KanbanBoard
+  • ../../../core/services/apiService
+  • lucide-react
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api
+PAGE COMPONENT: internal\api\page.tsx
+LAYOUT: internal\api\layout.tsx
+API ROUTES: None
+DEPENDENCIES:
+  • ./auth/providers/NotificationProvider
+  • ./auth/providers/ThemeProvider
+  • @/components/internal-api/Sidebar
+  • @/components/internal-api/Topbar
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/analytics
+PAGE COMPONENT: internal\api\analytics\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • react
+----------------------------------------
+URL: /internal/api/auth
+PAGE COMPONENT: None
+LAYOUT: internal\api\auth\layout.tsx
+API ROUTES: None
+DEPENDENCIES:
+----------------------------------------
+URL: /internal/api/auth/forgot-password
+PAGE COMPONENT: internal\api\auth\forgot-password\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/auth/login
+PAGE COMPONENT: internal\api\auth\login\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/auth/profile
+PAGE COMPONENT: internal\api\auth\profile\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/auth/register
+PAGE COMPONENT: internal\api\auth\register\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/auth/reset-password
+PAGE COMPONENT: internal\api\auth\reset-password\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/customers
+PAGE COMPONENT: internal\api\customers\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/customers/[id]
+PAGE COMPONENT: internal\api\customers\[id]\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/link
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/customers/[id]/journey
+PAGE COMPONENT: internal\api\customers\[id]\journey\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/dashboard
+PAGE COMPONENT: internal\api\dashboard\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/developers/integrations
+PAGE COMPONENT: internal\api\developers\integrations\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • @/components/internal-api/sdk/SDKGenerationDialog
+  • @/components/ui/Button
+  • @/components/ui/Card
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/docs
+PAGE COMPONENT: internal\api\docs\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • react
+----------------------------------------
+URL: /internal/api/docs/public-api
+PAGE COMPONENT: internal\api\docs\public-api\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • react
+----------------------------------------
+URL: /internal/api/hardware
+PAGE COMPONENT: internal\api\hardware\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • react
+----------------------------------------
+URL: /internal/api/licenses/[licenseKey]
+PAGE COMPONENT: internal\api\licenses\[licenseKey]\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • @/lib/api/license-api
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/licenses/generate
+PAGE COMPONENT: internal\api\licenses\generate\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ./context/SearchContext
+  • ./tabs/BulkOperationsTab
+  • ./tabs/GenerateLicenseTab
+  • ./tabs/HardwareSummaryTab
+  • ./tabs/LicenseManagerTab
+  • ./tabs/LogsSummaryTab
+  • ./tabs/RenewalsTab
+  • ./tabs/TrialsTab
+  • ./tabs/ValidationCenterTab
+  • react
+----------------------------------------
+URL: /internal/api/logs
+PAGE COMPONENT: internal\api\logs\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • react
+----------------------------------------
+URL: /internal/api/products
+PAGE COMPONENT: internal\api\products\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/link
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/products/[productId]/settings
+PAGE COMPONENT: internal\api\products\[productId]\settings\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/public-api/keys
+PAGE COMPONENT: internal\api\public-api\keys\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/sales/purchase
+PAGE COMPONENT: internal\api\sales\purchase\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/api/settings
+PAGE COMPONENT: internal\api\settings\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • react
+----------------------------------------
+URL: /internal/api/trial/trial-templates
+PAGE COMPONENT: internal\api\trial\trial-templates\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • next/navigation
+  • react
+----------------------------------------
+URL: /internal/backend/admin/activations
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\activations\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/active-senders
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\active-senders\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/api-keys
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\api-keys\route.ts
+DEPENDENCIES:
+  • crypto
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/api-keys/[id]/revoke
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\api-keys\[id]\revoke\route.ts
+DEPENDENCIES:
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/api-keys/[id]/rotate
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\api-keys\[id]\rotate\route.ts
+DEPENDENCIES:
+  • crypto
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/bind-device
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\bind-device\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/create-license
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\create-license\route.ts
+DEPENDENCIES:
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/dashboard
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\dashboard\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/logs
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\logs\route.ts
+DEPENDENCIES:
+  • next/server
+----------------------------------------
+URL: /internal/backend/admin/products
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\products\route.ts
+DEPENDENCIES:
+  • crypto
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/products/[id]
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\products\[id]\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/products/[id]/plans
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\products\[id]\plans\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/products/[id]/plans/[planId]
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\products\[id]\plans\[planId]\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/replace-device
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\replace-device\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/reset-device
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\reset-device\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/revenue
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\revenue\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/search/email
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\search\email\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/search/license
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\search\license\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/stats/products
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\stats\products\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/trials
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\trials\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/trials/trial-templates
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\trials\trial-templates\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/admin/validate-license
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\admin\validate-license\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/api/auth/forgot-password
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\auth\forgot-password\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/api/auth/login
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\auth\login\route.ts
+DEPENDENCIES:
+  • bcryptjs
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/api/auth/logout
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\auth\logout\route.ts
+DEPENDENCIES:
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/api/auth/register
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\auth\register\route.ts
+DEPENDENCIES:
+  • bcryptjs
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/api/auth/reset-password
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\auth\reset-password\route.ts
+DEPENDENCIES:
+  • bcryptjs
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/api/auth/verify
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\auth\verify\route.ts
+DEPENDENCIES:
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/api/auth/verify-otp
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\auth\verify-otp\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/api/notifications
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\notifications\route.ts
+DEPENDENCIES:
+  • ../../services/notificationService
+  • jsonwebtoken
+  • next/server
+----------------------------------------
+URL: /internal/backend/api/notifications/[id]
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\notifications\[id]\route.ts
+DEPENDENCIES:
+  • ../../../services/notificationService
+  • jsonwebtoken
+  • next/server
+----------------------------------------
+URL: /internal/backend/api/notifications/mark-read
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\notifications\mark-read\route.ts
+DEPENDENCIES:
+  • ../../../services/notificationService
+  • jsonwebtoken
+  • next/server
+----------------------------------------
+URL: /internal/backend/api/notifications/unread-count
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\api\notifications\unread-count\route.ts
+DEPENDENCIES:
+  • ../../../services/notificationService
+  • jsonwebtoken
+  • next/server
+----------------------------------------
+URL: /internal/backend/customers
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\customers\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/customers/[id]
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\customers\[id]\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/hardware
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\hardware\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/health
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\health\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/[key]
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\[key]\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/[key]/email
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\[key]\email\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/[key]/history
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\[key]\history\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/[key]/plan
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\[key]\plan\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/activate
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\activate\route.ts
+DEPENDENCIES:
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/cleanup
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\cleanup\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/deactivate
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\deactivate\route.ts
+DEPENDENCIES:
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/history
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\history\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/licenses/renew
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\renew\route.ts
+DEPENDENCIES:
+  • @/lib/backend-db
+  • next/server
+----------------------------------------
+URL: /internal/backend/licenses/validate
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\licenses\validate\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/logs
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\logs\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/settings
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\settings\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/store/products
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\store\products\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/trials
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\trials\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/trials/analyze
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\trials\analyze\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/trials/convert
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\trials\convert\route.ts
+DEPENDENCIES:
+  • crypto
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/trials/journey
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\trials\journey\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/trials/register
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\trials\register\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/trials/start
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\trials\start\route.ts
+DEPENDENCIES:
+  • jsonwebtoken
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/trials/status
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\trials\status\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/trials/suspicious
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\trials\suspicious\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /internal/backend/users/update
+PAGE COMPONENT: None
+LAYOUT: None
+API ROUTES: internal\backend\users\update\route.ts
+DEPENDENCIES:
+  • next/server
+  • pg
+----------------------------------------
+URL: /invoices
+PAGE COMPONENT: invoices\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../components/ui/Modal
+  • ../../core/services/userService
+  • ../../lib/invoiceStats
+  • ../projects/services/projectService
+  • @/components/ui/ViewModeToggle
+  • @/core/services/apiService
+  • react
+----------------------------------------
+URL: /lead-form
+PAGE COMPONENT: lead-form\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ./components/LeadFormClient
+----------------------------------------
+URL: /login
+PAGE COMPONENT: login\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../components/layout/PublicSiteNav
+  • ../../core/services/authService
+  • ../../lib/auth
+  • ../providers/LeadFunnelProvider
+  • lucide-react
+  • next/image
+  • next/link
+  • next/navigation
+  • react
+----------------------------------------
+URL: /messages
+PAGE COMPONENT: messages\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • @/components/ui/ViewModeToggle
+  • @/core/services/apiService
+  • @/lib/auth
+  • react
+----------------------------------------
+URL: /payments
+PAGE COMPONENT: payments\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • @/components/ui/Modal
+  • @/components/ui/ViewModeToggle
+  • @/core/services/apiService
+  • react
+----------------------------------------
+URL: /projects
+PAGE COMPONENT: projects\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../components/admin/NavbarVisibilityToggle
+  • ../../components/ui/KanbanBoard
+  • ./components/ProjectCard
+  • ./components/ProjectModal
+  • ./hooks/useProjects
+  • ./services/projectService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /projects/status
+PAGE COMPONENT: projects\status\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../../core/services/apiService
+  • next/navigation
+  • react
+----------------------------------------
+URL: /register
+PAGE COMPONENT: register\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../core/services/apiService
+  • ../../core/services/oauthService
+  • ../../lib/auth
+  • next/image
+  • next/navigation
+  • react
+----------------------------------------
+URL: /services
+PAGE COMPONENT: services\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ./components/ServiceSelectionClient
+----------------------------------------
+URL: /settings
+PAGE COMPONENT: settings\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../lib/auth
+  • @/core/services/apiService
+  • next/navigation
+  • react
+----------------------------------------
+URL: /software-store
+PAGE COMPONENT: software-store\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • @/core/services/publicSettingsService
+  • lucide-react
+  • next/link
+  • next/navigation
+  • react
+----------------------------------------
+URL: /success
+PAGE COMPONENT: success\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../components/ui/Button
+  • ../../components/ui/Card
+  • next/link
+----------------------------------------
+URL: /tasks
+PAGE COMPONENT: tasks\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • ../../components/ui/KanbanBoard
+  • ./components/TaskCard
+  • ./components/TaskModal
+  • ./hooks/useTasks
+  • ./services/taskService
+  • lucide-react
+  • react
+----------------------------------------
+URL: /team
+PAGE COMPONENT: team\page.tsx
+LAYOUT: None
+API ROUTES: None
+DEPENDENCIES:
+  • @/components/admin/NavbarVisibilityToggle
+  • @/components/ui/ViewModeToggle
+  • @/core/services/apiService
+  • @/core/services/userService
+  • lucide-react
+  • react
+----------------------------------------

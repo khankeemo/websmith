@@ -1,0 +1,262 @@
+DUPLICATE FILES
+============================================================
+
+• app\admin\payments\page.tsx
+• app\client\payments\page.tsx
+
+• app\admin\profile\page.tsx
+• app\client\profile\page.tsx
+• app\developer\profile\page.tsx
+
+• app\admin\settings\page.tsx
+• app\client\settings\page.tsx
+• app\developer\settings\page.tsx
+
+• app\team\components\AvatarUpload.tsx.tsx
+• core\services\uploadService.ts.ts
+• core\utils\format.ts
+
+DUPLICATE SYMBOLS
+
+ActivityItem
+  • app\client\dashboard\page.tsx
+  • app\internal\api\dashboard\page.tsx
+
+CSSProperties
+  • app\footer\Footer.tsx
+  • components\admin\NavbarVisibilityToggle.tsx
+  • components\layout\PublicSiteNav.tsx
+
+Card
+  • app\(public)\_components\PublicPage.tsx
+  • components\ui\Card.tsx
+
+ConfirmationModal
+  • app\internal\api\trial\trial-templates\page.tsx
+  • components\ui\ConfirmationModal.tsx
+
+ConversionItem
+  • app\internal\api\analytics\page.tsx
+  • app\internal\api\dashboard\page.tsx
+
+DELETE
+  • app\internal\backend\admin\api-keys\route.ts
+  • app\internal\backend\admin\products\[id]\plans\[planId]\route.ts
+  • app\internal\backend\admin\products\[id]\route.ts
+  • app\internal\backend\admin\trials\trial-templates\route.ts
+  • app\internal\backend\api\notifications\[id]\route.ts
+  • app\internal\backend\licenses\[key]\route.ts
+
+DashboardPage
+  • app\dashboard\page.tsx
+  • app\internal\api\dashboard\page.tsx
+
+DevelopersPage
+  • app\admin\developers\page.tsx
+  • app\team\page.tsx
+
+GET
+  • app\api\internal\publisher\download\[filename]\route.ts
+  • app\api\internal\publisher\status\[jobId]\route.ts
+  • app\api\upstash\logs\route.ts
+  • app\api\v1\device\route.ts
+  • app\api\v1\license\route.ts
+  • app\api\v1\trial\route.ts
+  • app\internal\backend\admin\activations\route.ts
+  • app\internal\backend\admin\active-senders\route.ts
+  • app\internal\backend\admin\api-keys\route.ts
+  • app\internal\backend\admin\bind-device\route.ts
+  • app\internal\backend\admin\create-license\route.ts
+  • app\internal\backend\admin\dashboard\route.ts
+  • app\internal\backend\admin\logs\route.ts
+  • app\internal\backend\admin\products\[id]\plans\[planId]\route.ts
+  • app\internal\backend\admin\products\[id]\plans\route.ts
+  • app\internal\backend\admin\products\[id]\route.ts
+  • app\internal\backend\admin\products\route.ts
+  • app\internal\backend\admin\replace-device\route.ts
+  • app\internal\backend\admin\revenue\route.ts
+  • app\internal\backend\admin\search\email\route.ts
+  • app\internal\backend\admin\search\license\route.ts
+  • app\internal\backend\admin\stats\products\route.ts
+  • app\internal\backend\admin\trials\route.ts
+  • app\internal\backend\admin\trials\trial-templates\route.ts
+  • app\internal\backend\api\auth\verify\route.ts
+  • app\internal\backend\api\notifications\[id]\route.ts
+  • app\internal\backend\api\notifications\route.ts
+  • app\internal\backend\api\notifications\unread-count\route.ts
+  • app\internal\backend\customers\[id]\route.ts
+  • app\internal\backend\customers\route.ts
+  • app\internal\backend\hardware\route.ts
+  • app\internal\backend\health\route.ts
+  • app\internal\backend\licenses\[key]\email\route.ts
+  • app\internal\backend\licenses\[key]\history\route.ts
+  • app\internal\backend\licenses\[key]\route.ts
+  • app\internal\backend\licenses\activate\route.ts
+  • app\internal\backend\licenses\cleanup\route.ts
+  • app\internal\backend\licenses\history\route.ts
+  • app\internal\backend\licenses\route.ts
+  • app\internal\backend\logs\route.ts
+  • app\internal\backend\settings\route.ts
+  • app\internal\backend\store\products\route.ts
+  • app\internal\backend\trials\journey\route.ts
+  • app\internal\backend\trials\route.ts
+  • app\internal\backend\trials\suspicious\route.ts
+
+JobStatus
+  • components\internal-api\sdk\types.ts
+  • lib\public-api\queue.ts
+
+LoginPage
+  • app\internal\api\auth\login\page.tsx
+  • app\login\page.tsx
+
+MetricCard
+  • app\internal\api\analytics\page.tsx
+  • app\internal\api\customers\[id]\page.tsx
+
+PATCH
+  • app\internal\backend\admin\products\[id]\plans\[planId]\route.ts
+  • app\internal\backend\admin\products\[id]\plans\route.ts
+  • app\internal\backend\admin\products\[id]\route.ts
+  • app\internal\backend\admin\trials\trial-templates\route.ts
+  • app\internal\backend\licenses\[key]\route.ts
+
+POST
+  • app\api\internal\publisher\publish-product\route.ts
+  • app\api\internal\publisher\worker\route.ts
+  • app\api\upstash\workflow\route.ts
+  • app\api\v1\device\route.ts
+  • app\api\v1\license\route.ts
+  • app\api\v1\trial\route.ts
+  • app\internal\backend\admin\api-keys\[id]\revoke\route.ts
+  • app\internal\backend\admin\api-keys\[id]\rotate\route.ts
+  • app\internal\backend\admin\api-keys\route.ts
+  • app\internal\backend\admin\bind-device\route.ts
+  • app\internal\backend\admin\create-license\route.ts
+  • app\internal\backend\admin\products\[id]\plans\route.ts
+  • app\internal\backend\admin\products\route.ts
+  • app\internal\backend\admin\replace-device\route.ts
+  • app\internal\backend\admin\reset-device\route.ts
+  • app\internal\backend\admin\trials\trial-templates\route.ts
+  • app\internal\backend\admin\validate-license\route.ts
+  • app\internal\backend\api\auth\forgot-password\route.ts
+  • app\internal\backend\api\auth\login\route.ts
+  • app\internal\backend\api\auth\logout\route.ts
+  • app\internal\backend\api\auth\register\route.ts
+  • app\internal\backend\api\auth\reset-password\route.ts
+  • app\internal\backend\api\auth\verify-otp\route.ts
+  • app\internal\backend\api\notifications\route.ts
+  • app\internal\backend\licenses\activate\route.ts
+  • app\internal\backend\licenses\cleanup\route.ts
+  • app\internal\backend\licenses\deactivate\route.ts
+  • app\internal\backend\licenses\renew\route.ts
+  • app\internal\backend\licenses\validate\route.ts
+  • app\internal\backend\settings\route.ts
+  • app\internal\backend\trials\analyze\route.ts
+  • app\internal\backend\trials\convert\route.ts
+  • app\internal\backend\trials\register\route.ts
+  • app\internal\backend\trials\start\route.ts
+  • app\internal\backend\trials\status\route.ts
+
+PUBLIC_PATHS
+  • core\constants\routes.ts
+  • lib\auth.ts
+
+PUT
+  • app\internal\backend\admin\active-senders\route.ts
+  • app\internal\backend\admin\api-keys\route.ts
+  • app\internal\backend\admin\products\[id]\plans\[planId]\route.ts
+  • app\internal\backend\admin\products\[id]\route.ts
+  • app\internal\backend\admin\trials\trial-templates\route.ts
+  • app\internal\backend\api\notifications\[id]\route.ts
+  • app\internal\backend\api\notifications\mark-read\route.ts
+  • app\internal\backend\licenses\[key]\plan\route.ts
+  • app\internal\backend\licenses\[key]\route.ts
+  • app\internal\backend\licenses\cleanup\route.ts
+  • app\internal\backend\users\update\route.ts
+
+ProductCard
+  • app\(public)\store\page.tsx
+  • app\internal\api\products\page.tsx
+
+RegisterPage
+  • app\internal\api\auth\register\page.tsx
+  • app\register\page.tsx
+
+Section
+  • app\(public)\_components\PublicPage.tsx
+  • app\internal\api\settings\page.tsx
+
+SettingsPage
+  • app\internal\api\settings\page.tsx
+  • app\settings\page.tsx
+
+Sidebar
+  • components\internal-api\Sidebar.tsx
+  • components\layout\Sidebar.tsx
+
+StatCard
+  • app\internal\api\customers\page.tsx
+  • app\internal\api\hardware\page.tsx
+  • app\internal\api\logs\page.tsx
+  • app\internal\api\trial\trial-templates\page.tsx
+
+ViewMode
+  • app\admin\developers\page.tsx
+  • app\developer\projects\page.tsx
+  • app\developer\tasks\page.tsx
+
+buildUpgradeConfig
+  • app\internal\backend\trials\register\route.ts
+  • app\internal\backend\trials\status\route.ts
+
+const
+  • app\internal\backend\trials\journey\route.ts
+  • components\internal-api\sdk\LiveLogs.tsx
+  • components\internal-api\sdk\TimelineView.tsx
+
+generateLicenseKey
+  • app\internal\backend\admin\create-license\route.ts
+  • app\internal\backend\trials\convert\route.ts
+
+generateOTP
+  • app\internal\backend\api\auth\forgot-password\route.ts
+  • app\internal\backend\licenses\activate\route.ts
+
+generateProductId
+  • app\internal\api\products\page.tsx
+  • app\internal\backend\admin\products\route.ts
+
+getUserFromToken
+  • app\internal\backend\admin\api-keys\[id]\revoke\route.ts
+  • app\internal\backend\admin\api-keys\[id]\rotate\route.ts
+  • app\internal\backend\admin\api-keys\route.ts
+  • app\internal\backend\admin\create-license\route.ts
+  • app\internal\backend\licenses\activate\route.ts
+  • app\internal\backend\licenses\deactivate\route.ts
+  • app\internal\backend\trials\convert\route.ts
+  • app\internal\backend\trials\start\route.ts
+
+getUserIdFromToken
+  • app\internal\backend\api\notifications\[id]\route.ts
+  • app\internal\backend\api\notifications\mark-read\route.ts
+  • app\internal\backend\api\notifications\route.ts
+  • app\internal\backend\api\notifications\unread-count\route.ts
+
+hashSecret
+  • app\internal\backend\admin\api-keys\[id]\rotate\route.ts
+  • app\internal\backend\admin\api-keys\route.ts
+
+isAdmin
+  • app\internal\backend\admin\api-keys\[id]\revoke\route.ts
+  • app\internal\backend\admin\api-keys\[id]\rotate\route.ts
+  • app\internal\backend\admin\api-keys\route.ts
+
+isValidEmail
+  • app\internal\backend\admin\create-license\route.ts
+  • app\internal\backend\trials\convert\route.ts
+  • app\internal\backend\users\update\route.ts
+
+sendOTPEmail
+  • app\internal\backend\api\auth\forgot-password\route.ts
+  • app\internal\backend\licenses\activate\route.ts

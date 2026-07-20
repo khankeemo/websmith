@@ -1,0 +1,16 @@
+{
+  "name": "${package_name}",
+  "version": "${product_version}",
+  "description": "${product_description} — TypeScript SDK",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "tsc"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "license": "MIT",
+  "private": false
+}

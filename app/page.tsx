@@ -1,0 +1,1654 @@
+// C:\websmith\app\page.tsx
+// Landing Page - Websmith
+// Features: Hero section, Features grid, Stats counters, Satisfied clients, Developers section, Testimonials, Footer
+// Updated: Added header navigation menu with smooth scroll
+
+"use client";
+
+import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { 
+  ArrowRight, 
+  Star, 
+  Code, 
+  Rocket, 
+  Zap, 
+  Users, 
+  BarChart3,
+  Briefcase,
+  ExternalLink,
+  Mail,
+  Building2,
+} from "lucide-react";
+import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
+import PublicFooter from "../components/layout/PublicFooter";
+import PublicSiteNav from "../components/layout/PublicSiteNav";
+import { getPublishedProjects, getPublishedTestimonials } from "./projects/services/projectService";
+import API from "../core/services/apiService";
+import { getPublishedClients } from "./clients/services/clientService";
+import { getPublishedDevelopers } from "../core/services/userService";
+import { createPublicTicket } from "../core/services/ticketService";
+import { useLeadFunnel } from "./providers/LeadFunnelProvider";
+
+const defaultContactInfo = {
+  headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
+  email: "sales@websmithdigital.com",
+  phone: "+1 815-426-9572",
+};
+
+type HorizontalCardStripProps<T> = {
+  items: T[];
+  renderItem: (item: T, index: number) => ReactNode;
+  ariaLabel: string;
+  itemMinWidth?: number;
+  gap?: number;
+  autoLoopCount?: number;
+  dragThreshold?: number;
+  direction?: "left-to-right" | "right-to-left";
+  scale?: number;
+};
+
+function HorizontalCardStrip<T>({
+  items,
+  renderItem,
+  ariaLabel,
+  itemMinWidth = 280,
+  gap = 14,
+  autoLoopCount = 1,
+  dragThreshold = 0,
+  direction = "right-to-left",
+  scale = 1,
+}: HorizontalCardStripProps<T>) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef({ active: false, startX: 0, startScrollLeft: 0, lastX: 0, velocity: 0 });
+  const autoLoop = items.length >= autoLoopCount;
+  
+  // We use triple items for seamless looping
+  const renderedItems = autoLoop ? [...items, ...items, ...items] : items;
+  
+  useEffect(() => {
+    const outer = outerRef.current;
+    if (!outer || !autoLoop) return;
+
+    let initialized = false;
+    let frameId: number;
+    const speed = 0.5;
+
+    const step = () => {
+      if (!dragState.current.active && outer) {
+        const singleLoopWidth = outer.scrollWidth / 3;
+        
+        if (singleLoopWidth > 0) {
+          if (!initialized) {
+            outer.scrollLeft = (direction === "left-to-right") ? singleLoopWidth * 1.5 : singleLoopWidth;
+            initialized = true;
+          }
+
+          if (direction === "left-to-right") {
+            outer.scrollLeft -= speed;
+            if (outer.scrollLeft <= singleLoopWidth * 0.5) {
+              outer.scrollLeft += singleLoopWidth;
+            }
+          } else {
+            outer.scrollLeft += speed;
+            if (outer.scrollLeft >= singleLoopWidth * 2) {
+              outer.scrollLeft -= singleLoopWidth;
+            }
+          }
+        }
+      }
+      frameId = requestAnimationFrame(step);
+    };
+
+    frameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frameId);
+  }, [autoLoop, items.length, direction]);
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const outer = outerRef.current;
+    if (!outer) return;
+    dragState.current = {
+      active: true,
+      startX: event.clientX,
+      startScrollLeft: outer.scrollLeft,
+      lastX: event.clientX,
+      velocity: 0
+    };
+    outer.setPointerCapture(event.pointerId);
+    outer.style.cursor = "grabbing";
+    outer.style.scrollSnapType = "none"; // Disable snapping while dragging
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const outer = outerRef.current;
+    if (!outer || !dragState.current.active) return;
+    
+    const deltaX = event.clientX - dragState.current.startX;
+    outer.scrollLeft = dragState.current.startScrollLeft - deltaX;
+    
+    // Boundary check during drag for infinite loop
+    const singleLoopWidth = outer.scrollWidth / 3;
+    if (outer.scrollLeft >= singleLoopWidth * 2) {
+      outer.scrollLeft -= singleLoopWidth;
+      dragState.current.startX += singleLoopWidth; // Adjust startX to maintain delta
+    } else if (outer.scrollLeft <= singleLoopWidth * 0.5) {
+      outer.scrollLeft += singleLoopWidth;
+      dragState.current.startX -= singleLoopWidth;
+    }
+  };
+
+  const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const outer = outerRef.current;
+    dragState.current.active = false;
+    if (!outer) return;
+    outer.releasePointerCapture(event.pointerId);
+    outer.style.cursor = "grab";
+    outer.style.scrollSnapType = "none";
+  };
+
+  return (
+    <div
+      ref={outerRef}
+      className="landing-card-strip"
+      style={{
+        ...styles.hScrollOuter,
+        overflowX: "auto",
+        cursor: "grab",
+        touchAction: "pan-y", 
+        scrollBehavior: "auto",
+      }}
+      role="region"
+      aria-label={ariaLabel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+    >
+      <div
+        style={{ 
+          ...styles.hScrollInner, 
+          gap: `${gap * scale}px`,
+          padding: "10px 0" 
+        }}
+      >
+        {renderedItems.map((item, index) => (
+          <div
+            key={`${index}-${index % items.length}`}
+            style={{ 
+              ...styles.hScrollCell, 
+              minWidth: `var(--h-card-min-width, ${itemMinWidth * scale}px)`, 
+              scrollSnapAlign: "start" as const,
+              transform: `scale(${scale})`,
+              transformOrigin: "center center",
+              transition: "transform 0.3s ease"
+            }}
+          >
+            {renderItem(item, index % items.length)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type StatSlide = { id: string; value: string; label: string };
+
+const clampStatCount = (count: number) => Math.max(0, Math.min(10, count));
+
+function StatsStrip({ items }: { items: StatSlide[] }) {
+  return (
+    <HorizontalCardStrip
+      items={items}
+      ariaLabel="Websmith stats"
+      itemMinWidth={220}
+      gap={18}
+      autoLoopCount={1}
+      direction="left-to-right"
+      scale={1}
+      renderItem={(item) => (
+        <article key={item.id} style={styles.statStaticCard}>
+          <p style={styles.statStaticValue}>{item.value}</p>
+          <p style={styles.statStaticLabel}>{item.label}</p>
+        </article>
+      )}
+    />
+  );
+}
+
+export default function LandingPage() {
+  const { openLeadServicesModal } = useLeadFunnel();
+  
+  // Refs for smooth scroll
+  const featuresRef = useRef<HTMLElement>(null);
+  const developersRef = useRef<HTMLElement>(null);
+  const clientsRef = useRef<HTMLElement>(null);
+  const contactFormRef = useRef<HTMLElement>(null);
+  
+  // Contact form state
+  const [contactState, setContactState] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<null | "success" | "error">(null);
+  
+  const [contactInfo, setContactInfo] = useState(defaultContactInfo);
+  
+  // Stats counter animation
+  const [stats, setStats] = useState({
+    projects: 0,
+    clients: 0,
+    developers: 0,
+    countries: 0,
+  });
+  const [publishedProjects, setPublishedProjects] = useState<any[]>([]);
+  const [publishedClients, setPublishedClients] = useState<any[]>([]);
+  const [publishedDevelopers, setPublishedDevelopers] = useState<any[]>([]);
+  const [publishedTestimonials, setPublishedTestimonials] = useState<any[]>([]);
+
+  useEffect(() => {
+    Promise.allSettled([
+      getPublishedProjects(), 
+      getPublishedClients(), 
+      getPublishedDevelopers(), 
+      getPublishedTestimonials(),
+      API.get('/settings/public/contact_info')
+    ]).then((results) => {
+      if (results[0].status === "fulfilled") setPublishedProjects(results[0].value);
+      if (results[1].status === "fulfilled") setPublishedClients(results[1].value);
+      if (results[2].status === "fulfilled") setPublishedDevelopers(results[2].value);
+      if (results[3].status === "fulfilled") setPublishedTestimonials(results[3].value);
+      if (results[4].status === "fulfilled" && results[4].value?.data?.success) {
+        setContactInfo({
+          ...defaultContactInfo,
+          ...results[4].value.data.data,
+          headquarters: defaultContactInfo.headquarters,
+          phone: defaultContactInfo.phone,
+        });
+      }
+    });
+  }, []);
+
+  // Smooth scroll function
+  const scrollToSection = (ref: React.RefObject<HTMLElement>) => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleGetStarted = () => {
+    openLeadServicesModal();
+  };
+
+  // Features data
+  const features = [
+    { icon: Code, title: "Expert Developers", description: "Top-tier developers with proven experience in modern tech stacks", href: "#developers" },
+    { icon: Rocket, title: "Fast Delivery", description: "Agile methodology ensuring quick turnaround without quality compromise", href: "#projects" },
+    { icon: Zap, title: "24/7 Support", description: "Round-the-clock technical support and maintenance", href: "#contact" },
+    { icon: Users, title: "Dedicated Teams", description: "Build your dedicated development team tailored to your needs", href: "#clients" },
+    { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
+  ];
+
+  const effectiveProjects = publishedProjects;
+  const publicClients = publishedClients.map((client: any, index: number) => ({
+    id: client._id || client.id || `client-${index}`,
+    name: client.name,
+    company: client.company || "Independent client",
+    description:
+      client.address ||
+      client.customId ||
+      client.description ||
+      "Partnered with Websmith on product delivery, design quality, and long-term support.",
+  }));
+
+  const effectiveDevelopers = publishedDevelopers;
+
+  const publicDevelopers = effectiveDevelopers.map((developer: any, index: number) => ({
+    id: developer._id || developer.id || `dev-${index}`,
+    name: developer.name,
+    role: developer.headline || developer.role || "Software Developer",
+    skills: developer.skills?.length ? developer.skills : ["Engineering", "Delivery"],
+    experience: developer.experienceYears || developer.experience || 0,
+    avatar: developer.avatar || "",
+    bio: developer.bio || "Experienced engineer focused on shipping resilient digital products.",
+  }));
+
+  const statTargets = {
+    projects: clampStatCount(publishedProjects.length),
+    clients: clampStatCount(publishedClients.length),
+    developers: clampStatCount(publishedDevelopers.length),
+    countries: clampStatCount(
+      new Set(
+        publishedClients
+          .map((client: any) => String(client.address || "").trim())
+          .filter(Boolean)
+      ).size
+    ),
+  };
+
+  useEffect(() => {
+    const duration = 1200;
+    const stepTime = 30;
+    const steps = Math.max(1, Math.floor(duration / stepTime));
+
+    let currentStep = 0;
+    const interval = setInterval(() => {
+      currentStep += 1;
+      const progress = currentStep / steps;
+
+      setStats({
+        projects: Math.round(statTargets.projects * progress),
+        clients: Math.round(statTargets.clients * progress),
+        developers: Math.round(statTargets.developers * progress),
+        countries: Math.round(statTargets.countries * progress),
+      });
+
+      if (currentStep >= steps) {
+        clearInterval(interval);
+      }
+    }, stepTime);
+
+    return () => clearInterval(interval);
+  }, [statTargets.projects, statTargets.clients, statTargets.developers, statTargets.countries]);
+
+  const reviewCards = publishedTestimonials.map((testimonial: any, index: number) => ({
+    id: testimonial.id || `testimonial-${index}`,
+    name: testimonial.name,
+    company: testimonial.company || testimonial.projectName || "Websmith client",
+    quote: testimonial.quote,
+    rating: testimonial.rating || 5,
+  }));
+
+
+  const statsCarouselItems = [
+    { id: "stat-projects", value: String(stats.projects), label: "Projects Delivered" },
+    { id: "stat-clients", value: String(stats.clients), label: "Active Client Partnerships" },
+    { id: "stat-developers", value: String(stats.developers), label: "Specialist Developers" },
+    { id: "stat-countries", value: String(stats.countries), label: "Countries Served" },
+    { id: "stat-support", value: "2h", label: "Support Response Target" },
+    { id: "stat-visibility", value: "100%", label: "Shared Delivery Visibility" },
+  ];
+
+  return (
+    <div style={styles.container}>
+      <LeadCapturePopup />
+
+      {/* Hero Section */}
+      <section style={styles.hero} className="landing-hero">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            zIndex: 0,
+          }}
+        >
+          <source src="/videos/techVideo 2026-04-07 at 17.28.20.mp4" type="video/mp4" />
+        </video>
+        <div style={styles.heroOverlay} />
+        <div style={styles.heroContent} className="landing-hero-content">
+          <h1 style={styles.heroTitle} className="landing-hero-title">Your On-Demand <span style={styles.highlight}>Tech Partner</span></h1>
+          <p style={styles.heroSubtitle} className="landing-hero-subtitle">Connect with top-tier developers, build amazing products, and scale your business with confidence.</p>
+          <button onClick={handleGetStarted} style={styles.ctaButton} className="cta-hover">
+            Get Started <ArrowRight size={18} />
+          </button>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section id="features" ref={featuresRef} style={styles.section}>
+        <h2 style={styles.sectionTitle}>Why Choose Websmith</h2>
+        <p style={styles.sectionSubtitle}>Everything you need to build exceptional digital products</p>
+        <div style={styles.featuresGrid} className="landing-features-grid">
+          {features.map((feature, index) => (
+            <button
+              key={index} 
+              type="button"
+              onClick={() => {
+                const target = document.querySelector(feature.href);
+                if (target instanceof HTMLElement) {
+                  target.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+              style={{
+                ...styles.featureCard,
+                backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-secondary) 92%, transparent)), url(/images/assets/service_${index % 5 + 1}.png)`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }} 
+              className="feature-card"
+            >
+              <div style={styles.featureIcon}>{<feature.icon size={28} />}</div>
+              <h3 style={styles.featureTitle}>{feature.title}</h3>
+              <p style={styles.featureDesc}>{feature.description}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Stats — looping carousel */}
+      <section style={styles.statsSection}>
+        <div style={styles.statsIntro}>
+          <p style={styles.statsEyebrow}>Trust at scale</p>
+          <h2 style={styles.statsHeading}>Momentum you can see</h2>
+          <p style={styles.statsSub}>Numbers that reflect how teams ship with Websmith.</p>
+        </div>
+        <StatsStrip items={statsCarouselItems} />
+      </section>
+
+      {effectiveProjects.length > 0 && (
+        <section id="projects" style={styles.section}>
+          <h2 style={styles.sectionTitle}>Projects</h2>
+          <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
+          <HorizontalCardStrip
+            items={effectiveProjects}
+            ariaLabel="Published projects"
+            itemMinWidth={180}
+            autoLoopCount={6}
+            direction="right-to-left"
+            scale={1}
+            renderItem={(project: any) => (
+              <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard }} className="feature-card">
+                {project.previewImage ? (
+                  <img src={project.previewImage} alt={project.name} style={styles.projectPreviewImage} />
+                ) : null}
+                <div style={styles.featureIcon}><Briefcase size={28} /></div>
+                <h3 style={styles.featureTitle}>{project.name}</h3>
+                <p style={styles.featureDesc}>{project.description}</p>
+                <p style={{ ...styles.clientCompany, marginTop: "12px" }}>{project.client || "Published Project"}</p>
+                {project.publicUrl ? (
+                  <a href={project.publicUrl} target="_blank" rel="noreferrer" style={styles.projectLink}>
+                    <span>{project.publicUrl}</span>
+                    <ExternalLink size={14} />
+                  </a>
+                ) : (
+                  <p style={styles.projectLinkMuted}>Hosted project URL will appear here once added from the admin panel.</p>
+                )}
+              </div>
+            )}
+          />
+        </section>
+      )}
+
+
+      {/* Global Diversity & Collaboration */}
+      <section style={styles.diversitySection}>
+          <div style={styles.diversityContent} className="landing-diversity-content">
+          <div style={styles.diversityText}>
+            <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "var(--text-primary)" }}>Global Collaboration & Technical Excellence</h2>
+            <p style={{ fontSize: "18px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "24px" }}>
+              Our team brings together diverse perspectives and world-class expertise to solve complex challenges. 
+              We believe in the power of inclusive collaboration to build the next generation of digital products.
+            </p>
+            <div style={{ display: "flex", gap: "16px" }} className="landing-badges-row">
+              <div style={styles.diversityBadge}>Enterprise Grade</div>
+              <div style={styles.diversityBadge}>Diverse Talent</div>
+            </div>
+          </div>
+          <div style={styles.diversityImageContainer}>
+            <img 
+              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200" 
+              alt="Global Technical Team" 
+              style={styles.diversityImage}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Satisfied Clients - 10 Rectangle Cards */}
+      {publicClients.length > 0 && (
+        <section id="clients" ref={clientsRef} style={styles.section}>
+          <h2 style={styles.sectionTitle}>Our Satisfied Clients</h2>
+          <p style={styles.sectionSubtitle}>Trusted by businesses worldwide</p>
+          <HorizontalCardStrip
+            items={publicClients}
+            ariaLabel="Satisfied clients"
+            itemMinWidth={180}
+            autoLoopCount={6}
+            direction="left-to-right"
+            scale={1}
+            renderItem={(client, index) => (
+              <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="client-card">
+                <div style={styles.clientAvatarContainer}>
+                  <Building2 size={22} color="#007AFF" />
+                </div>
+                <h4 style={styles.clientName}>{client.name}</h4>
+                <p style={styles.clientCompany}>{client.company}</p>
+                <p style={styles.clientProject}>{client.description}</p>
+              </div>
+            )}
+          />
+        </section>
+      )}
+
+
+      {/* Developers - expert profiles */}
+      {publicDevelopers.length > 0 && (
+        <section id="developers" ref={developersRef} style={styles.section}>
+          <h2 style={styles.sectionTitle}>Meet Our Expert Developers</h2>
+          <p style={styles.sectionSubtitle}>The technical minds behind your digital success</p>
+          <HorizontalCardStrip
+            items={publicDevelopers}
+            ariaLabel="Expert developers"
+            itemMinWidth={180}
+            autoLoopCount={6}
+            direction="right-to-left"
+            scale={1}
+            renderItem={(dev) => (
+              <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="developer-card">
+                <div style={styles.circleMask}>
+                  {dev.avatar ? <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} /> : <span style={styles.circleInitial}>{dev.name.charAt(0)}</span>}
+                </div>
+                <h4 style={styles.developerName}>{dev.name}</h4>
+                <p style={styles.developerRole}>{dev.role}</p>
+                <div style={styles.skillTags}>
+                  {dev.skills.slice(0, 3).map((skill, i) => (
+                    <span key={i} style={styles.skillTag}>{skill}</span>
+                  ))}
+                </div>
+                <p style={styles.developerExperience}>{dev.experience}+ years experience</p>
+                <p style={styles.developerBlurb}>{dev.bio}</p>
+              </div>
+            )}
+          />
+        </section>
+      )}
+
+
+      {/* Testimonials */}
+      {reviewCards.length > 0 && (
+        <section id="testimonials" style={styles.section}>
+          <h2 style={styles.sectionTitle}>What Our Clients Say</h2>
+          <p style={styles.sectionSubtitle}>Continuous feedback highlights from across projects, clients, and delivery teams.</p>
+          <HorizontalCardStrip
+            items={reviewCards}
+            ariaLabel="Client testimonials"
+            itemMinWidth={180}
+            autoLoopCount={6}
+            direction="left-to-right"
+            scale={1}
+            renderItem={(testimonial) => (
+              <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard }} className="testimonial-card">
+                <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
+                <div style={styles.testimonialStars}>
+                  {[...Array(testimonial.rating || 5)].map((_, i) => (
+                    <Star key={i} size={16} fill="#FFB800" color="#FFB800" />
+                  ))}
+                </div>
+                <p style={styles.testimonialText}>"{testimonial.quote}"</p>
+                <h4 style={styles.testimonialName}>{testimonial.name}</h4>
+                <p style={styles.testimonialCompany}>{testimonial.company}</p>
+              </div>
+            )}
+          />
+        </section>
+      )}
+
+
+      {/* Contact Section */}
+      <section id="contact" ref={contactFormRef} style={styles.contactSection}>
+        <div style={styles.contactContainer}>
+          <div style={styles.contactHeader}>
+            <h2 style={styles.sectionTitle}>Get in Touch</h2>
+            <p style={styles.sectionSubtitle}>Have a project in mind? Let&apos;s build something amazing together.</p>
+          </div>
+          
+          <div style={styles.contactGrid}>
+            <div style={styles.contactInfo}>
+              <h3 style={styles.contactInfoTitle}>Contact Information</h3>
+              <p style={styles.contactInfoDesc}>Fill out the form and our team will get back to you within 24 hours.</p>
+              
+              <div style={styles.infoItems}>
+                <div style={styles.infoItem}>
+                  <div style={styles.infoIcon}>📍</div>
+                  <div>
+                    <h4 style={styles.infoLabel}>Headquarters</h4>
+                    <p style={styles.infoValue} className="whitespace-pre-wrap">{contactInfo.headquarters}</p>
+                  </div>
+                </div>
+                <div style={styles.infoItem}>
+                  <div style={styles.infoIcon}>📧</div>
+                  <div>
+                    <h4 style={styles.infoLabel}>Email</h4>
+                    <p style={styles.infoValue}>
+                      <a href={`mailto:${contactInfo.email}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                        {contactInfo.email}
+                      </a>
+                    </p>
+                  </div>
+                </div>
+                <div style={styles.infoItem}>
+                  <div style={styles.infoIcon}>📞</div>
+                  <div>
+                    <h4 style={styles.infoLabel}>Phone</h4>
+                    <p style={styles.infoValue}>
+                      <a href={`tel:${contactInfo.phone}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                        {contactInfo.phone}
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div style={styles.contactFormContainer}>
+              <div style={styles.contactGlassCard}>
+                <form 
+                  style={styles.contactForm}
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setIsSubmitting(true);
+                    setSubmitStatus(null);
+                    try {
+                      await createPublicTicket({
+                        name: contactState.name,
+                        email: contactState.email,
+                        company: "",
+                        subject: contactState.subject,
+                        message: contactState.message,
+                      });
+                      setSubmitStatus("success");
+                      setContactState({ name: "", email: "", subject: "", message: "" });
+                    } catch (error) {
+                      console.error("Public inquiry error:", error);
+                      setSubmitStatus("error");
+                    } finally {
+                      setIsSubmitting(false);
+                      setTimeout(() => setSubmitStatus(null), 5000);
+                    }
+                  }}
+                >
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="Your Name" 
+                        style={styles.formInput}
+                        required
+                        value={contactState.name}
+                        onChange={(e) => setContactState({ ...contactState, name: e.target.value })}
+                      />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>Email</label>
+                      <input 
+                        type="email" 
+                        placeholder="john@example.com" 
+                        style={{ ...styles.formInput, ...styles.emailInput }}
+                        required
+                        value={contactState.email}
+                        onChange={(e) => setContactState({ ...contactState, email: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Subject</label>
+                    <input 
+                      type="text" 
+                      placeholder="Project Inquiry" 
+                      style={styles.formInput}
+                      required
+                      value={contactState.subject}
+                      onChange={(e) => setContactState({ ...contactState, subject: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Message</label>
+                    <textarea 
+                      placeholder="Tell us about your project..." 
+                      style={styles.formTextarea}
+                      required
+                      value={contactState.message}
+                      onChange={(e) => setContactState({ ...contactState, message: e.target.value })}
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    style={styles.submitBtn} 
+                    className="cta-hover"
+                  >
+                    {isSubmitting ? "Sending..." : (submitStatus === "success" ? "Message Sent!" : "Send Message")}
+                  </button>
+                  
+                  {submitStatus === "success" && (
+                    <p style={{ color: "#34C759", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
+                      Inquiry submitted successfully. It is now available in the admin query thread.
+                    </p>
+                  )}
+                  {submitStatus === "error" && (
+                    <p style={{ color: "#FF3B30", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
+                      We could not send your message right now. Please try again.
+                    </p>
+                  )}
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+
+      <style>{`
+        /* Logo Hover */
+        .logo-hover { 
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+          cursor: pointer; 
+        }
+        .logo-hover:hover { 
+          transform: scale(1.02); 
+        }
+        
+        /* Menu Item Hover - Apple Style */
+        .menu-item-hover { 
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+          position: relative;
+        }
+        .menu-item-hover::after {
+          content: '';
+          position: absolute;
+          bottom: -4px;
+          left: 50%;
+          width: 0;
+          height: 2px;
+          background-color: #007AFF;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          transform: translateX(-50%);
+        }
+        .menu-item-hover:hover { 
+          color: #007AFF !important; 
+        }
+        .menu-item-hover:hover::after { 
+          width: 80%; 
+        }
+        
+        /* Login Button Hover */
+        .login-btn-hover { 
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+          cursor: pointer; 
+        }
+        .login-btn-hover:hover { 
+          background-color: #F2F2F7 !important; 
+          transform: translateY(-2px); 
+        }
+        .login-btn-hover:active { 
+          transform: scale(0.98); 
+        }
+        
+        /* CTA Button Hover */
+        .cta-hover { 
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+          cursor: pointer; 
+        }
+        .cta-hover:hover { 
+          transform: translateY(-2px); 
+          box-shadow: 0 8px 20px rgba(0,122,255,0.3); 
+          background-color: #0055CC !important; 
+        }
+        .cta-hover:active { 
+          transform: scale(0.98); 
+        }
+        
+        .feature-card,
+        .client-card,
+        .developer-card,
+        .testimonial-card {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: pointer;
+        }
+        .feature-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        }
+        .client-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+        }
+        .developer-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+        }
+        .testimonial-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+        }
+
+        .landing-card-strip::-webkit-scrollbar {
+          display: none;
+        }
+
+        /* Removed landing-marquee-track animation as it is now handled via JS for drag support */
+        
+        /* Social Icon Hover */
+        .social-icon { 
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+          cursor: pointer; 
+          display: inline-block; 
+        }
+        .social-icon:hover { 
+          transform: translateY(-2px); 
+          color: #007AFF; 
+        }
+        
+        /* Mobile Menu Animations */
+        .mobile-menu-btn {
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mobile-menu-btn:hover {
+          transform: scale(1.05);
+          background-color: #F2F2F7;
+        }
+        
+        .mobile-menu-item {
+          transition: all 0.2s ease;
+        }
+        .mobile-menu-item:hover {
+          background-color: #F2F2F7;
+          transform: translateX(4px);
+        }
+        
+        .mobile-login-btn {
+          transition: all 0.2s ease;
+        }
+        .mobile-login-btn:hover {
+          background-color: #F2F2F7;
+          transform: translateX(4px);
+        }
+
+        .public-mobile-menu-overlay {
+          opacity: 1;
+          transition: opacity 0.2s ease;
+        }
+
+        .public-mobile-menu-panel {
+          animation: publicNavSlideDown 0.22s ease;
+        }
+
+        @keyframes publicNavSlideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @media (max-width: 1024px) {
+          .landing-hero-title {
+            font-size: 46px !important;
+          }
+          .landing-diversity-content {
+            gap: 32px !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .landing-nav-shell {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0;
+            right: 0;
+            width: 100%;
+          }
+          .desktop-menu,
+          .nav-buttons {
+            display: none !important;
+          }
+          .mobile-menu-btn,
+          .mobile-menu {
+            display: flex !important;
+          }
+          .landing-nav-content {
+            padding: 10px 16px !important;
+          }
+          .landing-hero {
+            min-height: 62vh !important;
+            padding: 56px 16px !important;
+            margin-top: 57px !important;
+          }
+          .landing-hero-title {
+            font-size: 36px !important;
+            line-height: 1.1 !important;
+          }
+          .landing-hero-subtitle {
+            font-size: 17px !important;
+          }
+          .landing-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 20px !important;
+          }
+          .landing-badges-row {
+            flex-wrap: wrap;
+          }
+          .landing-footer-content {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 24px !important;
+          }
+        }
+
+        @media (max-width: 520px) {
+          .landing-hero-title {
+            font-size: 30px !important;
+          }
+          .landing-hero-subtitle {
+            font-size: 15px !important;
+          }
+          .landing-card-strip {
+            --h-card-min-width: 150px !important;
+          }
+          .landing-features-grid,
+          .landing-client-grid,
+          .landing-developer-grid,
+          .landing-footer-content,
+          .landing-stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+            gap: 14px !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+const styles: any = {
+  container: {
+    minHeight: "100vh",
+    width: "100%",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    fontFamily: "var(--font-sans)",
+  },
+  // Hero
+  hero: {
+    padding: "60px 0",
+    textAlign: "center",
+    position: "relative",
+    color: "#FFFFFF",
+    overflow: "hidden",
+    minHeight: "50vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
+    zIndex: 1,
+  },
+  heroContent: {
+    maxWidth: "800px",
+    margin: "0 auto",
+    padding: "0 24px",
+    position: "relative",
+    zIndex: 2,
+  },
+  heroTitle: {
+    fontSize: "56px",
+    fontWeight: 700,
+    letterSpacing: "-0.02em",
+    marginBottom: "20px",
+    color: "#FFFFFF",
+    textShadow: "0 2px 10px rgba(0,0,0,0.5)",
+  },
+  highlight: {
+    color: "#007AFF",
+    fontWeight: 700,
+  },
+  heroSubtitle: {
+    fontSize: "20px",
+    color: "#F2F2F7",
+    fontWeight: 500,
+    marginBottom: "32px",
+    lineHeight: 1.4,
+    textShadow: "0 1px 4px rgba(0,0,0,0.5)",
+  },
+  ctaButton: {
+    padding: "14px 32px",
+    fontSize: "16px",
+    fontWeight: 600,
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: "12px",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    fontFamily: "inherit",
+  },
+  
+  // Section
+  section: {
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: "clamp(40px, 7vw, 88px) clamp(16px, 4vw, 48px)",
+    boxSizing: "border-box",
+  },
+  sectionTitle: {
+    fontSize: "clamp(24px, 4vw, 36px)",
+    fontWeight: 600,
+    textAlign: "center",
+    marginBottom: "16px",
+    color: "var(--text-primary)",
+  },
+  sectionSubtitle: {
+    fontSize: "clamp(15px, 2vw, 18px)",
+    color: "var(--text-secondary)",
+    textAlign: "center",
+    marginBottom: "clamp(32px, 5vw, 48px)",
+    lineHeight: 1.45,
+  },
+  
+  // Features Grid
+  featuresGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(clamp(140px, 45vw, 180px), 1fr))",
+    gap: "clamp(14px, 3vw, 24px)",
+  },
+  featureCard: {
+    padding: "clamp(16px, 3vw, 28px)",
+    backgroundColor: "var(--bg-secondary)",
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    textAlign: "left",
+    cursor: "pointer",
+    width: "100%",
+    minHeight: "200px",
+    display: "flex",
+    flexDirection: "column",
+  },
+
+  featureIcon: {
+    width: "clamp(40px, 5vw, 56px)",
+    height: "clamp(40px, 5vw, 56px)",
+    backgroundColor: "#E3F2FF",
+    borderRadius: "16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#007AFF",
+    marginBottom: "clamp(12px, 2vw, 20px)",
+  },
+  featureTitle: {
+    fontSize: "clamp(17px, 2vw, 20px)",
+    fontWeight: 600,
+    marginBottom: "clamp(8px, 1.5vw, 12px)",
+    color: "var(--text-primary)",
+  },
+  featureDesc: {
+    fontSize: "clamp(13px, 1.5vw, 15px)",
+    color: "var(--text-secondary)",
+    lineHeight: 1.5,
+  },
+
+  projectLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    color: "#0A66FF",
+    fontSize: "13px",
+    fontWeight: 600,
+    textDecoration: "none",
+    wordBreak: "break-all" as const,
+  },
+  projectLinkMuted: {
+    margin: 0,
+    color: "#8E8E93",
+    fontSize: "12px",
+  },
+  projectPreviewImage: {
+    width: "100%",
+    height: "190px",
+    objectFit: "cover",
+    borderRadius: "18px",
+    marginBottom: "18px",
+    border: "1px solid rgba(0,0,0,0.06)",
+  },
+  
+  // Stats Section
+  statsSection: {
+    backgroundColor: "#1C1C1E",
+    padding: "clamp(40px, 6vw, 72px) 0",
+    overflow: "hidden",
+  },
+  statsIntro: {
+    textAlign: "center" as const,
+    padding: "0 20px 28px",
+    maxWidth: "720px",
+    margin: "0 auto",
+  },
+  statsEyebrow: {
+    margin: 0,
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase" as const,
+    color: "rgba(255,255,255,0.5)",
+  },
+  statsHeading: {
+    margin: "10px 0 0",
+    fontSize: "clamp(22px, 3vw, 30px)",
+    fontWeight: 700,
+    color: "#FFFFFF",
+  },
+  statsSub: {
+    margin: "12px 0 0",
+    fontSize: "15px",
+    lineHeight: 1.55,
+    color: "rgba(255,255,255,0.65)",
+  },
+  hScrollOuter: {
+    width: "100%",
+    maxWidth: "100%",
+    overflowX: "auto" as const,
+    overflowY: "hidden",
+    WebkitOverflowScrolling: "touch",
+    padding: "4px clamp(4px, 2vw, 12px) 12px",
+    boxSizing: "border-box" as const,
+    scrollSnapType: "none",
+    scrollbarWidth: "none" as const,
+    msOverflowStyle: "none" as const,
+    cursor: "grab",
+    userSelect: "none" as const,
+  },
+  hScrollInner: {
+    display: "flex",
+    flexDirection: "row" as const,
+    alignItems: "stretch",
+    width: "max-content",
+    minHeight: "100%",
+  },
+  hScrollCell: {
+    flexShrink: 0,
+  },
+  horizontalCardSurface: {
+    padding: "clamp(16px, 3vw, 24px)",
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    background: "linear-gradient(180deg, var(--bg-primary) 0%, color-mix(in srgb, var(--bg-secondary) 88%, #007AFF) 100%)",
+    textAlign: "left" as const,
+    boxSizing: "border-box" as const,
+  },
+  horizontalCardSurfaceCenter: {
+    padding: "clamp(16px, 3vw, 24px)",
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    background: "linear-gradient(180deg, var(--bg-primary) 0%, color-mix(in srgb, var(--bg-secondary) 88%, #007AFF) 100%)",
+    textAlign: "center" as const,
+    boxSizing: "border-box" as const,
+  },
+
+  statsStaticRow: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    justifyContent: "center",
+    gap: "22px",
+    padding: "0 clamp(12px, 3vw, 28px)",
+  },
+  statStaticCard: {
+    flex: "0 1 auto",
+    width: "min(240px, 82vw)",
+    padding: "18px 18px",
+    borderRadius: "16px",
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(255,255,255,0.14)",
+    boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
+  },
+  statStaticValue: {
+    margin: "0 0 6px",
+    fontSize: "clamp(30px, 5vw, 40px)",
+    fontWeight: 800,
+    color: "#fff",
+    letterSpacing: "-0.02em",
+  },
+  statStaticLabel: {
+    margin: 0,
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "rgba(255,255,255,0.72)",
+  },
+  sliderCard: {
+    height: "100%",
+    minHeight: "280px",
+    display: "flex",
+    flexDirection: "column",
+  },
+
+  statsGrid: {
+    maxWidth: "1000px",
+    margin: "0 auto",
+    padding: "0 24px",
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "32px",
+    textAlign: "center",
+  },
+  statCard: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: "16px",
+    padding: "22px",
+    minHeight: "132px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    textAlign: "center",
+  },
+  statNumber: {
+    fontSize: "48px",
+    fontWeight: 700,
+    color: "#FFFFFF",
+    marginBottom: "8px",
+  },
+  statLabel: {
+    fontSize: "14px",
+    color: "#8E8E93",
+  },
+  
+  // Client Grid
+  clientGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gap: "24px",
+  },
+  clientCard: {
+    padding: "clamp(16px, 3vw, 24px)",
+    backgroundColor: "var(--bg-secondary)",
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    textAlign: "center",
+  },
+  clientAvatarContainer: {
+    width: "clamp(48px, 6vw, 60px)",
+    height: "clamp(48px, 6vw, 60px)",
+    borderRadius: "50%",
+    margin: "0 auto 16px",
+    border: "2px solid #E3F2FF",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F2F7FF",
+  },
+  clientAvatarImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  clientName: {
+    fontSize: "clamp(15px, 2vw, 16px)",
+    fontWeight: 600,
+    marginBottom: "4px",
+    color: "var(--text-primary)",
+  },
+  clientCompany: {
+    fontSize: "13px",
+    color: "#007AFF",
+    marginBottom: "8px",
+  },
+  clientProject: {
+    fontSize: "clamp(12px, 1.5vw, 13px)",
+    color: "#6C6C70",
+    lineHeight: 1.6,
+  },
+  
+  // Developer Grid
+  developerGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+    gap: "24px",
+  },
+  developerCard: {
+    padding: "clamp(16px, 3vw, 24px)",
+    backgroundColor: "var(--bg-primary)",
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    textAlign: "center",
+    cursor: "pointer",
+  },
+  circleMask: {
+    width: "clamp(70px, 8vw, 100px)",
+    height: "clamp(70px, 8vw, 100px)",
+    borderRadius: "50%",
+    overflow: "hidden",
+    margin: "0 auto 16px",
+    backgroundColor: "#F2F2F7",
+    border: "3px solid #E3F2FF",
+  },
+  devAvatarImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  circleInitial: {
+    fontSize: "clamp(28px, 4vw, 40px)",
+    fontWeight: 600,
+    color: "#FFFFFF",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    height: "100%",
+    background: "linear-gradient(135deg, #007AFF, #34C759)",
+  },
+  developerName: {
+    fontSize: "clamp(16px, 2vw, 18px)",
+    fontWeight: 600,
+    marginBottom: "4px",
+    color: "var(--text-primary)",
+  },
+
+  developerRole: {
+    fontSize: "13px",
+    color: "#007AFF",
+    marginBottom: "12px",
+  },
+  skillTags: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "6px",
+    justifyContent: "center",
+    marginBottom: "12px",
+  },
+  skillTag: {
+    padding: "4px 10px",
+    backgroundColor: "var(--bg-secondary)",
+    borderRadius: "20px",
+    fontSize: "11px",
+    color: "var(--text-primary)",
+  },
+  developerExperience: {
+    fontSize: "12px",
+    color: "var(--text-secondary)",
+    marginBottom: "8px",
+  },
+  developerBlurb: {
+    fontSize: "13px",
+    color: "var(--text-secondary)",
+    lineHeight: 1.6,
+    margin: 0,
+  },
+  rating: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "4px",
+  },
+  ratingValue: {
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#FFB800",
+    marginLeft: "4px",
+  },
+  
+  // Testimonials
+  testimonialGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: "24px",
+  },
+  marqueeViewport: {
+    overflow: "hidden",
+    maskImage: "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+  },
+  marqueeTrack: {
+    display: "flex",
+    gap: "20px",
+    width: "max-content",
+    paddingRight: "20px",
+  },
+  testimonialCard: {
+    padding: "clamp(16px, 3vw, 28px)",
+    backgroundColor: "var(--bg-secondary)",
+    borderRadius: "20px",
+    border: "1px solid var(--border-color)",
+    textAlign: "center",
+    width: "clamp(170px, 80vw, 320px)",
+    flexShrink: 0,
+  },
+
+  testimonialAvatar: {
+    width: "60px",
+    height: "60px",
+    backgroundColor: "#007AFF",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 16px",
+    color: "#FFFFFF",
+    fontWeight: 600,
+    fontSize: "20px",
+  },
+  testimonialStars: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "4px",
+    marginBottom: "16px",
+  },
+  testimonialText: {
+    fontSize: "15px",
+    color: "var(--text-primary)",
+    lineHeight: 1.5,
+    marginBottom: "16px",
+    fontStyle: "italic",
+  },
+  testimonialName: {
+    fontSize: "16px",
+    fontWeight: 600,
+    marginBottom: "4px",
+  },
+  testimonialCompany: {
+    fontSize: "13px",
+    color: "var(--text-secondary)",
+  },
+
+
+  // Diversity Section Styles
+
+  diversitySection: {
+    backgroundColor: "var(--bg-secondary)",
+    padding: "clamp(56px, 8vw, 100px) 0",
+    width: "100%",
+  },
+  diversityContent: {
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: "0 clamp(16px, 4vw, 48px)",
+    display: "flex",
+    alignItems: "center",
+    gap: "60px",
+    flexWrap: "wrap",
+  },
+  diversityText: {
+    flex: 1,
+    minWidth: "320px",
+  },
+  diversityImageContainer: {
+    flex: 1,
+    minWidth: "320px",
+    borderRadius: "24px",
+    overflow: "hidden",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+  },
+  diversityImage: {
+    width: "100%",
+    height: "auto",
+    display: "block",
+  },
+  diversityBadge: {
+    padding: "8px 16px",
+    backgroundColor: "var(--bg-primary)",
+    borderRadius: "20px",
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#007AFF",
+    boxShadow: "var(--card-shadow)",
+    display: "inline-block",
+  },
+
+  // Contact Section Styles
+  contactSection: {
+    backgroundColor: "var(--bg-primary)",
+    padding: "clamp(56px, 8vw, 100px) 0",
+    width: "100%",
+  },
+  contactContainer: {
+    width: "100%",
+    maxWidth: "100%",
+    margin: 0,
+    padding: "0 clamp(16px, 4vw, 48px)",
+  },
+  contactHeader: {
+    textAlign: "center",
+    marginBottom: "60px",
+  },
+  contactGrid: {
+    display: "flex",
+    gap: "60px",
+    flexWrap: "wrap",
+  },
+  contactInfo: {
+    flex: 1,
+    minWidth: "300px",
+  },
+  contactInfoTitle: {
+    fontSize: "24px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    marginBottom: "16px",
+  },
+  contactInfoDesc: {
+    fontSize: "16px",
+    color: "var(--text-secondary)",
+    lineHeight: 1.6,
+    marginBottom: "40px",
+  },
+  infoItems: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "24px",
+  },
+  infoItem: {
+    display: "flex",
+    gap: "20px",
+    alignItems: "flex-start",
+  },
+  infoIcon: {
+    width: "48px",
+    height: "48px",
+    backgroundColor: "var(--bg-primary)",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "20px",
+    boxShadow: "var(--card-shadow)",
+  },
+  infoLabel: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    marginBottom: "4px",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+  },
+  infoValue: {
+    fontSize: "16px",
+    fontWeight: 500,
+    color: "var(--text-primary)",
+  },
+  contactFormContainer: {
+    flex: 1.5,
+    minWidth: "320px",
+  },
+  contactGlassCard: {
+    backgroundColor: "var(--bg-primary)",
+    padding: "40px",
+    borderRadius: "24px",
+    boxShadow: "var(--card-shadow)",
+    border: "1px solid var(--border-color)",
+  },
+  contactForm: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px",
+  },
+  formRow: {
+    display: "flex",
+    gap: "20px",
+    flexWrap: "wrap",
+  },
+  formGroup: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    minWidth: "200px",
+  },
+  formLabel: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "var(--text-primary)",
+  },
+  formInput: {
+    padding: "14px 16px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    fontSize: "16px",
+    fontFamily: "inherit",
+    outline: "none",
+    transition: "all 0.2s ease",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+  },
+  emailInput: {
+    border: "1px solid var(--border-color)",
+    boxShadow: "inset 0 0 0 1px var(--border-color)",
+  },
+  formTextarea: {
+    padding: "14px 16px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    fontSize: "16px",
+    fontFamily: "inherit",
+    outline: "none",
+    minHeight: "150px",
+    resize: "vertical" as any,
+    transition: "all 0.2s ease",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+  },
+  submitBtn: {
+    padding: "16px 32px",
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: "12px",
+    fontSize: "16px",
+    fontWeight: 600,
+    cursor: "pointer",
+    marginTop: "10px",
+    transition: "all 0.3s ease",
+    width: "100%",
+  },
+};
+

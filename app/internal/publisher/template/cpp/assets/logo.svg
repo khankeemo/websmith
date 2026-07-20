@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="50">
+  <text x="0" y="30" font-family="sans-serif" font-size="24" fill="${primary_color}">SDK</text>
+  <text x="0" y="45" font-family="sans-serif" font-size="12" fill="${text_muted}">C++ License Client</text>
+</svg>

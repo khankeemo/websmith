@@ -1,0 +1,660 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Websmith Universal API License Center",
+    "description": "Public API for license validation, trial management, and device management. All requests require API Key authentication with HMAC signature.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Websmith Support",
+      "email": "support@websmithdigital.com",
+      "url": "https://websmith.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://websmith.vercel.app/api/v1",
+      "description": "Production Server"
+    },
+    {
+      "url": "http://localhost:3000/api/v1",
+      "description": "Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API Key obtained from Websmith Admin Panel"
+      },
+      "SignatureAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Signature",
+        "description": "HMAC-SHA256 signature of the request"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "INVALID_API_KEY",
+                  "API_KEY_EXPIRED",
+                  "API_KEY_INACTIVE",
+                  "INVALID_TIMESTAMP",
+                  "DUPLICATE_NONCE",
+                  "INVALID_SIGNATURE",
+                  "RATE_LIMIT_EXCEEDED",
+                  "PRODUCT_MISMATCH",
+                  "LICENSE_NOT_FOUND",
+                  "LICENSE_EXPIRED",
+                  "LICENSE_REVOKED",
+                  "MAX_DEVICES_EXCEEDED",
+                  "MISSING_ACTION",
+                  "MISSING_LICENSE_KEY",
+                  "MISSING_HARDWARE_ID",
+                  "INVALID_ACTION"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "RateLimitHeaders": {
+        "type": "object",
+        "properties": {
+          "X-RateLimit-Limit": {
+            "type": "integer",
+            "description": "Rate limit per minute"
+          },
+          "X-RateLimit-Remaining": {
+            "type": "integer",
+            "description": "Remaining requests in current window"
+          },
+          "X-RateLimit-Reset": {
+            "type": "integer",
+            "description": "Seconds until rate limit resets"
+          }
+        }
+      }
+    },
+    "headers": {
+      "RateLimitLimit": {
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Rate limit per minute"
+      },
+      "RateLimitRemaining": {
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Remaining requests in current window"
+      },
+      "RateLimitReset": {
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Seconds until rate limit resets"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/license": {
+      "post": {
+        "summary": "License Operations",
+        "description": "Perform license operations: validate, activate, or deactivate a license.",
+        "operationId": "license",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action", "license_key"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["validate", "activate", "deactivate"],
+                    "description": "Operation to perform"
+                  },
+                  "license_key": {
+                    "type": "string",
+                    "description": "License key to operate on",
+                    "example": "ABCD-EFGH-IJKL-MNOP"
+                  },
+                  "hardware_id": {
+                    "type": "string",
+                    "description": "Hardware identifier (required for activate/deactivate)",
+                    "example": "HW-12345"
+                  },
+                  "device_name": {
+                    "type": "string",
+                    "description": "Device name (optional, for activate)",
+                    "example": "Desktop-01"
+                  }
+                }
+              },
+              "examples": {
+                "validate": {
+                  "summary": "Validate License",
+                  "value": {
+                    "action": "validate",
+                    "license_key": "ABCD-EFGH-IJKL-MNOP"
+                  }
+                },
+                "activate": {
+                  "summary": "Activate License",
+                  "value": {
+                    "action": "activate",
+                    "license_key": "ABCD-EFGH-IJKL-MNOP",
+                    "hardware_id": "HW-12345",
+                    "device_name": "Desktop-01"
+                  }
+                },
+                "deactivate": {
+                  "summary": "Deactivate License",
+                  "value": {
+                    "action": "deactivate",
+                    "license_key": "ABCD-EFGH-IJKL-MNOP",
+                    "hardware_id": "HW-12345"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - License expired, revoked, or product mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - License key does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate Limit Exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trial": {
+      "post": {
+        "summary": "Trial Operations",
+        "description": "Perform trial operations: start, check status, or convert to paid license.",
+        "operationId": "trial",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action", "hardware_id"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["start", "status", "convert"],
+                    "description": "Operation to perform"
+                  },
+                  "hardware_id": {
+                    "type": "string",
+                    "description": "Hardware identifier",
+                    "example": "HW-12345"
+                  },
+                  "customer_email": {
+                    "type": "string",
+                    "description": "Customer email (required for start/convert)",
+                    "example": "john@example.com"
+                  },
+                  "customer_name": {
+                    "type": "string",
+                    "description": "Customer name (required for convert)",
+                    "example": "John Doe"
+                  },
+                  "plan": {
+                    "type": "string",
+                    "description": "Plan name (required for convert)",
+                    "example": "Professional"
+                  }
+                }
+              },
+              "examples": {
+                "start": {
+                  "summary": "Start Trial",
+                  "value": {
+                    "action": "start",
+                    "hardware_id": "HW-12345",
+                    "customer_email": "john@example.com"
+                  }
+                },
+                "status": {
+                  "summary": "Get Trial Status",
+                  "value": {
+                    "action": "status",
+                    "hardware_id": "HW-12345"
+                  }
+                },
+                "convert": {
+                  "summary": "Convert Trial to License",
+                  "value": {
+                    "action": "convert",
+                    "hardware_id": "HW-12345",
+                    "customer_email": "john@example.com",
+                    "customer_name": "John Doe",
+                    "plan": "Professional"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Trial expired or already converted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - Trial not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate Limit Exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device": {
+      "post": {
+        "summary": "Device Operations",
+        "description": "Perform device management operations: bind, reset, or replace device.",
+        "operationId": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action", "license_key"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["bind", "reset", "replace"],
+                    "description": "Operation to perform"
+                  },
+                  "license_key": {
+                    "type": "string",
+                    "description": "License key",
+                    "example": "ABCD-EFGH-IJKL-MNOP"
+                  },
+                  "hardware_id": {
+                    "type": "string",
+                    "description": "Hardware identifier (required for bind/reset)",
+                    "example": "HW-12345"
+                  },
+                  "device_name": {
+                    "type": "string",
+                    "description": "Device name (optional, for bind)",
+                    "example": "Desktop-01"
+                  },
+                  "old_hardware_id": {
+                    "type": "string",
+                    "description": "Old hardware identifier (required for replace)",
+                    "example": "HW-12345"
+                  },
+                  "new_hardware_id": {
+                    "type": "string",
+                    "description": "New hardware identifier (required for replace)",
+                    "example": "HW-67890"
+                  }
+                }
+              },
+              "examples": {
+                "bind": {
+                  "summary": "Bind Device",
+                  "value": {
+                    "action": "bind",
+                    "license_key": "ABCD-EFGH-IJKL-MNOP",
+                    "hardware_id": "HW-12345",
+                    "device_name": "Desktop-01"
+                  }
+                },
+                "reset": {
+                  "summary": "Reset Device",
+                  "value": {
+                    "action": "reset",
+                    "license_key": "ABCD-EFGH-IJKL-MNOP",
+                    "hardware_id": "HW-12345"
+                  }
+                },
+                "replace": {
+                  "summary": "Replace Device",
+                  "value": {
+                    "action": "replace",
+                    "license_key": "ABCD-EFGH-IJKL-MNOP",
+                    "old_hardware_id": "HW-12345",
+                    "new_hardware_id": "HW-67890"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - License expired or device limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - License or device not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate Limit Exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

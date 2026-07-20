@@ -1,0 +1,8 @@
+{
+  "kit_version": "${kit_version}",
+  "api_version": "${api_version}",
+  "runtime": "${runtime}",
+  "generated_at": "${generated_at}",
+  "product_id": "${product_id}",
+  "product_name": "${product_name}"
+}

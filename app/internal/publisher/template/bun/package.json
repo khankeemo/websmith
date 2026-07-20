@@ -1,0 +1,13 @@
+{
+  "name": "${package_name}",
+  "version": "${product_version}",
+  "description": "${product_description} — Bun SDK",
+  "type": "module",
+  "main": "index.ts",
+  "module": "index.ts",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "license": "MIT",
+  "private": false
+}

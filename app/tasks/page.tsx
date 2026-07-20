@@ -1,0 +1,402 @@
+// C:\websmith\app\tasks\page.tsx
+// Tasks Page - Main tasks management page
+// Features: List tasks, add/edit/delete, search, filter by status
+
+'use client';
+
+import { useState } from 'react';
+import { Plus, Search, CheckSquare, LayoutGrid, List, Kanban } from 'lucide-react';
+import { useTasks } from './hooks/useTasks';
+import TaskCard from './components/TaskCard';
+import TaskModal from './components/TaskModal';
+import KanbanBoard from '../../components/ui/KanbanBoard';
+import { Task, bulkUpdateTaskStatus } from './services/taskService';
+
+export default function TasksPage() {
+  const { tasks, loading, error, addTask, editTask, removeTask, fetchTasks } = useTasks();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban'>('grid');
+
+  const handleAddTask = () => {
+    setEditingTask(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveTask = async (taskData: any) => {
+    if (editingTask) {
+      await editTask(editingTask._id!, taskData);
+    } else {
+      await addTask(taskData);
+    }
+    setIsModalOpen(false);
+    setEditingTask(null);
+    fetchTasks();
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    if (confirm('Are you sure you want to delete this task?')) {
+      await removeTask(id);
+    }
+  };
+
+  const handleTaskDrop = async (cardId: string, _fromStatus: string, toStatus: string) => {
+    await bulkUpdateTaskStatus([{ id: cardId, status: toStatus }]);
+    await fetchTasks();
+  };
+
+  // Filter tasks
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (task.assignee && task.assignee.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const statusCounts = {
+    all: tasks.length,
+    pending: tasks.filter(t => t.status === 'pending').length,
+    'in-progress': tasks.filter(t => t.status === 'in-progress').length,
+    completed: tasks.filter(t => t.status === 'completed').length,
+  };
+
+  return (
+    <div style={styles.container} className="wsd-page">
+      {/* Header */}
+      <div style={styles.header} className="tasks-header wsd-page-header">
+        <div>
+          <h1 style={styles.title}>Tasks</h1>
+          <p style={styles.subtitle}>Manage all your project tasks from a single dashboard</p>
+        </div>
+        <button onClick={handleAddTask} style={styles.addBtn} className="add-btn">
+          <Plus size={18} />
+          <span>New Task</span>
+        </button>
+      </div>
+
+      {/* Search and Filter */}
+      <div style={styles.searchSection} className="tasks-search-section wsd-toolbar">
+        <div style={styles.searchBox} className="wsd-search-box">
+          <Search size={18} color="var(--text-secondary)" />
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={styles.searchInput}
+          />
+        </div>
+        <div style={styles.viewToggle}>
+          <button onClick={() => setViewMode('grid')} style={{ ...styles.toggleBtn, ...(viewMode === 'grid' ? styles.toggleActive : {}) }}><LayoutGrid size={16} /></button>
+          <button onClick={() => setViewMode('list')} style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleActive : {}) }}><List size={16} /></button>
+          <button onClick={() => setViewMode('kanban')} style={{ ...styles.toggleBtn, ...(viewMode === 'kanban' ? styles.toggleActive : {}) }}><Kanban size={16} /></button>
+        </div>
+        <div style={styles.filterTabs} className="wsd-chip-row">
+          <button
+            onClick={() => setStatusFilter('all')}
+            style={{ ...styles.filterTab, ...(statusFilter === 'all' ? styles.filterTabActive : {}) }}
+          >
+            All ({statusCounts.all})
+          </button>
+          <button
+            onClick={() => setStatusFilter('pending')}
+            style={{ ...styles.filterTab, ...(statusFilter === 'pending' ? styles.filterTabActive : {}) }}
+          >
+            Pending ({statusCounts.pending})
+          </button>
+          <button
+            onClick={() => setStatusFilter('in-progress')}
+            style={{ ...styles.filterTab, ...(statusFilter === 'in-progress' ? styles.filterTabActive : {}) }}
+          >
+            In Progress ({statusCounts['in-progress']})
+          </button>
+          <button
+            onClick={() => setStatusFilter('completed')}
+            style={{ ...styles.filterTab, ...(statusFilter === 'completed' ? styles.filterTabActive : {}) }}
+          >
+            Completed ({statusCounts.completed})
+          </button>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div style={styles.loadingContainer}>
+          <div style={styles.spinner}></div>
+          <p style={{ color: "var(--text-secondary)" }}>Loading your tasks...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div style={styles.errorContainer}>
+          <p style={styles.errorText}>{error}</p>
+          <button onClick={fetchTasks} style={styles.retryBtn}>Try Again</button>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && filteredTasks.length === 0 && (
+        <div style={styles.emptyContainer}>
+          <CheckSquare size={48} color="var(--border-color)" />
+          <h3 style={styles.emptyTitle}>No tasks found</h3>
+          <p style={styles.emptyText}>
+            {searchTerm || statusFilter !== 'all' 
+              ? 'Try adjusting your search or filter'
+              : 'Add your first task to keep track of development'}
+          </p>
+        </div>
+      )}
+
+      {/* Tasks Grid */}
+      {!loading && !error && filteredTasks.length > 0 && viewMode === 'grid' && (
+        <div style={styles.grid} className="wsd-card-grid">
+          {filteredTasks.map((task) => (
+            <TaskCard
+              key={task._id}
+              task={task}
+              onEdit={handleEditTask}
+              onDelete={handleDeleteTask}
+            />
+          ))}
+        </div>
+      )}
+
+      {!loading && !error && filteredTasks.length > 0 && viewMode === 'list' && (
+        <div style={styles.list} className="wsd-list">
+          {filteredTasks.map((task) => (
+            <div key={task._id} style={styles.listRow} className="wsd-list-row">
+              <div>
+                <strong>{task.title}</strong>
+                <p style={styles.listMeta}>{task.assignee || 'Unassigned'}</p>
+              </div>
+              <span style={styles.listMeta}>{task.status.replace('-', ' ')}</span>
+              <span style={styles.listMeta}>{task.priority}</span>
+              <span style={styles.listMeta}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && !error && filteredTasks.length > 0 && viewMode === 'kanban' && (
+        <KanbanBoard
+          columns={[
+            { id: 'pending', title: 'Pending', status: 'pending', color: '#FF9500' },
+            { id: 'in-progress', title: 'In Progress', status: 'in-progress', color: '#007AFF' },
+            { id: 'review', title: 'Review', status: 'review', color: '#AF52DE' },
+            { id: 'completed', title: 'Completed', status: 'completed', color: '#34C759' },
+          ]}
+          cards={filteredTasks.map((task) => ({
+            ...task,
+            _id: task._id!,
+            title: task.title,
+            subtitle: `${task.assignee || 'Unassigned'} · ${task.priority}`,
+          }))}
+          onCardDrop={handleTaskDrop}
+        />
+      )}
+
+      {/* Modal */}
+      <TaskModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTask(null);
+        }}
+        onSave={handleSaveTask}
+        task={editingTask}
+      />
+
+      <style>{`
+        .add-btn {
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .add-btn:hover {
+          background-color: #34C759 !important;
+          transform: translateX(4px) translateY(-2px);
+          box-shadow: 0 4px 12px rgba(52,199,89,0.3);
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @media (max-width: 768px) {
+          .tasks-header {
+            flex-direction: column !important;
+            gap: 16px;
+          }
+          .tasks-search-section {
+            width: 100%;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+const styles: any = {
+  container: { 
+    padding: 0,
+    backgroundColor: 'var(--bg-primary)',
+    minHeight: '100vh',
+    color: 'var(--text-primary)'
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '32px',
+  },
+  title: {
+    fontSize: '34px',
+    fontWeight: 700,
+    letterSpacing: '-1px',
+    color: 'var(--text-primary)',
+    margin: 0,
+    marginBottom: '8px',
+  },
+  subtitle: {
+    fontSize: '15px',
+    color: 'var(--text-secondary)',
+    margin: 0
+  },
+  addBtn: {
+    padding: '10px 24px',
+    backgroundColor: '#007AFF',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    fontFamily: 'inherit',
+    boxShadow: '0 4px 12px rgba(0,122,255,0.2)',
+  },
+  searchSection: {
+    marginBottom: '32px',
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '12px 18px',
+    backgroundColor: 'var(--bg-primary)',
+    border: '1.5px solid var(--border-color)',
+    borderRadius: '14px',
+    marginBottom: '20px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+    flex: 1,
+    minWidth: 0,
+  },
+  searchInput: {
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    fontSize: '15px',
+    fontFamily: 'inherit',
+    backgroundColor: 'transparent',
+    color: 'var(--text-primary)',
+  },
+  filterTabs: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+  },
+  viewToggle: { display: 'flex', background: 'var(--bg-secondary)', borderRadius: '12px', padding: '4px' },
+  toggleBtn: { border: 'none', background: 'transparent', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  toggleActive: { background: 'var(--bg-primary)' },
+  filterTab: {
+    padding: '8px 20px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '20px',
+    fontSize: '13px',
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.2s ease',
+  },
+  filterTabActive: {
+    backgroundColor: '#007AFF',
+    color: '#FFFFFF',
+    borderColor: '#007AFF',
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '24px',
+  },
+  list: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  listRow: { display: 'grid', gridTemplateColumns: '1.5fr auto auto auto', gap: '16px', alignItems: 'center', padding: '16px 20px', border: '1.5px solid var(--border-color)', borderRadius: '16px', backgroundColor: 'var(--bg-primary)' },
+  listMeta: { margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'capitalize' },
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '80px',
+    gap: '16px',
+  },
+  spinner: {
+    width: '40px',
+    height: '40px',
+    border: '3px solid var(--border-color)',
+    borderTopColor: '#007AFF',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
+  },
+  errorContainer: {
+    textAlign: 'center',
+    padding: '60px',
+    backgroundColor: 'rgba(255, 59, 48, 0.05)',
+    borderRadius: '20px',
+    border: '1px solid rgba(255, 59, 48, 0.1)',
+  },
+  errorText: {
+    color: '#FF3B30',
+    marginBottom: '16px',
+    fontWeight: 600
+  },
+  retryBtn: {
+    padding: '10px 24px',
+    backgroundColor: '#007AFF',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontWeight: 700
+  },
+  emptyContainer: {
+    textAlign: 'center',
+    padding: '80px 20px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '24px',
+    border: '1.5px dashed var(--border-color)',
+  },
+  emptyTitle: {
+    fontSize: '20px',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    marginTop: '16px',
+    marginBottom: '8px',
+  },
+  emptyText: {
+    fontSize: '14px',
+    color: 'var(--text-secondary)',
+    marginBottom: '20px',
+  },
+};

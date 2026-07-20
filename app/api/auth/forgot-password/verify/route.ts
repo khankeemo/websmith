@@ -1,0 +1,89 @@
+import { NextResponse } from "next/server";
+import { Pool } from "pg";
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+});
+
+export async function POST(request: Request) {
+  let client = null;
+
+  try {
+    const { email, otp } = await request.json();
+
+    if (!email || !otp) {
+      return NextResponse.json(
+        { success: false, error: "Email and OTP are required" },
+        { status: 400 }
+      );
+    }
+
+    client = await pool.connect();
+
+    const result = await client.query(
+      `SELECT id, email, otp_code, expires_at, verified
+       FROM otp_verifications
+       WHERE email = $1 AND purpose = $2
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [email.trim().toLowerCase(), "password_reset"]
+    );
+
+    if (result.rows.length === 0) {
+      client.release();
+      return NextResponse.json(
+        { success: false, error: "No OTP found. Please request a new one." },
+        { status: 400 }
+      );
+    }
+
+    const record = result.rows[0];
+
+    if (record.verified) {
+      client.release();
+      return NextResponse.json(
+        { success: false, error: "OTP already used. Please request a new one." },
+        { status: 400 }
+      );
+    }
+
+    if (new Date(record.expires_at) < new Date()) {
+      client.release();
+      return NextResponse.json(
+        { success: false, error: "OTP has expired. Please request a new one." },
+        { status: 400 }
+      );
+    }
+
+    if (record.otp_code !== otp.toString()) {
+      client.release();
+      return NextResponse.json(
+        { success: false, error: "Invalid OTP. Please try again." },
+        { status: 400 }
+      );
+    }
+
+    await client.query(
+      `UPDATE otp_verifications SET verified = true WHERE id = $1`,
+      [record.id]
+    );
+
+    client.release();
+
+    return NextResponse.json({
+      success: true,
+      message: "OTP verified successfully",
+    });
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("OTP verify error:", errMsg);
+    if (client) {
+      try { client.release(); } catch (_) {}
+    }
+    return NextResponse.json(
+      { success: false, error: errMsg },
+      { status: 500 }
+    );
+  }
+}

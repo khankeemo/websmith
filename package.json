@@ -1,0 +1,46 @@
+{
+  "name": "websmith",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --experimental-strip-types tests/sdk-generation/validator.test.mjs",
+    "test:generation": "node --experimental-strip-types tests/sdk-generation/validator.test.mjs"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@react-oauth/google": "^0.13.4",
+    "@upstash/qstash": "^2.11.1",
+    "@upstash/redis": "^1.38.0",
+    "@upstash/workflow": "latest",
+    "archiver": "^8.0.0",
+    "axios": "^1.14.0",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.10.0",
+    "framer-motion": "^12.42.2",
+    "jose": "^6.2.3",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.7.0",
+    "mongodb": "^7.5.0",
+    "next": "^16.2.1",
+    "pg": "^8.21.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-icons": "^5.6.0",
+    "recharts": "^3.8.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "25.5.0",
+    "@types/nodemailer": "^8.0.1",
+    "@types/pg": "^8.20.0",
+    "@types/react": "19.2.14",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
+    "typescript": "6.0.2"
+  }
+}
