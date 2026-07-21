@@ -201,6 +201,30 @@ export async function POST(request: NextRequest) {
     // Valid for renewal = exists (any status except revoked can request renewal info)
     const valid = lic.status !== 'revoked';
 
+    // Fetch available plans for this product
+    let availablePlans: Array<{id: string; name: string; duration: string}> = [];
+    try {
+      const plansResult = await client.query(
+        `SELECT id, name, default_expiry_days, duration_days
+         FROM plans
+         WHERE product_id = $1 AND is_active = TRUE
+         ORDER BY name ASC`,
+        [lic.product_id]
+      );
+      availablePlans = plansResult.rows.map((p: any) => ({
+        id: String(p.id),
+        name: p.name || '',
+        duration: p.duration_days
+          ? `${p.duration_days} Days`
+          : p.default_expiry_days
+            ? `${p.default_expiry_days} Days`
+            : 'Lifetime',
+      }));
+    } catch (e) {
+      // Non-fatal: available plans won't be included
+      console.warn('Failed to fetch available plans for renewal:', e);
+    }
+
     // Log success
     await logRequest({
       apiKeyId,
@@ -232,6 +256,7 @@ export async function POST(request: NextRequest) {
       license_key: lic.license_key,
       product_id: lic.product_id || '',
       product_name: lic.product_name || '',
+      available_plans: availablePlans,
     }, {
       headers: {
         'X-RateLimit-Limit': String(rateLimitResult.limit),
