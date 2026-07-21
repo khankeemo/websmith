@@ -460,6 +460,8 @@ export async function POST(request: NextRequest) {
             l.license_key,
             l.customer_name,
             l.customer_email,
+            l.customer_phone,
+            l.customer_mobile,
             l.plan,
             l.status,
             l.expiry_date,
@@ -672,7 +674,11 @@ export async function POST(request: NextRequest) {
             days_left: daysLeftAct,
             plan: license.plan,
             max_devices: license.max_devices,
-            device_count: currentCount + 1
+            device_count: currentCount + 1,
+            customer_name: license.customer_name,
+            customer_email: license.customer_email,
+            customer_phone: license.customer_phone,
+            customer_mobile: license.customer_mobile
           }
         }, {
           headers: {
