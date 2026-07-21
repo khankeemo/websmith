@@ -223,12 +223,15 @@ export async function POST(request: NextRequest) {
       email: lic.customer_email || '',
       mobile: lic.customer_mobile || lic.customer_phone || '',
       plan: lic.plan || '',
+      plan_id: lic.plan_id || '',
       status: lic.status || '',
       expiry_date: lic.expiry_date ? lic.expiry_date.split('T')[0] : '',
       days_left: daysLeft,
       is_expired: isExpired,
       is_trial: lic.is_trial || false,
       license_key: lic.license_key,
+      product_id: lic.product_id || '',
+      product_name: lic.product_name || '',
     }, {
       headers: {
         'X-RateLimit-Limit': String(rateLimitResult.limit),

@@ -366,12 +366,27 @@ export async function POST(request: NextRequest) {
           [nowISO, normalizedLicenseKey]
         );
 
-        // Get device count
+        // Get total active device count
         const deviceCountResult = await client.query(
           `SELECT COUNT(*) as count FROM activations WHERE license_key = $1 AND is_active = true`,
           [normalizedLicenseKey]
         );
-        const activeDevices = parseInt(deviceCountResult.rows[0]?.count || '0');
+        const totalActiveDevices = parseInt(deviceCountResult.rows[0]?.count || '0');
+
+        // Check if current hardware is already activated for this license
+        let thisDeviceActivated = false;
+        if (hardware_id) {
+          const thisDeviceResult = await client.query(
+            `SELECT id FROM activations WHERE license_key = $1 AND hardware_id = $2 AND is_active = true`,
+            [normalizedLicenseKey, hardware_id]
+          );
+          thisDeviceActivated = thisDeviceResult.rows.length > 0;
+          console.log(`[VALIDATE] license=${normalizedLicenseKey} hardware_id=${hardware_id} this_device_activated=${thisDeviceActivated} total_active=${totalActiveDevices} max_devices=${licenseData.max_devices}`);
+        }
+
+        // If this device is already activated, exclude it from the count
+        // so the SDK client-side pre-check does not falsely block activation
+        const effectiveDeviceCount = thisDeviceActivated ? totalActiveDevices - 1 : totalActiveDevices;
 
         client.release();
         client = null;
@@ -407,8 +422,10 @@ export async function POST(request: NextRequest) {
             customer_phone: licenseData.customer_phone,
             customer_mobile: licenseData.customer_mobile,
             max_devices: licenseData.max_devices,
-            device_count: licenseData.device_count || 0,
-            active_devices: activeDevices,
+            device_count: effectiveDeviceCount,
+            active_devices: effectiveDeviceCount,
+            this_device_activated: thisDeviceActivated,
+            total_active_devices: totalActiveDevices,
             last_validated: nowISO
           }
         }, {
@@ -559,7 +576,10 @@ export async function POST(request: NextRequest) {
           [normalizedLicenseKey, hardware_id]
         );
 
+        console.log(`[ACTIVATE] license=${normalizedLicenseKey} hardware_id=${hardware_id} existing_activation=${existingActivation.rows.length > 0} max_devices=${license.max_devices}`);
+
         if (existingActivation.rows.length > 0) {
+          console.log(`[ACTIVATE] Device already activated — returning already_activated=true`);
           client.release();
           client = null;
           
@@ -576,8 +596,10 @@ export async function POST(request: NextRequest) {
           [normalizedLicenseKey]
         );
         const currentCount = parseInt(currentActivations.rows[0]?.count || '0');
+        console.log(`[ACTIVATE] current_count=${currentCount} max_devices=${license.max_devices} limit_reached=${currentCount >= license.max_devices}`);
 
         if (currentCount >= license.max_devices) {
+          console.log(`[ACTIVATE] Device limit reached — ${currentCount}/${license.max_devices}`);
           client.release();
           client = null;
           

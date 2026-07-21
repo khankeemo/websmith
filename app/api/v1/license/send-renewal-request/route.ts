@@ -101,7 +101,10 @@ export async function POST(request: NextRequest) {
       mobile,
       subject,
       message,
-      request_type
+      request_type,
+      current_plan,
+      selected_plan,
+      product_id,
     } = body;
 
     if (!license_key) {
@@ -181,6 +184,9 @@ License Key: ${normalizedLicenseKey}
 Customer Name: ${customer_name || 'N/A'}
 Customer Email: ${email || 'N/A'}
 Customer Mobile: ${mobile || 'N/A'}
+Current Plan: ${current_plan || 'N/A'}
+Requested Plan: ${selected_plan || (current_plan || 'N/A')}
+Product ID: ${product_id || 'N/A'}
 
 Message:
 ${message || 'No additional details provided.'}
@@ -226,7 +232,7 @@ Source: SDK Renewal Dialog
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         'license_renewal_request',
-        `Renewal request submitted: ${reqTypeLabel} — ${customer_name || 'N/A'} (${email || 'N/A'})`,
+        `Renewal request submitted: ${reqTypeLabel} — ${customer_name || 'N/A'} (${email || 'N/A'}) | Current: ${current_plan || 'N/A'} -> Requested: ${selected_plan || (current_plan || 'N/A')}`,
         nowISO,
         ipAddress,
         normalizedLicenseKey,
@@ -257,6 +263,8 @@ Source: SDK Renewal Dialog
       data: {
         license_key: normalizedLicenseKey,
         request_type,
+        current_plan: current_plan || '',
+        selected_plan: selected_plan || current_plan || '',
         email_sent: emailSent,
         support_email: SUPPORT_EMAIL,
       }
