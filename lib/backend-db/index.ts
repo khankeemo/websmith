@@ -327,7 +327,28 @@ export async function getDb(): Promise<Pool> {
       )
     `);
 
-    // 12. Create developer_api_keys table (COMPLETE)
+    // 12. Create renewal_requests table (customer-submitted renewal requests from SDK)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS renewal_requests (
+        id SERIAL PRIMARY KEY,
+        license_key TEXT,
+        customer_name TEXT,
+        email TEXT,
+        mobile TEXT,
+        subject TEXT,
+        message TEXT,
+        request_type TEXT,
+        selected_plan_id TEXT,
+        selected_plan_name TEXT,
+        current_plan_name TEXT,
+        product_id TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 13. Create developer_api_keys table (COMPLETE)
     await client.query(`
       CREATE TABLE IF NOT EXISTS developer_api_keys (
         id SERIAL PRIMARY KEY,

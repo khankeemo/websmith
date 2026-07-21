@@ -1077,12 +1077,24 @@ export function LicenseManagerTab() {
                   min="1"
                   max="7300"
                   value={editForm.duration_days}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const days = parseInt(e.target.value) || 365;
+                    const baseDateStr = selectedLicense?.activated_at ?? selectedLicense?.created_at;
+                    let newExpiry = '';
+                    if (baseDateStr) {
+                      const baseDate = new Date(baseDateStr);
+                      if (!isNaN(baseDate.getTime())) {
+                        const expiryDate = new Date(baseDate);
+                        expiryDate.setDate(expiryDate.getDate() + days);
+                        newExpiry = expiryDate.toISOString().split('T')[0];
+                      }
+                    }
                     setEditForm({
                       ...editForm,
-                      duration_days: parseInt(e.target.value) || 365,
-                    })
-                  }
+                      duration_days: days,
+                      expiry_date: newExpiry,
+                    });
+                  }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !editing) { e.preventDefault(); handleEditSave(); } }}
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
