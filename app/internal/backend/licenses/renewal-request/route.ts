@@ -1,8 +1,3 @@
-// FILE: app/internal/backend/licenses/renewal-request/route.ts
-// Handles: POST /internal/backend/licenses/renewal-request
-// Purpose: Customer-facing renewal request — validates, saves to DB, emails support, audits
-// Security: JWT auth via proxy.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
 
@@ -26,11 +21,16 @@ export async function POST(request: NextRequest) {
     const {
       license_key,
       customer_name,
+      customer_email,
+      customer_mobile,
       email,
       mobile,
-      subject,
       message,
       request_type,
+      current_plan_id,
+      current_plan_name,
+      requested_plan_id,
+      requested_plan_name,
       selected_plan_id,
       selected_plan_name,
     } = body;
@@ -45,51 +45,63 @@ export async function POST(request: NextRequest) {
     const normalizedLicenseKey = license_key.toUpperCase();
     const now = new Date();
     const nowISO = now.toISOString();
+    const todayDate = nowISO.split('T')[0];
+
+    const finalEmail = customer_email || email || '';
+    const finalMobile = customer_mobile || mobile || '';
+    const finalRequestedPlanId = requested_plan_id || selected_plan_id || '';
+    const finalRequestedPlanName = requested_plan_name || selected_plan_name || '';
 
     const pool = await getDb();
     const client = await pool.connect();
 
     try {
-      // Verify license exists
       const licenseResult = await client.query(
-        `SELECT product_id, status, customer_name, customer_email, plan
-         FROM licenses WHERE license_key = $1`,
+        `SELECT l.product_id, l.status, l.customer_name, l.customer_email, l.plan, l.plan_id, p.name as product_name
+         FROM licenses l
+         LEFT JOIN products p ON l.product_id = p.product_id
+         WHERE l.license_key = $1`,
         [normalizedLicenseKey]
       );
 
       const requestType = request_type || 'renew';
-      const currentPlan = licenseResult.rows.length > 0 ? licenseResult.rows[0].plan : '';
+      const lic = licenseResult.rows[0] || {};
+      const finalCurrentPlanName = current_plan_name || lic.plan || '';
+      const finalCurrentPlanId = current_plan_id || (lic.plan_id ? String(lic.plan_id) : '');
+      const customerName = customer_name || lic.customer_name || '';
 
-      // Save to renewal_requests table
-      await client.query(
+      const dbResult = await client.query(
         `INSERT INTO renewal_requests
-         (license_key, customer_name, email, mobile, subject, message,
-          request_type, selected_plan_id, selected_plan_name,
-          current_plan_name, product_id, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', $12, $12)`,
+         (license_key, product_id, product_name, customer_name, customer_email, customer_mobile,
+          current_plan_id, current_plan_name, requested_plan_id, requested_plan_name,
+          request_type, message, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13, $13)
+         RETURNING id`,
         [
           normalizedLicenseKey,
-          customer_name || '',
-          email || '',
-          mobile || '',
-          subject || 'License Renewal Request',
-          message || '',
+          lic.product_id || '',
+          lic.product_name || '',
+          customerName,
+          finalEmail,
+          finalMobile,
+          finalCurrentPlanId,
+          finalCurrentPlanName,
+          finalRequestedPlanId,
+          finalRequestedPlanName,
           requestType,
-          selected_plan_id || '',
-          selected_plan_name || '',
-          currentPlan,
-          licenseResult.rows.length > 0 ? licenseResult.rows[0].product_id : '',
+          message || '',
           nowISO,
         ]
       );
 
-      // Log to audit_logs
+      const requestId = dbResult.rows[0].id;
+
       await client.query(
         `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key, hardware_id)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           'license_renewal_request',
-          `Renewal request submitted: ${requestType === 'renew' ? 'Renew' : 'New License'} — ${customer_name || 'N/A'} (${email || 'N/A'}) | Plan: ${selected_plan_name || currentPlan || 'N/A'}`,
+          `Renewal request #${requestId} submitted: ${requestType === 'renew' ? 'Renew' : 'New License'} — ${customerName} (${finalEmail}) | Current: ${finalCurrentPlanName} -> Requested: ${finalRequestedPlanName || 'N/A'}`,
           nowISO,
           request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
           normalizedLicenseKey,
@@ -99,30 +111,36 @@ export async function POST(request: NextRequest) {
 
       client.release();
 
-      // Send email to support
+      const emailSubject = `[Renewal Request] ${lic.product_name || 'Product'} - ${customerName}`;
+      const emailBody = `
+License Key:
+${normalizedLicenseKey}
+
+Customer:
+${customerName}
+
+Email:
+${finalEmail}
+
+Current Plan:
+${finalCurrentPlanName || 'N/A'}
+
+Requested Plan:
+${finalRequestedPlanName || 'N/A'}
+
+Request Type:
+${requestType === 'renew' ? 'Renew' : 'New'}
+
+Message:
+${message || 'N/A'}
+
+Created:
+${todayDate}
+      `.trim();
+
       let emailSent = false;
       if (BREVO_API_KEY) {
         try {
-          const emailBody = `
-Renewal Request Received
-========================
-
-Request Type: ${requestType === 'renew' ? 'Renew Existing License' : 'Request New License'}
-License Key: ${normalizedLicenseKey}
-Customer Name: ${customer_name || 'N/A'}
-Customer Email: ${email || 'N/A'}
-Customer Mobile: ${mobile || 'N/A'}
-Current Plan: ${currentPlan || 'N/A'}
-Requested Plan: ${selected_plan_name || currentPlan || 'N/A'}
-
-Message:
-${message || 'No additional details provided.'}
-
----
-Submitted: ${nowISO}
-Source: Internal SDK Renewal Dialog
-          `.trim();
-
           const response = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
@@ -132,7 +150,7 @@ Source: Internal SDK Renewal Dialog
             body: JSON.stringify({
               sender: { name: SENDER_NAME, email: SENDER_EMAIL },
               to: [{ email: SUPPORT_EMAIL, name: 'Websmith Support' }],
-              subject: subject || 'License Renewal Request',
+              subject: emailSubject,
               textContent: emailBody,
               htmlContent: `<pre style="font-family: monospace; white-space: pre-wrap;">${emailBody}</pre>`,
             }),
@@ -151,12 +169,14 @@ Source: Internal SDK Renewal Dialog
       return NextResponse.json({
         success: true,
         message: emailSent
-          ? 'Your renewal request has been sent to Websmith Digital.'
-          : 'Your renewal request has been logged. Email service is currently unavailable — support will follow up.',
+          ? 'Renewal request submitted successfully.'
+          : 'Renewal request submitted. Email service is currently unavailable — support will follow up.',
+        request_id: `REQ-${String(requestId).padStart(5, '0')}`,
         data: {
           license_key: normalizedLicenseKey,
           request_type: requestType,
-          selected_plan: selected_plan_name || currentPlan || '',
+          current_plan: finalCurrentPlanName,
+          requested_plan: finalRequestedPlanName,
           email_sent: emailSent,
           support_email: SUPPORT_EMAIL,
         },

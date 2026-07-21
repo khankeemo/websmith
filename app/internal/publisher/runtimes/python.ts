@@ -265,56 +265,31 @@ class ApiClient:
             return {'success': False, 'error': str(e)}
 
     def get_available_plans(self, license_key: str) -> Dict[str, Any]:
-        import requests as _requests
         payload: Dict[str, Any] = {'license_key': license_key}
-        api_path = f"/api/{self.api_version}/license/verify-renewal"
-        headers = self._sign_request(payload, method='POST', path=api_path, query='')
-        headers['Content-Type'] = 'application/json'
-        url = f"{self.base_url}{api_path}"
-        try:
-            resp = _requests.post(url, json=payload, headers=headers, timeout=self.timeout)
-            if resp.status_code == 200:
-                data = resp.json()
-                plans = data.get('available_plans', [])
-                return {
-                    'success': True,
-                    'product': {'id': data.get('product_id', ''), 'name': data.get('product_name', '')},
-                    'current_plan': {'id': data.get('plan_id', ''), 'name': data.get('plan', '')},
-                    'plans': plans,
-                }
-            return {'success': False, 'plans': []}
-        except Exception:
-            return {'success': False, 'plans': []}
+        return self._request('license/available-plans', payload)
 
     def send_renewal_request(self, license_key: str, customer_name: str = '',
-                             email: str = '', mobile: str = '',
-                             subject: str = '', message: str = '',
-                             request_type: str = 'renew',
-                             selected_plan_id: str = '',
-                             selected_plan_name: str = '') -> Dict[str, Any]:
-        import requests as _requests
+                             customer_email: str = '', customer_mobile: str = '',
+                             message: str = '', request_type: str = 'renew',
+                             current_plan_id: str = '', current_plan_name: str = '',
+                             requested_plan_id: str = '', requested_plan_name: str = '') -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             'license_key': license_key,
             'customer_name': customer_name,
-            'email': email,
-            'mobile': mobile,
-            'subject': subject,
+            'customer_email': customer_email,
+            'customer_mobile': customer_mobile,
             'message': message,
             'request_type': request_type,
         }
-        if selected_plan_id:
-            payload['selected_plan_id'] = selected_plan_id
-        if selected_plan_name:
-            payload['selected_plan_name'] = selected_plan_name
-        url = f"{self.base_url}/internal/backend/licenses/renewal-request"
-        try:
-            resp = _requests.post(url, json=payload, timeout=self.timeout)
-            if resp.status_code == 200:
-                return resp.json()
-            data = resp.json() if resp.text else {}
-            return {'success': False, 'error': data.get('error', f'HTTP {resp.status_code}')}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        if current_plan_id:
+            payload['current_plan_id'] = current_plan_id
+        if current_plan_name:
+            payload['current_plan_name'] = current_plan_name
+        if requested_plan_id:
+            payload['requested_plan_id'] = requested_plan_id
+        if requested_plan_name:
+            payload['requested_plan_name'] = requested_plan_name
+        return self._request('license/send-renewal-request', payload)
 
     def get_products(self) -> Dict[str, Any]:
         import requests as _requests
@@ -1101,14 +1076,20 @@ class LicenseEngine:
     def get_license_details(self, license_key: str) -> Dict[str, Any]:
         return self._client.get_license_details(license_key)
 
+    def get_available_plans(self, license_key: str) -> Dict[str, Any]:
+        return self._client.get_available_plans(license_key)
+
     def send_renewal_request(self, license_key: str, customer_name: str = '',
-                             email: str = '', mobile: str = '',
-                             subject: str = '', message: str = '',
-                             request_type: str = 'renew') -> Dict[str, Any]:
+                             customer_email: str = '', customer_mobile: str = '',
+                             message: str = '', request_type: str = 'renew',
+                             current_plan_id: str = '', current_plan_name: str = '',
+                             requested_plan_id: str = '', requested_plan_name: str = '') -> Dict[str, Any]:
         return self._client.send_renewal_request(
             license_key=license_key, customer_name=customer_name,
-            email=email, mobile=mobile, subject=subject,
+            customer_email=customer_email, customer_mobile=customer_mobile,
             message=message, request_type=request_type,
+            current_plan_id=current_plan_id, current_plan_name=current_plan_name,
+            requested_plan_id=requested_plan_id, requested_plan_name=requested_plan_name,
         )
 `,
     'activation.py': `"""Activation Dialog - standalone license activation window"""
@@ -2359,6 +2340,7 @@ class RenewLicenseDialog:
         self._license_data: Dict[str, Any] = {}
         self._plans: list = []
         self._selected_plan: Optional[Dict[str, Any]] = None
+        self._current_plan: Optional[Dict[str, Any]] = None
 
         branding = self.config.get('branding', {})
         self._colors = branding.get('colors', {})
@@ -2372,7 +2354,6 @@ class RenewLicenseDialog:
         self._border = self._colors.get('border', '#dbe3ef')
         self._success = self._colors.get('success', '#16a34a')
         self._error = self._colors.get('error', '#dc2626')
-        self._support_email = branding.get('support_email', 'support@websmithdigital.com')
 
     def show(self) -> Optional[Dict[str, Any]]:
         if not self._parent:
@@ -2539,22 +2520,9 @@ class RenewLicenseDialog:
                  font=('Helvetica', 12, 'bold'),
                  bg=self._card_bg, fg=self._text).pack(anchor=tk.W, pady=(0, 10))
 
-        row = tk.Frame(inner, bg=self._card_bg)
-        row.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(row, text='To:', font=('Helvetica', 10, 'bold'),
-                 bg=self._card_bg, fg=self._text_sec, width=14, anchor=tk.W).pack(side=tk.LEFT)
-        tk.Label(row, text=self._support_email,
-                 font=('Helvetica', 11, 'bold'),
-                 bg=self._card_bg, fg=self._primary).pack(side=tk.LEFT)
-
-        row = tk.Frame(inner, bg=self._card_bg)
-        row.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(row, text='Subject:', font=('Helvetica', 10, 'bold'),
-                 bg=self._card_bg, fg=self._text_sec, width=14, anchor=tk.W).pack(side=tk.LEFT)
-        self._var_subject = tk.StringVar(value='License Renewal Request')
-        tk.Label(row, textvariable=self._var_subject,
-                 font=('Helvetica', 11),
-                 bg=self._card_bg, fg=self._text).pack(side=tk.LEFT)
+        tk.Label(inner, text='Your request will be sent to Websmith Digital support.',
+                 font=('Helvetica', 10),
+                 bg=self._card_bg, fg=self._text_sec).pack(anchor=tk.W, pady=(0, 8))
 
         tk.Label(inner, text='Request Type',
                  font=('Helvetica', 10, 'bold'),
@@ -2676,8 +2644,8 @@ class RenewLicenseDialog:
                     self.root.after(0, lambda: self._verify_failed(msg))
                     return
 
-                details_resp = client.get_license_details(key)
-                data = {**verify_resp, **details_resp}
+                plans_resp = client.get_available_plans(key)
+                data = {**verify_resp, 'plans_data': plans_resp}
                 self.root.after(0, lambda: self._verify_success(data))
 
             except Exception as exc:
@@ -2686,14 +2654,39 @@ class RenewLicenseDialog:
         threading.Thread(target=_do_verify, daemon=True).start()
 
     def _load_plans(self):
-        plans = self._license_data.get('available_plans', [])
+        plans_data = self._license_data.get('plans_data', {})
+        plans = plans_data.get('plans', [])
+        curr_plan = plans_data.get('current_plan', {})
+        curr_plan_id = curr_plan.get('id') if isinstance(curr_plan, dict) else None
+        curr_plan_name = curr_plan.get('name') if isinstance(curr_plan, dict) else ''
+        if isinstance(curr_plan_id, str) and curr_plan_id and curr_plan_id.isdigit():
+            curr_plan_id = int(curr_plan_id)
+        self._current_plan = curr_plan
         if plans:
             self._plans = plans
-            plan_names = [p.get('name', f'Plan {i+1}') for i, p in enumerate(plans)]
-            self._plan_dropdown['values'] = plan_names
+            plan_labels = []
+            for p in plans:
+                dur = p.get('duration_days', p.get('default_expiry_days', 365))
+                devices = p.get('max_devices', 1)
+                plan_labels.append(f"{p.get('name', '')} ({dur} days, {devices} devices)")
+            self._plan_dropdown['values'] = plan_labels
             self._plan_dropdown['state'] = 'readonly'
-            self._var_plan_name.set('')
-            self._selected_plan = None
+            auto_idx = -1
+            for i, p in enumerate(plans):
+                pid = p.get('id')
+                if isinstance(pid, str) and pid.isdigit():
+                    pid = int(pid)
+                if pid is not None and curr_plan_id is not None and pid == curr_plan_id:
+                    auto_idx = i
+                    break
+                if str(p.get('name', '')).lower() == str(curr_plan_name).lower():
+                    auto_idx = i
+            if auto_idx >= 0:
+                self._plan_dropdown.current(auto_idx)
+                self._selected_plan = plans[auto_idx]
+            else:
+                self._var_plan_name.set('')
+                self._selected_plan = plans[0] if plans else None
         else:
             self._plans = []
             self._plan_dropdown['values'] = []
@@ -2704,7 +2697,10 @@ class RenewLicenseDialog:
     def _on_plan_selected(self, event=None):
         sel = self._var_plan_name.get()
         for p in self._plans:
-            if p.get('name') == sel:
+            dur = p.get('duration_days', p.get('default_expiry_days', 365))
+            devices = p.get('max_devices', 1)
+            label = f"{p.get('name', '')} ({dur} days, {devices} devices)"
+            if label == sel:
                 self._selected_plan = p
                 return
         self._selected_plan = None
@@ -2717,6 +2713,7 @@ class RenewLicenseDialog:
         self._status_label.config(fg=self._success)
         self._btn_verify.config(state=tk.NORMAL, text='Verify')
 
+        plans_data = data.get('plans_data', {})
         self._var_cust_name.set(data.get('customer_name', ''))
         self._var_email.set(data.get('email', data.get('customer_email', '')))
         self._var_mobile.set(data.get('mobile', data.get('customer_mobile', '')))
@@ -2743,6 +2740,7 @@ class RenewLicenseDialog:
         self._license_data = {}
         self._plans = []
         self._selected_plan = None
+        self._current_plan = None
         self._plan_dropdown['state'] = 'disabled'
         self._plan_dropdown['values'] = []
         self._var_plan_name.set('No plans available')
@@ -2758,7 +2756,6 @@ class RenewLicenseDialog:
         self._var_plan.set('--')
         self._var_lic_status.set('--')
         self._var_expiry.set('--')
-        self._var_subject.set('License Renewal Request')
         self._var_req_type.set('renew')
         self._msg_text.delete('1.0', tk.END)
         self._msg_text.insert(tk.END, 'Additional details...')
@@ -2766,6 +2763,7 @@ class RenewLicenseDialog:
         self._license_data = {}
         self._plans = []
         self._selected_plan = None
+        self._current_plan = None
         self._plan_dropdown['state'] = 'disabled'
         self._plan_dropdown['values'] = []
         self._var_plan_name.set('No plans available')
@@ -2783,7 +2781,6 @@ class RenewLicenseDialog:
         cust_name = self._var_cust_name.get().strip()
         email = self._var_email.get().strip()
         mobile = self._var_mobile.get().strip()
-        subject = self._var_subject.get().strip()
         msg = self._msg_text.get('1.0', tk.END).strip()
         req_type = self._var_req_type.get()
 
@@ -2800,11 +2797,18 @@ class RenewLicenseDialog:
 
         import threading
 
-        plan_id = ''
-        plan_name = ''
+        current_plan_id = ''
+        current_plan_name = ''
+        requested_plan_id = ''
+        requested_plan_name = ''
+
+        if self._current_plan and isinstance(self._current_plan, dict):
+            current_plan_id = str(self._current_plan.get('id', ''))
+            current_plan_name = self._current_plan.get('name', '')
+
         if self._selected_plan:
-            plan_id = str(self._selected_plan.get('id', ''))
-            plan_name = self._selected_plan.get('name', '')
+            requested_plan_id = str(self._selected_plan.get('id', ''))
+            requested_plan_name = self._selected_plan.get('name', '')
 
         def _do_send():
             try:
@@ -2815,13 +2819,14 @@ class RenewLicenseDialog:
                 resp = client.send_renewal_request(
                     license_key=key,
                     customer_name=cust_name,
-                    email=email,
-                    mobile=mobile,
-                    subject=subject,
+                    customer_email=email,
+                    customer_mobile=mobile,
                     message=msg,
                     request_type=req_type,
-                    selected_plan_id=plan_id,
-                    selected_plan_name=plan_name,
+                    current_plan_id=current_plan_id,
+                    current_plan_name=current_plan_name,
+                    requested_plan_id=requested_plan_id,
+                    requested_plan_name=requested_plan_name,
                 )
                 self.root.after(0, lambda: self._send_done(resp))
 
@@ -2833,10 +2838,11 @@ class RenewLicenseDialog:
     def _send_done(self, resp: Dict[str, Any]):
         self._btn_send.config(state=tk.NORMAL, text='Send Request')
         if resp.get('success'):
-            messagebox.showinfo('Sent',
-                                'Your renewal request has been sent to Websmith Digital.\\n'
-                                'You will receive a response shortly.',
-                                parent=self.root)
+            req_id = resp.get('request_id', '')
+            msg = 'Renewal request submitted successfully.\\n\\nYour request has been sent to Websmith Digital.'
+            if req_id:
+                msg += f'\\n\\nRequest ID:\\n{req_id}'
+            messagebox.showinfo('Sent', msg, parent=self.root)
             self.result = resp
             self._on_close()
         else:

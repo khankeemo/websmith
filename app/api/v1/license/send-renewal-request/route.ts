@@ -1,10 +1,3 @@
-// ============================================================
-// FILE: app/api/v1/license/send-renewal-request/route.ts
-// PURPOSE: Customer-facing renewal request — validates, emails support, audits
-// DATABASE: licenses, audit_logs
-// SECURITY: API Key + HMAC + Rate Limit + Audit
-// ============================================================
-
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { validateApiKey, validateProductMatch } from '@/lib/public-api/auth';
@@ -97,14 +90,20 @@ export async function POST(request: NextRequest) {
     const {
       license_key,
       customer_name,
+      customer_email,
+      customer_mobile,
       email,
       mobile,
-      subject,
       message,
       request_type,
+      current_plan_id,
+      current_plan_name,
+      requested_plan_id,
+      requested_plan_name,
       current_plan,
       selected_plan,
-      product_id,
+      selected_plan_id,
+      selected_plan_name,
     } = body;
 
     if (!license_key) {
@@ -124,13 +123,22 @@ export async function POST(request: NextRequest) {
     const normalizedLicenseKey = license_key.toUpperCase();
     const now = new Date();
     const nowISO = now.toISOString();
+    const todayDate = nowISO.split('T')[0];
+
+    const finalEmail = customer_email || email || '';
+    const finalMobile = customer_mobile || mobile || '';
+    const finalCurrentPlanId = current_plan_id || '';
+    const finalCurrentPlanName = current_plan_name || current_plan || '';
+    const finalRequestedPlanId = requested_plan_id || selected_plan_id || '';
+    const finalRequestedPlanName = requested_plan_name || selected_plan_name || selected_plan || '';
 
     client = await pool.connect();
 
-    // Verify license exists and product matches
     const licenseResult = await client.query(
-      `SELECT product_id, status, customer_name, customer_email
-       FROM licenses WHERE license_key = $1`,
+      `SELECT l.product_id, l.status, l.customer_name, l.customer_email, l.plan, p.name as product_name
+       FROM licenses l
+       LEFT JOIN products p ON l.product_id = p.product_id
+       WHERE l.license_key = $1`,
       [normalizedLicenseKey]
     );
 
@@ -157,7 +165,6 @@ export async function POST(request: NextRequest) {
 
     const lic = licenseResult.rows[0];
 
-    // Product isolation
     try {
       await validateProductMatch(productId, lic.product_id);
     } catch (productError: any) {
@@ -172,32 +179,78 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    // Build email content
-    const reqTypeLabel = request_type === 'renew' ? 'Renew Existing License' : 'Request New License';
-    const emailSubject = subject || 'License Renewal Request';
-    const emailBody = `
-Renewal Request Received
-========================
+    const reqTypeLabel = request_type === 'renew' ? 'Renew' : 'New';
+    const customerName = customer_name || lic.customer_name || 'N/A';
 
-Request Type: ${reqTypeLabel}
-License Key: ${normalizedLicenseKey}
-Customer Name: ${customer_name || 'N/A'}
-Customer Email: ${email || 'N/A'}
-Customer Mobile: ${mobile || 'N/A'}
-Current Plan: ${current_plan || 'N/A'}
-Requested Plan: ${selected_plan || (current_plan || 'N/A')}
-Product ID: ${product_id || 'N/A'}
+    const dbResult = await client.query(
+      `INSERT INTO renewal_requests
+       (license_key, product_id, product_name, customer_name, customer_email, customer_mobile,
+        current_plan_id, current_plan_name, requested_plan_id, requested_plan_name,
+        request_type, message, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13, $13)
+       RETURNING id`,
+      [
+        normalizedLicenseKey,
+        lic.product_id,
+        lic.product_name || '',
+        customerName,
+        finalEmail,
+        finalMobile,
+        finalCurrentPlanId,
+        finalCurrentPlanName || lic.plan || '',
+        finalRequestedPlanId,
+        finalRequestedPlanName || '',
+        request_type,
+        message || '',
+        nowISO,
+      ]
+    );
+
+    const requestId = dbResult.rows[0].id;
+
+    await client.query(
+      `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key, hardware_id)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        'license_renewal_request',
+        `Renewal request #${requestId} submitted: ${reqTypeLabel} — ${customerName} (${finalEmail}) | Current: ${finalCurrentPlanName || 'N/A'} -> Requested: ${finalRequestedPlanName || 'N/A'}`,
+        nowISO,
+        ipAddress,
+        normalizedLicenseKey,
+        ''
+      ]
+    );
+
+    client.release();
+    client = null;
+
+    const emailSubject = `[Renewal Request] ${lic.product_name || 'Product'} - ${customerName}`;
+    const emailBody = `
+License Key:
+${normalizedLicenseKey}
+
+Customer:
+${customerName}
+
+Email:
+${finalEmail}
+
+Current Plan:
+${finalCurrentPlanName || 'N/A'}
+
+Requested Plan:
+${finalRequestedPlanName || 'N/A'}
+
+Request Type:
+${reqTypeLabel}
 
 Message:
-${message || 'No additional details provided.'}
+${message || 'N/A'}
 
----
-Submitted: ${nowISO}
-IP Address: ${ipAddress}
-Source: SDK Renewal Dialog
+Created:
+${todayDate}
     `.trim();
 
-    // Send email to support
     let emailSent = false;
     if (BREVO_API_KEY) {
       try {
@@ -226,24 +279,6 @@ Source: SDK Renewal Dialog
       }
     }
 
-    // Audit log
-    await client.query(
-      `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key, hardware_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        'license_renewal_request',
-        `Renewal request submitted: ${reqTypeLabel} — ${customer_name || 'N/A'} (${email || 'N/A'}) | Current: ${current_plan || 'N/A'} -> Requested: ${selected_plan || (current_plan || 'N/A')}`,
-        nowISO,
-        ipAddress,
-        normalizedLicenseKey,
-        ''
-      ]
-    );
-
-    client.release();
-    client = null;
-
-    // Log success
     await logRequest({
       apiKeyId,
       endpoint: '/api/v1/license/send-renewal-request',
@@ -258,13 +293,14 @@ Source: SDK Renewal Dialog
     return NextResponse.json({
       success: true,
       message: emailSent
-        ? 'Your renewal request has been sent to Websmith Digital.'
-        : 'Your renewal request has been logged. Email service is currently unavailable — support will follow up.',
+        ? 'Renewal request submitted successfully.'
+        : 'Renewal request submitted. Email service is currently unavailable — support will follow up.',
+      request_id: `REQ-${String(requestId).padStart(5, '0')}`,
       data: {
         license_key: normalizedLicenseKey,
         request_type,
-        current_plan: current_plan || '',
-        selected_plan: selected_plan || current_plan || '',
+        current_plan: finalCurrentPlanName,
+        requested_plan: finalRequestedPlanName,
         email_sent: emailSent,
         support_email: SUPPORT_EMAIL,
       }

@@ -1176,6 +1176,11 @@ export async function getDb(): Promise<Pool> {
     // Trial templates migrations
     try { await client.query(`ALTER TABLE trial_templates ADD COLUMN IF NOT EXISTS is_system_default BOOLEAN DEFAULT FALSE`); } catch (e) {}
     try { await client.query(`ALTER TABLE trial_templates ADD COLUMN IF NOT EXISTS max_devices INTEGER DEFAULT 1`); } catch (e) {}
+    // Renewal requests migrations
+    try { await client.query(`ALTER TABLE renewal_requests ADD COLUMN IF NOT EXISTS product_name TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE renewal_requests ADD COLUMN IF NOT EXISTS current_plan_id TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE renewal_requests ADD COLUMN IF NOT EXISTS customer_email TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE renewal_requests ADD COLUMN IF NOT EXISTS customer_mobile TEXT`); } catch (e) {}
 
     // ============================================================
     // CREATE ALL INDEXES
