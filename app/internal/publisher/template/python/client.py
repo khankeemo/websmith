@@ -278,7 +278,6 @@ class ApiClient:
                              request_type: str = 'renew',
                              selected_plan_id: str = '',
                              selected_plan_name: str = '') -> Dict[str, Any]:
-        import requests as _requests
         payload: Dict[str, Any] = {
             'license_key': license_key,
             'customer_name': customer_name,
@@ -292,15 +291,7 @@ class ApiClient:
             payload['selected_plan_id'] = selected_plan_id
         if selected_plan_name:
             payload['selected_plan_name'] = selected_plan_name
-        url = f"{self.base_url}/internal/backend/licenses/renewal-request"
-        try:
-            resp = _requests.post(url, json=payload, timeout=self.timeout)
-            if resp.status_code == 200:
-                return resp.json()
-            data = resp.json() if resp.text else {}
-            return {'success': False, 'error': data.get('error', f'HTTP {resp.status_code}')}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return self._request('license/send-renewal-request', payload)
 
     def update_customer(self, name: str, email: str, phone: str,
                          hardware_id: Optional[str] = None) -> Dict[str, Any]:
