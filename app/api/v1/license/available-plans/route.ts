@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     }
 
     const plansResult = await client.query(
-      `SELECT id, name, duration_days, default_expiry_days, max_devices, price
+      `SELECT id, name, default_expiry_days, max_devices, price
        FROM plans
        WHERE product_id = $1 AND is_active = TRUE
        ORDER BY name ASC`,
@@ -157,10 +157,13 @@ export async function POST(request: NextRequest) {
     const plans = plansResult.rows.map((p: any) => ({
       id: p.id,
       name: p.name || '',
-      duration_days: p.duration_days || p.default_expiry_days || 365,
+      duration_days: p.default_expiry_days || 365,
       max_devices: p.max_devices || 1,
       price: p.price || 0,
     }));
+
+    client.release();
+    client = null;
 
     await logRequest({
       apiKeyId,

@@ -202,28 +202,31 @@ export async function POST(request: NextRequest) {
     const valid = lic.status !== 'revoked';
 
     // Fetch available plans for this product
-    let availablePlans: Array<{id: string; name: string; duration: string}> = [];
+    let availablePlans: Array<{id: string; name: string; duration: string; is_current_plan: boolean}> = [];
     try {
       const plansResult = await client.query(
-        `SELECT id, name, default_expiry_days, duration_days
+        `SELECT id, name, default_expiry_days
          FROM plans
          WHERE product_id = $1 AND is_active = TRUE
          ORDER BY name ASC`,
         [lic.product_id]
       );
+      const currentPlanId = lic.plan_id ? Number(lic.plan_id) : null;
       availablePlans = plansResult.rows.map((p: any) => ({
         id: String(p.id),
         name: p.name || '',
-        duration: p.duration_days
-          ? `${p.duration_days} Days`
-          : p.default_expiry_days
-            ? `${p.default_expiry_days} Days`
-            : 'Lifetime',
+        duration: p.default_expiry_days
+          ? `${p.default_expiry_days} Days`
+          : 'Lifetime',
+        is_current_plan: currentPlanId !== null && Number(p.id) === currentPlanId,
       }));
     } catch (e) {
       // Non-fatal: available plans won't be included
       console.warn('Failed to fetch available plans for renewal:', e);
     }
+
+    client.release();
+    client = null;
 
     // Log success
     await logRequest({

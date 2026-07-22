@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       const dbResult = await client.query(
         `INSERT INTO renewal_requests
          (license_key, product_id, product_name, customer_name, customer_email, customer_mobile,
-          current_plan_id, current_plan_name, requested_plan_id, requested_plan_name,
+          current_plan_id, current_plan_name, selected_plan_id, selected_plan_name,
           request_type, message, status, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13, $13)
          RETURNING id`,

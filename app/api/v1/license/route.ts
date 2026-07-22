@@ -340,6 +340,32 @@ export async function POST(request: NextRequest) {
           }, { status: 403 });
         }
 
+        if (computedStatus === 'Inactive') {
+          client.release();
+          client = null;
+          return NextResponse.json({
+            success: false,
+            error: {
+              code: 'LICENSE_INACTIVE',
+              message: 'Your license is inactive. Please contact support: support@websmithdigital.com',
+              inactive_reason: licenseData.inactive_reason || 'License Deactivated'
+            }
+          }, { status: 403 });
+        }
+
+        if (computedStatus === 'Deleted') {
+          client.release();
+          client = null;
+          return NextResponse.json({
+            success: false,
+            error: {
+              code: 'LICENSE_DELETED',
+              message: 'Your license is inactive. Please contact support: support@websmithdigital.com',
+              inactive_reason: 'License Deleted'
+            }
+          }, { status: 403 });
+        }
+
         // Check raw expiry
         const expiryDate = new Date(licenseData.expiry_date);
         if (expiryDate < now) {
