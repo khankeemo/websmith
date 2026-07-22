@@ -1238,6 +1238,7 @@ class ActivationDialog:
         self._trial_data: Optional[Dict[str, Any]] = None
         self._activated: bool = False
         self._cancelled: bool = False
+        self._restart_requested: bool = False
         self._customer_data: Dict[str, str] = {}
         self._customer_name_var = tk.StringVar(value='')
         self._customer_email_var = tk.StringVar(value='')
@@ -1291,6 +1292,7 @@ class ActivationDialog:
             'activated': self._activated,
             'cancelled': self._cancelled,
             'license_key': self._license_key,
+            'restart_requested': self._restart_requested,
         }
 
     def _center_window(self):
@@ -1914,6 +1916,13 @@ class ActivationDialog:
                 self._device_limit_var.set(f'{dcount} / {max_dev}')
                 self.cache.save_license_key(license_key)
                 self.cache.invalidate_license_status()
+                restart = messagebox.askyesno(
+                    'Activation Successful',
+                    'License activated successfully.\\n\\n'
+                    'Restart the application now to apply the changes?',
+                    parent=self._root
+                )
+                self._restart_requested = restart
                 self._root.destroy()
             else:
                 err = result.get('message', result.get('error', 'Activation failed'))
@@ -2897,27 +2906,35 @@ class RenewLicenseDialog:
 
         body = '\\n'.join(body_lines)
 
-        self._compose_email(self._support_email, subject, body)
+        if self._compose_email(self._support_email, subject, body):
+            messagebox.showinfo(
+                'Request Sent',
+                'Your email client has been opened with a pre-composed renewal request.\\n\\n'
+                'Please review and send the email to complete your request.',
+                parent=self.root
+            )
+            self.result = {'success': True, 'message': 'Email compose opened'}
+            self._on_close()
 
-        messagebox.showinfo(
-            'Request Sent',
-            'Your email client has been opened with a pre-composed renewal request.\\n\\n'
-            'Please review and send the email to complete your request.',
-            parent=self.root
-        )
-        self.result = {'success': True, 'message': 'Email compose opened'}
-        self._on_close()
-
-    def _compose_email(self, to: str, subject: str, body: str):
+    def _compose_email(self, to: str, subject: str, body: str) -> bool:
         encoded_subject = urllib.parse.quote(subject)
         encoded_body = urllib.parse.quote(body)
         mailto_url = f'mailto:{to}?subject={encoded_subject}&body={encoded_body}'
         try:
-            webbrowser.open(mailto_url)
+            opened = webbrowser.open(mailto_url)
+            if not opened:
+                messagebox.showerror(
+                    'Email Client Error',
+                    f'Could not open your email client.\\n\\nPlease manually send an email to:\\n{to}\\n\\nSubject: {subject}',
+                    parent=self.root
+                )
+                return False
+            return True
         except Exception as e:
             messagebox.showerror('Error',
                                  f'Failed to open email client:\\n{e}',
                                  parent=self.root)
+            return False
 `,
     'device_replace.py': `"""Device Replacement Dialog for ${context.productName}"""
 import threading

@@ -581,24 +581,32 @@ class RenewLicenseDialog:
 
         body = '\n'.join(body_lines)
 
-        self._compose_email(self._support_email, subject, body)
+        if self._compose_email(self._support_email, subject, body):
+            messagebox.showinfo(
+                'Request Sent',
+                'Your email client has been opened with a pre-composed renewal request.\n\n'
+                'Please review and send the email to complete your request.',
+                parent=self.root
+            )
+            self.result = {'success': True, 'message': 'Email compose opened'}
+            self._on_close()
 
-        messagebox.showinfo(
-            'Request Sent',
-            'Your email client has been opened with a pre-composed renewal request.\n\n'
-            'Please review and send the email to complete your request.',
-            parent=self.root
-        )
-        self.result = {'success': True, 'message': 'Email compose opened'}
-        self._on_close()
-
-    def _compose_email(self, to: str, subject: str, body: str):
+    def _compose_email(self, to: str, subject: str, body: str) -> bool:
         encoded_subject = urllib.parse.quote(subject)
         encoded_body = urllib.parse.quote(body)
         mailto_url = f'mailto:{to}?subject={encoded_subject}&body={encoded_body}'
         try:
-            webbrowser.open(mailto_url)
+            opened = webbrowser.open(mailto_url)
+            if not opened:
+                messagebox.showerror(
+                    'Email Client Error',
+                    f'Could not open your email client.\n\nPlease manually send an email to:\n{to}\n\nSubject: {subject}',
+                    parent=self.root
+                )
+                return False
+            return True
         except Exception as e:
             messagebox.showerror('Error',
                                  f'Failed to open email client:\n{e}',
                                  parent=self.root)
+            return False

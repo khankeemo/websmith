@@ -149,6 +149,7 @@ class ActivationDialog:
         self._trial_data: Optional[Dict[str, Any]] = None
         self._activated: bool = False
         self._cancelled: bool = False
+        self._restart_requested: bool = False
         self._customer_data: Dict[str, str] = {}
         self._customer_name_var = tk.StringVar(value='')
         self._customer_email_var = tk.StringVar(value='')
@@ -202,6 +203,7 @@ class ActivationDialog:
             'activated': self._activated,
             'cancelled': self._cancelled,
             'license_key': self._license_key,
+            'restart_requested': self._restart_requested,
         }
 
     def _center_window(self):
@@ -825,6 +827,13 @@ class ActivationDialog:
                 self._device_limit_var.set(f'{dcount} / {max_dev}')
                 self.cache.save_license_key(license_key)
                 self.cache.invalidate_license_status()
+                restart = messagebox.askyesno(
+                    'Activation Successful',
+                    'License activated successfully.\n\n'
+                    'Restart the application now to apply the changes?',
+                    parent=self._root
+                )
+                self._restart_requested = restart
                 self._root.destroy()
             else:
                 err = result.get('message', result.get('error', 'Activation failed'))
