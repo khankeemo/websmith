@@ -1070,7 +1070,7 @@ class LicenseEngine:
     def get_available_plans(self, license_key: str) -> Dict[str, Any]:
         return self._client.get_available_plans(license_key)
 `,
-    'universal_email_dialog.py': `f'''"""Universal Email Dialog - reusable email form for all request types"""
+    'universal_email_dialog.py': `"""Universal Email Dialog - reusable email form for all request types"""
 import json
 import os
 import tkinter as tk
@@ -1081,8 +1081,8 @@ from .client import ApiClient
 from .hardware import HardwareDetector
 from .cache import CacheManager
 
-SDK_VERSION = "{context.kitVersion}"
-RUNTIME_TYPE = "{context.runtime}"
+SDK_VERSION = "${context.kitVersion}"
+RUNTIME_TYPE = "${context.runtime}"
 SUPPORT_EMAIL = "support@websmithdigital.com"
 
 REQUEST_TYPES = [
@@ -1310,7 +1310,7 @@ class UniversalEmailDialog:
             self._send_btn.config(state="normal", text="Send Request")
 `,
 
-    'universal_license_center.py': `f'''"""Universal License Center - unified customer interface for all license operations"""
+    'universal_license_center.py': `"""Universal License Center - unified customer interface for all license operations"""
 import json
 import os
 import platform
@@ -1326,8 +1326,8 @@ from .hardware import HardwareDetector
 from .cache import CacheManager
 from .universal_email_dialog import UniversalEmailDialog
 
-SDK_VERSION = "{context.kitVersion}"
-RUNTIME_TYPE = "{context.runtime}"
+SDK_VERSION = "${context.kitVersion}"
+RUNTIME_TYPE = "${context.runtime}"
 SUPPORT_EMAIL = "support@websmithdigital.com"
 
 
