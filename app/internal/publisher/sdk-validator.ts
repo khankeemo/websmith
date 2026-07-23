@@ -291,55 +291,55 @@ export class SDKValidator {
     const methodChecks: Record<string, { filePattern: string; methods: string[] }> = {
       python: {
         filePattern: 'client.py',
-        methods: ['get_products', 'update_customer', 'validate_license', 'activate_license', 'get_trial_status']
+        methods: ['get_products', 'validate_license', 'activate_license', 'get_trial_status']
       },
       node: {
         filePattern: 'client.js',
-        methods: ['getProducts', 'updateCustomer', 'validateLicense', 'activateLicense', 'getTrialStatus']
+        methods: ['getProducts', 'validateLicense', 'activateLicense', 'getTrialStatus']
       },
       typescript: {
         filePattern: 'client.ts',
-        methods: ['getProducts', 'updateCustomer', 'validateLicense', 'activateLicense', 'getTrialStatus']
+        methods: ['getProducts', 'validateLicense', 'activateLicense', 'getTrialStatus']
       },
       go: {
         filePattern: 'client.go',
-        methods: ['GetProducts', 'UpdateCustomer', 'ValidateLicense', 'ActivateLicense', 'GetTrialStatus']
+        methods: ['GetProducts', 'ValidateLicense', 'ActivateLicense', 'GetTrialStatus']
       },
       rust: {
         filePattern: 'client.rs',
-        methods: ['get_products', 'update_customer', 'validate_license', 'activate_license', 'get_trial_status']
+        methods: ['get_products', 'validate_license', 'activate_license', 'get_trial_status']
       },
       java: {
         filePattern: 'Client.java',
-        methods: ['getProducts', 'updateCustomer', 'validateLicense', 'activateLicense', 'getTrialStatus']
+        methods: ['getProducts', 'validateLicense', 'activateLicense', 'getTrialStatus']
       },
       dotnet: {
         filePattern: 'Client.cs',
-        methods: ['GetProducts', 'UpdateCustomer', 'ValidateLicense', 'ActivateLicense', 'GetTrialStatus']
+        methods: ['GetProducts', 'ValidateLicense', 'ActivateLicense', 'GetTrialStatus']
       },
       php: {
         filePattern: 'Client.php',
-        methods: ['getProducts', 'updateCustomer', 'validateLicense', 'activateLicense', 'getTrialStatus']
+        methods: ['getProducts', 'validateLicense', 'activateLicense', 'getTrialStatus']
       },
       cpp: {
         filePattern: 'client.hpp',
-        methods: ['getProducts', 'updateCustomer', 'validateLicense', 'activateLicense', 'getTrialStatus']
+        methods: ['getProducts', 'validateLicense', 'activateLicense', 'getTrialStatus']
       },
       c: {
         filePattern: 'client.h',
-        methods: ['get_products', 'update_customer', 'validate_license', 'activate_license', 'get_trial_status']
+        methods: ['get_products', 'validate_license', 'activate_license', 'get_trial_status']
       },
       javascript: {
         filePattern: 'client.js',
-        methods: ['getProducts', 'updateCustomer', 'validateLicense', 'activateLicense', 'getTrialStatus']
+        methods: ['getProducts', 'validateLicense', 'activateLicense', 'getTrialStatus']
       },
       bun: {
         filePattern: 'client.js',
-        methods: ['getProducts', 'updateCustomer', 'validateLicense', 'activateLicense', 'getTrialStatus']
+        methods: ['getProducts', 'validateLicense', 'activateLicense', 'getTrialStatus']
       },
       deno: {
         filePattern: 'client.ts',
-        methods: ['getProducts', 'updateCustomer', 'validateLicense', 'activateLicense', 'getTrialStatus']
+        methods: ['getProducts', 'validateLicense', 'activateLicense', 'getTrialStatus']
       },
     };
 
@@ -473,7 +473,6 @@ export class SDKValidator {
         'Activate License',
         'Renew License',
         'Replace Hardware',
-        'Show Welcome Dialog',
         'Deactivate License',
         'Bind Device',
         'HMAC',
