@@ -132,6 +132,37 @@ const MIGRATIONS: { filename: string; sql: string }[] = [
       ALTER TABLE trials ADD COLUMN IF NOT EXISTS activation_source TEXT DEFAULT 'sdk_onboarding';
     `
   },
+  {
+    filename: '008_reactivation_requests.sql',
+    sql: `
+      CREATE TABLE IF NOT EXISTS reactivation_requests (
+        id SERIAL PRIMARY KEY,
+        license_key TEXT NOT NULL,
+        customer_name TEXT,
+        customer_email TEXT,
+        customer_phone TEXT,
+        customer_mobile TEXT,
+        hardware_id TEXT,
+        product_id TEXT,
+        product_name TEXT,
+        plan TEXT,
+        new_customer_name TEXT,
+        new_customer_email TEXT,
+        new_customer_phone TEXT,
+        new_hardware_id TEXT,
+        reason TEXT,
+        status TEXT DEFAULT 'pending',
+        admin_notes TEXT,
+        admin_actioned_at TIMESTAMP,
+        actioned_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_reactivation_requests_license_key ON reactivation_requests(license_key);
+      CREATE INDEX IF NOT EXISTS idx_reactivation_requests_status ON reactivation_requests(status);
+      CREATE INDEX IF NOT EXISTS idx_reactivation_requests_created_at ON reactivation_requests(created_at DESC);
+    `
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

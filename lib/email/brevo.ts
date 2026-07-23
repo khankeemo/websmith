@@ -475,7 +475,67 @@ The WebSmith Team`
   },
 
   // ================================================================
-  // 13. ADMIN NOTIFICATION
+  // 14. REACTIVATION APPROVED
+  // ================================================================
+  reactivation_approved: {
+    subject: 'Your License Reactivation Has Been Approved',
+    defaultBody: (d) => wrapHtml('Reactivation Approved', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Your license reactivation request has been <strong style="color:#16a34a">approved</strong>. Your license is now active again.</p>
+      ${infoTable([
+        { label: 'Product', value: d.product_name || 'N/A' },
+        { label: 'Plan', value: d.plan_name || 'N/A' },
+        { label: 'License Key', value: `<code style="background:#eef2f7;padding:2px 8px;border-radius:4px;font-size:13px">${d.license_key || 'N/A'}</code>` },
+        { label: 'Expiry Date', value: d.expiry_date || 'No expiry' },
+      ].filter(r => r.value !== 'N/A'))}
+      <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">Please open your application and activate it using the license key above. You may need to restart the application for the changes to take effect.</p>
+      ${btn('Open Application', d.website ? `${d.website}/license/reactivation` : '#')}
+      <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">If you have any questions, please contact our support team.</p>
+    `),
+    defaultPlainText: (d) => `Hello ${d.customer_name || 'there'},
+
+Your license reactivation request has been approved. Your license is now active again.
+
+Product: ${d.product_name || 'N/A'}
+Plan: ${d.plan_name || 'N/A'}
+License Key: ${d.license_key || 'N/A'}
+Expiry Date: ${d.expiry_date || 'No expiry'}
+
+Please open your application and activate it using the license key above. You may need to restart the application for the changes to take effect.
+
+If you have any questions, please contact our support team.
+
+Best regards,
+The WebSmith Team`
+  },
+
+  // ================================================================
+  // 15. REACTIVATION REJECTED
+  // ================================================================
+  reactivation_rejected: {
+    subject: 'Your License Reactivation Request Was Not Approved',
+    defaultBody: (d) => wrapHtml('Reactivation Rejected', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Your license reactivation request for <strong style="color:#1a1a2e">${d.product_name || 'your software'}</strong> could not be approved at this time.</p>
+      ${d.admin_message ? `<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#991b1b;line-height:1.6">${d.admin_message}</div>` : ''}
+      <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">If you believe this is an error or need further assistance, please contact our support team and we will be happy to help.</p>
+      <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">We apologize for the inconvenience.</p>
+    `),
+    defaultPlainText: (d) => `Hello ${d.customer_name || 'there'},
+
+Your license reactivation request for ${d.product_name || 'your software'} could not be approved at this time.
+
+${d.admin_message ? `Reason: ${d.admin_message}\n` : ''}
+If you believe this is an error or need further assistance, please contact our support team.
+
+We apologize for the inconvenience.
+
+Best regards,
+The WebSmith Team`
+  },
+
+  // ================================================================
+  // 16. ADMIN NOTIFICATION
   // ================================================================
   admin_notification: {
     subject: 'Administrator Notification',
