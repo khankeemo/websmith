@@ -1,4 +1,6 @@
-"""Dashboard Widget for ${product_name}"""
+"""Dashboard Widget for ${product_name}
+Startup sequence: LicenseEngine.initialize() → Internal API validates →
+Final state (ACTIVE/TRIAL_ACTIVE) → Build Dashboard → Unlock UI"""
 import tkinter as tk
 from tkinter import ttk
 
@@ -9,6 +11,13 @@ class DashboardWidget:
         self.frame=ttk.Frame(parent)
         self._w={}
     def build(self)->ttk.Frame:
+        s=self.engine.get_status() or self.engine.initialize()
+        valid_states={'active','trial','trial_active'}
+        if not s or not s.valid or s.status not in valid_states:
+            tk.Label(self.frame,text="License required — please activate this application.",
+                     font=("Helvetica",12),fg="#dc2626",bg="#f8f9fa").pack(pady=20)
+            self.frame.pack(fill=tk.BOTH,expand=True)
+            return self.frame
         self.frame.pack(fill=tk.BOTH,expand=True)
         branding=self.engine.config.get('branding',{}); labels=branding.get('labels',{}); colors=branding.get('colors',{})
         bg=colors.get('bg_page','#f8f9fa'); tx_p=colors.get('text_primary','#333'); tx_s=colors.get('text_secondary','#555')
@@ -27,11 +36,12 @@ class DashboardWidget:
     def refresh(self):
         branding=self.engine.config.get('branding',{}); labels=branding.get('labels',{}); colors=branding.get('colors',{})
         s=self.engine.get_status() or self.engine.initialize()
+        valid_states={'active','trial','trial_active'}
         status_lbl = labels.get('status_label', 'Status')
         days_lbl = labels.get('remaining_days_label', 'Remaining days')
         expiry_lbl = labels.get('expiry_label', 'Expiry')
         plan_lbl = labels.get('plan_label', 'Plan')
-        if s and s.valid:
+        if s and s.valid and s.status in valid_states:
             c=colors.get('success','#16a34a'); label=labels.get('trial_active_text','Trial Active') if s.trial_active else labels.get('licensed_text','Licensed')
             self._w['s'].config(text=f"{status_lbl}: {label}",fg=c)
             self._w['t'].config(text=label)

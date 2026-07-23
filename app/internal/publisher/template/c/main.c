@@ -2,7 +2,8 @@
  * WSD SDK C Example Application
  * 
  * This example demonstrates the complete lifecycle:
- * initialize -> validate -> activate -> renew -> deactivate
+ * Application Start → Splash → wsd_initialize() → Internal API validates →
+ * Final state (ACTIVE/TRIAL_ACTIVE) → Build Dashboard → Unlock UI → Start Services
  * 
  * Build: gcc -std=c11 -o wsd_example main.c -lwsd_sdk -lssl -lcrypto -lcurl
  */

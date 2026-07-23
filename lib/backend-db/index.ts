@@ -112,6 +112,7 @@ export async function getDb(): Promise<Pool> {
         duration_days INTEGER DEFAULT 365,
         max_devices INTEGER DEFAULT 1,
         device_count INTEGER DEFAULT 0,
+        hardware_id TEXT DEFAULT '',
         notes TEXT,
         is_activated BOOLEAN DEFAULT FALSE,
         is_trial BOOLEAN DEFAULT FALSE,
@@ -343,6 +344,33 @@ export async function getDb(): Promise<Pool> {
         current_plan_name TEXT,
         product_id TEXT,
         status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 12b. Create reactivation_requests table (for hardware change/reactivation workflow)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS reactivation_requests (
+        id SERIAL PRIMARY KEY,
+        license_key TEXT NOT NULL,
+        customer_name TEXT,
+        customer_email TEXT,
+        customer_phone TEXT,
+        customer_mobile TEXT,
+        hardware_id TEXT,
+        product_id TEXT,
+        product_name TEXT,
+        plan TEXT,
+        new_customer_name TEXT,
+        new_customer_email TEXT,
+        new_customer_phone TEXT,
+        new_hardware_id TEXT,
+        reason TEXT,
+        status TEXT DEFAULT 'pending',
+        admin_notes TEXT,
+        admin_actioned_at TIMESTAMP,
+        actioned_by TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -1151,6 +1179,7 @@ export async function getDb(): Promise<Pool> {
 
     try { await client.query(`ALTER TABLE licenses ADD COLUMN IF NOT EXISTS inactive_reason TEXT`); } catch (e) { /* column may already exist */ }
     try { await client.query(`ALTER TABLE licenses ADD COLUMN IF NOT EXISTS is_trial BOOLEAN DEFAULT FALSE`); } catch (e) { /* column may already exist */ }
+    try { await client.query(`ALTER TABLE licenses ADD COLUMN IF NOT EXISTS hardware_id TEXT DEFAULT ''`); } catch (e) { /* column may already exist */ }
     try { await client.query(`ALTER TABLE licenses ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`); } catch (e) { /* column may already exist */ }
     try { await client.query(`ALTER TABLE activations ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`); } catch (e) { /* column may already exist */ }
     // Trials table migrations — columns used in code but missing from original CREATE TABLE
@@ -1209,6 +1238,10 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_license_hardware_hardware_id ON license_hardware(hardware_id)`);
     
     await client.query(`CREATE INDEX IF NOT EXISTS idx_renewal_history_license_key ON renewal_history(license_key)`);
+    
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reactivation_requests_license_key ON reactivation_requests(license_key)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reactivation_requests_status ON reactivation_requests(status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reactivation_requests_created_at ON reactivation_requests(created_at DESC)`);
     
     await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_verifications_email ON otp_verifications(email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_verifications_expires_at ON otp_verifications(expires_at)`);

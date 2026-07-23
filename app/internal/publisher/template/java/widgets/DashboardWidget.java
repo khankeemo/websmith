@@ -2,6 +2,9 @@ package com.websmith.sdk.widgets;
 
 import com.websmith.sdk.LicenseEngine;
 import com.websmith.sdk.LicenseEngine.LicenseStatus;
+import java.util.Set;
+import java.util.Arrays;
+import java.util.HashSet;
 
 public class DashboardWidget {
     public static void render() {
@@ -9,8 +12,9 @@ public class DashboardWidget {
         try {
             LicenseEngine engine = new LicenseEngine();
             LicenseStatus status = engine.initialize();
+            Set<String> validStates = new HashSet<>(Arrays.asList("active", "trial", "trial_active"));
             System.out.println("License Status: " + status.status);
-            System.out.println("Valid: " + (status.valid ? "Yes" : "No"));
+            System.out.println("Valid: " + (status.valid && validStates.contains(status.status) ? "Yes" : "No"));
             if (status.expiresAt != null) {
                 System.out.println("Expires: " + status.expiresAt);
             }

@@ -1,6 +1,7 @@
 // Example application using the C++ SDK
 // Demonstrates the complete license lifecycle:
-//   initialize -> validate -> activate -> renew -> deactivate
+//   Application Start → Splash → LicenseEngine.initialize() → Internal API validates →
+//   Final state (ACTIVE/TRIAL_ACTIVE) → Build Dashboard → Unlock UI → Start Services
 //
 // Build with: g++ -std=c++17 -o wsd_example main.cpp -lwsd_sdk -lssl -lcrypto -lcurl
 // Or via CMake: see CMakeLists.txt

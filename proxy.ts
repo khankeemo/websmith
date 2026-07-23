@@ -21,6 +21,8 @@ const PUBLIC_PATHS = [
   "/internal/backend/licenses/validate",
   "/internal/backend/licenses/activate",
   "/internal/backend/licenses/deactivate",
+  "/internal/backend/licenses/reactivation",
+  "/internal/backend/licenses/reactivation/submit",
   "/internal/backend/trials/start",
   "/internal/backend/trials/status",
   "/internal/backend/trials/analyze",

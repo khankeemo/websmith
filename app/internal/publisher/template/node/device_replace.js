@@ -1,6 +1,3 @@
-const readline = require('readline');
-const os = require('os');
-
 class DeviceReplaceDialog {
   constructor(engine, licenseKey) {
     this.engine = engine;
@@ -12,41 +9,16 @@ class DeviceReplaceDialog {
   }
 
   async show() {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const question = (q) => new Promise((resolve) => rl.question(q, resolve));
+    const supportEmail = this.config?.branding?.support_email || 'support@websmithdigital.com';
 
     console.log('=== Replace Device ===');
-    console.log('Move your license from old device to this one.');
+    console.log('Device reactivation requires Websmith Support approval.');
+    console.log('');
+    console.log(`Please contact support at: ${supportEmail}`);
+    console.log('The application will remain locked until reactivation is approved.');
     console.log('');
 
-    const status = this.engine.getStatus();
-    const oldHwId = status?.hardware_id || 'Unknown';
-    const newHwId = this.engine.getHardwareId();
-    console.log(`Old Hardware ID: ${oldHwId.slice(0, 48)}`);
-    console.log(`New Hardware ID: ${newHwId.slice(0, 48)}`);
-    const devName = await question(`Device Name [${os.hostname()}]: `) || os.hostname();
-
-    const confirm = await question('Replace device? (y/N): ');
-    if (confirm.toLowerCase() !== 'y') {
-      console.log('Cancelled.');
-      rl.close();
-      return null;
-    }
-
-    console.log('Replacing device...');
-    try {
-      const result = await this.engine.replaceHardware();
-      if (result.success) {
-        console.log('Device replaced successfully!');
-        this.result = { action: 'device_replaced' };
-      } else {
-        console.log(`Replacement failed: ${result.message || 'Unknown error'}`);
-      }
-    } catch (e) {
-      console.log(`Error: ${e.message}`);
-    }
-
-    rl.close();
+    this.result = { action: 'contact_support', support_email: supportEmail };
     return this.result;
   }
 }

@@ -11,7 +11,7 @@ void wsd_dashboard_show(LicenseEngine* engine) {
     LicenseStatus* s = wsd_get_status(engine);
     if (!s) s = wsd_initialize(engine);
     printf("\n=== License Status ===\n");
-    if (s && s->valid) {
+    if (s && s->valid && (strcmp(s->status, "active") == 0 || strcmp(s->status, "trial") == 0 || strcmp(s->status, "trial_active") == 0)) {
         const char* label = s->trial_active ? "Trial Active" : "Licensed";
         printf("  Status: %s\n", label);
         printf("  Remaining days: %d\n", s->days_remaining);

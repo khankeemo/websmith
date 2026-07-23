@@ -1,3 +1,7 @@
+// Startup sequence (enforced by build/refresh):
+//   Application Start → LicenseEngine.initialize() → Internal API validates →
+//   Final state (ACTIVE/TRIAL_ACTIVE) → Build Dashboard → Unlock UI → Start Services
+// For any other state the dashboard shows a locked placeholder.
 export class DashboardWidget {
   constructor(container, engine) {
     this.container = container;
@@ -5,7 +9,16 @@ export class DashboardWidget {
     this._elements = {};
   }
 
-  build() {
+  async build() {
+    const s = this.engine.getStatus() || await this.engine.initialize();
+    const validStates = ['active', 'trial', 'trial_active'];
+    if (!s || !s.valid || !validStates.includes(s.status)) {
+      const div = document.createElement('div');
+      div.style.cssText = 'font-family:sans-serif;padding:16px;background:#f8f9fa;border-radius:8px;text-align:center;';
+      div.innerHTML = `<p style="color:#dc2626;font-size:14px;margin:0;">License required — please activate this application.</p>`;
+      this.container.appendChild(div);
+      return div;
+    }
     const div = document.createElement('div');
     div.style.cssText = 'font-family:sans-serif;padding:16px;background:#f8f9fa;border-radius:8px;';
     div.innerHTML = `
@@ -25,7 +38,6 @@ export class DashboardWidget {
       e: div.querySelector('#ws-d-e'),
       p: div.querySelector('#ws-d-p'),
     };
-
     const refreshBtn = div.querySelector('#ws-d-refresh');
     refreshBtn.onclick = () => this.refresh();
     this.refresh();
@@ -34,7 +46,8 @@ export class DashboardWidget {
 
   async refresh() {
     const s = this.engine.getStatus() || await this.engine.initialize();
-    if (s?.valid) {
+    const validStates = ['active', 'trial', 'trial_active'];
+    if (s && s.valid && validStates.includes(s.status)) {
       const label = s.trial_active ? 'Trial Active' : 'Licensed';
       this._elements.s.textContent = `Status: ${label}`;
       this._elements.s.style.color = '#16a34a';

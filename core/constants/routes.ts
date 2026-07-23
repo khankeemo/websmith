@@ -35,6 +35,7 @@ export const PUBLIC_PATHS = [
   "/software-store",
   "/privacy",
   "/terms",
+  "/license",
 ] as const;
 
 /**
@@ -66,6 +67,7 @@ export const PUBLIC_EXACT_ROUTES = [
   "/software-store",
   "/privacy",
   "/terms",
+  "/license",
 ] as const;
 
 /**

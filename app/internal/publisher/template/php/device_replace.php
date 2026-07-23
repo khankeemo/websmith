@@ -48,72 +48,10 @@ class DeviceReplaceDialog
     public function show(?string $licenseKey = null): array
     {
         echo "\n=== Device Replacement ===\n\n";
+        echo "Device reactivation requires Websmith Support approval.\n\n";
+        echo "Please contact support at: {$this->supportEmail}\n";
+        echo "The application will remain locked until reactivation is approved.\n\n";
 
-        if ($licenseKey === null) {
-            echo "Enter License Key: ";
-            $licenseKey = trim(fgets(STDIN));
-            if ($licenseKey === '') {
-                echo "License key is required.\n";
-                return ['replaced' => false, 'cancelled' => true, 'error' => 'No license key entered'];
-            }
-        }
-
-        echo "Enter OLD Hardware ID: ";
-        $oldHardwareId = trim(fgets(STDIN));
-        if ($oldHardwareId === '') {
-            echo "Old hardware ID is required.\n";
-            return ['replaced' => false, 'cancelled' => true, 'error' => 'No old hardware ID entered'];
-        }
-
-        echo "\nDetecting new hardware...\n";
-        try {
-            $newHardwareId = $this->hardware->getFingerprint();
-            echo "New Hardware ID: {$newHardwareId}\n\n";
-        } catch (\Throwable $e) {
-            echo "Unable to detect new hardware: {$e->getMessage()}\n";
-            echo "Please contact support: {$this->supportEmail}\n";
-            return ['replaced' => false, 'cancelled' => true, 'error' => 'Hardware detection failed'];
-        }
-
-        if ($oldHardwareId === $newHardwareId) {
-            echo "Old and new hardware IDs are identical. No replacement needed.\n";
-            return ['replaced' => false, 'cancelled' => true, 'error' => 'Identical hardware IDs'];
-        }
-
-        echo "Replace device from:\n";
-        echo "  Old: {$oldHardwareId}\n";
-        echo "  New: {$newHardwareId}\n";
-        echo "Proceed? (y/n): ";
-        $confirm = strtolower(trim(fgets(STDIN)));
-        if ($confirm !== 'y' && $confirm !== 'yes') {
-            echo "Device replacement cancelled.\n";
-            return ['replaced' => false, 'cancelled' => true];
-        }
-
-        echo "\nReplacing device...\n";
-        try {
-            $result = $this->client->replaceDevice(
-                licenseKey: $licenseKey,
-                newHardwareId: $newHardwareId,
-                oldHardwareId: $oldHardwareId
-            );
-            if (!empty($result['success'])) {
-                echo "Device replaced successfully!\n";
-                $this->cache->invalidateLicenseStatus();
-                return [
-                    'replaced' => true,
-                    'license_key' => $licenseKey,
-                    'old_hardware_id' => $oldHardwareId,
-                    'new_hardware_id' => $newHardwareId,
-                ];
-            } else {
-                $errMsg = $result['message'] ?? $result['error'] ?? 'Replacement failed';
-                echo "Replacement failed: {$errMsg}\n";
-                return ['replaced' => false, 'cancelled' => false, 'error' => $errMsg];
-            }
-        } catch (\Throwable $e) {
-            echo "Error: {$e->getMessage()}\n";
-            return ['replaced' => false, 'cancelled' => true, 'error' => $e->getMessage()];
-        }
+        return ['action' => 'contact_support', 'support_email' => $this->supportEmail, 'cancelled' => true];
     }
 }

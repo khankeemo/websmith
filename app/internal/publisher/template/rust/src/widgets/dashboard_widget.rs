@@ -38,7 +38,7 @@ impl DashboardWidget {
     pub fn refresh(&mut self) {
         let engine = unsafe { &mut *self.engine };
         let s = engine.get_status_cloned().unwrap_or_else(|| engine.initialize());
-        if s.valid {
+        if s.valid && (s.status == "active" || s.status == "trial" || s.status == "trial_active") {
             self.status = if s.trial_active {
                 "Trial Active".to_string()
             } else {

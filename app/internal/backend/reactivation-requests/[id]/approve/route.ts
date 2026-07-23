@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     } catch (dbError) {
       console.error('[Reactivation Approve] DB error:', dbError);
       const msg = dbError?.message || '';
-      if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('42P01')) {
+      if (msg.includes('42P01') || msg.includes('relation "')) {
         return NextResponse.json(
           { success: false, error: 'Database migration is missing. Please run the latest Neon migration.' },
           { status: 500 }

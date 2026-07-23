@@ -20,6 +20,7 @@ public class DeviceReplaceDialog
         public string? OldHardwareId { get; set; }
         public string? NewHardwareId { get; set; }
         public string? Error { get; set; }
+        public string? Action { get; set; }
     }
 
     public DeviceReplaceDialog(ApiClient? client)
@@ -52,87 +53,9 @@ public class DeviceReplaceDialog
     public DeviceReplaceDialogResult Show(string? licenseKey)
     {
         Console.WriteLine("\n=== Device Replacement ===\n");
-
-        if (string.IsNullOrEmpty(licenseKey))
-        {
-            Console.Write("Enter License Key: ");
-            licenseKey = Console.ReadLine()?.Trim();
-            if (string.IsNullOrEmpty(licenseKey))
-            {
-                Console.WriteLine("License key is required.");
-                return new DeviceReplaceDialogResult { Cancelled = true, Error = "No license key entered" };
-            }
-        }
-
-        Console.Write("Enter OLD Hardware ID: ");
-        var oldHardwareId = Console.ReadLine()?.Trim() ?? "";
-        if (string.IsNullOrEmpty(oldHardwareId))
-        {
-            Console.WriteLine("Old hardware ID is required.");
-            return new DeviceReplaceDialogResult { Cancelled = true, Error = "No old hardware ID entered" };
-        }
-
-        Console.WriteLine("\nDetecting new hardware...");
-        string newHardwareId;
-        try
-        {
-            newHardwareId = _hardware.GetFingerprint();
-            Console.WriteLine($"New Hardware ID: {newHardwareId}\n");
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Unable to detect new hardware: {e.Message}");
-            Console.WriteLine($"Please contact support: {_supportEmail}");
-            return new DeviceReplaceDialogResult { Cancelled = true, Error = "Hardware detection failed" };
-        }
-
-        if (oldHardwareId == newHardwareId)
-        {
-            Console.WriteLine("Old and new hardware IDs are identical. No replacement needed.");
-            return new DeviceReplaceDialogResult { Cancelled = true, Error = "Identical hardware IDs" };
-        }
-
-        Console.WriteLine("Replace device from:");
-        Console.WriteLine($"  Old: {oldHardwareId}");
-        Console.WriteLine($"  New: {newHardwareId}");
-        Console.Write("Proceed? (y/n): ");
-        var confirm = Console.ReadLine()?.Trim().ToLower() ?? "";
-        if (confirm != "y" && confirm != "yes")
-        {
-            Console.WriteLine("Device replacement cancelled.");
-            return new DeviceReplaceDialogResult { Cancelled = true };
-        }
-
-        Console.WriteLine("\nReplacing device...");
-        try
-        {
-            var result = _client.ReplaceDevice(licenseKey, oldHardwareId, newHardwareId).Result;
-            if (result.RootElement.TryGetProperty("success", out var s) && s.GetBoolean())
-            {
-                Console.WriteLine("Device replaced successfully!");
-                _cache.InvalidateLicenseStatus();
-                return new DeviceReplaceDialogResult
-                {
-                    Replaced = true,
-                    LicenseKey = licenseKey,
-                    OldHardwareId = oldHardwareId,
-                    NewHardwareId = newHardwareId
-                };
-            }
-            else
-            {
-                var errMsg = result.RootElement.TryGetProperty("message", out var msg)
-                    ? msg.GetString()
-                    : result.RootElement.TryGetProperty("error", out var e)
-                        ? e.GetString() : "Replacement failed";
-                Console.WriteLine($"Replacement failed: {errMsg}");
-                return new DeviceReplaceDialogResult { Error = errMsg };
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Error: {e.Message}");
-            return new DeviceReplaceDialogResult { Cancelled = true, Error = e.Message };
-        }
+        Console.WriteLine("Device reactivation requires Websmith Support approval.\n");
+        Console.WriteLine($"Please contact support at: {_supportEmail}");
+        Console.WriteLine("The application will remain locked until reactivation is approved.\n");
+        return new DeviceReplaceDialogResult { Action = "contact_support", Cancelled = true };
     }
 }

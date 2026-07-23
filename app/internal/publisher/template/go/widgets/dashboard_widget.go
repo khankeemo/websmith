@@ -41,7 +41,7 @@ func (d *Dashboard) Refresh() {
 	if s == nil {
 		s = d.engine.Initialize()
 	}
-	if s != nil && s.Valid {
+	if s != nil && s.Valid && (s.Status == "active" || s.Status == "trial" || s.Status == "trial_active") {
 		d.status = "Active"
 		if s.TrialActive {
 			d.status = "Trial Active"

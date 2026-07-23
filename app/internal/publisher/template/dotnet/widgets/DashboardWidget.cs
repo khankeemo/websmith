@@ -11,8 +11,9 @@ public static class DashboardWidget
         {
             var engine = new LicenseEngine();
             var status = engine.Initialize();
+            var validStates = new HashSet<string> { "active", "trial", "trial_active" };
             Console.WriteLine($"License Status: {status.Status}");
-            Console.WriteLine($"Valid: {(status.Valid ? "Yes" : "No")}");
+            Console.WriteLine($"Valid: {(status.Valid && validStates.Contains(status.Status) ? "Yes" : "No")}");
             if (status.ExpiresAt != null)
                 Console.WriteLine($"Expires: {status.ExpiresAt}");
             Console.WriteLine($"Days Remaining: {status.DaysRemaining}");

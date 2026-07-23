@@ -241,21 +241,14 @@ export default function ActivationPage() {
       }
 
       if (data.data.products && data.data.products.length > 0) {
-        const zemProduct = data.data.products.find((p: ProductData) =>
-          p.name.toUpperCase() === 'ZEM MAC OS'
-        );
-        const preferredProduct = zemProduct || data.data.products[0];
-        setSelectedProduct(preferredProduct.product_id);
+        setSelectedProduct(data.data.products[0].product_id);
       }
 
       if (data.data.plans && data.data.plans.length > 0) {
-        const starterPlan = data.data.plans.find((p: PlanData) =>
-          p.name.toUpperCase() === 'STARTER'
-        );
         const trialPlan = data.data.trial?.plan_name
           ? data.data.plans.find((p: PlanData) => p.name === data.data.trial.plan_name)
           : null;
-        const preferredPlan = starterPlan || trialPlan || data.data.plans[0];
+        const preferredPlan = trialPlan || data.data.plans[0];
         setSelectedPlan(preferredPlan ? String(preferredPlan.id) : String(data.data.plans[0].id));
       }
 

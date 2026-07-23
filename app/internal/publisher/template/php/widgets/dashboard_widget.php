@@ -11,8 +11,9 @@ class DashboardWidget
         try {
             $engine = new LicenseEngine();
             $status = $engine->initialize();
+            $validStates = ['active', 'trial', 'trial_active'];
             echo "License Status: {$status->status}\n";
-            echo "Valid: " . ($status->valid ? 'Yes' : 'No') . "\n";
+            echo "Valid: " . ($status->valid && in_array($status->status, $validStates) ? 'Yes' : 'No') . "\n";
             if ($status->expiresAt !== null) {
                 echo "Expires: {$status->expiresAt}\n";
             }

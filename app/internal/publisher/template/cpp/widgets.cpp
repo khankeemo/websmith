@@ -30,7 +30,7 @@ void DashboardWidget::refresh() {
     std::string plan_lbl = labels["plan_label"];
     if (plan_lbl.empty()) plan_lbl = "Plan";
 
-    if (s && s->valid) {
+    if (s && s->valid && (s->status == "active" || s->status == "trial" || s->status == "trial_active")) {
         std::string label = s->trial_active ? "Trial Active" : "Licensed";
         std::string color = s->trial_active ? "warning" : "success";
         std::cout << "  " << status_lbl << ": " << label << std::endl;
