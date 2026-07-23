@@ -37,7 +37,7 @@ const DOCS_TEMPLATES: Record<string, string> = {
 
 ## What Is WSD SDK?
 
-WSD SDK is a complete plug-and-play license system. Copy the folder, add a dashboard widget, add an activation button, and run your application.
+WSD SDK is a complete plug-and-play license system. Copy the folder, initialize the engine, and run your application. All license operations (activation, trial, renewal, device replacement, support) go through a single Universal Email Dialog backed by \`POST /api/v1/request\`.
 
 No additional licensing code is required.
 
@@ -52,18 +52,8 @@ WSD_SDK_PROJECTNAME_PRODUCTID/
 ├── crypto.py
 ├── hardware.py
 ├── license_engine.py
-├── welcome.py
-├── activation.py
-├── renewal.py
-├── renew_license_dialog.py
-├── device_replace.py
-├── manifest.json
-
-├── widgets/
-│   ├── dashboard_widget.py
-│   ├── settings_widget.py
-│   ├── status_widget.py
-│   └── activation_button.py
+├── universal_email_dialog.py
+├── universal_license_center.py
 
 ├── config/
 │   └── api-config.json
@@ -87,34 +77,15 @@ WSD_SDK_PROJECTNAME_PRODUCTID/
 
 \`\`\`python
 from WSD_SDK_PROJECTNAME_PRODUCTID.license_engine import LicenseEngine
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.dashboard_widget import LicenseWidget
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.activation_button import ActivationButton
 
 engine = LicenseEngine()
-LicenseWidget(parent).build()
-ActivationButton(parent, engine).build()
-engine.initialize()
+status = engine.initialize()
+print(f"Status: {status.status} — {status.message}")
 \`\`\`
 
-## Dashboard
+## Universal License Center
 
-Import:
-
-\`\`\`python
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.dashboard_widget import LicenseWidget
-\`\`\`
-
-Place in top-right corner.
-
-## Settings
-
-Import:
-
-\`\`\`python
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.settings_widget import SettingsWidget
-\`\`\`
-
-Place under: \`Settings > License\`
+The \`UniversalLicenseCenter\` provides a full-featured Tkinter GUI with one-click access to all license operations. It is the primary user-facing component.
 
 ## Detailed Documentation
 
@@ -134,41 +105,36 @@ Place under: \`Settings > License\`
 
 Copy \`WSD_SDK_PROJECTNAME_PRODUCTID/\` into your project.
 
-## 2. Import License Engine
+## 2. Initialize
 
 \`\`\`python
 from WSD_SDK_PROJECTNAME_PRODUCTID.license_engine import LicenseEngine
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.dashboard_widget import LicenseWidget
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.activation_button import ActivationButton
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.settings_widget import SettingsWidget
+
+engine = LicenseEngine()
+status = engine.initialize()
 \`\`\`
 
-## 3. Add Dashboard Widget
+## 3. Launch Universal License Center
 
 \`\`\`python
-widget = LicenseWidget(parent)
-widget.build()
+from WSD_SDK_PROJECTNAME_PRODUCTID.universal_license_center import UniversalLicenseCenter
+
+center = UniversalLicenseCenter(engine)
+center.show()
 \`\`\`
 
-Place in the top-right corner of your dashboard.
-
-## 4. Add Activation Button
+## 4. Use Universal Email Dialog (any request type)
 
 \`\`\`python
-btn = ActivationButton(parent, engine)
-btn.build()
+from WSD_SDK_PROJECTNAME_PRODUCTID.universal_email_dialog import UniversalEmailDialog
+
+dialog = UniversalEmailDialog(engine._client, engine._hardware, engine._cache)
+result = dialog.show("SUPPORT", customer_name="John", customer_email="john@example.com")
+if result.get("sent"):
+    print("Request sent to support@websmithdigital.com")
 \`\`\`
 
-## 5. Add Settings Widget
-
-\`\`\`python
-settings = SettingsWidget(parent, engine)
-settings.build()
-\`\`\`
-
-Place under: \`Settings > License\`
-
-## 6. Run
+## 5. Run
 
 \`\`\`bash
 pip install requests
@@ -183,7 +149,7 @@ That is all. No additional licensing code is required.
 
 The SDK is a complete plug-and-play license system. The host application must never implement OTP UI, activation forms, trial logic, hardware binding, renewal, device replacement, database access, or license validation.
 
-The SDK owns everything.
+The SDK owns everything. All user-facing requests (activation, renewal, device replacement, support, hardware issues, purchases) are routed through a single \`UniversalEmailDialog\` backed by \`POST /api/v1/request\`.
 
 ## Architecture
 
@@ -197,20 +163,13 @@ Application
         │
         ▼
 WSD_SDK_PROJECTNAME_PRODUCTID/
-├── welcome.py
-├── activation.py
-├── renewal.py
-├── renew_license_dialog.py
-├── device_replace.py
-├── license_engine.py
-├── client.py
-├── hardware.py
-├── cache.py
-├── widgets/
-│   ├── dashboard_widget.py
-│   ├── settings_widget.py
-│   ├── status_widget.py
-│   └── activation_button.py
+├── universal_license_center.py   ← Full-featured license GUI
+├── universal_email_dialog.py     ← Single email form for all requests
+├── license_engine.py             ← Orchestrates license ops
+├── client.py                     ← HMAC-signed HTTP client
+├── hardware.py                   ← Machine fingerprint
+├── cache.py                      ← Local status cache
+├── crypto.py                     ← HMAC-SHA256 signing
         │
         ▼
 Websmith Internal API
@@ -237,8 +196,6 @@ Application start
         ↓
 Load cache
         ↓
-Check onboarding
-        ↓
 Check trial
         ↓
 Check license
@@ -250,239 +207,86 @@ Open application
 
 If any step fails, the application blocks.
 
-## Welcome Dialog
+## Universal License Center
 
-**File:** \`welcome.py\`
+**File:** \`universal_license_center.py\`
 
-**Purpose:** First-time onboarding for trial users.
+**Purpose:** Primary user-facing Tkinter GUI for all license management.
 
-**UI:**
+**UI Buttons:**
+- View License Status
+- Start Free Trial
+- Activate License
+- Buy License
+- Renew License
+- Replace Device
+- Hardware Issue
+- Contact Support
+- Request History
 
-\`\`\`
-Name:      [_______________]
-Email:     [_______________]
-Mobile:    [_______________]
-Country:   [_______________]
-Company:   [_______________]
+**Behavior:**
+- Status display at the top (plan, expiry, days remaining, hardware ID)
+- Each button opens the \`UniversalEmailDialog\` pre-configured with the correct request type
+- All requests are sent via \`POST /api/v1/request\` to the Websmith Internal API
+- The Internal API forwards to \`support@websmithdigital.com\`
 
-[Send OTP]
-[Verify OTP]
-\`\`\`
+## Universal Email Dialog
 
-**API Flow:**
+**File:** \`universal_email_dialog.py\`
 
-\`\`\`
-POST /api/v1/auth/otp/send
-        ↓
-POST /api/v1/auth/otp/verify
-        ↓
-POST /api/v1/customer/register
-        ↓
-POST /api/v1/trial
-\`\`\`
+**Purpose:** Single reusable email form for all request types.
 
-**Security Rule:** Closing the Welcome dialog must close the entire application.
+**Supported Request Types:**
+| Type | Description |
+|------|-------------|
+| \`BUY\` | Purchase request |
+| \`RENEW\` | License renewal request |
+| \`SUPPORT\` | General support request |
+| \`ACTIVATION\` | License activation assistance |
+| \`DEVICE_REPLACEMENT\` | Device transfer request |
+| \`HARDWARE\` | Hardware-related issue |
+| \`GENERAL\` | Other inquiries |
 
-**Important:** Developers must never open \`welcome.py\` manually. It is triggered automatically by \`engine.initialize()\` when no customer or trial exists.
+**Fields:** Full Name, Email, Subject, Message (auto-populated from context)
 
-## Dashboard Integration
-
-**Placement:** Top-right corner of your dashboard.
-
-\`\`\`
-┌──────────────────────────────────────────┐
-│ Dashboard                                │
-│                                          │
-│                         ┌─────────────┐  │
-│                         │ License     │  │
-│                         │ Active      │  │
-│                         │ 7 days left │  │
-│                         └─────────────┘  │
-└──────────────────────────────────────────┘
-\`\`\`
-
-**Import:**
-
-\`\`\`python
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.dashboard_widget import LicenseWidget
-\`\`\`
-
-**Usage:**
-
-\`\`\`python
-LicenseWidget(parent)
-\`\`\`
-
-**Contents:**
-- Trial active / Licensed indicator
-- Remaining days
-- Expiry date
-- Hardware status
-
-**Auto-refresh:** Every 60 seconds.
-
-## Settings Integration
-
-**Placement:** \`Settings > License\`
-
-\`\`\`
-┌────────────────────────────┐
-│ License                    │
-├────────────────────────────┤
-│ Product                    │
-│ SDK Version                │
-│ Runtime                    │
-│ Hardware ID                │
-│ Status                     │
-│ Expiry                     │
-│ Remaining Days             │
-│                            │
-│ [Activate]                 │
-│ [Renew]                    │
-│ [Replace Device]           │
-│ [Refresh]                  │
-│ [Open Welcome]             │
-└────────────────────────────┘
-\`\`\`
-
-**Import:**
-
-\`\`\`python
-from WSD_SDK_PROJECTNAME_PRODUCTID.widgets.settings_widget import SettingsWidget
-\`\`\`
-
-## Activation Flow
-
-**File:** \`activation.py\`
-
-**Import:**
-
-\`\`\`python
-from WSD_SDK_PROJECTNAME_PRODUCTID.activation import ActivationDialog
-\`\`\`
-
-**Usage:**
-
-\`\`\`python
-ActivationDialog().show()
-\`\`\`
-
-**Workflow:**
-
-\`\`\`
-User opens activation dialog
-        ↓
-Generate hardware fingerprint
-        ↓
-Enable license textbox
-        ↓
-Enter license key
-        ↓
-Fetch license details
-        ↓
-Show:
-  • Plan
-  • Expiry
-  • Devices
-  • Remaining days
-        ↓
-Activate
-        ↓
-Bind hardware
-        ↓
-Refresh cache
-\`\`\`
-
-**UI:**
-
-\`\`\`
-┌──────────────────────────────────┐
-│ Activate License                 │
-├──────────────────────────────────┤
-│ Product                          │
-│ Version                          │
-│                                  │
-│ Hardware ID                      │
-│ Device name                      │
-│                                  │
-│ License key                      │
-│                                  │
-│ Plan                             │
-│ Expiry                           │
-│ Devices                          │
-│                                  │
-│ [Activate]                       │
-│ [Renew]                          │
-│ [Replace Device]                 │
-└──────────────────────────────────┘
-\`\`\`
-
-## Renewal
-
-**File:** \`renewal.py\`
-
-**APIs:**
-- \`GET  /api/v1/plans\` — fetch available plans
-- \`POST /api/v1/license/renew\` — renew license
-
-**Rules:**
-- SDK only displays plans and pricing.
-- Backend owns pricing, plans, and business rules.
-
-## Device Replacement
-
-**File:** \`device_replace.py\`
-
-**API:** \`POST /api/v1/license/replace-device\`
-
-**Workflow:**
-
-\`\`\`
-Old hardware
-        ↓
-Generate new hardware
-        ↓
-Confirm replacement
-        ↓
-Refresh status
-\`\`\`
-
-## Widgets
-
-| Widget | Import | Placement |
-|--------|--------|-----------|
-| \`LicenseWidget\` | \`widgets.dashboard_widget\` | Dashboard top-right |
-| \`SettingsWidget\` | \`widgets.settings_widget\` | Settings > License |
-| \`ActivationButton\` | \`widgets.activation_button\` | Any toolbar |
-| \`StatusWidget\` | \`widgets.status_widget\` | Status bar |
+**API:** All types use \`POST /api/v1/request\` — SDK never sends email directly.
 
 ## Backend APIs
 
-### OTP
-- \`POST /api/v1/auth/otp/send\`
-- \`POST /api/v1/auth/otp/verify\`
-
-### Trial
-- \`POST /api/v1/trial\`
-- \`POST /api/v1/trial/status\`
-
-### Customer
-- \`POST /api/v1/customer/register\`
+### Request (primary)
+- \`POST /api/v1/request\` — Send a request of any type (BUY, RENEW, SUPPORT, ACTIVATION, DEVICE_REPLACEMENT, HARDWARE, GENERAL)
+- \`GET /api/v1/request?email=<email>\` — Get request history
 
 ### License
-- \`POST /api/v1/license\`
-- \`GET  /api/v1/license/details\`
-- \`POST /api/v1/license/renew\`
-- \`POST /api/v1/license/replace-device\`
+- \`POST /api/v1/license\` — Validate, activate, renew
+- \`POST /api/v1/license/deactivate\` — Deactivate
+- \`GET /api/v1/license/details/<key>\` — Details
+- \`POST /api/v1/license/verify-renewal\` — Renewal verification
 
-### Plans
-- \`GET /api/v1/plans\`
+### Trial
+- \`POST /api/v1/trial\` — Start, status, convert
 
-### Countries
-- \`GET /api/v1/countries\`
+### Device
+- \`POST /api/v1/device\` — Bind, replace, reset
 
-### Status
-- \`GET /api/v1/status\`
+### Store
+- \`GET /api/v1/store/products\` — Available products/plans
+
+## Email Flow
+
+All SDK email requests follow this path:
+
+\`\`\`
+UniversalEmailDialog.show("SUPPORT", ...)
+        ↓
+POST /api/v1/request    ← SDK calls API
+        ↓
+Websmith Internal API receives request
+        ↓
+Email Service sends to support@websmithdigital.com
+\`\`\`
+
+SDK never sends SMTP directly.
 
 ## Security Rules
 
@@ -493,6 +297,7 @@ The SDK must never:
 - Contain pricing
 - Contain plan logic
 - Bypass hardware validation
+- Send SMTP email directly
 
 Everything flows through:
 
@@ -501,113 +306,83 @@ SDK
     ↓
 Websmith Internal API
     ↓
-PostgreSQL
+PostgreSQL / Email Service
 \`\`\`
 
 ## Integration Checklist
 
 - [ ] Copy SDK folder into project
-- [ ] Import dashboard widget
-- [ ] Import activation dialog
-- [ ] Add settings page
+- [ ] Import LicenseEngine and call \`initialize()\`
+- [ ] Launch UniversalLicenseCenter for full GUI
 - [ ] Run application
 
 No other licensing code should be required.
 `,
   'LICENSE_UI.md': `# License UI Components
 
-## Welcome Dialog
+## Universal License Center
 
-**File:** \`welcome.py\`
+**File:** \`universal_license_center.py\`
 
-Handles trial onboarding on first launch.
+**Purpose:** Primary Tkinter GUI for all license management operations.
 
-**Fields:** Name, Email, Mobile, Country, Company
+**Status Display:**
+- License status (Active / Trial / Unlicensed)
+- Plan name
+- Expiry date
+- Days remaining
+- Hardware ID
+- Customer name and email
 
-**Buttons:** Send OTP, Verify OTP
+**Buttons:**
+| Button | Opens | Request Type |
+|--------|-------|-------------|
+| View License Status | Status panel | — |
+| Start Free Trial | Email dialog | TRIAL |
+| Activate License | Email dialog | ACTIVATION |
+| Buy License | Email dialog | BUY |
+| Renew License | Email dialog | RENEW |
+| Replace Device | Email dialog | DEVICE_REPLACEMENT |
+| Hardware Issue | Email dialog | HARDWARE |
+| Contact Support | Email dialog | SUPPORT |
+| Request History | History view | — |
 
-**Flow:**
-1. Collect customer information
-2. Send OTP to email
-3. Verify OTP code
-4. Register customer
-5. Start trial automatically
-6. Bind hardware automatically
+## Universal Email Dialog
 
-**Security:** Closing the Welcome dialog closes the entire application.
+**File:** \`universal_email_dialog.py\`
 
-## Activation Dialog
+**Purpose:** Single reusable email form for all request types.
 
-**File:** \`activation.py\`
+**Fields:**
+- Your Name (required)
+- Your Email (required)
+- License Key (auto-populated if available)
+- Plan (auto-populated if available)
+- Subject (auto-generated from request type)
+- Message (required)
 
-Handles license key activation for purchased licenses.
+**Request Types:**
+\`BUY\`, \`RENEW\`, \`SUPPORT\`, \`ACTIVATION\`, \`DEVICE_REPLACEMENT\`, \`HARDWARE\`, \`GENERAL\`
 
-**Displays:**
-- Product name and version
-- Hardware ID and device name
-- License key text field
-- Plan name, expiry date, remaining days, device count
+**API:** All types use \`POST /api/v1/request\`
 
-**Buttons:** Activate, Renew, Replace Device
+## Import Pattern
 
-**Flow:**
-1. Generate hardware fingerprint automatically
-2. Enable license textbox (disabled until hardware is ready)
-3. Enter license key
-4. Fetch license details automatically
-5. Click Activate
-6. Hardware binds automatically
-7. Cache refreshes
+\`\`\`python
+from WSD_SDK_PROJECTNAME_PRODUCTID import UniversalLicenseCenter, UniversalEmailDialog
+from WSD_SDK_PROJECTNAME_PRODUCTID.license_engine import LicenseEngine
 
-## Renewal Dialog
+engine = LicenseEngine()
+status = engine.initialize()
 
-**File:** \`renewal.py\`
+# Full GUI
+center = UniversalLicenseCenter(engine)
+center.show()
 
-Handles license renewal.
-
-**Displays:**
-- Current plan and expiry
-- Available plans from API
-
-**API:**
-- \`GET /api/v1/plans\`
-- \`POST /api/v1/license/renew\`
-
-## Device Replacement Dialog
-
-**File:** \`device_replace.py\`
-
-Handles transferring a license to another machine.
-
-**Displays:**
-- Old hardware ID
-- New hardware ID (auto-generated)
-- Device name field
-
-**API:** \`POST /api/v1/license/replace-device\`
-
-## Widgets
-
-### LicenseWidget
-- **File:** \`widgets/dashboard_widget.py\`
-- **Placement:** Dashboard top-right corner
-- **Contents:** License status, remaining days, expiry, hardware status
-- **Auto-refresh:** Every 60 seconds
-
-### SettingsWidget
-- **File:** \`widgets/settings_widget.py\`
-- **Placement:** Settings > License
-- **Contents:** Full license details panel with action buttons
-
-### StatusWidget
-- **File:** \`widgets/status_widget.py\`
-- **Placement:** Status bar
-- **Contents:** Compact status indicator with colored icon
-
-### ActivationButton
-- **File:** \`widgets/activation_button.py\`
-- **Placement:** Any toolbar
-- **Contents:** One-click activation button
+# Direct email dialog
+dialog = UniversalEmailDialog(engine._config, engine._client, engine._hardware, engine._cache)
+result = dialog.show("SUPPORT", customer_name="User")
+\`\`\`
 
 ## Recommended UI Structure
 
@@ -621,11 +396,8 @@ Settings
        ├── Hardware ID
        ├── Expiry
        ├── Remaining Days
-       ├── [Activate]
-       ├── [Renew]
-       ├── [Replace Device]
-       ├── [Refresh]
-       └── [Open Welcome]
+       ├── [Launch License Center]
+       └── [Refresh]
 \`\`\`
 `,
   'API_REFERENCE.md': `# API Reference
@@ -812,7 +584,7 @@ The application must block at any failed step.
 
 All security rules are enforced by the Websmith Internal API. The SDK is a client — it requests, the API enforces.
 `,
-  'ARCHITECTURE.md': `# Architecture
+'ARCHITECTURE.md': `# Architecture
 
 ## System Overview
 
@@ -821,44 +593,47 @@ All security rules are enforced by the Websmith Internal API. The SDK is a clien
 │ Developer Application                               │
 │  ┌───────────────────────────────────────────────┐  │
 │  │ WSD SDK                                       │  │
-│  │  ┌─────────┐ ┌──────────┐ ┌───────────────┐  │  │
-│  │  │ Welcome │ │Activation│ │Device Replace  │  │  │
-│  │  │ Dialog  │ │ Dialog   │ │ Dialog        │  │  │
-│  │  └─────────┘ └──────────┘ └───────────────┘  │  │
-│  │  ┌─────────┐ ┌──────────┐ ┌───────────────┐  │  │
-│  │  │Renewal  │ │ License  │ │  Widgets      │  │  │
-│  │  │ Dialog  │ │ Engine   │ │  (4 widgets)  │  │  │
-│  │  └─────────┘ └──────────┘ └───────────────┘  │  │
-│  │  ┌─────────┐ ┌──────────┐ ┌───────────────┐  │  │
-│  │  │Hardware │ │  Cache   │ │  API Client   │  │  │
-│  │  │ Manager │ │  Manager │ │  (HMAC auth)  │  │  │
-│  │  └─────────┘ └──────────┘ └───────────────┘  │  │
-│  └───────────────────────────────────────────────┘  │
-└──────────────────────┬──────────────────────────────┘
-                       │ HTTPS + HMAC
-                       ▼
+│  │  ┌─────────────────────────────────────┐     │  │
+│  │  │ Universal License Center (Tkinter)  │     │  │
+│  │  │  • Status Panel                     │     │  │
+│  │  │  • Action Buttons (9)               │     │  │
+│  │  └──────────────┬──────────────────────┘     │  │
+│  │                 │ opens                      │  │
+│  │  ┌──────────────▼──────────────────────┐     │  │
+│  │  │ Universal Email Dialog              │     │  │
+│  │  │ (single form — all request types)   │     │  │
+│  │  └──────────────┬──────────────────────┘     │  │
+│  │  ┌─────────┐ ┌───────┐ ┌──────────────┐     │  │
+│  │  │License  │ │Cache  │ │Hardware      │     │  │
+│  │  │Engine   │ │Manager│ │Detector      │     │  │
+│  │  └────┬────┘ └───────┘ └──────────────┘     │  │
+│  │  ┌────▼────┐                               │  │
+│  │  │ApiClient│ (HMAC-SHA256)                  │  │
+│  │  └────┬────┘                               │  │
+│  └───────┼───────────────────────────────────┘  │
+└──────────┼──────────────────────────────────────┘
+           │ HTTPS + HMAC
+           ▼
 ┌─────────────────────────────────────────────────────┐
 │ Websmith Internal API                                │
-│  ┌──────────┐ ┌──────────┐ ┌───────────────────┐   │
-│  │ Auth     │ │ License  │ │ Trial             │   │
-│  │ (OTP)    │ │ (CRUD)   │ │ (Management)      │   │
-│  └──────────┘ └──────────┘ └───────────────────┘   │
+│  ┌───────────┐ ┌──────────┐ ┌───────────────────┐  │
+│  │ /api/v1/  │ │ License  │ │ Trial             │  │
+│  │ request   │ │ (CRUD)   │ │ (Management)      │  │
+│  └───────────┘ └──────────┘ └───────────────────┘  │
 │  ┌──────────┐ ┌──────────┐ ┌───────────────────┐   │
 │  │ Customer │ │ Plans    │ │ Admin             │   │
 │  │ (Store)  │ │ (Pricing)│ │ (Dashboard)       │   │
 │  └──────────┘ └──────────┘ └───────────────────┘   │
 └──────────────────────┬──────────────────────────────┘
-                       │ SQL
-                       ▼
+           │ SQL + Email Service
+           ▼
 ┌─────────────────────────────────────────────────────┐
-│ PostgreSQL (Neon)                                    │
+│ PostgreSQL (Neon) + Email Service                    │
 │  ┌──────────┐ ┌──────────┐ ┌───────────────────┐   │
-│  │ customers│ │ licenses │ │ trials             │   │
+│  │ customers│ │ licenses │ │ email_queue       │   │
 │  ├──────────┤ ├──────────┤ ├───────────────────┤   │
-│  │ products │ │ plans    │ │ activations        │   │
-│  ├──────────┤ ├──────────┤ ├───────────────────┤   │
-│  │ otp_     │ │ audit_   │ │ developer_api_keys │   │
-│  │ verif.   │ │ logs     │ │                    │   │
+│  │ products │ │ plans    │ │ support@          │   │
+│  │          │ │          │ │ websmithdigital   │   │
 │  └──────────┘ └──────────┘ └───────────────────┘   │
 └─────────────────────────────────────────────────────┘
 \`\`\`
@@ -872,40 +647,41 @@ All security rules are enforced by the Websmith Internal API. The SDK is a clien
 | Cache Manager | \`cache.py\` | Local status cache |
 | Hardware Detector | \`hardware.py\` | Machine fingerprint |
 | Crypto Utils | \`crypto.py\` | HMAC signature generation |
-| Welcome Dialog | \`welcome.py\` | Trial onboarding UI |
-| Activation Dialog | \`activation.py\` | License activation UI |
-| Renewal Dialog | \`renewal.py\` | License renewal UI |
-| Device Replace | \`device_replace.py\` | Device transfer UI |
-| Dashboard Widget | \`widgets/dashboard_widget.py\` | Status display |
-| Settings Widget | \`widgets/settings_widget.py\` | License management |
-| Status Widget | \`widgets/status_widget.py\` | Compact indicator |
-| Activation Button | \`widgets/activation_button.py\` | Quick activation |
+| Universal License Center | \`universal_license_center.py\` | Full Tkinter license GUI |
+| Universal Email Dialog | \`universal_email_dialog.py\` | Single email form for all requests |
 
-## Data Flow
+## Data Flows
 
-### Trial Onboarding
+### Email Request (all types)
 \`\`\`
-User enters info → Send OTP → Verify OTP → Register Customer → Start Trial → Bind Hardware
+UniversalEmailDialog.show("SUPPORT", ...)
+        ↓
+POST /api/v1/request (BUY|RENEW|SUPPORT|ACTIVATION|DEVICE_REPLACEMENT|HARDWARE|GENERAL)
+        ↓
+Websmith Internal API validates and queues
+        ↓
+Email Service sends to support@websmithdigital.com
 \`\`\`
 
 ### License Activation
 \`\`\`
-User enters key → Fetch details → Verify → Activate → Bind Hardware → Cache Status
+User clicks "Activate License" in UniversalLicenseCenter
+        ↓
+UniversalEmailDialog opens (pre-filled with ACTIVATION type)
+        ↓
+User submits form → POST /api/v1/request
+        ↓
+Support team processes and sends license key
 \`\`\`
 
 ### Startup
 \`\`\`
-Load cache → Check onboarding → Check trial → Check license → Validate hardware → Open app
+Load cache → Check trial → Check license → Validate hardware → Open app
 \`\`\`
 
-### Renewal
+### Trial Start
 \`\`\`
-Fetch plans → Select plan → Renew → Update cache
-\`\`\`
-
-### Device Replacement
-\`\`\`
-Old hardware → New hardware → Confirm → Replace → Refresh
+User clicks "Start Free Trial" → Email dialog → POST /api/v1/trial → Bind hardware
 \`\`\`
 
 ## Technology Stack
@@ -913,9 +689,11 @@ Old hardware → New hardware → Confirm → Replace → Refresh
 - **Client SDK:** Python 3.8+
 - **API:** Next.js serverless (Vercel)
 - **Database:** PostgreSQL (Neon)
+- **Email:** Internal Email Service → support@websmithdigital.com
 - **Auth:** HMAC-SHA256 request signing
 - **Cache:** Local JSON file
 - **Hardware ID:** CPU + machine fingerprint
+- **UI:** Tkinter (built-in)
 `,
   'TROUBLESHOOTING.md': `# Troubleshooting
 
@@ -1097,55 +875,48 @@ The SDK communicates with the following Neon PostgreSQL tables managed by Websmi
 
   private getWelcomeFlowSection(pkgDir?: string): string {
     const dir = pkgDir || 'sdk_package';
-    return `## Welcome Flow
+    return `## Email Request Flow
 
-When a customer runs the application for the first time, the SDK orchestrates this flow:
+All customer communications flow through the Universal Email Dialog backed by \`POST /api/v1/request\`.
 
 \`\`\`
-Application starts
+User clicks action button (e.g. "Contact Support")
         ↓
-LicenseEngine.initialize()
+UniversalEmailDialog opens (pre-filled with context)
         ↓
-No license/trial found
+User enters name, email, subject, message
         ↓
-Welcome dialog opens
+POST /api/v1/request (type: SUPPORT, BUY, RENEW, etc.)
         ↓
-Customer enters email
+Websmith Internal API receives and validates
         ↓
-Send OTP
+Email Service sends to support@websmithdigital.com
         ↓
-Verify OTP
-        ↓
-Select country
-        ↓
-Enter name + mobile
-        ↓
-Create customer row in Neon PostgreSQL
-        ↓
-Start trial (trials row + otp_verifications updated)
-        ↓
-Application opens
+Support team responds via email
 \`\`\`
 
 **Rules:**
-- Close dialog (X) → \`sys.exit(0)\` — entire application closes
-- OTP not verified → Start Trial button stays disabled
-- OTP verified + dialog closed before trial → application exits
-- Trial created → application opens normally
+- SDK never sends SMTP email directly
+- All request types use the same endpoint: \`POST /api/v1/request\`
+- Customer name and email are auto-populated from cache if available
+- Hardware ID, license key, and plan are auto-populated from context
 
 **Integration pattern:**
 
 \`\`\`python
-from ${dir} import LicenseEngine, WelcomeDialog
+from ${dir}.license_engine import LicenseEngine
+from ${dir}.universal_email_dialog import UniversalEmailDialog
 
 engine = LicenseEngine()
-status = engine.initialize()
-if not status.valid:
-    result = WelcomeDialog(engine._client).show()
-    if result.get("skipped") and not result.get("onboarding_complete"):
-        import sys
-        sys.exit(0)  # User closed dialog or declined
-    status = engine.initialize()  # Re-check after onboarding
+engine.initialize()
+
+dialog = UniversalEmailDialog(
+    engine._client.config, engine._client,
+    engine._hardware, engine._cache
+)
+result = dialog.show("SUPPORT", customer_name="John", customer_email="john@example.com")
+if result.get("sent"):
+    print("Support request sent")
 \`\`\``;
   }
 
@@ -1161,19 +932,52 @@ if not status.valid:
 engine = LicenseEngine()
 status = engine.initialize()
 if status.valid:
-    print(f"License valid until {status.expires_at}")
+    print(f"License valid until {status.expiry_date}")
 elif status.status == "trial":
-    print(f"Trial active, {status.days_remaining} days remaining")
+    print(f"Trial active, {status.days_left} days remaining")
 else:
     print(f"Status: {status.status} - {status.message}")`),
 
+      this.getExampleSection('python', 'Launch Universal License Center',
+`from ${pkgDir} import LicenseEngine
+from ${pkgDir}.universal_license_center import UniversalLicenseCenter
+
+engine = LicenseEngine()
+status = engine.initialize()
+
+center = UniversalLicenseCenter(engine)
+center.show()`),
+
+      this.getExampleSection('python', 'Send Request via Email Dialog',
+`from ${pkgDir}.license_engine import LicenseEngine
+from ${pkgDir}.universal_email_dialog import UniversalEmailDialog
+
+engine = LicenseEngine()
+engine.initialize()
+
+dialog = UniversalEmailDialog(
+    engine._client.config, engine._client,
+    engine._hardware, engine._cache
+)
+result = dialog.show(
+    "SUPPORT",
+    customer_name="John Doe",
+    customer_email="john@example.com",
+    message_text="I need help with activation"
+)
+if result.get("sent"):
+    print("Request sent successfully")`),
+
       this.getExampleSection('python', 'Start Trial',
 `engine = LicenseEngine()
+engine.initialize()
+
 result = engine.start_trial("user@example.com", customer_name="John Doe")
 if result.get("success"):
     print("Trial started successfully")
     status = engine.get_status()
-    print(f"Days remaining: {status.days_remaining}")`),
+    if status:
+        print(f"Days remaining: {status.days_left}")`),
 
       this.getExampleSection('python', 'Convert Trial to License',
 `engine = LicenseEngine()
@@ -1191,14 +995,13 @@ except RuntimeError as e:
 result = engine.activate("XXXXX-XXXXX-XXXXX-XXXXX")
 if result.get("success"):
     print("License activated")
-    print(f"Plan: {engine.get_status().plan}")`),
+    status = engine.get_status()
+    if status:
+        print(f"Plan: {status.plan}")`),
 
       this.getExampleSection('python', 'Renew License',
 `engine = LicenseEngine()
 status = engine.initialize()
-if not status.valid:
-    print("Please activate your license first")
-    engine.activate("XXXXX-XXXXX-XXXXX-XXXXX")
 
 try:
     result = engine.renew()
@@ -1215,26 +1018,8 @@ try:
     result = engine.replace_hardware()
     if result.get("success"):
         print("Hardware replaced")
-except ValueError:
-    print("Please re-enter your license key")
-    engine.activate("XXXXX-XXXXX-XXXXX-XXXXX")
-    result = engine.replace_hardware()`),
-
-      this.getExampleSection('python', 'Show Welcome Dialog',
-`from ${pkgDir} import LicenseEngine, WelcomeDialog
-
-engine = LicenseEngine()
-status = engine.initialize()
-if not status.valid:
-    result = WelcomeDialog(engine._client, product_name="${productName || 'MyApp'}").show()
-    if result.get("onboarding_complete"):
-        print("Onboarding done for:", result["email"])
-        status = engine.initialize()
-        print(f"Trial active: {status.days_remaining} days")
-    elif result.get("skipped"):
-        print("Onboarding skipped — application will close")
-        import sys
-        sys.exit(0)`),
+except ValueError as e:
+    print(f"Error: {e}")`),
 
       this.getExampleSection('python', 'Deactivate License',
 `engine = LicenseEngine()
@@ -1381,27 +1166,28 @@ ${this.getWelcomeFlowSection(pkgDir)}
 The SDK follows this layered architecture:
 
 \`\`\`
-┌─────────────────────────────────────────────┐
-│               Your Application               │
-├─────────────────────────────────────────────┤
-│  WelcomeDialog  │  Widgets  │  LicenseEngine │
-├─────────────────────────────────────────────┤
-│  CacheManager    │   HardwareFingerprint     │
-├─────────────────────────────────────────────┤
-│          ApiClient (HMAC-signed)             │
-├─────────────────────────────────────────────┤
-│       Websmith Internal API (REST)           │
-├─────────────────────────────────────────────┤
-│              Neon PostgreSQL                 │
-└─────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│               Your Application                      │
+├────────────────────────────────────────────────────┤
+│  UniversalLicenseCenter  │  UniversalEmailDialog    │
+│  (full Tkinter GUI)      │  (single email form)    │
+├────────────────────────────────────────────────────┤
+│  LicenseEngine  │  CacheManager  │  HardwareDetector │
+├────────────────────────────────────────────────────┤
+│               ApiClient (HMAC-signed)               │
+├────────────────────────────────────────────────────┤
+│            Websmith Internal API (REST)             │
+├────────────────────────────────────────────────────┤
+│          PostgreSQL + Email Service                 │
+└────────────────────────────────────────────────────┘
 \`\`\`
 
 ## Developer Responsibilities
 
 - ✅ Call \`engine.initialize()\` on application startup
-- ✅ Handle the \`WelcomeDialog\` for new customer onboarding
+- ✅ Launch \`UniversalLicenseCenter\` for full license management
 - ❌ Do NOT hardcode trial days, country lists, or license rules
-- ❌ Do NOT bypass OTP verification
+- ❌ Do NOT bypass API request validation
 - ❌ Do NOT patch or modify generated SDK files
 
 ## License
