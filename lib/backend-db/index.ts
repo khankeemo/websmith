@@ -1021,7 +1021,37 @@ export async function getDb(): Promise<Pool> {
       )
     `);
 
-    // 27. Create sales_enquiries table (Phase 12 - Purchase Workflow)
+    // 27. Create requests table (Universal Request Center - AWS-01)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS requests (
+        id SERIAL PRIMARY KEY,
+        request_id TEXT UNIQUE NOT NULL,
+        request_type TEXT NOT NULL,
+        status TEXT DEFAULT 'open',
+        customer_email TEXT,
+        customer_name TEXT,
+        product_id TEXT,
+        product_name TEXT,
+        plan_name TEXT,
+        license_key TEXT,
+        hardware_id TEXT,
+        sdk_version TEXT,
+        runtime_type TEXT,
+        subject TEXT,
+        message TEXT,
+        admin_notes TEXT,
+        resolved_at TIMESTAMP,
+        closed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_request_type ON requests(request_type)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_customer_email ON requests(customer_email)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at DESC)`);
+
+    // 28. Create sales_enquiries table (Phase 12 - Purchase Workflow)
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_enquiries (
         id SERIAL PRIMARY KEY,

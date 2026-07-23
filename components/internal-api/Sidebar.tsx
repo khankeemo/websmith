@@ -37,6 +37,7 @@ import {
   CreditCard,
   Receipt,
   ShieldCheck,
+  Inbox,
 } from "lucide-react";
 
 const menu = [
@@ -63,6 +64,12 @@ const menu = [
     title: "HARDWARE",
     items: [
       { name: "Devices", icon: HardDrive, path: "/internal/api/hardware" },
+    ],
+  },
+  {
+    title: "REQUESTS",
+    items: [
+      { name: "Request Center", icon: Inbox, path: "/internal/api/requests" },
     ],
   },
   {
