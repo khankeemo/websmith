@@ -434,15 +434,6 @@ class CacheManager
         $this->set('license_key', $key);
     }
 
-    public function isOnboardingComplete(): bool
-    {
-        return $this->get('onboarding_complete') === true;
-    }
-
-    public function setOnboardingComplete(): void
-    {
-        $this->set('onboarding_complete', true);
-    }
 }
 
 class LicenseEngine
@@ -694,110 +685,6 @@ class LicenseEngine
     }
 }
 
-class WelcomeDialog
-{
-    private Client $client;
-    private CacheManager $cache;
-    private array $config;
-    private string $productName;
-    private bool $trialEnabled;
-
-    public function __construct(
-        ?Client $client = null,
-        ?CacheManager $cache = null,
-        string $productName = ''
-    ) {
-        $this->config = $this->loadConfig();
-        $this->client = $client ?? new Client();
-        $this->cache = $cache ?? new CacheManager($this->config);
-        $this->productName = $productName !== '' ? $productName : ($this->config['product']['name'] ?? '');
-        $this->trialEnabled = $this->config['trial']['enabled'] ?? false;
-    }
-
-    private function loadConfig(): array
-    {
-        $paths = [
-            __DIR__ . '/config/api-config.json',
-            getcwd() . '/config/api-config.json',
-        ];
-        foreach ($paths as $path) {
-            if (file_exists($path)) {
-                $data = @file_get_contents($path);
-                if ($data !== false) {
-                    $decoded = json_decode($data, true);
-                    if (is_array($decoded)) {
-                        return $decoded;
-                    }
-                }
-            }
-        }
-        return [];
-    }
-
-    public function isOnboardingComplete(): bool
-    {
-        return $this->cache->isOnboardingComplete();
-    }
-
-    public function show(): array
-    {
-        if (!$this->trialEnabled) {
-            echo "Trial onboarding is not enabled for this product.\\n";
-            return ['skipped' => true, 'message' => 'Trial not enabled'];
-        }
-
-        if ($this->isOnboardingComplete()) {
-            echo "Onboarding has already been completed.\\n";
-            return ['skipped' => true, 'message' => 'Already completed'];
-        }
-
-        echo "=== Welcome to " . $this->productName . " ===\\n\\n";
-
-        echo "Enter your details to start a free trial:\\n";
-
-        echo "Name: ";
-        $name = trim(fgets(STDIN));
-
-        echo "Email: ";
-        $email = trim(fgets(STDIN));
-
-        echo "Company (optional): ";
-        $company = trim(fgets(STDIN));
-
-        if ($name === '' || $email === '') {
-            echo "Error: Name and email are required.\\n";
-            return ['skipped' => true, 'message' => 'Validation failed'];
-        }
-
-        echo "\\nStarting trial for: $name <$email>...\\n";
-
-        try {
-            $hardware = HardwareFingerprint::generateFingerprint();
-            $result = $this->client->startTrial($email, $name, [
-                'company_name' => $company,
-                'hardware_id' => $hardware['fingerprint'],
-            ]);
-
-            if (isset($result['success']) && $result['success']) {
-                $this->cache->setOnboardingComplete();
-                echo "\\nTrial activated successfully! You can now use the software.\\n";
-                return [
-                    'name' => $name,
-                    'email' => $email,
-                    'hardware_id' => $hardware['fingerprint'],
-                    'onboarding_complete' => true,
-                ];
-            }
-
-            $errorMsg = $result['error'] ?? $result['message'] ?? 'Unknown error';
-            echo "\\nFailed to start trial: $errorMsg\\n";
-            return ['skipped' => true, 'message' => $errorMsg];
-        } catch (\\Throwable $e) {
-            echo "\\nError: " . $e->getMessage() . "\\n";
-            return ['skipped' => true, 'message' => $e->getMessage()];
-        }
-    }
-}
 `,
     'composer.json': `{
   "name": "websmith/${safeName}-sdk",
@@ -1135,27 +1022,6 @@ $result = $engine->deactivate();
 
 if (isset($result['success']) && $result['success']) {
     echo "License deactivated.\\n";
-}
-?>
-\`\`\`
-
-### 12. Welcome Dialog (CLI Onboarding)
-
-\`\`\`php
-<?php
-require_once 'vendor/autoload.php';
-
-use WebsmithSDK\\WelcomeDialog;
-
-$dialog = new WelcomeDialog();
-
-if (!$dialog->isOnboardingComplete()) {
-    $result = $dialog->show();
-    if (isset($result['onboarding_complete']) && $result['onboarding_complete']) {
-        echo "Onboarding complete!\\n";
-    }
-} else {
-    echo "Onboarding already completed.\\n";
 }
 ?>
 \`\`\`

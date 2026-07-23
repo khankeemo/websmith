@@ -21,7 +21,6 @@ from .universal_license_center import UniversalLicenseCenter
 from .universal_email_dialog import UniversalEmailDialog
 `,
     'client.py': `"""API Client for ${context.productName} License API"""
-import json
 import time
 from typing import Any, Dict, Optional
 
@@ -610,10 +609,6 @@ class CacheManager:
             del cache[key]
             self._save_cache()
 
-    def clear(self) -> None:
-        self._cache = {}
-        self._save_cache()
-
     def is_expired(self, entry: Dict[str, Any]) -> bool:
         cached_at = entry.get('cached_at', 0)
         ttl_seconds = self._ttl_days * 24 * 60 * 60
@@ -626,9 +621,6 @@ class CacheManager:
             return False
         return not self.is_expired(entry)
 
-    def exists(self) -> bool:
-        return self._cache_file.exists()
-
     def get_license_status(self) -> Optional[Dict[str, Any]]:
         return self.get('license_status')
 
@@ -637,14 +629,6 @@ class CacheManager:
 
     def invalidate_license_status(self) -> None:
         self.delete('license_status')
-
-    def set_onboarding_complete(self) -> None:
-        cache = self._load_cache()
-        cache['onboarding_complete'] = {'value': True, 'cached_at': time.time()}
-        self._save_cache()
-
-    def is_onboarding_complete(self) -> bool:
-        return self.get('onboarding_complete') is True
 
     def save_license_key(self, license_key: str) -> None:
         key_path = self._cache_dir / 'license.key'
@@ -676,7 +660,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .client import ApiClient, ApiError
+from .client import ApiClient
 from .hardware import HardwareDetector
 from .cache import CacheManager
 
@@ -1071,10 +1055,8 @@ class LicenseEngine:
         return self._client.get_available_plans(license_key)
 `,
     'universal_email_dialog.py': `"""Universal Email Dialog - reusable email form for all request types"""
-import json
-import os
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 from typing import Any, Dict, Optional
 
 from .client import ApiClient
@@ -1313,12 +1295,9 @@ class UniversalEmailDialog:
     'universal_license_center.py': `"""Universal License Center - unified customer interface for all license operations"""
 import json
 import os
-import platform
-import socket
-import sys
 import tkinter as tk
-from tkinter import ttk, messagebox
-from typing import Any, Dict, List, Optional
+from tkinter import messagebox
+from typing import Any, Dict, Optional
 
 from .client import ApiClient
 from .license_engine import LicenseEngine, LicenseStatus
@@ -1342,7 +1321,7 @@ def _load_api_config() -> Dict[str, Any]:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             continue
-    return {{}}
+    return {}
 
 
 class UniversalLicenseCenter:

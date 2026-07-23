@@ -280,13 +280,6 @@ class CacheManager {
     this.delete('license_status');
   }
 
-  isOnboardingComplete(): boolean {
-    return this.get<boolean>('onboarding_complete') === true;
-  }
-
-  setOnboardingComplete(): void {
-    this.set('onboarding_complete', true);
-  }
 }
 
 // ---- API Client ----
@@ -804,118 +797,7 @@ class LicenseEngine {
   }
 }
 
-// ---- Welcome Dialog (Console) ----
-class WelcomeDialog {
-  private _client: Client;
-  private _hardware: HardwareFingerprint;
-  private _cache: CacheManager;
-  private _config: ApiConfig;
-  private _productName: string;
-
-  constructor(
-    client: Client,
-    productName?: string,
-    cache?: CacheManager,
-    hardware?: HardwareFingerprint
-  ) {
-    this._client = client;
-    this._productName = productName || '';
-    this._cache = cache || new CacheManager(loadConfig());
-    this._hardware = hardware || new HardwareFingerprint();
-    this._config = loadConfig();
-  }
-
-  isOnboardingComplete(): boolean {
-    return this._cache.isOnboardingComplete();
-  }
-
-  async show(): Promise<Record<string, unknown>> {
-    const trialEnabled = this._config.trial?.enabled ?? false;
-    if (!trialEnabled) {
-      console.log('[Welcome] Trial onboarding is not enabled for this product.');
-      return { skipped: true, message: 'Trial onboarding is not enabled' };
-    }
-    if (this.isOnboardingComplete()) {
-      console.log('[Welcome] Onboarding already completed.');
-      return { skipped: true, message: 'Onboarding already completed' };
-    }
-
-    console.log('\\n=== Welcome to ' + this._productName + ' ===');
-    console.log('Complete registration to start your trial.\\n');
-
-    const name = prompt('Full Name *:') || '';
-    if (!name) {
-      console.log('\\n⚠ Name is required. Aborting.');
-      return { skipped: true, message: 'Name is required' };
-    }
-
-    const email = prompt('Email *:') || '';
-    if (!email || !email.includes('@')) {
-      console.log('\\n⚠ Valid email is required. Aborting.');
-      return { skipped: true, message: 'Valid email is required' };
-    }
-
-    const company = prompt('Company (optional):') || '';
-
-    console.log('\\nSending OTP to ' + email + '...');
-    try {
-      const sendResult = await this._client.request('auth/otp/send', {
-        email,
-      });
-      if (sendResult.success) {
-        console.log('✓ OTP sent to ' + email);
-      } else {
-        const errMsg = (sendResult.message || sendResult.error || 'unknown error') as string;
-        console.log('⚠ Failed to send OTP: ' + errMsg);
-        return { skipped: true, message: 'OTP send failed' };
-      }
-    } catch (err) {
-      console.log('⚠ Error sending OTP: ' + (err as Error).message);
-      return { skipped: true, message: 'OTP send error' };
-    }
-
-    const otp = prompt('Enter OTP:') || '';
-    if (!otp || otp.length < 4) {
-      console.log('\\n⚠ Valid OTP is required. Aborting.');
-      return { skipped: true, message: 'OTP is required' };
-    }
-
-    console.log('\\nVerifying OTP...');
-    try {
-      const verifyResult = await this._client.request('auth/otp/verify', {
-        email,
-        otp,
-      });
-      if (verifyResult.success) {
-        console.log('\\n✓ OTP verified. Registering and starting trial...');
-        const hardwareId = await this._hardware.getFingerprint();
-        await this._client.request('customer/register', {
-          name, email, company_name: company, hardware_id: hardwareId,
-        });
-        const trialResult = await this._client.startTrial(email, name, {
-          company_name: company, hardware_id: hardwareId,
-        });
-        if (trialResult.success) {
-          this._cache.setOnboardingComplete();
-          console.log('\\n✓ Trial activated! You can now use ' + this._productName + '.');
-          return {
-            name, email, company, hardware_id: hardwareId, onboarding_complete: true,
-          };
-        }
-        console.log('⚠ Trial start failed: ' + ((trialResult.message || trialResult.error || 'unknown error') as string));
-        return { skipped: true, message: 'Trial start failed' };
-      } else {
-        console.log('⚠ Verification failed: ' + ((verifyResult.message || verifyResult.error || 'Invalid OTP') as string));
-        return { skipped: true, message: 'OTP verification failed' };
-      }
-    } catch (err) {
-      console.log('⚠ Error during onboarding: ' + (err as Error).message);
-      return { skipped: true, message: 'Onboarding error' };
-    }
-  }
-}
-
-export { Client, ApiError, LicenseEngine, LicenseStatus, HardwareFingerprint, CacheManager, WelcomeDialog };
+export { Client, ApiError, LicenseEngine, LicenseStatus, HardwareFingerprint, CacheManager };
 `,
     'deno.json': `{
   "name": "${context.productName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-sdk",

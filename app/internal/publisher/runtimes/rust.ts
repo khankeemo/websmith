@@ -882,45 +882,6 @@ impl LicenseEngine {
     }
 }
 
-// ── Welcome Dialog ────────────────────────────────────────
-
-pub mod welcome {
-    use std::io::{self, BufRead, Write};
-
-    pub fn show_welcome_dialog(product_name: &str) -> Option<String> {
-        let stdin = io::stdin();
-        let mut stdout = io::stdout();
-
-        let _ = writeln!(stdout, "\n=== Welcome to {} ===", product_name);
-        let _ = writeln!(stdout, "1. Enter a license key");
-        let _ = writeln!(stdout, "2. Start a free trial");
-        let _ = writeln!(stdout, "3. Skip");
-        let _ = write!(stdout, "Choice (1/2/3): ");
-        let _ = stdout.flush();
-
-        let mut choice = String::new();
-        let _ = stdin.lock().read_line(&mut choice);
-        match choice.trim() {
-            "1" => {
-                let _ = write!(stdout, "Enter your license key: ");
-                let _ = stdout.flush();
-                let mut key = String::new();
-                let _ = stdin.lock().read_line(&mut key);
-                let trimmed = key.trim().to_string();
-                if trimmed.is_empty() { None } else { Some(trimmed) }
-            }
-            "2" => {
-                let _ = write!(stdout, "Enter your email address: ");
-                let _ = stdout.flush();
-                let mut email = String::new();
-                let _ = stdin.lock().read_line(&mut email);
-                let trimmed = email.trim().to_string();
-                if trimmed.is_empty() { None } else { Some(trimmed) }
-            }
-            _ => None,
-        }
-    }
-}
 `,
     'src/cache.rs': `use std::fs;
 use std::io;
@@ -1166,7 +1127,7 @@ let result = engine.deactivate().await.unwrap();
 \`\`\`rust
 use ${libName}::welcome;
 
-if let Some(input) = welcome::show_welcome_dialog("${productName}") {
+// Welcome dialog removed - use Universal License Center
     println!("User entered: {}", input);
 }
 \`\`\`

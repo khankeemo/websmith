@@ -130,7 +130,6 @@ int websmith_engine_bind_device(websmith_license_engine_t* engine, const char* l
 int websmith_engine_is_valid(websmith_license_engine_t* engine);
 void websmith_engine_free(websmith_license_engine_t* engine);
 
-void websmith_welcome_dialog(const char* product_name, const char* support_email);
 
 #ifdef __cplusplus
 }
@@ -852,38 +851,6 @@ void websmith_engine_free(websmith_license_engine_t* engine) {
         free(engine);
     }
 }
-
-void websmith_welcome_dialog(const char* product_name, const char* support_email) {
-    if (!product_name) product_name = "${productName}";
-    if (!support_email) support_email = "${supportEmail}";
-    printf("\\\\n============================================\\\\n");
-    printf("  Welcome to %s\\\\n", product_name);
-    printf("  Powered by Websmith License API\\\\n");
-    printf("============================================\\\\n\\\\n");
-    printf("1. Activate a license key\\\\n");
-    printf("2. Start a free trial\\\\n");
-    printf("3. Enter license key\\\\n");
-    printf("4. View license status\\\\n");
-    printf("5. Deactivate license\\\\n");
-    printf("6. Exit\\\\n\\\\n");
-    printf("Support: %s\\\\n", support_email);
-    printf("--------------------------------------------\\\\n");
-    while (1) {
-        char choice[16];
-        printf("\\\\nSelect an option: ");
-        if (!fgets(choice, sizeof(choice), stdin)) break;
-        int opt = atoi(choice);
-        if (opt == 6) {
-            printf("Goodbye!\\\\n");
-            break;
-        }
-        if (opt >= 1 && opt <= 5) {
-            printf("Selected option %d. Please use the API programmatically to execute this action.\\\\n", opt);
-        } else {
-            printf("Invalid option. Please try again.\\\\n");
-        }
-    }
-}
 `,
     'Makefile': `CC = gcc
 CFLAGS = -Wall -Wextra -fPIC -std=c11
@@ -949,8 +916,6 @@ int main(void) {
     } else {
         printf("License validation failed\\\\n");
     }
-
-    websmith_welcome_dialog("${productName}", "${supportEmail}");
 
     websmith_engine_free(engine);
     websmith_cache_free(cache);
@@ -1032,10 +997,6 @@ websmith_engine_bind_device(engine, "LICENSE-XXXX-XXXX-XXXX",
 websmith_engine_deactivate(engine);
 \`\`\`
 
-### Welcome Dialog
-\`\`\`c
-websmith_welcome_dialog("${productName}", "${supportEmail}");
-\`\`\`
 
 ## Memory Management
 Every allocation function has a corresponding \`_free\` function:

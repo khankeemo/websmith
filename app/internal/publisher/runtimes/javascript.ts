@@ -470,77 +470,12 @@ export function getJavaScriptTemplates(context: PublisherContext): Record<string
         return this._licenseData ? JSON.parse(JSON.stringify(this._licenseData)) : null;
     };
 
-    // ─── WelcomeDialog ──────────────────────────────────────────
-
-    function WelcomeDialog() {}
-
-    WelcomeDialog.show = function(options) {
-        options = options || {};
-        var title = options.title || 'License Required';
-        var message = options.message || 'This application requires a valid license.';
-        var primaryText = options.primaryText || 'Activate';
-        var secondaryText = options.secondaryText || 'Start Trial';
-        var onPrimary = options.onPrimary || null;
-        var onSecondary = options.onSecondary || null;
-        var onClose = options.onClose || null;
-
-        var overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,\\"Segoe UI\\",Roboto,sans-serif;';
-
-        var modal = document.createElement('div');
-        modal.style.cssText = 'background:#fff;border-radius:12px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;';
-
-        var titleEl = document.createElement('h2');
-        titleEl.textContent = title;
-        titleEl.style.cssText = 'margin:0 0 12px;font-size:22px;color:#1a1a2e;';
-
-        var msgEl = document.createElement('p');
-        msgEl.textContent = message;
-        msgEl.style.cssText = 'margin:0 0 24px;font-size:14px;color:#555;line-height:1.5;';
-
-        modal.appendChild(titleEl);
-        modal.appendChild(msgEl);
-
-        if (primaryText) {
-            var primaryBtn = document.createElement('button');
-            primaryBtn.textContent = primaryText;
-            primaryBtn.style.cssText = 'display:block;width:100%;padding:12px;margin-bottom:8px;background:#4361ee;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:600;';
-            primaryBtn.addEventListener('click', function() {
-                cleanup();
-                if (typeof onPrimary === 'function') onPrimary();
-            });
-            modal.appendChild(primaryBtn);
-        }
-
-        if (secondaryText) {
-            var secondaryBtn = document.createElement('button');
-            secondaryBtn.textContent = secondaryText;
-            secondaryBtn.style.cssText = 'display:block;width:100%;padding:12px;background:transparent;color:#4361ee;border:2px solid #4361ee;border-radius:8px;font-size:15px;cursor:pointer;font-weight:600;';
-            secondaryBtn.addEventListener('click', function() {
-                cleanup();
-                if (typeof onSecondary === 'function') onSecondary();
-            });
-            modal.appendChild(secondaryBtn);
-        }
-
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-
-        function cleanup() {
-            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-            if (typeof onClose === 'function') onClose();
-        }
-
-        return { overlay: overlay, modal: modal, close: cleanup };
-    };
-
     // ─── Global Exports ─────────────────────────────────────────
 
     global.WebsmithClient = WebsmithClient;
     global.WebsmithLicenseEngine = LicenseEngine;
     global.WebsmithHardwareFingerprint = HardwareFingerprint;
     global.WebsmithCacheManager = CacheManager;
-    global.WebsmithWelcomeDialog = WelcomeDialog;
 
 })(typeof window !== 'undefined' ? window : this);
 `

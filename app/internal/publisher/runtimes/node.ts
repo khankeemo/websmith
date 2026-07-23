@@ -216,8 +216,6 @@ class CacheManager {
   getLicenseStatus() { return this.get('license_status'); }
   setLicenseStatus(s) { this.set('license_status', s); }
   invalidateLicenseStatus() { this.delete('license_status'); }
-  setOnboardingComplete() { this.set('onboarding_complete', true); }
-  isOnboardingComplete() { return this.get('onboarding_complete') === true; }
 }
 
 // ─── Client ─────────────────────────────────────────────
@@ -495,68 +493,7 @@ class LicenseEngine {
   getLicenseInfo() { return this._data ? Object.assign({}, this._data) : null; }
 }
 
-// ─── WelcomeDialog (readline) ───────────────────────────
-class WelcomeDialog {
-  constructor() {
-    this._cfg = loadConfig();
-    this.productName = (this._cfg.product || {}).name || '${prodName}';
-    this._cache = new CacheManager();
-    this._client = new Client();
-    this._enabled = (this._cfg.license || {}).trial_enabled !== false;
-  }
-
-  isOnboardingComplete() { return this._cache.isOnboardingComplete(); }
-
-  async show() {
-    if (!this._enabled) return { skipped: true, message: 'Trial not enabled' };
-    if (this.isOnboardingComplete()) return { skipped: true, message: 'Already completed' };
-    return new Promise((resolve) => {
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      console.log('=== Welcome to ' + this.productName + ' ===');
-      console.log('Complete registration to start the trial.\\n');
-      rl.question('Name: ', (name) => {
-        rl.question('Email: ', async (email) => {
-          rl.question('License key (or leave blank for trial): ', async (lk) => {
-            if (lk && lk.trim()) {
-              try {
-                const r = await this._client.activateLicense(lk.trim(), HardwareFingerprint.generate().fingerprint);
-                if (r.success || r.status === 'active') {
-                  this._cache.setOnboardingComplete();
-                  console.log('License activated!\\n');
-                  return resolve({ license_key: lk, onboarding_complete: true });
-                }
-                console.log('Activation failed: ' + (r.message || r.error || 'unknown'));
-              } catch (e) {
-                console.log('Error: ' + (e.message || 'unknown'));
-              }
-              rl.close();
-              return resolve({ skipped: true });
-            }
-            console.log('\\nStarting trial...');
-            try {
-              const hw = HardwareFingerprint.generate().fingerprint;
-              const r = await this._client.startTrial(email, name);
-              if (r.success) {
-                this._cache.setOnboardingComplete();
-                console.log('Trial activated!\\n');
-                resolve({ name, email, hardware_id: hw, onboarding_complete: true });
-              } else {
-                console.log('Failed: ' + (r.message || r.error || 'unknown'));
-                resolve({ skipped: true });
-              }
-            } catch (e) {
-              console.log('Error: ' + (e.message || 'unknown'));
-              resolve({ skipped: true });
-            }
-            rl.close();
-          });
-        });
-      });
-    });
-  }
-}
-
-module.exports = { Client, ApiError, LicenseEngine, HardwareFingerprint, CacheManager, WelcomeDialog };
+module.exports = { Client, ApiError, LicenseEngine, HardwareFingerprint, CacheManager };
 `,
     'package.json': `{
   "name": "wsd-${prodId}-sdk",
@@ -682,20 +619,6 @@ async function replace() {
   console.log('Replaced:', result);
 }
 \`\`\`
-
-## Show Welcome Dialog
-\`\`\`javascript
-const { WelcomeDialog } = require('wsd-${prodId}-sdk');
-const dialog = new WelcomeDialog();
-
-async function welcome() {
-  if (!dialog.isOnboardingComplete()) {
-    const result = await dialog.show();
-    console.log('Onboarding result:', result);
-  }
-}
-\`\`\`
-
 ## Deactivate License
 \`\`\`javascript
 const { LicenseEngine } = require('wsd-${prodId}-sdk');

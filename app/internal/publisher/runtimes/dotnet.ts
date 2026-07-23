@@ -515,78 +515,6 @@ namespace WebsmithSDK
     }
 }
 `,
-    'WelcomeDialog.cs': `using System;
-using System.Collections.Generic;
-using System.Text.Json;
-
-namespace WebsmithSDK
-{
-    public static class WelcomeDialog
-    {
-        public static void Show(string productName, string? licenseKey = null, JsonElement? licenseInfo = null)
-        {
-            var line = new string('-', 50);
-            Console.WriteLine();
-            Console.WriteLine(line);
-            Console.WriteLine($"  Welcome to {productName}");
-            Console.WriteLine(line);
-
-            if (!string.IsNullOrEmpty(licenseKey))
-            {
-                Console.WriteLine($"  License Key: {licenseKey}");
-            }
-
-            if (licenseInfo.HasValue)
-            {
-                var info = licenseInfo.Value;
-                if (info.TryGetProperty("status", out var status))
-                    Console.WriteLine($"  Status: {status.GetString()}");
-                if (info.TryGetProperty("expires_at", out var expiresAt) && expiresAt.ValueKind == JsonValueKind.String)
-                    Console.WriteLine($"  Expires: {expiresAt.GetString()}");
-                if (info.TryGetProperty("plan", out var plan))
-                    Console.WriteLine($"  Plan: {plan.GetString()}");
-                if (info.TryGetProperty("max_devices", out var maxDevices))
-                    Console.WriteLine($"  Max Devices: {maxDevices}");
-                if (info.TryGetProperty("licensed_to", out var licensedTo))
-                    Console.WriteLine($"  Licensed To: {licensedTo.GetString()}");
-            }
-
-            Console.WriteLine(line);
-            Console.WriteLine("  Thank you for choosing Websmith!");
-            Console.WriteLine(line);
-            Console.WriteLine();
-        }
-
-        public static void ShowTrialInfo(string productName, JsonElement trialInfo)
-        {
-            var line = new string('-', 50);
-            Console.WriteLine();
-            Console.WriteLine(line);
-            Console.WriteLine($"  {productName} — Trial Information");
-            Console.WriteLine(line);
-
-            if (trialInfo.TryGetProperty("status", out var status))
-                Console.WriteLine($"  Status: {status.GetString()}");
-            if (trialInfo.TryGetProperty("expires_at", out var expiresAt) && expiresAt.ValueKind == JsonValueKind.String)
-                Console.WriteLine($"  Trial Expires: {expiresAt.GetString()}");
-            if (trialInfo.TryGetProperty("days_remaining", out var daysRemaining))
-                Console.WriteLine($"  Days Remaining: {daysRemaining}");
-            if (trialInfo.TryGetProperty("hardware_id", out var hardwareId))
-                Console.WriteLine($"  Hardware ID: {hardwareId.GetString()}");
-
-            Console.WriteLine(line);
-            Console.WriteLine();
-        }
-
-        public static bool ConfirmAction(string message)
-        {
-            Console.Write($"{message} (y/n): ");
-            var input = Console.ReadLine()?.Trim().ToLower();
-            return input == "y" || input == "yes";
-        }
-    }
-}
-`,
     'websmith-sdk.csproj': `<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -648,7 +576,6 @@ engine.Initialize();
 
 \`\`\`csharp
 var trialResult = await engine.StartTrial("user@example.com", "John Doe");
-WelcomeDialog.ShowTrialInfo("${context.productName}", trialResult.RootElement);
 \`\`\`
 
 ### Check Trial Status
@@ -667,7 +594,6 @@ var result = await engine.ConvertTrial("premium", "John Doe", "user@example.com"
 
 \`\`\`csharp
 var result = await engine.Activate("LICENSE-KEY-HERE", "My Workstation");
-WelcomeDialog.Show("${context.productName}", "LICENSE-KEY-HERE", result.RootElement);
 \`\`\`
 
 ### Validate License

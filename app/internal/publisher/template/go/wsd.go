@@ -62,7 +62,6 @@ type Labels struct {
 	ActivationTitle       string `json:"activation_title"`
 	RenewTitle            string `json:"renew_title"`
 	ReplaceTitle          string `json:"replace_title"`
-	WelcomeTitle          string `json:"welcome_title"`
 	ActivateBtn           string `json:"activate_btn"`
 	RenewBtn              string `json:"renew_btn"`
 	ReplaceBtn            string `json:"replace_btn"`
@@ -71,7 +70,6 @@ type Labels struct {
 	SendOtpBtn            string `json:"send_otp_btn"`
 	VerifyOtpBtn          string `json:"verify_otp_btn"`
 	StartTrialBtn         string `json:"start_trial_btn"`
-	OpenWelcomeBtn        string `json:"open_welcome_btn"`
 	ActivateLicenseBtn    string `json:"activate_license_btn"`
 	StatusLabel           string `json:"status_label"`
 	ProductLabel          string `json:"product_label"`

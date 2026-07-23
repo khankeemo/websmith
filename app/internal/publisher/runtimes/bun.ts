@@ -310,32 +310,7 @@ class LicenseEngine {
   }
 }
 
-// ── WelcomeDialog ────────────────────────────────────────────────────
-class WelcomeDialog {
-  static show(message) {
-    console.log(message);
-  }
-
-  static async confirm(message) {
-    process.stdout.write(message + ' (yes/no): ');
-    const answer = await WelcomeDialog._readLine();
-    return /^y(?:es)?$/i.test(answer.trim());
-  }
-
-  static async prompt(question) {
-    process.stdout.write(question + ': ');
-    return await WelcomeDialog._readLine();
-  }
-
-  static async _readLine() {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    return new Promise(resolve => {
-      rl.once('line', line => { rl.close(); resolve(line); });
-    });
-  }
-}
-
-export { Client, ApiError, LicenseEngine, HardwareFingerprint, CacheManager, WelcomeDialog };
+export { Client, ApiError, LicenseEngine, HardwareFingerprint, CacheManager };
 `,
     'package.json': `{
   "name": "${context.productName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-sdk",
@@ -487,16 +462,6 @@ const data = await cache.get('license');
 \`\`\`
 
 Writes are atomic (temp file + rename).
-
-## Welcome Dialog
-
-\`\`\`javascript
-import { WelcomeDialog } from './client.js';
-
-WelcomeDialog.show('Welcome to ${context.productName}!');
-const agreed = await WelcomeDialog.confirm('Accept terms?');
-const name = await WelcomeDialog.prompt('Enter your name');
-\`\`\`
 
 ## Error Handling
 

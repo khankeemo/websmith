@@ -637,53 +637,6 @@ private:
     json m_fingerprint;
 };
 
-class WelcomeDialog {
-public:
-    WelcomeDialog(const std::string& productName, const std::string& supportEmail)
-        : m_productName(productName), m_supportEmail(supportEmail) {}
-
-    void showWelcome() const {
-        std::cout << "\n========================================\n";
-        std::cout << "  Welcome to " << m_productName << "!\n";
-        std::cout << "========================================\n\n";
-
-        if (!m_licenseKey.empty()) {
-            std::cout << "License Key: " << m_licenseKey << "\n";
-            std::cout << "Status: " << (m_isValid ? "Active" : "Inactive") << "\n\n";
-        }
-
-        std::cout << "What would you like to do?\n";
-        std::cout << "  1. Activate License\n";
-        std::cout << "  2. Start Trial\n";
-        std::cout << "  3. Check License Status\n";
-        std::cout << "  4. Deactivate License\n";
-        std::cout << "  5. Exit\n";
-        std::cout << "Enter choice (1-5): ";
-    }
-
-    void showActivated() const {
-        std::cout << "\nLicense activated successfully!\n";
-        std::cout << "Thank you for choosing " << m_productName << ".\n\n";
-    }
-
-    void showError(const std::string& message) const {
-        std::cout << "\nError: " << message << "\n";
-        std::cout << "Please contact support: " << m_supportEmail << "\n\n";
-    }
-
-    int promptChoice() {
-        int choice = 0;
-        std::cin >> choice;
-        return choice;
-    }
-
-    std::string promptLicenseKey() {
-        std::cout << "Enter license key: ";
-        std::string key;
-        std::cin >> key;
-        return key;
-    }
-
     std::string promptDeviceName() {
         std::cout << "Enter device name (optional): ";
         std::string name;
@@ -855,38 +808,10 @@ std::cout << "Status: " << info.value("status", "none") << "\\n";
 std::cout << "Expires: " << info.value("expires_at", "N/A") << "\\n";
 \`\`\`
 
-### Welcome Dialog
-
+### License Status
 \`\`\`cpp
-WelcomeDialog dialog("${productName}", "${supportEmail}");
-dialog.showWelcome();
-int choice = dialog.promptChoice();
-switch (choice) {
-    case 1: {
-        std::string key = dialog.promptLicenseKey();
-        std::string name = dialog.promptDeviceName();
-        try {
-            engine.activate(key, name);
-            dialog.showActivated();
-        } catch (const ApiException& e) {
-            dialog.showError(e.what());
-        }
-        break;
-    }
-    case 2: {
-        std::string email = dialog.promptEmail();
-        std::string name = dialog.promptCustomerName();
-        try {
-            engine.startTrial(email, name);
-            dialog.showActivated();
-        } catch (const ApiException& e) {
-            dialog.showError(e.what());
-        }
-        break;
-    }
-    case 3: {
-        bool valid = engine.isValid();
-        std::cout << "License status: " << (valid ? "VALID" : "INVALID/EXPIRED") << "\\n";
+bool valid = engine.isValid();
+std::cout << "License status: " << (valid ? "VALID" : "INVALID/EXPIRED") << "\\n";
         break;
     }
     case 4: {

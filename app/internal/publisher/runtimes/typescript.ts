@@ -360,15 +360,6 @@ export class CacheManager {
     this.delete('license_status');
   }
 
-  setOnboardingComplete(): void {
-    const cache = this._loadCache();
-    cache['onboarding_complete'] = { value: true, cached_at: Date.now() };
-    this._saveCache();
-  }
-
-  isOnboardingComplete(): boolean {
-    return this.get('onboarding_complete') === true;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -796,79 +787,6 @@ export class LicenseEngine {
   }
 }
 
-// ---------------------------------------------------------------------------
-// WelcomeDialog — terminal-based license entry dialog
-// ---------------------------------------------------------------------------
-export class WelcomeDialog {
-  private config: Record<string, any>;
-  private client: ApiClient;
-  private hardware: HardwareDetector;
-  private cache: CacheManager;
-  private productName: string;
-  private trialEnabled: boolean;
-  private branding: Record<string, any>;
-
-  constructor(
-    client?: ApiClient,
-    config?: Record<string, any>,
-    productName?: string
-  ) {
-    this.config = config || loadConfig();
-    this.client = client || new ApiClient(this.config);
-    this.hardware = new HardwareDetector();
-    this.cache = new CacheManager(this.config);
-    this.productName = productName || this.config.product?.name || PRODUCT_NAME;
-    this.trialEnabled = this.config.trial?.enabled ?? ${!!context.product.trial_enabled};
-    this.branding = this.config.branding || {};
-  }
-
-  isOnboardingComplete(): boolean {
-    return this.cache.isOnboardingComplete();
-  }
-
-  async show(): Promise<Record<string, any>> {
-    if (!this.trialEnabled) {
-      console.log('Trial onboarding is not enabled for this product.');
-      return { skipped: true, message: 'Trial onboarding is not enabled' };
-    }
-    if (this.isOnboardingComplete()) {
-      console.log('Onboarding already completed.');
-      return { skipped: true, message: 'Onboarding already completed' };
-    }
-
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const ask = (query: string): Promise<string> =>
-      new Promise(resolve => rl.question(query, resolve));
-
-    try {
-      console.log(\`\\n=== Welcome to \${this.productName} ===\\n\`);
-
-      const name = await ask('Full Name *: ');
-      if (!name.trim()) throw new Error('Name is required');
-
-      const email = await ask('Email *: ');
-      if (!email.trim() || !email.includes('@')) throw new Error('Valid email is required');
-
-      const company = await ask('Company (optional): ');
-
-      console.log(\`\\nStarting trial for \${email}...\`);
-      const result = await this.client.startTrial(email, name, {
-        company_name: company,
-        hardware_id: this.hardware.getFingerprint(),
-      });
-
-      if (result.success) {
-        this.cache.setOnboardingComplete();
-        console.log(\`\\nTrial activated! You can now use \${this.productName}.\\n\`);
-        return { name, email, hardware_id: this.hardware.getFingerprint(), onboarding_complete: true };
-      }
-
-      throw new Error(result.message || 'Failed to start trial');
-    } finally {
-      rl.close();
-    }
-  }
-}
 `,
     'tsconfig.json': `{
   "compilerOptions": {
@@ -1018,20 +936,6 @@ const result = await engine.bindDevice('XXXX-XXXX-XXXX-XXXX', 'Workstation-1');
 \`\`\`typescript
 const result = await engine.deactivate();
 if (result.success) console.log('License deactivated');
-\`\`\`
-
-### 11. Welcome Dialog (Terminal)
-
-Interactive terminal prompt to start a trial.
-
-\`\`\`typescript
-import { WelcomeDialog } from './client';
-
-const dialog = new WelcomeDialog();
-if (!dialog.isOnboardingComplete()) {
-  const result = await dialog.show();
-  console.log('Onboarding result:', result);
-}
 \`\`\`
 
 ## API Endpoints

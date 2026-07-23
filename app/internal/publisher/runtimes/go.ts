@@ -721,57 +721,6 @@ import (
 	"strings"
 )
 
-type WelcomeDialog struct {
-	ProductName  string
-	CompanyName  string
-	SupportEmail string
-	SupportURL   string
-	TrialEnabled bool
-	TrialDays    int
-}
-
-func NewWelcomeDialog(productName, companyName, supportEmail, supportURL string, trialEnabled bool, trialDays int) *WelcomeDialog {
-	return &WelcomeDialog{
-		ProductName:  productName,
-		CompanyName:  companyName,
-		SupportEmail: supportEmail,
-		SupportURL:   supportURL,
-		TrialEnabled: trialEnabled,
-		TrialDays:    trialDays,
-	}
-}
-
-func (d *WelcomeDialog) Show() {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Println(strings.Repeat("-", 50))
-	fmt.Printf("Welcome to %s\n", d.ProductName)
-	if d.CompanyName != "" {
-		fmt.Printf("Powered by %s\n", d.CompanyName)
-	}
-	fmt.Println(strings.Repeat("-", 50))
-
-	if d.TrialEnabled && d.TrialDays > 0 {
-		fmt.Printf("Start your %d-day free trial today!\n", d.TrialDays)
-	}
-
-	fmt.Print("Enter your license key (or press Enter to skip): ")
-	key, _ := reader.ReadString('\n')
-	key = strings.TrimSpace(key)
-
-	if key != "" {
-		fmt.Println("License key accepted. Validating...")
-	}
-
-	if d.SupportEmail != "" {
-		fmt.Printf("Need help? Contact %s\n", d.SupportEmail)
-	}
-	if d.SupportURL != "" {
-		fmt.Printf("Visit %s for more information\n", d.SupportURL)
-	}
-
-	fmt.Println(strings.Repeat("-", 50))
-}
 `,
     'go.mod': `module ${moduleName}
 
@@ -792,7 +741,6 @@ ${sanitized}-sdk/
   hardware.go              # Hardware fingerprint generation
   cache.go                 # File-based cache with atomic writes
   license.go               # License engine (orchestrates all operations)
-  welcome.go               # Interactive welcome dialog
   go.mod                   # Module definition
   go.sum                   # Dependency checksums (generated)
 \`\`\`
@@ -962,22 +910,6 @@ func deactivateLicense(engine *websmith.LicenseEngine) {
 }
 \`\`\`
 
-## Welcome Dialog
-
-\`\`\`go
-func showWelcome(engine *websmith.LicenseEngine) {
-	dialog := websmith.NewWelcomeDialog(
-		"${context.productName}",
-		"${context.product.company_name || ''}",
-		"${context.product.support_email || ''}",
-		"${context.product.support_url || ''}",
-		${context.product.trial_enabled},
-		${context.product.trial_days},
-	)
-	dialog.Show()
-}
-\`\`\`
-
 ## Complete Example
 
 \`\`\`go
@@ -998,13 +930,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize: %v", err)
 	}
-
-	// Show welcome dialog
-	dialog := websmith.NewWelcomeDialog(
-		"${context.productName}", "", "", "",
-		${context.product.trial_enabled}, ${context.product.trial_days},
-	)
-	dialog.Show()
 
 	// Activate if license key is provided
 	if licenseKey != "" {
