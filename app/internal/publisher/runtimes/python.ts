@@ -827,6 +827,14 @@ class LicenseEngine:
                 if self._status.valid:
                     self._cache.set_license_status(self._status.to_dict())
                 return self._status
+            trial_msg = (trial_data.get('message', '') or '').lower()
+            if 'paid license' in trial_msg or 'paid' in trial_msg:
+                self._status = LicenseStatus(
+                    valid=False, status='force_reactivation',
+                    hardware_id=hardware_id,
+                    message='License inactive. Please reactivate or renew.'
+                )
+                return self._status
             # No license or trial found
             self._status = LicenseStatus(
                 valid=False, status='unlicensed',
@@ -3072,6 +3080,11 @@ class DashboardWidget:
             self._w['d'].config(text=f"{days_lbl}: {s.days_left}")
             self._w['e'].config(text=f"{expiry_lbl}: {s.expiry_date or labels.get('expiry_na', 'N/A')}")
             self._w['p'].config(text=f"{plan_lbl}: {s.plan or labels.get('plan_na', 'N/A')}")
+        elif s and s.status == 'force_reactivation':
+            c=colors.get('warning','#f59e0b')
+            self._w['s'].config(text=f"{status_lbl}: Reactivation Required",fg=c)
+            self._w['t'].config(text='Your license needs to be reactivated. Click Settings > Activate.')
+            for k in ['d','e','p']: self._w[k].config(text="")
         else:
             self._w['s'].config(text=f"{status_lbl}: {labels.get('unlicensed_status', 'Unlicensed')}",fg=colors.get('error','#dc2626')); self._w['t'].config(text=labels.get('no_active_text', 'No active license or trial'))
             for k in ['d','e','p']: self._w[k].config(text="")
