@@ -32,33 +32,96 @@ LicenseStatus* wsd_initialize(LicenseEngine* engine) {
     const char* hw_id = wsd_get_fingerprint(engine->hardware);
     strncpy(engine->status.hardware_id, hw_id ? hw_id : "", sizeof(engine->status.hardware_id) - 1);
 
-    JsonMap* trial = wsd_get_trial_status(engine->client, hw_id);
-    if (trial) {
-        const char* data_json = wsd_json_get(trial, "data");
-        if (data_json) {
-            JsonMap* td = wsd_json_parse(data_json);
-            if (td) {
-                const char* has_trial = wsd_json_get(td, "has_trial");
-                if (has_trial && strcmp(has_trial, "true") == 0) {
-                    const char* st = wsd_json_get(td, "status");
-                    engine->status.valid = (st && strcmp(st, "active") == 0) ? 1 : 0;
-                    strncpy(engine->status.status, st ? st : "trial", sizeof(engine->status.status) - 1);
-                    const char* exp = wsd_json_get(td, "expiry_date");
-                    if (exp) strncpy(engine->status.expires_at, exp, sizeof(engine->status.expires_at) - 1);
-                    const char* dl = wsd_json_get(td, "days_left");
-                    engine->status.days_remaining = dl ? atoi(dl) : 0;
-                    const char* plan = wsd_json_get(td, "plan");
-                    if (plan) strncpy(engine->status.plan, plan, sizeof(engine->status.plan) - 1);
-                    snprintf(engine->status.message, sizeof(engine->status.message), "Trial is %s", st ? st : "unknown");
-                    engine->status.trial_active = 1;
-                    wsd_json_free(td);
-                    wsd_json_free(trial);
+    // Priority 1: Validate active paid license from server
+    if (engine->license_key[0]) {
+        JsonMap* result = wsd_validate_license(engine->client, engine->license_key, hw_id);
+        if (result) {
+            const char* data_json = wsd_json_get(result, "data");
+            JsonMap* data = data_json ? wsd_json_parse(data_json) : result;
+            const char* valid = wsd_json_get(data, "valid");
+            if (valid && strcmp(valid, "true") == 0) {
+                const char* st = wsd_json_get(data, "status");
+                engine->status.valid = 1;
+                strncpy(engine->status.status, st ? st : "active", sizeof(engine->status.status) - 1);
+                const char* exp = wsd_json_get(data, "expiry_date");
+                if (exp) strncpy(engine->status.expires_at, exp, sizeof(engine->status.expires_at) - 1);
+                const char* dl = wsd_json_get(data, "days_left");
+                engine->status.days_remaining = dl ? atoi(dl) : 0;
+                const char* plan = wsd_json_get(data, "plan");
+                if (plan) strncpy(engine->status.plan, plan, sizeof(engine->status.plan) - 1);
+                strncpy(engine->status.license_key, engine->license_key, sizeof(engine->status.license_key) - 1);
+                strcpy(engine->status.message, "License active");
+                if (engine->status.valid) {
+                    wsd_cache_set_license_status(engine->cache, wsd_json_map_new());
+                    wsd_cache_mark_has_ever_activated_paid_license(engine->cache);
+                }
+                if (data != result) wsd_json_free(data);
+                wsd_json_free(result);
+                return &engine->status;
+            } else {
+                // Paid license is invalid/inactive - check if user ever had one
+                if (wsd_cache_has_ever_activated_paid_license(engine->cache)) {
+                    engine->status.valid = 0;
+                    strcpy(engine->status.status, "force_reactivation");
+                    strncpy(engine->status.license_key, engine->license_key, sizeof(engine->status.license_key) - 1);
+                    strcpy(engine->status.message, "License inactive. Please reactivate.");
+                    if (data != result) wsd_json_free(data);
+                    wsd_json_free(result);
                     return &engine->status;
                 }
-                wsd_json_free(td);
+            }
+            if (data != result) wsd_json_free(data);
+            wsd_json_free(result);
+        } else {
+            // Server error - check if user ever had a paid license
+            if (wsd_cache_has_ever_activated_paid_license(engine->cache)) {
+                engine->status.valid = 0;
+                strcpy(engine->status.status, "force_reactivation");
+                strncpy(engine->status.license_key, engine->license_key, sizeof(engine->status.license_key) - 1);
+                strcpy(engine->status.message, "License validation failed. Please reactivate.");
+                return &engine->status;
             }
         }
-        wsd_json_free(trial);
+    } else {
+        // No license key but check if user ever had one
+        if (wsd_cache_has_ever_activated_paid_license(engine->cache)) {
+            engine->status.valid = 0;
+            strcpy(engine->status.status, "force_reactivation");
+            strcpy(engine->status.message, "License inactive. Please reactivate.");
+            return &engine->status;
+        }
+    }
+
+    // Priority 2: Check for active trial (only if user never had a paid license)
+    if (!wsd_cache_has_ever_activated_paid_license(engine->cache)) {
+        JsonMap* trial = wsd_get_trial_status(engine->client, hw_id);
+        if (trial) {
+            const char* data_json = wsd_json_get(trial, "data");
+            if (data_json) {
+                JsonMap* td = wsd_json_parse(data_json);
+                if (td) {
+                    const char* has_trial = wsd_json_get(td, "has_trial");
+                    if (has_trial && strcmp(has_trial, "true") == 0) {
+                        const char* st = wsd_json_get(td, "status");
+                        engine->status.valid = (st && strcmp(st, "active") == 0) ? 1 : 0;
+                        strncpy(engine->status.status, st ? st : "trial", sizeof(engine->status.status) - 1);
+                        const char* exp = wsd_json_get(td, "expiry_date");
+                        if (exp) strncpy(engine->status.expires_at, exp, sizeof(engine->status.expires_at) - 1);
+                        const char* dl = wsd_json_get(td, "days_left");
+                        engine->status.days_remaining = dl ? atoi(dl) : 0;
+                        const char* plan = wsd_json_get(td, "plan");
+                        if (plan) strncpy(engine->status.plan, plan, sizeof(engine->status.plan) - 1);
+                        snprintf(engine->status.message, sizeof(engine->status.message), "Trial is %s", st ? st : "unknown");
+                        engine->status.trial_active = 1;
+                        wsd_json_free(td);
+                        wsd_json_free(trial);
+                        return &engine->status;
+                    }
+                    wsd_json_free(td);
+                }
+            }
+            wsd_json_free(trial);
+        }
     }
 
     engine->status.valid = 0;
@@ -102,6 +165,7 @@ JsonMap* wsd_validate(LicenseEngine* engine, const char* license_key) {
                 const char* lk = wsd_json_get(data, "license_key");
                 if (lk && *lk) strncpy(engine->license_key, lk, sizeof(engine->license_key) - 1);
                 wsd_initialize(engine);
+                wsd_cache_mark_has_ever_activated_paid_license(engine->cache);
             }
             wsd_json_free(data);
         }
@@ -115,6 +179,7 @@ JsonMap* wsd_activate(LicenseEngine* engine, const char* license_key) {
     if (success && strcmp(success, "true") == 0) {
         strncpy(engine->license_key, license_key, sizeof(engine->license_key) - 1);
         wsd_initialize(engine);
+        wsd_cache_mark_has_ever_activated_paid_license(engine->cache);
     }
     return result;
 }
@@ -140,6 +205,7 @@ JsonMap* wsd_convert_trial_c(LicenseEngine* engine, const char* plan, const char
         const char* lk = wsd_json_get(result, "license_key");
         if (lk && *lk) strncpy(engine->license_key, lk, sizeof(engine->license_key) - 1);
         wsd_initialize(engine);
+        wsd_cache_mark_has_ever_activated_paid_license(engine->cache);
     }
     return result;
 }
@@ -153,7 +219,10 @@ JsonMap* wsd_renew(LicenseEngine* engine, int extra_days) {
     }
     JsonMap* result = wsd_renew_license(engine->client, engine->license_key, extra_days);
     const char* success = wsd_json_get(result, "success");
-    if (success && strcmp(success, "true") == 0) wsd_initialize(engine);
+    if (success && strcmp(success, "true") == 0) {
+        wsd_initialize(engine);
+        wsd_cache_mark_has_ever_activated_paid_license(engine->cache);
+    }
     return result;
 }
 
@@ -206,6 +275,7 @@ JsonMap* wsd_replace_hardware(LicenseEngine* engine) {
         if (engine->cache) wsd_cache_invalidate_license_status(engine->cache);
         engine->has_status = 0;
         wsd_initialize(engine);
+        wsd_cache_mark_has_ever_activated_paid_license(engine->cache);
     }
     return result;
 }
@@ -220,6 +290,9 @@ JsonMap* wsd_bind_device_c(LicenseEngine* engine, const char* license_key, const
     }
     JsonMap* result = wsd_bind_device(engine->client, license_key, NULL, device_name);
     const char* success = wsd_json_get(result, "success");
-    if (success && strcmp(success, "true") == 0) wsd_initialize(engine);
+    if (success && strcmp(success, "true") == 0) {
+        wsd_initialize(engine);
+        wsd_cache_mark_has_ever_activated_paid_license(engine->cache);
+    }
     return result;
 }

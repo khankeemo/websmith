@@ -129,6 +129,16 @@ class CacheManager {
   isOnboardingComplete() {
     return this.get('onboarding_complete') === true;
   }
+
+  markHasEverActivatedPaidLicense() {
+    const cache = this._loadCache();
+    cache.has_ever_activated_paid_license = { value: true, cached_at: Date.now() / 1000 };
+    this._saveCache();
+  }
+
+  hasEverActivatedPaidLicense() {
+    return this.get('has_ever_activated_paid_license') === true;
+  }
 }
 
 module.exports = { CacheManager };

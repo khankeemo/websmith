@@ -229,3 +229,20 @@ int wsd_cache_is_onboarding_complete(CacheManager* cache) {
     free(val);
     return result;
 }
+
+void wsd_cache_mark_has_ever_activated_paid_license(CacheManager* cache) {
+    char ts[32];
+    sprintf(ts, "%ld", (long)time(NULL));
+    char entry[4096];
+    snprintf(entry, sizeof(entry), "{\"value\":\"true\",\"cached_at\":\"%s\"}", ts);
+    wsd_json_set(cache->data, "has_ever_activated_paid_license", entry);
+    wsd_cache_save(cache);
+}
+
+int wsd_cache_has_ever_activated_paid_license(CacheManager* cache) {
+    char* val = wsd_cache_get(cache, "has_ever_activated_paid_license");
+    if (!val) return 0;
+    int result = (strcmp(val, "true") == 0);
+    free(val);
+    return result;
+}

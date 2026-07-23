@@ -184,4 +184,17 @@ class CacheManager
     {
         return $this->get('onboarding_complete') === true;
     }
+
+    public function markHasEverActivatedPaidLicense(): void
+    {
+        $cache = $this->loadCache();
+        $cache['has_ever_activated_paid_license'] = ['value' => true, 'cached_at' => time()];
+        $this->cache = $cache;
+        $this->saveCache();
+    }
+
+    public function hasEverActivatedPaidLicense(): bool
+    {
+        return $this->get('has_ever_activated_paid_license') === true;
+    }
 }

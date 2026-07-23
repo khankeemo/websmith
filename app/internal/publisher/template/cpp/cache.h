@@ -19,6 +19,8 @@ public:
     void invalidate_license_status();
     void set_onboarding_complete();
     bool is_onboarding_complete();
+    void mark_has_ever_activated_paid_license();
+    bool has_ever_activated_paid_license();
 
 private:
     std::map<std::string, std::string> config_;

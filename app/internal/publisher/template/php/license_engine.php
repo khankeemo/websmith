@@ -123,28 +123,93 @@ class LicenseEngine
             $cached = $this->cache->getLicenseStatus();
             if ($cached !== null) {
                 $this->status = LicenseStatus::fromArray($cached);
+                if ($this->status->status !== 'trial' && $this->status->valid) {
+                    $this->cache->markHasEverActivatedPaidLicense();
+                }
                 return $this->status;
             }
         }
         try {
             $hardwareId = $this->hardware->getFingerprint();
-            $trialResponse = $this->client->getTrialStatus($hardwareId);
-            $trialData = $trialResponse['data'] ?? [];
-            if (!empty($trialData['has_trial'])) {
-                $statusStr = $trialData['status'] ?? 'trial';
-                $this->status = new LicenseStatus(
-                    valid: $statusStr === 'active',
-                    status: $statusStr,
-                    expiresAt: $trialData['expiry_date'] ?? null,
-                    daysRemaining: (int)($trialData['days_left'] ?? 0),
-                    plan: $trialData['plan'] ?? null,
-                    hardwareId: $hardwareId,
-                    message: "Trial is {$statusStr}"
-                );
-                if ($this->status->valid) {
-                    $this->cache->setLicenseStatus($this->status->toArray());
+            // Priority 1: Validate active paid license from server
+            if ($this->licenseKey !== null) {
+                try {
+                    $result = $this->client->validateLicense($this->licenseKey, $hardwareId);
+                    $data = $result['data'] ?? $result;
+                    if (!empty($data['valid'])) {
+                        $this->status = new LicenseStatus(
+                            valid: true,
+                            status: $data['status'] ?? 'active',
+                            expiresAt: $data['expiry_date'] ?? null,
+                            daysRemaining: (int)($data['days_left'] ?? 0),
+                            plan: $data['plan'] ?? null,
+                            hardwareId: $hardwareId,
+                            licenseKey: $this->licenseKey,
+                            message: 'License active'
+                        );
+                        if ($this->status->valid) {
+                            $this->cache->setLicenseStatus($this->status->toArray());
+                            $this->cache->markHasEverActivatedPaidLicense();
+                        }
+                        return $this->status;
+                    } else {
+                        // Paid license is invalid/inactive - check if user ever had one
+                        if ($this->cache->hasEverActivatedPaidLicense()) {
+                            $this->status = new LicenseStatus(
+                                valid: false,
+                                status: 'force_reactivation',
+                                hardwareId: $hardwareId,
+                                licenseKey: $this->licenseKey,
+                                message: 'License inactive. Please reactivate.'
+                            );
+                            return $this->status;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Server error - check if user ever had a paid license
+                    if ($this->cache->hasEverActivatedPaidLicense()) {
+                        $this->status = new LicenseStatus(
+                            valid: false,
+                            status: 'force_reactivation',
+                            hardwareId: $hardwareId,
+                            licenseKey: $this->licenseKey,
+                            message: 'License validation failed. Please reactivate.'
+                        );
+                        return $this->status;
+                    }
                 }
-                return $this->status;
+            } else {
+                // No license key but check if user ever had one
+                if ($this->cache->hasEverActivatedPaidLicense()) {
+                    $this->status = new LicenseStatus(
+                        valid: false,
+                        status: 'force_reactivation',
+                        hardwareId: $hardwareId,
+                        message: 'License inactive. Please reactivate.'
+                    );
+                    return $this->status;
+                }
+            }
+            // Priority 2: Check for active trial (only if user never had a paid license)
+            if (!$this->cache->hasEverActivatedPaidLicense()) {
+                $trialResponse = $this->client->getTrialStatus($hardwareId);
+                $trialData = $trialResponse['data'] ?? [];
+                if (!empty($trialData['has_trial'])) {
+                    $statusStr = $trialData['status'] ?? 'trial';
+                    $this->status = new LicenseStatus(
+                        valid: $statusStr === 'active',
+                        status: $statusStr,
+                        expiresAt: $trialData['expiry_date'] ?? null,
+                        daysRemaining: (int)($trialData['days_left'] ?? 0),
+                        plan: $trialData['plan'] ?? null,
+                        hardwareId: $hardwareId,
+                        message: "Trial is {$statusStr}"
+                    );
+                    if ($this->status->valid) {
+                        $this->cache->setLicenseStatus($this->status->toArray());
+                    }
+                    return $this->status;
+                }
             }
             $this->status = new LicenseStatus(
                 valid: false,
@@ -202,6 +267,7 @@ class LicenseEngine
                 $this->licenseKey = $data['license_key'];
             }
             $this->initialize();
+            $this->cache->markHasEverActivatedPaidLicense();
         }
         return $result;
     }
@@ -212,6 +278,7 @@ class LicenseEngine
         if (!empty($result['success'])) {
             $this->licenseKey = $licenseKey;
             $this->initialize();
+            $this->cache->markHasEverActivatedPaidLicense();
         }
         return $result;
     }
@@ -238,6 +305,7 @@ class LicenseEngine
                 $this->licenseKey = $result['license_key'];
             }
             $this->initialize();
+            $this->cache->markHasEverActivatedPaidLicense();
         }
         return $result;
     }
@@ -250,6 +318,7 @@ class LicenseEngine
         $result = $this->client->renewLicense($this->licenseKey, $extraDays);
         if (!empty($result['success'])) {
             $this->initialize();
+            $this->cache->markHasEverActivatedPaidLicense();
         }
         return $result;
     }
@@ -302,6 +371,7 @@ class LicenseEngine
             $this->cache->invalidateLicenseStatus();
             $this->status = null;
             $this->initialize();
+            $this->cache->markHasEverActivatedPaidLicense();
         }
         return $result;
     }
@@ -315,6 +385,7 @@ class LicenseEngine
         $result = $this->client->bindDevice($key, deviceName: $deviceName);
         if (!empty($result['success'])) {
             $this->initialize();
+            $this->cache->markHasEverActivatedPaidLicense();
         }
         return $result;
     }

@@ -192,6 +192,34 @@ export async function POST(request: NextRequest) {
         });
       }
     }
+
+    // Paid license takes precedence over trial
+    const paidCheckParams = [hardware_id];
+    const paidCheckClauses = [
+      `EXISTS (
+        SELECT 1 FROM licenses l
+        INNER JOIN activations a ON l.license_key = a.license_key AND a.hardware_id = $1
+        WHERE (l.is_trial IS NULL OR l.is_trial = false)
+      )`
+    ];
+    if (customer_email) {
+      paidCheckParams.push(customer_email);
+      paidCheckClauses.push(
+        `EXISTS (
+          SELECT 1 FROM licenses l
+          WHERE l.customer_email = $${paidCheckParams.length} AND (l.is_trial IS NULL OR l.is_trial = false)
+        )`
+      );
+    }
+    const paidCheckQuery = `SELECT (${paidCheckClauses.join(' OR ')}) AS has_paid_license`;
+    const paidCheck = await client.query(paidCheckQuery, paidCheckParams);
+    if (paidCheck.rows[0]?.has_paid_license) {
+      client.release();
+      return NextResponse.json({
+        active: false,
+        error: "A paid license is associated with this hardware. Trial is not available."
+      }, { status: 400 });
+    }
     
     // ============================================================
     // 2. GET TRIAL TEMPLATE ID

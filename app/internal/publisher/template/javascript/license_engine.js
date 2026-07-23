@@ -37,20 +37,74 @@ export class LicenseEngine {
   async initialize() {
     if (this._cache.isValid()) {
       const cached = this._cache.getLicenseStatus();
-      if (cached) { this._status = LicenseStatus.fromDict(cached); return this._status; }
+      if (cached) {
+        this._status = LicenseStatus.fromDict(cached);
+        if (this._status.status !== 'trial' && this._status.valid) {
+          this._cache.markHasEverActivatedPaidLicense();
+        }
+        return this._status;
+      }
     }
     try {
       const hid = await this._hardware.getFingerprint();
-      const tr = await this._client.getTrialStatus(hid);
-      const td = tr.data || {};
-      if (td.has_trial) {
-        const ss = td.status || 'trial';
-        this._status = new LicenseStatus(ss === 'active', ss, {
-          expires_at: td.expiry_date, days_remaining: td.days_left || 0,
-          plan: td.plan, hardware_id: hid, message: `Trial is ${ss}`,
-        });
-        if (this._status.valid) this._cache.setLicenseStatus(this._status.toDict());
-        return this._status;
+      // Priority 1: Validate active paid license from server
+      if (this._licenseKey) {
+        try {
+          const result = await this._client.validateLicense(this._licenseKey, hid);
+          const data = result.data || result;
+          if (data.valid) {
+            this._status = new LicenseStatus(true, data.status || 'active', {
+              expires_at: data.expiry_date, days_remaining: data.days_left || 0,
+              plan: data.plan, hardware_id: hid, license_key: this._licenseKey,
+              message: 'License active',
+            });
+            if (this._status.valid) {
+              this._cache.setLicenseStatus(this._status.toDict());
+              this._cache.markHasEverActivatedPaidLicense();
+            }
+            return this._status;
+          } else {
+            // Paid license is invalid/inactive - check if user ever had one
+            if (this._cache.hasEverActivatedPaidLicense()) {
+              this._status = new LicenseStatus(false, 'force_reactivation', {
+                hardware_id: hid, license_key: this._licenseKey,
+                message: 'License inactive. Please reactivate.',
+              });
+              return this._status;
+            }
+          }
+        } catch {
+          // Server error - check if user ever had a paid license
+          if (this._cache.hasEverActivatedPaidLicense()) {
+            this._status = new LicenseStatus(false, 'force_reactivation', {
+              hardware_id: hid, license_key: this._licenseKey,
+              message: 'License validation failed. Please reactivate.',
+            });
+            return this._status;
+          }
+        }
+      } else {
+        // No license key but check if user ever had one
+        if (this._cache.hasEverActivatedPaidLicense()) {
+          this._status = new LicenseStatus(false, 'force_reactivation', {
+            hardware_id: hid, message: 'License inactive. Please reactivate.',
+          });
+          return this._status;
+        }
+      }
+      // Priority 2: Check for active trial (only if user never had a paid license)
+      if (!this._cache.hasEverActivatedPaidLicense()) {
+        const tr = await this._client.getTrialStatus(hid);
+        const td = tr.data || {};
+        if (td.has_trial) {
+          const ss = td.status || 'trial';
+          this._status = new LicenseStatus(ss === 'active', ss, {
+            expires_at: td.expiry_date, days_remaining: td.days_left || 0,
+            plan: td.plan, hardware_id: hid, message: `Trial is ${ss}`,
+          });
+          if (this._status.valid) this._cache.setLicenseStatus(this._status.toDict());
+          return this._status;
+        }
       }
       this._status = new LicenseStatus(false, 'unlicensed', { hardware_id: hid, message: 'No license or trial found' });
       return this._status;
@@ -71,13 +125,21 @@ export class LicenseEngine {
     const key = licenseKey || this._licenseKey;
     if (!key) throw new Error('License key unavailable. Please activate first.');
     const r = await this._client.validateLicense(key, await this._hardware.getFingerprint());
-    if ((r.data || r).valid) { if (r.data?.license_key) this._licenseKey = r.data.license_key; await this.initialize(); }
+    if ((r.data || r).valid) {
+      if (r.data?.license_key) this._licenseKey = r.data.license_key;
+      await this.initialize();
+      this._cache.markHasEverActivatedPaidLicense();
+    }
     return r;
   }
 
   async activate(licenseKey) {
     const r = await this._client.activateLicense(licenseKey);
-    if (r.success) { this._licenseKey = licenseKey; await this.initialize(); }
+    if (r.success) {
+      this._licenseKey = licenseKey;
+      await this.initialize();
+      this._cache.markHasEverActivatedPaidLicense();
+    }
     return r;
   }
 
@@ -91,14 +153,21 @@ export class LicenseEngine {
     const s = await this.initialize();
     if (!s || s.status !== 'trial') throw new Error('No active trial to convert.');
     const r = await this._client.convertTrial(await this._hardware.getFingerprint(), plan, customerName, customerEmail);
-    if (r.success) { if (r.license_key) this._licenseKey = r.license_key; await this.initialize(); }
+    if (r.success) {
+      if (r.license_key) this._licenseKey = r.license_key;
+      await this.initialize();
+      this._cache.markHasEverActivatedPaidLicense();
+    }
     return r;
   }
 
   async renew(extraDays) {
     if (!this._licenseKey) throw new Error('License key unavailable. Please activate first.');
     const r = await this._client.renewLicense(this._licenseKey, extraDays);
-    if (r.success) await this.initialize();
+    if (r.success) {
+      await this.initialize();
+      this._cache.markHasEverActivatedPaidLicense();
+    }
     return r;
   }
 
@@ -118,7 +187,12 @@ export class LicenseEngine {
     if (!oldHw) throw new Error('Current hardware_id unavailable.');
     if (oldHw === newHw) return { success: false, message: 'Old and new hardware IDs are identical.' };
     const r = await this._client.replaceDevice(this._licenseKey, newHw, oldHw);
-    if (r.success) { this._cache.invalidateLicenseStatus(); this._status = null; await this.initialize(); }
+    if (r.success) {
+      this._cache.invalidateLicenseStatus();
+      this._status = null;
+      await this.initialize();
+      this._cache.markHasEverActivatedPaidLicense();
+    }
     return r;
   }
 
@@ -126,7 +200,10 @@ export class LicenseEngine {
     const key = licenseKey || this._licenseKey;
     if (!key) throw new Error('License key unavailable.');
     const r = await this._client.bindDevice(key, undefined, deviceName);
-    if (r.success) await this.initialize();
+    if (r.success) {
+      await this.initialize();
+      this._cache.markHasEverActivatedPaidLicense();
+    }
     return r;
   }
 }

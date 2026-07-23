@@ -105,30 +105,93 @@ LicenseStatus LicenseEngine::initialize() {
         if (cached) {
             status_ = LicenseStatus::from_dict(*cached);
             has_status_ = true;
+            if (status_.status != "trial" && status_.valid) {
+                cache_->mark_has_ever_activated_paid_license();
+            }
             return status_;
         }
     }
     try {
         std::string hardware_id = hardware_->get_fingerprint();
-        auto trial_response = client_->get_trial_status(hardware_id);
-        std::string data_json = trial_response["data_json"];
-        auto trial_data = json_parse(data_json);
-        if (trial_data["has_trial"] == "true") {
-            std::string status_str = trial_data["status"];
-            if (status_str.empty()) status_str = "trial";
-            status_.valid = (status_str == "active");
-            status_.status = status_str;
-            status_.expires_at = trial_data["expiry_date"];
-            auto dl = trial_data.find("days_left");
-            status_.days_remaining = (dl != trial_data.end() && !dl->second.empty())
-                ? std::stoi(dl->second) : 0;
-            status_.plan = trial_data["plan"];
-            status_.hardware_id = hardware_id;
-            status_.message = "Trial is " + status_str;
-            status_.trial_active = true;
-            has_status_ = true;
-            if (status_.valid) cache_->set_license_status(status_.to_dict());
-            return status_;
+        // Priority 1: Validate active paid license from server
+        if (!license_key_.empty()) {
+            try {
+                auto result = client_->validate_license(license_key_, hardware_id);
+                auto data = json_parse(result["data_json"]);
+                if (data["valid"] == "true") {
+                    status_.valid = true;
+                    status_.status = data.count("status") ? data["status"] : "active";
+                    status_.expires_at = data["expiry_date"];
+                    auto dl = data.find("days_left");
+                    status_.days_remaining = (dl != data.end() && !dl->second.empty())
+                        ? std::stoi(dl->second) : 0;
+                    status_.plan = data["plan"];
+                    status_.hardware_id = hardware_id;
+                    status_.license_key = license_key_;
+                    status_.message = "License active";
+                    has_status_ = true;
+                    if (status_.valid) {
+                        cache_->set_license_status(status_.to_dict());
+                        cache_->mark_has_ever_activated_paid_license();
+                    }
+                    return status_;
+                } else {
+                    // Paid license is invalid/inactive - check if user ever had one
+                    if (cache_->has_ever_activated_paid_license()) {
+                        status_.valid = false;
+                        status_.status = "force_reactivation";
+                        status_.hardware_id = hardware_id;
+                        status_.license_key = license_key_;
+                        status_.message = "License inactive. Please reactivate.";
+                        has_status_ = true;
+                        return status_;
+                    }
+                }
+            } catch (...) {
+                // Server error - check if user ever had a paid license
+                if (cache_->has_ever_activated_paid_license()) {
+                    status_.valid = false;
+                    status_.status = "force_reactivation";
+                    status_.hardware_id = hardware_id;
+                    status_.license_key = license_key_;
+                    status_.message = "License validation failed. Please reactivate.";
+                    has_status_ = true;
+                    return status_;
+                }
+            }
+        } else {
+            // No license key but check if user ever had one
+            if (cache_->has_ever_activated_paid_license()) {
+                status_.valid = false;
+                status_.status = "force_reactivation";
+                status_.hardware_id = hardware_id;
+                status_.message = "License inactive. Please reactivate.";
+                has_status_ = true;
+                return status_;
+            }
+        }
+        // Priority 2: Check for active trial (only if user never had a paid license)
+        if (!cache_->has_ever_activated_paid_license()) {
+            auto trial_response = client_->get_trial_status(hardware_id);
+            std::string data_json = trial_response["data_json"];
+            auto trial_data = json_parse(data_json);
+            if (trial_data["has_trial"] == "true") {
+                std::string status_str = trial_data["status"];
+                if (status_str.empty()) status_str = "trial";
+                status_.valid = (status_str == "active");
+                status_.status = status_str;
+                status_.expires_at = trial_data["expiry_date"];
+                auto dl = trial_data.find("days_left");
+                status_.days_remaining = (dl != trial_data.end() && !dl->second.empty())
+                    ? std::stoi(dl->second) : 0;
+                status_.plan = trial_data["plan"];
+                status_.hardware_id = hardware_id;
+                status_.message = "Trial is " + status_str;
+                status_.trial_active = true;
+                has_status_ = true;
+                if (status_.valid) cache_->set_license_status(status_.to_dict());
+                return status_;
+            }
         }
         status_.valid = false;
         status_.status = "unlicensed";
@@ -181,6 +244,7 @@ std::map<std::string, std::string> LicenseEngine::validate(const std::string& li
     if (data["valid"] == "true") {
         if (!data["license_key"].empty()) license_key_ = data["license_key"];
         initialize();
+        cache_->mark_has_ever_activated_paid_license();
     }
     return result;
 }
@@ -190,6 +254,7 @@ std::map<std::string, std::string> LicenseEngine::activate(const std::string& li
     if (result["success"] == "true") {
         license_key_ = license_key;
         initialize();
+        cache_->mark_has_ever_activated_paid_license();
     }
     return result;
 }
@@ -217,6 +282,7 @@ std::map<std::string, std::string> LicenseEngine::convert_trial(
     if (result["success"] == "true") {
         if (result.count("license_key")) license_key_ = result["license_key"];
         initialize();
+        cache_->mark_has_ever_activated_paid_license();
     }
     return result;
 }
@@ -229,7 +295,10 @@ std::map<std::string, std::string> LicenseEngine::renew(int extra_days) {
         return err;
     }
     auto result = client_->renew_license(license_key_, extra_days);
-    if (result["success"] == "true") initialize();
+    if (result["success"] == "true") {
+        initialize();
+        cache_->mark_has_ever_activated_paid_license();
+    }
     return result;
 }
 
@@ -282,6 +351,7 @@ std::map<std::string, std::string> LicenseEngine::replace_hardware() {
         cache_->invalidate_license_status();
         has_status_ = false;
         initialize();
+        cache_->mark_has_ever_activated_paid_license();
     }
     return result;
 }
@@ -296,7 +366,10 @@ std::map<std::string, std::string> LicenseEngine::bind_device(
         return err;
     }
     auto result = client_->bind_device(key, "", device_name);
-    if (result["success"] == "true") initialize();
+    if (result["success"] == "true") {
+        initialize();
+        cache_->mark_has_ever_activated_paid_license();
+    }
     return result;
 }
 

@@ -172,4 +172,14 @@ impl CacheManager {
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
     }
+
+    pub fn mark_has_ever_activated_paid_license(&mut self) {
+        self.set("has_ever_activated_paid_license", serde_json::json!(true));
+    }
+
+    pub fn has_ever_activated_paid_license(&mut self) -> bool {
+        self.get("has_ever_activated_paid_license")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+    }
 }

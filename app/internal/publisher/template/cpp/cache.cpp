@@ -258,3 +258,14 @@ bool CacheManager::is_onboarding_complete() {
     auto val = get("onboarding_complete");
     return val.has_value() && *val == "true";
 }
+
+void CacheManager::mark_has_ever_activated_paid_license() {
+    load_cache();
+    cache_["has_ever_activated_paid_license"] = {{"value", "true"}, {"cached_at", ts_now()}};
+    save_cache();
+}
+
+bool CacheManager::has_ever_activated_paid_license() {
+    auto val = get("has_ever_activated_paid_license");
+    return val.has_value() && *val == "true";
+}

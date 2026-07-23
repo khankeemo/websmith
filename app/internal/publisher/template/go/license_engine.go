@@ -34,36 +34,111 @@ func (e *LicenseEngine) Initialize() *LicenseStatus {
 		cached := e.cache.GetLicenseStatus()
 		if cached != nil {
 			e.status = licenseStatusFromMap(cached)
+			if e.status.Status != "trial" && e.status.Valid {
+				e.cache.MarkHasEverActivatedPaidLicense()
+			}
 			return e.status
 		}
 	}
 	hardwareID := e.hardware.GetFingerprint()
-	trialResp, err := e.client.GetTrialStatus(hardwareID)
-	if err == nil {
-		trialData, _ := trialResp["data"].(map[string]interface{})
-		if trialData != nil {
-			if hasTrial, ok := trialData["has_trial"].(bool); ok && hasTrial {
-				statusStr, _ := trialData["status"].(string)
+	// Priority 1: Validate active paid license from server
+	if e.licenseKey != "" {
+		result, err := e.client.ValidateLicense(e.licenseKey, hardwareID)
+		if err == nil {
+			data, _ := result["data"].(map[string]interface{})
+			if data == nil {
+				data = result
+			}
+			if valid, ok := data["valid"].(bool); ok && valid {
+				statusStr, _ := data["status"].(string)
 				if statusStr == "" {
-					statusStr = "trial"
+					statusStr = "active"
 				}
-				daysLeft, _ := trialData["days_left"].(float64)
-				expiryDate, _ := trialData["expiry_date"].(string)
-				plan, _ := trialData["plan"].(string)
+				daysLeft, _ := data["days_left"].(float64)
+				expiryDate, _ := data["expiry_date"].(string)
+				plan, _ := data["plan"].(string)
 				e.status = &LicenseStatus{
-					Valid:         statusStr == "active",
+					Valid:         true,
 					Status:        statusStr,
 					ExpiresAt:     expiryDate,
 					DaysRemaining: int(daysLeft),
 					Plan:          plan,
 					HardwareID:    hardwareID,
-					Message:       fmt.Sprintf("Trial is %s", statusStr),
-					TrialActive:   true,
+					LicenseKey:    e.licenseKey,
+					Message:       "License active",
 				}
 				if e.status.Valid {
 					e.cache.SetLicenseStatus(e.statusToMap())
+					e.cache.MarkHasEverActivatedPaidLicense()
 				}
 				return e.status
+			} else {
+				// Paid license is invalid/inactive - check if user ever had one
+				if e.cache.HasEverActivatedPaidLicense() {
+					e.status = &LicenseStatus{
+						Valid:      false,
+						Status:     "force_reactivation",
+						HardwareID: hardwareID,
+						LicenseKey: e.licenseKey,
+						Message:    "License inactive. Please reactivate.",
+					}
+					return e.status
+				}
+			}
+		} else {
+			// Server error - check if user ever had a paid license
+			if e.cache.HasEverActivatedPaidLicense() {
+				e.status = &LicenseStatus{
+					Valid:      false,
+					Status:     "force_reactivation",
+					HardwareID: hardwareID,
+					LicenseKey: e.licenseKey,
+					Message:    "License validation failed. Please reactivate.",
+				}
+				return e.status
+			}
+		}
+	} else {
+		// No license key but check if user ever had one
+		if e.cache.HasEverActivatedPaidLicense() {
+			e.status = &LicenseStatus{
+				Valid:      false,
+				Status:     "force_reactivation",
+				HardwareID: hardwareID,
+				Message:    "License inactive. Please reactivate.",
+			}
+			return e.status
+		}
+	}
+	// Priority 2: Check for active trial (only if user never had a paid license)
+	if !e.cache.HasEverActivatedPaidLicense() {
+		trialResp, err := e.client.GetTrialStatus(hardwareID)
+		if err == nil {
+			trialData, _ := trialResp["data"].(map[string]interface{})
+			if trialData != nil {
+				if hasTrial, ok := trialData["has_trial"].(bool); ok && hasTrial {
+					statusStr, _ := trialData["status"].(string)
+					if statusStr == "" {
+						statusStr = "trial"
+					}
+					daysLeft, _ := trialData["days_left"].(float64)
+					expiryDate, _ := trialData["expiry_date"].(string)
+					plan, _ := trialData["plan"].(string)
+					e.status = &LicenseStatus{
+						Valid:         statusStr == "active",
+						Status:        statusStr,
+						ExpiresAt:     expiryDate,
+						DaysRemaining: int(daysLeft),
+						Plan:          plan,
+						HardwareID:    hardwareID,
+						Message:       fmt.Sprintf("Trial is %s", statusStr),
+						TrialActive:   true,
+					}
+					if e.status.Valid {
+						e.cache.SetLicenseStatus(e.statusToMap())
+					}
+					return e.status
+				}
 			}
 		}
 	}
@@ -154,6 +229,7 @@ func (e *LicenseEngine) Validate(licenseKey string) (map[string]interface{}, err
 			e.licenseKey = lk
 		}
 		e.Initialize()
+		e.cache.MarkHasEverActivatedPaidLicense()
 	}
 	return result, nil
 }
@@ -166,6 +242,7 @@ func (e *LicenseEngine) Activate(licenseKey string) (map[string]interface{}, err
 	if success, ok := result["success"].(bool); ok && success {
 		e.licenseKey = licenseKey
 		e.Initialize()
+		e.cache.MarkHasEverActivatedPaidLicense()
 	}
 	return result, nil
 }
@@ -196,6 +273,7 @@ func (e *LicenseEngine) ConvertTrial(plan string, customerName string, customerE
 			e.licenseKey = lk
 		}
 		e.Initialize()
+		e.cache.MarkHasEverActivatedPaidLicense()
 	}
 	return result, nil
 }
@@ -216,6 +294,7 @@ func (e *LicenseEngine) Renew(extraDays ...int) (map[string]interface{}, error) 
 	}
 	if success, ok := result["success"].(bool); ok && success {
 		e.Initialize()
+		e.cache.MarkHasEverActivatedPaidLicense()
 	}
 	return result, nil
 }
@@ -273,6 +352,7 @@ func (e *LicenseEngine) ReplaceHardware() (map[string]interface{}, error) {
 		e.cache.InvalidateLicenseStatus()
 		e.status = nil
 		e.Initialize()
+		e.cache.MarkHasEverActivatedPaidLicense()
 	}
 	return result, nil
 }
@@ -291,6 +371,7 @@ func (e *LicenseEngine) BindDevice(licenseKey string, deviceName string) (map[st
 	}
 	if success, ok := result["success"].(bool); ok && success {
 		e.Initialize()
+		e.cache.MarkHasEverActivatedPaidLicense()
 	}
 	return result, nil
 }

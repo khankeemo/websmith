@@ -121,3 +121,13 @@ class CacheManager:
 
     def is_onboarding_complete(self) -> bool:
         return self.get('onboarding_complete') is True
+
+    def mark_has_ever_activated_paid_license(self) -> None:
+        cache = self._load_cache()
+        cache['has_ever_activated_paid_license'] = {'value': True, 'cached_at': time.time()}
+        self._save_cache()
+
+    def has_ever_activated_paid_license(self) -> bool:
+        cache = self._load_cache()
+        entry = cache.get('has_ever_activated_paid_license')
+        return entry is not None and entry.get('value') is True

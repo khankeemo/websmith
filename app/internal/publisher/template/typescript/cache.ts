@@ -146,4 +146,16 @@ export class CacheManager {
   isOnboardingComplete(): boolean {
     return this.get<boolean>('onboarding_complete') === true;
   }
+
+  markHasEverActivatedPaidLicense(): void {
+    const cache = this._loadCache();
+    cache.has_ever_activated_paid_license = { value: true, cached_at: Date.now() / 1000 };
+    this._saveCache();
+  }
+
+  hasEverActivatedPaidLicense(): boolean {
+    const cache = this._loadCache();
+    const entry = cache.has_ever_activated_paid_license;
+    return entry !== undefined && entry.value === true;
+  }
 }

@@ -132,4 +132,14 @@ export class CacheManager {
   async isOnboardingComplete(): Promise<boolean> {
     return (await this.get<boolean>('onboarding_complete')) === true;
   }
+
+  async markHasEverActivatedPaidLicense(): Promise<void> {
+    const cache = await this._loadCache();
+    cache.has_ever_activated_paid_license = { value: true, cached_at: Date.now() / 1000 };
+    await this._saveCache();
+  }
+
+  async hasEverActivatedPaidLicense(): Promise<boolean> {
+    return (await this.get<boolean>('has_ever_activated_paid_license')) === true;
+  }
 }

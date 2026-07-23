@@ -170,6 +170,27 @@ export async function POST(request: NextRequest) {
         message: "No trial found"
       });
     }
+
+    // Paid license takes precedence over trial
+    const paidCheck = await client.query(
+      `SELECT EXISTS (
+        SELECT 1 FROM licenses l
+        INNER JOIN activations a ON l.license_key = a.license_key AND a.hardware_id = $1
+        WHERE (l.is_trial IS NULL OR l.is_trial = false)
+      ) OR EXISTS (
+        SELECT 1 FROM licenses l
+        WHERE l.customer_email = $2 AND (l.is_trial IS NULL OR l.is_trial = false)
+      ) AS has_paid_license`,
+      [hardware_id, trial.customer_email || '']
+    );
+    if (paidCheck.rows[0]?.has_paid_license) {
+      client.release();
+      return NextResponse.json({
+        active: false,
+        has_trial: false,
+        message: "A paid license is associated with this hardware. Trial is not available."
+      });
+    }
     
     // ============================================================
     // 2. CALCULATE DAYS LEFT

@@ -254,3 +254,11 @@ func (cm *CacheManager) SetOnboardingComplete() {
 func (cm *CacheManager) IsOnboardingComplete() bool {
 	return cm.Get("onboarding_complete") == true
 }
+
+func (cm *CacheManager) MarkHasEverActivatedPaidLicense() {
+	cm.Set("has_ever_activated_paid_license", true)
+}
+
+func (cm *CacheManager) HasEverActivatedPaidLicense() bool {
+	return cm.Get("has_ever_activated_paid_license") == true
+}

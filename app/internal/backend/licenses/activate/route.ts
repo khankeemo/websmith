@@ -425,16 +425,16 @@ export async function POST(request: NextRequest) {
 
     // Step 10a: Convert active trial to paid if exists
     try {
-      const trialCheck = await client.query(
-        `SELECT id FROM trials WHERE customer_email = $1 AND status = 'active' AND product_id = $2 LIMIT 1`,
-        [normalizedEmail, license.product_id]
+      await client.query(
+        `UPDATE trials
+         SET status = 'converted',
+             converted_at = $1,
+             converted_to_license_key = $2,
+             plan_id = $3
+         WHERE status = 'active'
+           AND (hardware_id = $4 OR customer_email = $5)`,
+        [now, license.license_key, license.plan, hardware_id, normalizedEmail]
       );
-      if (trialCheck.rows.length > 0) {
-        await client.query(
-          `UPDATE trials SET status = 'converted', converted_at = $1, converted_to_license_key = $2, plan_id = $3 WHERE id = $4`,
-          [now, license.license_key, license.plan, trialCheck.rows[0].id]
-        );
-      }
     } catch (trialConvError) {
       console.error("Failed to convert trial:", trialConvError);
     }

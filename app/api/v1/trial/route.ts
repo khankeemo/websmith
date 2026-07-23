@@ -202,15 +202,26 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const trialStartValidation = await validateTrialStart(pool, hardware_id, productId, customer_email);
-        if (!trialStartValidation.valid) {
+        // Paid license takes precedence over trial
+        const paidCheckStart = await client.query(
+          `SELECT EXISTS (
+            SELECT 1 FROM licenses l
+            INNER JOIN activations a ON l.license_key = a.license_key AND a.hardware_id = $1
+            WHERE (l.is_trial IS NULL OR l.is_trial = false)
+          ) OR EXISTS (
+            SELECT 1 FROM licenses l
+            WHERE l.customer_email = $2 AND (l.is_trial IS NULL OR l.is_trial = false)
+          ) AS has_paid_license`,
+          [hardware_id, customer_email]
+        );
+        if (paidCheckStart.rows[0]?.has_paid_license) {
           client.release();
           client = null;
           return NextResponse.json({
             success: false,
             error: {
-              code: 'TRIAL_VALIDATION_FAILED',
-              message: trialStartValidation.errors[0].message
+              code: 'PAID_LICENSE_EXISTS',
+              message: 'A paid license is associated with this hardware or email. Trial is not available.'
             }
           }, { status: 400 });
         }
@@ -239,6 +250,20 @@ export async function POST(request: NextRequest) {
               message: `Trial already active with ${daysLeft} days left`
             }
           });
+        }
+
+        // Validate trial start (product exists, formats) — runs after paid-license and existing-trial checks
+        const trialStartValidation = await validateTrialStart(pool, hardware_id, productId, customer_email);
+        if (!trialStartValidation.valid) {
+          client.release();
+          client = null;
+          return NextResponse.json({
+            success: false,
+            error: {
+              code: 'TRIAL_VALIDATION_FAILED',
+              message: trialStartValidation.errors[0].message
+            }
+          }, { status: 400 });
         }
 
         // Get trial duration from sdk_runtime_settings (per-product), then trial_templates, then 7
@@ -350,6 +375,30 @@ export async function POST(request: NextRequest) {
         }
 
         const trial = statusResult.rows[0];
+
+        // Paid license takes precedence over trial
+        const paidCheckStatus = await client.query(
+          `SELECT EXISTS (
+            SELECT 1 FROM licenses l
+            INNER JOIN activations a ON l.license_key = a.license_key AND a.hardware_id = $1
+            WHERE (l.is_trial IS NULL OR l.is_trial = false)
+          ) OR EXISTS (
+            SELECT 1 FROM licenses l
+            WHERE l.customer_email = $2 AND (l.is_trial IS NULL OR l.is_trial = false)
+          ) AS has_paid_license`,
+          [hardware_id, trial.customer_email || '']
+        );
+        if (paidCheckStatus.rows[0]?.has_paid_license) {
+          client.release();
+          client = null;
+          return NextResponse.json({
+            success: true,
+            data: {
+              has_trial: false,
+              message: 'Trial is not available - paid license detected'
+            }
+          });
+        }
         const tExpiry = new Date(trial.expiry_date);
         const daysLeftStatus = Math.max(0, Math.ceil((tExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
 

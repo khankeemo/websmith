@@ -31,6 +31,8 @@ void wsd_cache_set_license_status(CacheManager* cache, JsonMap* status);
 void wsd_cache_invalidate_license_status(CacheManager* cache);
 void wsd_cache_set_onboarding_complete(CacheManager* cache);
 int wsd_cache_is_onboarding_complete(CacheManager* cache);
+void wsd_cache_mark_has_ever_activated_paid_license(CacheManager* cache);
+int wsd_cache_has_ever_activated_paid_license(CacheManager* cache);
 
 #ifdef __cplusplus
 }
