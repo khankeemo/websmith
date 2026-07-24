@@ -1093,7 +1093,7 @@ class UniversalEmailDialog:
         self._result: Optional[Dict[str, Any]] = None
         self._root: Optional[tk.Toplevel] = None
 
-        branding = config.get("branding", {{}})
+        branding = config.get("branding", {})
         self._primary = branding.get("primary_color", "#6366f1")
         self._bg = "#f0f2f5"
         self._card_bg = "#ffffff"
@@ -1112,7 +1112,7 @@ class UniversalEmailDialog:
         hardware_id: str = "",
         message_text: str = "",
     ) -> Dict[str, Any]:
-        product_name = self.config.get("product", {{}}).get("name", "")
+        product_name = self.config.get("product", {}).get("name", "")
 
         cached = self.cache.get_license_status()
         if not customer_name:
@@ -1124,7 +1124,7 @@ class UniversalEmailDialog:
 
         self._result = None
         self._root = tk.Toplevel()
-        self._root.title(f"{{request_type.replace('_', ' ')}} Request")
+        self._root.title(f"{request_type.replace('_', ' ')} Request")
         self._root.geometry("520x580")
         self._root.resizable(False, False)
         self._root.configure(bg=self._bg)
@@ -1136,7 +1136,7 @@ class UniversalEmailDialog:
                        license_key, plan_name, hardware_id, message_text)
         self._center_window()
         self._root.wait_window()
-        return self._result or {{"sent": False, "error": "Dialog closed"}}
+        return self._result or {"sent": False, "error": "Dialog closed"}
 
     def _center_window(self):
         if not self._root:
@@ -1146,22 +1146,22 @@ class UniversalEmailDialog:
         h = self._root.winfo_height()
         x = (self._root.winfo_screenwidth() // 2) - (w // 2)
         y = (self._root.winfo_screenheight() // 2) - (h // 2)
-        self._root.geometry(f"{{w}}x{{h}}+{{x}}+{{y}}")
+        self._root.geometry(f"{w}x{h}+{x}+{y}")
 
     def _build_ui(self, request_type, product_name, customer_name, customer_email,
                   license_key, plan_name, hardware_id, message_text):
         root = self._root
-        padding = {{"padx": 20, "pady": 4}}
+        padding = {"padx": 20, "pady": 4}
 
         header = tk.Label(root, text=f"Universal Email Form",
                           font=("Segoe UI", 18, "bold"),
                           bg=self._bg, fg=self._text_primary)
         header.pack(pady=(24, 2))
-        sub = tk.Label(root, text=f"Request: {{request_type.replace('_', ' ')}}",
+        sub = tk.Label(root, text=f"Request: {request_type.replace('_', ' ')}",
                        font=("Segoe UI", 10), bg=self._bg, fg=self._text_secondary)
         sub.pack(pady=(0, 16))
         if product_name:
-            prod_lbl = tk.Label(root, text=f"Product: {{product_name}}",
+            prod_lbl = tk.Label(root, text=f"Product: {product_name}",
                                 font=("Segoe UI", 9), bg=self._bg, fg=self._text_secondary)
             prod_lbl.pack(pady=(0, 8))
 
@@ -1200,7 +1200,7 @@ class UniversalEmailDialog:
         tk.Label(frame, text="Subject", font=("Segoe UI", 10, "bold"),
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", **padding)
         self._subject_var = tk.StringVar(
-            value=f"{{request_type.replace('_', ' ')}} Request")
+            value=f"{request_type.replace('_', ' ')} Request")
         self._subject_entry = tk.Entry(frame, textvariable=self._subject_var,
                                         font=("Segoe UI", 11), relief="solid", bd=1)
         self._subject_entry.pack(fill="x", padx=20, pady=(0, 8))
@@ -1232,7 +1232,7 @@ class UniversalEmailDialog:
         self._hardware_id = hardware_id
 
     def _on_close(self):
-        self._result = {{"sent": False, "error": "Dialog closed"}}
+        self._result = {"sent": False, "error": "Dialog closed"}
         try:
             self._root.destroy()
         except Exception:
@@ -1270,23 +1270,23 @@ class UniversalEmailDialog:
                 product_name=self._product_name,
             )
             if result.get("success"):
-                ref = result.get("data", {{}}).get("request_id", "")
+                ref = result.get("data", {}).get("request_id", "")
                 messagebox.showinfo(
                     "Request Submitted",
                     f"Your request has been submitted successfully!\\n\\n"
-                    f"Reference: {{ref}}\\n"
-                    f"We will contact you at {{email}} shortly.",
+                    f"Reference: {ref}\\n"
+                    f"We will contact you at {email} shortly.",
                     parent=self._root,
                 )
-                self._result = {{"sent": True, "request_id": ref}}
+                self._result = {"sent": True, "request_id": ref}
                 self._root.destroy()
             else:
-                err = result.get("error", {{}}).get("message", "Unknown error")
-                self._status_label.config(text=f"Failed: {{err}}", fg="#dc2626")
+                err = result.get("error", {}).get("message", "Unknown error")
+                self._status_label.config(text=f"Failed: {err}", fg="#dc2626")
                 self._send_btn.config(state="normal", text="Send Request")
         except Exception as e:
             self._status_label.config(
-                text=f"Error: {{str(e)}}. Email {{SUPPORT_EMAIL}} directly.",
+                text=f"Error: {str(e)}. Email {SUPPORT_EMAIL} directly.",
                 fg="#dc2626",
             )
             self._send_btn.config(state="normal", text="Send Request")
@@ -1296,7 +1296,7 @@ class UniversalEmailDialog:
 import json
 import os
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 from typing import Any, Dict, Optional
 
 from .client import ApiClient
@@ -1327,15 +1327,15 @@ def _load_api_config() -> Dict[str, Any]:
 class UniversalLicenseCenter:
     def __init__(self, config_path: Optional[str] = None):
         self.config = _load_api_config() if config_path is None else self._load_config(config_path)
-        self.engine = LicenseEngine(config_path)
-        self.client = ApiClient(self.config, HardwareDetector(), CacheManager(self.config))
         self.hardware = HardwareDetector()
         self.cache = CacheManager(self.config)
+        self.engine = LicenseEngine(config_path)
+        self.client = ApiClient(self.config, self.hardware, self.cache)
         self.email_dialog = UniversalEmailDialog(self.config, self.client, self.hardware, self.cache)
         self._status: Optional[LicenseStatus] = None
         self._root: Optional[tk.Toplevel] = None
 
-        branding = self.config.get("branding", {{}})
+        branding = self.config.get("branding", {})
         self._primary = branding.get("primary_color", "#6366f1")
         self._bg = "#f0f2f5"
         self._card_bg = "#ffffff"
@@ -1364,7 +1364,7 @@ class UniversalLicenseCenter:
         self._refresh_display()
         self._center_window()
         self._root.wait_window()
-        return {{"status": self._status.to_dict() if self._status else None}}
+        return {"status": self._status.to_dict() if self._status else None}
 
     def _center_window(self):
         if not self._root:
@@ -1374,7 +1374,7 @@ class UniversalLicenseCenter:
         h = self._root.winfo_height()
         x = (self._root.winfo_screenwidth() // 2) - (w // 2)
         y = (self._root.winfo_screenheight() // 2) - (h // 2)
-        self._root.geometry(f"{{w}}x{{h}}+{{x}}+{{y}}")
+        self._root.geometry(f"{w}x{h}+{x}+{y}")
 
     def _build_ui(self):
         root = self._root
@@ -1385,7 +1385,7 @@ class UniversalLicenseCenter:
         tk.Label(header, text="Universal License Center",
                  font=("Segoe UI", 20, "bold"),
                  fg="white", bg=self._primary).pack(expand=True)
-        tk.Label(header, text=f"SDK v{{SDK_VERSION}} | Runtime: {{RUNTIME_TYPE}}",
+        tk.Label(header, text=f"SDK v{SDK_VERSION} | Runtime: {RUNTIME_TYPE}",
                  font=("Segoe UI", 8),
                  fg="#e0e7ff", bg=self._primary).pack()
 
@@ -1449,7 +1449,7 @@ class UniversalLicenseCenter:
         r = min(255, int(int(hex_color[0:2], 16) * factor))
         g = min(255, int(int(hex_color[2:4], 16) * factor))
         b = min(255, int(int(hex_color[4:6], 16) * factor))
-        return f"#{{r:02x}}{{g:02x}}{{b:02x}}"
+        return f"#{r:02x}{g:02x}{b:02x}"
 
     def _on_close(self):
         try:
@@ -1462,19 +1462,19 @@ class UniversalLicenseCenter:
             self._status_detail.config(text="Status: Unknown", fg=self._text_secondary)
             return
         lines = []
-        lines.append(f"Status: {{self._status.status.upper()}}")
+        lines.append(f"Status: {self._status.status.upper()}")
         if self._status.license_key:
-            lines.append(f"License: {{self._status.license_key}}")
+            lines.append(f"License: {self._status.license_key}")
         if self._status.plan:
-            lines.append(f"Plan: {{self._status.plan}}")
+            lines.append(f"Plan: {self._status.plan}")
         if self._status.expiry_date:
-            lines.append(f"Expires: {{self._status.expiry_date}}")
+            lines.append(f"Expires: {self._status.expiry_date}")
         if self._status.days_left > 0:
-            lines.append(f"Days Remaining: {{self._status.days_left}}")
+            lines.append(f"Days Remaining: {self._status.days_left}")
         if self._status.hardware_id:
-            lines.append(f"Hardware: {{self._status.hardware_id[:48]}}...")
+            lines.append(f"Hardware: {self._status.hardware_id[:48]}...")
         if self._status.message:
-            lines.append(f"Message: {{self._status.message}}")
+            lines.append(f"Message: {self._status.message}")
 
         if self._status.valid:
             fg = self._success
@@ -1537,14 +1537,14 @@ class UniversalLicenseCenter:
                     self._status = self.engine.get_status()
                     self._refresh_display()
                     messagebox.showinfo("Trial Started",
-                                        f"Trial started successfully!\\nCheck {{email}} for details.",
+                                        f"Trial started successfully!\\nCheck {email} for details.",
                                         parent=dialog)
                     dialog.destroy()
                 else:
                     err = result.get("message", result.get("error", "Unknown error"))
-                    status_lbl.config(text=f"Failed: {{err}}", fg=self._error)
+                    status_lbl.config(text=f"Failed: {err}", fg=self._error)
             except Exception as e:
-                status_lbl.config(text=f"Error: {{str(e)}}", fg=self._error)
+                status_lbl.config(text=f"Error: {str(e)}", fg=self._error)
 
         tk.Button(frame, text="Start Trial", command=do_start,
                   font=("Segoe UI", 11, "bold"),
@@ -1594,9 +1594,9 @@ class UniversalLicenseCenter:
                     dialog.destroy()
                 else:
                     err = result.get("message", result.get("error", "Unknown error"))
-                    status_lbl.config(text=f"Failed: {{err}}", fg=self._error)
+                    status_lbl.config(text=f"Failed: {err}", fg=self._error)
             except Exception as e:
-                status_lbl.config(text=f"Error: {{str(e)}}", fg=self._error)
+                status_lbl.config(text=f"Error: {str(e)}", fg=self._error)
 
         tk.Button(frame, text="Activate", command=do_activate,
                   font=("Segoe UI", 11, "bold"),
@@ -1606,10 +1606,10 @@ class UniversalLicenseCenter:
         dialog.wait_window()
 
     def _buy_license(self):
-        product_name = self.config.get("product", {{}}).get("name", "our product")
+        product_name = self.config.get("product", {}).get("name", "our product")
         result = messagebox.askyesno(
             "Buy License",
-            f"Interested in buying {{product_name}}?\\n\\n"
+            f"Interested in buying {product_name}?\\n\\n"
             "Submit your details and our sales team will contact you.\\n\\n"
             "Would you like to use the email form?",
             parent=self._root,
@@ -1617,12 +1617,12 @@ class UniversalLicenseCenter:
         if result:
             self.email_dialog.show(
                 request_type="BUY",
-                subject=f"Buy {{product_name}} License",
+                subject=f"Buy {product_name} License",
             )
         else:
             messagebox.showinfo(
                 "Contact Sales",
-                f"Please email us at {{SUPPORT_EMAIL}} to purchase a license.",
+                f"Please email us at {SUPPORT_EMAIL} to purchase a license.",
                 parent=self._root,
             )
 
@@ -1699,7 +1699,7 @@ class UniversalLicenseCenter:
                 rt = "BUY"
             self.email_dialog.show(
                 request_type=rt,
-                subject=f"{{reason.capitalize()}} Support Request",
+                subject=f"{reason.capitalize()} Support Request",
             )
             dialog.destroy()
 
@@ -1748,7 +1748,7 @@ class UniversalLicenseCenter:
             dialog.update()
             try:
                 data = self.client.get_request_history(email)
-                if data.get("success") and data.get("data", {{}}).get("requests"):
+                if data.get("success") and data.get("data", {}).get("requests"):
                     requests = data["data"]["requests"]
                     result_text.delete("1.0", "end")
                     for req in requests:
@@ -1758,14 +1758,14 @@ class UniversalLicenseCenter:
                         created = req.get("created_at", "")
                         subject = req.get("subject", "")
                         result_text.insert("end",
-                                           f"{{rid}} | {{rtype}} | {{status}} | {{created}}\\n"
-                                           f"  Subject: {{subject}}\\n\\n")
+                                           f"{rid} | {rtype} | {status} | {created}\\n"
+                                           f"  Subject: {subject}\\n\\n")
                 else:
                     result_text.delete("1.0", "end")
                     result_text.insert("1.0", "No requests found for this email.\\n")
             except Exception as e:
                 result_text.delete("1.0", "end")
-                result_text.insert("1.0", f"Error fetching history: {{str(e)}}\\n")
+                result_text.insert("1.0", f"Error fetching history: {str(e)}\\n")
 
         tk.Button(frame, text="Fetch History", command=do_fetch,
                   font=("Segoe UI", 11, "bold"),
