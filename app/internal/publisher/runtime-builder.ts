@@ -124,15 +124,15 @@ center = UniversalLicenseCenter(engine)
 center.show()
 \`\`\`
 
-## 4. Use Universal Email Dialog (any request type)
+## 4. Use Universal License Center (all-in-one)
 
 \`\`\`python
-from WSD_SDK_PROJECTNAME_PRODUCTID.universal_email_dialog import UniversalEmailDialog
+from WSD_SDK_PROJECTNAME_PRODUCTID import UniversalLicenseCenter
 
-dialog = UniversalEmailDialog(engine._client, engine._hardware, engine._cache)
-result = dialog.show("SUPPORT", customer_name="John", customer_email="john@example.com")
-if result.get("sent"):
-    print("Request sent to support@websmithdigital.com")
+center = UniversalLicenseCenter()
+result = center.show()
+if result.get("status"):
+    print("License status:", result["status"]["status"])
 \`\`\`
 
 ## 5. Run
@@ -150,7 +150,7 @@ That is all. No additional licensing code is required.
 
 The SDK is a complete plug-and-play license system. The host application must never implement OTP UI, activation forms, trial logic, hardware binding, renewal, device replacement, database access, or license validation.
 
-The SDK owns everything. All user-facing requests (activation, renewal, device replacement, support, hardware issues, purchases) are routed through a single \`UniversalEmailDialog\` backed by \`POST /api/v1/request\`.
+The SDK owns everything. All user-facing requests (activation, renewal, device replacement, support, hardware issues, purchases) are routed through the \`UniversalLicenseCenter\` backed by \`POST /api/v1/request\`.
 
 ## Architecture
 
@@ -165,7 +165,7 @@ Application
         ▼
 WSD_SDK_PROJECTNAME_PRODUCTID/
 ├── universal_license_center.py   ← Full-featured license GUI
-├── universal_email_dialog.py     ← Single email form for all requests
+├── universal_email_dialog.py     ← Internal email form (used by ULC)
 ├── license_engine.py             ← Orchestrates license ops
 ├── client.py                     ← HMAC-signed HTTP client
 ├── hardware.py                   ← Machine fingerprint
@@ -227,30 +227,21 @@ If any step fails, the application blocks.
 
 **Behavior:**
 - Status display at the top (plan, expiry, days remaining, hardware ID)
-- Each button opens the \`UniversalEmailDialog\` pre-configured with the correct request type
+- Each button opens the appropriate dialog within the Universal License Center
 - All requests are sent via \`POST /api/v1/request\` to the Websmith Internal API
 - The Internal API forwards to \`support@websmithdigital.com\`
 
-## Universal Email Dialog
+## License Center Workflow
 
-**File:** \`universal_email_dialog.py\`
+The Universal License Center handles all customer workflows through a single interface:
+- Welcome / Trial onboarding (new customers)
+- License activation
+- License renewal
+- License reactivation
+- Support requests
+- Request history
 
-**Purpose:** Single reusable email form for all request types.
-
-**Supported Request Types:**
-| Type | Description |
-|------|-------------|
-| \`BUY\` | Purchase request |
-| \`RENEW\` | License renewal request |
-| \`SUPPORT\` | General support request |
-| \`ACTIVATION\` | License activation assistance |
-| \`DEVICE_REPLACEMENT\` | Device transfer request |
-| \`HARDWARE\` | Hardware-related issue |
-| \`GENERAL\` | Other inquiries |
-
-**Fields:** Full Name, Email, Subject, Message (auto-populated from context)
-
-**API:** All types use \`POST /api/v1/request\` — SDK never sends email directly.
+All requests are sent via \`POST /api/v1/request\` — SDK never sends email directly.
 
 ## Backend APIs
 
@@ -278,7 +269,7 @@ If any step fails, the application blocks.
 All SDK email requests follow this path:
 
 \`\`\`
-UniversalEmailDialog.show("SUPPORT", ...)
+UniversalLicenseCenter → Support Form
         ↓
 POST /api/v1/request    ← SDK calls API
         ↓
@@ -348,19 +339,9 @@ No other licensing code should be required.
 | Contact Support | Email dialog | SUPPORT |
 | Request History | History view | — |
 
-## Universal Email Dialog
+## Request Types (via Universal License Center)
 
-**File:** \`universal_email_dialog.py\`
-
-**Purpose:** Single reusable email form for all request types.
-
-**Fields:**
-- Your Name (required)
-- Your Email (required)
-- License Key (auto-populated if available)
-- Plan (auto-populated if available)
-- Subject (auto-generated from request type)
-- Message (required)
+All requests use the \`UniversalLicenseCenter\` interface, which internally uses the email dialog.
 
 **Request Types:**
 \`BUY\`, \`RENEW\`, \`SUPPORT\`, \`ACTIVATION\`, \`DEVICE_REPLACEMENT\`, \`HARDWARE\`, \`GENERAL\`
@@ -370,19 +351,15 @@ No other licensing code should be required.
 ## Import Pattern
 
 \`\`\`python
-from WSD_SDK_PROJECTNAME_PRODUCTID import UniversalLicenseCenter, UniversalEmailDialog
+from WSD_SDK_PROJECTNAME_PRODUCTID import UniversalLicenseCenter
 from WSD_SDK_PROJECTNAME_PRODUCTID.license_engine import LicenseEngine
 
 engine = LicenseEngine()
 status = engine.initialize()
 
-# Full GUI
-center = UniversalLicenseCenter(engine)
-center.show()
-
-# Direct email dialog
-dialog = UniversalEmailDialog(engine._config, engine._client, engine._hardware, engine._cache)
-result = dialog.show("SUPPORT", customer_name="User")
+# Full license center GUI
+center = UniversalLicenseCenter()
+result = center.show()
 \`\`\`
 
 ## Recommended UI Structure
@@ -648,14 +625,13 @@ All security rules are enforced by the Websmith Internal API. The SDK is a clien
 | Cache Manager | \`cache.py\` | Local status cache |
 | Hardware Detector | \`hardware.py\` | Machine fingerprint |
 | Crypto Utils | \`crypto.py\` | HMAC signature generation |
-| Universal License Center | \`universal_license_center.py\` | Full Tkinter license GUI |
-| Universal Email Dialog | \`universal_email_dialog.py\` | Single email form for all requests |
+| Universal License Center | \`universal_license_center.py\` | Full Tkinter license GUI (single customer workflow) |
 
 ## Data Flows
 
 ### Email Request (all types)
 \`\`\`
-UniversalEmailDialog.show("SUPPORT", ...)
+UniversalLicenseCenter → Support / Renewal / Reactivation Form
         ↓
 POST /api/v1/request (BUY|RENEW|SUPPORT|ACTIVATION|DEVICE_REPLACEMENT|HARDWARE|GENERAL)
         ↓
@@ -668,11 +644,11 @@ Email Service sends to support@websmithdigital.com
 \`\`\`
 User clicks "Activate License" in UniversalLicenseCenter
         ↓
-UniversalEmailDialog opens (pre-filled with ACTIVATION type)
+Activation dialog opens (hardware ID auto-filled)
         ↓
-User submits form → POST /api/v1/request
+User enters license key → POST /api/v1/license (activate)
         ↓
-Support team processes and sends license key
+Cache refresh → Application unlocks
 \`\`\`
 
 ### Startup
@@ -879,14 +855,14 @@ The SDK communicates with the following Neon PostgreSQL tables managed by Websmi
     const dir = pkgDir || 'sdk_package';
     return `## Email Request Flow
 
-All customer communications flow through the Universal Email Dialog backed by \`POST /api/v1/request\`.
+All customer communications flow through the Universal License Center backed by \`POST /api/v1/request\`.
 
 \`\`\`
-User clicks action button (e.g. "Contact Support")
+User clicks action button (e.g. "Contact Support") in UniversalLicenseCenter
         ↓
-UniversalEmailDialog opens (pre-filled with context)
+Form opens (auto-filled with customer, hardware, license context)
         ↓
-User enters name, email, subject, message
+User enters message
         ↓
 POST /api/v1/request (type: SUPPORT, BUY, RENEW, etc.)
         ↓
@@ -906,19 +882,12 @@ Support team responds via email
 **Integration pattern:**
 
 \`\`\`python
-from ${dir}.license_engine import LicenseEngine
-from ${dir}.universal_email_dialog import UniversalEmailDialog
+from ${dir} import UniversalLicenseCenter
 
-engine = LicenseEngine()
-engine.initialize()
-
-dialog = UniversalEmailDialog(
-    engine._client.config, engine._client,
-    engine._hardware, engine._cache
-)
-result = dialog.show("SUPPORT", customer_name="John", customer_email="john@example.com")
-if result.get("sent"):
-    print("Support request sent")
+center = UniversalLicenseCenter()
+result = center.show()
+if result.get("status"):
+    print("License status:", result["status"]["status"])
 \`\`\``;
   }
 
@@ -941,34 +910,18 @@ else:
     print(f"Status: {status.status} - {status.message}")`),
 
       this.getExampleSection('python', 'Launch Universal License Center',
-`from ${pkgDir} import LicenseEngine
-from ${pkgDir}.universal_license_center import UniversalLicenseCenter
+`from ${pkgDir} import UniversalLicenseCenter
 
-engine = LicenseEngine()
-status = engine.initialize()
+center = UniversalLicenseCenter()
+result = center.show()
+if result.get("status"):
+    print("License status:", result["status"]["status"])`),
 
-center = UniversalLicenseCenter(engine)
+      this.getExampleSection('python', 'Send Support Request',
+`from ${pkgDir} import UniversalLicenseCenter
+
+center = UniversalLicenseCenter()
 center.show()`),
-
-      this.getExampleSection('python', 'Send Request via Email Dialog',
-`from ${pkgDir}.license_engine import LicenseEngine
-from ${pkgDir}.universal_email_dialog import UniversalEmailDialog
-
-engine = LicenseEngine()
-engine.initialize()
-
-dialog = UniversalEmailDialog(
-    engine._client.config, engine._client,
-    engine._hardware, engine._cache
-)
-result = dialog.show(
-    "SUPPORT",
-    customer_name="John Doe",
-    customer_email="john@example.com",
-    message_text="I need help with activation"
-)
-if result.get("sent"):
-    print("Request sent successfully")`),
 
       this.getExampleSection('python', 'Start Trial',
 `engine = LicenseEngine()
@@ -1171,8 +1124,8 @@ The SDK follows this layered architecture:
 ┌────────────────────────────────────────────────────┐
 │               Your Application                      │
 ├────────────────────────────────────────────────────┤
-│  UniversalLicenseCenter  │  UniversalEmailDialog    │
-│  (full Tkinter GUI)      │  (single email form)    │
+│              UniversalLicenseCenter                  │
+│              (full Tkinter GUI)                      │
 ├────────────────────────────────────────────────────┤
 │  LicenseEngine  │  CacheManager  │  HardwareDetector │
 ├────────────────────────────────────────────────────┤

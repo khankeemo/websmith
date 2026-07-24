@@ -1,12 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import * as os from 'os';
 import { LicenseEngine, LicenseStatus } from './license_engine';
 import { ApiClient } from './client';
 import { HardwareDetector } from './hardware';
 import { CacheManager } from './cache';
-import { UniversalEmailDialog } from './universal_email_dialog';
 
 const SDK_VERSION = '${kit_version}';
 const RUNTIME_TYPE = '${runtime}';
@@ -32,17 +30,31 @@ export class UniversalLicenseCenter {
   private hardware: HardwareDetector;
   private cache: CacheManager;
   private config: Record<string, any>;
-  private emailDialog: UniversalEmailDialog;
   private status: LicenseStatus | null = null;
   private rl: readline.Interface | null = null;
+  private _locked: boolean = true;
+  onLicenseReady: ((valid: boolean) => void) | null = null;
 
-  constructor(configPath?: string) {
+  constructor(configPath?: string, onLicenseReady?: ((valid: boolean) => void) | null) {
     this.config = loadConfig(configPath);
     this.engine = new LicenseEngine(configPath);
     this.client = new ApiClient(this.config, new HardwareDetector(), new CacheManager(this.config));
     this.hardware = new HardwareDetector();
     this.cache = new CacheManager(this.config);
-    this.emailDialog = new UniversalEmailDialog(this.config, this.client, this.hardware, this.cache);
+    if (onLicenseReady) {
+      this.onLicenseReady = onLicenseReady;
+      this.engine.onLicenseReady = (valid: boolean) => {
+        this._locked = !valid;
+        if (this.onLicenseReady) {
+          try { this.onLicenseReady(valid); } catch { }
+        }
+      };
+    }
+  }
+
+  private _isValidForUnlock(): boolean {
+    if (!this.status) return false;
+    return this.status.status === 'active' || this.status.status === 'trial';
   }
 
   async show(): Promise<Record<string, any>> {
@@ -52,12 +64,45 @@ export class UniversalLicenseCenter {
     console.log('');
 
     await this._refreshStatus();
+
+    if (this._isValidForUnlock()) {
+      this._unlockApplication();
+    } else if (this.status?.status === 'unlicensed' && !this.cache.isOnboardingComplete()) {
+      const welcomed = await this._welcomeFlow();
+      if (welcomed) {
+        this._unlockApplication();
+      }
+    } else {
+      this._lockApplication();
+    }
+
     await this._mainLoop();
 
     const result = { status: this.status?.toDict() || null };
     if (this.rl) this.rl.close();
     this.rl = null;
     return result;
+  }
+
+  getLicenseKey(): string | null {
+    return this.engine.getLicenseKey();
+  }
+
+  isValid(): boolean {
+    return !this._locked;
+  }
+
+  private _lockApplication(): void {
+    this._locked = true;
+    console.log('🔒 APPLICATION LOCKED');
+    console.log('A valid license or trial is required to use this application.');
+    console.log('');
+  }
+
+  private _unlockApplication(): void {
+    this._locked = false;
+    console.log('🔓 APPLICATION UNLOCKED');
+    console.log('');
   }
 
   private async _question(prompt: string): Promise<string> {
@@ -84,10 +129,12 @@ export class UniversalLicenseCenter {
       return;
     }
     console.log(`  Status: ${this.status.status}`);
-    if (this.status.license_key) console.log(`  License: ${this.status.license_key}`);
-    if (this.status.plan) console.log(`  Plan: ${this.status.plan}`);
-    if (this.status.expires_at) console.log(`  Expires: ${this.status.expires_at}`);
-    if (this.status.days_remaining > 0) console.log(`  Days Remaining: ${this.status.days_remaining}`);
+    if (this.status.status === 'active' || this.status.status === 'trial') {
+      if (this.status.license_key) console.log(`  License: ${this.status.license_key}`);
+      if (this.status.plan) console.log(`  Plan: ${this.status.plan}`);
+      if (this.status.expires_at) console.log(`  Expires: ${this.status.expires_at}`);
+      if (this.status.days_remaining > 0) console.log(`  Days Remaining: ${this.status.days_remaining}`);
+    }
     if (this.status.hardware_id) console.log(`  Hardware: ${this.status.hardware_id}`);
     if (this.status.message) console.log(`  Message: ${this.status.message}`);
     console.log('');
@@ -96,51 +143,102 @@ export class UniversalLicenseCenter {
   private async _mainLoop(): Promise<void> {
     let running = true;
     while (running) {
-      const hardwareId = this.hardware.getFingerprint();
-      const isLicensed = this.status?.valid === true && this.status?.status === 'active';
+      const isUnlicensed = this.status?.status === 'unlicensed';
       const isTrial = this.status?.status === 'trial';
-      const isUnlicensed = this.status?.status === 'unlicensed' || this.status?.status === 'error';
-      const hasLicenseKey = !!this.engine.getLicenseKey();
+      const isLicensed = this.status?.status === 'active';
+      const isExpired = this.status?.status === 'expired';
+      const isForceReactivation = this.status?.status === 'force_reactivation';
+      const isForceActivation = this.status?.status === 'force_activation';
+      const needsReactivation = isExpired || isForceReactivation;
 
-      console.log('  ┌─────────────────────────────────────┐');
-      console.log('  │        UNIVERSAL LICENSE CENTER      │');
-      console.log('  ├─────────────────────────────────────┤');
-      console.log('  │  1. View License Status             │');
-      if (isUnlicensed) {
-        console.log('  │  2. Start Free Trial                 │');
-        console.log('  │  3. Activate License                 │');
-        console.log('  │  4. Buy License                      │');
+      if (this._locked) {
+        console.log('  ┌─────────────────────────────────────┐');
+        console.log('  │        APPLICATION LOCKED            │');
+        console.log('  ├─────────────────────────────────────┤');
+        if (isUnlicensed) {
+          console.log('  │  1. Start Free Trial                 │');
+        }
+        if (isUnlicensed || isForceActivation) {
+          console.log('  │  2. Activate License                 │');
+        }
+        if (needsReactivation) {
+          console.log('  │  3. Renew License                    │');
+          if (isForceReactivation) console.log('  │  4. Reactivate License              │');
+        }
+        console.log('  │  9. Contact Support                   │');
+        console.log('  │  0. Exit                              │');
+        console.log('  └─────────────────────────────────────┘');
+      } else {
+        console.log('  ┌─────────────────────────────────────┐');
+        console.log('  │        UNIVERSAL LICENSE CENTER      │');
+        console.log('  ├─────────────────────────────────────┤');
+        console.log('  │  1. View License Status             │');
+        if (isTrial) {
+          console.log('  │  5. Buy License / Convert Trial      │');
+        }
+        if (isLicensed || isTrial) {
+          console.log('  │  6. Renew License                    │');
+        }
+        if (isLicensed) {
+          console.log('  │  7. Replace Device                   │');
+        }
+        console.log('  │  8. Report Hardware Issue             │');
+        console.log('  │  9. Contact Support                   │');
+        console.log('  │ 10. Request History                   │');
+        console.log('  │  0. Exit                              │');
+        console.log('  └─────────────────────────────────────┘');
       }
-      if (isTrial) {
-        console.log('  │  5. Buy License / Convert Trial      │');
-      }
-      if (isLicensed) {
-        console.log('  │  6. Renew License                    │');
-        console.log('  │  7. Replace Device                   │');
-      }
-      console.log('  │  8. Hardware Issue                    │');
-      console.log('  │  9. Contact Support                   │');
-      console.log('  │ 10. Request History                   │');
-      console.log('  │  0. Exit                              │');
-      console.log('  └─────────────────────────────────────┘');
       console.log('');
 
       const choice = await this._question('Select option: ');
+      const trimmed = choice.trim();
 
-      switch (choice.trim()) {
-        case '1': await this._viewStatus(); break;
-        case '2': if (isUnlicensed) await this._startTrial(); break;
-        case '3': if (isUnlicensed) await this._activateLicense(); break;
-        case '4': if (isUnlicensed) await this._buyLicense(); break;
-        case '5': if (isTrial) await this._buyLicense(); break;
-        case '6': if (isLicensed) await this._renewLicense(); break;
-        case '7': if (isLicensed) await this._replaceDevice(); break;
-        case '8': await this._hardwareIssue(); break;
-        case '9': await this._contactSupport(); break;
-        case '10': await this._requestHistory(); break;
-        case '0': running = false; break;
-        default: console.log('Invalid option. Please try again.');
+      let handled = false;
+
+      if (this._locked) {
+        switch (trimmed) {
+          case '1':
+            if (isUnlicensed) { await this._startTrial(); handled = true; }
+            break;
+          case '2':
+            if (isUnlicensed || isForceActivation) { await this._activateLicense(); handled = true; }
+            break;
+          case '3':
+            if (needsReactivation) { await this._renewLicense(); handled = true; }
+            break;
+          case '4':
+            if (isForceReactivation) { await this._reactivateLicense(); handled = true; }
+            break;
+          case '9':
+            await this._contactSupport(); handled = true;
+            break;
+          case '0':
+            running = false; handled = true;
+            break;
+        }
+        if (!handled) {
+          console.log('Application is locked. Please activate or start a trial to unlock.');
+        }
+      } else {
+        switch (trimmed) {
+          case '1': await this._viewStatus(); break;
+          case '5': if (isTrial) await this._buyLicense(); break;
+          case '6': if (isLicensed || isTrial) await this._renewLicense(); break;
+          case '7': if (isLicensed) await this._replaceDevice(); break;
+          case '8': await this._hardwareIssue(); break;
+          case '9': await this._contactSupport(); break;
+          case '10': await this._requestHistory(); break;
+          case '0': running = false; break;
+          default: console.log('Invalid option. Please try again.');
+        }
       }
+
+      if (!this._locked && !this._isValidForUnlock()) {
+        this._lockApplication();
+      } else if (this._locked && this._isValidForUnlock()) {
+        this._unlockApplication();
+      }
+
       console.log('');
     }
   }
@@ -150,29 +248,140 @@ export class UniversalLicenseCenter {
     await this._refreshStatus();
   }
 
-  private async _startTrial(): Promise<void> {
-    console.log('── Start Free Trial ──');
-    const name = await this._question('Name: ');
-    const email = await this._question('Email: ');
-    if (!name.trim() || !email.trim()) {
-      console.log('Name and email are required.');
-      return;
+  private async _collectRequestInfo(requestType: string): Promise<Record<string, any> | null> {
+    const productName = this.config.product?.name || 'our product';
+    const cached = this.cache.getLicenseStatus();
+
+    console.log(`── ${requestType.replace(/_/g, ' ')} ──`);
+
+    let name = cached?.customer_name || '';
+    if (!name) {
+      name = (await this._question('Your Name: ')).trim();
+    } else {
+      console.log(`Name: ${name} (from cache)`);
     }
+
+    let email = cached?.customer_email || '';
+    if (!email) {
+      email = (await this._question('Your Email: ')).trim();
+    } else {
+      console.log(`Email: ${email} (from cache)`);
+    }
+
+    if (!name || !email) {
+      console.log('Name and email are required.');
+      return null;
+    }
+
+    const message = (await this._question('Message: ')).trim();
+    if (!message) {
+      console.log('Message is required.');
+      return null;
+    }
+
+    return {
+      customer_name: name,
+      customer_email: email,
+      message,
+      license_key: this.engine.getLicenseKey() || cached?.license_key || '',
+      plan_name: cached?.plan || '',
+      hardware_id: this.hardware.getFingerprint(),
+    };
+  }
+
+  private async _welcomeFlow(): Promise<boolean> {
+    console.log('── Welcome! ──');
+    console.log('Let\'s get you started with a free trial.');
+    console.log('');
+
+    const name = (await this._question('Your Name: ')).trim();
+    if (!name) { console.log('Name is required.'); return false; }
+
+    const email = (await this._question('Your Email: ')).trim();
+    if (!email) { console.log('Email is required.'); return false; }
+
+    const mobile = (await this._question('Mobile Number: ')).trim();
+    if (!mobile) { console.log('Mobile is required.'); return false; }
+
+    console.log('');
+    console.log('Sending verification code...');
     try {
-      const result = await this.engine.startTrial(email.trim(), name.trim());
-      if (result.success) {
-        console.log('Trial started successfully!');
-        await this._refreshStatus();
-      } else {
-        console.log(`Trial failed: ${result.message || result.error || 'Unknown error'}`);
+      const otpResult = await this.client.sendOtp(email);
+      if (!otpResult.success) {
+        console.log(`Failed to send OTP: ${otpResult.error?.message || 'Unknown error'}`);
+        return false;
       }
     } catch (e) {
+      console.log(`Error sending OTP: ${(e as Error).message}`);
+      return false;
+    }
+
+    console.log('Verification code sent to your email.');
+    const otp = (await this._question('Enter verification code: ')).trim();
+    if (!otp) { console.log('Verification code is required.'); return false; }
+
+    console.log('Verifying...');
+    try {
+      const verifyResult = await this.client.verifyOtp(email, otp);
+      if (!verifyResult.success) {
+        console.log(`Verification failed: ${verifyResult.error?.message || 'Invalid code'}`);
+        return false;
+      }
+    } catch (e) {
+      console.log(`Error verifying code: ${(e as Error).message}`);
+      return false;
+    }
+
+    console.log('Email verified! Creating your account...');
+    const hardwareId = this.hardware.getFingerprint();
+    try {
+      const registerResult = await this.client.registerCustomer({
+        name, email, mobile,
+        country_code: '',
+        hardware_id: hardwareId,
+      });
+      if (!registerResult.success) {
+        console.log(`Registration failed: ${registerResult.error?.message || 'Unknown error'}`);
+        return false;
+      }
+    } catch (e) {
+      console.log(`Error registering: ${(e as Error).message}`);
+      return false;
+    }
+
+    console.log('Starting your free trial...');
+    try {
+      const result = await this.engine.startTrial(email, name);
+      if (result.success) {
+        this.cache.setOnboardingComplete();
+        console.log('Trial started! You can now use the application.');
+        await this._refreshStatus();
+        return true;
+      }
+      console.log(`Trial failed: ${result.message || result.error || 'Unknown error'}`);
+      return false;
+    } catch (e) {
       console.log(`Error: ${(e as Error).message}`);
+      return false;
+    }
+  }
+
+  private async _startTrial(): Promise<void> {
+    const success = await this._welcomeFlow();
+    if (success && this.rl) {
+      console.log('');
+      await this._mainLoop();
     }
   }
 
   private async _activateLicense(): Promise<void> {
     console.log('── Activate License ──');
+    const cached = this.cache.getLicenseStatus();
+    const hwId = this.hardware.getFingerprint();
+    console.log(`  Hardware ID: ${hwId}`);
+    if (cached?.customer_name) console.log(`  Customer: ${cached.customer_name}`);
+    if (cached?.customer_email) console.log(`  Email: ${cached.customer_email}`);
+    console.log('');
     const key = await this._question('License key: ');
     if (!key.trim()) return;
     try {
@@ -189,71 +398,202 @@ export class UniversalLicenseCenter {
   }
 
   private async _buyLicense(): Promise<void> {
-    console.log('── Buy License ──');
     const productName = this.config.product?.name || 'our product';
-    console.log(`Interested in buying ${productName}?`);
-    console.log('Submit your details and our sales team will contact you.');
-    console.log('');
+    console.log(`── Buy ${productName} License ──`);
+    const info = await this._collectRequestInfo('BUY');
+    if (!info) return;
 
-    const contactMethod = await this._question('Use email form? (y/n): ');
-    if (contactMethod.toLowerCase() === 'y') {
-      await this.emailDialog.show({
-        requestType: 'BUY',
+    try {
+      const result = await this.engine.sendSupportRequest({
+        ...info,
         subject: `Buy ${productName} License`,
       });
-    } else {
-      console.log(`Please email us at ${SUPPORT_EMAIL} to purchase a license.`);
+      if (result.success) {
+        console.log('Inquiry submitted! Our sales team will contact you.');
+      } else {
+        console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
     }
   }
 
   private async _renewLicense(): Promise<void> {
+    const licenseKey = this.engine.getLicenseKey();
+    if (!licenseKey) {
+      console.log('License key unavailable. Activate first.');
+      return;
+    }
+
     console.log('── Renew License ──');
-    const contactMethod = await this._question('Use email form to request renewal? (y/n): ');
-    if (contactMethod.toLowerCase() === 'y') {
-      const status = this.status;
-      await this.emailDialog.show({
-        requestType: 'RENEW',
-        subject: 'License Renewal Request',
-        autoFill: {
-          license_key: status?.license_key || undefined,
-          plan_name: status?.plan || undefined,
-        },
+    console.log('');
+
+    const cached = this.cache.getLicenseStatus();
+    console.log(`Current Plan: ${cached?.plan || 'N/A'}`);
+    if (cached?.expires_at) console.log(`Expires: ${cached.expires_at}`);
+    if (cached?.customer_name) console.log(`Customer: ${cached.customer_name}`);
+    console.log('');
+
+    console.log('Checking renewal eligibility...');
+    try {
+      const verifyResult = await this.client.verifyLicenseForRenewal(licenseKey);
+      if (!verifyResult.valid) {
+        console.log(`Not eligible: ${verifyResult.message || 'License cannot be renewed.'}`);
+        return;
+      }
+      console.log('Eligible for renewal.');
+      console.log('');
+    } catch (e) {
+      console.log(`Verification failed: ${(e as Error).message}`);
+      return;
+    }
+
+    console.log('Fetching available plans...');
+    let plans: Array<{ id: string; name: string; duration: string; is_current_plan: boolean }> = [];
+    try {
+      const plansResult = await this.client.getAvailablePlans(licenseKey);
+      if (plansResult.success && plansResult.plans?.length > 0) {
+        plans = plansResult.plans;
+      }
+    } catch {} // proceed without plans
+
+    if (plans.length > 0) {
+      console.log('Available plans:');
+      plans.forEach((p, i) => {
+        const current = p.is_current_plan ? ' (current)' : '';
+        console.log(`  ${i + 1}. ${p.name} — ${p.duration}${current}`);
       });
-    } else {
-      console.log(`Please email us at ${SUPPORT_EMAIL} for renewal.`);
+      console.log('  0. Keep current plan');
+      console.log('');
+      const planChoice = (await this._question('Select plan (number): ')).trim();
+      const planIndex = parseInt(planChoice, 10) - 1;
+      if (planChoice !== '0' && (isNaN(planIndex) || planIndex < 0 || planIndex >= plans.length)) {
+        console.log('Invalid selection.');
+        return;
+      }
+    }
+
+    const name = cached?.customer_name || (await this._question('Your Name: ')).trim();
+    const email = cached?.customer_email || (await this._question('Your Email: ')).trim();
+    if (!name || !email) { console.log('Name and email required.'); return; }
+
+    console.log('');
+    console.log('Submitting renewal request...');
+    try {
+      const result = await this.engine.sendRenewalRequest({
+        license_key: licenseKey,
+        request_type: 'renew',
+        customer_name: name,
+        customer_email: email,
+        current_plan_name: cached?.plan || '',
+      });
+      if (result.success) {
+        console.log('Renewal request submitted! Our team will contact you.');
+      } else {
+        console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
+    }
+  }
+
+  private async _reactivateLicense(): Promise<void> {
+    console.log('── Reactivate License ──');
+    const cached = this.cache.getLicenseStatus();
+    const licenseKey = this.engine.getLicenseKey() || cached?.license_key || '';
+
+    if (!licenseKey) {
+      console.log('No license key found. Cannot reactivate.');
+      return;
+    }
+
+    console.log(`  License Key: ${licenseKey}`);
+    console.log(`  Hardware ID: ${this.hardware.getFingerprint()}`);
+    if (cached?.customer_name) console.log(`  Customer: ${cached.customer_name}`);
+    if (cached?.customer_email) console.log(`  Email: ${cached.customer_email}`);
+    if (cached?.plan) console.log(`  Plan: ${cached.plan}`);
+    console.log('');
+
+    const name = cached?.customer_name || (await this._question('Your Name: ')).trim();
+    const email = cached?.customer_email || (await this._question('Your Email: ')).trim();
+    if (!name || !email) { console.log('Name and email required.'); return; }
+
+    console.log('');
+    console.log('Submitting reactivation request...');
+    try {
+      const result = await this.engine.sendReactivationRequest({
+        license_key: licenseKey,
+        customer_name: name,
+        customer_email: email,
+      });
+      if (result.success) {
+        console.log('Reactivation request submitted! Our team will contact you.');
+      } else {
+        console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
     }
   }
 
   private async _replaceDevice(): Promise<void> {
     console.log('── Replace Device ──');
-    const status = this.status;
-    await this.emailDialog.show({
-      requestType: 'DEVICE_REPLACEMENT',
-      subject: 'Device Replacement Request',
-      autoFill: {
-        license_key: status?.license_key || undefined,
-        plan_name: status?.plan || undefined,
-      },
-    });
+    const info = await this._collectRequestInfo('DEVICE_REPLACEMENT');
+    if (!info) return;
+
+    try {
+      const result = await this.engine.sendSupportRequest({
+        ...info,
+        subject: 'Device Replacement Request',
+      });
+      if (result.success) {
+        console.log('Device replacement request submitted!');
+      } else {
+        console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
+    }
   }
 
   private async _hardwareIssue(): Promise<void> {
     console.log('── Hardware Issue ──');
-    await this.emailDialog.show({
-      requestType: 'HARDWARE',
-      subject: 'Hardware Issue Report',
-    });
+    const info = await this._collectRequestInfo('HARDWARE');
+    if (!info) return;
+
+    try {
+      const result = await this.engine.sendSupportRequest({
+        ...info,
+        subject: 'Hardware Issue Report',
+      });
+      if (result.success) {
+        console.log('Hardware issue reported!');
+      } else {
+        console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
+    }
   }
 
   private async _contactSupport(): Promise<void> {
     console.log('── Contact Support ──');
-    const reason = await this._question('Reason (support/activation/trial issue): ');
-    await this.emailDialog.show({
-      requestType: reason.trim().toUpperCase() === 'ACTIVATION' ? 'ACTIVATION'
-        : reason.trim().toUpperCase() === 'TRIAL' ? 'ACTIVATION'
-        : 'SUPPORT',
-      subject: reason.trim() ? `${reason.trim()} Support Request` : 'General Support Request',
-    });
+    const info = await this._collectRequestInfo('SUPPORT');
+    if (!info) return;
+
+    try {
+      const result = await this.engine.sendSupportRequest({
+        ...info,
+        subject: 'Support Request',
+      });
+      if (result.success) {
+        console.log('Support request submitted! We will get back to you.');
+      } else {
+        console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
+    }
   }
 
   private async _requestHistory(): Promise<void> {
@@ -262,15 +602,10 @@ export class UniversalLicenseCenter {
     if (!email.trim()) return;
 
     try {
-      const baseUrl = this.config.api?.url || '';
-      const response = await fetch(
-        `${baseUrl}/api/v1/request?email=${encodeURIComponent(email.trim())}`,
-        { method: 'GET' }
-      );
-      const data = await response.json();
-      if (data.success && data.data?.requests?.length > 0) {
-        console.log(`\nFound ${data.data.requests.length} request(s):`);
-        for (const req of data.data.requests) {
+      const result = await this.engine.getRequestHistory(email.trim());
+      if (result.success && result.data?.requests?.length > 0) {
+        console.log(`\nFound ${result.data.requests.length} request(s):`);
+        for (const req of result.data.requests) {
           console.log(`  ${req.request_id} | ${req.request_type} | ${req.status} | ${new Date(req.created_at).toLocaleDateString()}`);
           console.log(`  Subject: ${req.subject}`);
           console.log('');

@@ -3,4 +3,3 @@ export { ApiClient, ApiError } from './client';
 export { HardwareDetector } from './hardware';
 export { CacheManager } from './cache';
 export { UniversalLicenseCenter } from './universal_license_center';
-export { UniversalEmailDialog } from './universal_email_dialog';

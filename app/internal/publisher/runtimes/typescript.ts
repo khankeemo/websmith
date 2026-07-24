@@ -83,6 +83,7 @@ export interface LicenseStatusData {
   plan?: string;
   hardware_id?: string;
   message?: string;
+  license_key?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -348,6 +349,19 @@ export class CacheManager {
     return !this._isExpired(entry);
   }
 
+  isHardwareConsistent(currentHardwareId: string): boolean {
+    const status = this.getLicenseStatus();
+    if (!status) return true;
+    if (!status.hardware_id) return true;
+    return status.hardware_id === currentHardwareId;
+  }
+
+  invalidateIfHardwareMismatch(currentHardwareId: string): void {
+    if (!this.isHardwareConsistent(currentHardwareId)) {
+      this.invalidateLicenseStatus();
+    }
+  }
+
   getLicenseStatus(): Record<string, any> | null {
     return this.get('license_status');
   }
@@ -358,6 +372,27 @@ export class CacheManager {
 
   invalidateLicenseStatus(): void {
     this.delete('license_status');
+  }
+
+  getLicenseKey(): string | null {
+    const status = this.get('license_status');
+    return status?.license_key || null;
+  }
+
+  markHasEverActivatedPaidLicense(): void {
+    this.set('has_ever_activated_paid_license', true);
+  }
+
+  hasEverActivatedPaidLicense(): boolean {
+    return this.get('has_ever_activated_paid_license') === true;
+  }
+
+  setOnboardingComplete(): void {
+    this.set('onboarding_complete', true);
+  }
+
+  isOnboardingComplete(): boolean {
+    return this.get('onboarding_complete') === true;
   }
 
 }
@@ -501,6 +536,32 @@ export class ApiClient {
     throw new ApiError(500, \`Failed after \${maxRetries} retries\`);
   }
 
+  private async _getRequest(
+    endpoint: string,
+    params?: Record<string, string>
+  ): Promise<Record<string, any>> {
+    const url = new URL(\`\${this.baseUrl}/api/\${this.apiVersion}/\${endpoint}\`);
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        url.searchParams.set(key, value);
+      }
+    }
+    try {
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': this.apiKey },
+        signal: AbortSignal.timeout(this.timeout * 1000),
+      });
+      let data: Record<string, any> = {};
+      try { data = await response.json(); } catch { /* ignore */ }
+      if (response.ok) return data;
+      throw new ApiError(response.status, data.error?.message || \`HTTP \${response.status}\`, data);
+    } catch (err: any) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(500, \`Request failed: \${err.message}\`);
+    }
+  }
+
   async validateLicense(licenseKey: string, hardwareId?: string): Promise<Record<string, any>> {
     if (!hardwareId) hardwareId = this._getHardwareId();
     const payload = { action: 'validate', license_key: licenseKey, hardware_id: hardwareId };
@@ -577,6 +638,77 @@ export class ApiClient {
     if (this.cache) this.cache.invalidateLicenseStatus();
     return response;
   }
+
+  async verifyLicenseForRenewal(licenseKey: string): Promise<Record<string, any>> {
+    return this._request('license/verify-renewal', { license_key: licenseKey });
+  }
+
+  async getAvailablePlans(licenseKey: string): Promise<Record<string, any>> {
+    return this._request('license/available-plans', { license_key: licenseKey });
+  }
+
+  async sendRenewalRequest(data: {
+    license_key: string;
+    request_type: 'renew' | 'new';
+    customer_name?: string;
+    customer_email?: string;
+    customer_mobile?: string;
+    message?: string;
+    current_plan_id?: string;
+    current_plan_name?: string;
+    requested_plan_id?: string;
+    requested_plan_name?: string;
+  }): Promise<Record<string, any>> {
+    return this._request('license/send-renewal-request', data);
+  }
+
+  async sendReactivationRequest(data: {
+    license_key: string;
+    customer_name?: string;
+    customer_email?: string;
+    hardware_id?: string;
+    message?: string;
+  }): Promise<Record<string, any>> {
+    if (!data.hardware_id) data.hardware_id = this._getHardwareId();
+    return this._request('reactivations', data);
+  }
+
+  async sendSupportRequest(data: {
+    license_key?: string;
+    customer_name?: string;
+    customer_email?: string;
+    subject?: string;
+    message: string;
+  }): Promise<Record<string, any>> {
+    return this._request('support', { ...data, request_type: 'SUPPORT' });
+  }
+
+  async getCountries(): Promise<Record<string, any>> {
+    return this._getRequest('countries');
+  }
+
+  async getRequestHistory(email: string): Promise<Record<string, any>> {
+    return this._getRequest('request', { email });
+  }
+
+  async sendOtp(email: string): Promise<Record<string, any>> {
+    return this._request('auth/otp/send', { email, product_id: this.productId });
+  }
+
+  async verifyOtp(email: string, otp: string): Promise<Record<string, any>> {
+    return this._request('auth/otp/verify', { email, otp, product_id: this.productId });
+  }
+
+  async registerCustomer(data: {
+    name: string;
+    email: string;
+    mobile: string;
+    country_code: string;
+    hardware_id: string;
+    company_name?: string;
+  }): Promise<Record<string, any>> {
+    return this._request('customer/register', { ...data, product_id: this.productId });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -589,12 +721,25 @@ export class LicenseEngine {
   private client: ApiClient;
   private _status: LicenseStatusData | null = null;
   private _licenseKey: string | null = null;
+  onLicenseReady: ((valid: boolean) => void) | null = null;
 
   constructor(config?: Record<string, any>) {
     this.config = config || loadConfig();
     this.hardware = new HardwareDetector();
     this.cache = new CacheManager(this.config);
     this.client = new ApiClient(this.config, this.hardware, this.cache);
+    this._licenseKey = this.cache.getLicenseKey();
+  }
+
+  private _notifyReady(valid: boolean): void {
+    if (this.onLicenseReady) {
+      try { this.onLicenseReady(valid); } catch { }
+    }
+  }
+
+  private _isValidStatus(status: LicenseStatusData | null): boolean {
+    if (!status) return false;
+    return status.status === 'active' || status.status === 'trial';
   }
 
   getClient(): ApiClient { return this.client; }
@@ -605,40 +750,158 @@ export class LicenseEngine {
   hasLicenseKey(): boolean { return this._licenseKey !== null; }
 
   async initialize(): Promise<LicenseStatusData> {
+    const hardwareId = this.hardware.getFingerprint();
+    this.cache.invalidateIfHardwareMismatch(hardwareId);
     if (this.cache.isCacheValid()) {
       const cached = this.cache.getLicenseStatus();
       if (cached) {
         this._status = LicenseEngine._toStatusData(cached);
+        this._notifyReady(this._isValidStatus(this._status));
         return this._status;
       }
     }
     try {
-      const hardwareId = this.hardware.getFingerprint();
-      const response = await this.client.validateLicense(hardwareId);
-      this._status = LicenseEngine._toStatusData({
-        valid: response.valid ?? false,
-        status: response.status || 'unlicensed',
-        expires_at: response.expires_at,
-        days_remaining: response.days_left ?? response.days_remaining ?? 0,
-        plan: response.plan,
-        hardware_id: hardwareId,
-        message: response.message,
-      });
-      if (this._status.valid) {
-        this.cache.setLicenseStatus(this._status);
+      if (this._licenseKey) {
+        try {
+          const response = await this.client.validateLicense(this._licenseKey, hardwareId);
+          const data = response.data || response;
+          if (data.valid) {
+            const statusStr = data.status || 'active';
+            if (statusStr === 'expired') {
+              this._status = {
+                valid: false, status: 'expired',
+                expires_at: data.expiry_date, days_remaining: 0,
+                plan: data.plan, hardware_id: hardwareId,
+                license_key: this._licenseKey, message: 'License has expired. Please renew.',
+              };
+              this._notifyReady(false);
+              return this._status;
+            }
+            this._status = {
+              valid: true, status: statusStr,
+              expires_at: data.expiry_date,
+              days_remaining: data.days_left ?? data.days_remaining ?? 0,
+              plan: data.plan, hardware_id: hardwareId,
+              license_key: this._licenseKey, message: 'License active',
+            };
+            this.cache.setLicenseStatus(this._status);
+            this.cache.markHasEverActivatedPaidLicense();
+            this._notifyReady(true);
+            return this._status;
+          } else {
+            const serverStatus = data.status || '';
+            if (serverStatus === 'expired') {
+              this._status = {
+                valid: false, status: 'expired',
+                expires_at: data.expiry_date, days_remaining: 0,
+                plan: data.plan, hardware_id: hardwareId,
+                license_key: this._licenseKey, message: 'License has expired. Please renew.',
+              };
+              this._notifyReady(false);
+              return this._status;
+            }
+            if (this.cache.hasEverActivatedPaidLicense()) {
+              this._status = {
+                valid: false, status: 'force_reactivation',
+                hardware_id: hardwareId, license_key: this._licenseKey,
+                message: 'License inactive. Please reactivate.',
+              };
+              this._notifyReady(false);
+              return this._status;
+            }
+            this._status = {
+              valid: false, status: 'force_activation',
+              hardware_id: hardwareId, license_key: this._licenseKey,
+              message: 'License key invalid. Please activate.',
+            };
+            this._notifyReady(false);
+            return this._status;
+          }
+        } catch {
+          if (this.cache.hasEverActivatedPaidLicense()) {
+            this._status = {
+              valid: false, status: 'force_reactivation',
+              hardware_id: hardwareId, license_key: this._licenseKey,
+              message: 'License validation failed. Please reactivate.',
+            };
+            this._notifyReady(false);
+            return this._status;
+          }
+          this._status = {
+            valid: false, status: 'force_activation',
+            hardware_id: hardwareId, license_key: this._licenseKey,
+            message: 'License validation failed. Please activate.',
+          };
+          this._notifyReady(false);
+          return this._status;
+        }
+      } else {
+        if (this.cache.hasEverActivatedPaidLicense()) {
+          this._status = {
+            valid: false, status: 'force_reactivation',
+            hardware_id: hardwareId,
+            message: 'License key missing. Please reactivate.',
+          };
+          this._notifyReady(false);
+          return this._status;
+        }
       }
+      if (!this.cache.hasEverActivatedPaidLicense()) {
+        const trialResponse = await this.client.getTrialStatus(hardwareId);
+        const trialData = trialResponse.data || {};
+        if (trialData.has_trial) {
+          const statusStr = trialData.status || 'trial';
+          if (statusStr === 'expired') {
+            this._status = {
+              valid: false, status: 'expired',
+              expires_at: trialData.expiry_date, days_remaining: 0,
+              plan: trialData.plan, hardware_id: hardwareId,
+              message: 'Trial has expired. Please renew.',
+            };
+            this._notifyReady(false);
+            return this._status;
+          }
+          this._status = {
+            valid: statusStr === 'active', status: statusStr,
+            expires_at: trialData.expiry_date,
+            days_remaining: trialData.days_left ?? trialData.days_remaining ?? 0,
+            plan: trialData.plan, hardware_id: hardwareId,
+            message: \`Trial is \${statusStr}\`,
+          };
+          if (this._status.valid) {
+            this.cache.setLicenseStatus(this._status);
+          }
+          this._notifyReady(this._isValidStatus(this._status));
+          return this._status;
+        }
+      }
+      if (this.cache.isOnboardingComplete()) {
+        this._status = {
+          valid: false, status: 'force_activation',
+          hardware_id: hardwareId,
+          message: 'No active license found. Please activate.',
+        };
+      } else {
+        this._status = {
+          valid: false, status: 'unlicensed',
+          hardware_id: hardwareId,
+          message: 'No license or trial found',
+        };
+      }
+      this._notifyReady(false);
       return this._status;
     } catch (err: any) {
       const cached = this.cache.getLicenseStatus();
       if (cached) {
         this._status = LicenseEngine._toStatusData(cached);
+        this._notifyReady(this._isValidStatus(this._status));
         return this._status;
       }
       this._status = {
-        valid: false,
-        status: 'error',
+        valid: false, status: 'error',
         message: \`Unexpected error: \${err.message || err}\`,
       };
+      this._notifyReady(false);
       return this._status;
     }
   }
@@ -647,28 +910,26 @@ export class LicenseEngine {
     const hardwareId = this.hardware.getFingerprint();
     try {
       const result = await this.client.validateLicense(key || '', hardwareId);
-      this._status = LicenseEngine._toStatusData({
-        valid: result.valid ?? false,
-        status: result.status || 'unknown',
-        expires_at: result.expires_at,
-        days_remaining: result.days_left ?? result.days_remaining ?? 0,
-        plan: result.plan,
-        hardware_id: hardwareId,
-      });
-      if (result.license_key) this._licenseKey = result.license_key;
+      if (result.valid || (result.data && result.data.valid)) {
+        this._status = LicenseEngine._toStatusData(result.data || result);
+        if (key) this._licenseKey = key;
+        await this.initialize();
+        this.cache.markHasEverActivatedPaidLicense();
+      }
       return result;
     } catch (err: any) {
       return { success: false, status: 'error', message: err.message || String(err) };
     }
   }
 
-  async activate(key: string, deviceName: string): Promise<LicenseResult> {
+  async activate(key: string, deviceName?: string): Promise<LicenseResult> {
     try {
       const hardwareId = this.hardware.getFingerprint();
-      const result = await this.client.activateLicense(key, hardwareId, deviceName);
+      const result = await this.client.activateLicense(key, hardwareId, deviceName || '');
       if (result.success || result.valid) {
         this._licenseKey = key;
         await this.initialize();
+        this.cache.markHasEverActivatedPaidLicense();
       }
       return result;
     } catch (err: any) {
@@ -728,6 +989,7 @@ export class LicenseEngine {
       if (result.success) {
         if (result.license_key) this._licenseKey = result.license_key;
         await this.initialize();
+        this.cache.markHasEverActivatedPaidLicense();
       }
       return result;
     } catch (err: any) {
@@ -744,6 +1006,7 @@ export class LicenseEngine {
         this.cache.invalidateLicenseStatus();
         this._status = null;
         await this.initialize();
+        this.cache.markHasEverActivatedPaidLicense();
       }
       return result;
     } catch (err: any) {
@@ -761,13 +1024,91 @@ export class LicenseEngine {
     }
   }
 
+  async verifyLicenseForRenewal(licenseKey?: string): Promise<LicenseResult> {
+    const key = licenseKey || this._licenseKey;
+    if (!key) return { success: false, status: 'error', message: 'License key unavailable.' };
+    try {
+      return await this.client.verifyLicenseForRenewal(key);
+    } catch (err: any) {
+      return { success: false, status: 'error', message: err.message || String(err) };
+    }
+  }
+
+  async getAvailablePlans(licenseKey?: string): Promise<LicenseResult> {
+    const key = licenseKey || this._licenseKey;
+    if (!key) return { success: false, status: 'error', message: 'License key unavailable.' };
+    try {
+      return await this.client.getAvailablePlans(key);
+    } catch (err: any) {
+      return { success: false, status: 'error', message: err.message || String(err) };
+    }
+  }
+
+  async sendRenewalRequest(data: {
+    license_key: string;
+    request_type: 'renew' | 'new';
+    customer_name?: string;
+    customer_email?: string;
+    customer_mobile?: string;
+    message?: string;
+    current_plan_id?: string;
+    current_plan_name?: string;
+    requested_plan_id?: string;
+    requested_plan_name?: string;
+  }): Promise<LicenseResult> {
+    try {
+      return await this.client.sendRenewalRequest(data);
+    } catch (err: any) {
+      return { success: false, status: 'error', message: err.message || String(err) };
+    }
+  }
+
+  async sendReactivationRequest(data: {
+    license_key: string;
+    customer_name?: string;
+    customer_email?: string;
+    message?: string;
+  }): Promise<LicenseResult> {
+    try {
+      return await this.client.sendReactivationRequest(data);
+    } catch (err: any) {
+      return { success: false, status: 'error', message: err.message || String(err) };
+    }
+  }
+
+  async sendSupportRequest(data: {
+    license_key?: string;
+    customer_name?: string;
+    customer_email?: string;
+    subject?: string;
+    message: string;
+  }): Promise<LicenseResult> {
+    try {
+      return await this.client.sendSupportRequest(data);
+    } catch (err: any) {
+      return { success: false, status: 'error', message: err.message || String(err) };
+    }
+  }
+
+  async getCountries(): Promise<LicenseResult> {
+    try {
+      return await this.client.getCountries();
+    } catch (err: any) {
+      return { success: false, status: 'error', message: err.message || String(err) };
+    }
+  }
+
+  async getRequestHistory(email: string): Promise<LicenseResult> {
+    try {
+      return await this.client.getRequestHistory(email);
+    } catch (err: any) {
+      return { success: false, status: 'error', message: err.message || String(err) };
+    }
+  }
+
   isValid(): boolean {
     if (!this._status) return false;
-    if (this._status.status !== 'active') return false;
-    if (this._status.expires_at) {
-      if (new Date(this._status.expires_at) < new Date()) return false;
-    }
-    return true;
+    return this._status.status === 'active' || this._status.status === 'trial';
   }
 
   getLicenseInfo(): LicenseStatusData | null {
@@ -986,7 +1327,6 @@ Copyright (c) ${new Date().getFullYear()}
  * Do not edit directly.
  */
 import { LicenseEngine, LicenseStatus, ApiClient, HardwareDetector, CacheManager } from './client';
-import { UniversalEmailDialog } from './universal_email_dialog';
 
 const SDK_VERSION = '${context.kitVersion}';
 const RUNTIME_TYPE = '${context.runtime}';
@@ -998,20 +1338,35 @@ export class UniversalLicenseCenter {
   private hardware: HardwareDetector;
   private cache: CacheManager;
   private config: Record<string, any>;
-  private emailDialog: UniversalEmailDialog;
   private status: any = null;
+  private _locked: boolean = true;
+  onLicenseReady: ((valid: boolean) => void) | null = null;
 
-  constructor(config?: Record<string, any>) {
+  constructor(config?: Record<string, any>, onLicenseReady?: ((valid: boolean) => void) | null) {
     this.config = config || {};
     this.hardware = new HardwareDetector();
     this.cache = new CacheManager(this.config);
     this.engine = new LicenseEngine(this.config);
     this.client = new ApiClient(this.config, this.hardware, this.cache);
-    this.emailDialog = new UniversalEmailDialog(this.config, this.client, this.hardware, this.cache);
+    if (onLicenseReady) {
+      this.onLicenseReady = onLicenseReady;
+      this.engine.onLicenseReady = (valid: boolean) => {
+        this._locked = !valid;
+        if (this.onLicenseReady) {
+          try { this.onLicenseReady(valid); } catch { }
+        }
+      };
+    }
+  }
+
+  private _isValidForUnlock(): boolean {
+    if (!this.status) return false;
+    return this.status.status === 'active' || this.status.status === 'trial';
   }
 
   async initialize(): Promise<any> {
     this.status = await this.engine.initialize();
+    this._locked = !this._isValidForUnlock();
     return this.status;
   }
 
@@ -1019,88 +1374,139 @@ export class UniversalLicenseCenter {
     console.log('=== UNIVERSAL LICENSE CENTER ===');
     console.log(\`SDK Version: \${SDK_VERSION} | Runtime: \${RUNTIME_TYPE}\`);
     await this.initialize();
-    return { status: this.status ? this.status.toDict() : null };
+    const needsWelcome = this.status?.status === 'unlicensed' && !this.cache.isOnboardingComplete();
+    return {
+      status: this.status ? (this.status.toDict ? this.status.toDict() : this.status) : null,
+      needs_welcome: needsWelcome,
+      is_locked: this._locked,
+    };
   }
 
   getStatus(): any { return this.status; }
   getLicenseKey(): string | null { return this.engine.getLicenseKey(); }
   getHardwareId(): string { return this.hardware.getFingerprint(); }
-
-  async submitRequest(requestType: string, subject: string, message?: string, autoFill?: Record<string, string>): Promise<Record<string, any>> {
-    return this.emailDialog.show({ requestType, subject, message, autoFill });
-  }
+  isValid(): boolean { return !this._locked; }
+  isLocked(): boolean { return this._locked; }
 
   async startTrial(name: string, email: string): Promise<Record<string, any>> {
     if (!name.trim() || !email.trim()) return { success: false, message: 'Name and email required.' };
     const result = await this.engine.startTrial(email.trim(), name.trim());
-    if (result.success) await this.initialize();
+    if (result.success) {
+      await this.initialize();
+      this._locked = !this._isValidForUnlock();
+    }
     return result;
   }
 
   async activateLicense(licenseKey: string): Promise<Record<string, any>> {
     if (!licenseKey.trim()) return { success: false, message: 'License key required.' };
     const result = await this.engine.activate(licenseKey.trim());
-    if (result.success) await this.initialize();
+    if (result.success) {
+      await this.initialize();
+      this._locked = !this._isValidForUnlock();
+    }
     return result;
   }
 
   async renew(extraDays?: number): Promise<Record<string, any>> {
     const result = await this.engine.renew(extraDays);
-    if (result.success) await this.initialize();
+    if (result.success) {
+      await this.initialize();
+      this._locked = !this._isValidForUnlock();
+    }
     return result;
   }
 
   async replaceHardware(): Promise<Record<string, any>> {
     const result = await this.engine.replaceHardware();
-    if (result.success) await this.initialize();
+    if (result.success) {
+      await this.initialize();
+      this._locked = !this._isValidForUnlock();
+    }
     return result;
   }
 
   async deactivate(licenseKey?: string): Promise<Record<string, any>> {
-    return this.engine.deactivate(licenseKey);
+    const result = this.engine.deactivate(licenseKey);
+    this._locked = true;
+    return result;
   }
 }
 `,
     'universal_email_dialog.ts': `/**
- * ${context.productName} SDK - Universal Email Dialog
+ * ${context.productName} SDK - Universal Email Dialog (internal helper)
  * Generated by Websmith License API Center | ${context.generatedAt}
  * Do not edit directly.
  */
+import { ApiClient, HardwareDetector, CacheManager } from './client';
+
 const SDK_VERSION = '${context.kitVersion}';
 const RUNTIME_TYPE = '${context.runtime}';
 
+interface EmailDialogOptions {
+  requestType: string;
+  subject?: string;
+  autoFill?: {
+    customer_name?: string;
+    customer_email?: string;
+    product_name?: string;
+    plan_name?: string;
+    license_key?: string;
+    hardware_id?: string;
+  };
+}
+
 export class UniversalEmailDialog {
   private config: Record<string, any>;
-  private client: any;
-  private hardware: any;
-  private cache: any;
+  private client: ApiClient;
+  private hardware: HardwareDetector;
+  private cache: CacheManager;
 
-  constructor(config: Record<string, any>, client: any, hardware: any, cache: any) {
+  constructor(
+    config: Record<string, any>,
+    client: ApiClient,
+    hardware: HardwareDetector,
+    cache: CacheManager,
+  ) {
     this.config = config;
     this.client = client;
     this.hardware = hardware;
     this.cache = cache;
   }
 
-  async show(options: { requestType: string; subject?: string; message?: string; autoFill?: Record<string, string> }): Promise<Record<string, any>> {
-    const productName = this.config.product?.name || '${context.productName}';
+  async show(options: EmailDialogOptions): Promise<Record<string, any>> {
+    const productName = options.autoFill?.product_name || this.config.product?.name || '${context.productName}';
     const supportEmail = 'support@websmithdigital.com';
-    const name = options.autoFill?.customer_name || '';
-    const email = options.autoFill?.customer_email || '';
-    const hardwareId = options.autoFill?.hardware_id || this.hardware?.getFingerprint() || '';
-    const licenseKey = options.autoFill?.license_key || '';
-    const planName = options.autoFill?.plan_name || '';
+    const cached = this.cache.getLicenseStatus() || {};
 
-    const payload = { request_type: options.requestType, customer_name: name || 'SDK User', customer_email: email || 'user@example.com', product_name: productName, plan_name: planName, license_key: licenseKey, hardware_id: hardwareId, sdk_version: SDK_VERSION, runtime_type: RUNTIME_TYPE, subject: options.subject || \`\${options.requestType} Request\`, message: options.message || \`\${options.requestType} request from SDK\` };
+    const name = options.autoFill?.customer_name || cached.customer_name || '';
+    const email = options.autoFill?.customer_email || cached.customer_email || '';
+    const hardwareId = options.autoFill?.hardware_id || this.hardware.getFingerprint() || '';
+    const licenseKey = options.autoFill?.license_key || cached.license_key || '';
+    const planName = options.autoFill?.plan_name || cached.plan || '';
 
     try {
-      const baseUrl = this.config.api?.url || '';
-      const apiKey = this.config.api?.public_key || '';
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (apiKey) headers['X-API-Key'] = apiKey;
-      const response = await fetch(\`\${baseUrl}/api/v1/request\`, { method: 'POST', headers, body: JSON.stringify(payload) });
-      const result = await response.json();
-      return result.success ? { sent: true, request_id: result.data?.request_id } : { sent: false, error: result.error?.message || 'Request failed' };
+      const payload: Record<string, any> = {
+        request_type: options.requestType,
+        customer_name: name || 'SDK User',
+        customer_email: email || 'user@example.com',
+        product_name: productName,
+        plan_name: planName,
+        license_key: licenseKey,
+        hardware_id: hardwareId,
+        sdk_version: SDK_VERSION,
+        runtime_type: RUNTIME_TYPE,
+        subject: options.subject || \`\${options.requestType} Request\`,
+        message: '',
+      };
+
+      return await this.client.sendSupportRequest({
+        license_key: licenseKey,
+        customer_name: name,
+        customer_email: email,
+        subject: options.subject || \`\${options.requestType} Request\`,
+        message: '',
+      });
     } catch (e: any) {
       return { sent: false, error: e.message, fallback_email: supportEmail };
     }
@@ -1114,9 +1520,8 @@ export class UniversalEmailDialog {
  */
 import { LicenseEngine, LicenseStatus, ApiClient, ApiError, HardwareDetector, CacheManager } from './client';
 import { UniversalLicenseCenter } from './universal_license_center';
-import { UniversalEmailDialog } from './universal_email_dialog';
 
-export { UniversalLicenseCenter, UniversalEmailDialog, LicenseEngine, LicenseStatus, ApiClient, ApiError, HardwareDetector, CacheManager };
+export { UniversalLicenseCenter, LicenseEngine, LicenseStatus, ApiClient, ApiError, HardwareDetector, CacheManager };
 `,
   };
 }

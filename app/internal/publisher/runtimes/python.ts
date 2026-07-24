@@ -6,7 +6,7 @@ export function getPythonTemplates(context: PublisherContext): Record<string, st
 __version__ = "${context.kitVersion}"
 __all__ = [
     "UniversalLicenseCenter",
-    "UniversalEmailDialog",
+    "WelcomeDialog",
     "LicenseEngine", "LicenseStatus",
     "ApiClient", "ApiError",
     "HardwareDetector",
@@ -17,8 +17,8 @@ from .client import ApiClient, ApiError
 from .license_engine import LicenseEngine, LicenseStatus
 from .hardware import HardwareDetector
 from .cache import CacheManager
+from .welcome import WelcomeDialog
 from .universal_license_center import UniversalLicenseCenter
-from .universal_email_dialog import UniversalEmailDialog
 `,
     'client.py': `"""API Client for ${context.productName} License API"""
 import time
@@ -59,6 +59,7 @@ class ApiClient:
         self.timeout = float(self.api_config.get('timeout', 30000)) / 1000
         self.retry_count = self.api_config.get('retry_count', 3)
         self.product_id = config.get('product', {}).get('id', '')
+        self.product_name = config.get('product', {}).get('name', '')
         self._hardware = hardware or HardwareDetector()
         self._cache = cache
 
@@ -144,12 +145,16 @@ class ApiClient:
     def send_request(self, request_type: str, customer_name: str, customer_email: str,
                      subject: str = '', message: str = '',
                      license_key: str = '', hardware_id: str = '',
-                     plan_name: str = '', product_name: str = '') -> Dict[str, Any]:
+                     plan_name: str = '', product_name: str = '',
+                     customer_mobile: str = '', current_plan_id: str = '',
+                     current_plan_name: str = '', requested_plan_id: str = '',
+                     requested_plan_name: str = '') -> Dict[str, Any]:
         payload = {
             'request_type': request_type,
             'customer_name': customer_name,
             'customer_email': customer_email,
-            'product_name': product_name or self.config.get('product', {}).get('name', ''),
+            'customer_mobile': customer_mobile,
+            'product_name': product_name or self.product_name,
             'plan_name': plan_name,
             'license_key': license_key,
             'hardware_id': hardware_id or self._get_hardware_id(),
@@ -157,8 +162,38 @@ class ApiClient:
             'runtime_type': RUNTIME_TYPE,
             'subject': subject or f'{request_type} Request',
             'message': message or f'{request_type} request from SDK',
+            'current_plan_id': current_plan_id,
+            'current_plan_name': current_plan_name,
+            'requested_plan_id': requested_plan_id,
+            'requested_plan_name': requested_plan_name,
         }
         return self._request('request', payload)
+
+    def send_otp(self, email: str) -> Dict[str, Any]:
+        endpoint = 'auth/otp/send'
+        payload = {'email': email, 'product_id': self.product_id}
+        return self._request(endpoint, payload)
+
+    def verify_otp(self, email: str, otp: str) -> Dict[str, Any]:
+        endpoint = 'auth/otp/verify'
+        payload = {'email': email, 'otp': otp, 'product_id': self.product_id}
+        return self._request(endpoint, payload)
+
+    def register_customer(self, name: str, email: str, mobile: str,
+                           country_code: str, hardware_id: str,
+                           company_name: str = '') -> Dict[str, Any]:
+        endpoint = 'customer/register'
+        payload = {
+            'name': name, 'email': email, 'mobile': mobile,
+            'country_code': country_code, 'hardware_id': hardware_id,
+            'company_name': company_name, 'product_id': self.product_id,
+        }
+        return self._request(endpoint, payload)
+
+    def get_countries(self) -> Dict[str, Any]:
+        endpoint = 'countries'
+        payload = {'action': 'list'}
+        return self._request(endpoint, payload)
 
     def validate_license(self, license_key: str, hardware_id: Optional[str] = None) -> Dict[str, Any]:
         if hardware_id is None:
@@ -176,7 +211,8 @@ class ApiClient:
     def activate_license(self, license_key: str, hardware_id: Optional[str] = None) -> Dict[str, Any]:
         if hardware_id is None:
             hardware_id = self._get_hardware_id()
-        payload = {'action': 'activate', 'license_key': license_key, 'hardware_id': hardware_id}
+        payload = {'action': 'activate', 'license_key': license_key, 'hardware_id': hardware_id,
+                   'product_id': self.product_id}
         response = self._request('license', payload)
         if self._cache:
             self._cache.invalidate_license_status()
@@ -312,6 +348,31 @@ class ApiClient:
             return {'success': False, 'requests': []}
         except Exception:
             return {'success': False, 'requests': []}
+
+    def send_reactivation_request(self, license_key: str, customer_name: str = '',
+                                  customer_email: str = '', message: str = '') -> Dict[str, Any]:
+        payload = {
+            'license_key': license_key,
+            'customer_name': customer_name or 'SDK User',
+            'customer_email': customer_email or '',
+            'hardware_id': self._get_hardware_id(),
+            'message': message or 'Reactivation request from SDK',
+        }
+        return self._request('reactivations', payload)
+
+    def send_support_request(self, license_key: str = '', customer_name: str = '',
+                             customer_email: str = '', subject: str = '',
+                             message: str = '') -> Dict[str, Any]:
+        payload = {
+            'request_type': 'SUPPORT',
+            'license_key': license_key or '',
+            'customer_name': customer_name or 'SDK User',
+            'customer_email': customer_email or '',
+            'hardware_id': self._get_hardware_id(),
+            'subject': subject or 'Support Request',
+            'message': message or 'Support request from SDK',
+        }
+        return self._request('support', payload)
 `,
     'crypto.py': `"""Cryptographic utilities for API request signing"""
 import base64
@@ -605,6 +666,10 @@ class CacheManager:
             del cache[key]
             self._save_cache()
 
+    def clear(self) -> None:
+        self._cache = {}
+        self._save_cache()
+
     def is_expired(self, entry: Dict[str, Any]) -> bool:
         cached_at = entry.get('cached_at', 0)
         ttl_seconds = self._ttl_days * 24 * 60 * 60
@@ -619,6 +684,19 @@ class CacheManager:
 
     def get_license_status(self) -> Optional[Dict[str, Any]]:
         return self.get('license_status')
+
+    def is_hardware_consistent(self, current_hardware_id: str) -> bool:
+        status = self.get_license_status()
+        if not status:
+            return True
+        hardware_id = status.get('hardware_id')
+        if not hardware_id:
+            return True
+        return hardware_id == current_hardware_id
+
+    def invalidate_if_hardware_mismatch(self, current_hardware_id: str) -> None:
+        if not self.is_hardware_consistent(current_hardware_id):
+            self.invalidate_license_status()
 
     def set_license_status(self, status: Dict[str, Any]) -> None:
         self.set('license_status', status)
@@ -649,12 +727,28 @@ class CacheManager:
                 key_path.unlink()
             except Exception:
                 pass
+
+    def set_onboarding_complete(self) -> None:
+        cache = self._load_cache()
+        cache['onboarding_complete'] = {'value': True, 'cached_at': time.time()}
+        self._save_cache()
+
+    def is_onboarding_complete(self) -> bool:
+        return self.get('onboarding_complete') is True
+
+    def mark_has_ever_activated_paid_license(self) -> None:
+        cache = self._load_cache()
+        cache['has_ever_activated_paid_license'] = {'value': True, 'cached_at': time.time()}
+        self._save_cache()
+
+    def has_ever_activated_paid_license(self) -> bool:
+        return self.get('has_ever_activated_paid_license') is True
 `,
     'license_engine.py': `"""License validation and management engine"""
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from .client import ApiClient
 from .hardware import HardwareDetector
@@ -716,7 +810,8 @@ class LicenseStatus:
 
 
 class LicenseEngine:
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None,
+                 on_license_ready: Optional[Callable[[bool], None]] = None):
         self.config = self._load_config(config_path)
         self._hardware = HardwareDetector()
         self._cache = CacheManager(self.config)
@@ -727,8 +822,16 @@ class LicenseEngine:
         )
         self._status: Optional[LicenseStatus] = None
         self._license_key: Optional[str] = None
+        self.on_license_ready: Optional[Callable[[bool], None]] = on_license_ready
         if not self._license_key:
             self._license_key = self._cache.load_license_key()
+
+    def _notify_ready(self, valid: bool) -> None:
+        if self.on_license_ready:
+            try:
+                self.on_license_ready(valid)
+            except Exception:
+                pass
 
     def _load_config(self, config_path: Optional[str]) -> Dict[str, Any]:
         if config_path is None:
@@ -743,28 +846,48 @@ class LicenseEngine:
         with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
 
+    @staticmethod
+    def _is_valid_status(status: Optional[LicenseStatus]) -> bool:
+        if not status:
+            return False
+        return status.status in ('active', 'trial')
+
     def initialize(self) -> LicenseStatus:
+        hardware_id = self._hardware.get_fingerprint()
+        self._cache.invalidate_if_hardware_mismatch(hardware_id)
         if self._cache.is_valid():
             cached = self._cache.get_license_status()
             if cached:
                 self._status = LicenseStatus.from_dict(cached)
                 if not self._license_key and self._status.license_key:
                     self._license_key = self._status.license_key
+                self._notify_ready(self._is_valid_status(self._status))
                 return self._status
         try:
-            hardware_id = self._hardware.get_fingerprint()
+            # Priority 1: Validate active paid license from server
             if self._license_key:
                 try:
                     result = self._client.validate_license(self._license_key, hardware_id)
                     data = result.get('data', result)
                     if data.get('valid'):
+                        status_str = data.get('status', 'active')
+                        if status_str == 'expired':
+                            self._status = LicenseStatus(
+                                valid=False, status='expired',
+                                expiry_date=data.get('expiry_date'), days_left=0,
+                                plan=data.get('plan'), hardware_id=hardware_id,
+                                license_key=self._license_key,
+                                message='License has expired. Please renew.',
+                                customer_name=data.get('customer_name'),
+                                customer_email=data.get('customer_email'),
+                            )
+                            self._notify_ready(False)
+                            return self._status
                         self._status = LicenseStatus(
-                            valid=True,
-                            status=data.get('status', 'active'),
+                            valid=True, status=status_str,
                             expiry_date=data.get('expiry_date'),
                             days_left=data.get('days_left', 0),
-                            plan=data.get('plan'),
-                            hardware_id=hardware_id,
+                            plan=data.get('plan'), hardware_id=hardware_id,
                             license_key=self._license_key,
                             customer_name=data.get('customer_name'),
                             customer_email=data.get('customer_email'),
@@ -772,54 +895,121 @@ class LicenseEngine:
                             customer_mobile=data.get('customer_mobile'),
                             message='License active'
                         )
-                        if self._status.valid:
-                            self._cache.set_license_status(self._status.to_dict())
+                        self._cache.set_license_status(self._status.to_dict())
+                        self._cache.mark_has_ever_activated_paid_license()
+                        self._notify_ready(True)
+                        return self._status
+                    else:
+                        server_status = data.get('status', '')
+                        if server_status == 'expired':
+                            self._status = LicenseStatus(
+                                valid=False, status='expired',
+                                expiry_date=data.get('expiry_date'), days_left=0,
+                                plan=data.get('plan'), hardware_id=hardware_id,
+                                license_key=self._license_key,
+                                message='License has expired. Please renew.'
+                            )
+                            self._notify_ready(False)
+                            return self._status
+                        if self._cache.has_ever_activated_paid_license():
+                            self._status = LicenseStatus(
+                                valid=False, status='force_reactivation',
+                                hardware_id=hardware_id, license_key=self._license_key,
+                                message='License inactive. Please reactivate.'
+                            )
+                            self._notify_ready(False)
+                            return self._status
+                        self._status = LicenseStatus(
+                            valid=False, status='force_activation',
+                            hardware_id=hardware_id, license_key=self._license_key,
+                            message='License key invalid. Please activate.'
+                        )
+                        self._notify_ready(False)
                         return self._status
                 except Exception:
-                    pass
-            trial_response = self._client.get_trial_status(hardware_id)
-            trial_data = trial_response.get('data', {})
-            if trial_data.get('has_trial'):
-                status_str = trial_data.get('status', 'trial')
+                    if self._cache.has_ever_activated_paid_license():
+                        self._status = LicenseStatus(
+                            valid=False, status='force_reactivation',
+                            hardware_id=hardware_id, license_key=self._license_key,
+                            message='License validation failed. Please reactivate.'
+                        )
+                        self._notify_ready(False)
+                        return self._status
+                    self._status = LicenseStatus(
+                        valid=False, status='force_activation',
+                        hardware_id=hardware_id, license_key=self._license_key,
+                        message='License validation failed. Please activate.'
+                    )
+                    self._notify_ready(False)
+                    return self._status
+            else:
+                if self._cache.has_ever_activated_paid_license():
+                    self._status = LicenseStatus(
+                        valid=False, status='force_reactivation',
+                        hardware_id=hardware_id,
+                        message='License key missing. Please reactivate.'
+                    )
+                    self._notify_ready(False)
+                    return self._status
+            # Priority 2: Check for active trial (only if user never had a paid license)
+            if not self._cache.has_ever_activated_paid_license():
+                trial_response = self._client.get_trial_status(hardware_id)
+                trial_data = trial_response.get('data', {})
+                if trial_data.get('has_trial'):
+                    status_str = trial_data.get('status', 'trial')
+                    if status_str == 'expired':
+                        self._status = LicenseStatus(
+                            valid=False, status='expired',
+                            expiry_date=trial_data.get('expiry_date'), days_left=0,
+                            plan=trial_data.get('plan'), hardware_id=hardware_id,
+                            message='Trial has expired. Please renew.',
+                            customer_name=trial_data.get('customer_name'),
+                            customer_email=trial_data.get('customer_email'),
+                        )
+                        self._notify_ready(False)
+                        return self._status
+                    self._status = LicenseStatus(
+                        valid=status_str == 'active', status=status_str,
+                        expiry_date=trial_data.get('expiry_date'),
+                        days_left=trial_data.get('days_left', 0),
+                        plan=trial_data.get('plan'), hardware_id=hardware_id,
+                        message=f"Trial is {status_str}",
+                        customer_name=trial_data.get('customer_name'),
+                        customer_email=trial_data.get('customer_email'),
+                        customer_phone=trial_data.get('customer_phone'),
+                        customer_mobile=trial_data.get('customer_mobile')
+                    )
+                    if self._status.valid:
+                        self._cache.set_license_status(self._status.to_dict())
+                    self._notify_ready(self._is_valid_status(self._status))
+                    return self._status
+            # Priority 3: Determine if new customer or force activation
+            if self._cache.is_onboarding_complete():
                 self._status = LicenseStatus(
-                    valid=status_str == 'active',
-                    status=status_str,
-                    expiry_date=trial_data.get('expiry_date'),
-                    days_left=trial_data.get('days_left', 0),
-                    plan=trial_data.get('plan'),
+                    valid=False, status='force_activation',
                     hardware_id=hardware_id,
-                    message=f"Trial is {status_str}",
-                    customer_name=trial_data.get('customer_name'),
-                    customer_email=trial_data.get('customer_email'),
-                    customer_phone=trial_data.get('customer_phone'),
-                    customer_mobile=trial_data.get('customer_mobile')
+                    message='No active license found. Please activate.'
                 )
-                if self._status.valid:
-                    self._cache.set_license_status(self._status.to_dict())
-                return self._status
-            trial_msg = (trial_data.get('message', '') or '').lower()
-            if 'paid license' in trial_msg or 'paid' in trial_msg:
+            else:
                 self._status = LicenseStatus(
-                    valid=False, status='force_reactivation',
+                    valid=False, status='unlicensed',
                     hardware_id=hardware_id,
-                    message='License inactive. Please reactivate or renew.'
+                    message='No license or trial found'
                 )
-                return self._status
-            self._status = LicenseStatus(
-                valid=False, status='unlicensed',
-                hardware_id=hardware_id,
-                message='No license or trial found'
-            )
+            self._notify_ready(False)
             return self._status
         except Exception as e:
             logger.exception("Unexpected error during license initialization")
             cached = self._cache.get_license_status()
             if cached:
-                return LicenseStatus.from_dict(cached)
+                status = LicenseStatus.from_dict(cached)
+                self._notify_ready(self._is_valid_status(status))
+                return status
             self._status = LicenseStatus(
                 valid=False, status='error',
                 message=f"Unexpected error: {str(e)}"
             )
+            self._notify_ready(False)
             return self._status
 
     def get_hardware_id(self) -> str:
@@ -859,6 +1049,8 @@ class LicenseEngine:
             )
             if self._status.valid:
                 self._cache.set_license_status(self._status.to_dict())
+                self._cache.mark_has_ever_activated_paid_license()
+            self._notify_ready(True)
         return result
 
     def activate(self, license_key: str) -> Dict[str, Any]:
@@ -882,6 +1074,8 @@ class LicenseEngine:
             )
             if self._status.valid:
                 self._cache.set_license_status(self._status.to_dict())
+                self._cache.mark_has_ever_activated_paid_license()
+            self._notify_ready(True)
         return result
 
     def start_trial(self, email: str, customer_name: str = '',
@@ -903,6 +1097,7 @@ class LicenseEngine:
             )
             if self._status.valid:
                 self._cache.set_license_status(self._status.to_dict())
+            self._notify_ready(self._is_valid_status(self._status))
         return result
 
     def convert_trial(self, plan: Optional[str] = None, customer_name: str = '', customer_email: str = '') -> Dict[str, Any]:
@@ -930,6 +1125,8 @@ class LicenseEngine:
             )
             if self._status.valid:
                 self._cache.set_license_status(self._status.to_dict())
+                self._cache.mark_has_ever_activated_paid_license()
+            self._notify_ready(self._is_valid_status(self._status))
         return result
 
     def get_plans(self) -> Dict[str, Any]:
@@ -957,6 +1154,8 @@ class LicenseEngine:
             )
             if self._status.valid:
                 self._cache.set_license_status(self._status.to_dict())
+            self._cache.mark_has_ever_activated_paid_license()
+            self._notify_ready(self._is_valid_status(self._status))
         return result
 
     def deactivate(self, license_key: Optional[str] = None) -> Dict[str, Any]:
@@ -1012,6 +1211,8 @@ class LicenseEngine:
             )
             if self._status.valid:
                 self._cache.set_license_status(self._status.to_dict())
+                self._cache.mark_has_ever_activated_paid_license()
+            self._notify_ready(self._is_valid_status(self._status))
         return result
 
     def bind_device(self, license_key: Optional[str] = None, device_name: Optional[str] = None) -> Dict[str, Any]:
@@ -1039,6 +1240,8 @@ class LicenseEngine:
             )
             if self._status.valid:
                 self._cache.set_license_status(self._status.to_dict())
+                self._cache.mark_has_ever_activated_paid_license()
+            self._notify_ready(self._is_valid_status(self._status))
         return result
 
     def verify_license_for_renewal(self, license_key: str) -> Dict[str, Any]:
@@ -1049,10 +1252,40 @@ class LicenseEngine:
 
     def get_available_plans(self, license_key: str) -> Dict[str, Any]:
         return self._client.get_available_plans(license_key)
+
+    def send_renewal_request(self, license_key: str, customer_name: str = '',
+                             customer_email: str = '', customer_mobile: str = '',
+                             message: str = '', request_type: str = 'renew',
+                             current_plan_id: str = '', current_plan_name: str = '',
+                             requested_plan_id: str = '', requested_plan_name: str = '') -> Dict[str, Any]:
+        return self._client.send_request(
+            request_type=request_type, customer_name=customer_name,
+            customer_email=customer_email, customer_mobile=customer_mobile,
+            message=message, license_key=license_key,
+            current_plan_id=current_plan_id, current_plan_name=current_plan_name,
+            requested_plan_id=requested_plan_id, requested_plan_name=requested_plan_name,
+        )
+
+    def send_reactivation_request(self, license_key: str, customer_name: str = '',
+                                  customer_email: str = '', message: str = '') -> Dict[str, Any]:
+        return self._client.send_reactivation_request(
+            license_key=license_key, customer_name=customer_name,
+            customer_email=customer_email, message=message,
+        )
+
+    def send_support_request(self, license_key: str = '', customer_name: str = '',
+                             customer_email: str = '', subject: str = '',
+                             message: str = '') -> Dict[str, Any]:
+        return self._client.send_support_request(
+            license_key=license_key, customer_name=customer_name,
+            customer_email=customer_email, subject=subject, message=message,
+        )
 `,
-    'universal_email_dialog.py': `"""Universal Email Dialog - reusable email form for all request types"""
+    'welcome.py': `"""Welcome Dialog - Customer onboarding with OTP verification and trial generation"""
+import json
+import os
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 from typing import Any, Dict, Optional
 
 from .client import ApiClient
@@ -1061,68 +1294,53 @@ from .cache import CacheManager
 
 SDK_VERSION = "${context.kitVersion}"
 RUNTIME_TYPE = "${context.runtime}"
-SUPPORT_EMAIL = "support@websmithdigital.com"
 
 
-class UniversalEmailDialog:
-    def __init__(
-        self,
-        config: Dict[str, Any],
-        client: ApiClient,
-        hardware: HardwareDetector,
-        cache: CacheManager,
-    ):
-        self.config = config
+_COUNTRIES_CACHE: list = []
+
+
+class WelcomeDialog:
+    def __init__(self, client: ApiClient, hardware: HardwareDetector,
+                 cache: CacheManager, product_name: str = ''):
         self.client = client
         self.hardware = hardware
         self.cache = cache
+        self.product_name = product_name
         self._result: Optional[Dict[str, Any]] = None
         self._root: Optional[tk.Toplevel] = None
+        self._countries = []
+        self._selected_country = None
+        self._otp_sent = False
+        branding = client.config.get('branding', {})
+        self._primary = branding.get('primary_color', '#6366f1')
+        self._bg = '#f0f2f5'
+        self._card_bg = '#ffffff'
+        self._text_primary = '#1a1a2e'
+        self._text_secondary = '#6b7280'
+        self._success = '#10b981'
+        self._error = '#ef4444'
+        self._border = '#d1d5db'
 
-        branding = config.get("branding", {})
-        self._primary = branding.get("primary_color", "#6366f1")
-        self._bg = "#f0f2f5"
-        self._card_bg = "#ffffff"
-        self._text_primary = "#1a1a2e"
-        self._text_secondary = "#6b7280"
-        self._border = "#d1d5db"
+    def is_onboarding_complete(self) -> bool:
+        return self.cache.is_onboarding_complete()
 
-    def show(
-        self,
-        request_type: str,
-        subject: str = "",
-        customer_name: str = "",
-        customer_email: str = "",
-        license_key: str = "",
-        plan_name: str = "",
-        hardware_id: str = "",
-        message_text: str = "",
-    ) -> Dict[str, Any]:
-        product_name = self.config.get("product", {}).get("name", "")
-
-        cached = self.cache.get_license_status()
-        if not customer_name:
-            customer_name = cached.get("customer_name", "") if cached else ""
-        if not customer_email:
-            customer_email = cached.get("customer_email", "") if cached else ""
-        if not hardware_id:
-            hardware_id = self.hardware.get_fingerprint()
-
+    def show(self) -> Dict[str, Any]:
+        if self.is_onboarding_complete():
+            return {'skipped': True, 'message': 'Onboarding already completed'}
         self._result = None
         self._root = tk.Toplevel()
-        self._root.title(f"{request_type.replace('_', ' ')} Request")
-        self._root.geometry("520x580")
+        self._root.title(self.product_name or 'Welcome')
+        self._root.geometry('480x580')
         self._root.resizable(False, False)
         self._root.configure(bg=self._bg)
         self._root.transient()
         self._root.grab_set()
-        self._root.protocol("WM_DELETE_WINDOW", self._on_close)
-
-        self._build_ui(request_type, product_name, customer_name, customer_email,
-                       license_key, plan_name, hardware_id, message_text)
+        self._root.protocol('WM_DELETE_WINDOW', self._on_closing)
+        self._build_ui()
         self._center_window()
+        self._load_countries()
         self._root.wait_window()
-        return self._result or {"sent": False, "error": "Dialog closed"}
+        return self._result or {'skipped': True}
 
     def _center_window(self):
         if not self._root:
@@ -1132,164 +1350,221 @@ class UniversalEmailDialog:
         h = self._root.winfo_height()
         x = (self._root.winfo_screenwidth() // 2) - (w // 2)
         y = (self._root.winfo_screenheight() // 2) - (h // 2)
-        self._root.geometry(f"{w}x{h}+{x}+{y}")
+        self._root.geometry(f'{w}x{h}+{x}+{y}')
 
-    def _build_ui(self, request_type, product_name, customer_name, customer_email,
-                  license_key, plan_name, hardware_id, message_text):
+    def _build_ui(self):
         root = self._root
-        padding = {"padx": 20, "pady": 4}
-
-        header = tk.Label(root, text=f"Universal Email Form",
-                          font=("Segoe UI", 18, "bold"),
+        header = tk.Label(root, text='Welcome', font=('Helvetica', 22, 'bold'),
                           bg=self._bg, fg=self._text_primary)
-        header.pack(pady=(24, 2))
-        sub = tk.Label(root, text=f"Request: {request_type.replace('_', ' ')}",
-                       font=("Segoe UI", 10), bg=self._bg, fg=self._text_secondary)
-        sub.pack(pady=(0, 16))
-        if product_name:
-            prod_lbl = tk.Label(root, text=f"Product: {product_name}",
-                                font=("Segoe UI", 9), bg=self._bg, fg=self._text_secondary)
-            prod_lbl.pack(pady=(0, 8))
-
-        frame = tk.Frame(root, bg=self._card_bg, bd=1, relief="solid",
+        header.pack(pady=(30, 5))
+        sub = tk.Label(root, text='Complete your registration to start the trial',
+                       font=('Helvetica', 11), bg=self._bg, fg=self._text_secondary)
+        sub.pack(pady=(0, 20))
+        frame = tk.Frame(root, bg=self._card_bg, bd=1, relief='solid',
                          highlightbackground=self._border)
-        frame.pack(fill="both", expand=True, padx=24, pady=(0, 16))
+        frame.pack(fill='both', expand=True, padx=30, pady=(0, 20))
+        padding = {'padx': 20, 'pady': 5}
+        tk.Label(frame, text='Name *', font=('Helvetica', 11, 'bold'),
+                 fg=self._text_primary, bg=self._card_bg).pack(anchor='w', **padding)
+        self._name_entry = tk.Entry(frame, font=('Helvetica', 12), relief='solid',
+                                     bd=1, highlightbackground=self._border)
+        self._name_entry.pack(fill='x', padx=20, pady=(0, 10))
+        self._name_entry.focus()
+        tk.Label(frame, text='Email *', font=('Helvetica', 11, 'bold'),
+                 fg=self._text_primary, bg=self._card_bg).pack(anchor='w', **padding)
+        self._email_entry = tk.Entry(frame, font=('Helvetica', 12), relief='solid',
+                                      bd=1, highlightbackground=self._border)
+        self._email_entry.pack(fill='x', padx=20, pady=(0, 10))
+        tk.Label(frame, text='Mobile Number *', font=('Helvetica', 11, 'bold'),
+                 fg=self._text_primary, bg=self._card_bg).pack(anchor='w', **padding)
+        mobile_frame = tk.Frame(frame, bg=self._card_bg)
+        mobile_frame.pack(fill='x', padx=20, pady=(0, 10))
+        self._country_var = tk.StringVar()
+        self._country_menu = ttk.Combobox(mobile_frame, textvariable=self._country_var,
+                                           width=14, state='readonly', font=('Helvetica', 11))
+        self._country_menu.pack(side='left')
+        self._mobile_entry = tk.Entry(mobile_frame, font=('Helvetica', 12), relief='solid',
+                                       bd=1, highlightbackground=self._border)
+        self._mobile_entry.pack(side='left', fill='x', expand=True, padx=(8, 0))
+        tk.Label(frame, text='Company (optional)', font=('Helvetica', 11, 'bold'),
+                 fg=self._text_secondary, bg=self._card_bg).pack(anchor='w', **padding)
+        self._company_entry = tk.Entry(frame, font=('Helvetica', 12), relief='solid',
+                                        bd=1, highlightbackground=self._border)
+        self._company_entry.pack(fill='x', padx=20, pady=(0, 15))
+        self._status_label = tk.Label(frame, text='', font=('Helvetica', 10),
+                                       bg=self._card_bg, fg=self._success)
+        self._status_label.pack(padx=20, pady=(0, 5))
+        self._send_btn = tk.Button(frame, text='Send OTP', font=('Helvetica', 12, 'bold'),
+                                    bg=self._primary, fg='white', relief='flat',
+                                    command=self._on_send_otp, cursor='hand2')
+        self._send_btn.pack(fill='x', padx=20, pady=(0, 8))
+        otp_frame = tk.Frame(frame, bg=self._card_bg)
+        otp_frame.pack(fill='x', padx=20, pady=(0, 5))
+        self._otp_entry = tk.Entry(otp_frame, font=('Helvetica', 16), relief='solid',
+                                    bd=1, highlightbackground=self._border,
+                                    justify='center', width=10)
+        self._otp_entry.pack(side='left', fill='x', expand=True)
+        self._otp_entry.config(state='disabled')
+        self._verify_btn = tk.Button(otp_frame, text='Verify', font=('Helvetica', 12, 'bold'),
+                                      bg=self._success, fg='white', relief='flat',
+                                      command=self._on_verify_otp, cursor='hand2',
+                                      state='disabled')
+        self._verify_btn.pack(side='left', padx=(8, 0))
+        self._error_label = tk.Label(frame, text='', font=('Helvetica', 10),
+                                      bg=self._card_bg, fg=self._error)
+        self._error_label.pack(padx=20, pady=(5, 10))
+        company = self.product_name or 'License'
+        footer = tk.Label(self._root, text=f'Protected by {company}',
+                          font=('Helvetica', 9), bg=self._bg, fg='#9ca3af')
+        footer.pack(side='bottom', pady=(0, 15))
 
-        tk.Label(frame, text="Your Name *", font=("Segoe UI", 10, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", **padding)
-        self._name_var = tk.StringVar(value=customer_name)
-        self._name_entry = tk.Entry(frame, textvariable=self._name_var,
-                                     font=("Segoe UI", 11), relief="solid", bd=1)
-        self._name_entry.pack(fill="x", padx=20, pady=(0, 8))
+    def _load_countries(self):
+        global _COUNTRIES_CACHE
+        if _COUNTRIES_CACHE:
+            self._set_countries(_COUNTRIES_CACHE)
+            return
+        try:
+            result = self.client.get_countries()
+            if isinstance(result, dict) and result.get('data'):
+                countries = result['data']
+                if isinstance(countries, list) and countries:
+                    _COUNTRIES_CACHE = countries
+                    self._set_countries(countries)
+                    return
+        except Exception:
+            pass
+        self._set_countries([])
 
-        tk.Label(frame, text="Your Email *", font=("Segoe UI", 10, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", **padding)
-        self._email_var = tk.StringVar(value=customer_email)
-        self._email_entry = tk.Entry(frame, textvariable=self._email_var,
-                                      font=("Segoe UI", 11), relief="solid", bd=1)
-        self._email_entry.pack(fill="x", padx=20, pady=(0, 8))
+    def _set_countries(self, countries: list):
+        self._countries = countries
+        if not countries:
+            return
+        labels = [f"{c.get('dial', '')} {c.get('name', '')}" for c in countries]
+        self._country_menu['values'] = labels
+        self._country_menu.current(0)
+        self._selected_country = countries[0] if countries else None
 
-        if license_key:
-            tk.Label(frame, text="License Key", font=("Segoe UI", 10, "bold"),
-                     bg=self._card_bg, fg=self._text_primary).pack(anchor="w", **padding)
-            lk_lbl = tk.Label(frame, text=license_key, font=("Courier", 10),
-                              bg=self._card_bg, fg=self._text_secondary)
-            lk_lbl.pack(anchor="w", padx=20, pady=(0, 8))
+        def on_select(event):
+            idx = self._country_menu.current()
+            if 0 <= idx < len(countries):
+                self._selected_country = countries[idx]
 
-        if plan_name:
-            tk.Label(frame, text="Plan", font=("Segoe UI", 10, "bold"),
-                     bg=self._card_bg, fg=self._text_primary).pack(anchor="w", **padding)
-            plan_lbl = tk.Label(frame, text=plan_name, font=("Segoe UI", 10),
-                                bg=self._card_bg, fg=self._text_secondary)
-            plan_lbl.pack(anchor="w", padx=20, pady=(0, 8))
+        self._country_menu.bind('<<ComboboxSelected>>', on_select)
 
-        tk.Label(frame, text="Subject", font=("Segoe UI", 10, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", **padding)
-        self._subject_var = tk.StringVar(
-            value=f"{request_type.replace('_', ' ')} Request")
-        self._subject_entry = tk.Entry(frame, textvariable=self._subject_var,
-                                        font=("Segoe UI", 11), relief="solid", bd=1)
-        self._subject_entry.pack(fill="x", padx=20, pady=(0, 8))
-
-        tk.Label(frame, text="Message *", font=("Segoe UI", 10, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", **padding)
-        self._msg_text = tk.Text(frame, font=("Segoe UI", 10), height=5,
-                                  wrap="word", relief="solid", bd=1)
-        self._msg_text.pack(fill="x", padx=20, pady=(0, 12))
-        if message_text:
-            self._msg_text.insert("1.0", message_text)
-
-        self._status_label = tk.Label(frame, text="", font=("Segoe UI", 9),
-                                       bg=self._card_bg, fg="#16a34a")
-        self._status_label.pack(padx=20, pady=(0, 4))
-
-        self._send_btn = tk.Button(frame, text="Send Request",
-                                    font=("Segoe UI", 11, "bold"),
-                                    bg=self._primary, fg="white", relief="flat",
-                                    command=self._on_send, cursor="hand2")
-        self._send_btn.pack(fill="x", padx=20, pady=(0, 12))
-        self._send_btn.bind("<Enter>", lambda e: self._send_btn.config(bg="#4f46e5"))
-        self._send_btn.bind("<Leave>", lambda e: self._send_btn.config(bg=self._primary))
-
-        self._request_type = request_type
-        self._product_name = product_name
-        self._license_key = license_key
-        self._plan_name = plan_name
-        self._hardware_id = hardware_id
-
-    def _on_close(self):
-        self._result = {"sent": False, "error": "Dialog closed"}
+    def _on_closing(self):
+        self._result = {'skipped': True, 'closed': True}
         try:
             self._root.destroy()
         except Exception:
             pass
 
-    def _on_send(self):
-        name = self._name_var.get().strip()
-        email = self._email_var.get().strip()
-        subject = self._subject_var.get().strip()
-        msg = self._msg_text.get("1.0", "end").strip()
-
-        if not name or not email:
-            messagebox.showwarning("Validation Error",
-                                    "Name and email are required.", parent=self._root)
+    def _on_send_otp(self):
+        name = self._name_entry.get().strip()
+        email = self._email_entry.get().strip()
+        mobile = self._mobile_entry.get().strip()
+        if not name:
+            self._show_error('Name is required')
             return
-        if not msg:
-            messagebox.showwarning("Validation Error",
-                                    "Message is required.", parent=self._root)
+        if not email or '@' not in email:
+            self._show_error('Valid email is required')
             return
-
-        self._send_btn.config(state="disabled", text="Sending...")
-        self._status_label.config(text="Submitting your request...", fg=self._text_secondary)
-        self._root.update()
-
+        if not mobile or len(mobile) < 4:
+            self._show_error('Valid mobile number is required')
+            return
+        if not self._selected_country:
+            self._show_error('Please select a country code')
+            return
+        self._send_btn.config(state='disabled', text='Sending...')
+        self._clear_error()
         try:
-            result = self.client.send_request(
-                request_type=self._request_type,
-                customer_name=name,
-                customer_email=email,
-                subject=subject,
-                message=msg,
-                license_key=self._license_key,
-                hardware_id=self._hardware_id,
-                plan_name=self._plan_name,
-                product_name=self._product_name,
-            )
-            if result.get("success"):
-                ref = result.get("data", {}).get("request_id", "")
-                messagebox.showinfo(
-                    "Request Submitted",
-                    f"Your request has been submitted successfully!\\n\\n"
-                    f"Reference: {ref}\\n"
-                    f"We will contact you at {email} shortly.",
-                    parent=self._root,
-                )
-                self._result = {"sent": True, "request_id": ref}
-                self._root.destroy()
+            result = self.client.send_otp(email)
+            if result.get('success'):
+                self._otp_sent = True
+                self._status_label.config(text='OTP sent to your email', fg=self._success)
+                self._otp_entry.config(state='normal')
+                self._verify_btn.config(state='normal')
+                self._send_btn.config(text='Resend OTP', state='normal')
             else:
-                err = result.get("error", {}).get("message", "Unknown error")
-                self._status_label.config(text=f"Failed: {err}", fg="#dc2626")
-                self._send_btn.config(state="normal", text="Send Request")
+                self._show_error(result.get('error', result.get('message', 'Failed to send OTP')))
+                self._send_btn.config(state='normal', text='Send OTP')
         except Exception as e:
-            self._status_label.config(
-                text=f"Error: {str(e)}. Email {SUPPORT_EMAIL} directly.",
-                fg="#dc2626",
-            )
-            self._send_btn.config(state="normal", text="Send Request")
-`,
+            self._show_error(str(e))
+            self._send_btn.config(state='normal', text='Send OTP')
 
-    'universal_license_center.py': `"""Universal License Center - unified customer interface for all license operations"""
+    def _on_verify_otp(self):
+        email = self._email_entry.get().strip()
+        otp = self._otp_entry.get().strip()
+        if not otp or len(otp) < 4:
+            self._show_error('Enter the OTP code')
+            return
+        self._verify_btn.config(state='disabled', text='Verifying...')
+        self._clear_error()
+        try:
+            result = self.client.verify_otp(email, otp)
+            if result.get('success'):
+                self._complete_onboarding()
+            else:
+                self._show_error(result.get('error', result.get('message', 'Invalid OTP')))
+                self._verify_btn.config(state='normal', text='Verify')
+        except Exception as e:
+            self._show_error(str(e))
+            self._verify_btn.config(state='normal', text='Verify')
+
+    def _complete_onboarding(self):
+        name = self._name_entry.get().strip()
+        email = self._email_entry.get().strip()
+        mobile = self._mobile_entry.get().strip()
+        company = self._company_entry.get().strip()
+        country_code = self._selected_country.get('code', '') if self._selected_country else ''
+        hardware_id = self.hardware.get_fingerprint()
+        self._status_label.config(text='Creating your account...', fg=self._primary)
+        self._root.update()
+        try:
+            register_result = self.client.register_customer(
+                name=name, email=email, mobile=mobile,
+                country_code=country_code, hardware_id=hardware_id,
+                company_name=company
+            )
+            self._status_label.config(text='Starting your free trial...', fg=self._primary)
+            self._root.update()
+            trial_result = self.client.start_trial(email, name, {
+                'mobile': mobile, 'country_code': country_code,
+                'company_name': company, 'hardware_id': hardware_id
+            })
+            if trial_result.get('success'):
+                self.cache.set_onboarding_complete()
+                self._result = {
+                    'name': name, 'email': email, 'hardware_id': hardware_id,
+                    'onboarding_complete': True, 'trial_started': True
+                }
+                self._status_label.config(text='Trial activated! You can now use the software.', fg=self._success)
+                self._root.after(2000, self._root.destroy)
+            else:
+                err = trial_result.get('message', trial_result.get('error', 'Failed to start trial'))
+                self._show_error(err)
+                self._verify_btn.config(state='normal', text='Verify')
+        except Exception as e:
+            self._show_error(str(e))
+            self._verify_btn.config(state='normal', text='Verify')
+
+    def _show_error(self, msg: str):
+        self._error_label.config(text=msg)
+
+    def _clear_error(self):
+        self._error_label.config(text='')
+`,
+    'universal_license_center.py': `"""Universal License Center - single customer experience for all license operations"""
 import json
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from .client import ApiClient
 from .license_engine import LicenseEngine, LicenseStatus
 from .hardware import HardwareDetector
 from .cache import CacheManager
-from .universal_email_dialog import UniversalEmailDialog
+from .welcome import WelcomeDialog
 
 SDK_VERSION = "${context.kitVersion}"
 RUNTIME_TYPE = "${context.runtime}"
@@ -1311,15 +1586,17 @@ def _load_api_config() -> Dict[str, Any]:
 
 
 class UniversalLicenseCenter:
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None,
+                 on_license_ready: Optional[Callable[[bool], None]] = None):
         self.config = _load_api_config() if config_path is None else self._load_config(config_path)
         self.hardware = HardwareDetector()
         self.cache = CacheManager(self.config)
-        self.engine = LicenseEngine(config_path)
         self.client = ApiClient(self.config, self.hardware, self.cache)
-        self.email_dialog = UniversalEmailDialog(self.config, self.client, self.hardware, self.cache)
+        self.engine = LicenseEngine(config_path, on_license_ready=self._on_engine_ready)
+        self.on_license_ready = on_license_ready
         self._status: Optional[LicenseStatus] = None
         self._root: Optional[tk.Toplevel] = None
+        self._app_unlocked = False
 
         branding = self.config.get("branding", {})
         self._primary = branding.get("primary_color", "#6366f1")
@@ -1331,13 +1608,67 @@ class UniversalLicenseCenter:
         self._error = "#dc2626"
         self._warning = "#f59e0b"
         self._border = "#d1d5db"
+        self._product_name = self.config.get("product", {}).get("name", "")
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    def _on_engine_ready(self, valid: bool):
+        if valid:
+            self._app_unlocked = True
+        else:
+            self._app_unlocked = False
+        if self.on_license_ready:
+            self.on_license_ready(valid)
+
+    def _is_valid_for_unlock(self) -> bool:
+        if not self._status:
+            return False
+        return self._status.status in ('active', 'trial')
+
+    def _unlock_application(self):
+        self._app_unlocked = True
+        if self.on_license_ready:
+            self.on_license_ready(True)
+
+    def _lock_application(self):
+        self._app_unlocked = False
+        if self.on_license_ready:
+            self.on_license_ready(False)
+
     def show(self) -> Dict[str, Any]:
+        self._lock_application()
         self._status = self.engine.initialize()
+        status = self._status.status if self._status else 'unlicensed'
+
+        if self._is_valid_for_unlock():
+            self._unlock_application()
+
+        if status == 'unlicensed' or (not self._status):
+            if not self.cache.is_onboarding_complete():
+                result = self._show_welcome()
+                if result.get('trial_started') or result.get('onboarding_complete'):
+                    self._status = self.engine.initialize()
+                    if self._is_valid_for_unlock():
+                        self._unlock_application()
+                    return {'action': 'trial_started', 'status': self._status.to_dict() if self._status else None}
+                if result.get('skipped') and not result.get('closed'):
+                    return {'action': 'skipped', 'locked': True}
+                return {'action': 'closed', 'locked': True}
+
+        return self._show_license_center()
+
+    def _show_welcome(self) -> Dict[str, Any]:
+        welcome = WelcomeDialog(
+            client=self.client,
+            hardware=self.hardware,
+            cache=self.cache,
+            product_name=self._product_name
+        )
+        return welcome.show()
+
+    def _show_license_center(self) -> Dict[str, Any]:
         self._root = tk.Toplevel()
         self._root.title("Universal License Center")
         self._root.geometry("600x700")
@@ -1350,7 +1681,8 @@ class UniversalLicenseCenter:
         self._refresh_display()
         self._center_window()
         self._root.wait_window()
-        return {"status": self._status.to_dict() if self._status else None}
+        return {"status": self._status.to_dict() if self._status else None,
+                "unlocked": self._app_unlocked}
 
     def _center_window(self):
         if not self._root:
@@ -1371,9 +1703,6 @@ class UniversalLicenseCenter:
         tk.Label(header, text="Universal License Center",
                  font=("Segoe UI", 20, "bold"),
                  fg="white", bg=self._primary).pack(expand=True)
-        tk.Label(header, text=f"SDK v{SDK_VERSION} | Runtime: {RUNTIME_TYPE}",
-                 font=("Segoe UI", 8),
-                 fg="#e0e7ff", bg=self._primary).pack()
 
         main = tk.Frame(root, bg=self._bg, padx=20, pady=16)
         main.pack(fill="both", expand=True)
@@ -1399,43 +1728,57 @@ class UniversalLicenseCenter:
         btn_frame = tk.Frame(main, bg=self._bg)
         btn_frame.pack(fill="both", expand=True)
 
-        buttons = [
-            ("1. View License Status", self._view_status, self._primary),
-            ("2. Start Free Trial", self._start_trial, self._success),
-            ("3. Activate License", self._activate_license, self._primary),
-            ("4. Buy License", self._buy_license, self._warning),
-            ("5. Renew License", self._renew_license, self._primary),
-            ("6. Replace Device", self._replace_device, self._warning),
-            ("7. Hardware Issue", self._hardware_issue, self._text_secondary),
-            ("8. Contact Support", self._contact_support, self._text_secondary),
-            ("9. Request History", self._request_history, self._text_secondary),
-        ]
+        status = self._status.status if self._status else 'unlicensed'
+        is_valid = self._status.valid if self._status else False
+        is_expired = status in ('expired', 'force_reactivation')
+        is_trial = status == 'trial'
+        is_paid = status == 'active' and is_valid
+
+        if is_trial:
+            buttons = [
+                ("Activate License", self._activate_license, self._primary),
+                ("Contact Support", self._contact_support, self._text_secondary),
+                ("Close", self._on_close, "#e5e7eb"),
+            ]
+        elif is_paid:
+            buttons = [
+                ("Renew License", self._renew_license, self._primary),
+                ("Replace Device", self._replace_device, self._warning),
+                ("Contact Support", self._contact_support, self._text_secondary),
+                ("Close", self._on_close, "#e5e7eb"),
+            ]
+        elif is_expired:
+            buttons = [
+                ("Renew License", self._renew_license, self._primary),
+                ("Reactivate License", self._reactivate_license, self._warning),
+                ("Contact Support", self._contact_support, self._text_secondary),
+                ("Close", self._on_close, "#e5e7eb"),
+            ]
+        else:
+            buttons = [
+                ("Start Free Trial", self._start_trial, self._success),
+                ("Activate License", self._activate_license, self._primary),
+                ("Contact Support", self._contact_support, self._text_secondary),
+                ("Close", self._on_close, "#e5e7eb"),
+            ]
 
         for text, cmd, color in buttons:
-            btn = tk.Button(btn_frame, text=text, command=cmd,
-                            font=("Segoe UI", 11, "bold"),
-                            bg=color, fg="white", relief="flat",
-                            padx=12, pady=8, cursor="hand2", anchor="w")
+            if color == "#e5e7eb":
+                btn = tk.Button(btn_frame, text=text, command=cmd,
+                                font=("Segoe UI", 11),
+                                bg=color, fg=self._text_primary,
+                                relief="flat", padx=12, pady=8, cursor="hand2")
+            else:
+                btn = tk.Button(btn_frame, text=text, command=cmd,
+                                font=("Segoe UI", 11, "bold"),
+                                bg=color, fg="white", relief="flat",
+                                padx=12, pady=8, cursor="hand2")
             btn.pack(fill="x", pady=(0, 6))
-            btn.bind("<Enter>", lambda e, c=color: e.widget.config(bg=self._adjust_color(c, 0.85)))
-            btn.bind("<Leave>", lambda e, c=color: e.widget.config(bg=c))
-
-        tk.Button(btn_frame, text="0. Exit", command=self._on_close,
-                  font=("Segoe UI", 10), bg="#e5e7eb", fg=self._text_primary,
-                  relief="flat", padx=12, pady=6, cursor="hand2").pack(fill="x", pady=(6, 0))
 
         self._output_label = tk.Label(main, text="", font=("Segoe UI", 9),
                                        bg=self._bg, fg=self._text_secondary,
                                        wraplength=540, justify="left")
         self._output_label.pack(fill="x", pady=(8, 0))
-
-    @staticmethod
-    def _adjust_color(hex_color: str, factor: float) -> str:
-        hex_color = hex_color.lstrip("#")
-        r = min(255, int(int(hex_color[0:2], 16) * factor))
-        g = min(255, int(int(hex_color[2:4], 16) * factor))
-        b = min(255, int(int(hex_color[4:6], 16) * factor))
-        return f"#{r:02x}{g:02x}{b:02x}"
 
     def _on_close(self):
         try:
@@ -1474,75 +1817,23 @@ class UniversalLicenseCenter:
     def _set_output(self, text: str, color: str = "#6b7280"):
         self._output_label.config(text=text, fg=color)
 
-    def _view_status(self):
-        self._status = self.engine.initialize()
-        self._refresh_display()
-        self._set_output("Status refreshed.", self._success)
-
     def _start_trial(self):
-        dialog = tk.Toplevel(self._root)
-        dialog.title("Start Free Trial")
-        dialog.geometry("400x320")
-        dialog.configure(bg=self._bg)
-        dialog.transient(self._root)
-        dialog.grab_set()
-
-        frame = tk.Frame(dialog, bg=self._card_bg, bd=1, relief="solid",
-                         highlightbackground=self._border)
-        frame.pack(fill="both", expand=True, padx=20, pady=20)
-
-        tk.Label(frame, text="Start Free Trial", font=("Segoe UI", 16, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
-
-        tk.Label(frame, text="Name *", font=("Segoe UI", 10, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
-        name_var = tk.StringVar()
-        tk.Entry(frame, textvariable=name_var, font=("Segoe UI", 11),
-                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
-
-        tk.Label(frame, text="Email *", font=("Segoe UI", 10, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
-        email_var = tk.StringVar()
-        tk.Entry(frame, textvariable=email_var, font=("Segoe UI", 11),
-                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 12))
-
-        status_lbl = tk.Label(frame, text="", font=("Segoe UI", 9), bg=self._card_bg)
-        status_lbl.pack(padx=16)
-
-        def do_start():
-            name = name_var.get().strip()
-            email = email_var.get().strip()
-            if not name or not email:
-                status_lbl.config(text="Name and email are required.", fg=self._error)
-                return
-            status_lbl.config(text="Starting trial...", fg=self._text_secondary)
-            dialog.update()
-            try:
-                result = self.engine.start_trial(email, customer_name=name)
-                if result.get("success"):
-                    self._status = self.engine.get_status()
-                    self._refresh_display()
-                    messagebox.showinfo("Trial Started",
-                                        f"Trial started successfully!\\nCheck {email} for details.",
-                                        parent=dialog)
-                    dialog.destroy()
-                else:
-                    err = result.get("message", result.get("error", "Unknown error"))
-                    status_lbl.config(text=f"Failed: {err}", fg=self._error)
-            except Exception as e:
-                status_lbl.config(text=f"Error: {str(e)}", fg=self._error)
-
-        tk.Button(frame, text="Start Trial", command=do_start,
-                  font=("Segoe UI", 11, "bold"),
-                  bg=self._success, fg="white", relief="flat",
-                  padx=12, pady=6, cursor="hand2").pack(fill="x", padx=16, pady=(8, 12))
-
-        dialog.wait_window()
+        self._on_close()
+        result = self._show_welcome()
+        if result.get('trial_started'):
+            self._status = self.engine.initialize()
+            if self._status and self._status.valid:
+                self._unlock_application()
+                messagebox.showinfo("Trial Started",
+                                    "Your free trial has been activated!",
+                                    parent=self._root)
+        elif result.get('closed'):
+            self._show_license_center()
 
     def _activate_license(self):
         dialog = tk.Toplevel(self._root)
         dialog.title("Activate License")
-        dialog.geometry("420x240")
+        dialog.geometry("520x480")
         dialog.configure(bg=self._bg)
         dialog.transient(self._root)
         dialog.grab_set()
@@ -1554,11 +1845,29 @@ class UniversalLicenseCenter:
         tk.Label(frame, text="Activate License", font=("Segoe UI", 16, "bold"),
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
 
+        tk.Label(frame, text="Hardware ID", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        hw_id = self.hardware.get_fingerprint()
+        tk.Label(frame, text=hw_id[:48], font=("Courier", 9),
+                 bg=self._card_bg, fg=self._text_secondary,
+                 wraplength=450).pack(anchor="w", padx=16, pady=(0, 8))
+
         tk.Label(frame, text="License Key *", font=("Segoe UI", 10, "bold"),
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
         key_var = tk.StringVar()
+        if self._status and self._status.license_key:
+            key_var.set(self._status.license_key)
         tk.Entry(frame, textvariable=key_var, font=("Courier", 11),
                  relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 12))
+
+        if self._status and self._status.customer_name:
+            tk.Label(frame, text="Customer", font=("Segoe UI", 10, "bold"),
+                     bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+            cust_info = self._status.customer_name
+            if self._status.customer_email:
+                cust_info += f" \\u2022 {self._status.customer_email}"
+            tk.Label(frame, text=cust_info, font=("Segoe UI", 10),
+                     bg=self._card_bg, fg=self._text_secondary).pack(anchor="w", padx=16, pady=(0, 12))
 
         status_lbl = tk.Label(frame, text="", font=("Segoe UI", 9), bg=self._card_bg)
         status_lbl.pack(padx=16)
@@ -1575,6 +1884,7 @@ class UniversalLicenseCenter:
                 if result.get("success"):
                     self._status = self.engine.get_status()
                     self._refresh_display()
+                    self._unlock_application()
                     messagebox.showinfo("Activated", "License activated successfully!",
                                         parent=dialog)
                     dialog.destroy()
@@ -1591,69 +1901,266 @@ class UniversalLicenseCenter:
 
         dialog.wait_window()
 
-    def _buy_license(self):
-        product_name = self.config.get("product", {}).get("name", "our product")
-        result = messagebox.askyesno(
-            "Buy License",
-            f"Interested in buying {product_name}?\\n\\n"
-            "Submit your details and our sales team will contact you.\\n\\n"
-            "Would you like to use the email form?",
-            parent=self._root,
-        )
-        if result:
-            self.email_dialog.show(
-                request_type="BUY",
-                subject=f"Buy {product_name} License",
-            )
-        else:
-            messagebox.showinfo(
-                "Contact Sales",
-                f"Please email us at {SUPPORT_EMAIL} to purchase a license.",
-                parent=self._root,
-            )
-
     def _renew_license(self):
-        if not self._status or not self._status.valid:
-            messagebox.showwarning("Not Licensed",
-                                    "No active license found. Please activate first.",
+        if not self._status:
+            messagebox.showwarning("Not Available", "No license information available.",
                                     parent=self._root)
             return
-        result = messagebox.askyesno(
-            "Renew License",
-            "Would you like to submit a renewal request?\\n\\n"
-            "Our team will contact you with renewal options.",
-            parent=self._root,
-        )
-        if result:
-            self.email_dialog.show(
-                request_type="RENEW",
-                subject="License Renewal Request",
-                license_key=self._status.license_key or "",
-                plan_name=self._status.plan or "",
-            )
+
+        dialog = tk.Toplevel(self._root)
+        dialog.title("Renew License")
+        dialog.geometry("560x580")
+        dialog.configure(bg=self._bg)
+        dialog.transient(self._root)
+        dialog.grab_set()
+
+        frame = tk.Frame(dialog, bg=self._card_bg, bd=1, relief="solid",
+                         highlightbackground=self._border)
+        frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        tk.Label(frame, text="Renew License", font=("Segoe UI", 16, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
+
+        tk.Label(frame, text="Current License", font=("Segoe UI", 11, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        current_info = f"Plan: {self._status.plan or 'N/A'}"
+        if self._status.expiry_date:
+            current_info += f" | Expires: {self._status.expiry_date}"
+        if self._status.license_key:
+            current_info += f"\\nKey: {self._status.license_key}"
+        tk.Label(frame, text=current_info, font=("Segoe UI", 10),
+                 bg=self._card_bg, fg=self._text_secondary,
+                 wraplength=480, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
+
+        ttk.Separator(frame, orient="horizontal").pack(fill="x", padx=16, pady=8)
+
+        tk.Label(frame, text="Request Renewal", font=("Segoe UI", 11, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        tk.Label(frame, text="Our team will contact you with renewal options.",
+                 font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary).pack(
+            anchor="w", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="Your Name *", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        name_var = tk.StringVar(value=self._status.customer_name or "")
+        tk.Entry(frame, textvariable=name_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="Your Email *", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        email_var = tk.StringVar(value=self._status.customer_email or "")
+        tk.Entry(frame, textvariable=email_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="Your Mobile", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        mobile_var = tk.StringVar(value=self._status.customer_mobile or self._status.customer_phone or "")
+        tk.Entry(frame, textvariable=mobile_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 12))
+
+        status_lbl = tk.Label(frame, text="", font=("Segoe UI", 9), bg=self._card_bg)
+        status_lbl.pack(padx=16)
+
+        def do_send():
+            name = name_var.get().strip()
+            email = email_var.get().strip()
+            if not name or not email:
+                status_lbl.config(text="Name and email are required.", fg=self._error)
+                return
+            status_lbl.config(text="Submitting renewal request...", fg=self._text_secondary)
+            dialog.update()
+            try:
+                result = self.engine.send_renewal_request(
+                    license_key=self._status.license_key or "",
+                    customer_name=name, customer_email=email,
+                    customer_mobile=mobile_var.get().strip(),
+                    request_type='renew',
+                    current_plan_id='', current_plan_name=self._status.plan or '',
+                )
+                if result.get("success"):
+                    messagebox.showinfo("Request Submitted",
+                                        "Your renewal request has been submitted.\\n"
+                                        "Our team will contact you shortly.",
+                                        parent=dialog)
+                    dialog.destroy()
+                else:
+                    err = result.get("message", result.get("error", "Failed"))
+                    status_lbl.config(text=f"Failed: {err}", fg=self._error)
+            except Exception as e:
+                status_lbl.config(text=f"Error: {str(e)}", fg=self._error)
+
+        tk.Button(frame, text="Submit Renewal Request", command=do_send,
+                  font=("Segoe UI", 11, "bold"),
+                  bg=self._primary, fg="white", relief="flat",
+                  padx=12, pady=6, cursor="hand2").pack(fill="x", padx=16, pady=(8, 12))
+
+        dialog.wait_window()
+
+    def _reactivate_license(self):
+        if not self._status:
+            messagebox.showwarning("Not Available", "No license information available.",
+                                    parent=self._root)
+            return
+
+        dialog = tk.Toplevel(self._root)
+        dialog.title("Reactivate License")
+        dialog.geometry("520x500")
+        dialog.configure(bg=self._bg)
+        dialog.transient(self._root)
+        dialog.grab_set()
+
+        frame = tk.Frame(dialog, bg=self._card_bg, bd=1, relief="solid",
+                         highlightbackground=self._border)
+        frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        tk.Label(frame, text="Reactivate License", font=("Segoe UI", 16, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
+        tk.Label(frame, text="Submit a reactivation request to restore your license.",
+                 font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary).pack(
+            anchor="w", padx=16, pady=(0, 12))
+
+        tk.Label(frame, text="License Key", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        key_var = tk.StringVar(value=self._status.license_key or "")
+        tk.Entry(frame, textvariable=key_var, font=("Courier", 11),
+                 relief="solid", bd=1, state="readonly").pack(fill="x", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="Customer Name *", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        name_var = tk.StringVar(value=self._status.customer_name or "")
+        tk.Entry(frame, textvariable=name_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="Email *", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        email_var = tk.StringVar(value=self._status.customer_email or "")
+        tk.Entry(frame, textvariable=email_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="Mobile", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        mobile_var = tk.StringVar(value=self._status.customer_mobile or self._status.customer_phone or "")
+        tk.Entry(frame, textvariable=mobile_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="Hardware ID", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        hw_id = self.hardware.get_fingerprint()
+        tk.Label(frame, text=hw_id, font=("Courier", 9),
+                 bg=self._card_bg, fg=self._text_secondary,
+                 wraplength=450).pack(anchor="w", padx=16, pady=(0, 12))
+
+        status_lbl = tk.Label(frame, text="", font=("Segoe UI", 9), bg=self._card_bg)
+        status_lbl.pack(padx=16)
+
+        def do_send():
+            name = name_var.get().strip()
+            email = email_var.get().strip()
+            if not name or not email:
+                status_lbl.config(text="Name and email are required.", fg=self._error)
+                return
+            status_lbl.config(text="Submitting reactivation request...", fg=self._text_secondary)
+            dialog.update()
+            try:
+                result = self.engine.send_reactivation_request(
+                    license_key=key_var.get().strip(),
+                    customer_name=name,
+                    customer_email=email,
+                    message='',
+                )
+                if result.get("success"):
+                    messagebox.showinfo("Request Submitted",
+                                        "Your reactivation request has been submitted.\\n"
+                                        "Our team will contact you shortly.",
+                                        parent=dialog)
+                    dialog.destroy()
+                else:
+                    err = result.get("message", result.get("error", "Failed"))
+                    status_lbl.config(text=f"Failed: {err}", fg=self._error)
+            except Exception as e:
+                status_lbl.config(text=f"Error: {str(e)}", fg=self._error)
+
+        tk.Button(frame, text="Submit Reactivation Request", command=do_send,
+                  font=("Segoe UI", 11, "bold"),
+                  bg=self._warning, fg="white", relief="flat",
+                  padx=12, pady=6, cursor="hand2").pack(fill="x", padx=16, pady=(8, 12))
+
+        dialog.wait_window()
 
     def _replace_device(self):
         if not self._status or not self._status.valid:
             messagebox.showwarning("Not Licensed",
                                     "No active license found.", parent=self._root)
             return
-        self.email_dialog.show(
-            request_type="DEVICE_REPLACEMENT",
-            subject="Device Replacement Request",
-            license_key=self._status.license_key or "",
-            plan_name=self._status.plan or "",
-        )
+        dialog = tk.Toplevel(self._root)
+        dialog.title("Replace Device")
+        dialog.geometry("500x400")
+        dialog.configure(bg=self._bg)
+        dialog.transient(self._root)
+        dialog.grab_set()
 
-    def _hardware_issue(self):
-        self.email_dialog.show(
-            request_type="HARDWARE",
-            subject="Hardware Issue Report",
-        )
+        frame = tk.Frame(dialog, bg=self._card_bg, bd=1, relief="solid",
+                         highlightbackground=self._border)
+        frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        tk.Label(frame, text="Device Replacement", font=("Segoe UI", 16, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
+        tk.Label(frame, text="Submit a device replacement request.",
+                 font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary).pack(
+            anchor="w", padx=16, pady=(0, 12))
+
+        tk.Label(frame, text="License Key", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        lk_lbl = tk.Label(frame, text=self._status.license_key or "N/A",
+                          font=("Courier", 10), bg=self._card_bg, fg=self._text_secondary)
+        lk_lbl.pack(anchor="w", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="Current Hardware", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        old_hw = self._status.hardware_id or "Unknown"
+        tk.Label(frame, text=old_hw, font=("Courier", 9),
+                 bg=self._card_bg, fg=self._text_secondary,
+                 wraplength=420).pack(anchor="w", padx=16, pady=(0, 8))
+
+        tk.Label(frame, text="New Hardware", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        new_hw = self.hardware.get_fingerprint()
+        tk.Label(frame, text=new_hw, font=("Courier", 9),
+                 bg=self._card_bg, fg=self._text_primary,
+                 wraplength=420).pack(anchor="w", padx=16, pady=(0, 12))
+
+        status_lbl = tk.Label(frame, text="", font=("Segoe UI", 9), bg=self._card_bg)
+        status_lbl.pack(padx=16)
+
+        def do_replace():
+            status_lbl.config(text="Replacing device...", fg=self._text_secondary)
+            dialog.update()
+            try:
+                result = self.engine.replace_hardware()
+                if result.get("success"):
+                    self._status = self.engine.get_status()
+                    self._refresh_display()
+                    messagebox.showinfo("Device Replaced",
+                                        "Device has been replaced successfully!",
+                                        parent=dialog)
+                    dialog.destroy()
+                else:
+                    err = result.get("message", result.get("error", "Failed"))
+                    status_lbl.config(text=f"Failed: {err}", fg=self._error)
+            except Exception as e:
+                status_lbl.config(text=f"Error: {str(e)}", fg=self._error)
+
+        tk.Button(frame, text="Replace Device", command=do_replace,
+                  font=("Segoe UI", 11, "bold"),
+                  bg=self._warning, fg="white", relief="flat",
+                  padx=12, pady=6, cursor="hand2").pack(fill="x", padx=16, pady=(8, 12))
+
+        dialog.wait_window()
 
     def _contact_support(self):
         dialog = tk.Toplevel(self._root)
         dialog.title("Contact Support")
-        dialog.geometry("400x220")
+        dialog.geometry("500x440")
         dialog.configure(bg=self._bg)
         dialog.transient(self._root)
         dialog.grab_set()
@@ -1664,99 +2171,70 @@ class UniversalLicenseCenter:
 
         tk.Label(frame, text="Contact Support", font=("Segoe UI", 16, "bold"),
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
+        tk.Label(frame, text="We already know who you are. Just tell us what you need.",
+                 font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary).pack(
+            anchor="w", padx=16, pady=(0, 12))
 
-        tk.Label(frame, text="Reason:", font=("Segoe UI", 10, "bold"),
+        cached = self.cache.get_license_status() or {}
+
+        tk.Label(frame, text="Your Name *", font=("Segoe UI", 10, "bold"),
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        name_var = tk.StringVar(value=self._status.customer_name if self._status else cached.get('customer_name', ''))
+        tk.Entry(frame, textvariable=name_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
 
-        reason_var = tk.StringVar(value="support")
-        reason_combo = ttk.Combobox(frame, textvariable=reason_var,
-                                     values=["support", "activation", "trial", "billing", "other"],
-                                     state="readonly", font=("Segoe UI", 10))
-        reason_combo.pack(fill="x", padx=16, pady=(0, 12))
+        tk.Label(frame, text="Your Email *", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        email_var = tk.StringVar(value=self._status.customer_email if self._status else cached.get('customer_email', ''))
+        tk.Entry(frame, textvariable=email_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
 
-        def do_contact():
-            reason = reason_var.get()
-            rt = "SUPPORT"
-            if reason == "activation":
-                rt = "ACTIVATION"
-            elif reason == "trial":
-                rt = "ACTIVATION"
-            elif reason == "billing":
-                rt = "BUY"
-            self.email_dialog.show(
-                request_type=rt,
-                subject=f"{reason.capitalize()} Support Request",
-            )
-            dialog.destroy()
+        tk.Label(frame, text="Message *", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        msg_text = tk.Text(frame, font=("Segoe UI", 10), height=4,
+                           wrap="word", relief="solid", bd=1)
+        msg_text.pack(fill="x", padx=16, pady=(0, 12))
 
-        tk.Button(frame, text="Open Email Form", command=do_contact,
+        status_lbl = tk.Label(frame, text="", font=("Segoe UI", 9), bg=self._card_bg)
+        status_lbl.pack(padx=16)
+
+        def do_send():
+            name = name_var.get().strip()
+            email = email_var.get().strip()
+            msg = msg_text.get("1.0", "end").strip()
+            if not name or not email:
+                status_lbl.config(text="Name and email are required.", fg=self._error)
+                return
+            if not msg:
+                status_lbl.config(text="Please describe your issue.", fg=self._error)
+                return
+            status_lbl.config(text="Sending your request...", fg=self._text_secondary)
+            dialog.update()
+            try:
+                license_key = self._status.license_key if self._status else cached.get('license_key', '')
+                result = self.engine.send_support_request(
+                    license_key=license_key or '',
+                    customer_name=name,
+                    customer_email=email,
+                    subject='Support Request',
+                    message=msg,
+                )
+                if result.get("success"):
+                    messagebox.showinfo("Request Submitted",
+                                        "Your support request has been sent.\\n"
+                                        "We will contact you at " + email + ".",
+                                        parent=dialog)
+                    dialog.destroy()
+                else:
+                    err = result.get("message", result.get("error", "Failed"))
+                    status_lbl.config(text=f"Failed: {err}", fg=self._error)
+            except Exception as e:
+                status_lbl.config(text=f"Error: {str(e)}", fg=self._error)
+
+        tk.Button(frame, text="Send Request", command=do_send,
                   font=("Segoe UI", 11, "bold"),
                   bg=self._primary, fg="white", relief="flat",
                   padx=12, pady=6, cursor="hand2").pack(fill="x", padx=16, pady=(8, 12))
-
-        dialog.wait_window()
-
-    def _request_history(self):
-        dialog = tk.Toplevel(self._root)
-        dialog.title("Request History")
-        dialog.geometry("500x400")
-        dialog.configure(bg=self._bg)
-        dialog.transient(self._root)
-        dialog.grab_set()
-
-        frame = tk.Frame(dialog, bg=self._card_bg, bd=1, relief="solid",
-                         highlightbackground=self._border)
-        frame.pack(fill="both", expand=True, padx=20, pady=20)
-
-        tk.Label(frame, text="Request History", font=("Segoe UI", 16, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
-
-        tk.Label(frame, text="Enter your email to check request status:",
-                 font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary).pack(
-            anchor="w", padx=16, pady=(0, 8))
-
-        email_var = tk.StringVar()
-        tk.Entry(frame, textvariable=email_var, font=("Segoe UI", 11),
-                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 12))
-
-        result_text = tk.Text(frame, font=("Segoe UI", 9), height=10,
-                               wrap="word", relief="solid", bd=1)
-        result_text.pack(fill="both", expand=True, padx=16, pady=(0, 12))
-
-        def do_fetch():
-            email = email_var.get().strip()
-            if not email:
-                messagebox.showwarning("Input Required", "Email is required.",
-                                       parent=dialog)
-                return
-            result_text.delete("1.0", "end")
-            result_text.insert("1.0", "Fetching request history...\\n")
-            dialog.update()
-            try:
-                data = self.client.get_request_history(email)
-                if data.get("success") and data.get("data", {}).get("requests"):
-                    requests = data["data"]["requests"]
-                    result_text.delete("1.0", "end")
-                    for req in requests:
-                        rid = req.get("request_id", "")
-                        rtype = req.get("request_type", "")
-                        status = req.get("status", "")
-                        created = req.get("created_at", "")
-                        subject = req.get("subject", "")
-                        result_text.insert("end",
-                                           f"{rid} | {rtype} | {status} | {created}\\n"
-                                           f"  Subject: {subject}\\n\\n")
-                else:
-                    result_text.delete("1.0", "end")
-                    result_text.insert("1.0", "No requests found for this email.\\n")
-            except Exception as e:
-                result_text.delete("1.0", "end")
-                result_text.insert("1.0", f"Error fetching history: {str(e)}\\n")
-
-        tk.Button(frame, text="Fetch History", command=do_fetch,
-                  font=("Segoe UI", 11, "bold"),
-                  bg=self._primary, fg="white", relief="flat",
-                  padx=12, pady=6, cursor="hand2").pack(fill="x", padx=16, pady=(0, 12))
 
         dialog.wait_window()
 `,

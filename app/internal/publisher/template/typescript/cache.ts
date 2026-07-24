@@ -36,6 +36,19 @@ export class CacheManager {
     return this.config.offline?.cache_days || 0;
   }
 
+  isHardwareConsistent(currentHardwareId: string): boolean {
+    const status = this.getLicenseStatus();
+    if (!status) return true;
+    if (!status.hardware_id) return true;
+    return status.hardware_id === currentHardwareId;
+  }
+
+  invalidateIfHardwareMismatch(currentHardwareId: string): void {
+    if (!this.isHardwareConsistent(currentHardwareId)) {
+      this.invalidateLicenseStatus();
+    }
+  }
+
   private _ensureCacheDir(): void {
     fs.mkdirSync(this._cacheDir, { recursive: true });
   }
