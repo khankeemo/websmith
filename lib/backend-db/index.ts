@@ -1051,6 +1051,24 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_customer_email ON requests(customer_email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at DESC)`);
 
+    // 27b. Create conversation_messages table for threaded support conversations (AWS-01 Issue 7)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversation_messages (
+        id SERIAL PRIMARY KEY,
+        request_id TEXT NOT NULL REFERENCES requests(request_id) ON DELETE CASCADE,
+        sender_type TEXT NOT NULL CHECK (sender_type IN ('customer', 'admin')),
+        sender_name TEXT NOT NULL,
+        sender_email TEXT NOT NULL,
+        message TEXT NOT NULL,
+        is_internal BOOLEAN DEFAULT FALSE,
+        email_sent BOOLEAN DEFAULT FALSE,
+        email_error TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_request_id ON conversation_messages(request_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_created_at ON conversation_messages(created_at ASC)`);
+
     // 28. Create sales_enquiries table (Phase 12 - Purchase Workflow)
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_enquiries (

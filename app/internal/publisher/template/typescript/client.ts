@@ -234,34 +234,17 @@ export class ApiClient {
     return this._request('device', payload);
   }
 
-  async replaceDevice(licenseKey: string, newHardwareId?: string, oldHardwareId?: string): Promise<Record<string, any>> {
-    if (!newHardwareId) newHardwareId = this._getHardwareId();
-    if (!oldHardwareId) throw new Error('old_hardware_id is required for device replacement');
-    const payload = { action: 'replace', license_key: licenseKey, old_hardware_id: oldHardwareId, new_hardware_id: newHardwareId };
-    const response = await this._request('device', payload);
-    if (this._cache) this._cache.invalidateLicenseStatus();
-    return response;
-  }
-
-  async getProducts(): Promise<Record<string, any>> {
-    const payload: Record<string, any> = { action: 'list' };
-    if (this.productId) payload.product_id = this.productId;
-    try {
-      return await this._request('store/products', payload);
-    } catch {
-      return { success: false, products: [] };
-    }
-  }
-
-  async updateCustomer(name: string, email: string, phone: string, hardwareId?: string): Promise<Record<string, any>> {
+  async getSupportConversation(requestId: string, hardwareId?: string): Promise<Record<string, any>> {
     if (!hardwareId) hardwareId = this._getHardwareId();
-    const payload: Record<string, any> = { action: 'update', name, email, mobile: phone, hardware_id: hardwareId };
-    try {
-      const result = await this._request('customer/register', payload);
-      if (result.success && this._cache) this._cache.invalidateLicenseStatus();
-      return result;
-    } catch (e) {
-      return { success: false, error: (e as Error).message };
-    }
+    return this._request(`support/${requestId}/messages`, { hardware_id: hardwareId });
+  }
+
+  async replyToSupportRequest(requestId: string, message: string, customerName?: string, customerEmail?: string, hardwareId?: string): Promise<Record<string, any>> {
+    if (!hardwareId) hardwareId = this._getHardwareId();
+    const payload: Record<string, any> = { message };
+    if (customerName) payload.customer_name = customerName;
+    if (customerEmail) payload.customer_email = customerEmail;
+    if (hardwareId) payload.hardware_id = hardwareId;
+    return this._request(`support/${requestId}/reply`, payload);
   }
 }

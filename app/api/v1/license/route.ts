@@ -492,7 +492,9 @@ export async function POST(request: NextRequest) {
             l.status,
             l.expiry_date,
             l.max_devices,
+            l.device_count,
             l.product_id,
+            l.is_deleted,
             p.is_active as product_is_active
           FROM licenses l
           LEFT JOIN products p ON l.product_id = p.product_id
@@ -547,16 +549,29 @@ export async function POST(request: NextRequest) {
           }, { status: 403 });
         }
 
-        // Check status
-        if (license.status === 'expired') {
+        // Check all invalid license states
+        if (license.status === 'inactive') {
           client.release();
           client = null;
 
           return NextResponse.json({
             success: false,
             error: {
-              code: 'LICENSE_EXPIRED',
-              message: 'License has expired'
+              code: 'LICENSE_INACTIVE',
+              message: 'License is inactive and cannot be activated'
+            }
+          }, { status: 403 });
+        }
+
+        if (license.status === 'deleted' || license.is_deleted) {
+          client.release();
+          client = null;
+
+          return NextResponse.json({
+            success: false,
+            error: {
+              code: 'LICENSE_DELETED',
+              message: 'License has been deleted and cannot be activated'
             }
           }, { status: 403 });
         }
@@ -570,6 +585,19 @@ export async function POST(request: NextRequest) {
             error: {
               code: 'LICENSE_REVOKED',
               message: 'License has been revoked'
+            }
+          }, { status: 403 });
+        }
+
+        if (license.status === 'expired') {
+          client.release();
+          client = null;
+
+          return NextResponse.json({
+            success: false,
+            error: {
+              code: 'LICENSE_EXPIRED',
+              message: 'License has expired'
             }
           }, { status: 403 });
         }

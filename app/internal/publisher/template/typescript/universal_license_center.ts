@@ -179,12 +179,13 @@ export class UniversalLicenseCenter {
         if (isLicensed || isTrial) {
           console.log('  │  6. Renew License                    │');
         }
-        if (isLicensed) {
-          console.log('  │  7. Replace Device                   │');
+        if (isLicensed || isTrial) {
+          console.log('  │  7. View Hardware Status                 │');
         }
         console.log('  │  8. Report Hardware Issue             │');
         console.log('  │  9. Contact Support                   │');
-        console.log('  │ 10. Request History                   │');
+        console.log('  │ 10. View Support Conversations        │');
+        console.log('  │ 11. Request History                   │');
         console.log('  │  0. Exit                              │');
         console.log('  └─────────────────────────────────────┘');
       }
@@ -224,10 +225,11 @@ export class UniversalLicenseCenter {
           case '1': await this._viewStatus(); break;
           case '5': if (isTrial) await this._buyLicense(); break;
           case '6': if (isLicensed || isTrial) await this._renewLicense(); break;
-          case '7': if (isLicensed) await this._replaceDevice(); break;
-          case '8': await this._hardwareIssue(); break;
-          case '9': await this._contactSupport(); break;
-          case '10': await this._requestHistory(); break;
+case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
+        case '8': await this._hardwareIssue(); break;
+        case '9': await this._contactSupport(); break;
+        case '10': await this._viewSupportConversations(); break;
+        case '11': await this._requestHistory(); break;
           case '0': running = false; break;
           default: console.log('Invalid option. Please try again.');
         }
@@ -376,25 +378,80 @@ export class UniversalLicenseCenter {
 
   private async _activateLicense(): Promise<void> {
     console.log('── Activate License ──');
-    const cached = this.cache.getLicenseStatus();
     const hwId = this.hardware.getFingerprint();
     console.log(`  Hardware ID: ${hwId}`);
-    if (cached?.customer_name) console.log(`  Customer: ${cached.customer_name}`);
-    if (cached?.customer_email) console.log(`  Email: ${cached.customer_email}`);
     console.log('');
-    const key = await this._question('License key: ');
-    if (!key.trim()) return;
+    console.log('Please enter your details and license key to activate.');
+    console.log('');
+
+    const name = (await this._question('Your Name: ')).trim();
+    if (!name) { console.log('Name is required.'); return; }
+
+    const email = (await this._question('Your Email: ')).trim();
+    if (!email) { console.log('Email is required.'); return; }
+
+    const mobile = (await this._question('Mobile Number (with country code): ')).trim();
+    if (!mobile) { console.log('Mobile is required.'); return; }
+
+    const key = (await this._question('License key: ')).trim();
+    if (!key) { console.log('License key is required.'); return; }
+
+    console.log('');
+    console.log('Validating license...');
+    try {
+      const validateResult = await this.engine.validate(key.trim());
+      if (!validateResult.success && validateResult.valid !== true) {
+        const errorMsg = validateResult.error?.message || validateResult.message || 'License validation failed';
+        console.log(`Validation failed: ${errorMsg}`);
+        return;
+      }
+    } catch (e) {
+      console.log(`Validation error: ${(e as Error).message}`);
+      return;
+    }
+
+    console.log('Activating license...');
     try {
       const result = await this.engine.activate(key.trim());
       if (result.success) {
-        console.log('License activated!');
-        await this._refreshStatus();
+        console.log('');
+        console.log('═══════════════════════════════════════');
+        console.log('      ACTIVATION SUCCESSFUL');
+        console.log('═══════════════════════════════════════');
+        const data = result.data || result;
+        if (data.customer_name) console.log(`  Customer: ${data.customer_name}`);
+        if (data.license_key) console.log(`  License Key: ${this._maskLicenseKey(data.license_key)}`);
+        if (data.plan) console.log(`  Plan: ${data.plan}`);
+        console.log(`  Status: Active`);
+        if (data.expiry_date) console.log(`  Activation Date: ${new Date().toISOString().split('T')[0]}`);
+        if (data.expiry_date) console.log(`  Expiry Date: ${data.expiry_date}`);
+        if (data.days_left !== undefined) console.log(`  Remaining Validity: ${data.days_left} days`);
+        console.log(`  Device: ${hwId}`);
+        console.log('═══════════════════════════════════════');
+        console.log('');
+        console.log('Activation completed successfully.');
+        console.log('');
+        console.log('The application must now restart to apply your license.');
+        console.log('');
+        console.log('1. Restart Now');
+        const restartChoice = (await this._question('Select option: ')).trim();
+        if (restartChoice === '1') {
+          console.log('Restarting application...');
+          process.exit(0);
+        } else {
+          console.log('Please restart the application to apply the license.');
+        }
       } else {
         console.log(`Activation failed: ${result.message || result.error || 'Unknown error'}`);
       }
     } catch (e) {
       console.log(`Error: ${(e as Error).message}`);
     }
+  }
+
+  private _maskLicenseKey(key: string): string {
+    if (key.length <= 8) return '****';
+    return key.substring(0, 4) + '****' + key.substring(key.length - 4);
   }
 
   private async _buyLicense(): Promise<void> {
@@ -536,20 +593,115 @@ export class UniversalLicenseCenter {
     }
   }
 
-  private async _replaceDevice(): Promise<void> {
-    console.log('── Replace Device ──');
-    const info = await this._collectRequestInfo('DEVICE_REPLACEMENT');
-    if (!info) return;
+  private async _viewHardwareStatus(): Promise<void> {
+    console.log('── Hardware Status ──');
+    const hwId = this.hardware.getFingerprint();
+    console.log(`  Current Hardware ID: ${hwId}`);
+    const cached = this.cache.getLicenseStatus();
+    if (cached?.hardware_id) {
+      console.log(`  Registered Hardware: ${cached.hardware_id}`);
+      console.log(`  Status: ${hwId === cached.hardware_id ? 'Matched' : 'Mismatched'}`);
+    }
+    console.log('');
+    console.log('Hardware replacement requires administrator approval.');
+    console.log('Please contact support to request a hardware change.');
+    console.log('');
+    console.log('To request hardware replacement, please use the Contact Support option.');
+    console.log('An administrator will review and process your request.');
+  }
+
+  private async _viewSupportConversations(): Promise<void> {
+    console.log('── Support Conversations ──');
+    const cached = this.cache.getLicenseStatus();
+    const email = cached?.customer_email || (await this._question('Enter your email: ')).trim();
+    if (!email) { console.log('Email is required.'); return; }
 
     try {
-      const result = await this.engine.sendSupportRequest({
-        ...info,
-        subject: 'Device Replacement Request',
-      });
-      if (result.success) {
-        console.log('Device replacement request submitted!');
+      const historyResult = await this.engine.getRequestHistory(email);
+      if (!historyResult.success || !historyResult.data?.requests?.length) {
+        console.log('No support requests found for this email.');
+        return;
+      }
+
+      // Filter for support requests only
+      const supportRequests = historyResult.data.requests.filter(
+        (r: any) => r.request_type === 'SUPPORT' || r.request_type === 'support'
+      );
+
+      if (supportRequests.length === 0) {
+        console.log('No support requests found for this email.');
+        return;
+      }
+
+      console.log(`\nFound ${supportRequests.length} support request(s):`);
+      for (let i = 0; i < supportRequests.length; i++) {
+        const req = supportRequests[i];
+        console.log(`  ${i + 1}. ${req.request_id} | ${req.status} | ${new Date(req.created_at).toLocaleDateString()}`);
+        console.log(`     Subject: ${req.subject}`);
+      }
+      console.log('');
+
+      const choice = (await this._question('Select a request to view (number, or 0 to cancel): ')).trim();
+      const index = parseInt(choice, 10) - 1;
+      if (choice === '0' || isNaN(index) || index < 0 || index >= supportRequests.length) return;
+
+      const selectedReq = supportRequests[index];
+      await this._viewConversation(selectedReq.request_id);
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
+    }
+  }
+
+  private async _viewConversation(requestId: string): Promise<void> {
+    try {
+      const result = await this.engine.getSupportConversation(requestId);
+      if (!result.success) {
+        console.log(`Failed to load conversation: ${result.error?.message || 'Unknown error'}`);
+        return;
+      }
+
+      const messages = result.data?.messages || [];
+      console.log(`\n── Conversation: ${requestId} ──`);
+      console.log(`  Status: ${result.data?.status || 'N/A'}`);
+      console.log('');
+
+      for (const msg of messages) {
+        const date = new Date(msg.created_at).toLocaleString();
+        const sender = msg.sender_type === 'admin' ? 'Support Team' : msg.sender_name || 'Customer';
+        console.log(`  [${date}] ${sender}:`);
+        console.log(`  ${msg.message}`);
+        console.log('');
+      }
+
+      if (result.data?.status !== 'closed' && result.data?.status !== 'resolved') {
+        const replyChoice = (await this._question('Reply to this conversation? (y/n): ')).trim().toLowerCase();
+        if (replyChoice === 'y' || replyChoice === 'yes') {
+          await this._replyToConversation(requestId);
+        }
       } else {
-        console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
+        console.log('This conversation is closed.');
+      }
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
+    }
+  }
+
+  private async _replyToConversation(requestId: string): Promise<void> {
+    const cached = this.cache.getLicenseStatus();
+    const name = cached?.customer_name || (await this._question('Your Name: ')).trim();
+    const email = cached?.customer_email || (await this._question('Your Email: ')).trim();
+    if (!name || !email) { console.log('Name and email are required.'); return; }
+
+    const message = (await this._question('Your message: ')).trim();
+    if (!message) { console.log('Message is required.'); return; }
+
+    console.log('Sending reply...');
+    try {
+      const result = await this.engine.replyToSupportRequest(requestId, message, name, email);
+      if (result.success) {
+        console.log('Reply sent! Support team will review it.');
+      } else {
+        console.log(`Failed: ${result.error?.message || result.message || 'Unknown error'}`);
       }
     } catch (e) {
       console.log(`Error: ${(e as Error).message}`);

@@ -757,7 +757,8 @@ Universal License Center (unlocked)
         │
         ├── View Status (plan, expiry, days left)
         ├── Renew License
-        ├── Replace Device
+        ├── View Hardware Status (display only, admin-required for replacement)
+        ├── Report Hardware Issue
         ├── Contact Support
         └── Close
 ```
@@ -806,12 +807,36 @@ Status: force_activation
         ▼
 Activation Dialog
         │
-        ├── Auto-fill Hardware ID
-        ├── Auto-fill Customer (from cache)
+        ├── Hardware ID (read-only, auto-detected)
+        ├── Manual Customer Entry (first-time activation)
+        │   ├── Customer Name (required)
+        │   ├── Customer Email (required)
+        │   ├── Customer Mobile (required)
+        │   └── Country (required)
         ├── Enter License Key
         ├── POST /api/v1/license (action: activate)
+        │   ├── Validate license exists
+        │   ├── Validate license is not expired
+        │   ├── Validate license is not revoked
+        │   ├── Validate license is not inactive
+        │   ├── Validate license is not deleted
+        │   ├── Validate device limit not reached
+        │   └── Reject if any validation fails
+        ├── On Success: Show confirmation dialog
+        │   ├── Activation Successful
+        │   ├── Customer Name
+        │   ├── License Key (masked)
+        │   ├── Plan
+        │   ├── License Status
+        │   ├── Activation Date
+        │   ├── Expiry Date
+        │   ├── Remaining Validity
+        │   └── Device Information
+        ├── Prompt: "Application must restart to apply license"
+        │   ├── Restart Now
+        │   └── Restart Later (if permitted by policy)
         ├── Cache refresh
-        └── Unlock Application
+        └── Unlock Application (after restart)
 ```
 
 ---
@@ -1351,12 +1376,15 @@ Implement complete new customer onboarding:
 ### Phase 6 — Activation Workflow
 
 Implement license activation:
-- Detect hardware
-- Load customer (from cache)
+- Detect hardware (read-only)
+- Manual customer entry for first-time activation (name, email, mobile, country)
 - License key entry
+- Full license validation before activation (reject inactive, revoked, expired, deleted, fully activated)
 - POST /api/v1/license (activate)
+- Success confirmation dialog with all details
+- Restart prompt workflow
 - Cache refresh
-- Unlock
+- Unlock after restart
 
 ### Phase 7 — Renewal Workflow
 
@@ -1463,6 +1491,7 @@ Every future phase must follow this reporting format.
 | Phase 12 — Internal API Verification | ✅ Complete | 100% |
 | Phase 13 — SDK Publisher Verification | ✅ Complete | 100% |
 | **Overall** | **All Phases Complete** | **100%** |
+| **AWS-01 Fixes** | **See docs/AWS-01-FIXES.md** | **100%** |
 
 ### How much is completed?
 

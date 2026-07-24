@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: {
           code: 'MISSING_ACTION',
-          message: 'action is required (bind, reset, replace)'
+          message: 'action is required (bind, reset)'
         }
       }, { status: 400 });
     }
@@ -483,203 +483,6 @@ export async function POST(request: NextRequest) {
           }
         });
 
-      case 'replace':
-        // ============================================================
-        // 6c. REPLACE DEVICE
-        // ============================================================
-        
-        if (!old_hardware_id) {
-          client.release();
-          client = null;
-          
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'MISSING_OLD_HARDWARE_ID',
-              message: 'old_hardware_id is required for replacement'
-            }
-          }, { status: 400 });
-        }
-
-        const oldHwValidation = validateHardwareId(old_hardware_id);
-        if (!oldHwValidation.valid) {
-          client.release();
-          client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'INVALID_OLD_HARDWARE_ID',
-              message: oldHwValidation.errors[0].message
-            }
-          }, { status: 400 });
-        }
-
-        if (!new_hardware_id) {
-          client.release();
-          client = null;
-          
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'MISSING_NEW_HARDWARE_ID',
-              message: 'new_hardware_id is required for replacement'
-            }
-          }, { status: 400 });
-        }
-
-        const newHwValidation = validateHardwareId(new_hardware_id);
-        if (!newHwValidation.valid) {
-          client.release();
-          client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'INVALID_NEW_HARDWARE_ID',
-              message: newHwValidation.errors[0].message
-            }
-          }, { status: 400 });
-        }
-
-        if (old_hardware_id === new_hardware_id) {
-          client.release();
-          client = null;
-          
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'INVALID_REPLACEMENT',
-              message: 'Old and new hardware IDs cannot be the same'
-            }
-          }, { status: 400 });
-        }
-
-        // Verify license exists and product matches
-        const replaceLicense = await client.query(
-          `SELECT product_id, max_devices FROM licenses WHERE license_key = $1`,
-          [normalizedLicenseKey]
-        );
-
-        if (replaceLicense.rows.length === 0) {
-          client.release();
-          client = null;
-          
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_NOT_FOUND',
-              message: 'License key not found'
-            }
-          }, { status: 404 });
-        }
-
-        try {
-          await validateProductMatch(productId, replaceLicense.rows[0].product_id);
-        } catch (productError: any) {
-          client.release();
-          client = null;
-          
-          await logSecurityViolation(apiKeyId, request.url, 'POST', ipAddress, userAgent, productError);
-          
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: productError.code || 'PRODUCT_MISMATCH',
-              message: productError.message || 'Product mismatch'
-            }
-          }, { status: 403 });
-        }
-
-        // Check old device exists and is active
-        const oldDevice = await client.query(
-          `SELECT id FROM activations WHERE license_key = $1 AND hardware_id = $2 AND is_active = true`,
-          [normalizedLicenseKey, old_hardware_id]
-        );
-
-        if (oldDevice.rows.length === 0) {
-          client.release();
-          client = null;
-          
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'OLD_DEVICE_NOT_FOUND',
-              message: 'Old device not found or not active'
-            }
-          }, { status: 404 });
-        }
-
-        // Deactivate old device
-        await client.query(
-          `UPDATE activations 
-           SET is_active = false, last_seen = $1
-           WHERE license_key = $2 AND hardware_id = $3`,
-          [nowISO, normalizedLicenseKey, old_hardware_id]
-        );
-
-        // Check if new device already exists
-        const newDevice = await client.query(
-          `SELECT id FROM activations WHERE license_key = $1 AND hardware_id = $2`,
-          [normalizedLicenseKey, new_hardware_id]
-        );
-
-        if (newDevice.rows.length > 0) {
-          // Reactivate existing device
-          await client.query(
-            `UPDATE activations 
-             SET is_active = true, 
-                 device_name = $1,
-                 ip_address = $2,
-                 last_seen = $3
-             WHERE license_key = $4 AND hardware_id = $5`,
-            [device_name || 'Unknown Device', ipAddress, nowISO, normalizedLicenseKey, new_hardware_id]
-          );
-        } else {
-          // Create new activation
-          await client.query(
-            `INSERT INTO activations (
-              license_key,
-              hardware_id,
-              device_name,
-              ip_address,
-              activated_at,
-              last_seen,
-              is_active
-            ) VALUES ($1, $2, $3, $4, $5, $6, true)`,
-            [normalizedLicenseKey, new_hardware_id, device_name || 'Unknown Device', ipAddress, nowISO, nowISO]
-          );
-        }
-
-        client.release();
-        client = null;
-
-        await logRequest({
-          apiKeyId,
-          endpoint: '/api/v1/device',
-          method: 'POST',
-          statusCode: 200,
-          ipAddress,
-          userAgent,
-          latencyMs: Date.now() - startTime,
-          requestRedacted: { action, license_key: '[REDACTED]', old_hardware_id: '[REDACTED]', new_hardware_id: '[REDACTED]' }
-        });
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            message: 'Device replaced successfully',
-            license_key: normalizedLicenseKey,
-            old_hardware_id: old_hardware_id,
-            new_hardware_id: new_hardware_id,
-            replaced_at: nowISO
-          }
-        }, {
-          headers: {
-            'X-RateLimit-Limit': String(rateLimitResult.limit),
-            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
-            'X-RateLimit-Reset': String(rateLimitResult.reset)
-          }
-        });
-
       default:
         client.release();
         client = null;
@@ -688,7 +491,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: {
             code: 'INVALID_ACTION',
-            message: `Invalid action: ${action}. Supported: bind, reset, replace`
+            message: `Invalid action: ${action}. Supported: bind, reset`
           }
         }, { status: 400 });
     }
@@ -729,7 +532,7 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     message: 'Public Device API v1',
-    actions: ['bind', 'reset', 'replace'],
+    actions: ['bind', 'reset'],
     documentation: '/internal/api/docs/public-api'
   });
 }

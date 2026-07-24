@@ -356,28 +356,6 @@ export class LicenseEngine {
     return result;
   }
 
-  async replaceHardware(): Promise<Record<string, any>> {
-    if (!this._licenseKey) throw new Error('License key unavailable. Please activate first.');
-    const newHardwareId = this._hardware.getFingerprint();
-    let oldHardwareId = this._status?.hardware_id || null;
-    if (!oldHardwareId) {
-      const cached = this._cache.getLicenseStatus();
-      if (cached?.hardware_id) oldHardwareId = cached.hardware_id;
-    }
-    if (!oldHardwareId) throw new Error('Current hardware_id unavailable. Cannot replace device.');
-    if (oldHardwareId === newHardwareId) {
-      return { success: false, message: 'Old and new hardware IDs are identical.' };
-    }
-    const result = await this._client.replaceDevice(this._licenseKey, newHardwareId, oldHardwareId);
-    if (result.success) {
-      this._cache.invalidateLicenseStatus();
-      this._status = null;
-      await this.initialize();
-      this._cache.markHasEverActivatedPaidLicense();
-    }
-    return result;
-  }
-
   async bindDevice(licenseKey?: string, deviceName?: string): Promise<Record<string, any>> {
     const key = licenseKey || this._licenseKey;
     if (!key) throw new Error('License key unavailable.');
@@ -387,5 +365,15 @@ export class LicenseEngine {
       this._cache.markHasEverActivatedPaidLicense();
     }
     return result;
+  }
+
+  async getSupportConversation(requestId: string): Promise<Record<string, any>> {
+    const hardwareId = this._hardware.getFingerprint();
+    return this._client.getSupportConversation(requestId, hardwareId);
+  }
+
+  async replyToSupportRequest(requestId: string, message: string, customerName?: string, customerEmail?: string): Promise<Record<string, any>> {
+    const hardwareId = this._hardware.getFingerprint();
+    return this._client.replyToSupportRequest(requestId, message, customerName, customerEmail, hardwareId);
   }
 }

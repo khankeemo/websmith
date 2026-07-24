@@ -3,6 +3,8 @@ import { Pool } from 'pg';
 import { getDb } from '@/lib/backend-db';
 import { sendEmail } from '@/lib/email/brevo';
 
+const SUPPORT_EMAIL = 'support@websmithdigital.com';
+
 export async function GET(request: NextRequest) {
   let client = null;
   try {
@@ -129,18 +131,32 @@ export async function PUT(request: NextRequest) {
     }
 
     if (reply_message && request_data.customer_email) {
-      await sendEmail(
+      // Store admin reply in conversation_messages
+      await client.query(
+        `INSERT INTO conversation_messages (request_id, sender_type, sender_name, sender_email, message, email_sent)
+         VALUES ($1, 'admin', $2, $3, $4, FALSE)`,
+        [request_id, 'Support Team', SUPPORT_EMAIL, reply_message]
+      );
+
+      // Send email to customer using support_reply template
+      const emailResult = await sendEmail(
         db,
-        'admin_notification',
+        'support_reply',
         { email: request_data.customer_email, name: request_data.customer_name || 'Valued Customer' },
         {
           customer_name: request_data.customer_name || 'Valued Customer',
-          product_name: request_data.product_name || 'our product',
-          license_key: request_data.license_key || '',
           request_id: request_id,
           message: reply_message,
-          support_email: 'support@websmithdigital.com',
+          support_email: SUPPORT_EMAIL,
         }
+      );
+
+      // Update conversation message with email result
+      await client.query(
+        `UPDATE conversation_messages SET email_sent = $1, email_error = $2
+         WHERE request_id = $3 AND sender_type = 'admin' AND message = $4
+         ORDER BY created_at DESC LIMIT 1`,
+        [emailResult, emailResult ? null : 'Email delivery failed', request_id, reply_message]
       );
     }
 

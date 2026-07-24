@@ -19,20 +19,32 @@ function generateOTP(): string {
 async function sendOTPEmail(email: string, otp: string): Promise<boolean> {
   try {
     const apiKey = process.env.BREVO_API_KEY;
-    if (!apiKey) return false;
+    if (!apiKey) {
+      console.warn('[OTP send] BREVO_API_KEY not configured');
+      return false;
+    }
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.SENDER_EMAIL || 'support@websmithdigital.com';
+    const senderName = process.env.BREVO_SENDER_NAME || 'WebSmith License';
     const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
       body: JSON.stringify({
-        sender: { name: 'WebSmith License', email: process.env.SENDER_EMAIL || 'support@websmithdigital.com' },
+        sender: { name: senderName, email: senderEmail },
         to: [{ email }],
         subject: 'Your OTP Verification Code',
         htmlContent: `<html><body style="font-family:Arial;padding:20px;background:#f4f4f4"><div style="max-width:500px;margin:auto;background:white;border-radius:10px;padding:30px"><h2 style="text-align:center;color:#333">Your Verification Code</h2><div style="font-size:36px;font-weight:bold;text-align:center;color:#3b82f6;background:#eff6ff;padding:20px;border-radius:8px;letter-spacing:5px;margin:20px 0">${otp}</div><p style="text-align:center;color:#555">Valid for <strong>10 minutes</strong>.</p></div></body></html>`,
         textContent: `Your OTP verification code is: ${otp}. Valid for 10 minutes.`,
       }),
     });
+    if (!resp.ok) {
+      const errorText = await resp.text().catch(() => 'Unknown error');
+      console.error(`[OTP send] Brevo API returned ${resp.status}: ${errorText}`);
+    }
     return resp.ok;
-  } catch { return false; }
+  } catch (err) {
+    console.error('[OTP send] Email send error:', err);
+    return false;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -54,12 +66,13 @@ export async function POST(request: NextRequest) {
     if (!rate.allowed) return NextResponse.json({ success: false, error: 'Rate limit exceeded' }, { status: 429 });
 
     const body = await request.json();
-    const { email } = body;
+    const { email: rawEmail } = body;
+    const email = (rawEmail || '').trim().toLowerCase();
 
     console.log('[OTP send] body keys:', Object.keys(body), 'email:', email);
 
-    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      console.warn('[OTP send] email validation failed:', JSON.stringify(email));
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      console.warn('[OTP send] email validation failed:', JSON.stringify(rawEmail));
       return NextResponse.json({
         success: false,
         error: 'Valid email is required',

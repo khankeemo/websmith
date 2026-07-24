@@ -32,8 +32,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { email, otp: otpCode } = body;
+    const normalizedEmail = (email || '').trim().toLowerCase();
 
-    if (!email || !otpCode) {
+    if (!normalizedEmail || !otpCode) {
       return NextResponse.json({ success: false, error: 'Email and OTP code are required' }, { status: 400 });
     }
 
@@ -43,10 +44,10 @@ export async function POST(request: NextRequest) {
       `SELECT id, expires_at, verified FROM otp_verifications
        WHERE email = $1 AND otp_code = $2 AND purpose = 'trial_activation' AND verified = FALSE
        ORDER BY created_at DESC LIMIT 1`,
-      [email, otpCode]
+      [normalizedEmail, otpCode]
     );
 
-    console.log('[OTP verify] match found:', result.rows.length, 'email:', email);
+    console.log('[OTP verify] match found:', result.rows.length, 'email:', normalizedEmail);
 
     if (result.rows.length === 0) {
       // Check if OTP exists but is already verified
@@ -54,23 +55,44 @@ export async function POST(request: NextRequest) {
         `SELECT id, verified FROM otp_verifications
          WHERE email = $1 AND otp_code = $2 AND purpose = 'trial_activation'
          LIMIT 1`,
-        [email, otpCode]
+        [normalizedEmail, otpCode]
       );
       if (alreadyVerified.rows.length > 0 && alreadyVerified.rows[0].verified) {
+        await dbClient.query(
+          `INSERT INTO audit_logs (event_type, message, timestamp, ip_address)
+           VALUES ($1, $2, $3, $4)`,
+          ['otp_already_used', `OTP already used for ${normalizedEmail}`, new Date().toISOString(), ipAddress]
+        );
         return NextResponse.json({ success: false, error: 'OTP code already used' }, { status: 400 });
       }
+      await dbClient.query(
+        `INSERT INTO audit_logs (event_type, message, timestamp, ip_address)
+         VALUES ($1, $2, $3, $4)`,
+        ['otp_verify_failed', `Invalid OTP attempt for ${normalizedEmail}`, new Date().toISOString(), ipAddress]
+      );
       return NextResponse.json({ success: false, error: 'Invalid OTP code' }, { status: 400 });
     }
 
     const record = result.rows[0];
     if (new Date(record.expires_at) < new Date()) {
       console.warn('[OTP verify] expired:', record.expires_at);
+      await dbClient.query(
+        `INSERT INTO audit_logs (event_type, message, timestamp, ip_address)
+         VALUES ($1, $2, $3, $4)`,
+        ['otp_expired', `Expired OTP attempt for ${normalizedEmail}`, new Date().toISOString(), ipAddress]
+      );
       return NextResponse.json({ success: false, error: 'OTP code has expired' }, { status: 400 });
     }
 
     await dbClient.query(
       `UPDATE otp_verifications SET verified = TRUE WHERE id = $1`,
       [record.id]
+    );
+
+    await dbClient.query(
+      `INSERT INTO audit_logs (event_type, message, timestamp, ip_address)
+       VALUES ($1, $2, $3, $4)`,
+      ['otp_verified', `OTP verified for ${normalizedEmail}`, new Date().toISOString(), ipAddress]
     );
 
     await logRequest({

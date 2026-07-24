@@ -561,6 +561,34 @@ ${d.message || 'No details provided.'}
 ${d.customer_name ? `\nCustomer: ${d.customer_name}\nEmail: ${d.customer_email || 'N/A'}\nProduct: ${d.product_name || 'N/A'}\nLicense Key: ${d.license_key || 'N/A'}` : ''}
 
 This is an automated administrative notification. Please review and take appropriate action if needed.`
+  },
+
+  // ================================================================
+  // 17. SUPPORT REPLY
+  // ================================================================
+  support_reply: {
+    subject: 'Re: Your Support Request - {{request_id}}',
+    defaultBody: (d) => wrapHtml('Support Reply', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">We have received a response to your support request <strong>{{request_id}}</strong>.</p>
+      <div style="background:#f8f9fa;border-left:4px solid #4a90d9;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
+        ${d.message || 'No message provided.'}
+      </div>
+      <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">You can continue this conversation by replying to this email or visiting our support portal.</p>
+      <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">If you did not submit a support request, please ignore this email.</p>
+    `),
+    defaultPlainText: (d) => `Hello ${d.customer_name || 'there'},
+
+We have received a response to your support request ${d.request_id}.
+
+${d.message || 'No message provided.'}
+
+You can continue this conversation by replying to this email or visiting our support portal.
+
+If you did not submit a support request, please ignore this email.
+
+Best regards,
+The WebSmith Support Team`
   }
 };
 
