@@ -818,6 +818,28 @@ export class ApiClient {
 }
 
 // ---------------------------------------------------------------------------
+// LiveLog — timestamped decision logging
+// ---------------------------------------------------------------------------
+export class LiveLog {
+  private static _entries: string[] = [];
+
+  static log(event: string, detail: string = ''): void {
+    const ts = new Date().toLocaleTimeString();
+    const entry = \`[\${ts}] \${event}\${detail ? \` — \${detail}\` : ''}\`;
+    LiveLog._entries.push(entry);
+    console.log(entry);
+  }
+
+  static getLog(): string[] {
+    return [...LiveLog._entries];
+  }
+
+  static clear(): void {
+    LiveLog._entries = [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // LicenseEngine — full lifecycle management
 // ---------------------------------------------------------------------------
 export class LicenseEngine {
@@ -858,6 +880,7 @@ export class LicenseEngine {
     const hardwareId = this.hardware.getFingerprint();
     this.cache.invalidateIfHardwareMismatch(hardwareId);
     await this._processMessageQueue();
+    LiveLog.log('Engine initialize', \`hardware: \${hardwareId.slice(0, 16)}...\`);
     if (this.cache.isCacheValid()) {
       const cached = this.cache.getLicenseStatus();
       if (cached) {
@@ -865,18 +888,22 @@ export class LicenseEngine {
         if (!this._licenseKey && this._status.license_key) {
           this._licenseKey = this._status.license_key;
         }
+        LiveLog.log('Customer found (cache hit)', \`status: \${this._status.status}\`);
         this._notifyReady(this._isValidStatus(this._status));
         return this._status;
       }
     }
+    LiveLog.log('Cache miss or invalid', 'checking server');
     try {
       if (this._licenseKey) {
+        LiveLog.log('License validation started', \`key: \${this._licenseKey.slice(0, 8)}...\`);
         try {
           const response = await this.client.validateLicense(this._licenseKey, hardwareId);
           const data = response.data || response;
           if (data.valid) {
             const statusStr = data.status || 'active';
             if (statusStr === 'expired') {
+              LiveLog.log('License status: expired', \`key: \${this._licenseKey.slice(0, 8)}...\`);
               this._status = {
                 valid: false, status: 'expired',
                 expires_at: data.expiry_date, days_remaining: 0,
@@ -886,6 +913,7 @@ export class LicenseEngine {
               this._notifyReady(false);
               return this._status;
             }
+            LiveLog.log('License status: active', \`status: \${statusStr}, key: \${this._licenseKey.slice(0, 8)}...\`);
             this._status = {
               valid: true, status: statusStr,
               expires_at: data.expiry_date,
@@ -900,6 +928,7 @@ export class LicenseEngine {
           } else {
             const serverStatus = data.status || '';
             if (serverStatus === 'expired') {
+              LiveLog.log('License status: expired', \`key: \${this._licenseKey.slice(0, 8)}...\`);
               this._status = {
                 valid: false, status: 'expired',
                 expires_at: data.expiry_date, days_remaining: 0,
@@ -910,6 +939,7 @@ export class LicenseEngine {
               return this._status;
             }
             if (this.cache.hasEverActivatedPaidLicense()) {
+              LiveLog.log('License status: force_reactivation', \`key: \${this._licenseKey.slice(0, 8)}...\`);
               this._status = {
                 valid: false, status: 'force_reactivation',
                 hardware_id: hardwareId, license_key: this._licenseKey,
@@ -918,6 +948,7 @@ export class LicenseEngine {
               this._notifyReady(false);
               return this._status;
             }
+            LiveLog.log('License status: force_activation', 'key invalid');
             this._status = {
               valid: false, status: 'force_activation',
               hardware_id: hardwareId, license_key: this._licenseKey,
@@ -928,6 +959,7 @@ export class LicenseEngine {
           }
         } catch {
           if (this.cache.hasEverActivatedPaidLicense()) {
+            LiveLog.log('License validation failed', 'falling back to force_reactivation');
             this._status = {
               valid: false, status: 'force_reactivation',
               hardware_id: hardwareId, license_key: this._licenseKey,
@@ -936,6 +968,7 @@ export class LicenseEngine {
             this._notifyReady(false);
             return this._status;
           }
+          LiveLog.log('License validation failed', 'falling back to force_activation');
           this._status = {
             valid: false, status: 'force_activation',
             hardware_id: hardwareId, license_key: this._licenseKey,
@@ -946,6 +979,7 @@ export class LicenseEngine {
         }
       } else {
         if (this.cache.hasEverActivatedPaidLicense()) {
+          LiveLog.log('No license key', 'paid license ever activated — force_reactivation');
           this._status = {
             valid: false, status: 'force_reactivation',
             hardware_id: hardwareId,
@@ -956,10 +990,12 @@ export class LicenseEngine {
         }
       }
       if (!this.cache.hasEverActivatedPaidLicense()) {
+        LiveLog.log('Trial check started', \`hardware: \${hardwareId.slice(0, 16)}...\`);
         const trialResponse = await this.client.getTrialStatus(hardwareId);
         const trialData = trialResponse.data || {};
         if (trialData.has_trial) {
           const statusStr = trialData.status || 'trial';
+          LiveLog.log('Trial status', statusStr);
           if (statusStr === 'expired') {
             this._status = {
               valid: false, status: 'expired',
@@ -985,12 +1021,14 @@ export class LicenseEngine {
         }
       }
       if (this.cache.isOnboardingComplete()) {
+        LiveLog.log('Decision: force_activation', 'onboarding complete, no active license');
         this._status = {
           valid: false, status: 'force_activation',
           hardware_id: hardwareId,
           message: 'No active license found. Please activate.',
         };
       } else {
+        LiveLog.log('Decision: unlicensed', 'new customer');
         this._status = {
           valid: false, status: 'unlicensed',
           hardware_id: hardwareId,
@@ -1498,7 +1536,7 @@ Copyright (c) ${new Date().getFullYear()}
  * Generated by Websmith License API Center | ${context.generatedAt}
  * Do not edit directly.
  */
-import { LicenseEngine, LicenseStatus, ApiClient, HardwareDetector, CacheManager } from './client';
+import { LicenseEngine, LicenseStatus, ApiClient, HardwareDetector, CacheManager, LiveLog } from './client';
 
 const SDK_VERSION = '${context.kitVersion}';
 const RUNTIME_TYPE = '${context.runtime}';
@@ -1512,6 +1550,7 @@ export class UniversalLicenseCenter {
   private branding: Record<string, string>;
   private status: any = null;
   private _locked: boolean = true;
+  private _trialConsumed: boolean = false;
   onLicenseReady: ((valid: boolean) => void) | null = null;
 
   constructor(config?: Record<string, any>, onLicenseReady?: ((valid: boolean) => void) | null) {
@@ -1553,6 +1592,20 @@ export class UniversalLicenseCenter {
     return this.status.status === 'active' || this.status.status === 'trial';
   }
 
+  private _lockApp(): void {
+    this._locked = true;
+    if (this.onLicenseReady) {
+      try { this.onLicenseReady(false); } catch { }
+    }
+  }
+
+  private _unlockApp(): void {
+    this._locked = false;
+    if (this.onLicenseReady) {
+      try { this.onLicenseReady(true); } catch { }
+    }
+  }
+
   async initialize(): Promise<any> {
     this.status = await this.engine.initialize();
     this._locked = !this._isValidForUnlock();
@@ -1560,13 +1613,42 @@ export class UniversalLicenseCenter {
   }
 
   async show(): Promise<Record<string, any>> {
-    console.log('=== UNIVERSAL LICENSE CENTER ===');
-    console.log(\`SDK Version: \${SDK_VERSION} | Runtime: \${RUNTIME_TYPE}\`);
+    LiveLog.log('License Center started', 'Application lock engaged');
+    this._lockApp();
+    LiveLog.log('Engine initializing', 'Starting decision engine');
     await this.initialize();
-    const needsWelcome = this.status?.status === 'unlicensed' && !this.cache.isOnboardingComplete();
+    const statusStr = this.status?.status || 'unlicensed';
+    LiveLog.log('Decision engine result', \`Status: \${statusStr}\`);
+
+    if (this._isValidForUnlock()) {
+      this._unlockApp();
+      LiveLog.log('Application unlocked', \`Status: \${statusStr}\`);
+    }
+
+    if (statusStr === 'unlicensed' || !this.status) {
+      if (!this.cache.isOnboardingComplete()) {
+        LiveLog.log('Opening Welcome', 'Onboarding required');
+        return {
+          status: this.status,
+          needs_welcome: true,
+          is_locked: this._locked,
+        };
+      }
+      if (this._trialConsumed) {
+        LiveLog.log('Existing customer detected', 'Trial already consumed');
+        return {
+          status: this.status,
+          trial_consumed: true,
+          is_locked: this._locked,
+        };
+      }
+    }
+
+    LiveLog.log('Opening License Center', \`Status: \${statusStr}, trial_consumed: \${this._trialConsumed}\`);
     return {
-      status: this.status ? (this.status.toDict ? this.status.toDict() : this.status) : null,
-      needs_welcome: needsWelcome,
+      status: this.status,
+      needs_welcome: false,
+      trial_consumed: this._trialConsumed,
       is_locked: this._locked,
     };
   }
@@ -1576,14 +1658,29 @@ export class UniversalLicenseCenter {
   getHardwareId(): string { return this.hardware.getFingerprint(); }
   isValid(): boolean { return !this._locked; }
   isLocked(): boolean { return this._locked; }
+  isTrialConsumed(): boolean { return this._trialConsumed; }
 
   async startTrial(name: string, email: string): Promise<Record<string, any>> {
     if (!name.trim() || !email.trim()) return { success: false, message: 'Name and email required.' };
+    LiveLog.log('Starting trial', \`email: \${email.trim()}\`);
     const result = await this.engine.startTrial(email.trim(), name.trim());
     if (result.success) {
+      LiveLog.log('Trial started successfully');
       await this.initialize();
       this._locked = !this._isValidForUnlock();
+      return { ...result, trial_started: true };
     }
+    if (result.status === 'TRIAL_ALREADY_CONSUMED') {
+      LiveLog.log('Existing customer detected', 'Trial already consumed — completing onboarding');
+      this.cache.setOnboardingComplete();
+      const cached = this.cache.getLicenseStatus() || {};
+      if (email.trim()) cached.customer_email = email.trim();
+      if (name.trim()) cached.customer_name = name.trim();
+      if (cached) this.cache.setLicenseStatus(cached);
+      this._trialConsumed = true;
+      return { success: true, trial_consumed: true, onboarding_complete: true, message: 'Trial already used. You can activate a license.' };
+    }
+    LiveLog.log('Trial failed', result.message || result.error || 'Unknown error');
     return result;
   }
 
@@ -1705,7 +1802,7 @@ export class UniversalEmailDialog {
 import { LicenseEngine, LicenseStatus, ApiClient, ApiError, HardwareDetector, CacheManager } from './client';
 import { UniversalLicenseCenter } from './universal_license_center';
 
-export { UniversalLicenseCenter, LicenseEngine, LicenseStatus, ApiClient, ApiError, HardwareDetector, CacheManager };
+export { UniversalLicenseCenter, LicenseEngine, LicenseStatus, ApiClient, ApiError, HardwareDetector, CacheManager, LiveLog };
 `,
   };
 }
