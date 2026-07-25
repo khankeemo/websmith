@@ -917,8 +917,6 @@ class LicenseEngine:
                 print(f"{time.strftime('%H:%M:%S')} License validation started — key: {self._license_key[:8]}...")
                 try:
                     result = self._client.validate_license(self._license_key, hardware_id)
-                try:
-                    result = self._client.validate_license(self._license_key, hardware_id)
                     data = result.get('data', result)
                     if data.get('valid'):
                         status_str = data.get('status', 'active')
@@ -1011,7 +1009,7 @@ class LicenseEngine:
                 print(f"{time.strftime('%H:%M:%S')} Trial check started — hardware: {hardware_id[:16]}...")
                 trial_response = self._client.get_trial_status(hardware_id)
                 trial_data = trial_response.get('data', {})
-                    if trial_data.get('has_trial'):
+                if trial_data.get('has_trial'):
                     status_str = trial_data.get('status', 'trial')
                     print(f"{time.strftime('%H:%M:%S')} Trial status: {status_str}")
                     if status_str == 'expired':
