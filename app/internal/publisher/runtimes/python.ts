@@ -900,23 +900,30 @@ class LicenseEngine:
         hardware_id = self._hardware.get_fingerprint()
         self._cache.invalidate_if_hardware_mismatch(hardware_id)
         self._process_message_queue()
+        print(f"[{time.strftime('%H:%M:%S')}] License Engine initialize — hardware: {hardware_id[:16]}...")
         if self._cache.is_valid():
             cached = self._cache.get_license_status()
             if cached:
                 self._status = LicenseStatus.from_dict(cached)
                 if not self._license_key and self._status.license_key:
                     self._license_key = self._status.license_key
+                print(f"{time.strftime('%H:%M:%S')} Customer found (cache hit) — status: {self._status.status}")
                 self._notify_ready(self._is_valid_status(self._status))
                 return self._status
+        print(f"{time.strftime('%H:%M:%S')} Cache miss or invalid — checking server")
         try:
             # Priority 1: Validate active paid license from server
             if self._license_key:
+                print(f"{time.strftime('%H:%M:%S')} License validation started — key: {self._license_key[:8]}...")
+                try:
+                    result = self._client.validate_license(self._license_key, hardware_id)
                 try:
                     result = self._client.validate_license(self._license_key, hardware_id)
                     data = result.get('data', result)
                     if data.get('valid'):
                         status_str = data.get('status', 'active')
                         if status_str == 'expired':
+                            print(f"{time.strftime('%H:%M:%S')} License status: expired — key: {self._license_key[:8]}...")
                             self._status = LicenseStatus(
                                 valid=False, status='expired',
                                 expiry_date=data.get('expiry_date'), days_left=0,
@@ -928,6 +935,7 @@ class LicenseEngine:
                             )
                             self._notify_ready(False)
                             return self._status
+                        print(f"{time.strftime('%H:%M:%S')} License status: {status_str} — key: {self._license_key[:8]}...")
                         self._status = LicenseStatus(
                             valid=True, status=status_str,
                             expiry_date=data.get('expiry_date'),
@@ -957,6 +965,7 @@ class LicenseEngine:
                             self._notify_ready(False)
                             return self._status
                         if self._cache.has_ever_activated_paid_license():
+                            print(f"{time.strftime('%H:%M:%S')} License status: force_reactivation — key: {self._license_key[:8]}...")
                             self._status = LicenseStatus(
                                 valid=False, status='force_reactivation',
                                 hardware_id=hardware_id, license_key=self._license_key,
@@ -964,6 +973,7 @@ class LicenseEngine:
                             )
                             self._notify_ready(False)
                             return self._status
+                        print(f"{time.strftime('%H:%M:%S')} License status: force_activation — key invalid")
                         self._status = LicenseStatus(
                             valid=False, status='force_activation',
                             hardware_id=hardware_id, license_key=self._license_key,
@@ -998,10 +1008,12 @@ class LicenseEngine:
                     return self._status
             # Priority 2: Check for active trial (only if user never had a paid license)
             if not self._cache.has_ever_activated_paid_license():
+                print(f"{time.strftime('%H:%M:%S')} Trial check started — hardware: {hardware_id[:16]}...")
                 trial_response = self._client.get_trial_status(hardware_id)
                 trial_data = trial_response.get('data', {})
-                if trial_data.get('has_trial'):
+                    if trial_data.get('has_trial'):
                     status_str = trial_data.get('status', 'trial')
+                    print(f"{time.strftime('%H:%M:%S')} Trial status: {status_str}")
                     if status_str == 'expired':
                         self._status = LicenseStatus(
                             valid=False, status='expired',
@@ -1030,12 +1042,14 @@ class LicenseEngine:
                     return self._status
             # Priority 3: Determine if new customer or force activation
             if self._cache.is_onboarding_complete():
+                print(f"{time.strftime('%H:%M:%S')} Decision: force_activation (onboarding complete, no active license)")
                 self._status = LicenseStatus(
                     valid=False, status='force_activation',
                     hardware_id=hardware_id,
                     message='No active license found. Please activate.'
                 )
             else:
+                print(f"{time.strftime('%H:%M:%S')} Decision: unlicensed (new customer)")
                 self._status = LicenseStatus(
                     valid=False, status='unlicensed',
                     hardware_id=hardware_id,
@@ -1605,6 +1619,7 @@ class WelcomeDialog:
             })
             if trial_result.get('success'):
                 self.cache.set_onboarding_complete()
+                self.cache.set('customer_email', email)
                 self._result = {
                     'name': name, 'email': email, 'hardware_id': hardware_id,
                     'onboarding_complete': True, 'trial_started': True
@@ -1612,9 +1627,22 @@ class WelcomeDialog:
                 self._status_label.config(text='Trial activated! You can now use the software.', fg=self._success)
                 self._root.after(2000, self._root.destroy)
             else:
-                err = trial_result.get('message', trial_result.get('error', 'Failed to start trial'))
-                self._show_error(err)
-                self._verify_btn.config(state='normal', text='Verify')
+                err = trial_result.get('message', trial_result.get('error', ''))
+                if 'TRIAL_ALREADY_CONSUMED' in err or 'already used' in err.lower():
+                    self.cache.set_onboarding_complete()
+                    self.cache.set('customer_email', email)
+                    self._status_label.config(text='Customer already exists — continuing...', fg=self._primary)
+                    self._root.update()
+                    import time as _time
+                    _time.sleep(1)
+                    self._result = {
+                        'name': name, 'email': email, 'hardware_id': hardware_id,
+                        'onboarding_complete': True, 'trial_consumed': True
+                    }
+                    self._root.destroy()
+                else:
+                    self._show_error(err)
+                    self._verify_btn.config(state='normal', text='Verify')
         except Exception as e:
             self._show_error(str(e))
             self._verify_btn.config(state='normal', text='Verify')
@@ -1628,6 +1656,7 @@ class WelcomeDialog:
     'universal_license_center.py': `"""Universal License Center - single customer experience for all license operations"""
 import json
 import os
+import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any, Callable, Dict, Optional
@@ -1640,6 +1669,26 @@ from .welcome import WelcomeDialog
 
 SDK_VERSION = "${context.kitVersion}"
 RUNTIME_TYPE = "${context.runtime}"
+
+
+class LiveLog:
+    _entries: list = []
+
+    @classmethod
+    def log(cls, event: str, detail: str = "") -> None:
+        entry = f"[{time.strftime('%H:%M:%S')}] {event}"
+        if detail:
+            entry += f" — {detail}"
+        cls._entries.append(entry)
+        print(entry)
+
+    @classmethod
+    def get_log(cls) -> list:
+        return list(cls._entries)
+
+    @classmethod
+    def clear(cls) -> None:
+        cls._entries = []
 
 
 def _load_api_config() -> Dict[str, Any]:
@@ -1668,6 +1717,7 @@ class UniversalLicenseCenter:
         self._status: Optional[LicenseStatus] = None
         self._root: Optional[tk.Toplevel] = None
         self._app_unlocked = False
+        self._trial_consumed = False
 
         branding = self.config.get("branding", {})
         self._primary = branding.get("primary_color", "#6366f1")
@@ -1712,17 +1762,33 @@ class UniversalLicenseCenter:
             self.on_license_ready(False)
 
     def show(self) -> Dict[str, Any]:
+        LiveLog.log("License Center started", "Application lock engaged")
         self._lock_application()
+        LiveLog.log("Engine initializing", "Starting decision engine")
         self._status = self.engine.initialize()
         status = self._status.status if self._status else 'unlicensed'
+        LiveLog.log("Decision engine result", f"Status: {status}")
 
         if self._is_valid_for_unlock():
             self._unlock_application()
+            LiveLog.log("Application unlocked", f"Status: {status}")
 
         if status == 'unlicensed' or (not self._status):
             if not self.cache.is_onboarding_complete():
+                LiveLog.log("Opening Welcome", "Onboarding required")
                 result = self._show_welcome()
-                if result.get('trial_started') or result.get('onboarding_complete'):
+                if result.get('trial_started'):
+                    LiveLog.log("Trial started via Welcome")
+                    self._status = self.engine.initialize()
+                    if self._is_valid_for_unlock():
+                        self._unlock_application()
+                    return {'action': 'trial_started', 'status': self._status.to_dict() if self._status else None}
+                if result.get('trial_consumed'):
+                    LiveLog.log("Existing customer detected", "Trial already consumed — showing license center")
+                    self._status = self.engine.initialize()
+                    return self._show_license_center(trial_consumed=True)
+                if result.get('onboarding_complete'):
+                    LiveLog.log("Onboarding complete", "Re-initializing engine")
                     self._status = self.engine.initialize()
                     if self._is_valid_for_unlock():
                         self._unlock_application()
@@ -1734,6 +1800,7 @@ class UniversalLicenseCenter:
         return self._show_license_center()
 
     def _show_welcome(self) -> Dict[str, Any]:
+        LiveLog.log("Opening Welcome Dialog")
         welcome = WelcomeDialog(
             client=self.client,
             hardware=self.hardware,
@@ -1742,7 +1809,11 @@ class UniversalLicenseCenter:
         )
         return welcome.show()
 
-    def _show_license_center(self) -> Dict[str, Any]:
+    def _show_license_center(self, trial_consumed: bool = False) -> Dict[str, Any]:
+        LiveLog.log("Opening Universal License Center",
+                     f"Status: {self._status.status if self._status else 'unlicensed'}, "
+                     f"trial_consumed={trial_consumed}")
+        self._trial_consumed = trial_consumed
         self._root = tk.Toplevel()
         self._root.title("Universal License Center")
         self._root.geometry("600x700")
@@ -1836,13 +1907,25 @@ class UniversalLicenseCenter:
                 ("Close", self._on_close, "#e5e7eb"),
             ]
         else:
-            buttons = [
-                ("Start Free Trial", self._start_trial, self._success),
-                ("Activate License", self._activate_license, self._primary),
-                ("Contact Support", self._contact_support, self._text_secondary),
-                ("Sales Enquiry", self._contact_sales, self._text_secondary),
-                ("Close", self._on_close, "#e5e7eb"),
-            ]
+            if self._trial_consumed:
+                buttons = [
+                    ("Activate License", self._activate_license, self._primary),
+                    ("Contact Support", self._contact_support, self._text_secondary),
+                    ("Sales Enquiry", self._contact_sales, self._text_secondary),
+                    ("Exit", self._on_close, "#e5e7eb"),
+                ]
+                self._status_detail.config(
+                    text="This email has already used its free trial. Please Activate a License or Contact Sales.",
+                    fg=self._warning
+                )
+            else:
+                buttons = [
+                    ("Start Free Trial", self._start_trial, self._success),
+                    ("Activate License", self._activate_license, self._primary),
+                    ("Contact Support", self._contact_support, self._text_secondary),
+                    ("Sales Enquiry", self._contact_sales, self._text_secondary),
+                    ("Close", self._on_close, "#e5e7eb"),
+                ]
 
         for text, cmd, color in buttons:
             if color == "#e5e7eb":
@@ -1900,6 +1983,7 @@ class UniversalLicenseCenter:
         self._output_label.config(text=text, fg=color)
 
     def _start_trial(self):
+        LiveLog.log("Opening Welcome (from Start Free Trial button)")
         self._on_close()
         result = self._show_welcome()
         if result.get('trial_started'):
@@ -1997,6 +2081,7 @@ class UniversalLicenseCenter:
         confirm.wait_window()
 
     def _activate_license(self):
+        LiveLog.log("Opening Activation", "Dialog displayed")
         dialog = tk.Toplevel(self._root)
         dialog.title("Activate License")
         dialog.geometry("560x620")
@@ -2224,6 +2309,7 @@ class UniversalLicenseCenter:
             status_lbl.config(text=f"OTP error: {str(e)}", fg=self._error)
 
     def _renew_license(self):
+        LiveLog.log("Opening Renewal", "Dialog displayed")
         if not self._status:
             messagebox.showwarning("Not Available", "No license information available.",
                                     parent=self._root)
@@ -2319,6 +2405,7 @@ class UniversalLicenseCenter:
         dialog.wait_window()
 
     def _reactivate_license(self):
+        LiveLog.log("Opening Reactivation", "Dialog displayed")
         if not self._status:
             messagebox.showwarning("Not Available", "No license information available.",
                                     parent=self._root)

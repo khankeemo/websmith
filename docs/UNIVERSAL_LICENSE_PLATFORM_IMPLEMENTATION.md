@@ -2704,15 +2704,79 @@ Verified: Only the OTP send route was missing `name` — all other `sendEmail` c
 
 ### Remaining
 1. ✅ OTP HTTP 500 root cause confirmed and fixed — `name is missing in to` from Brevo, fixed in `lib/email/brevo.ts:945`
-2. Deploy the OTP fix to Vercel and verify email delivery
-3. Verify Startup Workflow with generated SDK on real app
-4. Verify Activation Workflow with generated SDK on real app
-5. Verify Brevo email delivery end-to-end (for all template types)
-6. Verify Software Store first-load products
-7. Verify Activation Search (Internal API)
-8. Verify Communication module end-to-end
-9. Implement SDK email distribution with tracking
-10. After Python fully verified: implement remaining runtimes (Node, JS, Bun, Deno, Go, Java, Rust, C/C++, .NET)
+2. ✅ Branding fix deployed (company name, website, sender names) — Vercel live
+3. ✅ Software Store first-load auto-retry — deployed to Vercel
+4. ✅ Existing Customer Workflow fix — `TRIAL_ALREADY_CONSUMED` handled as business state, not error
+5. Generate fresh Python SDK and verify existing customer workflow
+6. Verify Startup Workflow with generated SDK on real app
+7. Verify Activation Workflow with generated SDK on real app
+8. Verify Brevo email delivery end-to-end (for all template types)
+9. Verify Activation Search (Internal API)
+10. Verify Communication module end-to-end
+11. Implement SDK email distribution with tracking
+12. After Python fully verified: implement remaining runtimes (Node, JS, Bun, Deno, Go, Java, Rust, C/C++, .NET)
+
+---
+
+## Session Summary — 2026-07-25 (AWS-01 Existing Customer Fix — TRIAL_ALREADY_CONSUMED No Longer a Fatal Error)
+
+### Root Cause
+
+The SDK treated an existing customer who has already consumed their trial as an error state. When a returning customer launched the application with cleared cache:
+
+1. `LicenseEngine.initialize()` returned `unlicensed` (no cached state, no active trial found by hardware_id)
+2. Welcome dialog opened
+3. User entered email → OTP sent/verified → registration succeeded (upsert via `ON CONFLICT DO UPDATE`)
+4. `POST /api/v1/trial (action: start)` returned `TRIAL_ALREADY_CONSUMED`
+5. Welcome dialog showed error message and **stopped** — no options to proceed, no alternative path
+
+### Fix Applied — Python Runtime (`runtimes/python.ts`)
+
+**Welcome dialog (`welcome.py`) — `_complete_onboarding()`:**
+- When `start_trial` returns `TRIAL_ALREADY_CONSUMED`:
+  - Sets `onboarding_complete` in cache (prevents Welcome from ever showing again for this device)
+  - Caches `customer_email` for subsequent license lookups
+  - Closes dialog gracefully and returns `{'onboarding_complete': True, 'trial_consumed': True}`
+  - Does NOT show an error — existing customer is a valid business state, not a failure
+
+**ULC (`universal_license_center.py`) — `show()`:**
+- Handles `trial_consumed` result from Welcome:
+  - Re-initializes engine (now `onboarding_complete` is set)
+  - Shows ULC with message: "This email has already used its free trial. Please Activate a License or Contact Sales."
+  - Hides "Start Free Trial" button — replaced with: Activate License, Contact Sales, Exit
+
+**ULC (`universal_license_center.py`) — `_build_ui()`:**
+- When `self._trial_consumed` is True and status is `unlicensed`:
+  - Status shows trial-consumed message
+  - Buttons: Activate License (primary), Contact Support, Sales Enquiry, Exit (no Start Free Trial)
+
+**LiveLog added — `LiveLog` class in ULC:**
+- `[HH:MM:SS] License Engine initialize — hardware: ...`
+- `[HH:MM:SS] Customer found (cache hit) — status: ...`
+- `[HH:MM:SS] Cache miss or invalid — checking server`
+- `[HH:MM:SS] License validation started — key: ...`
+- `[HH:MM:SS] License status: active|expired|force_reactivation|force_activation`
+- `[HH:MM:SS] Trial check started — hardware: ...`
+- `[HH:MM:SS] Trial status: active|expired`
+- `[HH:MM:SS] Decision: force_activation|unlicensed`
+- `[HH:MM:SS] License Center started — Application lock engaged`
+- `[HH:MM:SS] Engine initializing — Starting decision engine`
+- `[HH:MM:SS] Decision engine result — Status: ...`
+- `[HH:MM:SS] Opening Welcome — Onboarding required`
+- `[HH:MM:SS] Existing customer detected — Trial already consumed, showing license center`
+- `[HH:MM:SS] Opening Universal License Center — Status: ..., trial_consumed=...`
+- `[HH:MM:SS] Opening Activation | Renewal | Reactivation — Dialog displayed`
+
+### LiveLog Usage
+
+`LiveLog.log(event: str, detail: str = "")` — prints timestamped entries to stdout in real-time. Accessible via `LiveLog.get_log()` for integration test verification. Cleared on each `UniversalLicenseCenter` instantiation.
+
+### Verification
+
+- `npx next build` — zero errors
+- All code changes are in `runtimes/python.ts` (Publisher — single source of truth)
+- No generated SDK files were edited
+- TypeScript template + runtime to be updated in a follow-up pass after Python verification
 
 ---
 
