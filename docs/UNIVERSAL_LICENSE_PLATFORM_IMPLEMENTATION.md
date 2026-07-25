@@ -2778,6 +2778,39 @@ The SDK treated an existing customer who has already consumed their trial as an 
 - No generated SDK files were edited
 - TypeScript template + runtime to be updated in a follow-up pass after Python verification
 
+## Session Summary — 2026-07-25 (AWS-01 Existing Customer Fix — TypeScript Port)
+
+### Changes — TypeScript Runtime (`runtimes/typescript.ts`)
+
+**LiveLog class added** (before LicenseEngine in `client.ts` template):
+- Static `LiveLog.log(event, detail)` — same interface as Python
+- `LiveLog.getLog()` / `LiveLog.clear()` for test verification
+- Exported from `index.ts` for SDK consumers
+
+**LicenseEngine.initialize() logging** (`client.ts` template):
+- `LiveLog.log('Engine initialize', ...)` — entry point
+- `LiveLog.log('Customer found (cache hit)', ...)` — cached status found
+- `LiveLog.log('Cache miss or invalid', ...)` — no valid cache
+- `LiveLog.log('License validation started', ...)` — licensing a key
+- `LiveLog.log('License status: expired|active|force_reactivation|force_activation', ...)` — per outcome
+- `LiveLog.log('Trial check started', ...)` — checking server trial
+- `LiveLog.log('Trial status', ...)` — trial response
+- `LiveLog.log('Decision: force_activation|unlicensed', ...)` — final decision
+
+**UniversalLicenseCenter (`universal_license_center.ts` template):**
+- Imports `LiveLog` from `./client`
+- Adds `_trialConsumed` property
+- Adds `_lockApp()` / `_unlockApp()` methods with callback support
+- `show()`: uses LiveLog throughout; returns `{ status, needs_welcome, trial_consumed, is_locked }`; when unlicensed and trial_consumed, returns `trial_consumed: true` so caller can show appropriate UI
+- `startTrial()`: handles `TRIAL_ALREADY_CONSUMED` by completing onboarding, caching customer info, setting `_trialConsumed = true`, returning `{ success: true, trial_consumed: true, onboarding_complete: true }`
+- Exports `isTrialConsumed()` getter
+
+### Verification
+
+- `npx next build` — zero errors (10.6s)
+- Deployed to Vercel production
+- All code changes are in `runtimes/typescript.ts` (Publisher — single source of truth)
+
 ---
 
 *End of Master Implementation Document*

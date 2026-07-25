@@ -1825,7 +1825,8 @@ class UniversalLicenseCenter:
         self._center_window()
         self._root.wait_window()
         return {"status": self._status.to_dict() if self._status else None,
-                "unlocked": self._app_unlocked}
+                "unlocked": self._app_unlocked,
+                "trial_consumed": trial_consumed}
 
     def _center_window(self):
         if not self._root:
@@ -1991,6 +1992,11 @@ class UniversalLicenseCenter:
                 messagebox.showinfo("Trial Started",
                                     "Your free trial has been activated!",
                                     parent=self._root)
+        elif result.get('trial_consumed'):
+            LiveLog.log("Existing customer detected", "Trial already consumed — showing license center")
+            self._status = self.engine.initialize()
+            self._trial_consumed = True
+            self._show_license_center(trial_consumed=True)
         elif result.get('closed'):
             self._show_license_center()
 
