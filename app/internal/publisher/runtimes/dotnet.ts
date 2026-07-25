@@ -387,10 +387,6 @@ namespace WebsmithSDK
 
         public void Initialize()
         {
-            if (File.Exists(_licenseKeyPath))
-            {
-                _licenseKey = File.ReadAllText(_licenseKeyPath).Trim();
-            }
         }
 
         public async Task<JsonDocument> Validate(string? licenseKey = null)

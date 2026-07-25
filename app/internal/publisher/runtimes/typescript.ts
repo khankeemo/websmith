@@ -834,7 +834,6 @@ export class LicenseEngine {
     this.hardware = new HardwareDetector();
     this.cache = new CacheManager(this.config);
     this.client = new ApiClient(this.config, this.hardware, this.cache);
-    this._licenseKey = this.cache.getLicenseKey();
   }
 
   private _notifyReady(valid: boolean): void {
@@ -863,6 +862,9 @@ export class LicenseEngine {
       const cached = this.cache.getLicenseStatus();
       if (cached) {
         this._status = LicenseEngine._toStatusData(cached);
+        if (!this._licenseKey && this._status.license_key) {
+          this._licenseKey = this._status.license_key;
+        }
         this._notifyReady(this._isValidStatus(this._status));
         return this._status;
       }

@@ -107,6 +107,9 @@ export class LicenseEngine {
       const cached = this._cache.getLicenseStatus();
       if (cached) {
         this._status = LicenseStatus.fromDict(cached);
+        if (!this._licenseKey && this._status.license_key) {
+          this._licenseKey = this._status.license_key;
+        }
         if (this._status.status !== 'trial' && this._status.valid) {
           this._cache.markHasEverActivatedPaidLicense();
         }

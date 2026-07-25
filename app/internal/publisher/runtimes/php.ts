@@ -441,10 +441,6 @@ class LicenseEngine
         $this->fingerprint = HardwareFingerprint::generateFingerprint();
         $this->cache = new CacheManager($this->config);
         $this->client = $client ?? new Client();
-        $storedKey = $this->cache->getLicenseKey();
-        if ($storedKey !== null) {
-            $this->licenseKey = $storedKey;
-        }
         $this->initialize();
     }
 
@@ -474,6 +470,9 @@ class LicenseEngine
             $cached = $this->cache->getLicenseStatus();
             if ($cached !== null) {
                 $this->licenseData = $cached;
+                if ($this->licenseKey === null && isset($cached['license_key'])) {
+                    $this->licenseKey = $cached['license_key'];
+                }
                 return $cached;
             }
         }

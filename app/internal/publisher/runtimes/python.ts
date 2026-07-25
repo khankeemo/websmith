@@ -831,8 +831,6 @@ class LicenseEngine:
         self._status: Optional[LicenseStatus] = None
         self._license_key: Optional[str] = None
         self.on_license_ready: Optional[Callable[[bool], None]] = on_license_ready
-        if not self._license_key:
-            self._license_key = self._cache.load_license_key()
 
     def _notify_ready(self, valid: bool) -> None:
         if self.on_license_ready:

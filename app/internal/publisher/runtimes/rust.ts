@@ -664,9 +664,11 @@ impl LicenseEngine {
                     if !info.valid {
                         let _ = cache.clear();
                     } else {
-                        self.license_data = Some(val);
-                        if let Some(k) = cache.get("license_key") {
-                            self.license_key = Some(k);
+                        self.license_data = Some(val.clone());
+                        if self.license_key.is_none() {
+                            self.license_key = val.get("license_key")
+                                .and_then(|k| k.as_str())
+                                .map(|s| s.to_string());
                         }
                         return info;
                     }

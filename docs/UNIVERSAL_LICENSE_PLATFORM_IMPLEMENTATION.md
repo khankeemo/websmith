@@ -1770,6 +1770,14 @@ Implement support:
 ### Phase 14 — AWS-01 Fixes & Documentation Consolidation ✅ COMPLETE
 
 **Completed:**
+- **License key auto-loading bug fix**: Removed auto-loading of `_licenseKey` from cache in LicenseEngine constructors/initialize methods across 5 runtime generators:
+  - **TypeScript runtime** (`runtimes/typescript.ts`): Removed `this._licenseKey = this.cache.getLicenseKey()` from constructor (line 837). Added cache-hit restoration of `_licenseKey` from cached license_status data so the key is available for session operations without being auto-loaded before user input.
+  - **Python runtime** (`runtimes/python.ts`): Removed `self._license_key = self._cache.load_license_key()` from constructor (lines 834-835). Cache-hit restoration already existed at lines 909-910.
+  - **PHP runtime** (`runtimes/php.ts`): Removed `$this->cache->getLicenseKey()` loading from constructor (lines 444-447). Added cache-hit restoration from license_status data in `initialize()`.
+  - **Rust runtime** (`runtimes/rust.ts`): Removed `cache.get("license_key")` loading in `initialize()` (lines 668-669). Now extracts license_key from cached `license_data` JSON instead of a separate cache entry.
+  - **DotNet runtime** (`runtimes/dotnet.ts`): Removed file-based license key loading from `Initialize()` (lines 390-392). Key now starts null every session.
+  - **TypeScript template** (`template/typescript/license_engine.ts`): Added cache-hit restoration of `_licenseKey` from cached license_status data for consistency (already had no constructor loading).
+  - **Impact**: During `force_activation`, the License Key textbox now always starts empty. The SDK no longer "knows" the license before the user enters it. The customer is responsible for entering the License Key manually, and the Validate License step is mandatory before any customer information is displayed.
 - **Activation validation**: Added checks for inactive, deleted, revoked, expired, and fully activated licenses before activation in `POST /api/v1/license` (activate action). Added `is_deleted` and `device_count` fields to activation query.
 - **Activation dialog redesign**: Changed to License Key first, then validate → OTP → activate flow. Removed auto-population of customer details for first-time activation.
 - **Activation success experience**: Added confirmation dialog with customer name, masked license key, plan, status, activation date, expiry date, remaining validity, device information. Added restart prompt with Restart Now / Restart Later.
@@ -2602,9 +2610,21 @@ All 15 phases are fully complete:
 
 ---
 
-## Session Summary — 2026-07-25 (AWS-01 Phase 14 Completion)
+## Session Summary — 2026-07-25 (AWS-01 Activation Bug Fix — License Key Auto-Load)
 
 ### Completed This Session
+
+**License Key Auto-Loading Bug Fix (AWS-01 Critical — Bypasses Validate License Step):**
+
+Root cause: 5 runtime generators loaded `_licenseKey` from cache/disk in the LicenseEngine constructor or `Initialize()` method, causing the SDK to "know" the license key before the user entered it. This allowed `initialize()` to auto-validate the cached key against the server, skipping the mandatory Validate License step and bypassing the entire activation dialog.
+
+Files fixed:
+- `runtimes/typescript.ts:837` — removed `this._licenseKey = this.cache.getLicenseKey()` from constructor; added cache-hit restoration from license_status data
+- `runtimes/python.ts:834-835` — removed constructor cache loading from `license.key` file
+- `runtimes/php.ts:444-447` — removed constructor cache loading; added cache-hit restoration in `initialize()`
+- `runtimes/rust.ts:668-669` — replaced separate `cache.get("license_key")` with extraction from cached `license_data`
+- `runtimes/dotnet.ts:390-392` — removed file-based loading from `Initialize()`
+- `template/typescript/license_engine.ts` — added cache-hit restoration for `_licenseKey` (template was already correct, no constructor loading)
 
 **Activation Workflow Fixes (matching Master Doc Section 4 spec):**
 - Python SDK `client.py`: Removed cache shortcut in `validate_license()` — now always calls API
