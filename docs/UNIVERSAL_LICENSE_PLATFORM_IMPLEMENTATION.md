@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-25
-> Status: Phases 1-14 Complete — Phase 15 (Communication Architecture) In Progress — Section 0A Active — Locked Menu Redesign (Activate/Renew/Sales/Support) Pending Implementation
+> Status: Phases 1-14 Complete — Phase 15 (Communication Architecture) Complete — Section 0A Complete — Locked Menu Redesign (Activate/Renew/Sales/Support) Complete — Activation API HTTP 500 Fix Applied
 
 ---
 
@@ -3193,26 +3193,63 @@ Existing customers who previously activated a license and then launched the ULC 
 - `npm run build` — zero errors (12.5s Turbopack, TypeScript passed 12.0s, 222 pages)
 - All code changes in Publisher/Internal API only — no generated SDK files edited
 
+---
+
+## Session Summary — Round 2 (2026-07-25)
+
+### Objective
+Fix Activation API HTTP 500 and verify remaining AWS-01 tasks (ULC menu, Renew License, Sales Enquiry, Contact Support already implemented in Round 1).
+
+### Root Cause Analysis — Activation API HTTP 500
+
+**Two endpoints were affected by missing database columns causing SQL errors → HTTP 500.**
+
+#### Internal Admin Activation (`/internal/backend/licenses/activate`)
+
+| Issue | Location | Root Cause | Fix |
+|---|---|---|---|
+| `c.mobile` column not found | customers mobile lookup (line 369) | `customers` table has `phone` but no `mobile` column | Removed `COALESCE(c.mobile, '')` — use `c.phone` only |
+| `t.created_at` column not found | trials created_at ordering (line 381) | `trials` table has `started_at` but no `created_at` column | Changed to `ORDER BY t.started_at DESC` |
+| `license.customer_mobile` / `license.customer_phone` undefined | Mobile fallback chain | License SELECT query didn't include `customer_mobile` or `customer_phone` columns | Added both columns to SELECT |
+| `plan_id = license.plan` type mismatch | Trial conversion (line 435) | `license.plan` is TEXT ("Premium") but `plan_id` is INTEGER | Changed to `license.plan_id` (added to SELECT) |
+
+#### Public API Activation (`/api/v1/license` with `action=activate`)
+
+| Issue | Location | Root Cause | Fix |
+|---|---|---|---|
+| `l.is_deleted` column not found | License SELECT (line 528) | `licenses` table has no `is_deleted` column (products has it, licenses uses `status` field) | Removed from SELECT; simplified check to `license.status === 'deleted'` |
+
+### Changes Made
+
+**`app/api/v1/license/route.ts`** (Public API):
+- Removed `l.is_deleted` from activation SELECT query
+- Simplified deleted check: `license.status === 'deleted' || license.is_deleted` → `license.status === 'deleted'`
+
+**`app/internal/backend/licenses/activate/route.ts`** (Internal Admin):
+- Removed `COALESCE(c.mobile, '')` — no `mobile` column in `customers`
+- Removed unused `mobileResult.rows[0].mobile` fallback branch
+- Changed `ORDER BY t.created_at DESC` → `ORDER BY t.started_at DESC`
+- Added `customer_mobile`, `customer_phone`, `plan_id` to license SELECT
+- Changed trial conversion `plan_id` param from `license.plan` (TEXT) → `license.plan_id` (INTEGER)
+
+### Locked Menu Redesign (Round 1) — Verified Complete
+
+- ✅ Locked menu: 1. Activate, 2. Renew, 3. Sales Enquiry, 4. Contact Support, 0. Exit (all locked states)
+- ✅ Renew License: key entry → validate → show info → load paid plans → select → communication (renewal)
+- ✅ Sales Enquiry: Universal Email Dialog → category: sales → MAIL_SALES_ADDRESS
+- ✅ Contact Support: Universal Email Dialog → category: support → MAIL_SUPPORT_ADDRESS
+- ✅ No trial plans shown in renewal (no `is_trial` column in plans table)
+- ✅ `available-plans` endpoint returns all active plans — no change needed
+
+### Verification
+
+- `npm run build` — zero errors (19.7s Turbopack, TypeScript passed 21.1s, 222 pages)
+- Vercel deployment — build succeeded, aliased to production
+- Git: committed `ff085d0`, pushed to `origin/main`
+
 ### Remaining
 
-- [ ] Python runtime ULC Tkinter GUI: add "Validate" button + validate_hardware dialog in locked menu
-- [ ] Python runtime ULC `_activate_license`: update business-state error code display
-- [ ] Bun template ULC: mirror TS template changes
-
-### Next Implementation Phase — Locked Menu Redesign
-
-**Required changes (documented above per AWS-01):**
-
-1. Update ULC locked menu to: 1. Activate License, 2. Renew License, 3. Sales Enquiry, 4. Contact Support, 0. Exit
-2. Implement Renew License workflow (Section 4 — Renew License Workflow):
-   - Enter last license key → validate → show customer/plan info → load paid plans → select plan → Universal Communication System (renewal category) → confirmation
-3. Implement Sales Enquiry (Section 4 — Sales Enquiry Workflow):
-   - Universal Email Dialog → category: sales → routes to MAIL_SALES_ADDRESS
-4. Verify Contact Support routes to MAIL_SUPPORT_ADDRESS
-5. Update backend `available-plans` endpoint if needed (filter out trial plans)
-6. Generate fresh SDK
-7. Build verification, commit, deploy to Vercel
-
----
+- [ ] Generate fresh SDK from Publisher (post all code changes)
+- [ ] Full end-to-end verification on production
 
 *End of Master Implementation Document*
