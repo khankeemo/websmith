@@ -525,7 +525,6 @@ export async function POST(request: NextRequest) {
             l.max_devices,
             l.device_count,
             l.product_id,
-            l.is_deleted,
             p.is_active as product_is_active
           FROM licenses l
           LEFT JOIN products p ON l.product_id = p.product_id
@@ -594,7 +593,7 @@ export async function POST(request: NextRequest) {
           }, { status: 403 });
         }
 
-        if (license.status === 'deleted' || license.is_deleted) {
+        if (license.status === 'deleted') {
           client.release();
           client = null;
 

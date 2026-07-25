@@ -222,7 +222,10 @@ export async function POST(request: NextRequest) {
         license_key,
         customer_name,
         customer_email,
+        customer_mobile,
+        customer_phone,
         plan,
+        plan_id,
         status,
         expiry_date,
         max_devices,
@@ -366,19 +369,15 @@ export async function POST(request: NextRequest) {
     let customerMobile = body.phone || '';
     if (!customerMobile) {
       const mobileResult = await client.query(
-        `SELECT COALESCE(c.phone, '') as phone, COALESCE(c.mobile, '') as mobile FROM customers c WHERE c.email = $1`,
+        `SELECT COALESCE(c.phone, '') as phone FROM customers c WHERE c.email = $1`,
         [normalizedEmail]
       );
-      if (mobileResult.rows.length > 0) {
-        if (mobileResult.rows[0].phone) {
-          customerMobile = mobileResult.rows[0].phone;
-        } else if (mobileResult.rows[0].mobile) {
-          customerMobile = mobileResult.rows[0].mobile;
-        }
+      if (mobileResult.rows.length > 0 && mobileResult.rows[0].phone) {
+        customerMobile = mobileResult.rows[0].phone;
       }
       if (!customerMobile) {
         const trialMobileResult = await client.query(
-          `SELECT COALESCE(t.mobile_number, '') as mobile FROM trials t WHERE t.customer_email = $1 AND t.status IN ('active', 'converted') ORDER BY t.created_at DESC LIMIT 1`,
+          `SELECT COALESCE(t.mobile_number, '') as mobile FROM trials t WHERE t.customer_email = $1 AND t.status IN ('active', 'converted') ORDER BY t.started_at DESC LIMIT 1`,
           [normalizedEmail]
         );
         if (trialMobileResult.rows.length > 0 && trialMobileResult.rows[0].mobile) {
@@ -433,7 +432,7 @@ export async function POST(request: NextRequest) {
              plan_id = $3
          WHERE status = 'active'
            AND (hardware_id = $4 OR customer_email = $5)`,
-        [now, license.license_key, license.plan, hardware_id, normalizedEmail]
+        [now, license.license_key, license.plan_id, hardware_id, normalizedEmail]
       );
     } catch (trialConvError) {
       console.error("Failed to convert trial:", trialConvError);
