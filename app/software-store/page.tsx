@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -696,6 +696,7 @@ export default function SoftwareStorePage() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadAttemptRef = useRef(0);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [platformFilter, setPlatformFilter] = useState("");
@@ -719,6 +720,7 @@ export default function SoftwareStorePage() {
 
   useEffect(() => {
     let mounted = true;
+    let retrying = false;
     const load = async () => {
       try {
         setLoading(true);
@@ -731,9 +733,16 @@ export default function SoftwareStorePage() {
           setProducts(productData.filter(p => p.is_active));
         }
       } catch (e) {
-        if (mounted) setError("Failed to load products. Please try again.");
+        if (!mounted) return;
+        if (loadAttemptRef.current < 1) {
+          loadAttemptRef.current += 1;
+          retrying = true;
+          load();
+          return;
+        }
+        setError("Failed to load products. Please try again.");
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted && !retrying) setLoading(false);
       }
     };
     load();

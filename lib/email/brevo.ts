@@ -2,11 +2,11 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const MAIL_FROM_ADDRESS = process.env.MAIL_FROM_ADDRESS || process.env.SENDER_EMAIL || 'no-reply@websmithdigital.com';
 const MAIL_SUPPORT_ADDRESS = process.env.MAIL_SUPPORT_ADDRESS || process.env.SENDER_EMAIL || 'support@websmithdigital.com';
 const MAIL_SALES_ADDRESS = process.env.MAIL_SALES_ADDRESS || 'sales@websmithdigital.com';
-const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || 'License Management';
-const MAIL_SUPPORT_NAME = process.env.MAIL_SUPPORT_NAME || 'Support Team';
-const MAIL_SALES_NAME = process.env.MAIL_SALES_NAME || 'Sales Team';
-const COMPANY_NAME = process.env.BRANDING_COMPANY_NAME || 'Your Company';
-const WEBSITE_URL = process.env.BRANDING_WEBSITE_URL || 'https://example.com';
+const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || process.env.BREVO_SENDER_NAME || 'Websmith Support';
+const MAIL_SUPPORT_NAME = process.env.MAIL_SUPPORT_NAME || 'Websmith Support Team';
+const MAIL_SALES_NAME = process.env.MAIL_SALES_NAME || 'Websmith Sales Team';
+const COMPANY_NAME = process.env.BRANDING_COMPANY_NAME || 'Websmith Digital';
+const WEBSITE_URL = process.env.BRANDING_WEBSITE_URL || 'https://websmithdigital.com';
 
 function wrapHtml(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html>
