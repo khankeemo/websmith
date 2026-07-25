@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     const plansResult = await client.query(
       `SELECT id, name, default_expiry_days, max_devices, price
        FROM plans
-       WHERE product_id = $1 AND is_active = TRUE
+       WHERE product_id = $1 AND is_active = TRUE AND is_trial_plan = FALSE
        ORDER BY name ASC`,
       [lic.product_id]
     );

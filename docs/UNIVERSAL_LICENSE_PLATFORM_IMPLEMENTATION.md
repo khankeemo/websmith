@@ -2897,12 +2897,15 @@ All 15 phases are fully complete:
 ### What exactly remains?
 
 1. ✅ Python syntax bug fixed (`runtimes/python.ts:1224`)
-2. Generate fresh TypeScript SDK and verify all workflows
-3. Generate fresh Python SDK and verify all workflows
-4. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
-5. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
-6. Database review — migrate legacy `requests` table into universal conversation architecture
-7. Store Module — verify frontend rendering of products after service fix
+2. ✅ Welcome Dialog startup fix — `LicenseEngine.initialize()` loads persisted license key
+3. ✅ Renew License crash fix — `plan_buttons` initialized before use
+4. ✅ Paid plans filter — `is_trial_plan = FALSE` in `verify-renewal` and `available-plans` endpoints
+5. Generate fresh Python SDK and verify all workflows
+6. Generate fresh TypeScript SDK and verify all workflows
+7. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
+8. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
+9. Database review — migrate legacy `requests` table into universal conversation architecture
+10. Store Module — verify frontend rendering of products after service fix
 
 ---
 
@@ -3001,14 +3004,16 @@ Verified: Only the OTP send route was missing `name` — all other `sendEmail` c
 2. ✅ Branding fix deployed (company name, website, sender names) — Vercel live
 3. ✅ Software Store first-load auto-retry — deployed to Vercel
 4. ✅ Existing Customer Workflow fix — `TRIAL_ALREADY_CONSUMED` handled as business state, not error
-5. Generate fresh Python SDK and verify existing customer workflow
-6. Verify Startup Workflow with generated SDK on real app
-7. Verify Activation Workflow with generated SDK on real app
-8. Verify Brevo email delivery end-to-end (for all template types)
-9. Verify Activation Search (Internal API)
-10. Verify Communication module end-to-end
-11. Implement SDK email distribution with tracking
-12. After Python fully verified: implement remaining runtimes (Node, JS, Bun, Deno, Go, Java, Rust, C/C++, .NET)
+5. ✅ Welcome Dialog startup fix — `LicenseEngine.initialize()` loads persisted license key
+6. ✅ Renew License crash fix — `plan_buttons` initialized before use
+7. ✅ Paid plans filter — `is_trial_plan = FALSE` in `verify-renewal` and `available-plans` endpoints
+8. Generate fresh Python SDK and verify all workflows
+9. Generate fresh TypeScript SDK and verify all workflows
+10. Verify Brevo email delivery end-to-end (for all template types)
+11. Verify Activation Search (Internal API)
+12. Verify Communication module end-to-end
+13. Implement SDK email distribution with tracking
+14. After Python fully verified: implement remaining runtimes (Node, JS, Bun, Deno, Go, Java, Rust, C/C++, .NET)
 
 ---
 
@@ -3274,5 +3279,61 @@ Fresh SDK must be generated through the Publisher admin UI:
 4. Download the generated ZIP
 
 Alternatively, POST to `POST /api/internal/publisher/publish-product` with valid `x-api-key` and product config.
+
+---
+
+## Session Summary — 2026-07-25 (AWS-01 Remaining Fixes — Welcome Dialog, Renew License Crash, Paid Plans)
+
+### Issue 1 & 4 — Welcome Dialog Opened Even Though License Already Activated
+
+**Root cause:** `LicenseEngine.initialize()` did not load the persisted license key from the separate `license.key` file on cache miss/expiry. When a returning customer with an already-activated license had no valid cache:
+1. `_license_key` was `None` (not loaded from file)
+2. Server validation was skipped (no key to validate with)
+3. `has_ever_activated_paid_license` flag was also expired
+4. `is_onboarding_complete()` returned `False`
+5. `initialize()` returned `unlicensed`
+6. `show()` opened the Welcome dialog
+
+Additionally, when the Activation dialog's validation returned `this_device_activated = true`, it only showed a message and destroyed the dialog — it did not update the engine status, cache, or unlock the application.
+
+**Fixes in `runtimes/python.ts`:**
+- `LicenseEngine.initialize()`: Loads persisted license key from `_cache.load_license_key()` before server validation attempt
+- `LicenseEngine.initialize()`: Added `_cache.set_onboarding_complete()` call in successful validation path (so restart doesn't show welcome)
+- `LicenseEngine.activate()`: Added `_cache.set_onboarding_complete()` call after successful activation
+- `_activate_license.do_validate()`: When `this_device_activated` is true, now properly updates engine status, saves license key, sets cache (`onboarding_complete`, `license_status`, `has_ever_activated_paid_license`), unlocks application, and refreshes display before closing dialog
+
+**Expected startup flow now:**
+```
+Application → Detect Hardware → Validate (with persisted key) → Already Activated → Load License Cache → Unlock Application → Open Main UI
+```
+
+### Issue 2 — Renew License UI Crash (`plan_buttons is not defined`)
+
+**Root cause:** In `_renew_license_flow()`, the `plan_buttons` list was used in `plan_buttons.append(rb)` but never initialized as an empty list.
+
+**Fix in `runtimes/python.ts`:**
+- Added `plan_buttons = []` before the for-loop that iterates over available plans
+
+### Issue 3 — Paid Plans Included Trial Plans
+
+**Root cause:** The `verify-renewal` and `available-plans` API endpoints queried `SELECT ... FROM plans WHERE product_id = $1 AND is_active = TRUE` without filtering out trial plans (`is_trial_plan = FALSE`). The `plans` table has an `is_trial_plan BOOLEAN DEFAULT FALSE` column that was not being used.
+
+**Fixes in API routes:**
+- `app/api/v1/license/verify-renewal/route.ts`: Added `AND is_trial_plan = FALSE` to the plans query
+- `app/api/v1/license/available-plans/route.ts`: Added `AND is_trial_plan = FALSE` to the plans query
+
+### Files Modified
+
+| File | Issue |
+|------|-------|
+| `app/internal/publisher/runtimes/python.ts` | Issues 1, 2, 4 — startup flow, already-activated handling, plan_buttons crash |
+| `app/api/v1/license/verify-renewal/route.ts` | Issue 3 — filter out trial plans |
+| `app/api/v1/license/available-plans/route.ts` | Issue 3 — filter out trial plans |
+
+### Verification
+
+- `npm run build` — zero errors (12.3s Turbopack, TypeScript passed 11.5s, 222 pages)
+- No generated SDK files were edited — all changes in Publisher/runtime generator + Internal API
+- Documentation updated with this session summary
 
 *End of Master Implementation Document*
