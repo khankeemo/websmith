@@ -2174,11 +2174,32 @@ class UniversalLicenseCenter:
             dialog.update()
             try:
                 result = self.engine.validate(key)
+                err_data = result.get('error', {})
+                err_code = ''
+                if isinstance(err_data, dict):
+                    err_code = err_data.get('code', '')
                 if result.get("success"):
                     data = result.get("data", result)
                     validated["key"] = key
                     validated["data"] = data
                     validated["done"] = True
+
+                    # Check if already activated on this device
+                    if data.get('this_device_activated'):
+                        status_lbl.config(
+                            text="License already activated on this device. You can continue using the application.",
+                            fg=self._success)
+                        dialog.after(3000, dialog.destroy)
+                        return
+
+                    # Check device limit
+                    active_devices = data.get('active_devices', 0)
+                    max_devices = data.get('max_devices', 999)
+                    if active_devices >= max_devices:
+                        status_lbl.config(
+                            text=f"Device limit reached ({active_devices}/{max_devices}). Please deactivate another device or contact support.",
+                            fg=self._error)
+                        return
 
                     # Lock key entry
                     key_entry.config(state="disabled")
@@ -2190,7 +2211,7 @@ class UniversalLicenseCenter:
                     cust_name_lbl.pack(anchor="w", padx=16, pady=(0, 2))
                     cust_email_lbl.config(text=data.get('customer_email', 'N/A'))
                     cust_email_lbl.pack(anchor="w", padx=16, pady=(0, 2))
-                    plan_info = f"Plan: {data.get('plan', 'N/A')} | Expires: {data.get('expiry_date', 'N/A')} | Days Left: {data.get('days_left', 0)}"
+                    plan_info = f"Product: {data.get('product_name', 'N/A')} | Plan: {data.get('plan', 'N/A')} | Status: {data.get('status', 'N/A')} | Expires: {data.get('expiry_date', 'N/A')} | Days Left: {data.get('days_left', 0)}"
                     cust_plan_lbl.config(text=plan_info)
                     cust_plan_lbl.pack(anchor="w", padx=16, pady=(0, 8))
 
@@ -2225,9 +2246,16 @@ class UniversalLicenseCenter:
                     err_data = result.get('error', result)
                     if isinstance(err_data, dict):
                         err_msg = err_data.get('message', err_msg)
-                    elif isinstance(err_data, str):
-                        err_msg = err_data
-                    status_lbl.config(text=f"Validation failed: {err_msg}", fg=self._error)
+                    if err_code == 'LICENSE_EXPIRED':
+                        status_lbl.config(text="License has expired. Please renew your license.", fg=self._error)
+                    elif err_code == 'LICENSE_REVOKED':
+                        status_lbl.config(text="License has been revoked. Please contact support.", fg=self._error)
+                    elif err_code == 'LICENSE_INACTIVE':
+                        status_lbl.config(text="License is inactive. Please contact support.", fg=self._error)
+                    elif err_code == 'LICENSE_DELETED':
+                        status_lbl.config(text="License has been deleted. Please contact support.", fg=self._error)
+                    else:
+                        status_lbl.config(text=f"Validation failed: {err_msg}", fg=self._error)
             except Exception as e:
                 status_lbl.config(text=f"Error: {str(e)}", fg=self._error)
 
@@ -2295,6 +2323,12 @@ class UniversalLicenseCenter:
             try:
                 result = self.engine.activate(key)
                 if result.get("success"):
+                    if result.get('already_activated'):
+                        status_lbl.config(
+                            text="License already activated on this device. You can continue using the application.",
+                            fg=self._success)
+                        dialog.after(2000, dialog.destroy)
+                        return
                     data = result.get("data", result)
                     data["customer_name"] = validated["data"].get("customer_name", "")
                     data["customer_email"] = validated["data"].get("customer_email", "")
@@ -2305,8 +2339,23 @@ class UniversalLicenseCenter:
                     self._show_activation_confirmation(dialog, data, key)
                     dialog.destroy()
                 else:
+                    err_data = result.get('error', {})
+                    err_code = ''
+                    if isinstance(err_data, dict):
+                        err_code = err_data.get('code', '')
                     err = result.get("message", result.get("error", "Unknown error"))
-                    status_lbl.config(text=f"Activation failed: {err}", fg=self._error)
+                    if err_code == 'MAX_DEVICES_EXCEEDED':
+                        status_lbl.config(text="Device limit reached. Please deactivate another device or contact support.", fg=self._error)
+                    elif err_code == 'LICENSE_EXPIRED':
+                        status_lbl.config(text="License has expired. Please renew your license.", fg=self._error)
+                    elif err_code == 'LICENSE_REVOKED':
+                        status_lbl.config(text="License has been revoked. Please contact support.", fg=self._error)
+                    elif err_code == 'LICENSE_INACTIVE':
+                        status_lbl.config(text="License is inactive. Please contact support.", fg=self._error)
+                    elif result.get('already_activated'):
+                        status_lbl.config(text="License already activated on this device.", fg=self._success)
+                    else:
+                        status_lbl.config(text=f"Activation failed: {err}", fg=self._error)
             except Exception as e:
                 status_lbl.config(text=f"Activation error: {str(e)}", fg=self._error)
 

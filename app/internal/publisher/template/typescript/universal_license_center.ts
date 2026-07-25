@@ -436,11 +436,26 @@ export class UniversalLicenseCenter {
     console.log('Validating license...');
     let customerEmail = '';
     let customerData: Record<string, any> = {};
+    let alreadyActivated = false;
     try {
       const validateResult = await this.engine.validate(key.trim());
+      const errCode = validateResult?.error?.code || '';
       if (!validateResult.success && validateResult.valid !== true) {
         const errorMsg = validateResult.error?.message || validateResult.message || 'License validation failed';
-        console.log(`Validation failed: ${errorMsg}`);
+        if (errCode === 'LICENSE_EXPIRED') {
+          console.log(`  License has expired. Please renew your license.`);
+          console.log(`  You can use the Renew option in the main menu.`);
+        } else if (errCode === 'LICENSE_REVOKED') {
+          console.log(`  License has been revoked. Please contact support.`);
+        } else if (errCode === 'LICENSE_INACTIVE') {
+          console.log(`  License is inactive. Please contact support.`);
+        } else if (errCode === 'LICENSE_DELETED') {
+          console.log(`  License has been deleted. Please contact support.`);
+        } else if (errCode === 'PRODUCT_INACTIVE' || errCode === 'PRODUCT_DELETED') {
+          console.log(`  Product is not available. Please contact support.`);
+        } else {
+          console.log(`Validation failed: ${errorMsg}`);
+        }
         return;
       }
       const data = validateResult.data || validateResult;
@@ -448,11 +463,32 @@ export class UniversalLicenseCenter {
         console.log('License validation failed.');
         return;
       }
+
+      // Check if already activated on this device
+      if (data.this_device_activated) {
+        alreadyActivated = true;
+        console.log(`  License already activated on this device.`);
+        console.log(`  You can continue using the application.`);
+        this.cache.setLicenseStatus({ valid: true, status: 'active', license_key: key, plan: data.plan, customer_name: data.customer_name, customer_email: data.customer_email, expires_at: data.expiry_date, days_remaining: data.days_left || 0, hardware_id: hwId });
+        await this._refreshStatus();
+        return;
+      }
+
+      // Check device limit
+      if (data.active_devices >= data.max_devices) {
+        console.log(`  Device limit reached: ${data.active_devices}/${data.max_devices} devices in use.`);
+        console.log(`  Please deactivate another device or contact support.`);
+        console.log(`  You can also use the Renew option to upgrade your plan.`);
+        return;
+      }
+
       customerEmail = data.customer_email || '';
       customerData = data;
       console.log(`  Customer: ${data.customer_name || 'N/A'}`);
       console.log(`  Email: ${customerEmail || 'N/A'}`);
+      console.log(`  Product: ${data.product_name || 'N/A'}`);
       console.log(`  Plan: ${data.plan || 'N/A'}`);
+      console.log(`  Status: ${data.status || 'N/A'}`);
       console.log(`  Expires: ${data.expiry_date || 'N/A'}`);
       console.log(`  Days Left: ${data.days_left || 0}`);
       console.log('');
@@ -460,6 +496,8 @@ export class UniversalLicenseCenter {
       console.log(`Validation error: ${(e as Error).message}`);
       return;
     }
+
+    if (alreadyActivated) return;
 
     if (!customerEmail) {
       console.log('No customer email available for OTP verification.');
@@ -502,25 +540,27 @@ export class UniversalLicenseCenter {
     try {
       const result = await this.engine.activate(key.trim());
       if (result.success) {
+        if (result.already_activated) {
+          console.log('  License already activated on this device. You can continue using the application.');
+          return;
+        }
         console.log('');
         console.log('═══════════════════════════════════════');
-        console.log('      ACTIVATION SUCCESSFUL');
+        console.log('      LICENSE ACTIVATED');
         console.log('═══════════════════════════════════════');
         const data = result.data || result;
         console.log(`  Customer: ${customerData.customer_name || 'N/A'}`);
-        console.log(`  Email: ${customerEmail || 'N/A'}`);
-        console.log(`  License Key: ${this._maskLicenseKey(key)}`);
+        console.log(`  Product: ${customerData.product_name || 'N/A'}`);
         console.log(`  Plan: ${data.plan || customerData.plan || 'N/A'}`);
-        console.log(`  Status: Active`);
+        console.log(`  License Status: Active`);
         console.log(`  Activation Date: ${new Date().toISOString().split('T')[0]}`);
-        console.log(`  Expiry Date: ${data.expiry_date || 'N/A'}`);
-        console.log(`  Remaining Validity: ${data.days_left || 0} days`);
-        console.log(`  Device: ${hwId}`);
+        console.log(`  Expiry Date: ${data.expiry_date || customerData.expiry_date || 'N/A'}`);
+        console.log(`  Remaining Validity: ${data.days_left || customerData.days_left || 0} days`);
         console.log('═══════════════════════════════════════');
         console.log('');
         console.log('Activation completed successfully.');
         console.log('');
-        console.log('The application must now restart to apply your license.');
+        console.log('The application must restart to apply the new license.');
         console.log('');
         console.log('1. Restart Now');
         const restartChoice = (await this._question('Select option: ')).trim();
@@ -531,7 +571,21 @@ export class UniversalLicenseCenter {
           console.log('Please restart the application to apply the license.');
         }
       } else {
-        console.log(`Activation failed: ${result.message || result.error || 'Unknown error'}`);
+        const errCode = result?.error?.code || '';
+        const errMsg = result?.error?.message || result.message || result.error || 'Unknown error';
+        if (errCode === 'MAX_DEVICES_EXCEEDED') {
+          console.log(`  Device limit reached. Please deactivate another device or contact support.`);
+        } else if (errCode === 'LICENSE_EXPIRED') {
+          console.log(`  License has expired. Please renew your license.`);
+        } else if (errCode === 'LICENSE_REVOKED') {
+          console.log(`  License has been revoked. Please contact support.`);
+        } else if (errCode === 'LICENSE_INACTIVE') {
+          console.log(`  License is inactive. Please contact support.`);
+        } else if (result.already_activated) {
+          console.log('  License already activated on this device.');
+        } else {
+          console.log(`Activation failed: ${errMsg}`);
+        }
       }
     } catch (e) {
       console.log(`Error: ${(e as Error).message}`);

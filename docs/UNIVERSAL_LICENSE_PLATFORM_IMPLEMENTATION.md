@@ -930,13 +930,37 @@ Activation Dialog
         │   ├── Validate license is not inactive
         │   ├── Validate license is not deleted
         │   ├── Validate device limit not reached
-        │   ├── Reject if any validation fails
+        │   │
+        │   ├── VALIDATION FAILED (specific business state shown):
+        │   │   ├── LICENSE_EXPIRED → "License has expired. Renew your license."
+        │   │   ├── LICENSE_REVOKED → "License revoked. Contact support."
+        │   │   ├── LICENSE_INACTIVE → "License inactive. Contact support."
+        │   │   ├── LICENSE_DELETED → "License deleted. Contact support."
+        │   │   └── Generic → Show specific error message
+        │   │
+        │   ├── ALREADY ACTIVATED on this device:
+        │   │   ├── Show "License already activated on this device. Continue using the application."
+        │   │   ├── Cache license status as active
+        │   │   ├── Skip OTP and activation
+        │   │   └── Return to ULC
+        │   │
+        │   ├── DEVICE LIMIT REACHED:
+        │   │   ├── Show "Device limit reached (X/Y). Deactivate another device or contact support."
+        │   │   ├── Skip OTP and activation
+        │   │   └── Guide customer to Renew or Contact Support
+        │   │
         │   ├── On success: retrieve customer details from server
-        │   └── Show pre-filled customer info (read-only)
+        │   └── Show pre-filled customer info (read-only):
+        │       ├── Customer Name
+        │       ├── Email
+        │       ├── Product
+        │       ├── Plan
+        │       ├── Status
+        │       └── Expiry
         │
         ├── POST /api/v1/auth/otp/send
         │   ├── OTP sent to license's registered email
-        │   └── Only after valid license confirmed
+        │   └── Only after valid license confirmed (not already activated, not limit reached)
         │
         ├── POST /api/v1/auth/otp/verify
         │   ├── Verify OTP code
@@ -944,37 +968,37 @@ Activation Dialog
         │
         ├── POST /api/v1/license (action: activate)
         │   ├── Activate license on current hardware
-        │   ├── Reject if device limit reached
+        │   ├── Reject if device limit reached (MAX_DEVICES_EXCEEDED → show specific message)
+        │   ├── Return already_activated: true if device already bound → skip re-activation
         │   └── Record activation in activations table
         │
-        ├── On Success: Show confirmation dialog
-        │   ├── Activation Successful header
-        │   ├── Customer Name
-        │   ├── License Key (masked with ****)
-        │   ├── Plan
-        │   ├── License Status
-        │   ├── Activation Date
-        │   ├── Expiry Date
-        │   ├── Remaining Validity
-        │   └── Device Information
+        ├── Activation Success:
+        │   ├── Show "LICENSE ACTIVATED" confirmation dialog with:
+        │   │   ├── Customer Name
+        │   │   ├── Product
+        │   │   ├── Plan
+        │   │   ├── License Status: Active
+        │   │   ├── Activation Date
+        │   │   ├── Expiry Date
+        │   │   └── Remaining Validity
+        │   └── Do NOT auto-close the dialog
         │
-        ├── Prompt: "Activation completed successfully."
-        │   "The application must now restart to apply your license."
-        │   ├── 1. Restart Now (calls process.exit(0))
-        │   └── 2. Restart Later (if permitted by platform policy)
-        │       If restart is mandatory, only Restart Now is available
+        ├── Restart Prompt:
+        │   ├── "The application must restart to apply the new license."
+        │   └── [Restart Now] only (mandatory restart)
         │
         ├── Cache refresh
         └── Unlock Application (after restart)
 ```
 
 **Activation Validation Rules:**
-- Inactive licenses — reject with `LICENSE_INACTIVE`
-- Revoked licenses — reject with `LICENSE_REVOKED`
-- Expired licenses — reject with `LICENSE_EXPIRED`
-- Deleted licenses — reject with `LICENSE_DELETED`
-- Already fully activated licenses — reject with `MAX_DEVICES_EXCEEDED`
-- Hardware already activated — return `already_activated: true` (success, no re-activation)
+- Inactive licenses — reject with `LICENSE_INACTIVE` → show "License inactive. Contact support."
+- Revoked licenses — reject with `LICENSE_REVOKED` → show "License revoked. Contact support."
+- Expired licenses — reject with `LICENSE_EXPIRED` → show "License expired. Renew your license."
+- Deleted licenses — reject with `LICENSE_DELETED` → show "License deleted. Contact support."
+- Already fully activated licenses — reject with `MAX_DEVICES_EXCEEDED` → show "Device limit reached. Deactivate another device or contact support."
+- Hardware already activated — return `success: true, already_activated: true` → show "Already activated on this device. Continue using application."
+- Validation success — show customer info (name, email, product, plan, status, expiry), enable activation flow
 
 ---
 
