@@ -2811,6 +2811,34 @@ The SDK treated an existing customer who has already consumed their trial as an 
 - Deployed to Vercel production
 - All code changes are in `runtimes/typescript.ts` (Publisher — single source of truth)
 
+## Session Summary — 2026-07-25 (AWS-01 Existing Customer Fix — ZEMmacOS App Integration)
+
+### Root Cause
+
+The ZEMmacOS application (`D:\ZEMmacOS`) shuts down when an existing paid-license customer goes through the welcome flow and closes the Universal License Center without activating a new license. The app's `_run_welcome_flow()` checked `result.status.valid` and called `_shutdown_app()` if false — which always happened when the user pressed Exit.
+
+Additionally, `_show_license_center()` did not signal back whether the ULC was opened due to `trial_consumed`, so the app had no way to distinguish "user cancelled activation" from "existing customer who needs activation options."
+
+### Fixes Applied
+
+**`D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS\universal_license_center.py`:**
+- `_show_license_center()`: return dict now includes `"trial_consumed": trial_consumed` so the host app can detect the case
+- `_start_trial()`: added `elif result.get('trial_consumed')` branch — re-inits engine, sets `_trial_consumed = True`, opens ULC with `trial_consumed=True`
+
+**`D:\ZEMmacOS\main.py`:**
+- `_check_license_on_startup()`: added `elif status.status == "force_activation"` — opens welcome flow (which opens ULC directly, skipping welcome dialog when onboarding is already complete)
+- `_run_welcome_flow()`: added check for `result.get('trial_consumed')` — refreshes license and unlocks UI instead of shutting down
+
+### Publisher Template Fix (`runtimes/python.ts`)
+
+- `_show_license_center()` return: added `"trial_consumed": trial_consumed`
+- `_start_trial()`: added `trial_consumed` handling matching the ZEMmacOS fix
+
+### Verification
+
+- `npx next build` — zero errors (12.0s)
+- Deployed to Vercel production
+
 ---
 
 *End of Master Implementation Document*
