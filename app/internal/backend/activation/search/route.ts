@@ -16,17 +16,89 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email')?.toLowerCase();
-    const licenseKey = searchParams.get('license_key')?.toUpperCase();
+    let email = searchParams.get('email')?.toLowerCase();
+    let licenseKey = searchParams.get('license_key')?.toUpperCase();
+    const customerName = searchParams.get('customer_name');
+    const mobile = searchParams.get('mobile');
+    const hardwareId = searchParams.get('hardware_id');
+    const deviceName = searchParams.get('device_name');
+    const activationId = searchParams.get('activation_id');
 
-    if (!email && !licenseKey) {
+    if (!email && !licenseKey && !customerName && !mobile && !hardwareId && !deviceName && !activationId) {
       return NextResponse.json(
-        { success: false, error: "Email or license_key is required" },
+        { success: false, error: "Provide at least one search parameter: email, license_key, customer_name, mobile, hardware_id, device_name, or activation_id" },
         { status: 400 }
       );
     }
 
     client = await pool.connect();
+
+    // Search by activation_id: find activation, then resolve license_key
+    if (!email && !licenseKey && activationId) {
+      const actRes = await client.query(
+        `SELECT license_key FROM activations WHERE id = $1 OR hardware_id = $1`,
+        [activationId]
+      );
+      if (actRes.rows.length > 0) {
+        licenseKey = actRes.rows[0].license_key?.toUpperCase();
+      }
+      if (!licenseKey) {
+        client.release();
+        return NextResponse.json({ success: false, error: "Activation not found" }, { status: 404 });
+      }
+    }
+
+    // Search by hardware_id or device_name: find activation, then resolve license_key
+    if (!email && !licenseKey && (hardwareId || deviceName)) {
+      let hwQuery: string;
+      let hwParam: string;
+      if (hardwareId) {
+        hwQuery = `SELECT license_key FROM activations WHERE hardware_id = $1 ORDER BY last_seen DESC LIMIT 1`;
+        hwParam = hardwareId;
+      } else {
+        hwQuery = `SELECT license_key FROM activations WHERE LOWER(device_name) LIKE $1 ORDER BY last_seen DESC LIMIT 1`;
+        hwParam = `%${deviceName!.toLowerCase()}%`;
+      }
+      const actRes = await client.query(hwQuery, [hwParam]);
+      if (actRes.rows.length > 0) {
+        licenseKey = actRes.rows[0].license_key?.toUpperCase();
+      }
+      if (!licenseKey) {
+        client.release();
+        const field = hardwareId ? "Hardware ID" : "Device name";
+        return NextResponse.json({ success: false, error: `${field} not found. No matching license found.` }, { status: 404 });
+      }
+    }
+
+    // Search by customer_name: find customer, then resolve email
+    if (!email && !licenseKey && customerName) {
+      const custRes = await client.query(
+        `SELECT email FROM customers WHERE LOWER(name) LIKE $1 AND email IS NOT NULL AND email != '' ORDER BY created_at DESC LIMIT 1`,
+        [`%${customerName.toLowerCase()}%`]
+      );
+      if (custRes.rows.length > 0) {
+        email = custRes.rows[0].email?.toLowerCase();
+      }
+      if (!email) {
+        client.release();
+        return NextResponse.json({ success: false, error: "Customer not found by name" }, { status: 404 });
+      }
+    }
+
+    // Search by mobile: find customer, then resolve email
+    if (!email && !licenseKey && mobile) {
+      const mobileRes = await client.query(
+        `SELECT email FROM customers WHERE phone LIKE $1 OR mobile LIKE $1 AND email IS NOT NULL AND email != '' ORDER BY created_at DESC LIMIT 1`,
+        [`%${mobile}%`]
+      );
+      if (mobileRes.rows.length > 0) {
+        email = mobileRes.rows[0].email?.toLowerCase();
+      }
+      if (!email) {
+        client.release();
+        return NextResponse.json({ success: false, error: "Customer not found by mobile number" }, { status: 404 });
+      }
+    }
 
     let customer = null;
     let trial = null;

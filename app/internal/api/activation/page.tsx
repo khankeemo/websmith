@@ -1,13 +1,7 @@
 "use client";
 
-import UniversalActivationCenter from "@/components/internal-api/UniversalActivationCenter";
+import AdministratorActivationCenter from "@/components/internal-api/AdministratorActivationCenter";
 
 export default function ActivationPage() {
-  return (
-    <UniversalActivationCenter
-      isOpen={true}
-      onClose={() => {}}
-      inline
-    />
-  );
+  return <AdministratorActivationCenter />;
 }

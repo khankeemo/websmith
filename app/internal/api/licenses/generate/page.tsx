@@ -1,8 +1,7 @@
 // FILE: app/internal/api/licenses/generate/page.tsx
 // PURPOSE: License Operations Center - Shell with Search Bar and Tabs
 // SCOPE: Tab 1 - Generate License, Tab 2 - License Manager, Tab 3 - Validation Center,
-//        Tab 4 - Renewals, Tab 5 - Trials, Tab 6 - Bulk Operations,
-//        Tab 7 - Hardware Summary, Tab 8 - Logs Summary
+//        Tab 4 - Renewals, Tab 5 - Bulk Operations
 // RULE: UI only - NO database queries, NO business logic
 // RULE: Theme variables only - NO hardcoded colors
 
@@ -14,10 +13,7 @@ import {
   KeyRound,
   ShieldCheck,
   Repeat,
-  Activity,
   Upload,
-  Cpu,
-  FileText,
   Search,
   Loader2,
   X,
@@ -30,10 +26,7 @@ import { GenerateLicenseTab } from "./tabs/GenerateLicenseTab";
 import { LicenseManagerTab } from "./tabs/LicenseManagerTab";
 import { ValidationCenterTab } from "./tabs/ValidationCenterTab";
 import { RenewalsTab } from "./tabs/RenewalsTab";
-import { TrialsTab } from "./tabs/TrialsTab";
 import { BulkOperationsTab } from "./tabs/BulkOperationsTab";
-import { HardwareSummaryTab } from "./tabs/HardwareSummaryTab";
-import { LogsSummaryTab } from "./tabs/LogsSummaryTab";
 
 // ============================================================
 // IMPORTS: Context
@@ -128,10 +121,7 @@ function LicenseCenterContent() {
     { label: "Manager", icon: <KeyRound size={16} />, component: LicenseManagerTab },
     { label: "Validation", icon: <ShieldCheck size={16} />, component: ValidationCenterTab },
     { label: "Renewals", icon: <Repeat size={16} />, component: RenewalsTab },
-    { label: "Trials", icon: <Activity size={16} />, component: TrialsTab },
     { label: "Bulk", icon: <Upload size={16} />, component: BulkOperationsTab },
-    { label: "Hardware", icon: <Cpu size={16} />, component: HardwareSummaryTab },
-    { label: "Logs", icon: <FileText size={16} />, component: LogsSummaryTab },
   ];
 
   const ActiveComponent = tabs[activeTab].component;

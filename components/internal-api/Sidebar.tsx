@@ -38,6 +38,7 @@ import {
   Receipt,
   ShieldCheck,
   Inbox,
+  Settings,
 } from "lucide-react";
 
 const menu = [
@@ -124,6 +125,12 @@ const menu = [
       { name: "SDK Packages", icon: Boxes, path: "/internal/api/developers/integrations" },
       { name: "API Keys", icon: Code2, path: "/internal/api/public-api/keys" },
       { name: "API Docs", icon: FileText, path: "/internal/api/docs/public-api" },
+    ],
+  },
+  {
+    title: "SYSTEM",
+    items: [
+      { name: "Settings", icon: Settings, path: "/internal/api/settings" },
     ],
   },
   {
