@@ -366,6 +366,16 @@ export class UniversalLicenseCenter {
         console.log(`Verification failed: ${verifyResult.error?.message || 'Invalid code'}`);
         return false;
       }
+
+      // Check if customer already exists — skip registration and trial
+      if (verifyResult.customer_exists) {
+        this.cache.setOnboardingComplete();
+        this.cache.setLicenseStatus({ customer_email: email, customer_name: name });
+        this._trialConsumed = true;
+        console.log('Customer already exists. Opening License Center...');
+        await this._refreshStatus();
+        return true;
+      }
     } catch (e) {
       console.log(`Error verifying code: ${(e as Error).message}`);
       return false;

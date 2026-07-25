@@ -89,6 +89,29 @@ export async function POST(request: NextRequest) {
       [record.id]
     );
 
+    // Check if customer already exists after successful OTP verification
+    const customerCheck = await dbClient.query(
+      `SELECT id FROM customers WHERE email = $1 LIMIT 1`,
+      [normalizedEmail]
+    );
+    const customerExists = customerCheck.rows.length > 0;
+
+    if (customerExists) {
+      await dbClient.query(
+        `INSERT INTO audit_logs (event_type, message, timestamp, ip_address)
+         VALUES ($1, $2, $3, $4)`,
+        ['otp_customer_exists', `OTP verified for existing customer ${normalizedEmail}`, new Date().toISOString(), ipAddress]
+      );
+
+      await logRequest({
+        apiKeyId, endpoint: '/api/v1/auth/otp/verify', method: 'POST',
+        statusCode: 200, latencyMs: Date.now() - startTime, ipAddress, userAgent,
+        requestRedacted: { email, action: 'otp_customer_exists' },
+      });
+
+      return NextResponse.json({ success: true, customer_exists: true, open_ulc: true });
+    }
+
     await dbClient.query(
       `INSERT INTO audit_logs (event_type, message, timestamp, ip_address)
        VALUES ($1, $2, $3, $4)`,

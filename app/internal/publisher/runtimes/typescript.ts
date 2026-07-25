@@ -1670,15 +1670,16 @@ export class UniversalLicenseCenter {
       this._locked = !this._isValidForUnlock();
       return { ...result, trial_started: true };
     }
-    if (result.status === 'TRIAL_ALREADY_CONSUMED') {
-      LiveLog.log('Existing customer detected', 'Trial already consumed — completing onboarding');
+    const errCode = result?.error?.code || result?.error || result?.status || '';
+    if (errCode === 'TRIAL_ALREADY_CONSUMED' || errCode === 'PAID_LICENSE_EXISTS') {
+      LiveLog.log('Existing customer detected', \`\${errCode} — completing onboarding\`);
       this.cache.setOnboardingComplete();
       const cached = this.cache.getLicenseStatus() || {};
       if (email.trim()) cached.customer_email = email.trim();
       if (name.trim()) cached.customer_name = name.trim();
       if (cached) this.cache.setLicenseStatus(cached);
       this._trialConsumed = true;
-      return { success: true, trial_consumed: true, onboarding_complete: true, message: 'Trial already used. You can activate a license.' };
+      return { success: true, customer_exists: true, trial_consumed: true, onboarding_complete: true, message: 'Customer already exists. Opening License Center.' };
     }
     LiveLog.log('Trial failed', result.message || result.error || 'Unknown error');
     return result;

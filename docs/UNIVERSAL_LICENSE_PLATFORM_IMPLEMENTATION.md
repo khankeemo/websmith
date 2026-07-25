@@ -753,20 +753,42 @@ Welcome Dialog (auto-opened)
         │       ▼
         ├── POST /api/v1/auth/otp/verify
         │       │
-        │       ▼
-        ├── POST /api/v1/customer/register
+        │       ├── Backend checks customer existence in `customers` table by email
         │       │
-        │       ▼
-        ├── POST /api/v1/trial (action: start)
+        │       ├── Customer EXISTS:
+        │       │   └── Return: { success: true, customer_exists: true, open_ulc: true }
+        │       │       ├── Skip customer/register
+        │       │       ├── Skip trial/start
+        │       │       ├── CacheManager.set_onboarding_complete()
+        │       │       └── Open Universal License Center
         │       │
-        │       ▼
-        ├── CacheManager.set_onboarding_complete()
-        ├── CacheManager.set_license_status(trial)
-        ├── LicenseEngine.initialize()
-        │       │
-        │       ▼
-        └── Unlock Application
+        │       ├── Customer DOES NOT EXIST:
+        │       │   └── Return: { success: true, message: 'OTP verified successfully' }
+        │       │       │
+        │       │       ▼
+        │       ├── POST /api/v1/customer/register
+        │       │       │
+        │       │       ▼
+        │       ├── POST /api/v1/trial (action: start)
+        │       │       │
+        │       │       ▼
+        │       ├── CacheManager.set_onboarding_complete()
+        │       ├── CacheManager.set_license_status(trial)
+        │       ├── LicenseEngine.initialize()
+        │       │       │
+        │       │       ▼
+        │       └── Unlock Application
 ```
+
+**Customer Exists After OTP Rule:**
+- After OTP verification succeeds, the backend MUST check the `customers` table for an existing record with the same email
+- If a customer record exists: return `{ success: true, customer_exists: true, open_ulc: true }`
+  - The SDK MUST NOT call `customer/register` (no duplicate registration)
+  - The SDK MUST NOT call `trial/start` (no duplicate trial, no PAID_LICENSE_EXISTS error)
+  - No `USER_EXISTS` or `PAID_LICENSE_EXISTS` errors should be returned as failures
+  - The SDK MUST set onboarding as complete and open the Universal License Center
+- If no customer record exists: return current `{ success: true, message: 'OTP verified successfully' }`
+  - The SDK proceeds normally with registration and trial creation
 
 ### Lifetime Trial Enforcement (Highest Priority — No Exceptions)
 
@@ -1147,8 +1169,16 @@ OTP is required only when identity verification is necessary, for example:
 - Query by `email + otp_code + purpose` with `AND verified = FALSE`
 - Purpose value: `trial_activation` for Welcome flow; `license_activation` for Activation flow
 
+**OTP Customer Existence Check:**
+After OTP verification succeeds, the backend MUST check the `customers` table by email:
+- If customer exists: return `{ success: true, customer_exists: true, open_ulc: true }`
+- If customer does not exist: return `{ success: true, message: 'OTP verified successfully' }`
+
+This prevents duplicate registration and duplicate trial attempts, and avoids returning `USER_EXISTS` or `PAID_LICENSE_EXISTS` as errors for existing customers.
+
 **OTP Audit Logging:**
 - `otp_verified` — successful verification
+- `otp_customer_exists` — OTP verified and customer already exists (returned open_ulc)
 - `otp_already_used` — OTP was already verified (replay attempt)
 - `otp_expired` — OTP found but past expiry
 - `otp_verify_failed` — invalid OTP code attempted
@@ -1430,7 +1460,7 @@ The following routes already work correctly and need no changes:
 | `POST /api/v1/license` | ✅ Keep | Validate, activate, deactivate |
 | `POST /api/v1/trial` | ✅ Keep | Start, status, convert |
 | `POST /api/v1/auth/otp/send` | ✅ Keep | Send OTP |
-| `POST /api/v1/auth/otp/verify` | ✅ Keep | Verify OTP |
+| `POST /api/v1/auth/otp/verify` | ✅ Keep | Verify OTP — returns `customer_exists`, `open_ulc` flags if customer already registered |
 | `POST /api/v1/customer/register` | ✅ Keep | Register customer |
 | `POST /api/v1/request` | ✅ Keep | Universal request form |
 | `GET /api/v1/countries` | ✅ Keep | Country list |
@@ -1829,6 +1859,7 @@ Implement support:
   - `POST /internal/backend/admin/communication/status` — admin conversation status update
 - **Trial enforcement**: Added `TRIAL_ALREADY_CONSUMED` check in `POST /api/v1/trial` — email-based lifetime trial enforcement, audit logging for rejection
 - **Store module fix**: Fixed `getPublicProducts()` in `softwareStoreService.ts` — removed silent error swallowing, now properly throws errors to enable page error handling
+- **OTP customer existence check**: Updated `POST /api/v1/auth/otp/verify` to check `customers` table after verification. If customer exists, returns `{ success: true, customer_exists: true, open_ulc: true }` instead of requiring a second round-trip. Prevents duplicate registration, duplicate trial, and PAID_LICENSE_EXISTS errors for existing customers.
 - **Build**: `npm run build` passes — all routes compile, no type errors
 
 **Remaining:**
@@ -1853,6 +1884,7 @@ Implement support:
 - ✅ Python runtime generator updated with all communication methods
 - ✅ Lifetime trial enforcement: TRIAL_ALREADY_CONSUMED endpoint (email-based)
 - ✅ Store module error handling fixed
+- ✅ OTP customer existence check: POST /api/v1/auth/otp/verify returns customer_exists/open_ulc for existing customers
 - ⬜ Fresh SDK generates for TypeScript
 - ⬜ Fresh SDK generates for Python
 
