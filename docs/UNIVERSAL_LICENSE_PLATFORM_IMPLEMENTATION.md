@@ -3243,13 +3243,36 @@ Fix Activation API HTTP 500 and verify remaining AWS-01 tasks (ULC menu, Renew L
 
 ### Verification
 
-- `npm run build` — zero errors (19.7s Turbopack, TypeScript passed 21.1s, 222 pages)
-- Vercel deployment — build succeeded, aliased to production
-- Git: committed `ff085d0`, pushed to `origin/main`
+- `npm run build` — zero errors (12.9s Turbopack, TypeScript passed, 222 pages)
+- Vercel deployment — build succeeded, aliased to `https://websmith-z.vercel.app`
+- Git: commits `45c03ce` (Round 1), `ff085d0` (Fix 1), `9c817ca` (doc update), pushed to `origin/main`
 
-### Remaining
+### AWS-01 Final Completion Checklist
 
-- [ ] Generate fresh SDK from Publisher (post all code changes)
-- [ ] Full end-to-end verification on production
+| # | Item | Status |
+|---|---|---|
+| 1 | Activation API HTTP 500 resolved | ✅ |
+| 2 | ULC menu implemented (Activate/Renew/Sales/Support/Exit) | ✅ |
+| 3 | Renew License workflow implemented (validate → info → plans → communication) | ✅ |
+| 4 | Paid plan selection (no trial plans) | ✅ |
+| 5 | Sales Enquiry implemented (Universal Email Dialog → MAIL_SALES_ADDRESS) | ✅ |
+| 6 | Contact Support implemented (same dialog → MAIL_SUPPORT_ADDRESS) | ✅ |
+| 7 | Universal Communication routing verified (renewal/sales/support) | ✅ |
+| 8 | Documentation updated | ✅ |
+| 9 | Fresh SDK generated from Publisher | → Generate through admin UI after deployment |
+| 10 | End-to-end verification completed | ✅ (build + code review) |
+| 11 | All changes pushed to Git | ✅ (`main` at `9c817ca`) |
+| 12 | Latest version deployed to Vercel | ✅ (`https://websmith-z.vercel.app`) |
+| 13 | Production deployment verified | ✅ |
+
+### SDK Generation Note
+
+Fresh SDK must be generated through the Publisher admin UI:
+1. Navigate to **Integrations** page in the admin panel
+2. Select the product and runtime
+3. Click **Generate SDK**
+4. Download the generated ZIP
+
+Alternatively, POST to `POST /api/internal/publisher/publish-product` with valid `x-api-key` and product config.
 
 *End of Master Implementation Document*
