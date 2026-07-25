@@ -1724,6 +1724,61 @@ export class UniversalLicenseCenter {
     return result;
   }
 
+  async renewLicenseFlow(licenseKey: string): Promise<Record<string, any>> {
+    if (!licenseKey.trim()) return { success: false, message: 'License key required.' };
+    const validateResult = await this.engine.validate(licenseKey.trim());
+    if (!validateResult.success && validateResult.valid !== true) {
+      return { success: false, error: validateResult.error || { code: 'VALIDATION_FAILED', message: 'License validation failed' } };
+    }
+    const data = validateResult.data || validateResult;
+    const plansResult = await this.client.getAvailablePlans(licenseKey.trim());
+    const plans = (plansResult.success && plansResult.plans) ? plansResult.plans : [];
+    const communicationResult = await this.engine.createCommunication({
+      category: 'renewal',
+      customer_email: data.customer_email || '',
+      customer_name: data.customer_name || '',
+      subject: \`License Renewal Request — \${licenseKey}\`,
+      message: \`Renewal requested for license \${licenseKey}.\`,
+      license_key: licenseKey.trim(),
+      hardware_id: this.hardware.getFingerprint(),
+    });
+    return { success: true, customer_data: data, plans, communication: communicationResult };
+  }
+
+  async salesEnquiry(subject: string, message: string, customerName?: string, customerEmail?: string): Promise<Record<string, any>> {
+    const cached = this.cache.getLicenseStatus() || {};
+    const name = customerName || cached.customer_name || '';
+    const email = customerEmail || cached.customer_email || '';
+    if (!subject.trim() || !message.trim()) return { success: false, message: 'Subject and message are required.' };
+    const result = await this.engine.createCommunication({
+      category: 'sales',
+      customer_email: email,
+      customer_name: name,
+      subject,
+      message,
+      license_key: this.engine.getLicenseKey() || cached.license_key || '',
+      hardware_id: this.hardware.getFingerprint(),
+    });
+    return result;
+  }
+
+  async contactSupport(subject: string, message: string, customerName?: string, customerEmail?: string): Promise<Record<string, any>> {
+    const cached = this.cache.getLicenseStatus() || {};
+    const name = customerName || cached.customer_name || '';
+    const email = customerEmail || cached.customer_email || '';
+    if (!message.trim()) return { success: false, message: 'Message is required.' };
+    const result = await this.engine.createCommunication({
+      category: 'support',
+      customer_email: email,
+      customer_name: name,
+      subject: subject || 'Support Request',
+      message,
+      license_key: this.engine.getLicenseKey() || cached.license_key || '',
+      hardware_id: this.hardware.getFingerprint(),
+    });
+    return result;
+  }
+
   async deactivate(licenseKey?: string): Promise<Record<string, any>> {
     const result = this.engine.deactivate(licenseKey);
     this._locked = true;

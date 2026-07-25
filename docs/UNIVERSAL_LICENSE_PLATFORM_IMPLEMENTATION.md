@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-25
-> Status: Phases 1-14 Complete — Phase 15 (Communication Architecture) In Progress — Section 0A (Existing Customer Validation Rules) Active
+> Status: Phases 1-14 Complete — Phase 15 (Communication Architecture) In Progress — Section 0A Active — Locked Menu Redesign (Activate/Renew/Sales/Support) Pending Implementation
 
 ---
 
@@ -559,9 +559,10 @@ When an existing customer enters the ULC:
 - **Never** show Customer Name, Product, Plan, Expiry, Status, Device Count, or Activation information
 - **Never** fetch license details from the server without explicit user action
 - The ULC locked menu must show only:
-  - `1. Validate License` (validate current hardware)
-  - `2. Enter License Key` (manual key entry for activation)
-  - `9. Contact Support`
+  - `1. Activate License`
+  - `2. Renew License`
+  - `3. Sales Enquiry`
+  - `4. Contact Support`
   - `0. Exit`
 
 ### Rule 0A-2 — Validation Is the Single Source of Truth
@@ -1087,6 +1088,148 @@ Activation Dialog
 - Hardware already activated — return `success: true, already_activated: true` → show "Already activated on this device. Continue using application."
 - Validation success — show customer info (name, email, product, plan, status, expiry), enable activation flow
 
+### Renew License Workflow
+
+```
+Customer selects: Renew License (option 2)
+        │
+        ▼
+Show: "Enter Last License Key" (text entry)
+        │
+        ▼
+POST /api/v1/license?action=validate
+        │
+        ├── LICENSE NOT FOUND (404)
+        │   └── Show: "License key not found. Please check and try again."
+        │
+        ├── LICENSE_EXPIRED
+        │   ├── Show: "License expired. Proceeding with renewal..."
+        │   └── Continue to customer info (renewal still allowed for expired)
+        │
+        ├── LICENSE_REVOKED / LICENSE_INACTIVE / LICENSE_DELETED
+        │   └── Show business state message, direct to Contact Support
+        │
+        └── LICENSE VALID (active or expired)
+                │
+                ▼
+        Auto-load (read-only display):
+                ├── Customer Name
+                ├── Email
+                ├── Product
+                ├── Current Plan
+                ├── Current Expiry
+                ├── License Status
+                └── Days Remaining
+                │
+                ▼
+        Load Available Paid Plans
+                │
+                ├── Call GET /api/v1/license/available-plans (or equivalent)
+                ├── Show only active paid plans from the plans table
+                ├── Never display Trial plans
+                ├── Allow customer to select a different paid plan:
+                │   ├── Upgrade (higher tier)
+                │   ├── Downgrade (lower tier)
+                │   └── Same plan renewal
+                │
+                ▼
+        Customer selects plan
+                │
+                ▼
+        Generate Renewal Request via Universal Communication System
+                │
+                ├── Open Universal Email Dialog (pre-filled)
+                │   ├── Auto-filled: Customer Name, Email, Product,
+                │   │   Current Plan, Hardware ID, License Key,
+                │   │   Selected Plan, SDK Version, Runtime
+                │   ├── Customer enters: Subject, Message (optional)
+                │   └── Category: renewal
+                │
+                ├── POST /api/v1/communication/create
+                │   ├── category: "renewal"
+                │   ├── Routes to MAIL_SUPPORT_ADDRESS
+                │   └── Creates conversation in communication_conversations
+                │
+                ├── Success:
+                │   ├── Show: "Renewal request submitted. Our team will contact you."
+                │   ├── Show conversation_id for reference
+                │   └── Return to ULC menu
+                │
+                └── Failure (offline):
+                        ├── Queue message locally via message_queue
+                        ├── Show: "Request queued. Will be sent when connection is restored."
+                        └── Return to ULC menu
+```
+
+**Renewal Plan Selection Rules:**
+- Only active paid plans for the product are shown
+- Plans are loaded dynamically from the `plans` table (not hardcoded)
+- Trial plans are never shown in the renewal flow
+- Customer may select the same plan (simple renewal), upgrade, or downgrade
+- The selected plan is included in the renewal communication request
+- The Websmith Sales/Support Team reviews and processes the renewal request via email conversation
+
+### Sales Enquiry Workflow
+
+```
+Customer selects: Sales Enquiry (option 3)
+        │
+        ▼
+Open Universal Email Dialog
+        │
+        ├── Auto-filled (read-only):
+        │   ├── Customer Name (from cache or hardware)
+        │   ├── Email (from cache or hardware)
+        │   ├── Product (from config)
+        │   ├── Hardware ID (auto-detected)
+        │   ├── License Key (if available)
+        │   ├── SDK Version (from SDK_VERSION)
+        │   └── Runtime Type (from RUNTIME_TYPE)
+        │
+        ├── Customer enters (editable):
+        │   ├── Subject
+        │   └── Message
+        │
+        ├── POST /api/v1/communication/create
+        │   ├── category: "sales"
+        │   ├── Routes to MAIL_SALES_ADDRESS
+        │   └── Creates conversation in communication_conversations
+        │
+        └── Success:
+            ├── Show: "Sales enquiry submitted. Our team will contact you."
+            └── Return to ULC menu
+```
+
+### Contact Support Workflow
+
+```
+Customer selects: Contact Support (option 4)
+        │
+        ▼
+Open Universal Email Dialog (same UI as Sales Enquiry)
+        │
+        ├── Same auto-filled fields as Sales Enquiry
+        ├── Customer enters: Subject, Message
+        │
+        ├── POST /api/v1/communication/create
+        │   ├── category: "support"
+        │   ├── Routes to MAIL_SUPPORT_ADDRESS
+        │   └── Creates conversation in communication_conversations
+        │
+        └── Success:
+            ├── Show: "Support request submitted. Our team will contact you."
+            └── Return to ULC menu
+```
+
+**Communication Routing:**
+| Menu Option | Communication Category | Route To |
+|-------------|----------------------|----------|
+| Renew License (2) | `renewal` | MAIL_SUPPORT_ADDRESS |
+| Sales Enquiry (3) | `sales` | MAIL_SALES_ADDRESS |
+| Contact Support (4) | `support` | MAIL_SUPPORT_ADDRESS |
+
+Both Sales Enquiry and Contact Support use the **identical** Universal Email Dialog. The only difference is the communication category and the destination mailbox. The UI is the same — one reusable dialog with category-based routing.
+
 ---
 
 ## SECTION 5 — Universal License Center
@@ -1178,11 +1321,14 @@ Review every customer-facing license dialog. Maintain one universal design langu
 - Single-character menu options (1-9, 0) for all choices
 - Consistent spacing: one blank line before and after menus
 
-**Locked menu** shows only context-appropriate actions:
-- Unlicensed: Start Free Trial (1)
-- Force activation: Validate License (1), Enter License Key (2)
-- Expired/reactivation: Validate License (1), Renew License (3), Reactivate License (4)
-- Always: Contact Support (9), Exit (0)
+**Locked menu (existing customers — force_activation state):**
+- Activate License (1) — enter key → validate → OTP → activate
+- Renew License (2) — enter last key → validate → select plan → send via Communication System
+- Sales Enquiry (3) — Universal Email Dialog → routed to Sales conversation
+- Contact Support (4) — Universal Email Dialog → routed to Support conversation
+- Exit (0)
+
+**Note:** New customers (unlicensed state) see the Welcome dialog, not this menu. The locked menu above is only for existing customers who have completed onboarding.
 
 **Unlocked menu** shows:
 - View License Status (1)
@@ -1847,16 +1993,20 @@ Implement license activation:
 
 ### Phase 7 — Renewal Workflow
 
-Implement renewal:
-- Verify license
-- Load customer
-- Load current plan
-- Load available plans
-- Auto-fill customer info
-- Select new plan
-- Create renewal request
-- Refresh after approval
-- Unlock
+Implement renewal (matching the detailed Renew License Workflow in Section 4):
+- Menu option 2 in locked ULC: "Renew License"
+- Prompt customer to enter last license key
+- Validate via `POST /api/v1/license?action=validate`
+- Handle business states: expired (allow), revoked/inactive/deleted (redirect to support)
+- Auto-load customer/license info on valid key (read-only: name, email, product, plan, expiry, status, days remaining)
+- Load available paid plans from `plans` table (no trial plans)
+- Allow plan selection: upgrade, downgrade, or same plan renewal
+- Generate renewal request through Universal Communication System (category: renewal)
+- Pre-fill Universal Email Dialog with all customer/license/plan info
+- POST /api/v1/communication/create with category "renewal"
+- Route to MAIL_SUPPORT_ADDRESS
+- Show confirmation with conversation_id
+- Queue offline if connection fails
 
 ### Phase 8 — Reactivation Workflow
 
@@ -3048,6 +3198,20 @@ Existing customers who previously activated a license and then launched the ULC 
 - [ ] Python runtime ULC Tkinter GUI: add "Validate" button + validate_hardware dialog in locked menu
 - [ ] Python runtime ULC `_activate_license`: update business-state error code display
 - [ ] Bun template ULC: mirror TS template changes
+
+### Next Implementation Phase — Locked Menu Redesign
+
+**Required changes (documented above per AWS-01):**
+
+1. Update ULC locked menu to: 1. Activate License, 2. Renew License, 3. Sales Enquiry, 4. Contact Support, 0. Exit
+2. Implement Renew License workflow (Section 4 — Renew License Workflow):
+   - Enter last license key → validate → show customer/plan info → load paid plans → select plan → Universal Communication System (renewal category) → confirmation
+3. Implement Sales Enquiry (Section 4 — Sales Enquiry Workflow):
+   - Universal Email Dialog → category: sales → routes to MAIL_SALES_ADDRESS
+4. Verify Contact Support routes to MAIL_SUPPORT_ADDRESS
+5. Update backend `available-plans` endpoint if needed (filter out trial plans)
+6. Generate fresh SDK
+7. Build verification, commit, deploy to Vercel
 
 ---
 
