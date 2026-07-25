@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       const recipientEmail = newEmail || req.customer_email;
       if (recipientEmail && BREVO_API_KEY) {
         try {
-          emailSent = await sendEmail(client, 'reactivation_approved', {
+          const emailResult = await sendEmail(client, 'reactivation_approved', {
             email: recipientEmail,
             name: newName || req.customer_name || '',
           }, {
@@ -156,6 +156,10 @@ export async function POST(request: NextRequest) {
             plan_name: req.plan || '',
             expiry_date: license.expiry_date ? license.expiry_date.split('T')[0] : '',
           });
+          emailSent = emailResult.success;
+          if (!emailResult.success) {
+            console.error('Approval email error:', emailResult.error);
+          }
         } catch (emailError) {
           console.error('Approval email error:', emailError);
         }

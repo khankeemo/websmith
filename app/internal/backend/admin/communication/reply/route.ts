@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       const emailTemplate = CATEGORY_ROUTE_MAP[conv.category] || 'support_reply';
       const adminEmail = CATEGORY_ADMIN_EMAIL_MAP[conv.category] || process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com';
       try {
-        await sendEmail(
+        const emailResult = await sendEmail(
           pool,
           emailTemplate,
           { email: adminEmail, name: conv.category === 'sales' ? 'Sales' : 'Support' },
@@ -99,6 +99,14 @@ export async function POST(request: NextRequest) {
             message,
           }
         );
+        if (!emailResult.success) {
+          console.error(`[Admin Comm] Reply email delivery failed for ${conversation_id}:`, emailResult.error);
+          await client.query(
+            `INSERT INTO audit_logs (event_type, message, timestamp)
+             VALUES ($1, $2, $3)`,
+            ['email_failed', `Admin reply email failed for ${conversation_id}: ${emailResult.error || 'Unknown error'}`, now]
+          );
+        }
       } catch (emailError: any) {
         console.error(`[Admin Comm] Reply email delivery failed for ${conversation_id}:`, emailError?.message || emailError);
         await client.query(

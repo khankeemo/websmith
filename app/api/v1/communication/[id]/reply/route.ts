@@ -150,7 +150,7 @@ export async function POST(
 
     if (process.env.BREVO_API_KEY) {
       try {
-        await sendEmail(
+        const emailResult = await sendEmail(
           pool,
           emailTemplate,
           { email: adminEmail, name: conv.category === 'sales' ? 'Sales' : 'Support' },
@@ -161,6 +161,9 @@ export async function POST(
             message: message,
           }
         );
+        if (!emailResult.success) {
+          console.error(`[Communication] Reply email delivery failed for ${id}:`, emailResult.error);
+        }
       } catch (emailError: any) {
         console.error(`[Communication] Reply email delivery failed for ${id}:`, emailError?.message || emailError);
         try {

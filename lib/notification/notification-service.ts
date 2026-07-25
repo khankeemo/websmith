@@ -232,9 +232,9 @@ export async function triggerNotification(
 
     if (emailTo && config.email_enabled) {
       try {
-        const emailSent = await sendEmail(client, eventType, { email: emailTo, name: ctx.customer_name }, allData);
-        result.emailSent = emailSent;
-        await writeNotificationLog(client, eventType, 'email', emailTo, emailSent ? 'sent' : 'failed', undefined, emailSent ? undefined : 'Email send failed', ctx);
+        const emailResult = await sendEmail(client, eventType, { email: emailTo, name: ctx.customer_name }, allData);
+        result.emailSent = emailResult.success;
+        await writeNotificationLog(client, eventType, 'email', emailTo, emailResult.success ? 'sent' : 'failed', emailResult.messageId, emailResult.success ? undefined : (emailResult.error || 'Email send failed'), ctx);
       } catch (emailError) {
         console.error(`Email send error for ${eventType}:`, emailError);
         await writeNotificationLog(client, eventType, 'email', emailTo, 'error', undefined, String(emailError), ctx);

@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       ].join('\n');
 
       try {
-        const emailSent = await sendEmail(
+        const emailResult = await sendEmail(
           pool,
           'admin_notification',
           { email: SUPPORT_EMAIL, name: 'Support' },
@@ -149,8 +149,10 @@ export async function POST(request: NextRequest) {
             message: emailBody,
           }
         );
-        if (!emailSent) {
-          console.error(`[Reactivation] Email delivery failed for request ${reqId}`);
+        if (!emailResult.success) {
+          console.error(`[Reactivation] Email delivery failed for request ${reqId}:`, emailResult.error);
+        } else {
+          console.log(`[Reactivation] Admin notification email sent for ${reqId}`, emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
         }
       } catch (emailError) {
         console.error(`[Reactivation] Email send error for request ${reqId}:`, emailError instanceof Error ? emailError.message : emailError);

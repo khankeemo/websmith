@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { validateApiKey } from '@/lib/public-api/auth';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest } from '@/lib/public-api/audit';
+import { sendEmail } from '@/lib/email/brevo';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -14,37 +15,6 @@ const pool = new Pool({
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-async function sendOTPEmail(email: string, otp: string): Promise<boolean> {
-  try {
-    const apiKey = process.env.BREVO_API_KEY;
-    if (!apiKey) {
-      console.warn('[OTP send] BREVO_API_KEY not configured');
-      return false;
-    }
-    const senderEmail = process.env.MAIL_FROM_ADDRESS || process.env.BREVO_SENDER_EMAIL || process.env.SENDER_EMAIL || 'no-reply@websmithdigital.com';
-    const senderName = process.env.BREVO_SENDER_NAME || 'WebSmith License';
-    const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
-      body: JSON.stringify({
-        sender: { name: senderName, email: senderEmail },
-        to: [{ email }],
-        subject: 'Your OTP Verification Code',
-        htmlContent: `<html><body style="font-family:Arial;padding:20px;background:#f4f4f4"><div style="max-width:500px;margin:auto;background:white;border-radius:10px;padding:30px"><h2 style="text-align:center;color:#333">Your Verification Code</h2><div style="font-size:36px;font-weight:bold;text-align:center;color:#3b82f6;background:#eff6ff;padding:20px;border-radius:8px;letter-spacing:5px;margin:20px 0">${otp}</div><p style="text-align:center;color:#555">Valid for <strong>10 minutes</strong>.</p></div></body></html>`,
-        textContent: `Your OTP verification code is: ${otp}. Valid for 10 minutes.`,
-      }),
-    });
-    if (!resp.ok) {
-      const errorText = await resp.text().catch(() => 'Unknown error');
-      console.error(`[OTP send] Brevo API returned ${resp.status}: ${errorText}`);
-    }
-    return resp.ok;
-  } catch (err) {
-    console.error('[OTP send] Email send error:', err);
-    return false;
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -92,8 +62,13 @@ export async function POST(request: NextRequest) {
       [email, otp, expiresAt]
     );
 
-    const sent = await sendOTPEmail(email, otp);
-    if (!sent) return NextResponse.json({ success: false, error: 'Failed to send OTP email' }, { status: 500 });
+    // Use centralized email service for OTP verification
+    const emailResult = await sendEmail(dbClient, 'otp_verification', { email }, { otp_code: otp });
+    if (!emailResult.success) {
+      console.error(`[OTP send] Failed to send OTP email to ${email}:`, emailResult.error);
+      return NextResponse.json({ success: false, error: 'Failed to send OTP email' }, { status: 500 });
+    }
+    console.log(`[OTP send] OTP email sent to ${email}, messageId: ${emailResult.messageId}`);
 
     await logRequest({
       apiKeyId, endpoint: '/api/v1/auth/otp/send', method: 'POST',

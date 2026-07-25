@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-      const adminEmailSent = await sendEmail(
+      const adminEmailResult = await sendEmail(
         db,
         'admin_notification',
         { email: supportEmail, name: 'Support' },
@@ -116,8 +116,10 @@ export async function POST(request: NextRequest) {
           message: `New ${request_type} request from ${customer_name || 'Anonymous'} (${customer_email || 'no email'}):\n\n${message}`,
         }
       );
-      if (!adminEmailSent) {
-        console.error(`[Request] Admin notification email failed for request ${requestId}`);
+      if (!adminEmailResult.success) {
+        console.error(`[Request] Admin notification email failed for request ${requestId}:`, adminEmailResult.error);
+      } else {
+        console.log(`[Request] Admin notification email sent for ${requestId}`, adminEmailResult.messageId ? `(messageId: ${adminEmailResult.messageId})` : '');
       }
     } catch (emailError) {
       console.error(`[Request] Admin notification email error for ${requestId}:`, emailError instanceof Error ? emailError.message : emailError);
@@ -125,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     if (customer_email) {
       try {
-        const customerEmailSent = await sendEmail(
+        const customerEmailResult = await sendEmail(
           db,
           'welcome_customer',
           { email: customer_email, name: customer_name || 'Valued Customer' },
@@ -136,8 +138,10 @@ export async function POST(request: NextRequest) {
             order_number: requestId,
           }
         );
-        if (!customerEmailSent) {
-          console.error(`[Request] Customer confirmation email failed for request ${requestId}`);
+        if (!customerEmailResult.success) {
+          console.error(`[Request] Customer confirmation email failed for request ${requestId}:`, customerEmailResult.error);
+        } else {
+          console.log(`[Request] Customer confirmation email sent for ${requestId}`, customerEmailResult.messageId ? `(messageId: ${customerEmailResult.messageId})` : '');
         }
       } catch (emailError) {
         console.error(`[Request] Customer confirmation email error for ${requestId}:`, emailError instanceof Error ? emailError.message : emailError);

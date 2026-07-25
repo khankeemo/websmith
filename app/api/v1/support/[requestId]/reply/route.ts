@@ -184,7 +184,7 @@ export async function POST(
             message: emailBody,
           }
         );
-        console.log(`[Support Reply] Email notification for ${requestId}: ${emailResult ? 'success' : 'failed'}`);
+        console.log(`[Support Reply] Email notification for ${requestId}: ${emailResult.success ? 'success' : 'failed'}`, emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
       } catch (emailError: any) {
         console.error(`[Support Reply] Email notification failed for ${requestId}:`, emailError?.message || emailError);
       }

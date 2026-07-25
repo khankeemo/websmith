@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
         `UPDATE conversation_messages SET email_sent = $1, email_error = $2
          WHERE request_id = $3 AND sender_type = 'admin' AND message = $4
          ORDER BY created_at DESC LIMIT 1`,
-        [emailResult, emailResult ? null : 'Email delivery failed', request_id, reply_message]
+        [emailResult.success, emailResult.success ? null : (emailResult.error || 'Email delivery failed'), request_id, reply_message]
       );
     }
 

@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
             message: emailBody,
           }
         );
-        console.log(`[Support] Email sent for ${requestId}:`, emailResult ? 'success' : 'failed');
+        console.log(`[Support] Email sent for ${requestId}:`, emailResult.success ? 'success' : 'failed', emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
       } catch (emailError: any) {
         console.error(`[Support] Email delivery failed for ${requestId}:`, emailError?.message || emailError);
         try {

@@ -55,8 +55,10 @@ const EMAIL_ROUTES: Record<string, { sender: string; name: string }> = {
   otp_verification: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   license_activated: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   activation_success: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  activation_confirmation: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   activation_failed: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   trial_started: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  trial_expired: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   license_created: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   license_renewed: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   license_expired: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
@@ -68,6 +70,7 @@ const EMAIL_ROUTES: Record<string, { sender: string; name: string }> = {
   welcome_customer: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   reactivation_approved: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   reactivation_rejected: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  password_reset: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
   admin_notification: { sender: MAIL_SUPPORT_ADDRESS, name: MAIL_SUPPORT_NAME },
   support_reply: { sender: MAIL_SUPPORT_ADDRESS, name: MAIL_SUPPORT_NAME },
   new_sales_enquiry: { sender: MAIL_SALES_ADDRESS, name: MAIL_SALES_NAME },
@@ -79,6 +82,23 @@ const EMAIL_TYPES: Record<string, {
   defaultBody: (data: Record<string, string>) => string;
   defaultPlainText: (data: Record<string, string>) => string;
 }> = {
+  // ================================================================
+  // 0. OTP VERIFICATION
+  // ================================================================
+  otp_verification: {
+    subject: 'Your OTP Verification Code',
+    defaultBody: (d) => wrapHtml('Your Verification Code', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello,</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Your OTP verification code is:</p>
+      <div style="font-size:36px;font-weight:bold;text-align:center;color:#3b82f6;background:#eff6ff;padding:20px;border-radius:8px;letter-spacing:5px;margin:20px 0">${d.otp_code || 'N/A'}</div>
+      <p style="text-align:center;color:#555">Valid for <strong>10 minutes</strong>.</p>
+      <p style="margin:12px 0 0;font-size:13px;color:#8899aa;font-style:italic">If you did not request this code, please ignore this email.</p>
+    `),
+    defaultPlainText: (d) => `Your OTP verification code is: ${d.otp_code || 'N/A'}. Valid for 10 minutes.
+
+If you did not request this code, please ignore this email.`
+  },
+
   // ================================================================
   // 1. LICENSE CREATED
   // ================================================================
@@ -731,7 +751,101 @@ If you did not submit a sales enquiry, please ignore this email.
 
 Best regards,
 ${COMPANY_NAME} Sales Team`
-  }
+  },
+
+  // ================================================================
+  // 20. TRIAL EXPIRED
+  // ================================================================
+  trial_expired: {
+    subject: 'Your {{product}} Free Trial Has Expired',
+    defaultBody: (d) => wrapHtml('Trial Expired', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Your free trial for <strong style="color:#1a1a2e">${d.product_name || 'our product'}</strong> has expired.</p>
+      ${infoTable([
+        { label: 'Product', value: d.product_name || 'N/A' },
+        { label: 'Plan', value: d.plan_name || 'Trial' },
+        { label: 'Expired On', value: d.expiry_date || 'N/A' },
+      ])}
+      <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">To continue using the software without interruption, please purchase a license from our website.</p>
+      ${btn('Purchase License', `${d.website || '#'}/pricing`)}
+      <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">If you believe this is an error or need assistance, please contact our support team.</p>
+    `),
+    defaultPlainText: (d) => `Hello ${d.customer_name || 'there'},
+
+Your free trial for ${d.product_name || 'our product'} has expired.
+
+Product: ${d.product_name || 'N/A'}
+Plan: ${d.plan_name || 'Trial'}
+Expired On: ${d.expiry_date || 'N/A'}
+
+To continue using the software without interruption, please purchase a license from our website.
+
+If you believe this is an error or need assistance, please contact our support team.
+
+Best regards,
+The ${COMPANY_NAME} Team`
+  },
+
+  // ================================================================
+  // 21. ACTIVATION CONFIRMATION
+  // ================================================================
+  activation_confirmation: {
+    subject: 'License Activation Confirmed - {{product}}',
+    defaultBody: (d) => wrapHtml('Activation Confirmed', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Your license for <strong style="color:#1a1a2e">${d.product_name || 'your product'}</strong> has been successfully activated.</p>
+      ${infoTable([
+        { label: 'Product', value: d.product_name || 'N/A' },
+        { label: 'Plan', value: d.plan_name || 'N/A' },
+        { label: 'License Key', value: `<code style="background:#eef2f7;padding:2px 8px;border-radius:4px;font-size:13px">${d.license_key || 'N/A'}</code>` },
+        { label: 'Activated Device', value: d.device_name || 'Unknown device' },
+        { label: 'Activation Date', value: d.activation_date || new Date().toLocaleDateString() },
+        { label: 'Expiry Date', value: d.expiry_date || 'No expiry' },
+      ])}
+      <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">You can now start using the software immediately. If you need to manage your devices or view your license details, visit your account dashboard.</p>
+      ${btn('Go to Dashboard', `${d.website || '#'}/dashboard`)}
+    `),
+    defaultPlainText: (d) => `Hello ${d.customer_name || 'there'},
+
+Your license for ${d.product_name || 'your product'} has been successfully activated.
+
+Product: ${d.product_name || 'N/A'}
+Plan: ${d.plan_name || 'N/A'}
+License Key: ${d.license_key || 'N/A'}
+Activated Device: ${d.device_name || 'Unknown device'}
+Activation Date: ${d.activation_date || new Date().toLocaleDateString()}
+Expiry Date: ${d.expiry_date || 'No expiry'}
+
+You can now start using the software immediately. If you need to manage your devices or view your license details, visit your account dashboard.
+
+Best regards,
+The ${COMPANY_NAME} Team`
+  },
+
+  // ================================================================
+  // 22. PASSWORD RESET
+  // ================================================================
+  password_reset: {
+    subject: 'Password Reset - {{product}}',
+    defaultBody: (d) => wrapHtml('Password Reset Request', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">We received a request to reset your password for <strong style="color:#1a1a2e">${d.product_name || 'Websmith Digital'}</strong>.</p>
+      <div style="font-size:36px;font-weight:bold;text-align:center;color:#3b82f6;background:#eff6ff;padding:20px;border-radius:8px;letter-spacing:5px;margin:20px 0">${d.otp_code || 'N/A'}</div>
+      <p style="text-align:center;color:#555">Valid for <strong>10 minutes</strong>.</p>
+      <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">If you did not request this password reset, please ignore this email or contact our support team immediately.</p>
+    `),
+    defaultPlainText: (d) => `Hello ${d.customer_name || 'there'},
+
+We received a request to reset your password for ${d.product_name || 'Websmith Digital'}.
+
+Your OTP verification code is: ${d.otp_code || 'N/A'}. Valid for 10 minutes.
+
+If you did not request this password reset, please ignore this email or contact our support team immediately.
+
+Best regards,
+The ${COMPANY_NAME} Team`
+  },
+
 };
 
 async function getTemplate(client: any, emailType: string): Promise<{ subject: string; body: string; plain_text: string } | null> {
@@ -787,10 +901,10 @@ export async function sendEmail(
   emailType: string,
   to: { email: string; name?: string },
   data: Record<string, string> = {}
-): Promise<boolean> {
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
   if (!BREVO_API_KEY) {
     console.warn(`BREVO_API_KEY not set — skipping email: ${emailType} to ${to.email}`);
-    return false;
+    return { success: false, error: 'BREVO_API_KEY not configured' };
   }
 
   try {
@@ -798,7 +912,7 @@ export async function sendEmail(
     const config = EMAIL_TYPES[emailType];
     if (!config) {
       console.warn(`Unknown email type: ${emailType}`);
-      return false;
+      return { success: false, error: 'Unknown email type' };
     }
 
     const subject = template?.subject || config.subject;
@@ -849,22 +963,25 @@ export async function sendEmail(
         hardwareId: data.hardware_id,
         supportRequestId: data.request_id,
       });
-      return false;
+      return { success: false, error: err };
     }
 
-    console.log(`Email sent: ${emailType} -> ${to.email}`);
+    const brevoResponse = await response.json();
+    const messageId = brevoResponse.messageId;
+
+    console.log(`Email sent: ${emailType} -> ${to.email} (messageId: ${messageId})`);
     await logEmailDelivery(client, {
       emailType,
       sender: senderEmail,
       recipient: to.email,
       subject,
       status: 'sent',
-      response: 'ok',
+      response: messageId || 'ok',
       licenseKey: data.license_key,
       hardwareId: data.hardware_id,
       supportRequestId: data.request_id,
     });
-    return true;
+    return { success: true, messageId };
 
   } catch (error) {
     console.error(`Email send error [${emailType} -> ${to.email}]:`, error);
@@ -880,6 +997,6 @@ export async function sendEmail(
         hardwareId: data.hardware_id,
       });
     } catch {}
-    return false;
+    return { success: false, error: (error as Error)?.message || 'Unknown error' };
   }
 }

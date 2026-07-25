@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     const route = CATEGORY_ROUTES[category];
     if (process.env.BREVO_API_KEY) {
       try {
-        await sendEmail(
+        const emailResult = await sendEmail(
           pool,
           route.template,
           { email: route.email, name: category === 'sales' ? 'Sales' : 'Support' },
@@ -154,6 +154,9 @@ export async function POST(request: NextRequest) {
             category: category,
           }
         );
+        if (!emailResult.success) {
+          console.error(`[Communication] Email delivery failed for ${conversationId}:`, emailResult.error);
+        }
       } catch (emailError: any) {
         console.error(`[Communication] Email delivery failed for ${conversationId}:`, emailError?.message || emailError);
         try {

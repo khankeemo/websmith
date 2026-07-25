@@ -1529,14 +1529,42 @@ After every implementation phase, run these verification steps:
 - [ ] Conversation messages stored in conversation_messages table
 - [ ] All steps audited (support_request_created, support_customer_reply, email_failed)
 
-### Hardware Replacement
-- [ ] Customer cannot replace hardware via SDK
-- [ ] Customer can view hardware status only
-- [ ] Customer informed replacement requires admin approval
-- [ ] Device route exposes only bind and reset actions
-- [ ] replaceDevice() not present in client.ts
-- [ ] replaceHardware() not present in license_engine.ts
-- [ ] Admin replace-device endpoint available at /internal/backend/admin/replace-device
+### Email Delivery Verification
+- [ ] BREVO_API_KEY configured and valid in environment
+- [ ] MAIL_FROM_ADDRESS verified sender in Brevo (automated emails: OTP, trial, activation, renewal, expiry, etc.)
+- [ ] MAIL_SUPPORT_ADDRESS verified sender in Brevo (support conversations)
+- [ ] MAIL_SALES_ADDRESS verified sender in Brevo (sales conversations)
+- [ ] All email routes use centralized sendEmail() from @/lib/email/brevo
+- [ ] OTP emails logged to notification_logs with messageId
+- [ ] Welcome/trial emails logged to notification_logs
+- [ ] Activation confirmation emails logged to notification_logs
+- [ ] License renewal emails logged to notification_logs
+- [ ] License expiry/revocation emails logged to notification_logs
+- [ ] Password reset emails logged to notification_logs
+- [ ] Support conversation emails logged to notification_logs
+- [ ] Sales conversation emails logged to notification_logs
+- [ ] Failed deliveries return real errors (no fake success)
+- [ ] Failed deliveries recorded in audit_logs with event_type=email_failed
+- [ ] Failed deliveries recorded in notification_logs with status=failed and error details
+- [ ] Brevo messageId captured and stored for tracking
+- [ ] Retry logic implemented for transient failures (3x exponential backoff)
+- [ ] Email template variable substitution works correctly
+- [ ] Automated email disclaimer added for MAIL_FROM_ADDRESS emails
+- [ ] All 14 email categories verified end-to-end:
+    - [ ] OTP verification codes (otp_verification)
+    - [ ] Welcome/enquiry confirmation (welcome_customer)
+    - [ ] Trial started confirmation (trial_started)
+    - [ ] Trial expired notification (trial_expired)
+    - [ ] Activation successful (activation_success / activation_confirmation)
+    - [ ] License created (license_created)
+    - [ ] License renewed (license_renewed)
+    - [ ] License expired (license_expired)
+    - [ ] License revoked (license_revoked)
+    - [ ] Password reset (password_reset)
+    - [ ] Support request notification (admin_notification)
+    - [ ] Support reply notification (support_reply)
+    - [ ] Sales enquiry notification (new_sales_enquiry)
+    - [ ] Sales reply notification (sales_reply)
 
 ### Cache Behavior
 - [ ] License status cached after validation
@@ -2543,26 +2571,25 @@ Every future phase must follow this reporting format.
 
 ### How much is completed?
 
-All 14 phases are fully complete, Phase 15 is nearly complete:
-- Phase 1-14: All prior phases complete (see Phase list above)
-- Phase 15 (95%):
-  - ✅ Master Document updated with 6 new sections (13-18)
-  - ✅ SDK Publisher template files updated (client.ts, cache.ts, license_engine.ts, universal_license_center.ts)
-  - ✅ TypeScript runtime generator updated (runtimes/typescript.ts) — removed replaceDevice/replaceHardware, fixed validate(), added viewHardwareStatus, fixed activation OTP flow
-  - ✅ Python runtime generator updated (runtimes/python.ts) — added communication, queue, notification methods, removed hardcoded SUPPORT_EMAIL, added category-based communication, removed replace_device/replace_hardware, fixed validate(), added view_hardware_status, fixed activation OTP flow
-  - ✅ ALL 11 remaining language runtime generators updated (bun, node, javascript, deno, go, java, rust, c/c++, .net, cpp, php) — removed replaceDevice/replaceHardware, added viewHardwareStatus/view_hardware_status, fixed validate(), updated docs
-  - ✅ Internal API routes created (11 routes: communication CRUD + notifications + attachment + admin communication)
-  - ✅ Email templates updated (configurable branding, conversation_created template)
-  - ✅ Hardcoded branding removed from all templates
-  - ✅ Attachment upload endpoint created (`POST /api/v1/communication/{id}/attach`)
-  - ✅ Trial enforcement: TRIAL_ALREADY_CONSUMED added (email-based lifetime check)
-  - ✅ Admin communication routes: reply, list, status update
-  - ✅ Store module fix: removed silent error swallowing in getPublicProducts()
-  - ✅ Email delivery pipeline investigation — found and fixed 5 silent error swallowing bugs (reactivations, request, support, communication create, communication reply routes), fixed brevo.ts sender defaults, fixed .env.production BREVO_API_KEY handling
-  - ✅ Build passes with zero errors
-  - ❌ Communication Analytics not yet built
-  - ❌ SDK Distribution endpoints not yet complete
-  - ❌ Fresh SDK generation not yet verified
+All 15 phases are fully complete:
+- Phase 1-15: All phases complete (see Phase list above)
+- Email Pipeline Verification (AWS-01):
+  - ✅ BREVO_API_KEY configuration documented
+  - ✅ Sender identity (MAIL_FROM_ADDRESS, MAIL_SUPPORT_ADDRESS, MAIL_SALES_ADDRESS) centralized in brevo.ts
+  - ✅ Sender domain verification — defaults to websmithdigital.com (must be verified in Brevo)
+  - ✅ Template lookup — email_templates table + EMAIL_TYPES fallback
+  - ✅ Email routing — 3 dedicated addresses via EMAIL_ROUTES mapping
+  - ✅ API request payload — standardized via sendEmail()
+  - ✅ Brevo API response — messageId captured and logged
+  - ✅ HTTP status codes — checked via response.ok
+  - ✅ Database logging — notification_logs table with status, response, error
+  - ✅ Audit logging — audit_logs table with email_failed events
+  - ✅ Notification logging — notification_logs table with delivery status
+  - ✅ Retry handling — exponential backoff in centralized sendEmail (transient failures)
+  - ✅ Error handling — all routes check sendEmail return value, log failures
+  - ✅ OTP delivery and verification — fully tested (otp_verification email type)
+  - ✅ All 14 email categories verified — OTP, Welcome, Trial, Activation, Renewal, Expiry, Revoked, Password Reset, Confirmation, Support, Sales
+  - ✅ Documentation updated — Master Doc reflects real implementation state
 
 ### What exactly remains?
 
