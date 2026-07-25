@@ -1791,6 +1791,7 @@ Implement support:
 - **BREVO_SENDER_EMAIL fallback**: OTP send route uses `process.env.BREVO_SENDER_EMAIL || process.env.SENDER_EMAIL`.
 - **Lib email fix**: Fixed missing `const EMAIL_TYPES:` declaration in `lib/email/brevo.ts` that caused build failure.
 - **Doc consolidation**: Merged all content from `docs/AWS-01-FIXES.md` into appropriate sections of this master document. Deleted `docs/AWS-01-FIXES.md`.
+- **Python template syntax fix**: Fixed template string concatenation bug in `runtimes/python.ts` line 1224 — `return status` and `return result` from adjacent methods merged onto one line, producing `return status        return result` in generated `license_engine.py`. Removed orphan `return result` fragment.
 
 ### Phase 15 — Universal Communication Architecture 🔄 IN PROGRESS
 
@@ -2601,14 +2602,28 @@ All 15 phases are fully complete:
 
 ### What exactly remains?
 
-1. Generate fresh TypeScript SDK and verify all workflows
-2. Generate fresh Python SDK and verify all workflows
-3. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
-4. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
-5. Database review — migrate legacy `requests` table into universal conversation architecture
-6. Store Module — verify frontend rendering of products after service fix
+1. ✅ Python syntax bug fixed (`runtimes/python.ts:1224`)
+2. Generate fresh TypeScript SDK and verify all workflows
+3. Generate fresh Python SDK and verify all workflows
+4. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
+5. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
+6. Database review — migrate legacy `requests` table into universal conversation architecture
+7. Store Module — verify frontend rendering of products after service fix
 
 ---
+
+## Session Summary — 2026-07-25 (AWS-01 Activation Bug Fix — License Key Auto-Load, Python Syntax Fix)
+
+### Python SDK Syntax Error Fix
+
+Root cause: Template string concatenation bug in `runtimes/python.ts:1224` — `return status` and `return result` from two adjacent generated methods were merged onto one line due to a missing newline in the template string, producing `return status        return result` in the generated `license_engine.py`.
+
+Fix:
+- `runtimes/python.ts:1224` — removed orphan `return result` fragment, leaving only `return status` as the proper return of `view_hardware_status()`
+
+Verification:
+- `npx next build` — zero errors
+- No other concatenation bugs found across all 13 runtime generators (searched for `return \w+\s+return ` pattern)
 
 ## Session Summary — 2026-07-25 (AWS-01 Activation Bug Fix — License Key Auto-Load)
 
@@ -2648,11 +2663,12 @@ Files fixed:
 
 **Build Verification:** `npx next build` — **zero errors**
 
-### Remaining (4 items)
-1. Generate fresh TypeScript SDK and verify all workflows end-to-end
-2. Generate fresh Python SDK and verify all workflows end-to-end
-3. Communication Analytics dashboard
-4. SDK Distribution — complete "Send SDK by Email" with delivery tracking
+### Remaining (5 items)
+1. ✅ Python syntax bug fixed — template string concatenation in `runtimes/python.ts:1224`
+2. Generate fresh TypeScript SDK and verify all workflows end-to-end
+3. Generate fresh Python SDK and verify all workflows end-to-end
+4. Communication Analytics dashboard
+5. SDK Distribution — complete "Send SDK by Email" with delivery tracking
 
 ---
 

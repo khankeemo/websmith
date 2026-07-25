@@ -1221,7 +1221,7 @@ class LicenseEngine:
             status["registered_hardware_id"] = cached.get('hardware_id')
             status["matched"] = status["current_hardware_id"] == cached.get('hardware_id')
         status["message"] = "Hardware replacement requires administrator approval. Please contact support."
-        return status        return result
+        return status
 
     def bind_device(self, license_key: Optional[str] = None, device_name: Optional[str] = None) -> Dict[str, Any]:
         key = license_key or self._license_key
