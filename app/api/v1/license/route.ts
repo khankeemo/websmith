@@ -149,7 +149,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    if (!license_key) {
+    // hardware_id-only validation is allowed for validate action (existing customer lookup)
+    if (!license_key && !(action === 'validate' && hardware_id)) {
       return NextResponse.json({
         success: false,
         error: {
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
     // 6. PROCESS ACTION
     // ============================================================
     
-    const normalizedLicenseKey = license_key.toUpperCase();
+    const normalizedLicenseKey = license_key ? license_key.toUpperCase() : '';
     const now = new Date();
     const nowISO = now.toISOString();
     
@@ -174,6 +175,36 @@ export async function POST(request: NextRequest) {
         // ============================================================
         // 6a. VALIDATE LICENSE
         // ============================================================
+        
+        let licenseLookupKey = '';
+        let validateByHardware = false;
+
+        if (!license_key && hardware_id) {
+          // Hardware-only validation — look up by activation
+          validateByHardware = true;
+          const activationLookup = await client.query(
+            `SELECT a.license_key FROM activations a
+             WHERE a.hardware_id = $1 AND a.is_active = true
+             LIMIT 1`,
+            [hardware_id]
+          );
+          if (activationLookup.rows.length > 0) {
+            licenseLookupKey = activationLookup.rows[0].license_key;
+          } else {
+            // No activation found for this hardware
+            client.release();
+            client = null;
+            return NextResponse.json({
+              success: false,
+              error: {
+                code: 'NO_LICENSE_FOUND',
+                message: 'No license found for this hardware. Please enter a license key to activate.'
+              }
+            }, { status: 404 });
+          }
+        } else {
+          licenseLookupKey = normalizedLicenseKey;
+        }
         
         const validateResult = await client.query(
           `SELECT 
@@ -197,7 +228,7 @@ export async function POST(request: NextRequest) {
           FROM licenses l
           LEFT JOIN products p ON l.product_id = p.product_id
           WHERE l.license_key = $1`,
-          [normalizedLicenseKey]
+          [licenseLookupKey]
         );
 
         if (validateResult.rows.length === 0) {
@@ -212,14 +243,14 @@ export async function POST(request: NextRequest) {
             ipAddress,
             userAgent,
             latencyMs: Date.now() - startTime,
-            requestRedacted: { action, license_key: '[REDACTED]' }
+            requestRedacted: { action, license_key: validateByHardware ? '[HARDWARE_LOOKUP]' : '[REDACTED]' }
           });
           
           return NextResponse.json({
             success: false,
             error: {
               code: 'LICENSE_NOT_FOUND',
-              message: 'License key not found'
+              message: validateByHardware ? 'No license found for this hardware.' : 'License key not found'
             }
           }, { status: 404 });
         }

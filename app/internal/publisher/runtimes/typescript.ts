@@ -1608,7 +1608,6 @@ export class UniversalLicenseCenter {
 
   async initialize(): Promise<any> {
     this.status = await this.engine.initialize();
-    this._locked = !this._isValidForUnlock();
     return this.status;
   }
 
@@ -1619,11 +1618,6 @@ export class UniversalLicenseCenter {
     await this.initialize();
     const statusStr = this.status?.status || 'unlicensed';
     LiveLog.log('Decision engine result', \`Status: \${statusStr}\`);
-
-    if (this._isValidForUnlock()) {
-      this._unlockApp();
-      LiveLog.log('Application unlocked', \`Status: \${statusStr}\`);
-    }
 
     if (statusStr === 'unlicensed' || !this.status) {
       if (!this.cache.isOnboardingComplete()) {
@@ -1666,8 +1660,10 @@ export class UniversalLicenseCenter {
     const result = await this.engine.startTrial(email.trim(), name.trim());
     if (result.success) {
       LiveLog.log('Trial started successfully');
-      await this.initialize();
-      this._locked = !this._isValidForUnlock();
+      this._locked = false;
+      if (this.onLicenseReady) {
+        try { this.onLicenseReady(true); } catch { }
+      }
       return { ...result, trial_started: true };
     }
     const errCode = result?.error?.code || result?.error || result?.status || '';
@@ -1689,8 +1685,10 @@ export class UniversalLicenseCenter {
     if (!licenseKey.trim()) return { success: false, message: 'License key required.' };
     const result = await this.engine.activate(licenseKey.trim());
     if (result.success) {
-      await this.initialize();
-      this._locked = !this._isValidForUnlock();
+      this._locked = false;
+      if (this.onLicenseReady) {
+        try { this.onLicenseReady(true); } catch { }
+      }
     }
     return result;
   }
@@ -1698,14 +1696,32 @@ export class UniversalLicenseCenter {
   async renew(extraDays?: number): Promise<Record<string, any>> {
     const result = await this.engine.renew(extraDays);
     if (result.success) {
-      await this.initialize();
-      this._locked = !this._isValidForUnlock();
+      this._locked = false;
+      if (this.onLicenseReady) {
+        try { this.onLicenseReady(true); } catch { }
+      }
     }
     return result;
   }
 
   async viewHardwareStatus(): Promise<Record<string, any>> {
     return this.engine.viewHardwareStatus();
+  }
+
+  async validateHardware(): Promise<Record<string, any>> {
+    return this.engine.validateHardware();
+  }
+
+  async enterLicenseKey(licenseKey: string): Promise<Record<string, any>> {
+    if (!licenseKey.trim()) return { success: false, message: 'License key required.' };
+    const result = await this.engine.activate(licenseKey.trim());
+    if (result.success) {
+      this._locked = false;
+      if (this.onLicenseReady) {
+        try { this.onLicenseReady(true); } catch { }
+      }
+    }
+    return result;
   }
 
   async deactivate(licenseKey?: string): Promise<Record<string, any>> {

@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-25
-> Status: Phases 1-14 Complete — Phase 15 (Communication Architecture) In Progress
+> Status: Phases 1-14 Complete — Phase 15 (Communication Architecture) In Progress — Section 0A (Existing Customer Validation Rules) Active
 
 ---
 
@@ -547,6 +547,88 @@ A phase is not complete until ALL of the following pass:
 
 ---
 
+## SECTION 0A — Existing Customer ULC Validation Rules (Mandatory)
+
+This section defines mandatory rules for the Universal License Center (ULC) validation workflow when an existing customer (customer_exists) is detected. These rules have the same priority as AWS-01 and must be followed for all implementation, modification, and verification.
+
+### Rule 0A-1 — ULC Opens With Hardware ID Only
+
+When an existing customer enters the ULC:
+- **Only** detect and display the Hardware ID (read-only)
+- **Never** automatically load, validate, display, cache, or activate any license
+- **Never** show Customer Name, Product, Plan, Expiry, Status, Device Count, or Activation information
+- **Never** fetch license details from the server without explicit user action
+- The ULC locked menu must show only:
+  - `1. Validate License` (validate current hardware)
+  - `2. Enter License Key` (manual key entry for activation)
+  - `9. Contact Support`
+  - `0. Exit`
+
+### Rule 0A-2 — Validation Is the Single Source of Truth
+
+The validation endpoint (`POST /api/v1/license?action=validate`) is the **exclusive** source of truth for all license decisions:
+- The UI **must never** make business decisions locally
+- The UI **must only** display the result returned by the validation API
+- The validation API determines:
+  - Whether an active license is bound to this hardware
+  - Whether the license is expired, revoked, inactive, or deleted
+  - Whether activation is allowed
+  - Whether renewal is required
+  - Whether a new license request is required
+  - Whether support intervention is needed
+
+### Rule 0A-3 — Existing Customer Validation (No Key Entry)
+
+For existing customers (customer_exists = true):
+- Validation **must** support hardware-only lookup (no license key required)
+- `POST /api/v1/license?action=validate` with `hardware_id` only
+- Backend checks `activations` table by hardware_id to find any bound license
+- Returns license information if found, or no-license state if not found
+- The customer should **not** manually enter a license key unless no license is found for their hardware
+
+### Rule 0A-4 — Validation Decision Tree
+
+After validation, the UI must display the appropriate state:
+
+| Validation Result | UI Action |
+|-------------------|-----------|
+| Active license bound to this hardware | Show license details, enable "Continue" (unlock app) |
+| Active license bound to different hardware | Show "Different hardware detected. Activate here?" with Activate option |
+| Expired license | Show "License expired. Renew required." with Renew option |
+| Revoked license | Show "License revoked. Contact support." |
+| Inactive license | Show "License inactive. Reactivate required." with Reactivate option |
+| No license found | Show "No license found for this hardware. Enter license key:" with key entry |
+| Device limit reached | Show "Device limit reached. Deactivate another device or contact support." |
+
+### Rule 0A-5 — License Details After Validation Only
+
+License information must **never** appear in the UI before validation completes:
+- **Before Validate:** Hardware ID only, empty state
+- **After Validate Success:** Customer Name, Email, Product, Plan, Status, Expiry, Device Count, Activation Status
+- **After Validate Failure:** Appropriate business state message with guidance to next action
+
+### Rule 0A-6 — No Auto-Cache on Startup
+
+`LicenseEngine.initialize()` must:
+- Detect hardware → YES
+- Load cache → YES (for onboarding_complete flag only)
+- Validate license → **NEVER** (must only be triggered by explicit user action)
+- Check trial → **NEVER** (must only be triggered by explicit user action)
+- Return status → YES (but status is `unlicensed`/`force_activation` until validation)
+
+The engine must **not** auto-validate licenses or auto-check trials during startup. These operations require explicit user action through the ULC menu.
+
+### Rule 0A-7 — All Changes in Publisher/Internal API Only
+
+All implementation changes must be made in:
+- SDK Publisher (templates, runtime generators)
+- Internal API (backend routes)
+- Documentation
+
+Generated SDKs must **never** be edited directly. Always regenerate after changes.
+
+---
+
 ## SECTION 1 — Project Rules (Permanent)
 
 | Rule | Description |
@@ -656,75 +738,50 @@ LicenseEngine.initialize()
         │
         ├── 1. Detect Hardware ──── HardwareDetector.getFingerprint()
         │
-        ├── 2. Load Cache ───────── CacheManager (license_status,
-        │                           onboarding_complete,
-        │                           has_ever_activated_paid_license)
-        │
-        ├── 3. Validate License ─── POST /api/v1/license (action: validate)
-        │
-        ├── 4. Check Trial ──────── POST /api/v1/trial (action: status)
-        │
-        └── 5. Determine State ──── Returns LicenseStatus
+        └── 2. Load Cache ───────── CacheManager (onboarding_complete only)
                                         │
                                         ▼
                               ┌─────────────────────┐
-                              │  Decision Engine     │
+                              │  Decide Entry Point  │
                               │                     │
-                              │  New Customer ──────┤──→ Welcome → Trial
-                              │  Existing Trial ────┤──→ ULC (unlocked)
-                              │  Active License ────┤──→ ULC (unlocked)
-                              │  Expired Trial ─────┤──→ Renewal/Reactivation
-                              │  Expired License ───┤──→ Renewal/Reactivation
-                              │  Invalid License ───┤──→ Activation
+                              │  onboarding_complete │
+                              │  = false ───────────┤──→ Welcome → Trial
+                              │  onboarding_complete │
+                              │  = true ────────────┤──→ Open ULC (locked)
+                              │                     │      │
+                              │                     │      └── Only hardware ID
                               └─────────────────────┘
 ```
+
+**Important:** `LicenseEngine.initialize()` must **never** auto-validate licenses or auto-check trials during startup. These operations require explicit user action through the ULC menu. The engine only detects hardware and determines whether onboarding is complete. All license decisions are deferred to the ULC's explicit validation flow.
+
+### Application Lock
+
+Immediately after `initialize()`, the application is locked. Until licensing is resolved through the ULC validation flow, no application features are accessible:
+
+- No Dashboard
+- No Toolbar
+- No Menu
+- No Settings
+- No Product UI
+- No Keyboard Shortcuts
+- No Background Actions
+
+The only visible element is the ULC showing the Hardware ID and available actions (Validate License, Enter License Key, Contact Support, Exit).
 
 ### LicenseStatus States (output of initialize())
 
 | Status | Meaning | UI Action |
 |--------|---------|-----------|
-| `unlicensed` | No customer found | Show Welcome → Trial |
-| `trial` | Active trial | Unlock application, show ULC |
-| `active` | Active paid license | Unlock application, show ULC |
-| `expired` | Trial or license expired | Show Renewal/Reactivation |
-| `force_reactivation` | Paid license inactive | Show Renewal/Reactivation |
+| `unlicensed` | No customer found (onboarding incomplete) | Show Welcome → Trial |
+| `force_activation` | Onboarding complete, no license validated yet | Open ULC (locked) → Show Validate option |
 | `error` | API unreachable, use cache | Use cached state or show error |
-| `force_activation` | Invalid/missing license | Show Activation dialog |
 
-### Mandatory Startup Rule
-
-The application must never display the main application interface before `LicenseEngine.initialize()` has completed. Until initialization finishes:
-
-- No Dashboard
-- No Widgets
-- No Toolbar
-- No Settings
-- No Product UI
-- No Background Features
-
-Only licensing-related UI may be displayed. The application becomes usable only after `LicenseEngine` reports a valid state. No exceptions.
-
-### Application Lock
-
-Before license completion:
-- Main window disabled
-- Dashboard disabled
-- Toolbar disabled
-- Menu disabled
-- Settings disabled
-- Product UI disabled
-- Keyboard shortcuts disabled
-- Background actions disabled
-
-Unlock only after:
-- Trial activation
-- License activation
-- License renewal
-- License reactivation
-
-No exceptions.
+The statuses `trial`, `active`, `expired`, `force_reactivation` are **never** returned by `initialize()`. They are returned only by the explicit validation API call.
 
 ---
+
+
 
 ## SECTION 4 — Customer Workflow (All States)
 
@@ -840,73 +897,103 @@ The Internal API is always the single source of authority for trial status.
   4. Only if no record exists: proceed with trial creation
 - Audit log event: `trial_rejected_already_consumed` on rejection
 
-### Existing Trial
+### Existing Trial — After Validation
 
 ```
 LicenseEngine.initialize()
         │
         ▼
-Status: trial (valid)
+Status: force_activation (onboarding complete)
         │
         ▼
-Universal License Center (unlocked)
+ULC (locked) — User chooses: Validate License or Enter License Key
         │
-        ├── View Status (expiry, days left)
-        ├── Activate License (convert to paid)
-        ├── Contact Support
-        └── Close
+        ├── Validate License (hardware-only)
+        │   └── Server returns: active trial found for this hardware
+        │       └── Show trial info, unlock application
+        │
+        ├── Enter License Key
+        │   └── Manual key entry → validate → OTP → activate → unlock
+        │
+        └── ULC unlocked menu:
+            ├── View Status (expiry, days left)
+            ├── Activate License (convert to paid)
+            ├── Contact Support
+            └── Close
 ```
 
-### Active License
-
-```
-LicenseEngine.initialize()
-        │
-        ▼
-Status: active (valid)
-        │
-        ▼
-Universal License Center (unlocked)
-        │
-        ├── View Status (plan, expiry, days left)
-        ├── Renew License
-        ├── View Hardware Status (display only, admin-required for replacement)
-        ├── Report Hardware Issue
-        ├── Contact Support
-        └── Close
-```
-
-### Expired Trial
+### Active License — After Validation
 
 ```
 LicenseEngine.initialize()
         │
         ▼
-Status: expired (was trial)
+Status: force_activation (onboarding complete)
         │
         ▼
-Universal License Center (locked)
+ULC (locked) — User chooses: Validate License
         │
-        ├── Renew License (start a new trial or request paid)
-        ├── Contact Support
-        └── Close
+        ├── Validate License (hardware-only)
+        │   └── Server returns: active license bound to this hardware
+        │       ├── Show license details (plan, expiry, days left)
+        │       └── Unlock application
+        │
+        └── ULC unlocked menu:
+            ├── View Status (plan, expiry, days left)
+            ├── Renew License
+            ├── View Hardware Status (display only, admin-required for replacement)
+            ├── Report Hardware Issue
+            ├── Contact Support
+            └── Close
 ```
 
-### Expired License
+### Expired License — After Validation
 
 ```
 LicenseEngine.initialize()
         │
         ▼
-Status: expired (was paid)
+Status: force_activation (onboarding complete)
         │
         ▼
-Universal License Center (locked)
+ULC (locked) — User chooses: Validate License
         │
-        ├── Renew License (request renewal)
-        ├── Reactivate License (if inactive)
-        ├── Contact Support
-        └── Close
+        ├── Validate License (hardware-only)
+        │   └── Server returns: license expired
+        │       ├── Show "License expired. Renew required."
+        │       ├── Show Renew option
+        │       └── Application remains locked until renewal
+        │
+        └── ULC locked menu (after expired detected):
+            ├── Validate License (re-check)
+            ├── Renew License (request renewal)
+            ├── Reactivate License (if inactive)
+            ├── Contact Support
+            └── Close
+```
+
+### Force Reactivation — After Validation
+
+```
+LicenseEngine.initialize()
+        │
+        ▼
+Status: force_activation (onboarding complete)
+        │
+        ▼
+ULC (locked) — User chooses: Validate License
+        │
+        ├── Validate License (hardware-only)
+        │   └── Server returns: license inactive (has paid history)
+        │       ├── Show "License inactive. Reactivate required."
+        │       ├── Show Reactivate option
+        │       └── Application remains locked until reactivation
+        │
+        └── ULC locked menu (after inactive detected):
+            ├── Validate License (re-check)
+            ├── Reactivate License
+            ├── Contact Support
+            └── Close
 ```
 
 ### Invalid/Inactive License (Activation Flow)
@@ -1092,9 +1179,9 @@ Review every customer-facing license dialog. Maintain one universal design langu
 - Consistent spacing: one blank line before and after menus
 
 **Locked menu** shows only context-appropriate actions:
-- Unlicensed: Start Free Trial (1), Activate License (2)
-- Force activation: Activate License (2)
-- Expired/reactivation: Renew License (3), Reactivate License (4)
+- Unlicensed: Start Free Trial (1)
+- Force activation: Validate License (1), Enter License Key (2)
+- Expired/reactivation: Validate License (1), Renew License (3), Reactivate License (4)
 - Always: Contact Support (9), Exit (0)
 
 **Unlocked menu** shows:
@@ -1107,6 +1194,7 @@ Review every customer-facing license dialog. Maintain one universal design langu
 - View Support Conversations (10)
 - Request History (11)
 - Exit (0)
+- Notifications (12) — if unread count > 0
 
 **Confirmation dialogs:**
 - Activation success: box-drawn border, all details (name, masked key, plan, status, dates, validity, device)
@@ -2894,6 +2982,72 @@ Additionally, `_show_license_center()` did not signal back whether the ULC was o
 
 - `npx next build` — zero errors (12.0s)
 - Deployed to Vercel production
+
+---
+
+## Session Summary — 2026-07-25 (AWS-01 Existing Customer Validation — No Auto-License, Hardware-Only Validate)
+
+### Root Cause
+
+Existing customers who previously activated a license and then launched the ULC again would have their license auto-validated via the cached license key in `initialize()`. This bypassed the mandatory "Validate License" step and displayed license details before the customer explicitly validated. The architecture required:
+
+1. ULC must **never** auto-validate licenses or auto-check trials on startup
+2. License details must **never** appear before explicit user validation
+3. Existing customers must validate by hardware ID only (no manual license key typing)
+4. Validation endpoint is the single source of truth for ALL business decisions
+
+### Changes — Backend
+
+**`app/api/v1/license/route.ts`:**
+- Hardware-only validation: when `license_key` is absent but `hardware_id` is provided, look up the `activations` table to find a bound license key
+- Returns `NO_LICENSE_FOUND` (404) if no activation exists for the hardware
+- Fixed `license_key.toUpperCase()` crash when `license_key` is undefined
+
+### Changes — TypeScript Template (`template/typescript/`)
+
+**`universal_license_center.ts`:**
+- `show()` — removed `_isValidForUnlock()` auto-unlock; only welcome flow or lock
+- `_printStatus()` — stripped license details; only shows status + hardware ID
+- Locked menu: `force_activation` shows "1. Validate License" / "2. Enter License Key"
+- `_activateLicense()` → renamed to `_enterLicenseKey()`
+- Added `_validateHardware()` — calls `engine.validateHardware()`, shows license info, handles expired/revoked/inactive states
+
+**`license_engine.ts`:**
+- `initialize()` — only detects hardware + checks `onboarding_complete` (no server validation)
+- Added `validateHardware()` — hardware-only lookup via API client
+
+**`client.ts`:**
+- Added `validateLicenseByHardware(hardwareId)` method
+
+### Changes — TypeScript Runtime (`runtimes/typescript.ts`)
+
+- `initialize()` — no longer sets `_locked` from `_isValidForUnlock()`
+- `show()` — removed auto-unlock section
+- `startTrial()`, `activateLicense()`, `renew()` — set `_locked = false` + fire `onLicenseReady(true)` from result directly
+- Added `validateHardware()` — wraps `engine.validateHardware()`
+- Added `enterLicenseKey(key)` — wraps `engine.activate()`
+
+### Changes — Python Runtime (`runtimes/python.ts`)
+
+- `LicenseEngine` — added `validate_hardware()` method
+- `UniversalLicenseCenter.show()` — removed auto-unlock and `_is_valid_for_unlock()` calls
+
+### Documentation
+
+- **Section 3** — removed duplicate LicenseStatus table and duplicate Application Lock section
+- **Section 4** — rewrote 4 flow charts (Existing Trial, Active License, Expired License, Force Reactivation) to show `initialize()` → `force_activation` → explicit Validate → business state
+- **Section 5** — updated locked menu: Validate License (1), Enter License Key (2); added Notifications (12) to unlocked menu
+
+### Verification
+
+- `npm run build` — zero errors (12.5s Turbopack, TypeScript passed 12.0s, 222 pages)
+- All code changes in Publisher/Internal API only — no generated SDK files edited
+
+### Remaining
+
+- [ ] Python runtime ULC Tkinter GUI: add "Validate" button + validate_hardware dialog in locked menu
+- [ ] Python runtime ULC `_activate_license`: update business-state error code display
+- [ ] Bun template ULC: mirror TS template changes
 
 ---
 

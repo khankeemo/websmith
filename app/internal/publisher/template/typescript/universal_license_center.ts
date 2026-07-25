@@ -94,9 +94,7 @@ export class UniversalLicenseCenter {
 
     await this._refreshStatus();
 
-    if (this._isValidForUnlock()) {
-      this._unlockApplication();
-    } else if (this.status?.status === 'unlicensed' && !this.cache.isOnboardingComplete()) {
+    if (this.status?.status === 'unlicensed' && !this.cache.isOnboardingComplete()) {
       const welcomed = await this._welcomeFlow();
       if (welcomed) {
         this._unlockApplication();
@@ -158,12 +156,6 @@ export class UniversalLicenseCenter {
       return;
     }
     console.log(`  Status: ${this.status.status}`);
-    if (this.status.status === 'active' || this.status.status === 'trial') {
-      if (this.status.license_key) console.log(`  License: ${this.status.license_key}`);
-      if (this.status.plan) console.log(`  Plan: ${this.status.plan}`);
-      if (this.status.expires_at) console.log(`  Expires: ${this.status.expires_at}`);
-      if (this.status.days_remaining > 0) console.log(`  Days Remaining: ${this.status.days_remaining}`);
-    }
     if (this.status.hardware_id) console.log(`  Hardware: ${this.status.hardware_id}`);
     if (this.status.message) console.log(`  Message: ${this.status.message}`);
     console.log('');
@@ -187,10 +179,12 @@ export class UniversalLicenseCenter {
         if (isUnlicensed) {
           console.log('  │  1. Start Free Trial                 │');
         }
-        if (isUnlicensed || isForceActivation) {
-          console.log('  │  2. Activate License                 │');
+        if (isForceActivation) {
+          console.log('  │  1. Validate License                 │');
+          console.log('  │  2. Enter License Key                │');
         }
         if (needsReactivation) {
+          console.log('  │  1. Validate License                 │');
           console.log('  │  3. Renew License                    │');
           if (isForceReactivation) console.log('  │  4. Reactivate License              │');
         }
@@ -235,9 +229,10 @@ export class UniversalLicenseCenter {
         switch (trimmed) {
           case '1':
             if (isUnlicensed) { await this._startTrial(); handled = true; }
+            else if (isForceActivation || isForceReactivation) { await this._validateHardware(); handled = true; }
             break;
           case '2':
-            if (isUnlicensed || isForceActivation) { await this._activateLicense(); handled = true; }
+            if (isForceActivation) { await this._enterLicenseKey(); handled = true; }
             break;
           case '3':
             if (needsReactivation) { await this._renewLicense(); handled = true; }
@@ -253,7 +248,7 @@ export class UniversalLicenseCenter {
             break;
         }
         if (!handled) {
-          console.log('Application is locked. Please activate or start a trial to unlock.');
+          console.log('Application is locked. Please validate or activate to unlock.');
         }
       } else {
         switch (trimmed) {
@@ -423,8 +418,70 @@ export class UniversalLicenseCenter {
     }
   }
 
-  private async _activateLicense(): Promise<void> {
-    console.log('── Activate License ──');
+  private async _validateHardware(): Promise<void> {
+    console.log('── Validate License by Hardware ──');
+    const hwId = this.hardware.getFingerprint();
+    console.log(`  Hardware ID: ${hwId}`);
+    console.log('');
+
+    console.log('Checking existing licenses for this device...');
+    try {
+      const result = await this.engine.validateHardware();
+      if (result.success) {
+        const data = result.data || result;
+        if (data.valid) {
+          console.log('');
+          console.log('═══════════════════════════════════════');
+          console.log('      LICENSE FOUND');
+          console.log('═══════════════════════════════════════');
+          console.log(`  Customer: ${data.customer_name || 'N/A'}`);
+          console.log(`  Email: ${data.customer_email || 'N/A'}`);
+          console.log(`  Product: ${data.product_name || 'N/A'}`);
+          console.log(`  Plan: ${data.plan || 'N/A'}`);
+          console.log(`  Status: ${data.status || 'N/A'}`);
+          console.log(`  Expires: ${data.expiry_date || 'N/A'}`);
+          console.log(`  Days Left: ${data.days_left || 0}`);
+          console.log('═══════════════════════════════════════');
+          console.log('');
+          if (data.this_device_activated) {
+            console.log('License is bound to this device.');
+          }
+          this.cache.setLicenseStatus(data);
+          await this._refreshStatus();
+          if (this._isValidForUnlock()) {
+            console.log('Press Enter to continue.');
+            await this._question('');
+          }
+          return;
+        } else {
+          const errCode = result?.error?.code || '';
+          if (errCode === 'LICENSE_EXPIRED') {
+            console.log('  License has expired. Please renew your license.');
+            console.log('  Use the Renew option from the menu.');
+          } else if (errCode === 'LICENSE_REVOKED') {
+            console.log('  License has been revoked. Please contact support.');
+          } else if (errCode === 'LICENSE_INACTIVE') {
+            console.log('  License is inactive. Please contact support.');
+          } else if (errCode === 'LICENSE_DELETED') {
+            console.log('  License has been deleted. Please contact support.');
+          } else {
+            console.log(`  Validation failed: ${result.error?.message || result.message || 'Unknown error'}`);
+          }
+          return;
+        }
+      } else if (result.error?.code === 'NO_LICENSE_FOUND') {
+        console.log('  No license found for this device.');
+        console.log('  Please enter a license key manually or contact support.');
+      } else {
+        console.log(`  Validation error: ${result.error?.message || result.message || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.log(`  Error: ${(e as Error).message}`);
+    }
+  }
+
+  private async _enterLicenseKey(): Promise<void> {
+    console.log('── Enter License Key ──');
     const hwId = this.hardware.getFingerprint();
     console.log(`  Hardware ID: ${hwId}`);
     console.log('');

@@ -103,178 +103,24 @@ export class LicenseEngine {
     const hardwareId = this._hardware.getFingerprint();
     this._cache.invalidateIfHardwareMismatch(hardwareId);
     await this._processMessageQueue();
-    if (this._cache.isValid()) {
-      const cached = this._cache.getLicenseStatus();
-      if (cached) {
-        this._status = LicenseStatus.fromDict(cached);
-        if (!this._licenseKey && this._status.license_key) {
-          this._licenseKey = this._status.license_key;
-        }
-        if (this._status.status !== 'trial' && this._status.valid) {
-          this._cache.markHasEverActivatedPaidLicense();
-        }
-        this._notifyReady(this.isValidStatus(this._status));
-        return this._status;
-      }
-    }
-    try {
-      // Priority 1: Validate active paid license from server
-      if (this._licenseKey) {
-        try {
-          const result = await this._client.validateLicense(this._licenseKey, hardwareId);
-          const data = result.data || result;
-          if (data.valid) {
-            const statusStr = data.status || 'active';
-            if (statusStr === 'expired') {
-              this._status = new LicenseStatus(false, 'expired', {
-                expires_at: data.expiry_date,
-                days_remaining: 0,
-                plan: data.plan,
-                hardware_id: hardwareId,
-                license_key: this._licenseKey,
-                message: 'License has expired. Please renew.',
-              });
-              this._notifyReady(false);
-              return this._status;
-            }
-            this._status = new LicenseStatus(
-              true,
-              statusStr,
-              {
-                expires_at: data.expiry_date,
-                days_remaining: data.days_left || 0,
-                plan: data.plan,
-                hardware_id: hardwareId,
-                license_key: this._licenseKey,
-                message: 'License active',
-              },
-            );
-            this._cache.setLicenseStatus(this._status.toDict());
-            this._cache.markHasEverActivatedPaidLicense();
-            this._notifyReady(true);
-            return this._status;
-          } else {
-            // License is invalid/inactive
-            const serverStatus = data.status || '';
-            if (serverStatus === 'expired') {
-              this._status = new LicenseStatus(false, 'expired', {
-                expires_at: data.expiry_date,
-                days_remaining: 0,
-                plan: data.plan,
-                hardware_id: hardwareId,
-                license_key: this._licenseKey,
-                message: 'License has expired. Please renew.',
-              });
-              this._notifyReady(false);
-              return this._status;
-            }
-            if (this._cache.hasEverActivatedPaidLicense()) {
-              this._status = new LicenseStatus(false, 'force_reactivation', {
-                hardware_id: hardwareId,
-                license_key: this._licenseKey,
-                message: 'License inactive. Please reactivate.',
-              });
-              this._notifyReady(false);
-              return this._status;
-            }
-            this._status = new LicenseStatus(false, 'force_activation', {
-              hardware_id: hardwareId,
-              license_key: this._licenseKey,
-              message: 'License key invalid. Please activate.',
-            });
-            this._notifyReady(false);
-            return this._status;
-          }
-        } catch {
-          if (this._cache.hasEverActivatedPaidLicense()) {
-            this._status = new LicenseStatus(false, 'force_reactivation', {
-              hardware_id: hardwareId,
-              license_key: this._licenseKey,
-              message: 'License validation failed. Please reactivate.',
-            });
-            this._notifyReady(false);
-            return this._status;
-          }
-          this._status = new LicenseStatus(false, 'force_activation', {
-            hardware_id: hardwareId,
-            license_key: this._licenseKey,
-            message: 'License validation failed. Please activate.',
-          });
-          this._notifyReady(false);
-          return this._status;
-        }
-      } else {
-        if (this._cache.hasEverActivatedPaidLicense()) {
-          this._status = new LicenseStatus(false, 'force_reactivation', {
-            hardware_id: hardwareId,
-            message: 'License key missing. Please reactivate.',
-          });
-          this._notifyReady(false);
-          return this._status;
-        }
-      }
-      // Priority 2: Check for active trial (only if user never had a paid license)
-      if (!this._cache.hasEverActivatedPaidLicense()) {
-        const trialResponse = await this._client.getTrialStatus(hardwareId);
-        const trialData = trialResponse.data || {};
-        if (trialData.has_trial) {
-          const statusStr = trialData.status || 'trial';
-          if (statusStr === 'expired') {
-            this._status = new LicenseStatus(false, 'expired', {
-              expires_at: trialData.expiry_date,
-              days_remaining: 0,
-              plan: trialData.plan,
-              hardware_id: hardwareId,
-              message: 'Trial has expired. Please renew.',
-            });
-            this._notifyReady(false);
-            return this._status;
-          }
-          this._status = new LicenseStatus(
-            statusStr === 'active',
-            statusStr,
-            {
-              expires_at: trialData.expiry_date,
-              days_remaining: trialData.days_left || 0,
-              plan: trialData.plan,
-              hardware_id: hardwareId,
-              message: `Trial is ${statusStr}`,
-            },
-          );
-          if (this._status.valid) {
-            this._cache.setLicenseStatus(this._status.toDict());
-          }
-          this._notifyReady(this.isValidStatus(this._status));
-          return this._status;
-        }
-      }
-      // Priority 3: Determine if new customer or force activation
-      if (this._cache.isOnboardingComplete()) {
-        this._status = new LicenseStatus(false, 'force_activation', {
-          hardware_id: hardwareId,
-          message: 'No active license found. Please activate.',
-        });
-      } else {
-        this._status = new LicenseStatus(false, 'unlicensed', {
-          hardware_id: hardwareId,
-          message: 'No license or trial found',
-        });
-      }
-      this._notifyReady(false);
-      return this._status;
-    } catch (e) {
-      const cached = this._cache.getLicenseStatus();
-      if (cached) {
-        this._status = LicenseStatus.fromDict(cached);
-        this._notifyReady(this.isValidStatus(this._status));
-        return this._status;
-      }
-      this._status = new LicenseStatus(false, 'error', {
-        message: `Unexpected error: ${(e as Error).message}`,
+    if (this._cache.isOnboardingComplete()) {
+      this._status = new LicenseStatus(false, 'force_activation', {
+        hardware_id: hardwareId,
+        message: 'Welcome back. Please validate your license.',
       });
-      this._notifyReady(false);
-      return this._status;
+    } else {
+      this._status = new LicenseStatus(false, 'unlicensed', {
+        hardware_id: hardwareId,
+        message: 'No license found. Please start a free trial or activate.',
+      });
     }
+    this._notifyReady(false);
+    return this._status;
+  }
+
+  async validateHardware(): Promise<Record<string, any>> {
+    const hardwareId = this._hardware.getFingerprint();
+    return this._client.validateLicenseByHardware(hardwareId);
   }
 
   getHardwareId(): string {

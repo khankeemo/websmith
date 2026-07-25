@@ -190,6 +190,12 @@ export class ApiClient {
     return response;
   }
 
+  async validateLicenseByHardware(hardwareId?: string): Promise<Record<string, any>> {
+    if (!hardwareId) hardwareId = this._getHardwareId();
+    const payload = { action: 'validate', hardware_id: hardwareId };
+    return this._request('license', payload);
+  }
+
   async activateLicense(licenseKey: string, hardwareId?: string): Promise<Record<string, any>> {
     if (!hardwareId) hardwareId = this._getHardwareId();
     const payload = { action: 'activate', license_key: licenseKey, hardware_id: hardwareId };
