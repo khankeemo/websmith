@@ -2368,9 +2368,8 @@ class UniversalLicenseCenter:
                     self._status = self.engine.get_status()
                     self._refresh_display()
                     self._unlock_application()
-                    dialog.withdraw()
-                    self._show_activation_confirmation(dialog, data, key)
                     dialog.destroy()
+                    self._show_activation_confirmation(self._root, data, key)
                 else:
                     err_data = result.get('error', {})
                     err_code = ''
@@ -2486,13 +2485,13 @@ class UniversalLicenseCenter:
                 info_frame.pack(fill="x", padx=0, pady=8)
 
                 info_fields = [
-                    ("Customer Name", data.get('customer_name', 'N/A')),
-                    ("Email", data.get('customer_email', 'N/A')),
-                    ("Product", data.get('product_name', 'N/A')),
-                    ("Current Plan", data.get('plan', 'N/A')),
-                    ("Current Expiry", data.get('expiry_date', 'N/A')),
-                    ("License Status", data.get('status', 'N/A')),
-                    ("Days Remaining", str(data.get('days_left', 0))),
+                    ("Customer Name", validated_data.get('customer_name', 'N/A')),
+                    ("Email", validated_data.get('customer_email', 'N/A')),
+                    ("Product", validated_data.get('product_name', 'N/A')),
+                    ("Current Plan", validated_data.get('plan', 'N/A')),
+                    ("Current Expiry", validated_data.get('expiry_date', 'N/A')),
+                    ("License Status", validated_data.get('status', 'N/A')),
+                    ("Days Remaining", str(validated_data.get('days_left', 0))),
                 ]
                 for label, value in info_fields:
                     row = tk.Frame(info_frame, bg=self._card_bg)
@@ -2530,7 +2529,7 @@ class UniversalLicenseCenter:
                         plan_buttons.append(rb)
 
                     keep_rb = tk.Radiobutton(plan_frame, text="Keep current plan",
-                                             variable=selected_plan, value=data.get('plan', ''),
+                                             variable=selected_plan, value=validated_data.get('plan', ''),
                                              font=("Segoe UI", 10), bg=self._card_bg,
                                              anchor="w", wraplength=480)
                     keep_rb.pack(fill="x", padx=32, pady=(2, 6))
