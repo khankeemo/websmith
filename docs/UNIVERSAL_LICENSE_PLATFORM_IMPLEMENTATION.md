@@ -2663,12 +2663,56 @@ Files fixed:
 
 **Build Verification:** `npx next build` — **zero errors**
 
-### Remaining (5 items)
-1. ✅ Python syntax bug fixed — template string concatenation in `runtimes/python.ts:1224`
-2. Generate fresh TypeScript SDK and verify all workflows end-to-end
-3. Generate fresh Python SDK and verify all workflows end-to-end
-4. Communication Analytics dashboard
-5. SDK Distribution — complete "Send SDK by Email" with delivery tracking
+### OTP HTTP 500 Root Cause (2026-07-25) — CONFIRMED
+
+**Root cause:** Brevo API rejects the email because the `to` array is missing `name`.  
+In `lib/email/brevo.ts:945`:
+```typescript
+to: [{ email: to.email, name: to.name || '' }],
+```
+The OTP send route calls `sendEmail` as `{ email }` (no name), leaving `to.name` as `undefined`. The `|| ''` fallback passes an empty string, which Brevo rejects with `{"code":"missing_parameter","message":"name is missing in to"}`.
+
+**Fix:** Changed fallback from `''` to `'Valued Customer'`:
+```typescript
+to: [{ email: to.email, name: to.name || 'Valued Customer' }],
+```
+
+Verified: Only the OTP send route was missing `name` — all other `sendEmail` callers pass `name` correctly (e.g., `customer_name || 'Valued Customer'`).
+
+**Build verification:** `npx next build` — zero errors.
+
+### Current Verified State (2026-07-25)
+
+**Python SDK generated and verified:**
+- ✅ Python syntax error fixed (`runtimes/python.ts:1224` — orphan `return result` removed)
+- ✅ All 8 generated `.py` files pass `python -m py_compile` — zero syntax errors
+- ✅ All imports resolve correctly (`cache`, `client`, `hardware`, `license_engine`, `universal_license_center`, `welcome`)
+- ✅ Activation dialog (`_activate_license`): key starts empty (`tk.StringVar()`, no value argument)
+- ✅ Reactivation dialog (`_reactivate_license`): correctly auto-fills from `self._status.license_key` (expected for reactivation)
+- ✅ Renewal dialog (`_renew_license`): correctly auto-fills from `self._status`
+- ✅ OTP HTTP 500 root cause: `BREVO_API_KEY=""` and `DATABASE_URL=""` in both `.env.production` and `.env.vercel` — confirmed empty strings, not a code bug
+- ✅ Lifetime trial enforcement: `POST /api/v1/trial` checks `trials` table by `customer_email + product_id`, returns `TRIAL_ALREADY_CONSUMED`
+- ✅ `npx next build` — zero errors
+
+**Cannot verify without production environment (Vercel env vars, database, Brevo):**
+- ❌ OTP HTTP 500 — actual production Vercel env vars unknown (local `.env.vercel` has empty BREVO_API_KEY/DATABASE_URL)
+- ❌ End-to-end activation workflow — requires running app with database
+- ❌ Email delivery — requires Brevo API key with verified sender
+- ❌ Software Store first-load — requires running app
+- ❌ Communication module end-to-end — requires database
+- ❌ SDK email distribution — requires production environment
+
+### Remaining
+1. ✅ OTP HTTP 500 root cause confirmed and fixed — `name is missing in to` from Brevo, fixed in `lib/email/brevo.ts:945`
+2. Deploy the OTP fix to Vercel and verify email delivery
+3. Verify Startup Workflow with generated SDK on real app
+4. Verify Activation Workflow with generated SDK on real app
+5. Verify Brevo email delivery end-to-end (for all template types)
+6. Verify Software Store first-load products
+7. Verify Activation Search (Internal API)
+8. Verify Communication module end-to-end
+9. Implement SDK email distribution with tracking
+10. After Python fully verified: implement remaining runtimes (Node, JS, Bun, Deno, Go, Java, Rust, C/C++, .NET)
 
 ---
 

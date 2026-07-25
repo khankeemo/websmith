@@ -942,7 +942,7 @@ export async function sendEmail(
       },
       body: JSON.stringify({
         sender: { name: senderName, email: senderEmail },
-        to: [{ email: to.email, name: to.name || '' }],
+        to: [{ email: to.email, name: to.name || 'Valued Customer' }],
         subject,
         htmlContent: htmlBody,
         textContent: plainText,
