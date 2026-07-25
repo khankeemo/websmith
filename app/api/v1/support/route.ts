@@ -15,7 +15,7 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,
 });
 
-const SUPPORT_EMAIL = 'support@websmithdigital.com';
+const SUPPORT_EMAIL = process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();

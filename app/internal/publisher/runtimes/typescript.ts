@@ -395,6 +395,38 @@ export class CacheManager {
     return this.get('onboarding_complete') === true;
   }
 
+  // ====================================================================
+  // Message Queue (Offline Retry)
+  // ====================================================================
+
+  queueMessage(msg: Record<string, any>): void {
+    const queue = this.getMessageQueue();
+    msg.id = msg.id || \`q_\${Date.now()}_\${Math.random().toString(36).slice(2, 8)}\`;
+    msg.status = msg.status || 'pending';
+    msg.retry_count = msg.retry_count || 0;
+    msg.max_retries = msg.max_retries || 5;
+    msg.created_at = msg.created_at || Math.floor(Date.now() / 1000);
+    msg.next_retry_at = msg.next_retry_at || Math.floor(Date.now() / 1000) + 60;
+    queue.push(msg);
+    this.set('message_queue', queue);
+  }
+
+  getMessageQueue(): Record<string, any>[] {
+    return this.get('message_queue') || [];
+  }
+
+  saveMessageQueue(queue: Record<string, any>[]): void {
+    this.set('message_queue', queue);
+  }
+
+  cleanupSentMessages(): void {
+    const queue = this.getMessageQueue().filter(m => m.status !== 'sent');
+    this.saveMessageQueue(queue);
+  }
+
+  getPendingCount(): number {
+    return this.getMessageQueue().filter(m => m.status === 'pending' || m.status === 'failed').length;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -709,6 +741,79 @@ export class ApiClient {
   }): Promise<Record<string, any>> {
     return this._request('customer/register', { ...data, product_id: this.productId });
   }
+
+  // ====================================================================
+  // Universal Communication Engine
+  // ====================================================================
+
+  async createCommunication(params: Record<string, any>): Promise<Record<string, any>> {
+    return this._request('communication/create', {
+      category: params.category,
+      customer_email: params.customer_email,
+      customer_name: params.customer_name,
+      subject: params.subject || '',
+      message: params.message,
+      product_id: params.product_id || this.productId,
+      license_key: params.license_key || '',
+      hardware_id: params.hardware_id || this._getHardwareId(),
+      sdk_version: params.sdk_version || SDK_VERSION,
+      runtime_type: params.runtime_type || RUNTIME_TYPE,
+    });
+  }
+
+  async getConversation(conversationId: string): Promise<Record<string, any>> {
+    return this._request(\`communication/\${conversationId}\`, {
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async replyToConversation(conversationId: string, message: string, customerName?: string, customerEmail?: string): Promise<Record<string, any>> {
+    const payload: Record<string, any> = { message };
+    if (customerName) payload.customer_name = customerName;
+    if (customerEmail) payload.customer_email = customerEmail;
+    payload.hardware_id = this._getHardwareId();
+    return this._request(\`communication/\${conversationId}/reply\`, payload);
+  }
+
+  async listConversations(email: string): Promise<Record<string, any>> {
+    return this._request('communication/list', {
+      customer_email: email,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async uploadAttachment(conversationId: string, filePath: string, fileContent?: string): Promise<Record<string, any>> {
+    return this._request(\`communication/\${conversationId}/attach\`, {
+      file_path: filePath,
+      file_content: fileContent || '',
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  // ====================================================================
+  // Notifications
+  // ====================================================================
+
+  async getNotifications(email: string): Promise<Record<string, any>> {
+    return this._request('notifications', {
+      customer_email: email,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async markNotificationRead(notificationId: string): Promise<Record<string, any>> {
+    return this._request('notifications/read', {
+      notification_id: notificationId,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async getUnreadNotificationCount(email: string): Promise<Record<string, any>> {
+    return this._request('notifications/unread-count', {
+      customer_email: email,
+      hardware_id: this._getHardwareId(),
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -752,6 +857,7 @@ export class LicenseEngine {
   async initialize(): Promise<LicenseStatusData> {
     const hardwareId = this.hardware.getFingerprint();
     this.cache.invalidateIfHardwareMismatch(hardwareId);
+    await this._processMessageQueue();
     if (this.cache.isCacheValid()) {
       const cached = this.cache.getLicenseStatus();
       if (cached) {
@@ -1126,6 +1232,87 @@ export class LicenseEngine {
       message: data.message,
     };
   }
+
+  // ====================================================================
+  // Message Queue Processing
+  // ====================================================================
+
+  private async _processMessageQueue(): Promise<void> {
+    const queue = this.cache.getMessageQueue();
+    let changed = false;
+    for (const msg of queue) {
+      if (msg.status === 'sent') continue;
+      const now = Math.floor(Date.now() / 1000);
+      if (now < (msg.next_retry_at || 0)) continue;
+      if (msg.retry_count >= msg.max_retries) continue;
+      msg.status = 'sending';
+      try {
+        await this.client.createCommunication(msg);
+        msg.status = 'sent';
+        changed = true;
+      } catch (e: any) {
+        msg.retry_count = (msg.retry_count || 0) + 1;
+        msg.last_error = e.message || String(e);
+        const expBackoff = Math.pow(2, msg.retry_count) * 60;
+        msg.next_retry_at = now + expBackoff;
+        msg.status = 'failed';
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.cache.saveMessageQueue(queue);
+      this.cache.cleanupSentMessages();
+    }
+  }
+
+  // ====================================================================
+  // Universal Communication Engine
+  // ====================================================================
+
+  async createCommunication(params: Record<string, any>): Promise<Record<string, any>> {
+    try {
+      return await this.client.createCommunication(params);
+    } catch (e: any) {
+      this.cache.queueMessage(params);
+      return { success: false, message: 'Message queued for delivery when online.', queued: true };
+    }
+  }
+
+  async getConversation(conversationId: string): Promise<Record<string, any>> {
+    return this.client.getConversation(conversationId);
+  }
+
+  async replyToConversation(conversationId: string, message: string, customerName?: string, customerEmail?: string): Promise<Record<string, any>> {
+    try {
+      return await this.client.replyToConversation(conversationId, message, customerName, customerEmail);
+    } catch (e: any) {
+      const cached = this.cache.getLicenseStatus();
+      this.cache.queueMessage({
+        category: 'general',
+        customer_email: customerEmail || cached?.customer_email || '',
+        customer_name: customerName || cached?.customer_name || '',
+        subject: \`Reply to conversation \${conversationId}\`,
+        message,
+      });
+      return { success: false, message: 'Reply queued for delivery when online.', queued: true };
+    }
+  }
+
+  async listConversations(email: string): Promise<Record<string, any>> {
+    return this.client.listConversations(email);
+  }
+
+  async getNotifications(email: string): Promise<Record<string, any>> {
+    return this.client.getNotifications(email);
+  }
+
+  async markNotificationRead(notificationId: string): Promise<Record<string, any>> {
+    return this.client.markNotificationRead(notificationId);
+  }
+
+  async getUnreadNotificationCount(email: string): Promise<Record<string, any>> {
+    return this.client.getUnreadNotificationCount(email);
+  }
 }
 
 `,
@@ -1330,7 +1517,6 @@ import { LicenseEngine, LicenseStatus, ApiClient, HardwareDetector, CacheManager
 
 const SDK_VERSION = '${context.kitVersion}';
 const RUNTIME_TYPE = '${context.runtime}';
-const SUPPORT_EMAIL = 'support@websmithdigital.com';
 
 export class UniversalLicenseCenter {
   private engine: LicenseEngine;
@@ -1338,12 +1524,14 @@ export class UniversalLicenseCenter {
   private hardware: HardwareDetector;
   private cache: CacheManager;
   private config: Record<string, any>;
+  private branding: Record<string, string>;
   private status: any = null;
   private _locked: boolean = true;
   onLicenseReady: ((valid: boolean) => void) | null = null;
 
   constructor(config?: Record<string, any>, onLicenseReady?: ((valid: boolean) => void) | null) {
     this.config = config || {};
+    this.branding = this._loadBranding();
     this.hardware = new HardwareDetector();
     this.cache = new CacheManager(this.config);
     this.engine = new LicenseEngine(this.config);
@@ -1357,6 +1545,22 @@ export class UniversalLicenseCenter {
         }
       };
     }
+  }
+
+  private _loadBranding(): Record<string, string> {
+    const b = this.config.branding || {};
+    const p = this.config.product || {};
+    return {
+      company_name: b.company_name || '${companyName}',
+      product_name: p.name || '${context.productName}',
+      support_email: b.support_email || '',
+      sales_email: b.sales_email || '',
+      website_url: b.website_url || '',
+      sender_name: b.sender_name || 'Support Team',
+      welcome_text: b.welcome_text || 'Welcome!',
+      license_text: b.license_text || 'License',
+      tagline: b.tagline || 'License Management',
+    };
   }
 
   private _isValidForUnlock(): boolean {
@@ -1476,7 +1680,7 @@ export class UniversalEmailDialog {
 
   async show(options: EmailDialogOptions): Promise<Record<string, any>> {
     const productName = options.autoFill?.product_name || this.config.product?.name || '${context.productName}';
-    const supportEmail = 'support@websmithdigital.com';
+    const supportEmail = this.config.branding?.support_email || 'support@example.com';
     const cached = this.cache.getLicenseStatus() || {};
 
     const name = options.autoFill?.customer_name || cached.customer_name || '';

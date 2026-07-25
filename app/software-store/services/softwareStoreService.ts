@@ -42,14 +42,15 @@ export interface StoreProduct {
 }
 
 export const getPublicProducts = async (): Promise<StoreProduct[]> => {
-  try {
-    const response = await fetch("/api/v1/store/products");
-    const data = await response.json();
-    if (data.success) return data.products || [];
-    return [];
-  } catch {
-    return [];
+  const response = await fetch("/api/v1/store/products");
+  if (!response.ok) {
+    throw new Error(`Failed to fetch products: ${response.status}`);
   }
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(data.error?.message || 'Failed to fetch products');
+  }
+  return data.products || [];
 };
 
 export const getProductById = async (id: string): Promise<StoreProduct | null> => {

@@ -102,6 +102,7 @@ export class LicenseEngine {
   async initialize(): Promise<LicenseStatus> {
     const hardwareId = this._hardware.getFingerprint();
     this._cache.invalidateIfHardwareMismatch(hardwareId);
+    await this._processMessageQueue();
     if (this._cache.isValid()) {
       const cached = this._cache.getLicenseStatus();
       if (cached) {
@@ -375,5 +376,94 @@ export class LicenseEngine {
   async replyToSupportRequest(requestId: string, message: string, customerName?: string, customerEmail?: string): Promise<Record<string, any>> {
     const hardwareId = this._hardware.getFingerprint();
     return this._client.replyToSupportRequest(requestId, message, customerName, customerEmail, hardwareId);
+  }
+
+  // ====================================================================
+  // Message Queue Processing
+  // ====================================================================
+
+  private async _processMessageQueue(): Promise<void> {
+    const queue = this._cache.getMessageQueue();
+    let changed = false;
+    for (const msg of queue) {
+      if (msg.status === 'sent') continue;
+      const now = Math.floor(Date.now() / 1000);
+      if (now < (msg.next_retry_at || 0)) continue;
+      if (msg.retry_count >= msg.max_retries) continue;
+      msg.status = 'sending';
+      try {
+        await this._client.createCommunication(msg);
+        msg.status = 'sent';
+        changed = true;
+      } catch (e) {
+        msg.retry_count = (msg.retry_count || 0) + 1;
+        msg.last_error = (e as Error).message;
+        const expBackoff = Math.pow(2, msg.retry_count) * 60;
+        msg.next_retry_at = now + expBackoff;
+        msg.status = 'failed';
+        changed = true;
+      }
+    }
+    if (changed) {
+      this._cache.saveMessageQueue(queue);
+      this._cache.cleanupSentMessages();
+    }
+  }
+
+  // ====================================================================
+  // Universal Communication Engine
+  // ====================================================================
+
+  async createCommunication(params: Record<string, any>): Promise<Record<string, any>> {
+    try {
+      return await this._client.createCommunication(params);
+    } catch (e) {
+      this._cache.queueMessage(params);
+      return {
+        success: false,
+        message: 'Message queued for delivery when online.',
+        queued: true,
+      };
+    }
+  }
+
+  async getConversation(conversationId: string): Promise<Record<string, any>> {
+    return this._client.getConversation(conversationId);
+  }
+
+  async replyToConversation(conversationId: string, message: string, customerName?: string, customerEmail?: string): Promise<Record<string, any>> {
+    try {
+      return await this._client.replyToConversation(conversationId, message, customerName, customerEmail);
+    } catch (e) {
+      const cached = this._cache.getLicenseStatus();
+      this._cache.queueMessage({
+        category: 'general',
+        customer_email: customerEmail || cached?.customer_email || '',
+        customer_name: customerName || cached?.customer_name || '',
+        subject: `Reply to conversation ${conversationId}`,
+        message,
+      });
+      return {
+        success: false,
+        message: 'Reply queued for delivery when online.',
+        queued: true,
+      };
+    }
+  }
+
+  async listConversations(email: string): Promise<Record<string, any>> {
+    return this._client.listConversations(email);
+  }
+
+  async getNotifications(email: string): Promise<Record<string, any>> {
+    return this._client.getNotifications(email);
+  }
+
+  async markNotificationRead(notificationId: string): Promise<Record<string, any>> {
+    return this._client.markNotificationRead(notificationId);
+  }
+
+  async getUnreadNotificationCount(email: string): Promise<Record<string, any>> {
+    return this._client.getUnreadNotificationCount(email);
   }
 }

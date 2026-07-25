@@ -42,7 +42,7 @@ export class UniversalEmailDialog {
     const question = (q: string): Promise<string> => new Promise((resolve) => rl.question(q, resolve));
 
     const productName = options.autoFill?.product_name || this.config.product?.name || '';
-    const supportEmail = this.config.branding?.support_email || 'support@websmithdigital.com';
+    const supportEmail = this.config.branding?.support_email || 'support@example.com';
 
     console.log('── Universal Email Form ──');
     console.log(`Request: ${options.requestType.replace(/_/g, ' ')}`);

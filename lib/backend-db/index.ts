@@ -1017,6 +1017,12 @@ export async function getDb(): Promise<Pool> {
         error TEXT,
         license_key TEXT,
         hardware_id TEXT,
+        sender_name TEXT,
+        sender_email TEXT,
+        template_name TEXT,
+        retry_count INTEGER DEFAULT 0,
+        support_request_id TEXT,
+        sales_enquiry_id TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);

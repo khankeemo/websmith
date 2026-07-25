@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     client = null;
 
     // Send email to support
-    const supportEmail = 'support@websmithdigital.com';
+    const supportEmail = process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com';
     const emailData: Record<string, string> = {
       request_id: requestId,
       request_type,

@@ -247,4 +247,77 @@ export class ApiClient {
     if (hardwareId) payload.hardware_id = hardwareId;
     return this._request(`support/${requestId}/reply`, payload);
   }
+
+  // ====================================================================
+  // Universal Communication Engine
+  // ====================================================================
+
+  async createCommunication(params: Record<string, any>): Promise<Record<string, any>> {
+    return this._request('communication/create', {
+      category: params.category,
+      customer_email: params.customer_email,
+      customer_name: params.customer_name,
+      subject: params.subject || '',
+      message: params.message,
+      product_id: params.product_id || this.productId,
+      license_key: params.license_key || '',
+      hardware_id: params.hardware_id || this._getHardwareId(),
+      sdk_version: params.sdk_version || SDK_VERSION,
+      runtime_type: params.runtime_type || RUNTIME_TYPE,
+    });
+  }
+
+  async getConversation(conversationId: string): Promise<Record<string, any>> {
+    return this._request(`communication/${conversationId}`, {
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async replyToConversation(conversationId: string, message: string, customerName?: string, customerEmail?: string): Promise<Record<string, any>> {
+    const payload: Record<string, any> = { message };
+    if (customerName) payload.customer_name = customerName;
+    if (customerEmail) payload.customer_email = customerEmail;
+    payload.hardware_id = this._getHardwareId();
+    return this._request(`communication/${conversationId}/reply`, payload);
+  }
+
+  async listConversations(email: string): Promise<Record<string, any>> {
+    return this._request('communication/list', {
+      customer_email: email,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async uploadAttachment(conversationId: string, filePath: string, fileContent?: string): Promise<Record<string, any>> {
+    return this._request(`communication/${conversationId}/attach`, {
+      file_path: filePath,
+      file_content: fileContent || '',
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  // ====================================================================
+  // Notifications
+  // ====================================================================
+
+  async getNotifications(email: string): Promise<Record<string, any>> {
+    return this._request('notifications', {
+      customer_email: email,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async markNotificationRead(notificationId: string): Promise<Record<string, any>> {
+    return this._request('notifications/read', {
+      notification_id: notificationId,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async getUnreadNotificationCount(email: string): Promise<Record<string, any>> {
+    return this._request('notifications/unread-count', {
+      customer_email: email,
+      hardware_id: this._getHardwareId(),
+    });
+  }
 }

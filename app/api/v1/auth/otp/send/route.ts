@@ -23,7 +23,7 @@ async function sendOTPEmail(email: string, otp: string): Promise<boolean> {
       console.warn('[OTP send] BREVO_API_KEY not configured');
       return false;
     }
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.SENDER_EMAIL || 'support@websmithdigital.com';
+    const senderEmail = process.env.MAIL_FROM_ADDRESS || process.env.BREVO_SENDER_EMAIL || process.env.SENDER_EMAIL || 'no-reply@websmithdigital.com';
     const senderName = process.env.BREVO_SENDER_NAME || 'WebSmith License';
     const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',

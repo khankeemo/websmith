@@ -171,4 +171,44 @@ export class CacheManager {
     const entry = cache.has_ever_activated_paid_license;
     return entry !== undefined && entry.value === true;
   }
+
+  // ====================================================================
+  // Message Queue (Offline Retry)
+  // ====================================================================
+
+  queueMessage(msg: Record<string, any>): void {
+    const cache = this._loadCache();
+    const queue: Record<string, any>[] = cache.message_queue?.value || [];
+    msg.id = msg.id || `q_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    msg.status = msg.status || 'pending';
+    msg.retry_count = msg.retry_count || 0;
+    msg.max_retries = msg.max_retries || 5;
+    msg.created_at = msg.created_at || Math.floor(Date.now() / 1000);
+    msg.next_retry_at = msg.next_retry_at || Math.floor(Date.now() / 1000) + 60;
+    queue.push(msg);
+    cache.message_queue = { value: queue, cached_at: Date.now() / 1000 };
+    this._saveCache();
+  }
+
+  getMessageQueue(): Record<string, any>[] {
+    const cache = this._loadCache();
+    const entry = cache.message_queue;
+    if (!entry) return [];
+    return entry.value as Record<string, any>[];
+  }
+
+  saveMessageQueue(queue: Record<string, any>[]): void {
+    const cache = this._loadCache();
+    cache.message_queue = { value: queue, cached_at: Date.now() / 1000 };
+    this._saveCache();
+  }
+
+  cleanupSentMessages(): void {
+    const queue = this.getMessageQueue().filter(m => m.status !== 'sent');
+    this.saveMessageQueue(queue);
+  }
+
+  getPendingCount(): number {
+    return this.getMessageQueue().filter(m => m.status === 'pending' || m.status === 'failed').length;
+  }
 }

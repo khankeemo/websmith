@@ -226,30 +226,34 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
 
-        // Check for existing trial
-        const existingTrial = await client.query(
+        // TRIAL_ALREADY_CONSUMED enforcement
+        // One verified email = one lifetime trial. Period.
+        const normalizedEmail = (customer_email || '').trim().toLowerCase();
+        const existingTrialByEmail = await client.query(
           `SELECT id, status, expiry_date FROM trials 
-           WHERE hardware_id = $1 AND product_id = $2 AND status = 'active'`,
-          [hardware_id, productId]
+           WHERE customer_email = $1 AND product_id = $2`,
+          [normalizedEmail, productId]
         );
 
-        if (existingTrial.rows.length > 0) {
-          const trial = existingTrial.rows[0];
-          const expiryDate = new Date(trial.expiry_date);
-          const daysLeft = Math.max(0, Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-          
+        if (existingTrialByEmail.rows.length > 0) {
+          const trial = existingTrialByEmail.rows[0];
+
+          await client.query(
+            `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, hardware_id)
+             VALUES ($1, $2, $3, $4, $5)`,
+            ['trial_rejected_already_consumed', `Trial rejected for ${normalizedEmail} - already consumed (status: ${trial.status})`, nowISO, ipAddress, hardware_id]
+          );
+
           client.release();
           client = null;
-          
+
           return NextResponse.json({
-            success: true,
-            data: {
-              active: true,
-              days_left: daysLeft,
-              expiry_date: trial.expiry_date,
-              message: `Trial already active with ${daysLeft} days left`
+            success: false,
+            error: {
+              code: 'TRIAL_ALREADY_CONSUMED',
+              message: 'This email has already used its free trial. Please activate a license, renew an existing license, or contact sales.'
             }
-          });
+          }, { status: 400 });
         }
 
         // Validate trial start (product exists, formats) — runs after paid-license and existing-trial checks

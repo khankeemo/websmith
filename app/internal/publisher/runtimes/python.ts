@@ -743,12 +743,42 @@ class CacheManager:
 
     def has_ever_activated_paid_license(self) -> bool:
         return self.get('has_ever_activated_paid_license') is True
+
+    # ====================================================================
+    # Message Queue (Offline Retry)
+    # ====================================================================
+
+    def queue_message(self, msg: Dict[str, Any]) -> None:
+        queue = self.get_message_queue()
+        msg['id'] = msg.get('id', f"q_{int(time.time())}_{os.urandom(4).hex()}")
+        msg['status'] = msg.get('status', 'pending')
+        msg['retry_count'] = msg.get('retry_count', 0)
+        msg['max_retries'] = msg.get('max_retries', 5)
+        msg['created_at'] = msg.get('created_at', int(time.time()))
+        msg['next_retry_at'] = msg.get('next_retry_at', int(time.time()) + 60)
+        queue.append(msg)
+        self.set('message_queue', queue)
+
+    def get_message_queue(self) -> list:
+        return self.get('message_queue') or []
+
+    def save_message_queue(self, queue: list) -> None:
+        self.set('message_queue', queue)
+
+    def cleanup_sent_messages(self) -> None:
+        queue = [m for m in self.get_message_queue() if m.get('status') != 'sent']
+        self.save_message_queue(queue)
+
+    def get_pending_count(self) -> int:
+        return len([m for m in self.get_message_queue() if m.get('status') in ('pending', 'failed')])
 `,
     'license_engine.py': `"""License validation and management engine"""
 import json
 import logging
+import os
+import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from .client import ApiClient
 from .hardware import HardwareDetector
@@ -833,6 +863,44 @@ class LicenseEngine:
             except Exception:
                 pass
 
+    def _process_message_queue(self) -> None:
+        queue = self._cache.get_message_queue()
+        changed = False
+        for msg in queue:
+            if msg.get('status') == 'sent':
+                continue
+            now_ts = int(time.time())
+            if now_ts < msg.get('next_retry_at', 0):
+                continue
+            if msg.get('retry_count', 0) >= msg.get('max_retries', 5):
+                continue
+            msg['status'] = 'sending'
+            try:
+                self._client.create_communication(
+                    category=msg.get('category', 'general'),
+                    customer_email=msg.get('customer_email', ''),
+                    customer_name=msg.get('customer_name', ''),
+                    subject=msg.get('subject', ''),
+                    message=msg.get('message', ''),
+                    product_id=msg.get('product_id', ''),
+                    license_key=msg.get('license_key', ''),
+                    hardware_id=msg.get('hardware_id', self._hardware.get_fingerprint()),
+                    sdk_version=msg.get('sdk_version', ''),
+                    runtime_type=msg.get('runtime_type', ''),
+                )
+                msg['status'] = 'sent'
+                changed = True
+            except Exception as e:
+                msg['retry_count'] = msg.get('retry_count', 0) + 1
+                msg['last_error'] = str(e)
+                exp_backoff = pow(2, msg['retry_count']) * 60
+                msg['next_retry_at'] = now_ts + exp_backoff
+                msg['status'] = 'failed'
+                changed = True
+        if changed:
+            self._cache.save_message_queue(queue)
+            self._cache.cleanup_sent_messages()
+
     def _load_config(self, config_path: Optional[str]) -> Dict[str, Any]:
         if config_path is None:
             base_dir = Path(__file__).parent.parent
@@ -855,6 +923,7 @@ class LicenseEngine:
     def initialize(self) -> LicenseStatus:
         hardware_id = self._hardware.get_fingerprint()
         self._cache.invalidate_if_hardware_mismatch(hardware_id)
+        self._process_message_queue()
         if self._cache.is_valid():
             cached = self._cache.get_license_status()
             if cached:
@@ -1273,13 +1342,77 @@ class LicenseEngine:
             customer_email=customer_email, message=message,
         )
 
-    def send_support_request(self, license_key: str = '', customer_name: str = '',
+    def send_support_request(self, license_key: str = '',
+                             customer_name: str = '',
                              customer_email: str = '', subject: str = '',
                              message: str = '') -> Dict[str, Any]:
         return self._client.send_support_request(
             license_key=license_key, customer_name=customer_name,
             customer_email=customer_email, subject=subject, message=message,
         )
+
+    # ====================================================================
+    # Universal Communication Engine
+    # ====================================================================
+
+    def create_communication(self, category: str = 'general',
+                             customer_email: str = '',
+                             customer_name: str = '',
+                             subject: str = '', message: str = '',
+                             product_id: str = '', license_key: str = '',
+                             hardware_id: str = '', sdk_version: str = '',
+                             runtime_type: str = '') -> Dict[str, Any]:
+        try:
+            return self._client.create_communication(
+                category=category, customer_email=customer_email,
+                customer_name=customer_name, subject=subject,
+                message=message, product_id=product_id,
+                license_key=license_key,
+                hardware_id=hardware_id or self._hardware.get_fingerprint(),
+                sdk_version=sdk_version, runtime_type=runtime_type,
+            )
+        except Exception as e:
+            self._cache.queue_message({
+                'category': category, 'customer_email': customer_email,
+                'customer_name': customer_name, 'subject': subject,
+                'message': message, 'product_id': product_id,
+                'license_key': license_key,
+                'hardware_id': hardware_id or self._hardware.get_fingerprint(),
+                'sdk_version': sdk_version, 'runtime_type': runtime_type,
+            })
+            return {'success': False, 'message': 'Message queued for delivery when online.', 'queued': True}
+
+    def get_conversation(self, conversation_id: str) -> Dict[str, Any]:
+        return self._client.get_conversation(conversation_id)
+
+    def reply_to_conversation(self, conversation_id: str, message: str,
+                              customer_name: str = '',
+                              customer_email: str = '') -> Dict[str, Any]:
+        try:
+            return self._client.reply_to_conversation(
+                conversation_id, message, customer_name, customer_email)
+        except Exception:
+            cached = self._cache.get_license_status() or {}
+            self._cache.queue_message({
+                'category': 'general',
+                'customer_email': customer_email or cached.get('customer_email', ''),
+                'customer_name': customer_name or cached.get('customer_name', ''),
+                'subject': f'Reply to conversation {conversation_id}',
+                'message': message,
+            })
+            return {'success': False, 'message': 'Reply queued for delivery when online.', 'queued': True}
+
+    def list_conversations(self, email: str) -> Dict[str, Any]:
+        return self._client.list_conversations(email)
+
+    def get_notifications(self, email: str) -> Dict[str, Any]:
+        return self._client.get_notifications(email)
+
+    def mark_notification_read(self, notification_id: str) -> Dict[str, Any]:
+        return self._client.mark_notification_read(notification_id)
+
+    def get_unread_notification_count(self, email: str) -> Dict[str, Any]:
+        return self._client.get_unread_notification_count(email)
 `,
     'welcome.py': `"""Welcome Dialog - Customer onboarding with OTP verification and trial generation"""
 import json
@@ -1568,7 +1701,6 @@ from .welcome import WelcomeDialog
 
 SDK_VERSION = "${context.kitVersion}"
 RUNTIME_TYPE = "${context.runtime}"
-SUPPORT_EMAIL = "support@websmithdigital.com"
 
 
 def _load_api_config() -> Dict[str, Any]:
@@ -1609,6 +1741,9 @@ class UniversalLicenseCenter:
         self._warning = "#f59e0b"
         self._border = "#d1d5db"
         self._product_name = self.config.get("product", {}).get("name", "")
+        self._company_name = branding.get("company_name", "Your Company")
+        self._support_email = branding.get("support_email", "")
+        self._sales_email = branding.get("sales_email", "")
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -1738,6 +1873,8 @@ class UniversalLicenseCenter:
             buttons = [
                 ("Activate License", self._activate_license, self._primary),
                 ("Contact Support", self._contact_support, self._text_secondary),
+                ("View Conversations", self._view_conversations, self._text_secondary),
+                ("View Notifications", self._view_notifications, self._text_secondary),
                 ("Close", self._on_close, "#e5e7eb"),
             ]
         elif is_paid:
@@ -1745,6 +1882,9 @@ class UniversalLicenseCenter:
                 ("Renew License", self._renew_license, self._primary),
                 ("Replace Device", self._replace_device, self._warning),
                 ("Contact Support", self._contact_support, self._text_secondary),
+                ("Sales Enquiry", self._contact_sales, self._text_secondary),
+                ("View Conversations", self._view_conversations, self._text_secondary),
+                ("View Notifications", self._view_notifications, self._text_secondary),
                 ("Close", self._on_close, "#e5e7eb"),
             ]
         elif is_expired:
@@ -1752,6 +1892,8 @@ class UniversalLicenseCenter:
                 ("Renew License", self._renew_license, self._primary),
                 ("Reactivate License", self._reactivate_license, self._warning),
                 ("Contact Support", self._contact_support, self._text_secondary),
+                ("View Conversations", self._view_conversations, self._text_secondary),
+                ("View Notifications", self._view_notifications, self._text_secondary),
                 ("Close", self._on_close, "#e5e7eb"),
             ]
         else:
@@ -1759,6 +1901,7 @@ class UniversalLicenseCenter:
                 ("Start Free Trial", self._start_trial, self._success),
                 ("Activate License", self._activate_license, self._primary),
                 ("Contact Support", self._contact_support, self._text_secondary),
+                ("Sales Enquiry", self._contact_sales, self._text_secondary),
                 ("Close", self._on_close, "#e5e7eb"),
             ]
 
@@ -2158,9 +2301,15 @@ class UniversalLicenseCenter:
         dialog.wait_window()
 
     def _contact_support(self):
+        self._show_communication_dialog('support', 'Contact Support')
+
+    def _contact_sales(self):
+        self._show_communication_dialog('sales', 'Sales Enquiry')
+
+    def _show_communication_dialog(self, category: str, title: str):
         dialog = tk.Toplevel(self._root)
-        dialog.title("Contact Support")
-        dialog.geometry("500x440")
+        dialog.title(title)
+        dialog.geometry("520x480")
         dialog.configure(bg=self._bg)
         dialog.transient(self._root)
         dialog.grab_set()
@@ -2169,7 +2318,7 @@ class UniversalLicenseCenter:
                          highlightbackground=self._border)
         frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        tk.Label(frame, text="Contact Support", font=("Segoe UI", 16, "bold"),
+        tk.Label(frame, text=title, font=("Segoe UI", 16, "bold"),
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
         tk.Label(frame, text="We already know who you are. Just tell us what you need.",
                  font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary).pack(
@@ -2189,6 +2338,12 @@ class UniversalLicenseCenter:
         tk.Entry(frame, textvariable=email_var, font=("Segoe UI", 11),
                  relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
 
+        tk.Label(frame, text="Subject", font=("Segoe UI", 10, "bold"),
+                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
+        subject_var = tk.StringVar(value=title)
+        tk.Entry(frame, textvariable=subject_var, font=("Segoe UI", 11),
+                 relief="solid", bd=1).pack(fill="x", padx=16, pady=(0, 8))
+
         tk.Label(frame, text="Message *", font=("Segoe UI", 10, "bold"),
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
         msg_text = tk.Text(frame, font=("Segoe UI", 10), height=4,
@@ -2201,6 +2356,7 @@ class UniversalLicenseCenter:
         def do_send():
             name = name_var.get().strip()
             email = email_var.get().strip()
+            subject = subject_var.get().strip()
             msg = msg_text.get("1.0", "end").strip()
             if not name or not email:
                 status_lbl.config(text="Name and email are required.", fg=self._error)
@@ -2212,16 +2368,20 @@ class UniversalLicenseCenter:
             dialog.update()
             try:
                 license_key = self._status.license_key if self._status else cached.get('license_key', '')
-                result = self.engine.send_support_request(
-                    license_key=license_key or '',
-                    customer_name=name,
+                result = self.engine.create_communication(
+                    category=category,
                     customer_email=email,
-                    subject='Support Request',
+                    customer_name=name,
+                    subject=subject,
                     message=msg,
+                    license_key=license_key or '',
+                    hardware_id=self.hardware.get_fingerprint(),
+                    sdk_version=SDK_VERSION,
+                    runtime_type=RUNTIME_TYPE,
                 )
-                if result.get("success"):
+                if result.get("success") or result.get("queued"):
                     messagebox.showinfo("Request Submitted",
-                                        "Your support request has been sent.\\n"
+                                        "Your request has been sent.\\n"
                                         "We will contact you at " + email + ".",
                                         parent=dialog)
                     dialog.destroy()
@@ -2237,6 +2397,169 @@ class UniversalLicenseCenter:
                   padx=12, pady=6, cursor="hand2").pack(fill="x", padx=16, pady=(8, 12))
 
         dialog.wait_window()
+
+    def _view_conversations(self):
+        if not self._status:
+            return
+        email = self._status.customer_email or ''
+        if not email:
+            cached = self.cache.get_license_status() or {}
+            email = cached.get('customer_email', '')
+        if not email:
+            messagebox.showwarning("No Email", "No customer email found.",
+                                    parent=self._root)
+            return
+        try:
+            result = self.engine.list_conversations(email)
+            if result.get("success"):
+                conversations = result.get("data", {}).get("conversations", [])
+                if not conversations:
+                    messagebox.showinfo("Conversations",
+                                        "No conversations found.",
+                                        parent=self._root)
+                    return
+                dialog = tk.Toplevel(self._root)
+                dialog.title("Your Conversations")
+                dialog.geometry("600x500")
+                dialog.configure(bg=self._bg)
+                dialog.transient(self._root)
+                dialog.grab_set()
+
+                frame = tk.Frame(dialog, bg=self._card_bg, bd=1, relief="solid",
+                                 highlightbackground=self._border)
+                frame.pack(fill="both", expand=True, padx=16, pady=16)
+
+                tk.Label(frame, text="Your Conversations",
+                         font=("Segoe UI", 14, "bold"),
+                         bg=self._card_bg, fg=self._text_primary).pack(
+                    anchor="w", padx=12, pady=(8, 12))
+
+                list_frame = tk.Frame(frame, bg=self._card_bg)
+                list_frame.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+                canvas = tk.Canvas(list_frame, bg=self._card_bg,
+                                   highlightthickness=0)
+                scrollbar = tk.Scrollbar(list_frame, orient="vertical",
+                                          command=canvas.yview)
+                scrollable = tk.Frame(canvas, bg=self._card_bg)
+
+                scrollable.bind(
+                    "<Configure>",
+                    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+                )
+                canvas.create_window((0, 0), window=scrollable, anchor="nw")
+                canvas.configure(yscrollcommand=scrollbar.set)
+                canvas.pack(side="left", fill="both", expand=True)
+                scrollbar.pack(side="right", fill="y")
+
+                for conv in conversations:
+                    conv_frame = tk.Frame(scrollable, bg=self._card_bg,
+                                          bd=1, relief="solid",
+                                          highlightbackground=self._border)
+                    conv_frame.pack(fill="x", pady=(0, 6), padx=4)
+
+                    tk.Label(conv_frame,
+                             text=f"{conv.get('category', '').upper()} - {conv.get('subject', 'No Subject')}",
+                             font=("Segoe UI", 11, "bold"),
+                             bg=self._card_bg, fg=self._text_primary).pack(
+                        anchor="w", padx=10, pady=(6, 2))
+                    tk.Label(conv_frame,
+                             text=f"Status: {conv.get('status', 'N/A')}  |  "
+                                  f"{conv.get('created_at', '')[:10]}",
+                             font=("Segoe UI", 9),
+                             bg=self._card_bg, fg=self._text_secondary).pack(
+                        anchor="w", padx=10, pady=(0, 6))
+
+                tk.Button(frame, text="Close", command=dialog.destroy,
+                          font=("Segoe UI", 11, "bold"),
+                          bg=self._primary, fg="white", relief="flat",
+                          padx=12, pady=6, cursor="hand2").pack(
+                    padx=12, pady=(0, 12))
+            else:
+                messagebox.showerror("Error",
+                                     "Failed to load conversations.",
+                                     parent=self._root)
+        except Exception as e:
+            messagebox.showerror("Error",
+                                 f"Failed to load conversations: {str(e)}",
+                                 parent=self._root)
+
+    def _view_notifications(self):
+        if not self._status:
+            return
+        email = self._status.customer_email or ''
+        if not email:
+            cached = self.cache.get_license_status() or {}
+            email = cached.get('customer_email', '')
+        if not email:
+            return
+        try:
+            result = self.engine.get_notifications(email)
+            if result.get("success"):
+                notifications = result.get("data", {}).get("notifications", [])
+                if not notifications:
+                    messagebox.showinfo("Notifications",
+                                        "No notifications found.",
+                                        parent=self._root)
+                    return
+                dialog = tk.Toplevel(self._root)
+                dialog.title("Notifications")
+                dialog.geometry("550x450")
+                dialog.configure(bg=self._bg)
+                dialog.transient(self._root)
+                dialog.grab_set()
+
+                frame = tk.Frame(dialog, bg=self._card_bg, bd=1, relief="solid",
+                                 highlightbackground=self._border)
+                frame.pack(fill="both", expand=True, padx=16, pady=16)
+
+                tk.Label(frame, text="Notifications",
+                         font=("Segoe UI", 14, "bold"),
+                         bg=self._card_bg, fg=self._text_primary).pack(
+                    anchor="w", padx=12, pady=(8, 12))
+
+                list_frame = tk.Frame(frame, bg=self._card_bg)
+                list_frame.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+                canvas = tk.Canvas(list_frame, bg=self._card_bg,
+                                   highlightthickness=0)
+                scrollbar = tk.Scrollbar(list_frame, orient="vertical",
+                                          command=canvas.yview)
+                scrollable = tk.Frame(canvas, bg=self._card_bg)
+
+                scrollable.bind(
+                    "<Configure>",
+                    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+                )
+                canvas.create_window((0, 0), window=scrollable, anchor="nw")
+                canvas.configure(yscrollcommand=scrollbar.set)
+                canvas.pack(side="left", fill="both", expand=True)
+                scrollbar.pack(side="right", fill="y")
+
+                for notif in notifications:
+                    nf = tk.Frame(scrollable, bg=self._card_bg,
+                                  bd=1, relief="solid",
+                                  highlightbackground=self._border)
+                    nf.pack(fill="x", pady=(0, 6), padx=4)
+                    read_status = "" if notif.get("is_read") else " (NEW)"
+                    tk.Label(nf,
+                             text=f"{notif.get('category', '').upper()}{read_status}",
+                             font=("Segoe UI", 10, "bold"),
+                             bg=self._card_bg, fg=self._text_primary).pack(
+                        anchor="w", padx=10, pady=(4, 0))
+                    tk.Label(nf,
+                             text=notif.get('title', ''),
+                             font=("Segoe UI", 10),
+                             bg=self._card_bg, fg=self._text_secondary).pack(
+                        anchor="w", padx=10, pady=(0, 4))
+
+                tk.Button(frame, text="Close", command=dialog.destroy,
+                          font=("Segoe UI", 11, "bold"),
+                          bg=self._primary, fg="white", relief="flat",
+                          padx=12, pady=6, cursor="hand2").pack(
+                    padx=12, pady=(0, 12))
+        except Exception:
+            pass
 `,
   };
 };

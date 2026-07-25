@@ -168,7 +168,7 @@ export async function POST(
           message,
         ].join('\n');
 
-        await sendEmail(
+        const emailResult = await sendEmail(
           pool,
           'admin_notification',
           { email: SUPPORT_EMAIL, name: 'Support' },
@@ -183,8 +183,11 @@ export async function POST(
             subject: `Re: ${reqData.subject || 'Support Request'}`,
             message: emailBody,
           }
-        ).catch(() => {});
-      } catch {}
+        );
+        console.log(`[Support Reply] Email notification for ${requestId}: ${emailResult ? 'success' : 'failed'}`);
+      } catch (emailError: any) {
+        console.error(`[Support Reply] Email notification failed for ${requestId}:`, emailError?.message || emailError);
+      }
     }
 
     await logRequest({

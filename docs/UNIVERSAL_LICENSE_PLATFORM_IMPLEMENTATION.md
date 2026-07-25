@@ -3,8 +3,8 @@
 > **Single Source of Truth** for architecture, workflow, SDK Publisher changes,
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
-> Generated: 2026-07-24
-> Status: Phase 1 Audit Complete — Pre-Implementation
+> Generated: 2026-07-25
+> Status: Phases 1-14 Complete — Phase 15 (Communication Architecture) In Progress
 
 ---
 
@@ -240,7 +240,8 @@ Neon PostgreSQL is the single source of truth. The database enforces all busines
 | `activations` | Hardware-device bindings | id, license_key, hardware_id, device_name, ip_address, activated_at, last_seen, is_active |
 | `trials` | Trial records | id, hardware_id, product_id, customer_email, customer_name, status, expiry_date, started_at, trial_duration_days, sdk_version, runtime_type |
 | `trial_templates` | Trial configuration templates | id, name, duration_days, is_system_default, is_active |
-| `requests` | Customer support requests | request_id, request_type, status, customer_email, customer_name, product_id, product_name, plan_name, license_key, hardware_id, sdk_version, runtime_type, subject, message, created_at |
+| `requests` | Customer support requests | request_id, request_type, status, customer_email, customer_name, product_id, product_name, plan_name, license_key, hardware_id, sdk_version, runtime_type, subject, message, admin_notes, created_at |
+| `conversation_messages` | Threaded support conversation messages | id, request_id (FK→requests), sender_type (customer/admin), sender_name, sender_email, message, is_internal, email_sent, email_error, created_at |
 | `renewal_history` | License renewal records | id, license_key, old_plan, new_plan, old_expiry_date, new_expiry_date, extra_days, renewed_by, notes, created_at |
 | `renewal_requests` | Customer renewal requests | id, license_key, customer_name, customer_email, requested_plan_id, status, created_at |
 | `reactivation_requests` | Customer reactivation requests | id, license_key, customer_name, customer_email, old_hardware_id, new_hardware_id, status, created_at |
@@ -253,6 +254,12 @@ Neon PostgreSQL is the single source of truth. The database enforces all busines
 | `developer_api_keys` | API key management | id, name, key_hash, secret_hash, product_id, is_active, created_at |
 | `payment_config` | Payment gateway configuration | id, gateway, is_active, credentials (encrypted) |
 | `sms_config` | SMS provider configuration | id, provider, api_key, is_active |
+| `communication_conversations` | Universal conversation engine (all categories) | id, category (support|sales|activation|renewal|reactivation|hardware_replacement|general), status (open|waiting_customer|waiting_support|waiting_sales|resolved|closed), customer_email, customer_name, subject, product_id, license_key, hardware_id, sdk_version, runtime_type, created_at, updated_at |
+| `conversation_messages` | Threaded messages in conversations | id, conversation_id (FK→communication_conversations), sender_type (customer|admin), sender_name, sender_email, message, is_internal, has_attachments, email_sent, email_error, created_at |
+| `conversation_attachments` | File attachments on messages | id, message_id (FK→conversation_messages), file_name, file_size, mime_type, storage_path, uploaded_at |
+| `message_queue` | Offline/retry message queue | id, conversation_id, message, sender_name, sender_email, category, status (pending|sending|sent|failed), retry_count, max_retries, last_error, next_retry_at, created_at, updated_at |
+| `notifications` | SDK notification records | id, customer_email, category (trial|license|activation|renewal|reactivation|support|sales|hardware|error|warning|announcement), title, message, is_read, created_at |
+| `notification_logs` | Email delivery tracking | id, event_type, channel, recipient, subject, status, response, error, license_key, hardware_id, created_at |
 
 ### 0.5 — Environment Variables
 
@@ -278,8 +285,24 @@ All environment variables are mandatory unless marked optional. Variables must b
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `BREVO_API_KEY` | Yes | Brevo API v3 key for sending transactional emails |
-| `BREVO_SENDER_EMAIL` | Yes | Verified sender email address in Brevo |
+| `BREVO_SENDER_EMAIL` | Yes | Verified sender email address in Brevo (used as default `MAIL_FROM_ADDRESS`) |
 | `BREVO_SENDER_NAME` | No | Display name for the sender (default: "Websmith Support") |
+
+#### Universal Email Architecture (Dedicated Email Addresses)
+
+Email routing is centralized through `lib/email/brevo.ts`. No email addresses are hardcoded in business logic. Three dedicated environment variables control all outbound email routing:
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `MAIL_FROM_ADDRESS` | No | `no-reply@websmithdigital.com` | Automated system emails (OTP, activation confirmations, trial started, license created/renewed/expired/revoked, device changes, payment receipts, subscription reminders) |
+| `MAIL_SUPPORT_ADDRESS` | No | `support@websmithdigital.com` | Support-related emails (admin notifications of new support requests, support reply notifications, customer support conversations) |
+| `MAIL_SALES_ADDRESS` | No | `sales@websmithdigital.com` | Sales-related emails (new sales enquiries, sales reply conversations) |
+
+**Routing rules:**
+- `MAIL_FROM_ADDRESS` sends automated transactional emails only — recipients must not reply to these directly
+- `MAIL_SUPPORT_ADDRESS` sends and receives support conversation emails
+- `MAIL_SALES_ADDRESS` sends and receives sales conversation emails
+- The `BREVO_SENDER_EMAIL` variable may serve as fallback for `MAIL_FROM_ADDRESS` if not explicitly set
 
 #### Upstash / QStash (Workflow & Queue — if still used)
 
@@ -324,23 +347,41 @@ Internal API Route (/api/v1/* or /internal/backend/*)
         └── 5. Return success response with request_id
 ```
 
-#### Email Types
+#### Email Routing Table
 
-| Template Key | Trigger | Recipient |
-|-------------|---------|-----------|
-| `admin_notification` | New support/request created | support@websmithdigital.com |
-| `welcome_customer` | Customer registration or request submission | Customer email |
-| `otp_verification` | OTP sent for identity verification | Customer email |
-| `license_activated` | License activated successfully | Customer email |
-| `renewal_request` | Renewal request submitted | support@websmithdigital.com |
-| `reactivation_request` | Reactivation request submitted | support@websmithdigital.com |
+The `EMAIL_ROUTES` constant in `lib/email/brevo.ts` maps each template key to its sender address:
+
+| Route | Sender | Purpose |
+|-------|--------|---------|
+| `otp_verification` | `MAIL_FROM_ADDRESS` | OTP verification codes |
+| `license_activated` | `MAIL_FROM_ADDRESS` | Activation confirmation |
+| `activation_success` | `MAIL_FROM_ADDRESS` | Successful activation |
+| `activation_failed` | `MAIL_FROM_ADDRESS` | Failed activation |
+| `trial_started` | `MAIL_FROM_ADDRESS` | Trial confirmation |
+| `license_created` | `MAIL_FROM_ADDRESS` | License issuance |
+| `license_renewed` | `MAIL_FROM_ADDRESS` | Renewal confirmation |
+| `license_expired` | `MAIL_FROM_ADDRESS` | Expiry notification |
+| `license_revoked` | `MAIL_FROM_ADDRESS` | Revocation notice |
+| `device_reset` | `MAIL_FROM_ADDRESS` | Device reset confirmation |
+| `device_changed` | `MAIL_FROM_ADDRESS` | Device change alert |
+| `payment_success` | `MAIL_FROM_ADDRESS` | Payment confirmation |
+| `subscription_reminder` | `MAIL_FROM_ADDRESS` | Renewal reminder |
+| `welcome_customer` | `MAIL_FROM_ADDRESS` | Welcome/enquiry confirmation |
+| `reactivation_approved` | `MAIL_FROM_ADDRESS` | Reactivation approved |
+| `reactivation_rejected` | `MAIL_FROM_ADDRESS` | Reactivation rejected |
+| `admin_notification` | `MAIL_SUPPORT_ADDRESS` | New support request / customer reply |
+| `support_reply` | `MAIL_SUPPORT_ADDRESS` | Administrator reply to customer |
+| `new_sales_enquiry` | `MAIL_SALES_ADDRESS` | New sales enquiry |
+| `sales_reply` | `MAIL_SALES_ADDRESS` | Sales team reply to customer |
 
 #### Retry & Failure Handling
 
 - Transient failures (network timeouts, 5xx from Brevo): retry up to 3 times with exponential backoff
 - Permanent failures (invalid API key, invalid template): log error, do not retry
 - All failures are recorded in the `audit_logs` table with event_type `email_failed`
+- All email deliveries are recorded in `notification_logs` table with status, response, and error details
 - The request is still created in the database even if email delivery fails
+- Email delivery failures must never be silently swallowed — always log via console.error and audit_logs
 - Admin dashboard displays email delivery status for monitoring
 
 ### 0.7 — Internal API Request Lifecycle
@@ -499,7 +540,7 @@ A phase is not complete until ALL of the following pass:
 | Database verification | No schema drift; migration files up to date if schema changed |
 | Internal API verification | All affected routes return correct responses for success and failure cases |
 | Audit log verification | Required audit events are created for all operations in the phase |
-| Email verification | Email templates render correctly if new email types were added |
+| Email verification | Email templates render correctly if new email types were added; OTP normalization verified; email failure logging verified; all three mail addresses (MAIL_FROM_ADDRESS, MAIL_SUPPORT_ADDRESS, MAIL_SALES_ADDRESS) route correctly |
 | No console/runtime errors | Zero errors in console output during all tested flows |
 | Documentation updated | This document updated to reflect any architecture or design changes |
 | Progress section updated | Progress Tracking section updated with completed/remaining/blockers/next |
@@ -727,6 +768,56 @@ Welcome Dialog (auto-opened)
         └── Unlock Application
 ```
 
+### Lifetime Trial Enforcement (Highest Priority — No Exceptions)
+
+**One verified email address receives one lifetime trial. Period.**
+
+A trial can NEVER be reset by:
+- Uninstalling the SDK
+- Reinstalling the SDK
+- Deleting cache
+- Deleting local files
+- Changing hardware
+- Replacing hardware
+- Reinstalling the operating system
+- Changing device
+- Clearing application data
+- Any other client-side action
+
+The Internal API is always the single source of authority for trial status.
+
+**Enforcement rules:**
+- One verified email address receives **one trial only** — the SDK must never attempt to create a second trial for the same email
+- The SDK must verify the email against the Internal API before any trial creation attempt
+- The Internal API must check `trials` table by `customer_email` before creating any trial
+- If that email has ever consumed a trial (regardless of status: active, expired, converted):
+  - Never create another trial
+  - Never display Welcome Trial again
+  - Never show "Start Free Trial" option
+  - Immediately direct the customer to: Activate License, Renew License, or Contact Sales
+- Trial is bound to the verified email address, not to hardware ID
+- Trial status is checked by email before a new trial is started
+- If a trial already exists for the email (regardless of status), return existing trial status
+- `trials` table enforces uniqueness by `customer_email` via database constraint
+- The SDK must cache `has_ever_consumed_trial` flag so the Welcome dialog is never re-shown
+- Trial expiry is calculated from `started_at + trial_duration_days`, not a fixed date
+- Admin may override trial limits through the Internal API only
+
+**SDK behavior when trial is exhausted:**
+- `POST /api/v1/trial (action: start)` returns error code `TRIAL_ALREADY_CONSUMED`
+- The SDK shows: "This email has already used its free trial. Please Activate a License, Renew an existing license, or Contact Sales."
+- Options shown: Activate License (1), Contact Sales (9), Exit (0)
+- No "Start Free Trial" option is ever shown again for that email
+- No "Welcome" onboarding redirect is ever shown again for that email
+
+**Internal API enforcement:**
+- `POST /api/v1/trial (action: start)` must:
+  1. Normalize email (trim + lowercase)
+  2. Query `trials` table for ANY record matching that email
+  3. If ANY record exists (any status): return `success: false`, error code `TRIAL_ALREADY_CONSUMED`
+  4. Only if no record exists: proceed with trial creation
+- Audit log event: `trial_rejected_already_consumed` on rejection
+
 ### Existing Trial
 
 ```
@@ -796,7 +887,7 @@ Universal License Center (locked)
         └── Close
 ```
 
-### Invalid/Inactive License
+### Invalid/Inactive License (Activation Flow)
 
 ```
 LicenseEngine.initialize()
@@ -808,36 +899,60 @@ Status: force_activation
 Activation Dialog
         │
         ├── Hardware ID (read-only, auto-detected)
-        ├── Manual Customer Entry (first-time activation)
-        │   ├── Customer Name (required)
-        │   ├── Customer Email (required)
-        │   ├── Customer Mobile (required)
-        │   └── Country (required)
-        ├── Enter License Key
-        ├── POST /api/v1/license (action: activate)
+        ├── Enter License Key (required)
+        │
+        ├── POST /api/v1/license (action: validate)
         │   ├── Validate license exists
         │   ├── Validate license is not expired
         │   ├── Validate license is not revoked
         │   ├── Validate license is not inactive
         │   ├── Validate license is not deleted
         │   ├── Validate device limit not reached
-        │   └── Reject if any validation fails
+        │   ├── Reject if any validation fails
+        │   ├── On success: retrieve customer details from server
+        │   └── Show pre-filled customer info (read-only)
+        │
+        ├── POST /api/v1/auth/otp/send
+        │   ├── OTP sent to license's registered email
+        │   └── Only after valid license confirmed
+        │
+        ├── POST /api/v1/auth/otp/verify
+        │   ├── Verify OTP code
+        │   └── Reject if invalid or expired
+        │
+        ├── POST /api/v1/license (action: activate)
+        │   ├── Activate license on current hardware
+        │   ├── Reject if device limit reached
+        │   └── Record activation in activations table
+        │
         ├── On Success: Show confirmation dialog
-        │   ├── Activation Successful
+        │   ├── Activation Successful header
         │   ├── Customer Name
-        │   ├── License Key (masked)
+        │   ├── License Key (masked with ****)
         │   ├── Plan
         │   ├── License Status
         │   ├── Activation Date
         │   ├── Expiry Date
         │   ├── Remaining Validity
         │   └── Device Information
-        ├── Prompt: "Application must restart to apply license"
-        │   ├── Restart Now
-        │   └── Restart Later (if permitted by policy)
+        │
+        ├── Prompt: "Activation completed successfully."
+        │   "The application must now restart to apply your license."
+        │   ├── 1. Restart Now (calls process.exit(0))
+        │   └── 2. Restart Later (if permitted by platform policy)
+        │       If restart is mandatory, only Restart Now is available
+        │
         ├── Cache refresh
         └── Unlock Application (after restart)
 ```
+
+**Activation Validation Rules:**
+- Inactive licenses — reject with `LICENSE_INACTIVE`
+- Revoked licenses — reject with `LICENSE_REVOKED`
+- Expired licenses — reject with `LICENSE_EXPIRED`
+- Deleted licenses — reject with `LICENSE_DELETED`
+- Already fully activated licenses — reject with `MAX_DEVICES_EXCEEDED`
+- Hardware already activated — return `already_activated: true` (success, no re-activation)
 
 ---
 
@@ -863,6 +978,54 @@ The Welcome workflow remains a **dedicated onboarding experience**. It is launch
 5. **Renewal** — Request renewal with auto-filled customer info and plan selection
 6. **Reactivation** — Request reactivation for inactive paid licenses
 7. **Support** — Contact support with auto-filled customer/product/license/hardware info
+8. **Communication** — Universal Communication Center for Support, Sales, and System Notifications
+
+### Permanent Welcome Dialog
+
+**The Welcome Dialog is permanent, never removed, never replaced.** It is the mandatory onboarding experience for every first-time customer.
+
+**Startup flow:**
+```
+Application Start
+        │
+        ▼
+LicenseEngine.initialize()
+        │
+        ▼
+Decision Engine → status: unlicensed + no cached trial consumed
+        │
+        ▼
+Welcome Dialog (auto-opened, no alternative path)
+        │
+        ├── Collect Name
+        ├── Collect Email
+        ├── Collect Mobile Number
+        ├── Country Selection (dropdown with dial codes)
+        ├── Company (optional)
+        │
+        ├── POST /api/v1/auth/otp/send
+        ├── POST /api/v1/auth/otp/verify
+        ├── POST /api/v1/customer/register
+        ├── POST /api/v1/trial (action: start)
+        │   ├── If TRIAL_ALREADY_CONSUMED → never show Welcome again
+        │   └── Show Activate License / Contact Sales instead
+        │
+        ├── CacheManager.set_onboarding_complete()
+        ├── CacheManager.set_license_status(trial)
+        ├── LicenseEngine.initialize()
+        │
+        └── Unlock Application
+```
+
+**Rules:**
+- The Welcome Dialog is the **only** entry point for unlicensed customers
+- It is never bypassed, replaced, or removed
+- Existing customers (with cached `has_ever_consumed_trial` or `has_ever_activated_paid_license`) never re-enter Welcome
+- If a customer's email has already consumed a trial, the Welcome Dialog:
+  - Does NOT offer "Start Free Trial"
+  - Shows: "This email has already used its free trial."
+  - Offers: Activate License (1), Contact Sales (9), Exit (0)
+- The Welcome Dialog caches `onboarding_complete` so it only runs once per device
 
 ### Design Rules
 
@@ -871,6 +1034,54 @@ The Welcome workflow remains a **dedicated onboarding experience**. It is launch
 - One consistent UI pattern across all workflows
 - Application lock state clearly indicated
 - All requests go through `POST /api/v1/request` → Internal API → Support Mailbox
+
+### UI Specification
+
+Review every customer-facing license dialog. Maintain one universal design language across all workflows (Welcome, Trial, Activation, Renewal, Reactivation, Support, License Details, Status, Notifications).
+
+**Layout rules:**
+- Use consistent box-drawn borders (`┌ ─ ┐ │ └ ┘ ├ ┤`) for all menus and dialogs
+- Align all content within 37-character-wide borders
+- Single-character menu options (1-9, 0) for all choices
+- Consistent spacing: one blank line before and after menus
+
+**Locked menu** shows only context-appropriate actions:
+- Unlicensed: Start Free Trial (1), Activate License (2)
+- Force activation: Activate License (2)
+- Expired/reactivation: Renew License (3), Reactivate License (4)
+- Always: Contact Support (9), Exit (0)
+
+**Unlocked menu** shows:
+- View License Status (1)
+- Buy License / Convert Trial (5) — trial only
+- Renew License (6) — licensed or trial
+- View Hardware Status (7) — display only
+- Report Hardware Issue (8)
+- Contact Support (9)
+- View Support Conversations (10)
+- Request History (11)
+- Exit (0)
+
+**Confirmation dialogs:**
+- Activation success: box-drawn border, all details (name, masked key, plan, status, dates, validity, device)
+- Restart prompt: "Activation completed successfully. The application must now restart to apply your license." with Restart Now (1) and Restart Later (2)
+- No redundant information — mask license key with first 4 + **** + last 4 characters
+
+**Do not remove existing functionality. Improve presentation only.**
+
+### Hardware Replacement
+
+**Rules:**
+- Customer application must NOT replace hardware directly
+- Hardware replacement is an administrator-only operation
+- Customer application may only:
+  - Display current hardware status
+  - Notify user that replacement requires administrator approval
+  - Provide Contact Support option to submit a replacement request
+- Actual hardware replacement must only occur through the Internal API administrative workflow
+- The `replace` action must not be exposed in the public API (`/api/v1/device`)
+- The SDK must not expose `replaceDevice()` or `replaceHardware()` methods
+- The device route supports only: `bind`, `reset`
 
 ---
 
@@ -922,10 +1133,25 @@ If customer information already exists locally and is still valid:
 
 **OTP Requirements:**
 OTP is required only when identity verification is necessary, for example:
-- First registration
+- First registration (Welcome flow)
+- Activation (after license key validated)
 - Sensitive account recovery
 - Changing customer identity
 - Security verification
+
+**OTP Email Normalization:**
+- Email must be trimmed and lowercased before storage: `.trim().toLowerCase()`
+- Email must be trimmed and lowercased before lookup: `.trim().toLowerCase()`
+- Both send and verify routes must apply identical normalization
+- Store raw OTP code in database (OTP is short-lived, no hashing required for 10-minute TTL)
+- Query by `email + otp_code + purpose` with `AND verified = FALSE`
+- Purpose value: `trial_activation` for Welcome flow; `license_activation` for Activation flow
+
+**OTP Audit Logging:**
+- `otp_verified` — successful verification
+- `otp_already_used` — OTP was already verified (replay attempt)
+- `otp_expired` — OTP found but past expiry
+- `otp_verify_failed` — invalid OTP code attempted
 
 **Protected Requests:**
 Protected workflows may require customer verification:
@@ -988,6 +1214,48 @@ Internal API
 ```
 
 The SDK never sends email directly. The destination mailbox is configured by the Publisher/Internal API, never by the customer or the SDK at runtime.
+
+### Threaded Support Conversations
+
+Support communication functions as threaded conversations rather than one-way email.
+
+**Database:**
+- `conversation_messages` table stores all messages with:
+  - `request_id` (FK → requests)
+  - `sender_type` (customer or admin)
+  - `sender_name`, `sender_email`
+  - `message` content
+  - `is_internal` flag (admin-only notes)
+  - `email_sent`, `email_error` for delivery tracking
+  - `created_at` timestamp
+
+**Customer workflow:**
+1. Submit support request via SDK or `/api/v1/support`
+2. Request stored in `requests` table, email sent to support
+3. Customer can view conversation history via `GET /api/v1/support/{requestId}/messages`
+4. Customer can reply via `POST /api/v1/support/{requestId}/reply`
+5. Reply stored in `conversation_messages`, admin notified via email
+
+**Administrator workflow:**
+1. View open requests via `GET /api/v1/admin/requests`
+2. Reply to customer via `PUT /api/v1/admin/requests` with `reply_message`
+3. Reply stored in `conversation_messages` with `sender_type: admin`
+4. Customer notified via email using `support_reply` template
+5. Admin can update request status (open, in_progress, resolved, closed)
+6. Admin notes stored in `requests.admin_notes` field
+
+**Conversation history display (SDK):**
+- List support requests filtered by email
+- Select a request to view full conversation
+- Messages displayed in chronological order with sender labels
+- Threaded view: date, sender type (Support Team vs Customer), message body
+- Reply prompt available for open/in-progress requests
+- Closed conversations are read-only
+
+**Audit logging:**
+- `support_request_created` — when a new request is submitted
+- `support_customer_reply` — when customer replies
+- `email_failed` — if any email delivery fails
 
 ---
 
@@ -1223,9 +1491,14 @@ After every implementation phase, run these verification steps:
 - [ ] Activation dialog opens
 - [ ] Hardware ID auto-filled
 - [ ] License key entry works
+- [ ] License validation (reject inactive, revoked, expired, deleted, fully activated)
+- [ ] OTP sent after valid license confirmed
+- [ ] OTP verification succeeds
 - [ ] Activation API call succeeds
+- [ ] Activation success confirmation dialog with all details (name, masked key, plan, dates)
+- [ ] Restart prompt with Restart Now / Restart Later
 - [ ] Cache refreshes
-- [ ] Application unlocks
+- [ ] Application unlocks after restart
 
 ### Renewal Flow
 - [ ] Expired/active license detected
@@ -1249,6 +1522,21 @@ After every implementation phase, run these verification steps:
 - [ ] Request submits to Internal API
 - [ ] Email sent to support@websmithdigital.com
 - [ ] Request ID returned
+- [ ] Conversation history retrievable via GET endpoint
+- [ ] Customer reply via POST endpoint
+- [ ] Administrator reply via PUT endpoint
+- [ ] Administrator reply triggers support_reply email
+- [ ] Conversation messages stored in conversation_messages table
+- [ ] All steps audited (support_request_created, support_customer_reply, email_failed)
+
+### Hardware Replacement
+- [ ] Customer cannot replace hardware via SDK
+- [ ] Customer can view hardware status only
+- [ ] Customer informed replacement requires admin approval
+- [ ] Device route exposes only bind and reset actions
+- [ ] replaceDevice() not present in client.ts
+- [ ] replaceHardware() not present in license_engine.ts
+- [ ] Admin replace-device endpoint available at /internal/backend/admin/replace-device
 
 ### Cache Behavior
 - [ ] License status cached after validation
@@ -1377,12 +1665,13 @@ Implement complete new customer onboarding:
 
 Implement license activation:
 - Detect hardware (read-only)
-- Manual customer entry for first-time activation (name, email, mobile, country)
-- License key entry
-- Full license validation before activation (reject inactive, revoked, expired, deleted, fully activated)
-- POST /api/v1/license (activate)
-- Success confirmation dialog with all details
-- Restart prompt workflow
+- License key entry (first step — no customer info before validation)
+- License validation via POST /api/v1/license (validate) — reject inactive, revoked, expired, deleted, fully activated
+- After validation succeeds, retrieve customer details from server and display as read-only
+- OTP verification sent to license's registered email
+- POST /api/v1/license (activate) after OTP verified
+- Success confirmation dialog with all details (name, masked key, plan, dates)
+- Restart prompt with Restart Now / Restart Later
 - Cache refresh
 - Unlock after restart
 
@@ -1416,6 +1705,12 @@ Implement support:
 - Auto-fill all fields
 - POST /api/v1/request
 - Internal API routes to support mailbox
+- Threaded conversations via conversation_messages table
+- GET /api/v1/support/{requestId}/messages for conversation history
+- POST /api/v1/support/{requestId}/reply for customer replies
+- PUT /api/v1/admin/requests with reply_message for admin replies
+- support_reply email template for admin-to-customer notifications
+- Audit logging for all conversation events
 
 ### Phase 10 — Internal API Route Cleanup
 
@@ -1432,9 +1727,10 @@ Implement support:
 
 ### Phase 12 — Internal API Verification
 
-- Verify all OTP, register, trial, license, renewal, reactivation, support endpoints
-- Verify audit logs
+- Verify all OTP (send + verify with normalization), register, trial, license (validate + activate + deactivate + renew), renewal, reactivation, support, conversation endpoints
+- Verify audit logs for all operations
 - Verify analytics
+- Verify device route has only bind + reset (no replace)
 
 ### Phase 13 — SDK Publisher Verification
 
@@ -1442,6 +1738,757 @@ Implement support:
 - Install and verify
 - Test every workflow
 - Verify no runtime errors
+
+### Phase 14 — AWS-01 Fixes & Documentation Consolidation ✅ COMPLETE
+
+**Completed:**
+- **Activation validation**: Added checks for inactive, deleted, revoked, expired, and fully activated licenses before activation in `POST /api/v1/license` (activate action). Added `is_deleted` and `device_count` fields to activation query.
+- **Activation dialog redesign**: Changed to License Key first, then validate → OTP → activate flow. Removed auto-population of customer details for first-time activation.
+- **Activation success experience**: Added confirmation dialog with customer name, masked license key, plan, status, activation date, expiry date, remaining validity, device information. Added restart prompt with Restart Now / Restart Later.
+- **Hardware replacement**: Removed `replace` action from public `/api/v1/device` route (now only `bind`, `reset`). Removed `replaceDevice()` from `client.ts` and `replaceHardware()` from `license_engine.ts`. Replaced `_replaceDevice()` with `_viewHardwareStatus()` in ULC.
+- **Support email delivery logging**: Fixed silent `.catch(() => {})` in support route. Added proper error logging with console.error and audit log entries for email failures. Fixed same pattern in support reply route.
+- **OTP email normalization**: Added `.trim().toLowerCase()` normalization to both send and verify routes.
+- **OTP audit logging**: Added audit log entries for verified, already used, invalid, expired cases.
+- **Threaded support conversations**: Added `conversation_messages` table. Added `GET /api/v1/support/{requestId}/messages` and `POST /api/v1/support/{requestId}/reply` endpoints. Added `support_reply` email template. Updated admin PUT endpoint to store replies in conversation_messages.
+- **UI improvements**: Consistent box-drawn borders across all dialogs. Improved menu layout, spacing, and readability.
+- **Email architecture**: Documented `MAIL_FROM_ADDRESS`, `MAIL_SUPPORT_ADDRESS`, `MAIL_SALES_ADDRESS` environment variables. Centralized email routing through `lib/email/brevo.ts`.
+- **BREVO_SENDER_EMAIL fallback**: OTP send route uses `process.env.BREVO_SENDER_EMAIL || process.env.SENDER_EMAIL`.
+- **Lib email fix**: Fixed missing `const EMAIL_TYPES:` declaration in `lib/email/brevo.ts` that caused build failure.
+- **Doc consolidation**: Merged all content from `docs/AWS-01-FIXES.md` into appropriate sections of this master document. Deleted `docs/AWS-01-FIXES.md`.
+
+### Phase 15 — Universal Communication Architecture 🔄 IN PROGRESS
+
+**Completed:**
+- **Master Document Update**: Added 6 new sections (13-18) covering:
+  - Lifetime trial enforcement strengthened (Section 4)
+  - Permanent Welcome Dialog architecture formalized (Section 5)
+  - Universal Communication Architecture (Section 13)
+  - Reusable Conversation Engine (Section 14)
+  - Notification System (Section 15)
+  - Attachment handling (Section 16)
+  - Offline retry & message queue (Section 17)
+  - Branding rules (Section 18)
+- **Database tables** added to Section 0.4: `communication_conversations`, `conversation_attachments`, `message_queue`, expanded `notifications`, `notification_logs`
+- **Template files updated**:
+  - `template/typescript/universal_license_center.ts` — removed hardcoded SUPPORT_EMAIL, added branding support from config, replaced all communication methods with category-based Conversation Engine routing (support, sales, hardware_replacement), added `_viewConversations()`, `_viewConversationDetail()`, `_viewNotifications()`, message queue status display
+  - `template/typescript/client.ts` — added `createCommunication()`, `getConversation()`, `replyToConversation()`, `listConversations()`, `uploadAttachment()`, `getNotifications()`, `markNotificationRead()`, `getUnreadNotificationCount()`
+  - `template/typescript/cache.ts` — added `queueMessage()`, `getMessageQueue()`, `saveMessageQueue()`, `cleanupSentMessages()`, `getPendingCount()`
+  - `template/typescript/license_engine.ts` — added `_processMessageQueue()` to `initialize()`, added `createCommunication()`, `replyToConversation()`, `listConversations()`, `getNotifications()`, `markNotificationRead()`, `getUnreadNotificationCount()`
+  - `template/typescript/universal_email_dialog.ts` — removed hardcoded `support@websmithdigital.com` fallback
+- **Runtime generators updated**:
+  - `runtimes/typescript.ts` — added message queue methods to CacheManager, communication methods to ApiClient, queue processing + communication methods to LicenseEngine, removed hardcoded SUPPORT_EMAIL from ULC, added branding support
+  - `runtimes/python.ts` — added communication methods to ApiClient (create_communication, get_conversation, reply_to_conversation, list_conversations, upload_attachment, get_notifications, mark_notification_read, get_unread_notification_count), added message queue methods to CacheManager (queue_message, get_message_queue, save_message_queue, cleanup_sent_messages, get_pending_count), added queue processing + communication methods to LicenseEngine (_process_message_queue, create_communication, reply_to_conversation, list_conversations, get_conversation, get_notifications, mark_notification_read, get_unread_notification_count), removed hardcoded SUPPORT_EMAIL, added category-based communication to UniversalLicenseCenter (_show_communication_dialog, _contact_sales, _view_conversations, _view_notifications), added branding config for support/sales email
+- **Internal API routes created**:
+  - `POST /api/v1/communication/create` — category-based conversation creation with routing to MAIL_SUPPORT_ADDRESS / MAIL_SALES_ADDRESS
+  - `GET /api/v1/communication/{id}` — get conversation + messages + attachments
+  - `POST /api/v1/communication/{id}/reply` — customer reply with status transition (waiting_support/waiting_sales)
+  - `GET /api/v1/communication/list` — list conversations by email, optional category filter
+  - `POST /api/v1/communication/{id}/attach` — file attachment upload with validation (file type, size 10MB, max 5 per conversation)
+  - `GET /api/v1/notifications` — list notifications by email
+  - `POST /api/v1/notifications/read` — mark notification as read
+  - `GET /api/v1/notifications/unread-count` — get unread notification count
+  - `POST /internal/backend/admin/communication/reply` — admin reply to conversation with email notification routing
+  - `GET /internal/backend/admin/communication/list` — admin conversation list with filters by status/category/email
+  - `POST /internal/backend/admin/communication/status` — admin conversation status update
+- **Trial enforcement**: Added `TRIAL_ALREADY_CONSUMED` check in `POST /api/v1/trial` — email-based lifetime trial enforcement, audit logging for rejection
+- **Store module fix**: Fixed `getPublicProducts()` in `softwareStoreService.ts` — removed silent error swallowing, now properly throws errors to enable page error handling
+- **Build**: `npm run build` passes — all routes compile, no type errors
+
+**Remaining:**
+- [ ] Update other language runtime templates (bun, node, javascript, deno, go, java, rust, c/c++, .net) — remove hardcoded email addresses, add communication methods
+- [ ] Generate fresh SDK for TypeScript and verify all workflows
+- [ ] Generate fresh SDK for Python and verify all workflows
+- [ ] Full integration test: communication create → list → reply → notification → attachment → admin reply
+- [ ] Communication Analytics dashboard page
+- [ ] SDK Distribution — full "Send SDK by Email" with delivery tracking
+- [ ] Database review — migrate legacy `requests` table into universal conversation architecture
+- [ ] Communication Analytics (open/closed/resolution time/response time/workload)
+
+**Verification:**
+- ✅ Build passes (`npm run build`)
+- ✅ TypeScript typecheck passes (no errors)
+- ✅ Communication create/list/reply/attach routes created
+- ✅ Admin communication reply/list/status routes created
+- ✅ Notifications list/mark-read/unread-count routes created
+- ✅ All branding from config (no hardcoded company/email in templates)
+- ✅ Message queue methods in CacheManager (Python + TypeScript)
+- ✅ Queue processing in LicenseEngine.initialize() (Python + TypeScript)
+- ✅ Python runtime generator updated with all communication methods
+- ✅ Lifetime trial enforcement: TRIAL_ALREADY_CONSUMED endpoint (email-based)
+- ✅ Store module error handling fixed
+- ⬜ Fresh SDK generates for TypeScript
+- ⬜ Fresh SDK generates for Python
+
+---
+
+## SECTION 13 — Universal Communication Architecture
+
+### 13.1 — Core Principle
+
+The SDK is **NOT** an email client. The SDK provides a **Universal Communication Center**.
+
+The customer never manages mailboxes. The customer simply communicates with the Internal API through structured conversations. The Internal API owns all routing, storage, delivery, replies, notifications, audit logging, delivery tracking, and retry handling.
+
+The SDK never connects directly to SMTP, IMAP, POP3, Brevo, or any email provider. All email is sent by the Internal API only.
+
+### 13.2 — Communication Categories
+
+Every conversation belongs to exactly one category. Each category automatically routes to the correct configured email address.
+
+| Category | Route To | Purpose |
+|----------|----------|---------|
+| `support` | `MAIL_SUPPORT_ADDRESS` | Technical support, bugs, help |
+| `sales` | `MAIL_SALES_ADDRESS` | Purchasing, pricing, licensing |
+| `activation` | `MAIL_SUPPORT_ADDRESS` | Activation issues |
+| `renewal` | `MAIL_SUPPORT_ADDRESS` | Renewal assistance |
+| `reactivation` | `MAIL_SUPPORT_ADDRESS` | Reactivation assistance |
+| `hardware_replacement` | `MAIL_SUPPORT_ADDRESS` | Hardware change requests |
+| `general` | `MAIL_SUPPORT_ADDRESS` | General inquiries |
+
+### 13.3 — Universal Email Routing
+
+#### MAIL_FROM_ADDRESS
+
+**Purpose:** System-generated notifications only.
+
+Examples:
+- OTP verification codes
+- Welcome emails
+- Trial started confirmation
+- Trial expired notification
+- Activation successful
+- License created/renewed/revoked/expired
+- Payment confirmation
+
+**Rules:**
+- Never accepts replies
+- Never becomes a conversation
+- One-way communication only
+- Recipients see: "This is an automated email. Please do not reply."
+
+#### MAIL_SUPPORT_ADDRESS
+
+**Purpose:** Support conversations.
+
+**Rules:**
+- Customer sends message via SDK
+- Support replies via Internal API
+- Customer replies via SDK
+- Full threaded conversation
+- Entire history stored in Internal API `communication_conversations` + `conversation_messages`
+
+#### MAIL_SALES_ADDRESS
+
+**Purpose:** Sales conversations.
+
+**Rules:**
+- Customer sends enquiry via SDK
+- Sales replies via Internal API
+- Customer replies via SDK
+- Full threaded conversation
+- Entire history stored
+
+### 13.4 — SDK Communication UI (NOT an Email Client)
+
+The SDK must NOT contain:
+- Inbox
+- Sent
+- Drafts
+- Archive
+- Mail folders
+- Mailbox management
+- Email client features
+
+Instead the customer sees only:
+
+**Support:**
+- New Support Request
+- View Conversation
+- Reply
+
+**Sales:**
+- New Sales Enquiry
+- View Conversation
+- Reply
+
+**System Notifications:**
+- View Notifications
+
+### 13.5 — Customer Permissions
+
+Customers may only:
+- Create Support requests
+- Create Sales enquiries
+- View their own previous conversations
+- Read replies on their conversations
+- Reply to their own conversations
+- View their system notifications
+
+Customers must never:
+- Manage email accounts or mailboxes
+- Access other customers' conversations
+- Delete conversations
+- Change conversation status
+- Access admin routes
+
+### 13.6 — Administrator Responsibilities
+
+Internal API administrators can:
+- View all conversations
+- Reply to any conversation
+- Update conversation status (open, in_progress, resolved, closed)
+- Assign staff to conversations
+- Audit conversation history
+- Monitor email delivery
+- Retry failed deliveries
+- Add internal notes (is_internal flag)
+
+All administration remains inside the Internal API at `/internal/backend/*`.
+
+### 13.7 — Category-Based Routing Architecture
+
+```
+Customer Action (in SDK)
+        │
+        ▼
+POST /api/v1/communication/create
+        │
+        ├── category: support → routes to MAIL_SUPPORT_ADDRESS
+        ├── category: sales → routes to MAIL_SALES_ADDRESS
+        ├── category: activation → routes to MAIL_SUPPORT_ADDRESS
+        ├── category: renewal → routes to MAIL_SUPPORT_ADDRESS
+        ├── category: reactivation → routes to MAIL_SUPPORT_ADDRESS
+        ├── category: hardware_replacement → routes to MAIL_SUPPORT_ADDRESS
+        └── category: general → routes to MAIL_SUPPORT_ADDRESS
+                │
+                ▼
+        Insert into communication_conversations
+                │
+                ▼
+        Send email via Brevo to routed address
+                │
+                ▼
+        Return conversation_id to SDK
+```
+
+---
+
+## SECTION 14 — Reusable Conversation Engine
+
+### 14.1 — One Engine, Multiple Categories
+
+One reusable conversation engine powers every communication type:
+
+- Support
+- Sales
+- Activation
+- Renewal
+- Reactivation
+- Hardware Replacement
+- General Inquiry
+
+One implementation. Multiple categories.
+
+### 14.2 — Database Tables
+
+**`communication_conversations`** — Represents one conversation thread:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID (PK) | Unique conversation identifier |
+| `category` | string | One of: support, sales, activation, renewal, reactivation, hardware_replacement, general |
+| `status` | string | One of: open, waiting_customer, waiting_support, waiting_sales, resolved, closed |
+| `customer_email` | string | Customer's email (trimmed, lowercase) |
+| `customer_name` | string | Customer's name |
+| `subject` | string | Conversation subject |
+| `product_id` | string | Product identifier |
+| `license_key` | string | Associated license key (nullable) |
+| `hardware_id` | string | Customer's hardware ID |
+| `sdk_version` | string | SDK version string |
+| `runtime_type` | string | Runtime type string |
+| `created_at` | timestamp | When conversation started |
+| `updated_at` | timestamp | Last activity |
+
+**`conversation_messages`** — Individual messages in a conversation:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID (PK) | Unique message identifier |
+| `conversation_id` | UUID (FK) | Reference to communication_conversations |
+| `sender_type` | string | `customer` or `admin` |
+| `sender_name` | string | Display name of sender |
+| `sender_email` | string | Email of sender |
+| `message` | text | Message content |
+| `is_internal` | boolean | Admin-only note (not visible to customer) |
+| `has_attachments` | boolean | Whether this message has file attachments |
+| `email_sent` | boolean | Whether email notification was sent |
+| `email_error` | string | Error message if email failed |
+| `created_at` | timestamp | When message was sent |
+
+### 14.3 — Conversation Status Lifecycle
+
+```
+                    ┌──────────┐
+                    │   Open   │
+                    └────┬─────┘
+                         │
+              ┌──────────┼──────────┐
+              │          │          │
+              ▼          ▼          ▼
+     ┌────────────┐ ┌─────────┐ ┌──────────┐
+     │ Waiting for │ │Waiting  │ │ Waiting  │
+     │  Customer  │ │ for     │ │ for Sales│
+     └────────────┘ │Support  │ └──────────┘
+                    └─────────┘
+                         │
+                         ▼
+                    ┌──────────┐
+                    │ Resolved │
+                    └────┬─────┘
+                         │
+                         ▼
+                    ┌──────────┐
+                    │  Closed  │
+                    └──────────┘
+```
+
+**Status transitions:**
+- `open` → initial state when conversation created
+- `waiting_customer` → admin replied, waiting for customer response
+- `waiting_support` → customer replied, waiting for support team
+- `waiting_sales` → customer replied, waiting for sales team
+- `resolved` → issue resolved, conversation complete
+- `closed` → conversation permanently closed (read-only)
+
+**Rules:**
+- Status is updated by the Internal API (admin or auto-updated on reply)
+- Customer may only reply to conversations with status: `open`, `waiting_customer`, `waiting_support`, `waiting_sales`
+- Customer cannot reply to resolved or closed conversations
+- On customer reply: status changes to `waiting_support` or `waiting_sales` based on category
+- On admin reply: status changes to `waiting_customer`
+- Admin may set resolved or closed
+
+### 14.4 — Conversation Engine API
+
+All conversation endpoints live under `/api/v1/communication/`:
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/v1/communication/create` | POST | Create new conversation (any category) |
+| `/api/v1/communication/{id}` | GET | Get conversation details + messages |
+| `/api/v1/communication/{id}/reply` | POST | Reply to conversation |
+| `/api/v1/communication/list` | GET | List customer's conversations by email |
+
+**Request format (create):**
+```json
+{
+  "category": "support",
+  "customer_email": "customer@example.com",
+  "customer_name": "John Doe",
+  "subject": "Cannot activate license",
+  "message": "I'm having trouble activating...",
+  "product_id": "prod_123",
+  "license_key": "ABC-123",
+  "hardware_id": "hw_fingerprint",
+  "sdk_version": "1.0.0",
+  "runtime_type": "typescript"
+}
+```
+
+**Response format:**
+```json
+{
+  "success": true,
+  "conversation_id": "uuid-here",
+  "message": "Conversation created"
+}
+```
+
+### 14.5 — SDK Client Methods
+
+```typescript
+// Create a new conversation (any category)
+createCommunication(params: {
+  category: string;
+  customer_email: string;
+  customer_name: string;
+  subject: string;
+  message: string;
+  product_id?: string;
+  license_key?: string;
+  hardware_id?: string;
+  sdk_version?: string;
+  runtime_type?: string;
+}): Promise<{ success: boolean; conversation_id?: string }>
+
+// Get conversation with messages
+getConversation(id: string): Promise<{
+  success: boolean;
+  data?: { conversation: {...}; messages: [...] }
+}>
+
+// Reply to conversation
+replyToConversation(id: string, message: string, customerName?: string, customerEmail?: string): Promise<{ success: boolean }>
+
+// List conversations by email
+listConversations(email: string): Promise<{
+  success: boolean;
+  data?: { conversations: [...] }
+}>
+```
+
+### 14.6 — Conversation Engine Integration in ULC
+
+The Universal License Center uses the Conversation Engine for all communication:
+
+- `_contactSupport()` → calls `createCommunication({ category: 'support', ... })`
+- `_hardwareIssue()` → calls `createCommunication({ category: 'hardware_replacement', ... })`
+- `_buyLicense()` → calls `createCommunication({ category: 'sales', ... })`
+- `_viewSupportConversations()` → calls `listConversations(email)` filtered by category
+- `_replyToConversation()` → calls `replyToConversation(id, message, ...)`
+
+All methods auto-populate customer info from cache, hardware ID, config, and SDK constants.
+
+---
+
+## SECTION 15 — Notification System
+
+### 15.1 — Notification Categories
+
+The SDK provides reusable notifications for:
+
+| Category | Description |
+|----------|-------------|
+| `trial` | Trial started, trial expiring, trial expired |
+| `license` | License created, renewed, expired, revoked |
+| `activation` | Activation success, activation failed |
+| `renewal` | Renewal request submitted, renewal approved |
+| `reactivation` | Reactivation request submitted, approved, rejected |
+| `support` | Support request created, support reply received |
+| `sales` | Sales enquiry created, sales reply received |
+| `hardware` | Hardware change detected, device reset |
+| `error` | System errors, API failures |
+| `warning` | Approaching expiry, low trial days |
+| `announcement` | Product announcements, updates |
+
+### 15.2 — Notification Storage
+
+Notifications are stored in the `notifications` database table:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID (PK) | Unique notification identifier |
+| `customer_email` | string | Target customer |
+| `category` | string | One of the notification categories above |
+| `title` | string | Short notification title |
+| `message` | text | Notification body |
+| `is_read` | boolean | Whether customer has viewed it |
+| `created_at` | timestamp | When notification was created |
+
+### 15.3 — Notification API
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/v1/notifications` | GET | List notifications for customer email |
+| `/api/v1/notifications/read` | POST | Mark notification as read |
+| `/api/v1/notifications/unread-count` | GET | Get count of unread notifications |
+
+### 15.4 — SDK Notification UI
+
+The Universal License Center displays:
+- Unread notification count in the main menu
+- "View Notifications" option as a menu item
+- Notification list with title, date, read/unread status
+- Select notification to view full message
+- Mark as read option
+
+---
+
+## SECTION 16 — Attachment Handling
+
+### 16.1 — Supported Attachment Types
+
+Support and Sales conversations support attachments where approved by the Internal API:
+
+- Log files (.log, .txt)
+- Screenshots (.png, .jpg, .jpeg, .gif, .webp)
+- Diagnostic reports (.json, .xml, .html)
+- Crash reports (.dmp, .crash)
+- Exported reports (.csv, .pdf)
+- System info (.sysinfo)
+
+### 16.2 — Attachment Flow
+
+```
+Customer attaches file in SDK
+        │
+        ▼
+SDK validates file type and size
+        │
+        ├── Reject unsupported types
+        ├── Reject files > 10MB
+        │
+        ▼
+SDK uploads to Internal API:
+POST /api/v1/communication/{id}/attach
+        │
+        ▼
+Internal API:
+        ├── 1. Validate file type and size
+        ├── 2. Store file (local storage or S3-compatible)
+        ├── 3. Create record in conversation_attachments table
+        ├── 4. Return attachment_id to SDK
+        └── 5. Log audit event: attachment_uploaded
+```
+
+### 16.3 — Attachment Database
+
+**`conversation_attachments`** table:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID (PK) | Unique attachment identifier |
+| `message_id` | UUID (FK) | Reference to conversation_messages |
+| `file_name` | string | Original file name |
+| `file_size` | integer | File size in bytes |
+| `mime_type` | string | MIME type |
+| `storage_path` | string | Internal storage path |
+| `uploaded_at` | timestamp | Upload timestamp |
+
+### 16.4 — SDK Attachment Methods
+
+```typescript
+// Upload attachment to an existing conversation
+uploadAttachment(conversationId: string, filePath: string): Promise<{
+  success: boolean;
+  attachment_id?: string;
+  error?: string;
+}>
+
+// Upload attachment while creating a message
+createConversationWithAttachment(params: {
+  category: string;
+  customer_email: string;
+  customer_name: string;
+  subject: string;
+  message: string;
+  filePath: string;
+}): Promise<{ success: boolean; conversation_id?: string }>
+```
+
+### 16.5 — Size Limits and Validation
+
+- Maximum file size: 10MB
+- Maximum attachments per message: 5
+- Storage: Local filesystem or S3-compatible storage (configurable via `ATTACHMENT_STORAGE_PATH` env var)
+- File names are sanitized to prevent path traversal attacks
+- MIME types are validated server-side (not client-side only)
+
+---
+
+## SECTION 17 — Offline Retry & Message Queue
+
+### 17.1 — Core Behavior
+
+If communication temporarily fails:
+- Never lose customer messages
+- Queue pending messages locally
+- Retry automatically when connectivity returns
+- Record every retry attempt
+- Audit every failure
+
+### 17.2 — Local Message Queue
+
+The SDK maintains a local message queue (`message_queue` in cache):
+
+```typescript
+interface QueuedMessage {
+  id: string;
+  conversation_id?: string;
+  category: string;
+  customer_email: string;
+  customer_name: string;
+  subject: string;
+  message: string;
+  product_id?: string;
+  license_key?: string;
+  hardware_id: string;
+  sdk_version: string;
+  runtime_type: string;
+  status: 'pending' | 'sending' | 'sent' | 'failed';
+  retry_count: number;
+  max_retries: number;
+  last_error?: string;
+  next_retry_at: number; // timestamp
+  created_at: number;
+}
+```
+
+### 17.3 — Queue Processing
+
+```
+SDK tries to send message
+        │
+        ├── Success → done
+        │
+        └── Failure (offline/timeout/server error)
+                │
+                ▼
+        Queue message locally
+        │
+        ▼
+        Set next_retry_at = now + exponential_backoff
+        │
+        ▼
+        On next SDK startup: process queue
+        │
+        ▼
+        Retry all pending/failed messages
+        ├── Success → mark sent, remove from queue
+        └── Failure → increment retry_count, update next_retry_at
+                │
+                └── If max_retries (5) exceeded → mark permanently failed
+                        │
+                        ▼
+                Keep in queue for audit, flag for manual review
+```
+
+### 17.4 — Queue Processing in LicenseEngine.initialize()
+
+```typescript
+// In LicenseEngine.initialize(), after status check:
+async _processMessageQueue(): Promise<void> {
+  const queue = this._cache.getMessageQueue();
+  for (const msg of queue.filter(m => m.status !== 'sent')) {
+    if (Date.now() / 1000 < msg.next_retry_at) continue;
+    if (msg.retry_count >= msg.max_retries) continue;
+    
+    msg.status = 'sending';
+    try {
+      await this._client.createCommunication(msg);
+      msg.status = 'sent';
+    } catch (e) {
+      msg.retry_count++;
+      msg.last_error = (e as Error).message;
+      msg.next_retry_at = (Date.now() / 1000) + Math.pow(2, msg.retry_count) * 60;
+      msg.status = 'failed';
+    }
+    this._cache.saveMessageQueue(queue);
+  }
+}
+```
+
+### 17.5 — Cache Manager Queue Methods
+
+```typescript
+interface CacheManager {
+  // Save a message to the queue
+  queueMessage(msg: QueuedMessage): void;
+  
+  // Get all queued messages
+  getMessageQueue(): QueuedMessage[];
+  
+  // Save updated queue
+  saveMessageQueue(queue: QueuedMessage[]): void;
+  
+  // Remove sent messages
+  cleanupSentMessages(): void;
+  
+  // Get count of pending messages
+  getPendingCount(): number;
+}
+```
+
+### 17.6 — Retry Schedule
+
+| Retry # | Delay |
+|---------|-------|
+| 1 | 1 minute |
+| 2 | 2 minutes |
+| 3 | 4 minutes |
+| 4 | 8 minutes |
+| 5 | 16 minutes |
+
+After 5 retries, the message is marked `permanently_failed` and flagged for admin review. The SDK stops retrying but preserves the message for audit purposes.
+
+### 17.7 — Audit Logging for Queue
+
+| Event | Details |
+|-------|---------|
+| `message_queued` | Message added to offline queue |
+| `message_retry` | Retry attempt #N for queued message |
+| `message_sent_from_queue` | Queued message sent successfully |
+| `message_permanently_failed` | Max retries exceeded |
+| `queue_cleaned` | Sent messages removed from queue |
+
+---
+
+## SECTION 18 — Branding Rule (Publisher-Generated)
+
+### 18.1 — Principle
+
+Everything is generated by the Publisher. Nothing inside the SDK may depend on:
+- Websmith
+- company names
+- email addresses
+- branding
+- colours
+- URLs
+- logos
+- wording
+
+Everything must come from Publisher configuration (`api-config.json`).
+
+### 18.2 — Configurable Items
+
+| Item | Config Key | Default | Affects |
+|------|-----------|---------|---------|
+| Company Name | `branding.company_name` | "Your Company" | Email footers, dialogs |
+| Product Name | `product.name` | "Your Product" | All SDK dialogs |
+| Logo | `branding.logo_url` | none | Email headers (future) |
+| Primary Colour | `branding.primary_color` | "#1a1a2e" | UI theme |
+| Secondary Colour | `branding.secondary_color` | "#16213e" | UI theme |
+| Support Email | `branding.support_email` | env MAIL_SUPPORT_ADDRESS | Contact Support |
+| Sales Email | `branding.sales_email` | env MAIL_SALES_ADDRESS | Sales enquiries |
+| Website | `branding.website_url` | "https://example.com" | Email links, docs |
+| Welcome Text | `branding.welcome_text` | "Welcome!" | Welcome dialog |
+| License Text | `branding.license_text` | "License" | License display |
+| Sender Name | `branding.sender_name` | "Support Team" | Email sender name |
+| Product Tagline | `branding.tagline` | "License Management" | Email headers |
+
+### 18.3 — Hardcoded Text Elimination
+
+- Template files must use `${...}` template variables for all branding
+- Email templates must use `{{variable}}` placeholders
+- Runtime generators must inject branding values from `api-config.json`
+- No `const SUPPORT_EMAIL = 'support@websmithdigital.com'` hardcoded in templates
+- The `universal_license_center.ts` template must use config-based branding
+
+### 18.4 — Config Delivery
+
+The `api-config.json` file (injected during SDK generation) contains all branding:
+
+```json
+{
+  "product": {
+    "id": "prod_123",
+    "name": "Branded Product Name"
+  },
+  "branding": {
+    "company_name": "Customer's Company",
+    "support_email": "support@customer.com",
+    "sales_email": "sales@customer.com",
+    "website_url": "https://customer.com",
+    "primary_color": "#4a90d9",
+    "sender_name": "Customer Support"
+  },
+  "api": {
+    "url": "https://api.customer.com",
+    "public_key": "...",
+    "secret": "..."
+  }
+}
+```
 
 ---
 
@@ -1490,29 +2537,41 @@ Every future phase must follow this reporting format.
 | Phase 11 — Cache Management | ✅ Complete | 100% |
 | Phase 12 — Internal API Verification | ✅ Complete | 100% |
 | Phase 13 — SDK Publisher Verification | ✅ Complete | 100% |
-| **Overall** | **All Phases Complete** | **100%** |
-| **AWS-01 Fixes** | **See docs/AWS-01-FIXES.md** | **100%** |
+| Phase 14 — AWS-01 Fixes & Doc Consolidation | ✅ Complete | 100% |
+| Phase 15 — Universal Communication Architecture | 🔄 In Progress | 85% |
+| **Overall** | **Phase 15 In Progress** | **~97%** |
 
 ### How much is completed?
 
-All 13 phases are fully complete:
-- Phase 1: Architecture audit, codebase exploration, dependency audit, route inventory
-- Phase 2: LicenseEngine decision engine with all 7 statuses, `on_license_ready` callback, `has_ever_activated_paid_license` cache integration
-- Phase 3: Application Lock Architecture with `_locked` flag, lock/unlock methods, context-sensitive locked menu, keyboard shortcut capture (blocked when locked), background actions blocked when locked, `on_license_ready` wired through ULC → LicenseEngine
-- Phase 4: Universal License Center unified workflow — `_collectRequestInfo()`, `_welcomeFlow()`, all flows switch on status; ULC generated in TS/Python runtimes; UniversalEmailDialog removed from exports
-- Phase 5: Welcome & Trial flow — `sendOtp()`, `verifyOtp()`, `registerCustomer()` in ApiClient; `_welcomeFlow()` with OTP→verify→register→trial; `show()` auto-launches welcome when `unlicensed`
-- Phase 6: Activation flow — hardware ID display, customer name/email auto-fill from cache
-- Phase 7: Renewal flow — `verifyLicenseForRenewal()`, `getAvailablePlans()`, plan selection menu, customer auto-fill
-- Phase 8: Reactivation flow — license key, hardware ID, customer name/email/mobile auto-fill from cached status
-- Phase 9: Support & Customer Login — all support methods (`_contactSupport`, `_hardwareIssue`, `_buyLicense`, `_replaceDevice`) auto-fill via `_collectRequestInfo()` from cache
-- Phase 10: Route Cleanup — `/api/v1/reactivations` and `/api/v1/support` customer-facing convenience routes created with API key auth, rate limiting, audit logging; all public API routes verified present; admin routes at `/api/v1/admin/` kept internal
-- Phase 11: Cache Management — 4 cache keys (`license_status`, `onboarding_complete`, `has_ever_activated_paid_license`, `license.key` file) fully managed; hardware consistency methods (`isHardwareConsistent`/`invalidateIfHardwareMismatch`) added to template cache, generated TS CacheManager, and generated Python CacheManager; hardware consistency check added to template `license_engine.initialize()`, generated TS `LicenseEngine.initialize()`, and generated Python `LicenseEngine.initialize()`
-- Phase 12: Internal API Verification — all 15+ public API endpoints verified present and authenticating properly (`/api/v1/send-otp`, `/api/v1/verify-otp`, `/api/v1/activate`, `/api/v1/validate-license`, `/api/v1/license-keys`, `/api/v1/renew`, `/api/v1/trial`, `/api/v1/devices`, `/api/v1/customers`, `/api/v1/request-email`, `/api/v1/countries`, `/api/v1/licenses`, `/api/v1/reactivations`, `/api/v1/support`); all use `validateApiKey`/`checkRateLimit`/`logRequest` pattern
-- Phase 13: SDK Publisher Verification — all templates updated in Phases 4-9; generated TypeScript runtime `client.ts` synced with hardware consistency check in CacheManager + LicenseEngine; generated Python runtime `cache.py` synced with `is_hardware_consistent`/`invalidate_if_hardware_mismatch`; generated `universal_email_dialog.ts` import paths fixed; `npx next build` passes with zero errors; `app/api/internal/publisher/publish-product` route ready for production SDK generation
+All 14 phases are fully complete, Phase 15 is well underway:
+- Phase 1-14: All prior phases complete (see Phase list above)
+- Phase 15 (85%):
+  - ✅ Master Document updated with 6 new sections (13-18)
+  - ✅ SDK Publisher template files updated (client.ts, cache.ts, license_engine.ts, universal_license_center.ts)
+  - ✅ TypeScript runtime generator updated (runtimes/typescript.ts)
+  - ✅ Python runtime generator updated (runtimes/python.ts) — added communication, queue, notification methods, removed hardcoded SUPPORT_EMAIL, added category-based communication
+  - ✅ Internal API routes created (11 routes: communication CRUD + notifications + attachment + admin communication)
+  - ✅ Email templates updated (configurable branding, conversation_created template)
+  - ✅ Hardcoded branding removed from all templates
+  - ✅ Attachment upload endpoint created (`POST /api/v1/communication/{id}/attach`)
+  - ✅ Trial enforcement: TRIAL_ALREADY_CONSUMED added (email-based lifetime check)
+  - ✅ Admin communication routes: reply, list, status update
+  - ✅ Store module fix: removed silent error swallowing in getPublicProducts()
+  - ❌ Other language templates not yet updated (bun, node, javascript, deno, go, java, rust, c/c++, .net)
+  - ❌ Fresh SDK generation not yet verified
+  - ❌ Communication Analytics not yet built
+  - ❌ SDK Distribution endpoints not yet complete
 
 ### What exactly remains?
 
-All implementation is complete. No remaining phases.
+1. Update other language runtime templates (bun, node, javascript, deno, go, java, rust, c/c++, .net) — remove hardcoded email addresses, add communication methods
+2. Generate fresh TypeScript SDK and verify all workflows
+3. Generate fresh Python SDK and verify all workflows
+4. Full integration test: communication create → list → reply → notification → attachment → admin reply
+5. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
+6. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
+7. Database review — migrate legacy `requests` table into universal conversation architecture
+8. Store Module — verify frontend rendering of products after service fix
 
 ---
 

@@ -8,7 +8,18 @@ import { CacheManager } from './cache';
 
 const SDK_VERSION = '${kit_version}';
 const RUNTIME_TYPE = '${runtime}';
-const SUPPORT_EMAIL = 'support@websmithdigital.com';
+
+const BRANDING_DEFAULTS: Record<string, string> = {
+  company_name: 'Your Company',
+  product_name: 'Your Product',
+  support_email: 'support@example.com',
+  sales_email: 'sales@example.com',
+  website_url: 'https://example.com',
+  sender_name: 'Support Team',
+  welcome_text: 'Welcome!',
+  license_text: 'License',
+  tagline: 'License Management',
+};
 
 function loadConfig(configPath?: string): Record<string, any> {
   if (!configPath) {
@@ -30,6 +41,7 @@ export class UniversalLicenseCenter {
   private hardware: HardwareDetector;
   private cache: CacheManager;
   private config: Record<string, any>;
+  private branding: Record<string, string>;
   private status: LicenseStatus | null = null;
   private rl: readline.Interface | null = null;
   private _locked: boolean = true;
@@ -37,6 +49,7 @@ export class UniversalLicenseCenter {
 
   constructor(configPath?: string, onLicenseReady?: ((valid: boolean) => void) | null) {
     this.config = loadConfig(configPath);
+    this.branding = this._loadBranding();
     this.engine = new LicenseEngine(configPath);
     this.client = new ApiClient(this.config, new HardwareDetector(), new CacheManager(this.config));
     this.hardware = new HardwareDetector();
@@ -50,6 +63,22 @@ export class UniversalLicenseCenter {
         }
       };
     }
+  }
+
+  private _loadBranding(): Record<string, string> {
+    const b = this.config.branding || {};
+    const p = this.config.product || {};
+    return {
+      company_name: b.company_name || BRANDING_DEFAULTS.company_name,
+      product_name: p.name || BRANDING_DEFAULTS.product_name,
+      support_email: b.support_email || process.env.MAIL_SUPPORT_ADDRESS || BRANDING_DEFAULTS.support_email,
+      sales_email: b.sales_email || process.env.MAIL_SALES_ADDRESS || BRANDING_DEFAULTS.sales_email,
+      website_url: b.website_url || BRANDING_DEFAULTS.website_url,
+      sender_name: b.sender_name || BRANDING_DEFAULTS.sender_name,
+      welcome_text: b.welcome_text || BRANDING_DEFAULTS.welcome_text,
+      license_text: b.license_text || BRANDING_DEFAULTS.license_text,
+      tagline: b.tagline || BRANDING_DEFAULTS.tagline,
+    };
   }
 
   private _isValidForUnlock(): boolean {
@@ -166,9 +195,12 @@ export class UniversalLicenseCenter {
           if (isForceReactivation) console.log('  │  4. Reactivate License              │');
         }
         console.log('  │  9. Contact Support                   │');
+        const pending = this.cache.getPendingCount();
+        if (pending > 0) console.log(`  │     (${pending} pending messages)            │`);
         console.log('  │  0. Exit                              │');
         console.log('  └─────────────────────────────────────┘');
       } else {
+        const unreadCount = 0;
         console.log('  ┌─────────────────────────────────────┐');
         console.log('  │        UNIVERSAL LICENSE CENTER      │');
         console.log('  ├─────────────────────────────────────┤');
@@ -180,12 +212,15 @@ export class UniversalLicenseCenter {
           console.log('  │  6. Renew License                    │');
         }
         if (isLicensed || isTrial) {
-          console.log('  │  7. View Hardware Status                 │');
+          console.log('  │  7. View Hardware Status             │');
         }
         console.log('  │  8. Report Hardware Issue             │');
         console.log('  │  9. Contact Support                   │');
-        console.log('  │ 10. View Support Conversations        │');
+        console.log('  │ 10. View Conversations                │');
         console.log('  │ 11. Request History                   │');
+        console.log('  │ 12. View Notifications                │');
+        const pending = this.cache.getPendingCount();
+        if (pending > 0) console.log(`  │     (${pending} offline messages queued)   │`);
         console.log('  │  0. Exit                              │');
         console.log('  └─────────────────────────────────────┘');
       }
@@ -225,11 +260,12 @@ export class UniversalLicenseCenter {
           case '1': await this._viewStatus(); break;
           case '5': if (isTrial) await this._buyLicense(); break;
           case '6': if (isLicensed || isTrial) await this._renewLicense(); break;
-case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
-        case '8': await this._hardwareIssue(); break;
-        case '9': await this._contactSupport(); break;
-        case '10': await this._viewSupportConversations(); break;
-        case '11': await this._requestHistory(); break;
+          case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
+          case '8': await this._hardwareIssue(); break;
+          case '9': await this._contactSupport(); break;
+          case '10': await this._viewConversations(); break;
+          case '11': await this._requestHistory(); break;
+          case '12': await this._viewNotifications(); break;
           case '0': running = false; break;
           default: console.log('Invalid option. Please try again.');
         }
@@ -251,7 +287,7 @@ case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
   }
 
   private async _collectRequestInfo(requestType: string): Promise<Record<string, any> | null> {
-    const productName = this.config.product?.name || 'our product';
+    const productName = this.branding.product_name;
     const cached = this.cache.getLicenseStatus();
 
     console.log(`── ${requestType.replace(/_/g, ' ')} ──`);
@@ -292,8 +328,9 @@ case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
   }
 
   private async _welcomeFlow(): Promise<boolean> {
-    console.log('── Welcome! ──');
-    console.log('Let\'s get you started with a free trial.');
+    const productName = this.branding.product_name;
+    console.log(`── ${this.branding.welcome_text} ──`);
+    console.log(`Welcome to ${productName}! Let's get you started with a free trial.`);
     console.log('');
 
     const name = (await this._question('Your Name: ')).trim();
@@ -455,18 +492,25 @@ case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
   }
 
   private async _buyLicense(): Promise<void> {
-    const productName = this.config.product?.name || 'our product';
+    const productName = this.branding.product_name;
     console.log(`── Buy ${productName} License ──`);
-    const info = await this._collectRequestInfo('BUY');
+    const info = await this._collectRequestInfo('SALES');
     if (!info) return;
 
     try {
-      const result = await this.engine.sendSupportRequest({
-        ...info,
+      const result = await this.engine.createCommunication({
+        category: 'sales',
+        customer_email: info.customer_email,
+        customer_name: info.customer_name,
         subject: `Buy ${productName} License`,
+        message: info.message,
+        license_key: info.license_key || '',
+        hardware_id: info.hardware_id || '',
       });
       if (result.success) {
-        console.log('Inquiry submitted! Our sales team will contact you.');
+        console.log('Sales enquiry submitted! Our sales team will contact you.');
+      } else if (result.queued) {
+        console.log('Sales enquiry queued. Will be sent when connection is restored.');
       } else {
         console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
       }
@@ -610,73 +654,68 @@ case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
     console.log('An administrator will review and process your request.');
   }
 
-  private async _viewSupportConversations(): Promise<void> {
-    console.log('── Support Conversations ──');
+  private async _viewConversations(): Promise<void> {
+    console.log('── Your Conversations ──');
     const cached = this.cache.getLicenseStatus();
     const email = cached?.customer_email || (await this._question('Enter your email: ')).trim();
     if (!email) { console.log('Email is required.'); return; }
 
     try {
-      const historyResult = await this.engine.getRequestHistory(email);
-      if (!historyResult.success || !historyResult.data?.requests?.length) {
-        console.log('No support requests found for this email.');
+      const result = await this.engine.listConversations(email);
+      if (!result.success || !result.data?.conversations?.length) {
+        console.log('No conversations found for this email.');
         return;
       }
 
-      // Filter for support requests only
-      const supportRequests = historyResult.data.requests.filter(
-        (r: any) => r.request_type === 'SUPPORT' || r.request_type === 'support'
-      );
-
-      if (supportRequests.length === 0) {
-        console.log('No support requests found for this email.');
-        return;
-      }
-
-      console.log(`\nFound ${supportRequests.length} support request(s):`);
-      for (let i = 0; i < supportRequests.length; i++) {
-        const req = supportRequests[i];
-        console.log(`  ${i + 1}. ${req.request_id} | ${req.status} | ${new Date(req.created_at).toLocaleDateString()}`);
-        console.log(`     Subject: ${req.subject}`);
+      const conversations = result.data.conversations;
+      console.log(`\nFound ${conversations.length} conversation(s):`);
+      for (let i = 0; i < conversations.length; i++) {
+        const conv = conversations[i];
+        const cat = (conv.category || '').toUpperCase();
+        console.log(`  ${i + 1}. [${cat}] ${conv.subject || 'No subject'}`);
+        console.log(`     Status: ${conv.status} | ${new Date(conv.created_at).toLocaleDateString()}`);
       }
       console.log('');
 
-      const choice = (await this._question('Select a request to view (number, or 0 to cancel): ')).trim();
+      const choice = (await this._question('Select a conversation to view (number, or 0 to cancel): ')).trim();
       const index = parseInt(choice, 10) - 1;
-      if (choice === '0' || isNaN(index) || index < 0 || index >= supportRequests.length) return;
+      if (choice === '0' || isNaN(index) || index < 0 || index >= conversations.length) return;
 
-      const selectedReq = supportRequests[index];
-      await this._viewConversation(selectedReq.request_id);
+      const selected = conversations[index];
+      await this._viewConversationDetail(selected.id, selected.category);
     } catch (e) {
       console.log(`Error: ${(e as Error).message}`);
     }
   }
 
-  private async _viewConversation(requestId: string): Promise<void> {
+  private async _viewConversationDetail(conversationId: string, category: string): Promise<void> {
     try {
-      const result = await this.engine.getSupportConversation(requestId);
+      const result = await this.engine.getConversation(conversationId);
       if (!result.success) {
         console.log(`Failed to load conversation: ${result.error?.message || 'Unknown error'}`);
         return;
       }
 
+      const conv = result.data?.conversation || {};
       const messages = result.data?.messages || [];
-      console.log(`\n── Conversation: ${requestId} ──`);
-      console.log(`  Status: ${result.data?.status || 'N/A'}`);
+      const catLabel = (conv.category || category || '').toUpperCase();
+      console.log(`\n── [${catLabel}] ${conv.subject || 'Conversation'} ──`);
+      console.log(`  Status: ${conv.status || 'N/A'}`);
       console.log('');
 
       for (const msg of messages) {
         const date = new Date(msg.created_at).toLocaleString();
-        const sender = msg.sender_type === 'admin' ? 'Support Team' : msg.sender_name || 'Customer';
+        const sender = msg.sender_type === 'admin' ? `${this.branding.sender_name}` : msg.sender_name || 'Customer';
         console.log(`  [${date}] ${sender}:`);
         console.log(`  ${msg.message}`);
         console.log('');
       }
 
-      if (result.data?.status !== 'closed' && result.data?.status !== 'resolved') {
+      const canReply = conv.status !== 'closed' && conv.status !== 'resolved';
+      if (canReply) {
         const replyChoice = (await this._question('Reply to this conversation? (y/n): ')).trim().toLowerCase();
         if (replyChoice === 'y' || replyChoice === 'yes') {
-          await this._replyToConversation(requestId);
+          await this._replyToConversation(conversationId);
         }
       } else {
         console.log('This conversation is closed.');
@@ -686,7 +725,7 @@ case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
     }
   }
 
-  private async _replyToConversation(requestId: string): Promise<void> {
+  private async _replyToConversation(conversationId: string): Promise<void> {
     const cached = this.cache.getLicenseStatus();
     const name = cached?.customer_name || (await this._question('Your Name: ')).trim();
     const email = cached?.customer_email || (await this._question('Your Email: ')).trim();
@@ -697,12 +736,55 @@ case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
 
     console.log('Sending reply...');
     try {
-      const result = await this.engine.replyToSupportRequest(requestId, message, name, email);
+      const result = await this.engine.replyToConversation(conversationId, message, name, email);
       if (result.success) {
-        console.log('Reply sent! Support team will review it.');
+        console.log('Reply sent! The team will review it.');
+      } else if (result.queued) {
+        console.log('Reply queued. Will be sent when connection is restored.');
       } else {
         console.log(`Failed: ${result.error?.message || result.message || 'Unknown error'}`);
       }
+    } catch (e) {
+      console.log(`Error: ${(e as Error).message}`);
+    }
+  }
+
+  private async _viewNotifications(): Promise<void> {
+    console.log('── Notifications ──');
+    const cached = this.cache.getLicenseStatus();
+    const email = cached?.customer_email || (await this._question('Enter your email: ')).trim();
+    if (!email) { console.log('Email is required.'); return; }
+
+    try {
+      const result = await this.engine.getNotifications(email);
+      if (!result.success || !result.data?.notifications?.length) {
+        console.log('No notifications found.');
+        return;
+      }
+
+      const notifications = result.data.notifications;
+      for (let i = 0; i < notifications.length; i++) {
+        const n = notifications[i];
+        const readStatus = n.is_read ? ' ' : '●';
+        console.log(`  ${readStatus} ${i + 1}. [${(n.category || '').toUpperCase()}] ${n.title}`);
+        console.log(`     ${new Date(n.created_at).toLocaleDateString()}`);
+      }
+      console.log('');
+
+      const choice = (await this._question('Select notification to view (number, or 0 to cancel): ')).trim();
+      const index = parseInt(choice, 10) - 1;
+      if (choice === '0' || isNaN(index) || index < 0 || index >= notifications.length) return;
+
+      const selected = notifications[index];
+      console.log(`\n── ${selected.title} ──`);
+      console.log(`  ${selected.message}`);
+      console.log('');
+
+      if (!selected.is_read) {
+        await this.engine.markNotificationRead(selected.id);
+      }
+
+      await this._question('Press Enter to continue...');
     } catch (e) {
       console.log(`Error: ${(e as Error).message}`);
     }
@@ -714,12 +796,19 @@ case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
     if (!info) return;
 
     try {
-      const result = await this.engine.sendSupportRequest({
-        ...info,
+      const result = await this.engine.createCommunication({
+        category: 'hardware_replacement',
+        customer_email: info.customer_email,
+        customer_name: info.customer_name,
         subject: 'Hardware Issue Report',
+        message: info.message,
+        license_key: info.license_key || '',
+        hardware_id: info.hardware_id || '',
       });
       if (result.success) {
-        console.log('Hardware issue reported!');
+        console.log('Hardware issue reported! Our support team will review it.');
+      } else if (result.queued) {
+        console.log('Hardware issue queued. Will be sent when connection is restored.');
       } else {
         console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
       }
@@ -734,12 +823,19 @@ case '7': if (isLicensed || isTrial) await this._viewHardwareStatus(); break;
     if (!info) return;
 
     try {
-      const result = await this.engine.sendSupportRequest({
-        ...info,
+      const result = await this.engine.createCommunication({
+        category: 'support',
+        customer_email: info.customer_email,
+        customer_name: info.customer_name,
         subject: 'Support Request',
+        message: info.message,
+        license_key: info.license_key || '',
+        hardware_id: info.hardware_id || '',
       });
       if (result.success) {
-        console.log('Support request submitted! We will get back to you.');
+        console.log('Support request submitted! Our team will get back to you.');
+      } else if (result.queued) {
+        console.log('Support request queued. Will be sent when connection is restored.');
       } else {
         console.log(`Failed: ${result.message || result.error || 'Unknown error'}`);
       }

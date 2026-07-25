@@ -1,5 +1,12 @@
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const DEFAULT_SENDER = process.env.SENDER_EMAIL || 'support@websmithdigital.com';
+const MAIL_FROM_ADDRESS = process.env.MAIL_FROM_ADDRESS || 'no-reply@example.com';
+const MAIL_SUPPORT_ADDRESS = process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com';
+const MAIL_SALES_ADDRESS = process.env.MAIL_SALES_ADDRESS || 'sales@example.com';
+const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || 'License Management';
+const MAIL_SUPPORT_NAME = process.env.MAIL_SUPPORT_NAME || 'Support Team';
+const MAIL_SALES_NAME = process.env.MAIL_SALES_NAME || 'Sales Team';
+const COMPANY_NAME = process.env.BRANDING_COMPANY_NAME || 'Your Company';
+const WEBSITE_URL = process.env.BRANDING_WEBSITE_URL || 'https://example.com';
 
 function wrapHtml(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html>
@@ -10,8 +17,8 @@ function wrapHtml(title: string, bodyHtml: string): string {
     <tr><td align="center" style="padding:24px 16px">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
         <tr><td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:28px 32px;text-align:center">
-          <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px">WebSmith</h1>
-          <p style="margin:4px 0 0;color:#8899bb;font-size:13px">License Management Platform</p>
+          <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px">${COMPANY_NAME}</h1>
+          <p style="margin:4px 0 0;color:#8899bb;font-size:13px">License Management</p>
         </td></tr>
         <tr><td style="padding:32px">
           <h2 style="margin:0 0 16px;color:#1a1a2e;font-size:20px;font-weight:600">${title}</h2>
@@ -20,10 +27,10 @@ function wrapHtml(title: string, bodyHtml: string): string {
         <tr><td style="background-color:#f8f9fb;padding:24px 32px;border-top:1px solid #e8ecf1">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr><td style="text-align:center;font-size:13px;color:#8899aa;line-height:1.6">
-              <p style="margin:0 0 8px;font-weight:600;color:#555">WebSmith License Management</p>
+              <p style="margin:0 0 8px;font-weight:600;color:#555">${COMPANY_NAME} — License Management</p>
               <p style="margin:0 0 4px">Need help? Contact our support team at <a href="mailto:{{support_email}}" style="color:#4a90d9;text-decoration:none">{{support_email}}</a></p>
               <p style="margin:0 0 4px">Visit our website: <a href="{{website}}" style="color:#4a90d9;text-decoration:none">{{website}}</a></p>
-              <p style="margin:12px 0 0;font-size:11px;color:#aab">© 2026 WebSmith. All rights reserved. | This is an automated message, please do not reply directly.</p>
+              <p style="margin:12px 0 0;font-size:11px;color:#aab">© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved. | This is an automated message, please do not reply directly.</p>
             </td></tr>
           </table>
         </td></tr>
@@ -44,6 +51,29 @@ function btn(text: string, url?: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0"><tr><td style="background:#4a90d9;border-radius:6px;padding:0"><a href="${href}" style="display:inline-block;padding:12px 28px;color:#fff;text-decoration:none;font-size:14px;font-weight:600;border-radius:6px">${text}</a></td></tr></table>`;
 }
 
+const EMAIL_ROUTES: Record<string, { sender: string; name: string }> = {
+  otp_verification: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  license_activated: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  activation_success: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  activation_failed: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  trial_started: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  license_created: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  license_renewed: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  license_expired: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  license_revoked: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  device_reset: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  device_changed: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  payment_success: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  subscription_reminder: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  welcome_customer: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  reactivation_approved: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  reactivation_rejected: { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME },
+  admin_notification: { sender: MAIL_SUPPORT_ADDRESS, name: MAIL_SUPPORT_NAME },
+  support_reply: { sender: MAIL_SUPPORT_ADDRESS, name: MAIL_SUPPORT_NAME },
+  new_sales_enquiry: { sender: MAIL_SALES_ADDRESS, name: MAIL_SALES_NAME },
+  sales_reply: { sender: MAIL_SALES_ADDRESS, name: MAIL_SALES_NAME },
+  conversation_created: { sender: MAIL_SUPPORT_ADDRESS, name: MAIL_SUPPORT_NAME },
+};
 const EMAIL_TYPES: Record<string, {
   subject: string;
   defaultBody: (data: Record<string, string>) => string;
@@ -81,7 +111,7 @@ To get started, download your software and activate it using the license key abo
 If you have any trouble activating your license, please reach out to our support team.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -116,7 +146,7 @@ During your trial you have access to all the features included in the plan. If y
 No payment information is required for the trial. You will not be charged unless you decide to purchase a license after the trial period.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -146,7 +176,7 @@ Activation Date: ${d.activation_date || new Date().toLocaleDateString()}
 You can manage your devices, view your license details, and access support resources anytime through your account dashboard.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -189,7 +219,7 @@ Troubleshooting steps:
 If the problem persists after trying these steps, please contact our support team with the error details above and we will investigate further.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -224,7 +254,7 @@ Your renewed license is active immediately with an updated expiry date. No furth
 We appreciate your business and are committed to providing you with the best possible experience.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -257,7 +287,7 @@ To regain access to all features, please renew your license at your earliest con
 If you have already renewed, please disregard this message. If you believe this is an error, contact our support team.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -288,7 +318,7 @@ If you believe this action was taken in error, or if you have any questions abou
 We take license management seriously to protect our customers and their software investments.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -316,7 +346,7 @@ Previous Device: ${d.device_name || 'Unknown device'}
 Please note that your license may have a limit on the number of devices that can be activated simultaneously. You can check your current activation status and manage your devices from your account dashboard.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -350,7 +380,7 @@ Please contact our support team immediately so we can secure your license and in
 If this was you, no action is needed. You can continue using the software as normal.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -386,7 +416,7 @@ A receipt has been generated and is available in your account dashboard. For any
 We appreciate your business and are excited to have you on board!
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -421,7 +451,7 @@ Renewing is quick and easy. Visit your renewal portal to review and complete the
 If you have already renewed or have any questions, please disregard this reminder or contact our support team.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -471,7 +501,7 @@ If you have any questions in the meantime, please do not hesitate to reach out t
 We look forward to helping you succeed.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -506,7 +536,7 @@ Please open your application and activate it using the license key above. You ma
 If you have any questions, please contact our support team.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -531,7 +561,7 @@ If you believe this is an error or need further assistance, please contact our s
 We apologize for the inconvenience.
 
 Best regards,
-The WebSmith Team`
+The ${COMPANY_NAME} Team`
   },
 
   // ================================================================
@@ -588,7 +618,119 @@ You can continue this conversation by replying to this email or visiting our sup
 If you did not submit a support request, please ignore this email.
 
 Best regards,
-The WebSmith Support Team`
+The ${COMPANY_NAME} Support Team`
+  },
+
+  // ================================================================
+  // 18. NEW SALES ENQUIRY (to sales@)
+  // ================================================================
+  new_sales_enquiry: {
+    subject: 'New Sales Enquiry - {{product_name}}',
+    defaultBody: (d) => wrapHtml('New Sales Enquiry', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello Sales Team,</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">A new sales enquiry has been received.</p>
+      ${infoTable([
+        { label: 'Customer', value: d.customer_name || 'N/A' },
+        { label: 'Email', value: d.customer_email || 'N/A' },
+        { label: 'Phone', value: d.customer_phone || 'N/A' },
+        { label: 'Company', value: d.company || 'N/A' },
+        { label: 'Product', value: d.product_name || 'N/A' },
+        { label: 'Plan', value: d.plan_name || 'N/A' },
+        { label: 'Reference', value: d.enquiry_id || 'N/A' },
+      ].filter(r => r.value !== 'N/A'))}
+      <div style="background:#f0f4ff;border-left:4px solid #4a90d9;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
+        ${d.message || 'No details provided.'}
+      </div>
+      <p style="margin:12px 0 0;font-size:13px;color:#8899aa">Please follow up with the customer within 24 hours.</p>
+    `),
+    defaultPlainText: (d) => `Hello Sales Team,
+
+A new sales enquiry has been received.
+
+Customer: ${d.customer_name || 'N/A'}
+Email: ${d.customer_email || 'N/A'}
+Phone: ${d.customer_phone || 'N/A'}
+Company: ${d.company || 'N/A'}
+Product: ${d.product_name || 'N/A'}
+Plan: ${d.plan_name || 'N/A'}
+Reference: ${d.enquiry_id || 'N/A'}
+
+Message:
+${d.message || 'No details provided.'}
+
+Please follow up with the customer within 24 hours.
+
+Best regards,
+${COMPANY_NAME} Sales System`
+  },
+
+  // ================================================================
+  // 19. CONVERSATION CREATED (admin notification - category based)
+  // ================================================================
+  conversation_created: {
+    subject: 'New {{category}} Conversation - {{conversation_id}}',
+    defaultBody: (d) => wrapHtml('New Conversation', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.sender_name || 'Team'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">A new <strong>${d.category || 'general'}</strong> conversation has been created.</p>
+      ${infoTable([
+        { label: 'Category', value: d.category || 'General' },
+        { label: 'Customer', value: d.customer_name || 'N/A' },
+        { label: 'Email', value: d.customer_email || 'N/A' },
+        { label: 'Product', value: d.product_name || 'N/A' },
+        { label: 'License', value: d.license_key || 'N/A' },
+        { label: 'Hardware', value: d.hardware_id || 'N/A' },
+        { label: 'Conversation', value: d.conversation_id || 'N/A' },
+      ].filter(r => r.value !== 'N/A'))}
+      <div style="background:#f0f4ff;border-left:4px solid #4a90d9;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
+        ${d.message || 'No details provided.'}
+      </div>
+      <p style="margin:12px 0 0;font-size:13px;color:#8899aa">Please review and respond accordingly.</p>
+    `),
+    defaultPlainText: (d) => `Hello ${d.sender_name || 'Team'},
+
+A new ${d.category || 'general'} conversation has been created.
+
+Category: ${d.category || 'General'}
+Customer: ${d.customer_name || 'N/A'}
+Email: ${d.customer_email || 'N/A'}
+Product: ${d.product_name || 'N/A'}
+License: ${d.license_key || 'N/A'}
+Hardware: ${d.hardware_id || 'N/A'}
+Conversation: ${d.conversation_id || 'N/A'}
+
+Message:
+${d.message || 'No details provided.'}
+
+Please review and respond accordingly.
+${COMPANY_NAME} Support`
+  },
+
+  // ================================================================
+  // 20. SALES REPLY (to customer from sales@)
+  // ================================================================
+  sales_reply: {
+    subject: 'Re: Your Sales Enquiry - {{enquiry_id}}',
+    defaultBody: (d) => wrapHtml('Sales Reply', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Our sales team has responded to your enquiry <strong>{{enquiry_id}}</strong>.</p>
+      <div style="background:#f8f9fa;border-left:4px solid #10b981;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
+        ${d.message || 'No message provided.'}
+      </div>
+      <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">You can continue this conversation by replying to this email or contacting our sales team directly.</p>
+      <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">If you did not submit a sales enquiry, please ignore this email.</p>
+    `),
+    defaultPlainText: (d) => `Hello ${d.customer_name || 'there'},
+
+Our sales team has responded to your enquiry ${d.enquiry_id}.
+
+${d.message || 'No message provided.'}
+
+You can continue this conversation by replying to this email or contacting our sales team directly.
+
+If you did not submit a sales enquiry, please ignore this email.
+
+Best regards,
+${COMPANY_NAME} Sales Team`
   }
 };
 
@@ -601,6 +743,43 @@ async function getTemplate(client: any, emailType: string): Promise<{ subject: s
     if (r.rows.length > 0) return r.rows[0];
   } catch { /* table may not exist */ }
   return null;
+}
+
+async function logEmailDelivery(
+  client: any,
+  params: {
+    emailType: string;
+    sender: string;
+    recipient: string;
+    subject: string;
+    status: string;
+    response?: string;
+    error?: string;
+    licenseKey?: string;
+    hardwareId?: string;
+    supportRequestId?: string;
+    salesRequestId?: string;
+  }
+): Promise<void> {
+  try {
+    await client.query(
+      `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, error, license_key, hardware_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
+      [
+        params.emailType,
+        'email',
+        params.recipient,
+        params.subject,
+        params.status,
+        params.response || null,
+        params.error || null,
+        params.licenseKey || null,
+        params.hardwareId || null,
+      ]
+    );
+  } catch (logError) {
+    console.error(`[Email] Failed to log delivery:`, logError);
+  }
 }
 
 export async function sendEmail(
@@ -631,8 +810,15 @@ export async function sendEmail(
       plainText = plainText.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val || '');
     }
 
-    const senderName = data.sender_name || 'WebSmith';
-    const senderEmail = data.sender_email || DEFAULT_SENDER;
+    const route = EMAIL_ROUTES[emailType] || { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME };
+    const senderEmail = route.sender;
+    const senderName = route.name;
+
+    // Add automated email disclaimer for MAIL_FROM_ADDRESS
+    if (senderEmail === MAIL_FROM_ADDRESS) {
+      const disclaimer = '<p style="margin:16px 0 0;font-size:12px;color:#8899aa;font-style:italic;border-top:1px solid #e8ecf1;padding-top:12px">This is an automated email. Please do not reply.</p>';
+      htmlBody = htmlBody.replace('</body>', `${disclaimer}</body>`);
+    }
 
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -652,14 +838,48 @@ export async function sendEmail(
     if (!response.ok) {
       const err = await response.text();
       console.error(`Brevo send failed [${emailType} -> ${to.email}]: ${err}`);
+      await logEmailDelivery(client, {
+        emailType,
+        sender: senderEmail,
+        recipient: to.email,
+        subject,
+        status: 'failed',
+        error: err,
+        licenseKey: data.license_key,
+        hardwareId: data.hardware_id,
+        supportRequestId: data.request_id,
+      });
       return false;
     }
 
     console.log(`Email sent: ${emailType} -> ${to.email}`);
+    await logEmailDelivery(client, {
+      emailType,
+      sender: senderEmail,
+      recipient: to.email,
+      subject,
+      status: 'sent',
+      response: 'ok',
+      licenseKey: data.license_key,
+      hardwareId: data.hardware_id,
+      supportRequestId: data.request_id,
+    });
     return true;
 
   } catch (error) {
     console.error(`Email send error [${emailType} -> ${to.email}]:`, error);
+    try {
+      await logEmailDelivery(client, {
+        emailType,
+        sender: MAIL_FROM_ADDRESS,
+        recipient: to.email,
+        subject: '',
+        status: 'failed',
+        error: (error as Error)?.message || 'Unknown error',
+        licenseKey: data.license_key,
+        hardwareId: data.hardware_id,
+      });
+    } catch {}
     return false;
   }
 }
