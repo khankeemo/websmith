@@ -181,12 +181,6 @@ public:
             {{"action", "convert"}, {"hardware_id", hardwareId}, {"plan", plan}, {"customer_name", name}, {"customer_email", email}});
     }
 
-    json replaceHardware(const std::string& licenseKey, const std::string& oldDeviceId, const std::string& newDeviceId) {
-        json body = {{"action", "replace_hardware"}, {"license_key", licenseKey},
-                     {"old_hardware_id", oldDeviceId}, {"new_hardware_id", newDeviceId}};
-        return request("POST", "/api/v1/license", body);
-    }
-
     json bindDevice(const std::string& licenseKey, const std::string& deviceId, const std::string& deviceName) {
         json body = {{"action", "bind_device"}, {"license_key", licenseKey},
                      {"hardware_id", deviceId}, {"device_name", deviceName}};
@@ -557,14 +551,16 @@ public:
         return result;
     }
 
-    json replaceHardware(const std::string& licenseKey, const std::string& newHardwareId) {
-        std::string oldDeviceId = m_fingerprint["fingerprint"];
-        auto result = m_client->replaceHardware(licenseKey, oldDeviceId, newHardwareId);
-        if (result.contains("license")) {
-            m_licenseData = result["license"];
-            m_fingerprint["fingerprint"] = newHardwareId;
-            m_cache->set("license_data", m_licenseData);
-        }
+    json viewHardwareStatus() {
+        json result;
+        std::string currentHw = deviceId();
+        json validateResult = validate();
+        if (!validateResult["success"]) { return validateResult; }
+        std::string registeredHw = validateResult["data"]["hardware_id"];
+        result["matched"] = (currentHw == registeredHw);
+        result["current_hardware_id"] = currentHw;
+        result["registered_hardware_id"] = registeredHw;
+        result["message"] = "Hardware replacement requires administrator approval. Please contact support.";
         return result;
     }
 
@@ -782,10 +778,15 @@ if (engine.isValid()) {
 auto result = engine.renew("LICENSE-KEY-HERE");
 \`\`\`
 
-### Replace Hardware
+### View Hardware Status
 
 \`\`\`cpp
-auto result = engine.replaceHardware("LICENSE-KEY-HERE", "NEW-HARDWARE-ID");
+auto result = engine.viewHardwareStatus();
+if (result["matched"]) {
+    std::cout << "Hardware matches\\n";
+} else {
+    std::cout << result["message"] << "\\n";
+}
 \`\`\`
 
 ### Bind Device
@@ -838,7 +839,7 @@ std::cout << "License status: " << (valid ? "VALID" : "INVALID/EXPIRED") << "\\n
 | \`startTrial(email, name, data)\` | Start a trial |
 | \`checkTrial()\` | Check trial status |
 | \`convertTrial(plan, name, email)\` | Convert trial to paid license |
-| \`replaceHardware(key, newHardwareId)\` | Transfer license to new hardware |
+| \`viewHardwareStatus()\` | Check if hardware matches registered device |
 | \`bindDevice(key, deviceName)\` | Bind license to current device |
 | \`hasLicenseKey()\` | Check if a license key is cached |
 | \`isValid()\` | Check if current license is active |
@@ -855,7 +856,6 @@ std::cout << "License status: " << (valid ? "VALID" : "INVALID/EXPIRED") << "\\n
 | \`startTrial(email, name, data)\` | Start trial |
 | \`checkTrial(hardwareId)\` | Check trial status |
 | \`convertTrial(hardwareId, plan, name, email)\` | Convert trial |
-| \`replaceHardware(key, oldId, newId)\` | Hardware replacement |
 | \`bindDevice(key, deviceId, name)\` | Bind device |
 
 ### CacheManager

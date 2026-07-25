@@ -106,28 +106,42 @@ export async function POST(request: NextRequest) {
       message: message,
     };
 
-    await sendEmail(
-      db,
-      'admin_notification',
-      { email: supportEmail, name: 'Support' },
-      {
-        ...emailData,
-        message: `New ${request_type} request from ${customer_name || 'Anonymous'} (${customer_email || 'no email'}):\n\n${message}`,
-      }
-    );
-
-    if (customer_email) {
-      await sendEmail(
+    try {
+      const adminEmailSent = await sendEmail(
         db,
-        'welcome_customer',
-        { email: customer_email, name: customer_name || 'Valued Customer' },
+        'admin_notification',
+        { email: supportEmail, name: 'Support' },
         {
           ...emailData,
-          customer_name: customer_name || 'Valued Customer',
-          product: product_name || 'our product',
-          order_number: requestId,
+          message: `New ${request_type} request from ${customer_name || 'Anonymous'} (${customer_email || 'no email'}):\n\n${message}`,
         }
       );
+      if (!adminEmailSent) {
+        console.error(`[Request] Admin notification email failed for request ${requestId}`);
+      }
+    } catch (emailError) {
+      console.error(`[Request] Admin notification email error for ${requestId}:`, emailError instanceof Error ? emailError.message : emailError);
+    }
+
+    if (customer_email) {
+      try {
+        const customerEmailSent = await sendEmail(
+          db,
+          'welcome_customer',
+          { email: customer_email, name: customer_name || 'Valued Customer' },
+          {
+            ...emailData,
+            customer_name: customer_name || 'Valued Customer',
+            product: product_name || 'our product',
+            order_number: requestId,
+          }
+        );
+        if (!customerEmailSent) {
+          console.error(`[Request] Customer confirmation email failed for request ${requestId}`);
+        }
+      } catch (emailError) {
+        console.error(`[Request] Customer confirmation email error for ${requestId}:`, emailError instanceof Error ? emailError.message : emailError);
+      }
     }
 
     await logRequest({

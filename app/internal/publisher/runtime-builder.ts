@@ -220,7 +220,7 @@ If any step fails, the application blocks.
 - Activate License
 - Buy License
 - Renew License
-- Replace Device
+- View Hardware Status
 - Hardware Issue
 - Contact Support
 - Request History
@@ -334,7 +334,7 @@ No other licensing code should be required.
 | Activate License | Email dialog | ACTIVATION |
 | Buy License | Email dialog | BUY |
 | Renew License | Email dialog | RENEW |
-| Replace Device | Email dialog | DEVICE_REPLACEMENT |
+| View Hardware Status | Status panel | — |
 | Hardware Issue | Email dialog | HARDWARE |
 | Contact Support | Email dialog | SUPPORT |
 | Request History | History view | — |
@@ -402,7 +402,7 @@ Every request requires API Key + HMAC-SHA256 signature. The \`ApiClient\` handle
 | \`get_license_details()\` | POST | \`/api/v1/license/details\` | Get license info |
 | \`get_license_history()\` | POST | \`/api/v1/license/history\` | Get license timeline |
 | \`renew_license()\` | POST | \`/api/v1/license/renew\` | Renew license |
-| \`replace_device()\` | POST | \`/api/v1/device\` | Replace device (action: replace) |
+| \`view_hardware_status()\` | — | — | View current vs registered hardware |
 | \`bind_device()\` | POST | \`/api/v1/device\` | Bind device |
 | \`reset_device()\` | POST | \`/api/v1/device\` | Reset device |
 | \`get_plans()\` | GET | \`/api/v1/plans\` | List plans |
@@ -427,7 +427,7 @@ Every request requires API Key + HMAC-SHA256 signature. The \`ApiClient\` handle
 | \`get_license_details(key)\` | Fetch license details |
 | \`get_license_history(key)\` | Fetch license audit timeline |
 | \`renew(plan_id)\` | Renew license |
-| \`replace_hardware()\` | Move license to current (new) hardware |
+| \`view_hardware_status()\` | View current vs registered hardware IDs |
 | \`bind_device(key)\` | Bind license to current device |
 | \`get_plans()\` | Get available plans for product |
 | \`get_countries()\` | Get country list |
@@ -965,16 +965,15 @@ try:
 except ValueError as e:
     print(f"Activation required: {e}")`),
 
-      this.getExampleSection('python', 'Replace Hardware',
+      this.getExampleSection('python', 'View Hardware Status',
 `engine = LicenseEngine()
 status = engine.initialize()
-
-try:
-    result = engine.replace_hardware()
-    if result.get("success"):
-        print("Hardware replaced")
-except ValueError as e:
-    print(f"Error: {e}")`),
+result = engine.view_hardware_status()
+print(f"Current Hardware: {result.get('current_hardware_id')}")
+if result.get('registered_hardware_id'):
+    print(f"Registered Hardware: {result.get('registered_hardware_id')}")
+    print(f"Match: {result.get('matched')}")
+print(result.get('message'))`),
 
       this.getExampleSection('python', 'Deactivate License',
 `engine = LicenseEngine()

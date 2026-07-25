@@ -380,16 +380,27 @@ export default function AdministratorActivationCenter() {
             </button>
             {showFieldDropdown && (
               <div className="absolute top-full left-0 mt-1 w-48 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-xl z-50 overflow-hidden">
-                {SEARCH_FIELDS.map(f => {
-                  const Icon = f.icon;
-                  return (
-                    <button key={f.value} onClick={() => { setSearchField(f.value); setShowFieldDropdown(false); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-all hover:bg-[var(--bg-tertiary)]/20 ${searchField === f.value ? "text-blue-400 bg-blue-500/10" : "text-[var(--text-secondary)]"}`}>
-                      <Icon size={14} />
-                      {f.label}
-                    </button>
-                  );
-                })}
+{SEARCH_FIELDS.map(f => {
+  const Icon = f.icon;
+  return (
+    <button key={f.value} onClick={() => {
+      if (f.value !== searchField) {
+        setSearchField(f.value);
+        setSearchQuery("");
+        setResult(null);
+        setError(null);
+        setTimeline([]);
+        setPreviousDevices([]);
+        setActionResult(null);
+      }
+      setShowFieldDropdown(false);
+    }}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-all hover:bg-[var(--bg-tertiary)]/20 ${searchField === f.value ? "text-blue-400 bg-blue-500/10" : "text-[var(--text-secondary)]"}`}>
+      <Icon size={14} />
+      {f.label}
+    </button>
+  );
+})}
               </div>
             )}
           </div>

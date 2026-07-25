@@ -43,6 +43,7 @@ extern "C" {
 #define WEBSMITH_MAX_PATH 4096
 
 typedef struct {
+    int success;
     char* error;
     char* data;
 } websmith_result_t;
@@ -107,7 +108,6 @@ websmith_result_t websmith_renew_license(websmith_client_t* client, const char* 
 websmith_result_t websmith_start_trial(websmith_client_t* client, const char* email, const char* customer_name, const char* plan);
 websmith_result_t websmith_check_trial(websmith_client_t* client, const char* hardware_id);
 websmith_result_t websmith_convert_trial(websmith_client_t* client, const char* hardware_id, const char* plan, const char* name, const char* email);
-websmith_result_t websmith_replace_hardware(websmith_client_t* client, const char* license_key, const char* old_device_id, const char* new_device_id);
 websmith_result_t websmith_bind_device(websmith_client_t* client, const char* license_key, const char* device_id, const char* device_name);
 
 websmith_cache_t* websmith_cache_new(const char* cache_dir);
@@ -125,8 +125,8 @@ int websmith_engine_renew(websmith_license_engine_t* engine);
 int websmith_engine_start_trial(websmith_license_engine_t* engine, const char* email, const char* customer_name, const char* plan);
 int websmith_engine_check_trial(websmith_license_engine_t* engine, const char* hardware_id);
 int websmith_engine_convert_trial(websmith_license_engine_t* engine, const char* hardware_id, const char* plan, const char* name, const char* email);
-int websmith_engine_replace_hardware(websmith_license_engine_t* engine, const char* license_key, const char* old_device_id, const char* new_device_id);
 int websmith_engine_bind_device(websmith_license_engine_t* engine, const char* license_key, const char* device_id, const char* device_name);
+websmith_result_t websmith_engine_view_hardware_status(websmith_license_engine_t* engine);
 int websmith_engine_is_valid(websmith_license_engine_t* engine);
 void websmith_engine_free(websmith_license_engine_t* engine);
 
@@ -154,6 +154,7 @@ static size_t write_callback(void* contents, size_t size, size_t nmemb, void* us
 
 websmith_result_t websmith_result_ok(const char* data) {
     websmith_result_t r;
+    r.success = 1;
     r.error = NULL;
     r.data = data ? strdup(data) : NULL;
     return r;
@@ -161,6 +162,7 @@ websmith_result_t websmith_result_ok(const char* data) {
 
 websmith_result_t websmith_result_err(const char* error) {
     websmith_result_t r;
+    r.success = 0;
     r.error = error ? strdup(error) : NULL;
     r.data = NULL;
     return r;
@@ -397,12 +399,6 @@ websmith_result_t websmith_convert_trial(websmith_client_t* client, const char* 
     char body[2048];
     snprintf(body, sizeof(body), "{\\"action\\":\\"convert\\",\\"hardware_id\\":\\"%s\\",\\"plan\\":\\"%s\\",\\"customer_name\\":\\"%s\\",\\"customer_email\\":\\"%s\\"}", hardware_id ? hardware_id : "", plan ? plan : "", name ? name : "", email ? email : "");
     return websmith_api_request(client, "/api/v1/trial", body);
-}
-
-websmith_result_t websmith_replace_hardware(websmith_client_t* client, const char* license_key, const char* old_device_id, const char* new_device_id) {
-    char body[2048];
-    snprintf(body, sizeof(body), "{\\"action\\":\\"replace_hardware\\",\\"license_key\\":\\"%s\\",\\"old_hardware_id\\":\\"%s\\",\\"new_hardware_id\\":\\"%s\\"}", license_key ? license_key : "", old_device_id ? old_device_id : "", new_device_id ? new_device_id : "");
-    return websmith_api_request(client, "/api/v1/license", body);
 }
 
 websmith_result_t websmith_bind_device(websmith_client_t* client, const char* license_key, const char* device_id, const char* device_name) {
@@ -815,17 +811,6 @@ int websmith_engine_convert_trial(websmith_license_engine_t* engine, const char*
     return 0;
 }
 
-int websmith_engine_replace_hardware(websmith_license_engine_t* engine, const char* license_key, const char* old_device_id, const char* new_device_id) {
-    if (!engine) return -1;
-    websmith_result_t res = websmith_replace_hardware(engine->client, license_key, old_device_id, new_device_id);
-    if (res.error) { websmith_result_free(&res); return -1; }
-    if (res.data) {
-        strncpy(engine->license_data, res.data, sizeof(engine->license_data) - 1);
-    }
-    websmith_result_free(&res);
-    return 0;
-}
-
 int websmith_engine_bind_device(websmith_license_engine_t* engine, const char* license_key, const char* device_id, const char* device_name) {
     if (!engine) return -1;
     websmith_result_t res = websmith_bind_device(engine->client, license_key, device_id, device_name);
@@ -835,6 +820,60 @@ int websmith_engine_bind_device(websmith_license_engine_t* engine, const char* l
     }
     websmith_result_free(&res);
     return 0;
+}
+
+static const char* websmith_get_hardware_id(void) {
+    static char id[128];
+    websmith_hardware_t* hw = websmith_hardware_new();
+    if (!hw) return NULL;
+    char* fp = websmith_hardware_fingerprint(hw);
+    if (fp) {
+        strncpy(id, fp, sizeof(id) - 1);
+        free(fp);
+    } else {
+        websmith_hardware_free(hw);
+        return NULL;
+    }
+    websmith_hardware_free(hw);
+    return id;
+}
+
+websmith_result_t websmith_engine_view_hardware_status(websmith_license_engine_t* engine) {
+    websmith_result_t result;
+    memset(&result, 0, sizeof(result));
+    if (!engine) {
+        result.success = 0;
+        result.error = strdup("Engine not initialized");
+        return result;
+    }
+    const char* current_hw = websmith_get_hardware_id();
+    int ret = websmith_engine_validate(engine);
+    if (ret != 0) {
+        result.success = 0;
+        result.error = strdup("Validation failed");
+        return result;
+    }
+    int matched = 0;
+    char* data = NULL;
+    char* hw_start = strstr(engine->license_data, "\\"hardware_id\\"");
+    if (hw_start) {
+        data = strchr(hw_start, ':');
+        if (data) {
+            data++;
+            while (*data == ' ' || *data == '"') data++;
+            char* end = strchr(data, '"');
+            if (end) *end = '\\0';
+            matched = (current_hw && strcmp(current_hw, data) == 0) ? 1 : 0;
+        }
+    }
+    char buf[512];
+    snprintf(buf, sizeof(buf), "{\\"matched\\":%s,\\"current_hardware_id\\":\\"%s\\",\\"registered_hardware_id\\":\\"%s\\"}",
+        matched ? "true" : "false",
+        current_hw ? current_hw : "",
+        data ? data : "");
+    result.success = 1;
+    result.data = strdup(buf);
+    return result;
 }
 
 int websmith_engine_is_valid(websmith_license_engine_t* engine) {
@@ -877,7 +916,7 @@ ${kitVersion}
 ## Overview
 The ${productName} C SDK provides a complete license management client for Websmith License API.
 It supports license validation, activation, deactivation, renewal, trial management, hardware binding,
-and hardware replacement with full HMAC-SHA256 signing and retry logic.
+and hardware status verification with full HMAC-SHA256 signing and retry logic.
 
 ## Dependencies
 - GCC (C11)
@@ -980,10 +1019,15 @@ if (websmith_engine_validate(engine) == 0) {
 websmith_engine_renew(engine);
 \`\`\`
 
-### Replace Hardware
+### View Hardware Status
 \`\`\`c
-websmith_engine_replace_hardware(engine, "LICENSE-XXXX-XXXX-XXXX",
-    "old_device_fingerprint", "new_device_fingerprint");
+websmith_result_t hw_status = websmith_engine_view_hardware_status(engine);
+if (hw_status.success) {
+    printf("Hardware status: %s\\n", hw_status.data);
+} else {
+    printf("Error: %s\\n", hw_status.error);
+}
+websmith_result_free(&hw_status);
 \`\`\`
 
 ### Bind Device
@@ -1020,7 +1064,7 @@ API requests automatically retry up to 3 times with exponential backoff:
 3. Returns error if still failing
 
 ## API Endpoints
-- \`POST /api/v1/license\` - License management (validate, activate, deactivate, renew, replace_hardware, bind)
+- \`POST /api/v1/license\` - License management (validate, activate, deactivate, renew, bind, view_hardware_status)
 - \`POST /api/v1/trial\` - Trial management (start, status, convert)
 
 ## License

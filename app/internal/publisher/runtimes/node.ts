@@ -354,13 +354,6 @@ class Client {
       .then((r) => { this._cache.invalidateLicenseStatus(); return r; });
   }
 
-  replaceDevice(licenseKey, newHwId, oldHwId) {
-    const p = { action: 'replace', license_key: licenseKey, new_hardware_id: newHwId || this._hwId() };
-    if (oldHwId) p.old_hardware_id = oldHwId;
-    return this._request('device', p)
-      .then((r) => { this._cache.invalidateLicenseStatus(); return r; });
-  }
-
   bindDevice(licenseKey, hardwareId, deviceName) {
     const p = { action: 'bind', license_key: licenseKey, hardware_id: hardwareId || this._hwId() };
     if (deviceName) p.device_name = deviceName;
@@ -456,28 +449,19 @@ class LicenseEngine {
     return result;
   }
 
-  async replaceHardware(oldDeviceId, newDeviceId, licenseKey) {
-    const k = licenseKey || this._key;
-    if (!k) throw new Error('License key unavailable');
-    const newId = newDeviceId || this._hw();
-    if (!oldDeviceId) throw new Error('oldDeviceId is required');
-    if (oldDeviceId === newId) return { success: false, message: 'Hardware IDs are identical' };
-    const result = await this._client.replaceDevice(k, newId, oldDeviceId);
-    if (result.success) {
-      this._cache.invalidateLicenseStatus();
-      this._data = null;
-      this._fp = null;
-      await this.initialize();
-    }
-    return result;
-  }
-
   async bindDevice(licenseKey, deviceName) {
     const k = licenseKey || this._key;
     if (!k) throw new Error('License key unavailable');
     const result = await this._client.bindDevice(k, this._hw(), deviceName || '');
     if (result.success) await this.initialize();
     return result;
+  }
+
+  async viewHardwareStatus() {
+    const currentHwId = this._hw();
+    const status = await this.validate();
+    const registeredHwId = status?.data?.hardware_id || '';
+    return { matched: currentHwId === registeredHwId, current_hardware_id: currentHwId, registered_hardware_id: registeredHwId };
   }
 
   hasLicenseKey() { return this._key != null; }
@@ -608,15 +592,15 @@ async function renewLicense() {
 }
 \`\`\`
 
-## Replace Hardware
+## View Hardware Status
 \`\`\`javascript
 const { LicenseEngine } = require('wsd-${prodId}-sdk');
 const engine = new LicenseEngine();
 
-async function replace() {
+async function viewHw() {
   await engine.activate('XXXX-XXXX-XXXX-XXXX');
-  const result = await engine.replaceHardware('old-device-id', null, 'XXXX-XXXX-XXXX-XXXX');
-  console.log('Replaced:', result);
+  const result = await engine.viewHardwareStatus();
+  console.log('Hardware status:', result);
 }
 \`\`\`
 ## Deactivate License
@@ -665,7 +649,7 @@ Headers:
 | Start Trial | POST | \`/api/v1/trial\` |
 | Check Trial | POST | \`/api/v1/trial\` |
 | Convert Trial | POST | \`/api/v1/trial\` |
-| Replace Device | POST | \`/api/v1/device\` |
+| View Hardware Status | POST | \`/api/v1/license\` |
 | Bind Device | POST | \`/api/v1/device\` |
 `,
   };

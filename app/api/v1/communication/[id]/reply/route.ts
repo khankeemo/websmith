@@ -171,10 +171,12 @@ export async function POST(
             ['email_failed', `Reply email failed for ${id}: ${emailError?.message || 'Unknown error'}`, now, ipAddress]
           );
           auditClient.release();
-        } catch {}
+        } catch (auditError) {
+          console.error(`[Communication Reply] Failed to write audit log for email failure (conversation ${id}):`, auditError instanceof Error ? auditError.message : auditError);
+        }
       }
     }
-
+ 
     await logRequest({
       apiKeyId, endpoint: `/api/v1/communication/${id}/reply`, method: 'POST',
       statusCode: 200, ipAddress, userAgent,

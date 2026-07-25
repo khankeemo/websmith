@@ -418,23 +418,14 @@ export class UniversalLicenseCenter {
     const hwId = this.hardware.getFingerprint();
     console.log(`  Hardware ID: ${hwId}`);
     console.log('');
-    console.log('Please enter your details and license key to activate.');
-    console.log('');
-
-    const name = (await this._question('Your Name: ')).trim();
-    if (!name) { console.log('Name is required.'); return; }
-
-    const email = (await this._question('Your Email: ')).trim();
-    if (!email) { console.log('Email is required.'); return; }
-
-    const mobile = (await this._question('Mobile Number (with country code): ')).trim();
-    if (!mobile) { console.log('Mobile is required.'); return; }
 
     const key = (await this._question('License key: ')).trim();
     if (!key) { console.log('License key is required.'); return; }
 
     console.log('');
     console.log('Validating license...');
+    let customerEmail = '';
+    let customerData: Record<string, any> = {};
     try {
       const validateResult = await this.engine.validate(key.trim());
       if (!validateResult.success && validateResult.valid !== true) {
@@ -442,8 +433,58 @@ export class UniversalLicenseCenter {
         console.log(`Validation failed: ${errorMsg}`);
         return;
       }
+      const data = validateResult.data || validateResult;
+      if (!data.valid) {
+        console.log('License validation failed.');
+        return;
+      }
+      customerEmail = data.customer_email || '';
+      customerData = data;
+      console.log(`  Customer: ${data.customer_name || 'N/A'}`);
+      console.log(`  Email: ${customerEmail || 'N/A'}`);
+      console.log(`  Plan: ${data.plan || 'N/A'}`);
+      console.log(`  Expires: ${data.expiry_date || 'N/A'}`);
+      console.log(`  Days Left: ${data.days_left || 0}`);
+      console.log('');
     } catch (e) {
       console.log(`Validation error: ${(e as Error).message}`);
+      return;
+    }
+
+    if (!customerEmail) {
+      console.log('No customer email available for OTP verification.');
+      return;
+    }
+
+    console.log('Sending OTP...');
+    try {
+      const otpResult = await this.client.sendOtp(customerEmail);
+      if (!otpResult.success) {
+        const errMsg = otpResult.error?.message || otpResult.message || 'Failed to send OTP';
+        console.log(`OTP send failed: ${errMsg}`);
+        return;
+      }
+      console.log(`OTP sent to ${customerEmail}.`);
+    } catch (e) {
+      console.log(`OTP error: ${(e as Error).message}`);
+      return;
+    }
+
+    const otp = (await this._question('Enter OTP code: ')).trim();
+    if (!otp) { console.log('OTP is required.'); return; }
+
+    console.log('Verifying OTP...');
+    try {
+      const verifyResult = await this.client.verifyOtp(customerEmail, otp);
+      if (!verifyResult.success) {
+        const errMsg = verifyResult.error?.message || verifyResult.message || 'OTP verification failed';
+        console.log(`OTP verification failed: ${errMsg}`);
+        return;
+      }
+      console.log('OTP verified successfully.');
+      console.log('');
+    } catch (e) {
+      console.log(`OTP error: ${(e as Error).message}`);
       return;
     }
 
@@ -456,13 +497,14 @@ export class UniversalLicenseCenter {
         console.log('      ACTIVATION SUCCESSFUL');
         console.log('═══════════════════════════════════════');
         const data = result.data || result;
-        if (data.customer_name) console.log(`  Customer: ${data.customer_name}`);
-        if (data.license_key) console.log(`  License Key: ${this._maskLicenseKey(data.license_key)}`);
-        if (data.plan) console.log(`  Plan: ${data.plan}`);
+        console.log(`  Customer: ${customerData.customer_name || 'N/A'}`);
+        console.log(`  Email: ${customerEmail || 'N/A'}`);
+        console.log(`  License Key: ${this._maskLicenseKey(key)}`);
+        console.log(`  Plan: ${data.plan || customerData.plan || 'N/A'}`);
         console.log(`  Status: Active`);
-        if (data.expiry_date) console.log(`  Activation Date: ${new Date().toISOString().split('T')[0]}`);
-        if (data.expiry_date) console.log(`  Expiry Date: ${data.expiry_date}`);
-        if (data.days_left !== undefined) console.log(`  Remaining Validity: ${data.days_left} days`);
+        console.log(`  Activation Date: ${new Date().toISOString().split('T')[0]}`);
+        console.log(`  Expiry Date: ${data.expiry_date || 'N/A'}`);
+        console.log(`  Remaining Validity: ${data.days_left || 0} days`);
         console.log(`  Device: ${hwId}`);
         console.log('═══════════════════════════════════════');
         console.log('');

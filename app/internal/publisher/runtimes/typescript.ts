@@ -594,17 +594,27 @@ export class ApiClient {
     }
   }
 
+  async sendOtp(email: string): Promise<Record<string, any>> {
+    return this._request('auth/otp/send', {
+      email,
+      product_id: this.productId,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async verifyOtp(email: string, otp: string): Promise<Record<string, any>> {
+    return this._request('auth/otp/verify', {
+      email,
+      otp,
+      product_id: this.productId,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
   async validateLicense(licenseKey: string, hardwareId?: string): Promise<Record<string, any>> {
     if (!hardwareId) hardwareId = this._getHardwareId();
     const payload = { action: 'validate', license_key: licenseKey, hardware_id: hardwareId };
-    if (this.cache && this.cache.isCacheValid()) {
-      const cached = this.cache.getLicenseStatus();
-      if (cached) return cached;
-    }
     const response = await this._request('license', payload);
-    if (this.cache && response.valid) {
-      this.cache.setLicenseStatus(response);
-    }
     return response;
   }
 
@@ -660,15 +670,6 @@ export class ApiClient {
     const payload: Record<string, any> = { action: 'bind', license_key: licenseKey, hardware_id: hardwareId };
     if (deviceName) payload.device_name = deviceName;
     return this._request('device', payload);
-  }
-
-  async replaceDevice(licenseKey: string, newHardwareId?: string, oldHardwareId?: string): Promise<Record<string, any>> {
-    if (!newHardwareId) newHardwareId = this._getHardwareId();
-    if (!oldHardwareId) throw new ApiError(400, 'old_hardware_id is required for device replacement');
-    const payload = { action: 'replace', license_key: licenseKey, old_hardware_id: oldHardwareId, new_hardware_id: newHardwareId };
-    const response = await this._request('device', payload);
-    if (this.cache) this.cache.invalidateLicenseStatus();
-    return response;
   }
 
   async verifyLicenseForRenewal(licenseKey: string): Promise<Record<string, any>> {
@@ -1016,12 +1017,6 @@ export class LicenseEngine {
     const hardwareId = this.hardware.getFingerprint();
     try {
       const result = await this.client.validateLicense(key || '', hardwareId);
-      if (result.valid || (result.data && result.data.valid)) {
-        this._status = LicenseEngine._toStatusData(result.data || result);
-        if (key) this._licenseKey = key;
-        await this.initialize();
-        this.cache.markHasEverActivatedPaidLicense();
-      }
       return result;
     } catch (err: any) {
       return { success: false, status: 'error', message: err.message || String(err) };
@@ -1103,18 +1098,16 @@ export class LicenseEngine {
     }
   }
 
-  async replaceHardware(oldDeviceId: string, newDeviceId: string, key?: string): Promise<LicenseResult> {
-    const licenseKey = key || this._licenseKey;
-    if (!licenseKey) return { success: false, status: 'error', message: 'License key unavailable.' };
+  async viewHardwareStatus(): Promise<LicenseResult> {
     try {
-      const result = await this.client.replaceDevice(licenseKey, newDeviceId, oldDeviceId);
-      if (result.success) {
-        this.cache.invalidateLicenseStatus();
-        this._status = null;
-        await this.initialize();
-        this.cache.markHasEverActivatedPaidLicense();
+      const status: Record<string, any> = { current_hardware_id: this._hardware.getFingerprint() };
+      const cached = this._cache.getLicenseStatus();
+      if (cached?.hardware_id) {
+        status.registered_hardware_id = cached.hardware_id;
+        status.matched = status.current_hardware_id === cached.hardware_id;
       }
-      return result;
+      status.message = 'Hardware replacement requires administrator approval. Please contact support.';
+      return { success: true, status: 'ok', data: status };
     } catch (err: any) {
       return { success: false, status: 'error', message: err.message || String(err) };
     }
@@ -1441,17 +1434,7 @@ const result = await engine.renew(undefined, 365);
 if (result.success) console.log('License renewed');
 \`\`\`
 
-### 8. Replace Hardware
-
-Transfer a license from one machine to another.
-
-\`\`\`typescript
-const oldDeviceId = engine.getLicenseInfo()?.hardware_id || 'OLD_ID';
-const newDeviceId = engine.getHardware().getFingerprint();
-const result = await engine.replaceHardware(oldDeviceId, newDeviceId);
-\`\`\`
-
-### 9. Bind Device
+### 8. Bind Device
 
 Associate a license with a specific device name.
 
@@ -1621,13 +1604,8 @@ export class UniversalLicenseCenter {
     return result;
   }
 
-  async replaceHardware(): Promise<Record<string, any>> {
-    const result = await this.engine.replaceHardware();
-    if (result.success) {
-      await this.initialize();
-      this._locked = !this._isValidForUnlock();
-    }
-    return result;
+  async viewHardwareStatus(): Promise<Record<string, any>> {
+    return this.engine.viewHardwareStatus();
   }
 
   async deactivate(licenseKey?: string): Promise<Record<string, any>> {

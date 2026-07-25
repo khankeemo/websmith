@@ -97,12 +97,6 @@ namespace WebsmithSDK
             return await PostAsync("/api/v1/trial", data);
         }
 
-        public async Task<JsonDocument> ReplaceHardware(string licenseKey, string oldHardwareId, string newHardwareId)
-        {
-            var data = new Dictionary<string, object> { ["action"] = "replace_hardware", ["license_key"] = licenseKey, ["old_hardware_id"] = oldHardwareId, ["new_hardware_id"] = newHardwareId };
-            return await PostAsync("/api/v1/license", data);
-        }
-
         public async Task<JsonDocument> BindDevice(string licenseKey, string hardwareId, string deviceName)
         {
             var data = new Dictionary<string, object> { ["action"] = "bind_device", ["license_key"] = licenseKey, ["hardware_id"] = hardwareId, ["device_name"] = deviceName };
@@ -467,21 +461,36 @@ namespace WebsmithSDK
             return await _client.ConvertTrial(deviceId, plan, customerName, customerEmail);
         }
 
-        public async Task<JsonDocument> ReplaceHardware(string licenseKey, string newHardwareId)
-        {
-            var oldHardwareId = _fingerprint["fingerprint"]?.ToString() ?? "";
-            var result = await _client.ReplaceHardware(licenseKey, oldHardwareId, newHardwareId);
-            if (result.RootElement.TryGetProperty("license", out var license))
-                _licenseData = license;
-            return result;
-        }
-
         public async Task<JsonDocument> BindDevice(string licenseKey, string hardwareId, string deviceName)
         {
             var result = await _client.BindDevice(licenseKey, hardwareId, deviceName);
             if (result.RootElement.TryGetProperty("license", out var license))
                 _licenseData = license;
             return result;
+        }
+
+        public Dictionary<string, object> ViewHardwareStatus()
+        {
+            var currentHw = _fingerprint["fingerprint"]?.ToString() ?? "";
+            var validateResult = Validate().Result;
+            if (validateResult.RootElement.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Object)
+            {
+                var registeredHw = dataEl.TryGetProperty("hardware_id", out var hwId) ? hwId.GetString() ?? "" : "";
+                return new Dictionary<string, object>
+                {
+                    ["matched"] = currentHw == registeredHw,
+                    ["current_hardware_id"] = currentHw,
+                    ["registered_hardware_id"] = registeredHw,
+                    ["message"] = "Hardware replacement requires administrator approval. Please contact support."
+                };
+            }
+            return new Dictionary<string, object>
+            {
+                ["matched"] = false,
+                ["current_hardware_id"] = currentHw,
+                ["registered_hardware_id"] = "",
+                ["message"] = "Hardware replacement requires administrator approval. Please contact support."
+            };
         }
 
         public bool HasLicenseKey()
@@ -613,12 +622,12 @@ if (engine.HasLicenseKey())
 var result = await engine.Renew();
 \`\`\`
 
-### Replace Hardware
+### View Hardware Status
 
 \`\`\`csharp
-var newFingerprint = HardwareFingerprint.Generate();
-var newHardwareId = newFingerprint["fingerprint"].ToString();
-var result = await engine.ReplaceHardware("LICENSE-KEY", newHardwareId);
+var status = engine.ViewHardwareStatus();
+Console.WriteLine($"Hardware matched: {status["matched"]}");
+Console.WriteLine(status["message"]);
 \`\`\`
 
 ### Bind Device

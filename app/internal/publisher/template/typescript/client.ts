@@ -166,17 +166,27 @@ export class ApiClient {
     });
   }
 
+  async sendOtp(email: string): Promise<Record<string, any>> {
+    return this._request('auth/otp/send', {
+      email,
+      product_id: this.productId,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  async verifyOtp(email: string, otp: string): Promise<Record<string, any>> {
+    return this._request('auth/otp/verify', {
+      email,
+      otp,
+      product_id: this.productId,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
   async validateLicense(licenseKey: string, hardwareId?: string): Promise<Record<string, any>> {
     if (!hardwareId) hardwareId = this._getHardwareId();
     const payload = { action: 'validate', license_key: licenseKey, hardware_id: hardwareId };
-    if (this._cache && this._cache.isValid()) {
-      const cached = this._cache.getLicenseStatus();
-      if (cached) return cached;
-    }
     const response = await this._request('license', payload);
-    if (this._cache && response.success && response.data?.valid) {
-      this._cache.setLicenseStatus(response);
-    }
     return response;
   }
 

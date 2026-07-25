@@ -1,5 +1,3 @@
-import API from "./apiService";
-
 export type NavbarSectionKey = "projects" | "clients" | "developers" | "testimonials" | "softwareStore";
 
 export type NavbarVisibility = Record<NavbarSectionKey, boolean>;
@@ -21,16 +19,21 @@ const normalizeNavbarVisibility = (value: Partial<NavbarVisibility> | null | und
 });
 
 export const getNavbarVisibility = async (): Promise<NavbarVisibility> => {
-  const response = await API.get(`/settings/public/${NAVBAR_VISIBILITY_KEY}`);
-  return normalizeNavbarVisibility(response.data?.data);
+  const response = await fetch(`/api/settings/public/${NAVBAR_VISIBILITY_KEY}`);
+  if (!response.ok) return defaultNavbarVisibility;
+  const data = await response.json();
+  return normalizeNavbarVisibility(data?.data);
 };
 
 export const updateNavbarVisibility = async (value: NavbarVisibility): Promise<NavbarVisibility> => {
   const nextValue = normalizeNavbarVisibility(value);
-  const response = await API.put(`/settings/public/${NAVBAR_VISIBILITY_KEY}`, {
-    value: nextValue,
+  const response = await fetch(`/api/settings/public/${NAVBAR_VISIBILITY_KEY}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value: nextValue }),
   });
-  const savedValue = normalizeNavbarVisibility(response.data?.data);
+  const data = await response.json();
+  const savedValue = normalizeNavbarVisibility(data?.data);
 
   if (typeof window !== "undefined") {
     window.localStorage.setItem(NAVBAR_VISIBILITY_EVENT, JSON.stringify({ value: savedValue, at: Date.now() }));

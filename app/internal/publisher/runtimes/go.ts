@@ -266,12 +266,6 @@ func (c *Client) ConvertTrial(hardwareID, plan, name, email string) (map[string]
 	}))
 }
 
-func (c *Client) ReplaceHardware(licenseKey, oldHardwareID, newHardwareID string) (map[string]interface{}, error) {
-	return c.doRequest("POST", "license", c.buildPayload(map[string]interface{}{
-		"action": "replace_hardware", "license_key": licenseKey, "old_hardware_id": oldHardwareID, "new_hardware_id": newHardwareID,
-	}))
-}
-
 func (c *Client) BindDevice(licenseKey, hardwareID, deviceName string) (map[string]interface{}, error) {
 	return c.doRequest("POST", "license", c.buildPayload(map[string]interface{}{
 		"action": "bind_device", "license_key": licenseKey, "hardware_id": hardwareID, "device_name": deviceName,
@@ -704,10 +698,6 @@ func (e *LicenseEngine) ConvertTrial(plan, name, email string) (map[string]inter
 	return e.client.ConvertTrial(e.fingerprint.Fingerprint, plan, name, email)
 }
 
-func (e *LicenseEngine) ReplaceHardware(licenseKey, oldHardwareID, newHardwareID string) (map[string]interface{}, error) {
-	return e.client.ReplaceHardware(licenseKey, oldHardwareID, newHardwareID)
-}
-
 func (e *LicenseEngine) BindDevice(licenseKey, deviceName string) (map[string]interface{}, error) {
 	return e.client.BindDevice(licenseKey, e.fingerprint.Fingerprint, deviceName)
 }
@@ -874,18 +864,6 @@ func renewLicense(engine *websmith.LicenseEngine) {
 }
 \`\`\`
 
-### Replace Hardware
-
-\`\`\`go
-func replaceHardware(engine *websmith.LicenseEngine) {
-	result, err := engine.ReplaceHardware("LICENSE-KEY-HERE", "old-fingerprint", "new-fingerprint")
-	if err != nil {
-		log.Fatalf("Hardware replacement failed: %v", err)
-	}
-	fmt.Printf("Hardware replaced: %v\\n", result)
-}
-\`\`\`
-
 ### Bind a Device
 
 \`\`\`go
@@ -895,6 +873,21 @@ func bindDevice(engine *websmith.LicenseEngine) {
 		log.Fatalf("Device binding failed: %v", err)
 	}
 	fmt.Printf("Device bound: %v\\n", result)
+}
+\`\`\`
+
+### View Hardware Status
+
+\`\`\`go
+func viewHardwareStatus(client *websmith.ApiClient) {
+	currentHw := websmith.GetHardwareId()
+	validateResult, _ := client.Validate("YOUR_LICENSE_KEY")
+	validateData := validateResult["data"].(map[string]interface{})
+	registeredHw, _ := validateData["hardware_id"].(string)
+	matched := currentHw == registeredHw
+	fmt.Printf("Hardware matched: %v\\n", matched)
+	fmt.Printf("Current: %s, Registered: %s\\n", currentHw, registeredHw)
+	fmt.Println("Hardware replacement requires administrator approval. Please contact support.")
 }
 \`\`\`
 
@@ -954,7 +947,7 @@ func main() {
 
 ## API Endpoints
 
-- \`POST /api/v1/license\` — License management (validate, activate, deactivate, renew, replace_hardware, bind_device)
+- \`POST /api/v1/license\` — License management (validate, activate, deactivate, renew, bind_device)
 - \`POST /api/v1/trial\` — Trial management (start, status, convert)
 - \`POST /api/v1/countries\` — Country codes
 - \`POST /api/v1/status\` — API health check

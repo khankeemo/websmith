@@ -298,15 +298,6 @@ public class Client {
         return request("trial", data);
     }
 
-    public JsonObject replaceHardware(String licenseKey, String oldHardwareId, String newHardwareId) throws ApiException {
-        JsonObject data = new JsonObject();
-        data.addProperty("action", "replace");
-        data.addProperty("license_key", licenseKey);
-        data.addProperty("old_hardware_id", oldHardwareId);
-        data.addProperty("new_hardware_id", newHardwareId);
-        return request("device", data);
-    }
-
     public JsonObject bindDevice(String licenseKey, String hardwareId, String deviceName) throws ApiException {
         JsonObject data = new JsonObject();
         data.addProperty("action", "bind");
@@ -803,18 +794,16 @@ public class LicenseEngine {
         return result;
     }
 
-    public JsonObject replaceHardware(String licenseKey, String oldHardwareId) throws Client.ApiException {
-        String key = licenseKey != null ? licenseKey : this.licenseKey;
-        if (key == null || key.isEmpty()) {
-            throw new IllegalArgumentException("License key is required");
-        }
-        String newHardwareId = HardwareFingerprint.generate();
-        String oldId = oldHardwareId != null ? oldHardwareId : hardwareId;
-        JsonObject result = client.replaceHardware(key, oldId, newHardwareId);
-        if (result.has("license")) {
-            this.licenseData = result.getAsJsonObject("license");
-        }
-        cache.remove("license_status");
+    public JsonObject viewHardwareStatus() throws Client.ApiException {
+        String currentHw = HardwareDetector.getHardwareId();
+        JsonObject validateResult = validate();
+        JsonObject data = validateResult.getAsJsonObject("data");
+        String registeredHw = data != null && data.has("hardware_id") ? data.get("hardware_id").getAsString() : "";
+        JsonObject result = new JsonObject();
+        result.addProperty("matched", currentHw.equals(registeredHw));
+        result.addProperty("current_hardware_id", currentHw);
+        result.addProperty("registered_hardware_id", registeredHw);
+        result.addProperty("message", "Hardware replacement requires administrator approval. Please contact support.");
         return result;
     }
 
@@ -1030,9 +1019,11 @@ engine.activate("LICENSE_KEY", "My Workstation");
 engine.renew("LICENSE_KEY", 365);
 \`\`\`
 
-### 8. Replace Hardware
+### 8. View Hardware Status
 \`\`\`java
-JsonObject result = engine.replaceHardware("LICENSE_KEY", "old-hardware-id");
+JsonObject status = engine.viewHardwareStatus();
+System.out.println("Hardware match: " + status.get("matched"));
+System.out.println("Message: " + status.get("message"));
 \`\`\`
 
 ### 9. Bind Device

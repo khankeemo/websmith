@@ -186,6 +186,10 @@ pub fn generate_fingerprint() -> Fingerprint {
     }
 }
 
+pub fn get_hardware_id() -> String {
+    generate_fingerprint().fingerprint
+}
+
 fn get_mac_addresses() -> Vec<String> {
     #[cfg(target_os = "linux")]
     {
@@ -550,20 +554,6 @@ impl Client {
         self.request("POST", "/api/v1/trial", &body).await
     }
 
-    pub async fn replace_hardware(
-        &self,
-        license_key: &str,
-        old_hardware_id: &str,
-        new_hardware_id: &str,
-    ) -> Result<serde_json::Value, ApiError> {
-        let mut body = HashMap::new();
-        body.insert("action", "replace");
-        body.insert("license_key", license_key);
-        body.insert("old_hardware_id", old_hardware_id);
-        body.insert("new_hardware_id", new_hardware_id);
-        self.request("POST", "/api/v1/device", &body).await
-    }
-
     pub async fn bind_device(
         &self,
         license_key: &str,
@@ -798,25 +788,6 @@ impl LicenseEngine {
         Ok(result)
     }
 
-    pub async fn replace_hardware(
-        &self,
-        old_hardware_id: &str,
-        new_hardware_id: &str,
-    ) -> Result<serde_json::Value, ApiError> {
-        let key = self
-            .license_key
-            .as_deref()
-            .ok_or_else(|| ApiError::Config("No license key set".to_string()))?;
-        let result = self
-            .client
-            .replace_hardware(key, old_hardware_id, new_hardware_id)
-            .await?;
-        if let Some(ref cache) = self.cache {
-            let _ = cache.clear();
-        }
-        Ok(result)
-    }
-
     pub async fn bind_device(
         &self,
         device_name: &str,
@@ -832,6 +803,21 @@ impl LicenseEngine {
         if let Some(ref cache) = self.cache {
             let _ = cache.clear();
         }
+        Ok(result)
+    }
+
+    pub async fn view_hardware_status(&self) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+        let current_hw = get_hardware_id();
+        let key = self.license_key.as_deref().unwrap_or("");
+        let status = self.client.validate_license(key, &self.fingerprint.fingerprint).await.map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+        let registered_hw = status["data"]["hardware_id"].as_str().unwrap_or("").to_string();
+        let matched = current_hw == registered_hw;
+        let result = serde_json::json!({
+            "matched": matched,
+            "current_hardware_id": current_hw,
+            "registered_hardware_id": registered_hw,
+            "message": "Hardware replacement requires administrator approval. Please contact support."
+        });
         Ok(result)
     }
 
@@ -1101,13 +1087,13 @@ let result = engine.convert_trial("premium", "John Doe", "user@example.com").awa
 let result = engine.renew().await.unwrap();
 \`\`\`
 
-### Replace Hardware
+### View Hardware Status
 
 \`\`\`rust
-let old_hw = engine.get_fingerprint().fingerprint.clone();
-// Simulate hardware change — in production, the old ID would be known
-let new_hw = "${libName}::generate_fingerprint().fingerprint;
-let result = engine.replace_hardware(&old_hw, &new_hw).await.unwrap();
+let status = engine.view_hardware_status().await.unwrap();
+println!("Hardware matched: {}", status["matched"]);
+println!("Current HW ID: {}", status["current_hardware_id"]);
+println!("Registered HW ID: {}", status["registered_hardware_id"]);
 \`\`\`
 
 ### Bind Device

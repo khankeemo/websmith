@@ -132,22 +132,29 @@ export async function POST(request: NextRequest) {
         `Request ID: ${reqId}`,
       ].join('\n');
 
-      await sendEmail(
-        pool,
-        'admin_notification',
-        { email: SUPPORT_EMAIL, name: 'Support' },
-        {
-          request_id: reqId,
-          request_type: 'ACTIVATION',
-          customer_name: customer_name || lic.customer_name || 'N/A',
-          customer_email: customer_email || lic.customer_email || 'N/A',
-          product_name: lic.product_name || 'N/A',
-          plan_name: lic.plan || 'N/A',
-          license_key: license_key.toUpperCase(),
-          subject: 'License Reactivation Request',
-          message: emailBody,
+      try {
+        const emailSent = await sendEmail(
+          pool,
+          'admin_notification',
+          { email: SUPPORT_EMAIL, name: 'Support' },
+          {
+            request_id: reqId,
+            request_type: 'ACTIVATION',
+            customer_name: customer_name || lic.customer_name || 'N/A',
+            customer_email: customer_email || lic.customer_email || 'N/A',
+            product_name: lic.product_name || 'N/A',
+            plan_name: lic.plan || 'N/A',
+            license_key: license_key.toUpperCase(),
+            subject: 'License Reactivation Request',
+            message: emailBody,
+          }
+        );
+        if (!emailSent) {
+          console.error(`[Reactivation] Email delivery failed for request ${reqId}`);
         }
-      ).catch(() => {});
+      } catch (emailError) {
+        console.error(`[Reactivation] Email send error for request ${reqId}:`, emailError instanceof Error ? emailError.message : emailError);
+      }
     }
 
     await logRequest({

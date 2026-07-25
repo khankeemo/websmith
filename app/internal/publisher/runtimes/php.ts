@@ -222,16 +222,6 @@ class Client
         }
         return $this->request('POST', '/api/v1/device', $payload);
     }
-
-    public function replaceDevice(string $licenseKey, string $newHardwareId, string $oldHardwareId): array
-    {
-        return $this->request('POST', '/api/v1/device', [
-            'action' => 'replace',
-            'license_key' => $licenseKey,
-            'new_hardware_id' => $newHardwareId,
-            'old_hardware_id' => $oldHardwareId,
-        ]);
-    }
 }
 
 class HardwareFingerprint
@@ -510,9 +500,13 @@ class LicenseEngine
         return null;
     }
 
-    public function validate(string $licenseKey): array
+    public function validate(?string $licenseKey = null): array
     {
-        $result = $this->client->validateLicense($licenseKey, $this->fingerprint['fingerprint']);
+        $key = $licenseKey ?? $this->licenseKey;
+        if ($key === null) {
+            throw new ApiException('License key is required for validation.');
+        }
+        $result = $this->client->validateLicense($key, $this->fingerprint['fingerprint']);
         $this->licenseData = $result['license'] ?? $result;
         if (isset($this->licenseData['valid']) && $this->licenseData['valid']) {
             $this->cache->setLicenseStatus($this->licenseData);
@@ -603,29 +597,6 @@ class LicenseEngine
         return $result;
     }
 
-    public function replaceHardware(): array
-    {
-        if ($this->licenseKey === null) {
-            throw new ApiException('No license key stored. Activate a license first.');
-        }
-        $newFingerprint = HardwareFingerprint::generateFingerprint();
-        $newHardwareId = $newFingerprint['fingerprint'];
-        $oldHardwareId = $this->fingerprint['fingerprint'];
-        if ($newHardwareId === $oldHardwareId) {
-            throw new ApiException('New hardware ID is identical to the current one. No replacement needed.');
-        }
-        $result = $this->client->replaceDevice(
-            $this->licenseKey,
-            $newHardwareId,
-            $oldHardwareId
-        );
-        $this->fingerprint = $newFingerprint;
-        $this->cache->invalidateLicenseStatus();
-        $this->licenseData = null;
-        $this->initialize();
-        return $result;
-    }
-
     public function bindDevice(?string $deviceName = null): array
     {
         if ($this->licenseKey === null) {
@@ -640,6 +611,18 @@ class LicenseEngine
             $this->initialize();
         }
         return $result;
+    }
+
+    public function viewHardwareStatus(): array {
+        $currentHw = $this->getHardwareId();
+        $validateResult = $this->validate();
+        $registeredHw = $validateResult['data']['hardware_id'] ?? '';
+        return [
+            'matched' => $currentHw === $registeredHw,
+            'current_hardware_id' => $currentHw,
+            'registered_hardware_id' => $registeredHw,
+            'message' => 'Hardware replacement requires administrator approval. Please contact support.'
+        ];
     }
 
     public function hasLicenseKey(): bool
@@ -967,7 +950,7 @@ if (isset($result['success']) && $result['success']) {
 ?>
 \`\`\`
 
-### 9. Replace Hardware (transfer license)
+### 9. View Hardware Status
 
 \`\`\`php
 <?php
@@ -977,11 +960,13 @@ use WebsmithSDK\\LicenseEngine;
 
 $engine = new LicenseEngine();
 
-try {
-    $result = $engine->replaceHardware();
-    echo "Hardware replaced successfully!\\n";
-} catch (Exception $e) {
-    echo "Replacement failed: " . $e->getMessage() . "\\n";
+$status = $engine->viewHardwareStatus();
+
+if ($status['matched']) {
+    echo "Hardware ID matches the registered device.\\n";
+} else {
+    echo "Hardware has changed!\\n";
+    echo $status['message'] . "\\n";
 }
 ?>
 \`\`\`
@@ -1059,8 +1044,8 @@ $result = $client->convertTrial('hardware-id', 'plan_name', 'John Doe', 'user@ex
 // Bind device
 $result = $client->bindDevice('LICENSE-KEY', 'hardware-id', 'Device Name');
 
-// Replace device
-$result = $client->replaceDevice('LICENSE-KEY', 'new-hardware-id', 'old-hardware-id');
+// View hardware status
+$result = $client->viewHardwareStatus();
 ?>
 \`\`\`
 

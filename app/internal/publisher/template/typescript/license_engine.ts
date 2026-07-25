@@ -292,15 +292,9 @@ export class LicenseEngine {
 
   async validate(licenseKey?: string): Promise<Record<string, any>> {
     const key = licenseKey || this._licenseKey;
-    if (!key) throw new Error('License key unavailable. Please activate first.');
+    if (!key) throw new Error('License key unavailable.');
     const hardwareId = this._hardware.getFingerprint();
     const result = await this._client.validateLicense(key, hardwareId);
-    const data = result.data || result;
-    if (data.valid) {
-      if (data.license_key) this._licenseKey = data.license_key;
-      await this.initialize();
-      this._cache.markHasEverActivatedPaidLicense();
-    }
     return result;
   }
 

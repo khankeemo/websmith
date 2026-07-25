@@ -151,7 +151,9 @@ export async function POST(request: NextRequest) {
             ['email_failed', `Support email delivery failed for request ${requestId}: ${emailError?.message || 'Unknown error'}`, now, ipAddress, license_key || null]
           );
           auditClient.release();
-        } catch {}
+        } catch (auditError) {
+          console.error(`[Support] Failed to write audit log for email failure (request ${requestId}):`, auditError instanceof Error ? auditError.message : auditError);
+        }
       }
     }
 

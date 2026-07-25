@@ -472,7 +472,7 @@ export class SDKValidator {
         'Start Trial',
         'Activate License',
         'Renew License',
-        'Replace Hardware',
+        'View Hardware Status',
         'Deactivate License',
         'Bind Device',
         'HMAC',

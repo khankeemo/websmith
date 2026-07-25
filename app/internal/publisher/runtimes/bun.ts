@@ -95,10 +95,6 @@ class Client {
     return this.request('POST', '/api/v1/license', { action: 'renew', license_key: licenseKey });
   }
 
-  replaceHardware(licenseKey, newHardwareId, reason) {
-    return this.request('POST', '/api/v1/license', { action: 'replace_hardware', license_key: licenseKey, new_hardware_id: newHardwareId, reason: reason || 'manual' });
-  }
-
   bindDevice(licenseKey, hardwareId, deviceName) {
     return this.request('POST', '/api/v1/license', { action: 'bind_device', license_key: licenseKey, hardware_id: hardwareId, device_name: deviceName });
   }
@@ -280,8 +276,15 @@ class LicenseEngine {
     return this.client.convertTrial(fp.fingerprint, plan, name, email);
   }
 
-  async replaceHardware(licenseKey, newHwId, reason) {
-    return this.client.replaceHardware(licenseKey, newHwId, reason);
+  async viewHardwareStatus() {
+    const fp = await this._fingerprintPromise;
+    const currentHwId = fp.fingerprint;
+    let registeredHwId = '';
+    if (this._licenseData?.license_key) {
+      const status = await this.validate(this._licenseData.license_key);
+      registeredHwId = status?.license?.hardware_id || '';
+    }
+    return { matched: currentHwId === registeredHwId, current_hardware_id: currentHwId, registered_hardware_id: registeredHwId };
   }
 
   async bindDevice(licenseKey, deviceName) {
@@ -402,11 +405,11 @@ const result = await engine.renew('LICENSE-KEY-HERE');
 console.log('Renewed:', result);
 \`\`\`
 
-### Replace Hardware
+### View Hardware Status
 
 \`\`\`javascript
-const result = await engine.replaceHardware('LICENSE-KEY-HERE', 'new-hardware-id');
-console.log('Hardware replaced:', result);
+const result = await engine.viewHardwareStatus();
+console.log('Hardware matched:', result.matched);
 \`\`\`
 
 ### Bind Device

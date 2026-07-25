@@ -287,13 +287,6 @@ export function getJavaScriptTemplates(context: PublisherContext): Record<string
         });
     };
 
-    WebsmithClient.prototype.replaceHardware = function(licenseKey, newHardwareId, oldHardwareId) {
-        return this._request('device', {
-            action: 'replace', license_key: licenseKey,
-            new_hardware_id: newHardwareId, old_hardware_id: oldHardwareId
-        });
-    };
-
     WebsmithClient.prototype.startTrial = function(email, customerName, customerData) {
         var payload = { action: 'start', customer_email: email, customer_name: customerName || '' };
         if (customerData) {
@@ -425,21 +418,6 @@ export function getJavaScriptTemplates(context: PublisherContext): Record<string
             });
     };
 
-    LicenseEngine.prototype.replaceHardware = function(licenseKey, oldHardwareId) {
-        this._ensureInitialized();
-        var self = this;
-        return HardwareFingerprint.generate().then(function(newFp) {
-            self._fingerprintData = newFp;
-            return self._client.replaceHardware(licenseKey, newFp.fingerprint, oldHardwareId);
-        }).then(function(result) {
-            if (result.license) {
-                self._licenseData = result.license;
-                self._cache.set('license', self._licenseData);
-            }
-            return result;
-        });
-    };
-
     LicenseEngine.prototype.bindDevice = function(licenseKey, deviceName) {
         this._ensureInitialized();
         var self = this;
@@ -451,6 +429,15 @@ export function getJavaScriptTemplates(context: PublisherContext): Record<string
                 }
                 return result;
             });
+    };
+
+    LicenseEngine.prototype.viewHardwareStatus = function() {
+        var currentHwId = this._getHardwareId();
+        var self = this;
+        return this.validate().then(function(status) {
+            var registeredHwId = (status && status.data && status.data.hardware_id) || '';
+            return { matched: currentHwId === registeredHwId, current_hardware_id: currentHwId, registered_hardware_id: registeredHwId };
+        });
     };
 
     LicenseEngine.prototype.hasLicenseKey = function() {
