@@ -35,7 +35,7 @@ import {
   Calendar,
   User,
   Mail,
-  Key,
+  Building,
 } from "lucide-react";
 
 // ============================================================
@@ -53,13 +53,9 @@ interface HardwareDevice {
   product_version: string;
   company_name: string;
   hardware_status: string;
-  license_key: string;
-  customer_name: string;
-  customer_email: string;
-  plan: string;
-  license_status: string;
-  max_devices: number;
   online_status: "online" | "offline";
+  // Used internally for admin API calls (not displayed in UI)
+  license_key?: string;
 }
 
 interface HardwareResponse {
@@ -212,22 +208,10 @@ function DeviceCard({ device, onBind, onReplace, onReset, onUnbind }: DeviceCard
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
-                <Key size={14} className="text-[var(--text-muted)]" />
-                <span className="text-[var(--text-muted)]">License:</span>
-                <span className="text-[var(--text-primary)] font-mono">{device.license_key}</span>
+                <HardDrive size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Hardware ID:</span>
+                <span className="text-[var(--text-primary)] font-mono">{device.hardware_id}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <User size={14} className="text-[var(--text-muted)]" />
-                <span className="text-[var(--text-muted)]">Customer:</span>
-                <span className="text-[var(--text-primary)]">{device.customer_name || "Unknown"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Mail size={14} className="text-[var(--text-muted)]" />
-                <span className="text-[var(--text-muted)]">Email:</span>
-                <span className="text-[var(--text-primary)]">{device.customer_email || "Unknown"}</span>
-              </div>
-            </div>
-            <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Globe size={14} className="text-[var(--text-muted)]" />
                 <span className="text-[var(--text-muted)]">IP:</span>
@@ -242,6 +226,30 @@ function DeviceCard({ device, onBind, onReplace, onReset, onUnbind }: DeviceCard
                 <HardDrive size={14} className="text-[var(--text-muted)]" />
                 <span className="text-[var(--text-muted)]">OS:</span>
                 <span className="text-[var(--text-primary)]">{device.os_version || "Unknown"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Last Seen:</span>
+                <span className="text-[var(--text-primary)]">{formatDate(device.last_seen)}</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Cpu size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Product Version:</span>
+                <span className="text-[var(--text-primary)]">{device.product_version || "Unknown"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Building size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Company:</span>
+                <span className="text-[var(--text-primary)]">{device.company_name || "Unknown"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <AlertCircle size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Hardware Status:</span>
+                <span className={`text-[var(--text-primary)] capitalize ${getStatusColor(device.hardware_status)} px-2 py-0.5 rounded-full border text-xs`}>
+                  {device.hardware_status}
+                </span>
               </div>
             </div>
           </div>
@@ -360,9 +368,9 @@ export default function HardwarePage() {
     const matchesSearch = 
       device.device_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       device.hardware_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      device.license_key?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      device.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      device.customer_email?.toLowerCase().includes(searchQuery.toLowerCase());
+      device.ip_address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      device.os_version?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      device.company_name?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = filterStatus === "all" || device.online_status === filterStatus;
 
@@ -373,7 +381,7 @@ export default function HardwarePage() {
   const totalDevices = devices.length;
   const onlineDevices = devices.filter(d => d.online_status === "online").length;
   const offlineDevices = devices.filter(d => d.online_status === "offline").length;
-  const uniqueLicenses = new Set(devices.map(d => d.license_key)).size;
+  const uniqueHardwareIds = new Set(devices.map(d => d.hardware_id)).size;
 
   if (loading) {
     return (
@@ -451,11 +459,11 @@ export default function HardwarePage() {
           color="red"
         />
         <StatCard
-          title="Licenses Used"
-          value={uniqueLicenses}
-          icon={<Key className="h-5 w-5" />}
+          title="Unique Hardware IDs"
+          value={uniqueHardwareIds}
+          icon={<HardDrive className="h-5 w-5" />}
           color="purple"
-          subtitle={`${devices.length} devices across ${uniqueLicenses} licenses`}
+          subtitle={`${devices.length} devices across ${uniqueHardwareIds} hardware IDs`}
         />
       </div>
 
@@ -465,7 +473,7 @@ export default function HardwarePage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
           <input
             type="text"
-            placeholder="Search devices by name, ID, license, or customer..."
+            placeholder="Search devices by name, hardware ID, IP, or OS..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
@@ -522,7 +530,7 @@ export default function HardwarePage() {
             <DeviceCard
               key={device.id}
               device={device}
-              onBind={() => { setSelectedDevice(device); setShowBindModal(true); setBindForm({ license_key: device.license_key || "", hardware_id: "", device_name: device.device_name || "" }); setBindConfirm(""); setModalError(null); }}
+              onBind={() => { setSelectedDevice(device); setShowBindModal(true); setBindForm({ license_key: "", hardware_id: "", device_name: device.device_name || "" }); setBindConfirm(""); setModalError(null); }}
               onReplace={() => { setSelectedDevice(device); setShowReplaceModal(true); setReplaceForm({ new_hardware_id: "", new_device_name: "" }); setReplaceConfirm(""); setModalError(null); }}
               onReset={() => { setSelectedDevice(device); setShowResetModal(true); setResetConfirm(""); setModalError(null); }}
               onUnbind={() => { setSelectedDevice(device); setShowUnbindModal(true); setUnbindConfirm(""); setModalError(null); }}

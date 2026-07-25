@@ -133,6 +133,22 @@ export class CacheManager {
     await this.delete('license_status');
   }
 
+  async clearAllLicenseData(): Promise<void> {
+    await this.delete('license_status');
+    await this.delete('customer_name');
+    await this.delete('customer_email');
+    await this.delete('customer_phone');
+    await this.delete('customer_mobile');
+    await this.delete('plan');
+    await this.delete('product_name');
+    await this.delete('expiry_date');
+    await this.delete('days_remaining');
+    await this.delete('license_key');
+    await this.delete('hardware_id');
+    await this.delete('trial_active');
+    await this.delete('has_ever_activated_paid_license');
+  }
+
   async setOnboardingComplete(): Promise<void> {
     const cache = await this._loadCache();
     cache.onboarding_complete = { value: true, cached_at: Date.now() / 1000 };

@@ -53,14 +53,15 @@ export async function POST(request: Request) {
     
     client = await pool.connect();
     const normalizedLicenseKey = license_key.toUpperCase().trim();
+    const now = new Date().toISOString();
+    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
     
     const licenseCheck = await client.query(
-      `SELECT license_key FROM licenses WHERE license_key = $1`,
+      `SELECT license_key, status FROM licenses WHERE license_key = $1`,
       [normalizedLicenseKey]
     );
     
     if (licenseCheck.rows.length === 0) {
-      // FIX: Release and nullify to prevent double release
       client.release();
       client = null;
       return NextResponse.json(
@@ -86,16 +87,37 @@ export async function POST(request: Request) {
       removedCount = result.rowCount || 0;
     }
     
-    // Log the reset (don't let logging failure break the operation)
+    // Also clear license_bindings (unbind devices)
+    await client.query(
+      `UPDATE license_bindings 
+       SET status = 'unbound', last_seen = $1 
+       WHERE license_key = $2`,
+      [now, normalizedLicenseKey]
+    );
+    
+    // Deactivate license - set to inactive so SDK detects no valid activation
+    await client.query(
+      `UPDATE licenses 
+       SET status = 'inactive', 
+           inactive_reason = 'Hardware Reset by Admin',
+           is_activated = false,
+           activated_at = NULL,
+           device_count = 0,
+           updated_at = $1
+       WHERE license_key = $2`,
+      [now, normalizedLicenseKey]
+    );
+    
+    // Log the reset
     try {
       await client.query(
         `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key, hardware_id)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           "reset_device",
-          `Reset ${removedCount} device(s) for license ${normalizedLicenseKey}`,
-          new Date().toISOString(),
-          request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown",
+          `Hardware reset: ${removedCount} device(s) removed, license deactivated for ${normalizedLicenseKey}`,
+          now,
+          clientIp,
           normalizedLicenseKey,
           hardware_id || null
         ]
@@ -103,7 +125,7 @@ export async function POST(request: Request) {
     } catch (logError) {
       console.error("Failed to log reset:", logError);
     }
-
+    
     triggerNotification(pool, 'device_reset', {
       license_key: normalizedLicenseKey,
       hardware_id: hardware_id || '',
@@ -114,8 +136,9 @@ export async function POST(request: Request) {
     
     return NextResponse.json({
       success: true,
-      message: `Successfully reset ${removedCount} device(s)`,
+      message: `Successfully reset ${removedCount} device(s) and deactivated license`,
       removed_count: removedCount,
+      license_status: 'inactive'
     });
     
   } catch (error) {

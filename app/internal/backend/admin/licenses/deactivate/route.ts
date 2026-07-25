@@ -91,6 +91,18 @@ export async function POST(request: NextRequest) {
       [now, normalizedKey]
     );
 
+    // Deactivate all associated devices (activations)
+    await client.query(
+      `UPDATE activations SET is_active = false, last_seen = $1 WHERE license_key = $2 AND is_active = true`,
+      [now, normalizedKey]
+    );
+
+    // Also unbind license_bindings
+    await client.query(
+      `UPDATE license_bindings SET status = 'unbound', last_seen = $1 WHERE license_key = $2 AND status = 'bound'`,
+      [now, normalizedKey]
+    );
+
     await client.query(
       `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key)
        VALUES ($1, $2, $3, $4, $5)`,

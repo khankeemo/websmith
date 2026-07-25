@@ -89,6 +89,22 @@ export class CacheManager {
     this.delete('license_status');
   }
 
+  clearAllLicenseData() {
+    this.delete('license_status');
+    this.delete('customer_name');
+    this.delete('customer_email');
+    this.delete('customer_phone');
+    this.delete('customer_mobile');
+    this.delete('plan');
+    this.delete('product_name');
+    this.delete('expiry_date');
+    this.delete('days_remaining');
+    this.delete('license_key');
+    this.delete('hardware_id');
+    this.delete('trial_active');
+    this.delete('has_ever_activated_paid_license');
+  }
+
   setOnboardingComplete() {
     const cache = this._loadCache();
     cache.onboarding_complete = { value: true, cached_at: Date.now() / 1000 };

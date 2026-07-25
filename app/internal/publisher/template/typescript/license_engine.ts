@@ -103,7 +103,21 @@ export class LicenseEngine {
     const hardwareId = this._hardware.getFingerprint();
     this._cache.invalidateIfHardwareMismatch(hardwareId);
     await this._processMessageQueue();
+
+    // Check if we have a cached license status that might be invalid
+    const cachedStatus = this._cache.getLicenseStatus();
+    
     if (this._cache.isOnboardingComplete()) {
+      // User has completed onboarding, check if license is still valid
+      if (cachedStatus && cachedStatus.valid && (cachedStatus.status === 'active' || cachedStatus.status === 'trial')) {
+        this._status = LicenseStatus.fromDict(cachedStatus);
+        this._licenseKey = cachedStatus.license_key || null;
+        this._notifyReady(true);
+        return this._status;
+      }
+      
+      // License is invalid/expired/inactive - clear all cached data and force activation
+      this._cache.clearAllLicenseData();
       this._status = new LicenseStatus(false, 'force_activation', {
         hardware_id: hardwareId,
         message: 'Welcome back. Please validate your license.',
@@ -144,10 +158,22 @@ export class LicenseEngine {
     if (!key) throw new Error('License key unavailable.');
     const hardwareId = this._hardware.getFingerprint();
     const result = await this._client.validateLicense(key, hardwareId);
+    
+    // If validation fails (license expired, revoked, inactive, etc.), clear all cached data
+    const data = result.data || result;
+    if (data && !data.valid) {
+      this._cache.clearAllLicenseData();
+      this._status = null;
+      this._licenseKey = null;
+    }
+    
     return result;
   }
 
   async activate(licenseKey: string): Promise<Record<string, any>> {
+    // Clear any stale cached data before attempting activation
+    this._cache.clearAllLicenseData();
+    
     const result = await this._client.activateLicense(licenseKey);
     if (result.success) {
       this._licenseKey = licenseKey;
@@ -193,7 +219,7 @@ export class LicenseEngine {
     if (!key) throw new Error('License key unavailable. Please provide a key.');
     const result = await this._client.deactivateLicense(key);
     if (result.success) {
-      this._cache.invalidateLicenseStatus();
+      this._cache.clearAllLicenseData();
       this._status = null;
       if (!licenseKey) this._licenseKey = null;
     }

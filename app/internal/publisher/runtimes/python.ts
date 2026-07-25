@@ -1531,9 +1531,10 @@ class WelcomeDialog:
         self._status_label = tk.Label(frame, text='', font=('Helvetica', 10),
                                        bg=self._card_bg, fg=self._success)
         self._status_label.pack(padx=20, pady=(0, 5))
-        self._send_btn = tk.Button(frame, text='Send OTP', font=('Helvetica', 12, 'bold'),
-                                    bg=self._primary, fg='white', relief='flat',
-                                    command=self._on_send_otp, cursor='hand2')
+self._send_btn = tk.Button(frame, text='Send OTP', font=('Helvetica', 12, 'bold'),
+                                     bg=self._primary, fg='white', relief='flat',
+                                     command=self._on_send_otp, cursor='hand2',
+                                     padx=12, pady=6)
         self._send_btn.pack(fill='x', padx=20, pady=(0, 8))
         otp_frame = tk.Frame(frame, bg=self._card_bg)
         otp_frame.pack(fill='x', padx=20, pady=(0, 5))
@@ -1542,10 +1543,11 @@ class WelcomeDialog:
                                     justify='center', width=10)
         self._otp_entry.pack(side='left', fill='x', expand=True)
         self._otp_entry.config(state='disabled')
-        self._verify_btn = tk.Button(otp_frame, text='Verify', font=('Helvetica', 12, 'bold'),
-                                      bg=self._success, fg='white', relief='flat',
-                                      command=self._on_verify_otp, cursor='hand2',
-                                      state='disabled')
+self._verify_btn = tk.Button(otp_frame, text='Verify', font=('Helvetica', 12, 'bold'),
+                                       bg=self._success, fg='white', relief='flat',
+                                       command=self._on_verify_otp, cursor='hand2',
+                                       state='disabled',
+                                       padx=12, pady=6)
         self._verify_btn.pack(side='left', padx=(8, 0))
         self._error_label = tk.Label(frame, text='', font=('Helvetica', 10),
                                       bg=self._card_bg, fg=self._error)
@@ -2466,14 +2468,14 @@ class UniversalLicenseCenter:
 
         otp_btn_frame = tk.Frame(otp_frame, bg=self._card_bg)
         send_otp_btn = tk.Button(otp_btn_frame, text="Send OTP", command=do_send_otp,
-                                 font=("Segoe UI", 10, "bold"),
+                                 font=("Segoe UI", 11, "bold"),
                                  bg=self._primary, fg="white", relief="flat",
-                                 padx=10, pady=4, cursor="hand2")
+                                 padx=12, pady=6, cursor="hand2")
         send_otp_btn.pack(side="left", padx=(0, 8))
         verify_otp_btn = tk.Button(otp_btn_frame, text="Verify OTP", command=do_verify_otp,
-                                   font=("Segoe UI", 10, "bold"),
+                                   font=("Segoe UI", 11, "bold"),
                                    bg=self._primary, fg="white", relief="flat",
-                                   padx=10, pady=4, cursor="hand2")
+                                   padx=12, pady=6, cursor="hand2")
         verify_otp_btn.pack(side="left")
 
         def do_activate():

@@ -32,12 +32,7 @@ export async function GET(request: NextRequest) {
         a.product_version,
         a.company_name,
         a.status as hardware_status,
-        l.license_key,
-        l.customer_name,
-        l.customer_email,
-        l.plan,
-        l.status as license_status,
-        l.max_devices
+        l.license_key
       FROM activations a
       LEFT JOIN licenses l ON a.license_key = l.license_key
     `;
@@ -68,12 +63,7 @@ export async function GET(request: NextRequest) {
       product_version: device.product_version || 'Unknown',
       company_name: device.company_name || 'Unknown',
       hardware_status: device.hardware_status || 'pending',
-      license_key: device.license_key,
-      customer_name: device.customer_name,
-      customer_email: device.customer_email,
-      plan: device.plan,
-      license_status: device.license_status,
-      max_devices: device.max_devices,
+      license_key: device.license_key || '',
       // Calculate device online status
       online_status: device.last_seen && new Date(device.last_seen) > thirtyDaysAgo ? 'online' : 'offline'
     }));

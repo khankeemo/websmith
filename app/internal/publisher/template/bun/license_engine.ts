@@ -63,11 +63,17 @@ export class LicenseEngine {
     if (await this._cache.isValid()) {
       const cached = await this._cache.getLicenseStatus();
       if (cached) {
-        this._status = LicenseStatus.fromDict(cached);
-        if (this._status.status !== 'trial' && this._status.valid) {
-          await this._cache.markHasEverActivatedPaidLicense();
+        // Check if cached license is still valid (active or trial)
+        if (cached.valid && (cached.status === 'active' || cached.status === 'trial')) {
+          this._status = LicenseStatus.fromDict(cached);
+          this._licenseKey = cached.license_key || null;
+          if (this._status.status !== 'trial' && this._status.valid) {
+            await this._cache.markHasEverActivatedPaidLicense();
+          }
+          return this._status;
         }
-        return this._status;
+        // Cached license is invalid - clear all data
+        await this._cache.clearAllLicenseData();
       }
     }
     try {
@@ -150,8 +156,14 @@ export class LicenseEngine {
     const key = licenseKey || this._licenseKey;
     if (!key) throw new Error('License key unavailable. Please activate first.');
     const result = await this._client.validateLicense(key, this._hardware.getFingerprint());
-    if ((result.data || result).valid) {
-      if (result.data?.license_key) this._licenseKey = result.data.license_key;
+    const data = result.data || result;
+    if (data && !data.valid) {
+      // If validation fails (license expired, revoked, inactive, etc.), clear all cached data
+      await this._cache.clearAllLicenseData();
+      this._status = null;
+      this._licenseKey = null;
+    } else if (data.valid) {
+      if (data.license_key) this._licenseKey = data.license_key;
       await this.initialize();
       await this._cache.markHasEverActivatedPaidLicense();
     }
@@ -159,6 +171,9 @@ export class LicenseEngine {
   }
 
   async activate(licenseKey: string): Promise<Record<string, any>> {
+    // Clear any stale cached data before attempting activation
+    await this._cache.clearAllLicenseData();
+    
     const result = await this._client.activateLicense(licenseKey);
     if (result.success) {
       this._licenseKey = licenseKey;
@@ -200,7 +215,11 @@ export class LicenseEngine {
     const key = licenseKey || this._licenseKey;
     if (!key) throw new Error('License key unavailable. Please provide a key.');
     const result = await this._client.deactivateLicense(key);
-    if (result.success) { await this._cache.invalidateLicenseStatus(); this._status = null; if (!licenseKey) this._licenseKey = null; }
+    if (result.success) { 
+      await this._cache.clearAllLicenseData();
+      this._status = null; 
+      if (!licenseKey) this._licenseKey = null; 
+    }
     return result;
   }
 
