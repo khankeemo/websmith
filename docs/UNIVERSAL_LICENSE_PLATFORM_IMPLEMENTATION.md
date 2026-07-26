@@ -3612,4 +3612,63 @@ Rule 0A-3 stated: "Validation **must** support hardware-only lookup (no license 
 - All existing implementation already follows the corrected rules (activation textbox is empty, customer info hidden until validation, no auto-fetch)
 - Previous build verification still valid (`npm run build` zero errors, Python SDK compiles)
 
+---
+
+## Session 6 — ULC Final UI & Workflow Fix (Tasks 1-5)
+
+### Objective
+
+Complete 5 ULC UI & Workflow fixes: add Hardware Status Panel, fix "No License Found" state, separate Hardware/License panels, show valid license details, and verify all scenarios.
+
+### Tasks Completed
+
+**Task 1 — Hardware Status Panel**
+- Added `self._hw_detail` label inside a new `hw_frame` (card with border) below License Status panel in `_build_ui()`
+- Implemented `_refresh_hardware_display()` method that reads hardware fingerprint via `HardwareDetector.get_fingerprint()`, system info via `platform.node()`, `platform.system()`, `platform.release()`, and `socket.gethostname()`
+- Hardware binding status determined by comparing cached `hardware_id` with current fingerprint
+- Hardware panel displays: Hardware Status (Bound/Not Bound), Hardware ID, Device Name, Computer/System Name, Operating System
+- Panel is called after every `_refresh_display()` call in `_show_license_center()`, activation handler, and key validation handler
+
+**Task 2 — No License Found State**
+- Updated `_refresh_display()` `else` branch to check `self._trial_consumed` flag
+- If trial consumed: "This email has already used its free trial. Please Activate a License or Contact Sales."
+- If `force_activation` / `unlicensed` (no license at all): "Status: NO LICENSE FOUND" + "No active license or trial was found." + "Start a Free Trial or activate your license."
+- This is treated as a normal business state with `self._warning` color (not `self._error`)
+
+**Task 3 — Separate Hardware and License Panels**
+- License panel (`self._status_detail`) remains unchanged in its tkinter structure
+- Hardware panel (`self._hw_detail`) is a completely separate frame (`hw_frame`) with its own card background, border, and title label
+- No cross-contamination of data between panels
+
+**Task 4 — Valid License Details (Active / Trial / Expired)**
+- `_refresh_display()` now shows additional fields for active/trial/expired states:
+  - `customer_name`, `customer_email`, `Product`, `Plan`, `License Status`, `Expiry Date`, `Remaining Days`
+- Product name sourced from `self._product_name` (branding config)
+- Color scheme: active → `_success` (green), trial → `_warning` (yellow), expired → `_error` (red)
+
+**Task 5 — Verification**
+- `npx tsc --noEmit`: zero errors
+- `npm run build`: zero errors
+- Python SDK compilation (`python -m py_compile`): all generated SDK files compile without errors
+- 5 scenarios verified by code review:
+  1. **No License / Unlicensed**: Shows "Status: NO LICENSE FOUND" + friendly message, Start Free Trial button visible
+  2. **Active License**: Shows Customer Name, Email, Product, Plan, License Status: ACTIVE, Expiry Date, Remaining Days, green color
+  3. **Trial Active**: Shows License Status: TRIAL, Remaining Days, yellow/warning color, Start Free Trial hidden
+  4. **Expired License**: Shows License Status: EXPIRED, Expiry Date, remaining days (0), red/error color, start-over flow
+  5. **Deactivated**: Shows "Your license has been deactivated. Please contact your administrator." in warning color
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/runtimes/python.ts` | Added Hardware Status Panel in `_build_ui()`; added `_refresh_hardware_display()` method; updated `_refresh_display()` for NO LICENSE FOUND and full license details; added `_refresh_hardware_display()` calls after all `_refresh_display()` calls |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Added this session summary |
+
+### Verification
+
+- `npx tsc --noEmit` — zero errors
+- `npm run build` — zero errors
+- Python SDK compilation — all files compile without errors
+- No TypeScript runtime or template changes were needed (Python-only ULC fix)
+
 *End of Master Implementation Document*
