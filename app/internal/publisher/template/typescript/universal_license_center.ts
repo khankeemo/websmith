@@ -163,7 +163,17 @@ export class UniversalLicenseCenter {
       console.log('  Status: Unknown');
       return;
     }
-    if (this.status.status === 'deactivated') {
+    if (this.status.status === 'inactive') {
+      console.log('  You are an existing customer, but your license is inactive.');
+      console.log('  If you have a new or reactivated license, activate it now.');
+      console.log('  Otherwise, please contact support.');
+      if (this.branding.support_email) {
+        console.log(`  Support: ${this.branding.support_email}`);
+      }
+    } else if (this.status.status === 'trial_consumed') {
+      console.log('  This email has already consumed its lifetime trial.');
+      console.log('  Please activate a paid license or renew your existing license.');
+    } else if (this.status.status === 'deactivated') {
       console.log('  Your license has been deactivated.');
       console.log('  Please contact your administrator.');
     } else if (this.status.status === 'force_reactivation') {
@@ -191,6 +201,8 @@ export class UniversalLicenseCenter {
       const isLicensed = this.status?.status === 'active';
       const isExpired = this.status?.status === 'expired';
       const isForceReactivation = this.status?.status === 'force_reactivation';
+      const isInactive = this.status?.status === 'inactive';
+      const isTrialConsumed = this.status?.status === 'trial_consumed';
       const needsReactivation = isExpired || isForceReactivation;
 
       if (this._locked) {
@@ -199,17 +211,42 @@ export class UniversalLicenseCenter {
         console.log('  ┌─────────────────────────────────────┐');
         console.log('  │        APPLICATION LOCKED            │');
         console.log('  ├─────────────────────────────────────┤');
-        if (isNoLicense && !this._trialConsumed) {
-          console.log('  │  S. Start Free Trial                  │');
-        }
-        if (showActivation) {
+        if (isInactive) {
+          console.log('  │  You are an existing customer, but    │');
+          console.log('  │  your license is inactive. If you    │');
+          console.log('  │  have a new or reactivated license,  │');
+          console.log('  │  activate it now. Otherwise, please  │');
+          console.log('  │  contact support.                    │');
+          if (this.branding.support_email) {
+            const email = this.branding.support_email;
+            const pad = ' '.repeat(Math.max(0, 37 - email.length));
+            console.log(`  │  ${email}${pad}│`);
+          }
+          console.log('  ├─────────────────────────────────────┤');
           console.log('  │  1. Activate License                 │');
-        }
-        if (!isDeactivated && !isForceReactivation) {
+          console.log('  │  4. Contact Support                  │');
+        } else if (isTrialConsumed) {
+          console.log('  │  This email has already consumed     │');
+          console.log('  │  its lifetime trial. Please activate │');
+          console.log('  │  a paid license or renew your        │');
+          console.log('  │  existing license.                   │');
+          console.log('  ├─────────────────────────────────────┤');
+          console.log('  │  1. Activate License                 │');
           console.log('  │  2. Renew License                    │');
+          console.log('  │  4. Contact Support                  │');
+        } else {
+          if (isNoLicense && !this._trialConsumed) {
+            console.log('  │  S. Start Free Trial                  │');
+          }
+          if (showActivation) {
+            console.log('  │  1. Activate License                 │');
+          }
+          if (!isDeactivated && !isForceReactivation) {
+            console.log('  │  2. Renew License                    │');
+          }
+          console.log('  │  3. Sales Enquiry                    │');
+          console.log('  │  4. Contact Support                  │');
         }
-        console.log('  │  3. Sales Enquiry                    │');
-        console.log('  │  4. Contact Support                  │');
         const pending = this.cache.getPendingCount();
         if (pending > 0) console.log(`  │     (${pending} pending messages)            │`);
         console.log('  │  0. Exit                              │');
@@ -258,19 +295,22 @@ export class UniversalLicenseCenter {
             handled = true;
             break;
           case '1':
-            if (showActivation) {
+            if (showActivation || isInactive || isTrialConsumed) {
               await this._enterLicenseKey();
             }
             handled = true;
             break;
           case '2':
-            if (!isDeactivated && !isForceReactivation) {
+            if (!isDeactivated && !isForceReactivation || isTrialConsumed) {
               await this._renewLicenseFlow();
             }
             handled = true;
             break;
           case '3':
-            await this._salesEnquiry(); handled = true;
+            if (!isInactive && !isTrialConsumed) {
+              await this._salesEnquiry();
+            }
+            handled = true;
             break;
           case '4':
             await this._contactSupport(); handled = true;

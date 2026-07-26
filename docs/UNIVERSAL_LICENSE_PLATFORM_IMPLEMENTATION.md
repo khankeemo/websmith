@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-26
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point)
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection)
 
 ---
 
@@ -558,12 +558,11 @@ When an existing customer enters the ULC:
 - **Never** automatically load, validate, display, cache, or activate any license
 - **Never** show Customer Name, Product, Plan, Expiry, Status, Device Count, or Activation information
 - **Never** fetch license details from the server without explicit user action
-- The ULC locked menu must show only:
-  - `1. Activate License`
-  - `2. Renew License`
-  - `3. Sales Enquiry`
-  - `4. Contact Support`
-  - `0. Exit`
+- The ULC menu options depend on the customer state:
+  - **Brand-New Customer (no_license):** Start Free Trial, Activate License, Renew License, Sales Enquiry, Contact Support, Exit
+  - **Trial Consumed (trial_consumed):** Activate License, Renew License, Contact Support, Exit (no Start Free Trial)
+  - **Inactive License (inactive):** Activate License, Contact Support
+  - **Existing Customer with Unknown State:** Activate License, Renew License, Sales Enquiry, Contact Support, Exit
 
 ### Rule 0A-2 — Validation Is the Single Source of Truth
 
@@ -621,16 +620,20 @@ License information must **never** appear in the UI before validation completes:
 - **After Validate Success:** Customer Name, Email, Product, Plan, Status, Expiry, Device Count, Activation Status
 - **After Validate Failure:** Appropriate business state message with guidance to next action
 
-### Rule 0A-6 — No Auto-Cache on Startup
+### Rule 0A-6 — Cache-Based Customer State Detection
 
 `LicenseEngine.initialize()` must:
 - Detect hardware → YES
-- Load cache → YES (for onboarding_complete flag only)
-- Validate license → **NEVER** (must only be triggered by explicit user action)
-- Check trial → **NEVER** (must only be triggered by explicit user action)
-- Return status → YES (but status is `unlicensed`/`force_activation` until validation)
+- Load cache → YES (for `onboarding_complete`, `has_ever_activated_paid_license`, and customer state)
+- Validate license from server → **NEVER** (must only be triggered by explicit user action)
+- Check trial from server → **NEVER** (must only be triggered by explicit user action)
+- Return status → YES
+- Determine from cache:
+  - `onboarding_complete = false` → `no_license` (brand-new customer)
+  - `onboarding_complete = true` + `has_ever_activated_paid_license = true` → `inactive` (existing customer)
+  - `onboarding_complete = true` + `has_ever_activated_paid_license = false` → `trial_consumed` (trial expired)
 
-The engine must **not** auto-validate licenses or auto-check trials during startup. These operations require explicit user action through the ULC menu.
+The engine must **not** auto-validate licenses or auto-check trials from the server during startup. These operations require explicit user action through the ULC menu. However, the engine MAY determine customer state from local cache to show the correct ULC menu.
 
 ### Rule 0A-7 — All Changes in Publisher/Internal API Only
 
@@ -728,7 +731,7 @@ This is the official execution order for the entire project. No phase may begin 
 
 ### Key Architectural Principles
 
-1. **One customer workflow.** There is exactly one customer workflow (Welcome → Trial → Activation → Renewal → Reactivation → Support). The Welcome experience may be a dedicated onboarding sequence, but it is always launched automatically by the decision engine — never as an alternative workflow. No admin-style license center, no duplicate dialogs.
+1. **One customer workflow.** There is exactly one customer workflow (Trial → Activation → Renewal → Reactivation → Support). The Universal License Center is the single startup entry point for all customers. Welcome is NOT a startup destination — it opens only after the customer explicitly selects "Start Free Trial" from the ULC. No admin-style license center, no duplicate dialogs.
 
 2. **Application lock.** Until licensing is resolved (trial, activation, renewal, or reactivation), the application is fully locked — no dashboard, toolbar, menus, settings, product UI, keyboard shortcuts, or background actions.
 
@@ -765,26 +768,57 @@ LicenseEngine.initialize()
 │  → Never open Welcome                                       │
 │  → Never open ULC                                           │
 │                                                             │
-│  NO_LICENSE / unlicensed / force_activation                 │
-│  → Open Universal License Center                            │
-│  → Never auto-open welcome                                  │
-│  → "Start Free Trial" button available in ULC               │
+│  NO_LICENSE (Brand-New Customer)                            │
+│  → Open Universal License Center (Default)                  │
+│  → Customer may choose:                                     │
+│     • Start Free Trial                                      │
+│     • Activate License                                      │
 │                                                             │
 │  TRIAL_AVAILABLE                                            │
 │  → Open Universal License Center                            │
-│  → Trial information shown                                  │
+│  → Trial screen                                             │
 │                                                             │
-│  ACTIVATION_REQUIRED                                        │
+│  LIFETIME_TRIAL_CONSUMED                                    │
 │  → Open Universal License Center                            │
-│  → Activation option highlighted                            │
+│  → Activation screen only                                   │
+│  → Hide "Start Free Trial"                                  │
+│  → Customer options:                                        │
+│     • Activate License                                      │
+│     • Renew License                                         │
+│     • Contact Support                                       │
+│     • Contact Sales                                         │
 │                                                             │
-│  RENEWAL_REQUIRED (expired)                                 │
+│  INACTIVE_LICENSE (Existing Customer)                       │
+│  → Do NOT treat as valid license                            │
+│  → Do NOT auto-fill license                                 │
+│  → Do NOT open Welcome                                      │
+│  → Open Universal License Center                            │
+│  → Show message:                                            │
+│    "You are an existing customer, but your license          │
+│     is inactive. If you have a new or reactivated           │
+│     license, activate it now. Otherwise, please             │
+│     contact support."                                       │
+│  → Buttons:                                                 │
+│     • Activate License                                      │
+│     • Contact Support                                       │
+│  → Display support email from configuration                 │
+│                                                             │
+│  ACTIVE_TRIAL                                               │
+│  → Open Universal License Center                            │
+│  → Trial info, Convert/Renew/Support options                │
+│                                                             │
+│  EXPIRED (renewal_required)                                 │
 │  → Open Universal License Center                            │
 │  → Renewal option highlighted                               │
 │                                                             │
-│  REACTIVATION_REQUIRED (force_reactivation)                 │
+│  FORCE_REACTIVATION                                         │
 │  → Open Universal License Center                            │
 │  → Reactivation/support option highlighted                  │
+│                                                             │
+│  DEACTIVATED (admin deactivation)                           │
+│  → Open Universal License Center                            │
+│  → Message: "Your license has been deactivated."            │
+│  → Contact Support only                                     │
 │                                                             │
 │  ERROR                                                      │
 │  → Use cached state or show error in ULC                    │
@@ -808,17 +842,20 @@ Immediately after `initialize()`, the application is locked. Until licensing is 
 - No Keyboard Shortcuts
 - No Background Actions
 
-The only visible element is the ULC showing the Hardware ID and available actions (Start Free Trial, Activate License, Renew License, Sales Enquiry, Contact Support, Exit).
+The only visible element is the ULC showing the Hardware ID and available actions based on the customer state (Start Free Trial, Activate License, Renew License, Sales Enquiry, Contact Support, Exit).
 
 ### LicenseStatus States (output of initialize())
 
 | Status | Meaning | UI Action |
 |--------|---------|-----------|
-| `valid (active/trial)` | Active license or trial found | Launch Main Application |
-| `no_license` / `unlicensed` | No customer/license/trial found | Open ULC with Start Free Trial option |
-| `force_activation` | Onboarding complete, no license validated yet | Open ULC (locked) → Show all options |
+| `active` | Active paid license bound to this hardware | Launch Main Application |
+| `trial` | Active trial found | Launch Main Application |
+| `no_license` | Brand-new customer, no license/trial/cache | Open ULC with Start Free Trial + Activate options |
+| `trial_consumed` | Customer has consumed their lifetime trial | Open ULC → Activation/Renewal/Support/Sales only, no Start Free Trial |
+| `inactive` | Existing customer with inactive paid license | Open ULC → Show inactive message, Activate + Support buttons |
 | `force_reactivation` | Paid license needs reactivation | Open ULC → Show Reactivate/Support options |
-| `expired` | License has expired | Open ULC → Show Renew option |
+| `expired` | License/trial has expired | Open ULC → Show Renew option |
+| `deactivated` | License administratively deactivated | Open ULC → Show deactivated message, Contact Support only |
 | `error` | API unreachable, use cache | Use cached state or show error in ULC |
 
 ---
@@ -1050,6 +1087,67 @@ ULC (locked) — User chooses: Validate License
             ├── Reactivate License
             ├── Contact Support
             └── Close
+```
+
+### Lifetime Trial Consumed
+
+```
+LicenseEngine.initialize()
+        │
+        ▼
+Status: trial_consumed
+        │
+        ▼
+Universal License Center
+        │
+        ├── Shows: Hardware ID (read-only)
+        ├── Shows: "This email has already consumed its lifetime trial."
+        ├── Shows: "Please activate a paid license or renew your existing license."
+        │
+        ├── Buttons:
+        │   ├── Activate License (1)
+        │   ├── Renew License (2)
+        │   ├── Contact Support (4)
+        │   └── Exit (0)
+        │
+        └── No "Start Free Trial" option
+```
+
+**Rules:**
+- Trial eligibility is based on the verified email address
+- If the same verified email has already consumed a lifetime trial → never allow another trial
+- The Internal API enforces this via `POST /api/v1/trial (action: start)` returning `TRIAL_ALREADY_CONSUMED`
+- The SDK caches `has_ever_consumed_trial` / `onboarding_complete` flag to avoid re-checking
+- Welcome dialog never opens for these customers
+
+### Inactive License (Existing Customer)
+
+```
+LicenseEngine.initialize()
+        │
+        ▼
+Status: inactive (existing customer with paid history)
+        │
+        ▼
+Universal License Center
+        │
+        ├── Shows: Hardware ID (read-only)
+        ├── Shows message:
+        │   "You are an existing customer, but your license is inactive.
+        │    If you have a new or reactivated license, activate it now.
+        │    Otherwise, please contact support."
+        ├── Shows support email from configuration (never hardcoded)
+        │
+        ├── Buttons:
+        │   ├── Activate License (1)
+        │   └── Contact Support (4)
+        │
+        └── Rules:
+            ├── Do NOT treat as a valid license
+            ├── Do NOT auto-fill license key
+            ├── Do NOT auto-load customer details
+            ├── Do NOT open Welcome
+            └── Display support email from config, never hardcode
 ```
 
 ### Invalid/Inactive License (Activation Flow)

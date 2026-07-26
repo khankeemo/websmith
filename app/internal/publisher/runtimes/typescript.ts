@@ -965,11 +965,11 @@ export class LicenseEngine {
         } catch (err: any) {
           const errCode = err?.data?.error?.code || '';
           if (errCode === 'LICENSE_INACTIVE') {
-            LiveLog.log('License deactivated', 'admin deactivation detected');
+            LiveLog.log('License inactive', 'server returned inactive status');
             this._status = {
-              valid: false, status: 'deactivated',
-              hardware_id: hardwareId,
-              message: 'Your license has been deactivated. Please contact your administrator.',
+              valid: false, status: 'inactive',
+              hardware_id: hardwareId, license_key: this._licenseKey,
+              message: 'Your license is inactive. Please contact support.',
             };
             this._notifyReady(false);
             return this._status;
@@ -1057,12 +1057,21 @@ export class LicenseEngine {
         }
       }
       if (this.cache.isOnboardingComplete()) {
-        LiveLog.log('Business: No License Found', 'onboarding complete, no active license');
-        this._status = {
-          valid: false, status: 'no_license',
-          hardware_id: hardwareId,
-          message: 'No active license or trial was found. Start a Free Trial or activate your license.',
-        };
+        if (this.cache.hasEverActivatedPaidLicense()) {
+          LiveLog.log('Business: Inactive License', 'existing customer with paid history');
+          this._status = {
+            valid: false, status: 'inactive',
+            hardware_id: hardwareId,
+            message: 'Your license is inactive. Activate a new license or contact support.',
+          };
+        } else {
+          LiveLog.log('Business: Trial Consumed', 'onboarding complete, no paid license');
+          this._status = {
+            valid: false, status: 'trial_consumed',
+            hardware_id: hardwareId,
+            message: 'Your trial has ended. Please activate a paid license or renew an existing license.',
+          };
+        }
       } else {
         LiveLog.log('Business: No License Found', 'new customer');
         this._status = {

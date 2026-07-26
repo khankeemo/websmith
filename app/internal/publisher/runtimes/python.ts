@@ -1006,11 +1006,18 @@ class LicenseEngine:
                     err_code = err_info.get('code', '') if isinstance(err_info, dict) else ''
                     err_inactive_reason = err_info.get('inactive_reason', '') if isinstance(err_info, dict) else ''
                     if err_code == 'LICENSE_INACTIVE':
-                        self._status = LicenseStatus(
-                            valid=False, status='deactivated',
-                            hardware_id=hardware_id,
-                            message='Your license has been deactivated. Please contact your administrator.',
-                        )
+                        if self._cache.has_ever_activated_paid_license():
+                            self._status = LicenseStatus(
+                                valid=False, status='inactive',
+                                hardware_id=hardware_id, license_key=self._license_key,
+                                message='Your license is inactive. Please contact support.',
+                            )
+                        else:
+                            self._status = LicenseStatus(
+                                valid=False, status='inactive',
+                                hardware_id=hardware_id, license_key=self._license_key,
+                                message='Your license is inactive. Please contact support.',
+                            )
                         self._notify_ready(False)
                         return self._status
                     if err_code == 'LICENSE_EXPIRED':
@@ -1106,14 +1113,22 @@ class LicenseEngine:
                         self._cache.set_license_status(self._status.to_dict())
                     self._notify_ready(self._is_valid_status(self._status))
                     return self._status
-            # Priority 3: Determine if new customer or no license
+            # Priority 3: Determine customer state from cache
             if self._cache.is_onboarding_complete():
-                print(f"{time.strftime('%H:%M:%S')} Business: No License Found (onboarding complete, no active license)")
-                self._status = LicenseStatus(
-                    valid=False, status='no_license',
-                    hardware_id=hardware_id,
-                    message='No active license or trial was found. Start a Free Trial or activate your license.'
-                )
+                if self._cache.has_ever_activated_paid_license():
+                    print(f"{time.strftime('%H:%M:%S')} Business: Inactive License (existing customer with paid history)")
+                    self._status = LicenseStatus(
+                        valid=False, status='inactive',
+                        hardware_id=hardware_id,
+                        message='Your license is inactive. Activate a new license or contact support.'
+                    )
+                else:
+                    print(f"{time.strftime('%H:%M:%S')} Business: Trial Consumed (onboarding complete, no paid license)")
+                    self._status = LicenseStatus(
+                        valid=False, status='trial_consumed',
+                        hardware_id=hardware_id,
+                        message='Your trial has ended. Please activate a paid license or renew an existing license.'
+                    )
             else:
                 print(f"{time.strftime('%H:%M:%S')} Business: No License Found (new customer)")
                 self._status = LicenseStatus(
@@ -2093,6 +2108,8 @@ class UniversalLicenseCenter:
         is_paid = status == 'active' and is_valid
         is_deactivated = status == 'deactivated'
         is_force_reactivation = status == 'force_reactivation'
+        is_inactive = status == 'inactive'
+        is_trial_consumed = status == 'trial_consumed'
 
         if is_trial:
             buttons = [
@@ -2131,6 +2148,20 @@ class UniversalLicenseCenter:
         elif is_force_reactivation:
             buttons = [
                 ("Contact Support", self._contact_support, self._primary),
+                ("Close", self._on_close, "#e5e7eb"),
+            ]
+        elif is_inactive:
+            support_label = f"Contact Support ({self._support_email})" if self._support_email else "Contact Support"
+            buttons = [
+                ("Activate License", self._activate_license, self._primary),
+                (support_label, self._contact_support, self._text_secondary),
+                ("Close", self._on_close, "#e5e7eb"),
+            ]
+        elif is_trial_consumed:
+            buttons = [
+                ("Activate License", self._activate_license, self._primary),
+                ("Renew License", self._renew_license_flow, self._primary),
+                ("Contact Support", self._contact_support, self._text_secondary),
                 ("Close", self._on_close, "#e5e7eb"),
             ]
         else:
@@ -2194,6 +2225,17 @@ class UniversalLicenseCenter:
                 lines.append("Status: NO LICENSE FOUND")
                 lines.append("No active license or trial was found.")
                 lines.append("Start a Free Trial or activate your license.")
+            fg = self._warning
+        elif self._status.status == 'inactive':
+            lines.append("You are an existing customer, but your license is inactive.")
+            lines.append("If you have a new or reactivated license, activate it now.")
+            lines.append("Otherwise, please contact support.")
+            if self._support_email:
+                lines.append(f"Support: {self._support_email}")
+            fg = self._error
+        elif self._status.status == 'trial_consumed':
+            lines.append("This email has already consumed its lifetime trial.")
+            lines.append("Please activate a paid license or renew your existing license.")
             fg = self._warning
         elif self._status.status == 'deactivated':
             lines.append("Your license has been deactivated.")
