@@ -3,8 +3,8 @@
 > **Single Source of Truth** for architecture, workflow, SDK Publisher changes,
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
-> Generated: 2026-07-25
-> Status: Phases 1-14 Complete — Phase 15 (Communication Architecture) Complete — Section 0A Complete — Locked Menu Redesign (Activate/Renew/Sales/Support) Complete — Activation API HTTP 500 Fix Applied
+> Generated: 2026-07-26
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4: Hardware Binding, Startup Flow, Activation UI, Dialog Layout)
 
 ---
 
@@ -3411,7 +3411,9 @@ This caused `IndentationError` when the generated `welcome.py` was compiled with
 - No generated SDK files were edited — all changes in Publisher/runtime generator
 - Follows AWS-01 rules: Publisher is source of truth
 
-## Session Summary — 2026-07-26 (AWS-01 Universal License Center Final Corrections)
+## Session Summary — 2026-07-26 (AWS-01 Universal License Center Final Corrections — Tasks 1-4)
+
+> Covers Tasks 1-4 from the ULC Final Corrections work order. Task 1 (Hardware Binding), Task 2 (Startup Decision), Task 3 (Activation UI), Task 4 (Sales & Support Dialog).
 
 ### Issue 1 — Hardware Binding Logic (License Key Never Shown After Activation)
 
@@ -3531,11 +3533,34 @@ The `show()` method in both Python and TypeScript ULC did not check for valid li
 | `app/internal/publisher/runtimes/typescript.ts` | initialize() LICENSE_INACTIVE + LICENSE_EXPIRED handling; show() skip for valid licenses; force_reactivation messages updated |
 | `app/internal/publisher/template/typescript/universal_license_center.ts` | show() skip for valid licenses; _printStatus() deactivated/force_reactivation messages; _mainLoop() button visibility by status |
 
-### Verification
+### Task 3 — Activation UI Fixes (This Session)
 
-- `npm run build` — zero errors (13.5s Turbopack, TypeScript passed)
+#### Root Cause
+
+The post-validation display in `_activate_license()` used an incorrect field name `active_devices` instead of `device_count` to check device limits, and was missing the "Remaining Activations" field required by the spec.
+
+#### Fix Applied
+
+**`app/internal/publisher/runtimes/python.ts` — `_activate_license()` → `do_validate()`:**
+
+- Fixed field name: `data.get('active_devices', 0)` → `data.get('device_count', data.get('active_devices', 0))`
+- Added `remaining_activations = max(max_devices - active_devices, 0)` calculation
+- Added "Remaining Activations: {remaining_activations}" to the post-validation customer info line
+
+#### Verification (All Tasks)
+
+- `npm run build` — zero errors (13.2s Turbopack, TypeScript passed)
 - All 8 generated Python SDK files compile with `python -m py_compile`
 - No generated SDK files were edited — all changes in Publisher/runtime generators + Internal API
 - All changes follow AWS-01 rules: Publisher + Internal API is source of truth
+
+#### Task Completion Audit
+
+| Task | Status | Key Changes |
+|------|--------|-------------|
+| Task 1 — Hardware Binding Workflow | Complete | Backend deactivation no longer unbinds hardware; license key never displayed; activation textbox never pre-filled; no auto-fetch before validation |
+| Task 2 — Startup Decision Workflow | Complete | Valid licenses skip all UI (Welcome + ULC); ULC only shown for non-valid statuses |
+| Task 3 — Activation UI | Complete | Initial screen: HW ID + empty textbox + Validate only; Post-validation shows all fields incl. Remaining Activations; OTP → Activate flow; Professional success dialog; Restart Required |
+| Task 4 — Sales & Support Dialog | Complete | Dialog height 520x600 (was 520x480); Send Request button padding expanded |
 
 *End of Master Implementation Document*

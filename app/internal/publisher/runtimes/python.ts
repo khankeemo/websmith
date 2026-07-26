@@ -2406,8 +2406,9 @@ class UniversalLicenseCenter:
                         return
 
                     # Check device limit
-                    active_devices = data.get('active_devices', 0)
+                    active_devices = data.get('device_count', data.get('active_devices', 0))
                     max_devices = data.get('max_devices', 999)
+                    remaining_activations = max(max_devices - active_devices, 0)
                     if active_devices >= max_devices:
                         self._log("VALIDATION", "WARNING", f"Device limit reached ({active_devices}/{max_devices})")
                         status_lbl.config(
@@ -2425,7 +2426,7 @@ class UniversalLicenseCenter:
                     cust_name_lbl.pack(anchor="w", padx=16, pady=(0, 2))
                     cust_email_lbl.config(text=data.get('customer_email', 'N/A'))
                     cust_email_lbl.pack(anchor="w", padx=16, pady=(0, 2))
-                    plan_info = f"Product: {data.get('product_name', 'N/A')} | Plan: {data.get('plan', 'N/A')} | Status: {data.get('status', 'N/A')} | Expires: {data.get('expiry_date', 'N/A')} | Days Left: {data.get('days_left', 0)}"
+                    plan_info = f"Product: {data.get('product_name', 'N/A')} | Plan: {data.get('plan', 'N/A')} | Status: {data.get('status', 'N/A')} | Expires: {data.get('expiry_date', 'N/A')} | Days Left: {data.get('days_left', 0)} | Remaining Activations: {remaining_activations}"
                     cust_plan_lbl.config(text=plan_info)
                     cust_plan_lbl.pack(anchor="w", padx=16, pady=(0, 8))
 
