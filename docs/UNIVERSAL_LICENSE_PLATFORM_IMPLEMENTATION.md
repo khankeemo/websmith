@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-26
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection)
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied (missing import platform, hardcoded SDK Version "1.0" → SDK_VERSION, hardcoded Binding Status "Not Bound" → computed from license state)
 
 ---
 
@@ -4078,3 +4078,44 @@ Audit of SDK Publisher (`app/internal/publisher/`), runtime generators (`runtime
 
 ### Compliance
 This audit satisfies AWS-01 Rule 4 (Dependency Verification) and Rule 6 (Publisher Is Source of Truth).
+
+## Session Summary — 2026-07-26 (AWS-01 Python Runtime — Hardware-Status Propagation Fix)
+
+### Root Cause
+
+The `UniversalLicenseCenter._refresh_hardware_display()` method in the `universal_license_center.py` Python runtime template failed to populate the Hardware Status UI, leaving it permanently stuck at the default `"Detecting..."` state.
+
+### Where `hardware_info` Stopped Propagating
+
+The propagation chain `HardwareDetector → LicenseEngine.initialize() → hardware_info → UniversalLicenseCenter → _refresh_hardware_display() → Hardware Status UI` broke at the `_refresh_hardware_display()` method because:
+
+1. **Missing `import platform`** — The `universal_license_center.py` template used `platform.node()`, `platform.system()`, and `platform.release()` in `_refresh_hardware_display()` and `_view_hardware_status()` but never imported `platform`. This caused a `NameError` at runtime, preventing the hardware info from ever being displayed.
+
+2. **Hardcoded SDK Version `"1.0"`** — Both methods displayed SDK Version as the literal string `"1.0"` instead of using the `SDK_VERSION` module constant (set from `${context.kitVersion}` during SDK generation).
+
+3. **Hardcoded Binding Status `"Not Bound"`** — Both methods displayed `"Not Bound"` unconditionally instead of computing the actual binding status from the license state (`self._status.hardware_id == current_hardware_id`).
+
+### Fixes Applied
+
+All fixes are in `app/internal/publisher/runtimes/python.ts`, within the `universal_license_center.py` template string:
+
+| Fix | Location | Before | After |
+|-----|----------|--------|-------|
+| Add `import platform` | Template imports (line 1838) | Missing | Added `import platform` |
+| Binding Status | `_refresh_hardware_display()` (line 2317) | `"Not Bound"` hardcoded | Computed: `"Bound" if (self._status and self._status.hardware_id == hw_id) else "Not Bound"` |
+| SDK Version | `_refresh_hardware_display()` (line 2326) | `"1.0"` hardcoded | `{SDK_VERSION}` |
+| Binding Status | `_view_hardware_status()` (line 3048) | `"Not Bound"` hardcoded | Computed: `"Bound" if (self._status and self._status.hardware_id == hw_id) else "Not Bound"` |
+| SDK Version | `_view_hardware_status()` (line 3068) | `"1.0"` hardcoded | `{SDK_VERSION}` |
+
+### Verification
+
+- `import platform` added to `universal_license_center.py` template imports
+- `SDK Version` now displays the correct `SDK_VERSION` value instead of `"1.0"`
+- `Binding Status` now reflects actual license binding state instead of always showing `"Not Bound"`
+- Hardware Status UI correctly replaces `"Detecting..."` with detected Hardware ID, Device Name, System Name, Operating System, Runtime, SDK Version, and Hardware Binding Status
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/runtimes/python.ts` | Added `import platform` to `universal_license_center.py` template; fixed SDK Version and Binding Status in `_refresh_hardware_display()` and `_view_hardware_status()` |
