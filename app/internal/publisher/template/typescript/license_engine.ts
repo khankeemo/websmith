@@ -116,16 +116,16 @@ export class LicenseEngine {
         return this._status;
       }
       
-      // License is invalid/expired/inactive - clear all cached data and force activation
+      // License is invalid/expired/inactive - clear all cached data
       this._cache.clearAllLicenseData();
-      this._status = new LicenseStatus(false, 'force_activation', {
+      this._status = new LicenseStatus(false, 'no_license', {
         hardware_id: hardwareId,
-        message: 'Welcome back. Please validate your license.',
+        message: 'No active license or trial was found. Start a Free Trial or activate your license.',
       });
     } else {
-      this._status = new LicenseStatus(false, 'unlicensed', {
+      this._status = new LicenseStatus(false, 'no_license', {
         hardware_id: hardwareId,
-        message: 'No license found. Please start a free trial or activate.',
+        message: 'No license or trial was found. Start a Free Trial or activate your license.',
       });
     }
     this._notifyReady(false);

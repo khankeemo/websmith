@@ -191,16 +191,18 @@ export async function POST(request: NextRequest) {
           if (activationLookup.rows.length > 0) {
             licenseLookupKey = activationLookup.rows[0].license_key;
           } else {
-            // No activation found for this hardware
+            // No activation found for this hardware — normal business state
             client.release();
             client = null;
             return NextResponse.json({
-              success: false,
-              error: {
-                code: 'NO_LICENSE_FOUND',
+              success: true,
+              data: {
+                status: 'no_license',
+                has_license: false,
+                has_trial: false,
                 message: 'No license found for this hardware. Please enter a license key to activate.'
               }
-            }, { status: 404 });
+            });
           }
         } else {
           licenseLookupKey = normalizedLicenseKey;
@@ -247,12 +249,14 @@ export async function POST(request: NextRequest) {
           });
           
           return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_NOT_FOUND',
+            success: true,
+            data: {
+              status: 'no_license',
+              has_license: false,
+              has_trial: false,
               message: validateByHardware ? 'No license found for this hardware.' : 'License key not found'
             }
-          }, { status: 404 });
+          });
         }
 
         const licenseData = validateResult.rows[0];

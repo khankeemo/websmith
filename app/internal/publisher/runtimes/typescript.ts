@@ -953,11 +953,11 @@ export class LicenseEngine {
               this._notifyReady(false);
               return this._status;
             }
-            LiveLog.log('License status: force_activation', 'key invalid');
+            LiveLog.log('Business: No License Found', 'key invalid');
             this._status = {
-              valid: false, status: 'force_activation',
+              valid: false, status: 'no_license',
               hardware_id: hardwareId, license_key: this._licenseKey,
-              message: 'License key invalid. Please activate.',
+              message: 'License key not recognized. Start a Free Trial or activate your license.',
             };
             this._notifyReady(false);
             return this._status;
@@ -984,8 +984,18 @@ export class LicenseEngine {
             this._notifyReady(false);
             return this._status;
           }
+          if (errCode === 'LICENSE_NOT_FOUND') {
+            LiveLog.log('Business: No License Found', 'key not recognized');
+            this._status = {
+              valid: false, status: 'no_license',
+              hardware_id: hardwareId,
+              message: 'No license or trial was found. Start a Free Trial or activate your license.',
+            };
+            this._notifyReady(false);
+            return this._status;
+          }
           if (this.cache.hasEverActivatedPaidLicense()) {
-            LiveLog.log('License validation failed', 'falling back to force_reactivation');
+            LiveLog.log('Business: Reactivation Required', 'paid license history found');
             this._status = {
               valid: false, status: 'force_reactivation',
               hardware_id: hardwareId, license_key: this._licenseKey,
@@ -994,11 +1004,11 @@ export class LicenseEngine {
             this._notifyReady(false);
             return this._status;
           }
-          LiveLog.log('License validation failed', 'falling back to force_activation');
+          LiveLog.log('Business: No License Found', 'validation error, no paid history');
           this._status = {
-            valid: false, status: 'force_activation',
+            valid: false, status: 'no_license',
             hardware_id: hardwareId,
-            message: 'Unable to verify license. Please try again later.',
+            message: 'No license or trial was found. Start a Free Trial or activate your license.',
           };
           this._notifyReady(false);
           return this._status;
@@ -1047,18 +1057,18 @@ export class LicenseEngine {
         }
       }
       if (this.cache.isOnboardingComplete()) {
-        LiveLog.log('Decision: force_activation', 'onboarding complete, no active license');
+        LiveLog.log('Business: No License Found', 'onboarding complete, no active license');
         this._status = {
-          valid: false, status: 'force_activation',
+          valid: false, status: 'no_license',
           hardware_id: hardwareId,
-          message: 'No active license found. Please activate.',
+          message: 'No active license or trial was found. Start a Free Trial or activate your license.',
         };
       } else {
-        LiveLog.log('Decision: unlicensed', 'new customer');
+        LiveLog.log('Business: No License Found', 'new customer');
         this._status = {
-          valid: false, status: 'unlicensed',
+          valid: false, status: 'no_license',
           hardware_id: hardwareId,
-          message: 'No license or trial found',
+          message: 'No license or trial was found. Start a Free Trial or activate your license.',
         };
       }
       this._notifyReady(false);
@@ -1642,7 +1652,7 @@ export class UniversalLicenseCenter {
     this._lockApp();
     LiveLog.log('Engine initializing', 'Starting decision engine');
     await this.initialize();
-    const statusStr = this.status?.status || 'unlicensed';
+    const statusStr = this.status?.status || 'no_license';
     LiveLog.log('Decision engine result', \`Status: \${statusStr}\`);
 
     if (this.status && this.status.valid) {
@@ -1655,7 +1665,7 @@ export class UniversalLicenseCenter {
       };
     }
 
-    if (statusStr === 'unlicensed' || !this.status) {
+    if (statusStr === 'no_license' || statusStr === 'unlicensed' || !this.status) {
       if (!this.cache.isOnboardingComplete()) {
         LiveLog.log('Opening Welcome', 'Onboarding required');
         return {

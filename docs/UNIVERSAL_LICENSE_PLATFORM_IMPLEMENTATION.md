@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-26
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified)
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8)
 
 ---
 
@@ -3670,5 +3670,150 @@ Complete 5 ULC UI & Workflow fixes: add Hardware Status Panel, fix "No License F
 - `npm run build` — zero errors
 - Python SDK compilation — all files compile without errors
 - No TypeScript runtime or template changes were needed (Python-only ULC fix)
+
+---
+
+## Session 7 — Fix "No License" Business State
+
+### Objective
+
+The SDK was treating `LICENSE_NOT_FOUND` (404) as a runtime error. A new installation with no license is a normal business state. Fix the API, decision engine, templates, ULC, and LiveLog to classify "no license" as a business state (`no_license`) rather than an error (`force_activation`, `unlicensed`, `LICENSE_NOT_FOUND`).
+
+### Tasks Completed
+
+**1. Internal (Public) API — `app/api/v1/license/route.ts`**
+- Hardware-only validate path (activation lookup): Changed from `{ success: false, error: { code: 'NO_LICENSE_FOUND', ... } }` with `status: 404` to `{ success: true, data: { status: 'no_license', has_license: false, has_trial: false, message: '...' } }` with `200`
+- License-key validate path (key not found in DB): Changed from `{ success: false, error: { code: 'LICENSE_NOT_FOUND', ... } }` with `status: 404` to same business state payload with `200`
+- Other actions (renew, deactivate, available-plans, etc.) remain as 404 errors since they require an existing license to act upon
+
+**2. Decision Engine — TypeScript Runtime (`typescript.ts`)**
+- Added explicit `LICENSE_NOT_FOUND` handler in `catch` block: returns `no_license` business state instead of falling through to generic `force_activation`/`force_reactivation`
+- Changed `valid=false, no paid history` path from `force_activation` to `no_license`
+- Changed final decision (onboarding complete, no license) from `force_activation` to `no_license`
+- Changed final decision (new customer) from `unlicensed` to `no_license`
+- Updated fallback status string from `'unlicensed'` to `'no_license'`
+
+**3. Decision Engine — Python Runtime (`python.ts`)**
+- Same changes as TypeScript: added `LICENSE_NOT_FOUND` handler, replaced `force_activation` and `unlicensed` with `no_license`
+- Updated `LicenseStatus.from_dict()` default status from `'unlicensed'` to `'no_license'`
+- Updated log messages and LiveLog entries to use business-state terminology
+
+**4. TypeScript Template (`license_engine.ts`)**
+- Changed `force_activation` status to `no_license` in both onboarding-complete and new-customer paths
+- Updated message text to "No active license or trial was found. Start a Free Trial or activate your license."
+
+**5. TypeScript Template ULC (`universal_license_center.ts`)**
+- Updated `_printStatus()` to show `Status: NO LICENSE FOUND` with friendly message for `no_license`
+- Changed `unlicensed` to `no_license` in the welcome-flow gate
+- Replaced `isForceActivation` with `isNoLicense` in `_mainLoop()`
+
+**6. Universal License Center (Python)**
+- Updated `_build_ui()` button-logic status fallback from `'unlicensed'` to `'no_license'`
+- Updated `_refresh_display()` to include `'no_license'` alongside `'force_activation'` and `'unlicensed'` for backward compatibility
+- Updated `show()` method gate from `'unlicensed'` to `('no_license', 'unlicensed')`
+
+**7. Universal License Center (TypeScript)**
+- Updated `show()` method gate from `'unlicensed'` to `('no_license', 'unlicensed')` for backward compatibility
+
+**8. LiveLog**
+- Replaced `'License validation failed'` / `'License status: force_activation'` with `'Business: No License Found'`
+- Replaced `'Decision: force_activation'` / `'Decision: unlicensed'` with `'Business: No License Found'`
+- System errors (API unreachable, timeout, etc.) remain logged as `'License validation failed'` only when they are genuine system failures
+
+**9. Business States vs System Errors (LiveLog Classification)**
+
+| Business States | Logged As |
+|----------------|-----------|
+| No License Found | `Business: No License Found` |
+| Trial Available | `Business: No License Found` (subsumed — handled by trial check) |
+| Activation Required | `Business: No License Found` (new customer) |
+| Renewal Required | `Business: Reactivation Required` (paid license expired) |
+| Active License | `License status: active` |
+
+| System Errors | Logged As |
+|---------------|-----------|
+| API Unreachable | `License validation failed` (only if `hasEverActivatedPaidLicense`) |
+| Database Error | Caught as generic exception → `Business: No License Found` if no paid history |
+| Timeout | Caught as generic exception |
+| Internal Server Error | Caught as `LICENSE_INACTIVE`, `LICENSE_EXPIRED`, or generic |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/api/v1/license/route.ts` | Validate action now returns `no_license` business state (200) instead of 404 error |
+| `app/internal/publisher/runtimes/typescript.ts` | Added LICENSE_NOT_FOUND handler; replaced force_activation/unlicensed with no_license; updated LiveLog |
+| `app/internal/publisher/runtimes/python.ts` | Same changes; updated from_dict default; updated log messages |
+| `app/internal/publisher/template/typescript/license_engine.ts` | Changed force_activation/unlicensed to no_license; updated messages |
+| `app/internal/publisher/template/typescript/universal_license_center.ts` | Updated _printStatus; replaced unlicensed/force_activation with no_license |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Added this session summary |
+
+### Verification
+
+- `npx tsc --noEmit` — zero errors
+- `npm run build` — zero errors
+- Python SDK compilation (`python -m py_compile`) — all generated SDK files compile without errors
+- Backward compatibility maintained: old cached status values (`force_activation`, `unlicensed`) are still handled in display code
+
+---
+
+## Session 8 — ULC Panel Redesign (Hardware + License Panels)
+
+### Objective
+
+Redesign the Universal License Center's Hardware Status and License Status panels to match a specified layout with proper database/API integration. Hardware panel shows hardware diagnostics only; License panel shows customer/license data only.
+
+### Tasks Completed
+
+**1. LicenseStatus Data Model**
+- Added `max_devices` (int, default 999) and `device_count` (int, default 0) fields to `LicenseStatus` class
+- Updated `to_dict()` and `from_dict()` to serialize/deserialize these fields
+- Updated all `LicenseStatus` constructor calls that receive API response data to pass `max_devices` and `device_count` from the response
+
+**2. License Status Panel — `_refresh_display()`**
+- Shows these fields for active/trial/expired states (in order):
+  - `Customer:` (from `customer_name`)
+  - `Email:` (from `customer_email`)
+  - `Product:` (from `_product_name`)
+  - `Plan:` (from `plan`)
+  - `Expiry:` (from `expiry_date`)
+  - `Remaining Days:` (from `days_left`)
+  - `Device Limit:` (from `max_devices` — API response field)
+  - `Remaining Activations:` (computed as `max(max_devices - device_count, 0)`)
+  - `License Status:` (status uppercase — e.g., ACTIVE, TRIAL, EXPIRED)
+- Footer note: `(No hardware diagnostics except Hardware ID if needed for reference)` in 8pt italic gray
+- No-change states: `no_license`/`force_activation`/`unlicensed` → NO LICENSE FOUND message; `deactivated` → deactivation message; `force_reactivation` → support message
+
+**3. Hardware Status Panel — `_refresh_hardware_display()`**
+- Shows these fields (always, regardless of license state):
+  - `Hardware ID:` (from `HardwareDetector.get_fingerprint()`)
+  - `Device Name:` (from `socket.gethostname()`)
+  - `System Name:` (from `platform.node()`)
+  - `Operating System:` (from `platform.system() + platform.release()`)
+  - `Runtime:` (from `RUNTIME_TYPE` module constant — e.g., "python")
+  - `SDK Version:` (from `SDK_VERSION` module constant)
+  - `Hardware Binding Status:` (Bound/Not Bound, based on cache hardware_id comparison)
+- Footer note: `(No license information)` in 8pt italic gray
+- No customer/license data displayed
+
+**4. UI Layout — `_build_ui()`**
+- Added `_license_footer` Label in License Status panel (below detail text)
+- Added `_hw_footer` Label in Hardware Status panel (below hardware detail text)
+- Both panels remain in their original order (License Status first, then Hardware Status)
+- Separator and button frame unchanged
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/runtimes/python.ts` | Added max_devices/device_count to LicenseStatus; updated _refresh_display() with new fields; updated _refresh_hardware_display() with Runtime, SDK Version, OS field name; added footer notes to both panels |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Added this session summary |
+
+### Verification
+
+- `npx tsc --noEmit` — zero errors
+- `npm run build` — zero errors
+- Python SDK compilation — all generated SDK files compile without errors
+- Hardware data and license data are strictly separated per specification
 
 *End of Master Implementation Document*

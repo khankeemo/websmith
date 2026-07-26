@@ -103,7 +103,7 @@ export class UniversalLicenseCenter {
       return result;
     }
 
-    if (this.status?.status === 'unlicensed' && !this.cache.isOnboardingComplete()) {
+    if (this.status?.status === 'no_license' && !this.cache.isOnboardingComplete()) {
       const welcomed = await this._welcomeFlow();
       if (welcomed) {
         this._unlockApplication();
@@ -170,6 +170,10 @@ export class UniversalLicenseCenter {
     } else if (this.status.status === 'force_reactivation') {
       console.log('  Unable to verify your license.');
       console.log('  Please contact support.');
+    } else if (this.status.status === 'no_license') {
+      console.log('  Status: NO LICENSE FOUND');
+      console.log('  No active trial or paid license was found.');
+      console.log('  Start a Free Trial or activate your license.');
     } else {
       console.log(`  Status: ${this.status.status}`);
     }
@@ -183,12 +187,11 @@ export class UniversalLicenseCenter {
   private async _mainLoop(): Promise<void> {
     let running = true;
     while (running) {
-      const isUnlicensed = this.status?.status === 'unlicensed';
+      const isNoLicense = this.status?.status === 'no_license';
       const isTrial = this.status?.status === 'trial';
       const isLicensed = this.status?.status === 'active';
       const isExpired = this.status?.status === 'expired';
       const isForceReactivation = this.status?.status === 'force_reactivation';
-      const isForceActivation = this.status?.status === 'force_activation';
       const needsReactivation = isExpired || isForceReactivation;
 
       if (this._locked) {
