@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-26
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4: Hardware Binding, Startup Flow, Activation UI, Dialog Layout)
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified)
 
 ---
 
@@ -578,28 +578,41 @@ The validation endpoint (`POST /api/v1/license?action=validate`) is the **exclus
   - Whether a new license request is required
   - Whether support intervention is needed
 
-### Rule 0A-3 — Existing Customer Validation (No Key Entry)
+### Rule 0A-3 — Hardware-Only Lookup (Scope Limited)
 
-For existing customers (customer_exists = true):
-- Validation **must** support hardware-only lookup (no license key required)
-- `POST /api/v1/license?action=validate` with `hardware_id` only
-- Backend checks `activations` table by hardware_id to find any bound license
-- Returns license information if found, or no-license state if not found
-- The customer should **not** manually enter a license key unless no license is found for their hardware
+Hardware-only lookup (`POST /api/v1/license?action=validate` with `hardware_id` only, no `license_key`) is permitted **ONLY** to determine whether the current hardware already has an **active** license binding and the application can unlock automatically during the startup check.
 
-### Rule 0A-4 — Validation Decision Tree
+Hardware lookup **must NEVER**:
+- populate the Activation dialog
+- populate the License Key field
+- display customer information
+- display product information
+- display plan information
+- display expiry
+- expose the stored license key
+- start activation automatically
 
-After validation, the UI must display the appropriate state:
+If no active hardware binding exists:
+- Open the Universal License Center
+- Display Hardware ID only
+- Leave the License Key field empty
+- Customer manually enters the License Key
+- Customer clicks "Validate License"
+- Proceed through the activation workflow (Rule 0A-4)
 
-| Validation Result | UI Action |
-|-------------------|-----------|
-| Active license bound to this hardware | Show license details, enable "Continue" (unlock app) |
-| Active license bound to different hardware | Show "Different hardware detected. Activate here?" with Activate option |
-| Expired license | Show "License expired. Renew required." with Renew option |
-| Revoked license | Show "License revoked. Contact support." |
-| Inactive license | Show "License inactive. Reactivate required." with Reactivate option |
-| No license found | Show "No license found for this hardware. Enter license key:" with key entry |
-| Device limit reached | Show "Device limit reached. Deactivate another device or contact support." |
+### Rule 0A-4 — Activation Workflow
+
+After validation, the UI displays the appropriate state. Activation proceeds through these steps:
+
+| Phase | Action | Conditions |
+|-------|--------|------------|
+| 1. Startup | Hardware-only lookup to check for active binding | If active → unlock app immediately, no UI. If not → open ULC. |
+| 2. Key Entry | Customer manually enters License Key | Hardware ID shown, License Key field empty. No auto-fill. |
+| 3. Validate | Customer clicks "Validate License" | POST /api/v1/license?action=validate with license_key + hardware_id |
+| 4. Post-Validate Success | Read-only display: Customer Name, Email, Product, Plan, Status, Expiry, Remaining Days, Remaining Activations | Enable "Send OTP" |
+| 5. OTP Verification | Customer enters OTP code | Enable "Activate License" |
+| 6. Activation | Customer clicks "Activate License" | POST /api/v1/license?action=activate |
+| 7. Success | Professional dialog: Customer, Product, Plan, Status, Activation Date, Expiry, Remaining Validity | Show "Restart Required" |
 
 ### Rule 0A-5 — License Details After Validation Only
 
@@ -3140,7 +3153,7 @@ Additionally, `_show_license_center()` did not signal back whether the ULC was o
 
 ---
 
-## Session Summary — 2026-07-25 (AWS-01 Existing Customer Validation — No Auto-License, Hardware-Only Validate)
+## Session Summary — 2026-07-25 (AWS-01 Existing Customer Validation — Auto-Validate Removed, Hardware Scope Clarified)
 
 ### Root Cause
 
@@ -3148,13 +3161,13 @@ Existing customers who previously activated a license and then launched the ULC 
 
 1. ULC must **never** auto-validate licenses or auto-check trials on startup
 2. License details must **never** appear before explicit user validation
-3. Existing customers must validate by hardware ID only (no manual license key typing)
+3. Existing customers with an active hardware binding may auto-unlock at startup (hardware-only lookup, no license key displayed). If no active binding exists, the customer must manually enter the license key through the activation workflow.
 4. Validation endpoint is the single source of truth for ALL business decisions
 
 ### Changes — Backend
 
 **`app/api/v1/license/route.ts`:**
-- Hardware-only validation: when `license_key` is absent but `hardware_id` is provided, look up the `activations` table to find a bound license key
+- Hardware-only validation (startup check only): when `license_key` is absent but `hardware_id` is provided, look up the `activations` table to find a bound license key for automatic unlock detection
 - Returns `NO_LICENSE_FOUND` (404) if no activation exists for the hardware
 - Fixed `license_key.toUpperCase()` crash when `license_key` is undefined
 
@@ -3169,7 +3182,7 @@ Existing customers who previously activated a license and then launched the ULC 
 
 **`license_engine.ts`:**
 - `initialize()` — only detects hardware + checks `onboarding_complete` (no server validation)
-- Added `validateHardware()` — hardware-only lookup via API client
+- Added `validateHardware()` — hardware-only lookup via API client (for startup auto-unlock detection only, never populates activation dialog)
 
 **`client.ts`:**
 - Added `validateLicenseByHardware(hardwareId)` method
@@ -3562,5 +3575,41 @@ The post-validation display in `_activate_license()` used an incorrect field nam
 | Task 2 — Startup Decision Workflow | Complete | Valid licenses skip all UI (Welcome + ULC); ULC only shown for non-valid statuses |
 | Task 3 — Activation UI | Complete | Initial screen: HW ID + empty textbox + Validate only; Post-validation shows all fields incl. Remaining Activations; OTP → Activate flow; Professional success dialog; Restart Required |
 | Task 4 — Sales & Support Dialog | Complete | Dialog height 520x600 (was 520x480); Send Request button padding expanded |
+
+## Session Summary — 2026-07-26 (AWS-01 Documentation Fix — Hardware-Only Scope Clarified)
+
+### Problem
+
+Rule 0A-3 stated: "Validation **must** support hardware-only lookup (no license key required)". This phrasing was misinterpreted as a general authorization for hardware-only lookups to populate the activation dialog, auto-fill fields, and return full license details without user action.
+
+### Fix Applied — Document Only
+
+**Rule 0A-3 — Rewritten to clarify scope:**
+- Hardware-only lookup is permitted **ONLY** for automatic unlock detection at startup
+- Hardware lookup must **NEVER** populate the Activation dialog, License Key field, or display customer/product/plan/expiry information
+- If no active hardware binding exists: ULC opens with Hardware ID only, empty License Key field; customer manually enters the key and clicks "Validate License"
+
+**Rule 0A-4 — Replaced decision tree table with phase-based Activation Workflow:**
+- Phase 1: Startup (hardware-only lookup for auto-unlock)
+- Phase 2: Key Entry (manual, no auto-fill)
+- Phase 3: Validate (customer clicks Validate License)
+- Phase 4: Post-Validate Success (read-only info display, enable Send OTP)
+- Phase 5: OTP Verification (enable Activate License)
+- Phase 6: Activation (API call)
+- Phase 7: Success dialog + Restart Required
+
+**Session summary titles and descriptions updated** to match corrected scope.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Rule 0A-3 rewritten; Rule 0A-4 replaced with phase-based workflow; session summary descriptions corrected |
+
+### Verification
+
+- No code was modified — this is a documentation-only fix
+- All existing implementation already follows the corrected rules (activation textbox is empty, customer info hidden until validation, no auto-fetch)
+- Previous build verification still valid (`npm run build` zero errors, Python SDK compiles)
 
 *End of Master Implementation Document*
