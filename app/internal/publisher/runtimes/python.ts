@@ -1835,6 +1835,7 @@ class WelcomeDialog:
     'universal_license_center.py': `"""Universal License Center - single customer experience for all license operations"""
 import json
 import os
+import platform
 import time
 import traceback
 import tkinter as tk
@@ -2313,7 +2314,7 @@ class UniversalLicenseCenter:
             device_name = 'N/A'
         system_name = platform.node() or 'N/A'
         os_name = f"{platform.system()} {platform.release()}"
-        binding_status = "Not Bound"
+        binding_status = "Bound" if (self._status and self._status.hardware_id == hw_id) else "Not Bound"
         lines = []
         lines.append("Hardware Status: Ready")
         lines.append(f"Binding Status: {binding_status}")
@@ -2322,7 +2323,7 @@ class UniversalLicenseCenter:
         lines.append(f"System Name: {system_name}")
         lines.append(f"Operating System: {os_name}")
         lines.append(f"Runtime: {RUNTIME_TYPE}")
-        lines.append(f"SDK Version: 1.0")
+        lines.append(f"SDK Version: {SDK_VERSION}")
         self._hw_detail.config(text="\\n".join(lines))
 
     def _start_trial(self):
@@ -3044,6 +3045,7 @@ class UniversalLicenseCenter:
             device_name = 'N/A'
         system_name = platform.node() or 'N/A'
         os_name = f"{platform.system()} {platform.release()}"
+        binding_status = "Bound" if (self._status and self._status.hardware_id == hw_id) else "Not Bound"
         dialog = tk.Toplevel(self._root)
         dialog.title("Hardware Status")
         dialog.geometry("500x400")
@@ -3057,13 +3059,13 @@ class UniversalLicenseCenter:
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
         info_lines = [
             ("Hardware Status:", "Ready"),
-            ("Binding Status:", "Not Bound"),
+            ("Binding Status:", binding_status),
             ("Hardware ID:", hw_id),
             ("Device Name:", device_name),
             ("System Name:", system_name),
             ("Operating System:", os_name),
             ("Runtime:", RUNTIME_TYPE),
-            ("SDK Version:", "1.0"),
+            ("SDK Version:", SDK_VERSION),
         ]
         for label, value in info_lines:
             row = tk.Frame(frame, bg=self._card_bg)
