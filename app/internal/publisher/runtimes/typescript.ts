@@ -1665,22 +1665,9 @@ export class UniversalLicenseCenter {
       };
     }
 
-    if (statusStr === 'no_license' || statusStr === 'unlicensed' || !this.status) {
-      if (!this.cache.isOnboardingComplete()) {
-        LiveLog.log('Opening Welcome', 'Onboarding required');
-        return {
-          status: this.status,
-          needs_welcome: true,
-          is_locked: this._locked,
-        };
-      }
-      if (this._trialConsumed) {
-        LiveLog.log('Existing customer detected', 'Trial already consumed');
-        return {
-          status: this.status,
-          trial_consumed: true,
-          is_locked: this._locked,
-        };
+    if (statusStr === 'no_license' || statusStr === 'unlicensed') {
+      if (this.cache.isOnboardingComplete()) {
+        this._trialConsumed = true;
       }
     }
 

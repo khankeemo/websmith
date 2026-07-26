@@ -1958,7 +1958,7 @@ class UniversalLicenseCenter:
             self.on_license_ready(False)
 
     def show(self) -> Dict[str, Any]:
-        self._log("WELCOME", "INFO", "License Center started", "Application lock engaged")
+        self._log("SDK", "INFO", "License Center started", "Application lock engaged")
         LiveLog.log("License Center started", "Application lock engaged")
         self._lock_application()
         self._log("SDK", "INFO", "Engine initializing", "Starting decision engine")
@@ -1974,30 +1974,10 @@ class UniversalLicenseCenter:
             LiveLog.log("License valid", "Launching application directly")
             return {'action': 'launch', 'status': self._status.to_dict(), 'unlocked': True}
 
-        if status in ('no_license', 'unlicensed') or (not self._status):
-            if not self.cache.is_onboarding_complete():
-                self._log("WELCOME", "INFO", "Opening Welcome", "Onboarding required")
-                LiveLog.log("Opening Welcome", "Onboarding required")
-                result = self._show_welcome()
-                if result.get('trial_started'):
-                    self._log("WELCOME", "SUCCESS", "Trial started via Welcome")
-                    LiveLog.log("Trial started via Welcome")
-                    self._status = self.engine.initialize()
-                    return {'action': 'trial_started', 'status': self._status.to_dict() if self._status else None}
-                if result.get('trial_consumed'):
-                    self._log("WELCOME", "INFO", "Existing customer detected", "Trial already consumed — showing license center")
-                    LiveLog.log("Existing customer detected", "Trial already consumed — showing license center")
-                    self._status = self.engine.initialize()
-                    return self._show_license_center(trial_consumed=True)
-                if result.get('onboarding_complete'):
-                    self._log("WELCOME", "SUCCESS", "Onboarding complete", "Re-initializing engine")
-                    LiveLog.log("Onboarding complete", "Re-initializing engine")
-                    self._status = self.engine.initialize()
-                    return {'action': 'trial_started', 'status': self._status.to_dict() if self._status else None}
-                if result.get('skipped') and not result.get('closed'):
-                    return {'action': 'skipped', 'locked': True}
-                return {'action': 'closed', 'locked': True}
+        self._trial_consumed = self.cache.is_onboarding_complete()
 
+        self._log("SDK", "INFO", "Opening Universal License Center")
+        LiveLog.log("Opening Universal License Center", f"Status: {status}")
         return self._show_license_center()
 
     def _show_welcome(self) -> Dict[str, Any]:

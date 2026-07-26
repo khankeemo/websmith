@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-26
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8)
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point)
 
 ---
 
@@ -752,22 +752,49 @@ LicenseEngine.initialize()
         │
         ├── 1. Detect Hardware ──── HardwareDetector.getFingerprint()
         │
-        └── 2. Load Cache ───────── CacheManager (onboarding_complete only)
-                                        │
-                                        ▼
-                              ┌─────────────────────┐
-                              │  Decide Entry Point  │
-                              │                     │
-                              │  onboarding_complete │
-                              │  = false ───────────┤──→ Welcome → Trial
-                              │  onboarding_complete │
-                              │  = true ────────────┤──→ Open ULC (locked)
-                              │                     │      │
-                              │                     │      └── Only hardware ID
-                              └─────────────────────┘
+        ├── 2. Load Cache ───────── CacheManager (onboarding_complete only)
+        │
+        ├── 3. Decision Engine ──── Determine LicenseStatus
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Decision Engine                           │
+│                                                             │
+│  ACTIVE_LICENSE (valid === true)                            │
+│  → Launch Main Application immediately                      │
+│  → Never open Welcome                                       │
+│  → Never open ULC                                           │
+│                                                             │
+│  NO_LICENSE / unlicensed / force_activation                 │
+│  → Open Universal License Center                            │
+│  → Never auto-open welcome                                  │
+│  → "Start Free Trial" button available in ULC               │
+│                                                             │
+│  TRIAL_AVAILABLE                                            │
+│  → Open Universal License Center                            │
+│  → Trial information shown                                  │
+│                                                             │
+│  ACTIVATION_REQUIRED                                        │
+│  → Open Universal License Center                            │
+│  → Activation option highlighted                            │
+│                                                             │
+│  RENEWAL_REQUIRED (expired)                                 │
+│  → Open Universal License Center                            │
+│  → Renewal option highlighted                               │
+│                                                             │
+│  REACTIVATION_REQUIRED (force_reactivation)                 │
+│  → Open Universal License Center                            │
+│  → Reactivation/support option highlighted                  │
+│                                                             │
+│  ERROR                                                      │
+│  → Use cached state or show error in ULC                    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Important:** `LicenseEngine.initialize()` must **never** auto-validate licenses or auto-check trials during startup. These operations require explicit user action through the ULC menu. The engine only detects hardware and determines whether onboarding is complete. All license decisions are deferred to the ULC's explicit validation flow.
+**Welcome Rule:**
+The Welcome dialog is NOT a startup destination. It may only open after the customer explicitly selects "Start Free Trial" from the Universal License Center.
+
+**Important:** `LicenseEngine.initialize()` must **never** auto-validate licenses or auto-check trials during startup. These operations require explicit user action through the ULC menu. The engine only detects hardware and determines licensing status. All license decisions are deferred to the ULC's explicit validation flow.
 
 ### Application Lock
 
@@ -781,17 +808,18 @@ Immediately after `initialize()`, the application is locked. Until licensing is 
 - No Keyboard Shortcuts
 - No Background Actions
 
-The only visible element is the ULC showing the Hardware ID and available actions (Validate License, Enter License Key, Contact Support, Exit).
+The only visible element is the ULC showing the Hardware ID and available actions (Start Free Trial, Activate License, Renew License, Sales Enquiry, Contact Support, Exit).
 
 ### LicenseStatus States (output of initialize())
 
 | Status | Meaning | UI Action |
 |--------|---------|-----------|
-| `unlicensed` | No customer found (onboarding incomplete) | Show Welcome → Trial |
-| `force_activation` | Onboarding complete, no license validated yet | Open ULC (locked) → Show Validate option |
-| `error` | API unreachable, use cache | Use cached state or show error |
-
-The statuses `trial`, `active`, `expired`, `force_reactivation` are **never** returned by `initialize()`. They are returned only by the explicit validation API call.
+| `valid (active/trial)` | Active license or trial found | Launch Main Application |
+| `no_license` / `unlicensed` | No customer/license/trial found | Open ULC with Start Free Trial option |
+| `force_activation` | Onboarding complete, no license validated yet | Open ULC (locked) → Show all options |
+| `force_reactivation` | Paid license needs reactivation | Open ULC → Show Reactivate/Support options |
+| `expired` | License has expired | Open ULC → Show Renew option |
+| `error` | API unreachable, use cache | Use cached state or show error in ULC |
 
 ---
 
@@ -808,47 +836,61 @@ Application Start
 LicenseEngine.initialize()
         │
         ▼
-Status: unlicensed + no cached customer
+Status: no_license / unlicensed
         │
         ▼
-Welcome Dialog (auto-opened)
+Universal License Center (default screen)
         │
-        ├── Collect Name
-        ├── Collect Email
-        ├── Collect Mobile Number
-        ├── Country Selection (dropdown with dial codes)
-        ├── Company (optional)
+        ├── Shows: Hardware ID (read-only)
+        ├── Shows: Status — NO LICENSE FOUND
         │
-        ├── POST /api/v1/auth/otp/send
+        ├── Customer selects: "Start Free Trial"
+        │   │
+        │   ▼
+        │   Welcome Dialog (opens only after explicit selection)
         │       │
-        │       ▼
-        ├── POST /api/v1/auth/otp/verify
+        │       ├── Collect Name
+        │       ├── Collect Email
+        │       ├── Collect Mobile Number
+        │       ├── Country Selection (dropdown with dial codes)
+        │       ├── Company (optional)
         │       │
-        │       ├── Backend checks customer existence in `customers` table by email
-        │       │
-        │       ├── Customer EXISTS:
-        │       │   └── Return: { success: true, customer_exists: true, open_ulc: true }
-        │       │       ├── Skip customer/register
-        │       │       ├── Skip trial/start
+        │       ├── POST /api/v1/auth/otp/send
+        │       │       │
+        │       │       ▼
+        │       ├── POST /api/v1/auth/otp/verify
+        │       │       │
+        │       │       ├── Backend checks customer existence in `customers` table by email
+        │       │       │
+        │       │       ├── Customer EXISTS:
+        │       │       │   └── Return: { success: true, customer_exists: true, open_ulc: true }
+        │       │       │       ├── Skip customer/register
+        │       │       │       ├── Skip trial/start
+        │       │       │       ├── CacheManager.set_onboarding_complete()
+        │       │       │       └── Open Universal License Center
+        │       │       │
+        │       │       ├── Customer DOES NOT EXIST:
+        │       │       │   └── Return: { success: true, message: 'OTP verified successfully' }
+        │       │       │       │
+        │       │       │       ▼
+        │       │       ├── POST /api/v1/customer/register
+        │       │       │       │
+        │       │       │       ▼
+        │       │       ├── POST /api/v1/trial (action: start)
+        │       │       │       │
+        │       │       │       ▼
         │       │       ├── CacheManager.set_onboarding_complete()
-        │       │       └── Open Universal License Center
-        │       │
-        │       ├── Customer DOES NOT EXIST:
-        │       │   └── Return: { success: true, message: 'OTP verified successfully' }
-        │       │       │
-        │       │       ▼
-        │       ├── POST /api/v1/customer/register
-        │       │       │
-        │       │       ▼
-        │       ├── POST /api/v1/trial (action: start)
-        │       │       │
-        │       │       ▼
-        │       ├── CacheManager.set_onboarding_complete()
-        │       ├── CacheManager.set_license_status(trial)
-        │       ├── LicenseEngine.initialize()
-        │       │       │
-        │       │       ▼
-        │       └── Unlock Application
+        │       │       ├── CacheManager.set_license_status(trial)
+        │       │       ├── LicenseEngine.initialize()
+        │       │       │       │
+        │       │       │       ▼
+        │       │       └── Unlock Application
+        │
+        ├── Customer selects: "Activate License"
+        ├── Customer selects: "Renew License"
+        ├── Customer selects: "Sales Enquiry"
+        ├── Customer selects: "Contact Support"
+        └── Customer selects: "Exit"
 ```
 
 **Customer Exists After OTP Rule:**
@@ -1271,7 +1313,7 @@ The Welcome workflow remains a **dedicated onboarding experience**. It is launch
 
 ### Permanent Welcome Dialog
 
-**The Welcome Dialog is permanent, never removed, never replaced.** It is the mandatory onboarding experience for every first-time customer.
+**The Welcome Dialog is permanent, never removed, never replaced.** It is the mandatory onboarding experience for every first-time customer. However, it is NOT a startup destination. It opens only when the customer explicitly selects "Start Free Trial" from the Universal License Center.
 
 **Startup flow:**
 ```
@@ -1281,39 +1323,47 @@ Application Start
 LicenseEngine.initialize()
         │
         ▼
-Decision Engine → status: unlicensed + no cached trial consumed
+Decision Engine → status: no_license / unlicensed
         │
         ▼
-Welcome Dialog (auto-opened, no alternative path)
+Universal License Center (default screen)
         │
-        ├── Collect Name
-        ├── Collect Email
-        ├── Collect Mobile Number
-        ├── Country Selection (dropdown with dial codes)
-        ├── Company (optional)
+        ├── Shows: Hardware ID, Status — NO LICENSE FOUND
+        ├── Shows: "Start Free Trial" button
         │
-        ├── POST /api/v1/auth/otp/send
-        ├── POST /api/v1/auth/otp/verify
-        ├── POST /api/v1/customer/register
-        ├── POST /api/v1/trial (action: start)
-        │   ├── If TRIAL_ALREADY_CONSUMED → never show Welcome again
-        │   └── Show Activate License / Contact Sales instead
-        │
-        ├── CacheManager.set_onboarding_complete()
-        ├── CacheManager.set_license_status(trial)
-        ├── LicenseEngine.initialize()
-        │
-        └── Unlock Application
+        └── Customer selects "Start Free Trial"
+                │
+                ▼
+            Welcome Dialog (only now)
+                │
+                ├── Collect Name
+                ├── Collect Email
+                ├── Collect Mobile Number
+                ├── Country Selection (dropdown with dial codes)
+                ├── Company (optional)
+                │
+                ├── POST /api/v1/auth/otp/send
+                ├── POST /api/v1/auth/otp/verify
+                ├── POST /api/v1/customer/register
+                ├── POST /api/v1/trial (action: start)
+                │   ├── If TRIAL_ALREADY_CONSUMED → never show Welcome again
+                │   └── Show Activate License / Contact Sales instead
+                │
+                ├── CacheManager.set_onboarding_complete()
+                ├── CacheManager.set_license_status(trial)
+                ├── LicenseEngine.initialize()
+                │
+                └── Unlock Application
 ```
 
 **Rules:**
-- The Welcome Dialog is the **only** entry point for unlicensed customers
-- It is never bypassed, replaced, or removed
-- Existing customers (with cached `has_ever_consumed_trial` or `has_ever_activated_paid_license`) never re-enter Welcome
-- If a customer's email has already consumed a trial, the Welcome Dialog:
-  - Does NOT offer "Start Free Trial"
-  - Shows: "This email has already used its free trial."
-  - Offers: Activate License (1), Contact Sales (9), Exit (0)
+- The Welcome Dialog is **never** auto-opened on startup
+- It opens **only** when the customer explicitly selects "Start Free Trial" from the ULC
+- Existing customers (with cached `has_ever_consumed_trial` or `has_ever_activated_paid_license`) never see the "Start Free Trial" option
+- If a customer's email has already consumed a trial, the ULC shows:
+  - "This email has already used its free trial."
+  - Options: Activate License, Renew License, Sales Enquiry, Contact Support, Exit
+  - No "Start Free Trial" option
 - The Welcome Dialog caches `onboarding_complete` so it only runs once per device
 
 ### Design Rules

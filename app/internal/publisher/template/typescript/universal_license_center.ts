@@ -103,13 +103,12 @@ export class UniversalLicenseCenter {
       return result;
     }
 
-    if (this.status?.status === 'no_license' && !this.cache.isOnboardingComplete()) {
-      const welcomed = await this._welcomeFlow();
-      if (welcomed) {
-        this._unlockApplication();
+    this._lockApplication();
+
+    if (this.status?.status === 'no_license' || this.status?.status === 'unlicensed') {
+      if (this.cache.isOnboardingComplete()) {
+        this._trialConsumed = true;
       }
-    } else {
-      this._lockApplication();
     }
 
     await this._mainLoop();
@@ -200,6 +199,9 @@ export class UniversalLicenseCenter {
         console.log('  ┌─────────────────────────────────────┐');
         console.log('  │        APPLICATION LOCKED            │');
         console.log('  ├─────────────────────────────────────┤');
+        if (isNoLicense && !this._trialConsumed) {
+          console.log('  │  S. Start Free Trial                  │');
+        }
         if (showActivation) {
           console.log('  │  1. Activate License                 │');
         }
@@ -248,7 +250,13 @@ export class UniversalLicenseCenter {
         const isDeactivated = this.status?.status === 'deactivated';
         const isForceReactivation = this.status?.status === 'force_reactivation';
         const showActivation = !isDeactivated && !isForceReactivation && !isExpired;
-        switch (trimmed) {
+        switch (trimmed.toUpperCase()) {
+          case 'S':
+            if (isNoLicense && !this._trialConsumed) {
+              await this._startTrial();
+            }
+            handled = true;
+            break;
           case '1':
             if (showActivation) {
               await this._enterLicenseKey();
