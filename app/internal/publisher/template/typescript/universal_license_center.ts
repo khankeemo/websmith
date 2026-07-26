@@ -600,8 +600,8 @@ export class UniversalLicenseCenter {
         console.log('      LICENSE ACTIVATED');
         console.log('═══════════════════════════════════════');
         const data = result.data || result;
-        console.log(`  Customer: ${customerData.customer_name || 'N/A'}`);
-        console.log(`  Product: ${customerData.product_name || 'N/A'}`);
+        console.log(`  Customer Name: ${customerData.customer_name || 'N/A'}`);
+        console.log(`  Product: ${customerData.product_name || this.branding.product_name || 'N/A'}`);
         console.log(`  Plan: ${data.plan || customerData.plan || 'N/A'}`);
         console.log(`  License Status: Active`);
         console.log(`  Activation Date: ${new Date().toISOString().split('T')[0]}`);
@@ -846,12 +846,12 @@ export class UniversalLicenseCenter {
     if (cached?.hardware_id) {
       console.log(`  Registered Hardware: ${cached.hardware_id}`);
       console.log(`  Status: ${hwId === cached.hardware_id ? 'Matched' : 'Mismatched'}`);
+    } else {
+      console.log('  No registered hardware found.');
     }
     console.log('');
     console.log('Hardware replacement requires administrator approval.');
-    console.log('Please contact support to request a hardware change.');
-    console.log('');
-    console.log('To request hardware replacement, please use the Contact Support option.');
+    console.log('Please use Contact Support to request a hardware change.');
     console.log('An administrator will review and process your request.');
   }
 

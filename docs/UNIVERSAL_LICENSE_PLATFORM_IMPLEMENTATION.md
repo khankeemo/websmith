@@ -3336,4 +3336,44 @@ Application → Detect Hardware → Validate (with persisted key) → Already Ac
 - No generated SDK files were edited — all changes in Publisher/runtime generator + Internal API
 - Documentation updated with this session summary
 
+## Session Summary — 2026-07-26 (AWS-01 Remaining Fixes — Hardware Page, Deactivation Reset, Button UI, Activation Dialog)
+
+### Changes Applied
+
+**1. Hardware Page — Hardware Info Only (Python Runtime + TypeScript Template + TypeScript Runtime):**
+- **Python runtime** (`runtimes/python.ts`): `_view_hardware_status()` no longer requires `self._status` to be set. Reads registered hardware ID directly from `self.cache.get_license_status()` instead of `self._status.hardware_id`. Shows "No registered hardware found" when no cached hardware exists.
+- **TypeScript template** (`template/typescript/universal_license_center.ts`): `_viewHardwareStatus()` shows "No registered hardware found" when no cached hardware exists. Removed redundant text.
+- Hardware page now displays only: Current Hardware ID, Registered Hardware ID (if found), Match/Mismatch Status, and replacement guidance. No license, customer, product, plan, expiry, or activation information is displayed or fetched.
+
+**2. Reset Hardware / Deactivate License — Clean State Like Fresh Installation (Python + TypeScript):**
+- **Python runtime** (`runtimes/python.ts`): Added `reset_all()` method to `CacheManager` that calls `self.clear()` (wipes entire cache including onboarding_complete, has_ever_consumed_trial, has_ever_activated_paid_license, license_status, customer data) and `self.clear_license_key()` (removes license.key file). Updated `deactivate()` to call `self._cache.reset_all()` and always clear `self._license_key = None` (no conditional).
+- **TypeScript runtime** (`runtimes/typescript.ts`): Added `resetAll()` method to `CacheManager` that calls `this.clear()` and `this.clearLicenseKey()`. Updated `deactivate()` to call `this.cache.resetAll()` and always set `this._licenseKey = null`.
+- **TypeScript template** (`template/typescript/cache.ts`): Added `resetAll()` method. Updated `clearAllLicenseData()` to also delete `onboarding_complete` key.
+- After deactivation, next startup executes from a clean state: no license, no customer, no product, no plan, no activation, no validation state. Startup decision engine runs as if fresh installation.
+
+**3. Send Request Button UI — Consistent Primary Action Buttons (Python Runtime):**
+- Updated all primary action buttons across the Python ULC to use consistent padding: `padx=16, pady=10` (was `padx=12, pady=6` on most buttons).
+- Affected buttons: Validate License (x2), Send OTP, Verify OTP, Activate License, Submit Renewal Request, Submit Reactivation Request, Send Request, Continue, Restart Now, Restart Later, Close (x2).
+- All primary action buttons now have uniform height, padding, alignment, and font styling.
+
+**4. Activation Success Dialog — Match Master Doc Spec (Python Runtime + TypeScript Template):**
+- **Python runtime** (`runtimes/python.ts`): `_show_activation_confirmation()` now shows exactly: Customer Name, Product (from `self._product_name`), Plan, License Status ("Active"), Activation Date, Expiry Date, Remaining Validity. Removed Email, License Key, and Device fields (not in spec). Dialog resized to 500x400 (was 500x480). Label changed from "Customer" to "Customer Name".
+- **TypeScript template** (`template/typescript/universal_license_center.ts`): Updated "Customer" label to "Customer Name". Added `this.branding.product_name` fallback for Product field.
+- Dialog does not auto-close (shows Continue button → Restart Prompt). Restart prompt offers Restart Now / Restart Later.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/runtimes/python.ts` | Hardware page (read from cache), deactivate reset_all, button padding, activation dialog fields |
+| `app/internal/publisher/runtimes/typescript.ts` | CacheManager.resetAll(), deactivate() clean state |
+| `app/internal/publisher/template/typescript/universal_license_center.ts` | Hardware view, activation dialog labels |
+| `app/internal/publisher/template/typescript/cache.ts` | CacheManager.resetAll(), clearAllLicenseData() includes onboarding_complete |
+
+### Verification
+
+- `npm run build` — zero errors (13.5s Turbopack, TypeScript passed, 222 pages)
+- No generated SDK files were edited — all changes in Publisher/runtime generators
+- All changes follow AWS-01 rules: Publisher is source of truth, never edit generated SDK
+
 *End of Master Implementation Document*

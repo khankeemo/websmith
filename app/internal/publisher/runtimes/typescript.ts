@@ -427,6 +427,11 @@ export class CacheManager {
   getPendingCount(): number {
     return this.getMessageQueue().filter(m => m.status === 'pending' || m.status === 'failed').length;
   }
+
+  resetAll(): void {
+    this.clear();
+    this.clearLicenseKey();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1084,9 +1089,9 @@ export class LicenseEngine {
     try {
       const result = await this.client.deactivateLicense(licenseKey);
       if (result.success) {
-        this.cache.invalidateLicenseStatus();
+        this.cache.resetAll();
         this._status = null;
-        if (!key) this._licenseKey = null;
+        this._licenseKey = null;
       }
       return result;
     } catch (err: any) {

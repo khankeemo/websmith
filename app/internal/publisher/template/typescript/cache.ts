@@ -164,6 +164,7 @@ export class CacheManager {
     this.delete('hardware_id');
     this.delete('trial_active');
     this.delete('has_ever_activated_paid_license');
+    this.delete('onboarding_complete');
   }
 
   setOnboardingComplete(): void {
@@ -226,5 +227,10 @@ export class CacheManager {
 
   getPendingCount(): number {
     return this.getMessageQueue().filter(m => m.status === 'pending' || m.status === 'failed').length;
+  }
+
+  resetAll(): void {
+    this.clear();
+    this.clearLicenseKey();
   }
 }
