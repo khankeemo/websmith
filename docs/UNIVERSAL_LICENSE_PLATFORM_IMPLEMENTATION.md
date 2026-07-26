@@ -3061,12 +3061,13 @@ All 15 phases are fully complete:
 2. ✅ Welcome Dialog startup fix — `LicenseEngine.initialize()` loads persisted license key
 3. ✅ Renew License crash fix — `plan_buttons` initialized before use
 4. ✅ Paid plans filter — `is_trial_plan = FALSE` in `verify-renewal` and `available-plans` endpoints
-5. Generate fresh Python SDK and verify all workflows
-6. Generate fresh TypeScript SDK and verify all workflows
-7. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
-8. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
-9. Database review — migrate legacy `requests` table into universal conversation architecture
-10. Store Module — verify frontend rendering of products after service fix
+5. ✅ SDK Temporary Test File Audit (AWS-01) — No test/debug files in Publisher/templates/runtime generators
+6. Generate fresh Python SDK and verify all workflows
+7. Generate fresh TypeScript SDK and verify all workflows
+8. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
+9. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
+10. Database review — migrate legacy `requests` table into universal conversation architecture
+11. Store Module — verify frontend rendering of products after service fix
 
 ---
 
@@ -4026,3 +4027,54 @@ Redesign the Universal License Center's Hardware Status and License Status panel
 - Exit behavior exits process when app is locked
 
 *End of Master Implementation Document*
+
+---
+
+## AWS-01 — Temporary Test/Debug File Audit (2026-07-26)
+
+### Audit Scope
+Audit of SDK Publisher (`app/internal/publisher/`), runtime generators (`runtimes/*.ts`), templates (`template/*/`), and generated SDK output for temporary test/debug files.
+
+### Files Checked
+| Location | Files Searched |
+|----------|----------------|
+| `app/internal/publisher/` | All `.ts` files |
+| `app/internal/publisher/runtimes/` | All 14 runtime generators |
+| `app/internal/publisher/template/` | All 12 language template directories |
+| Generated SDK output | ZIP package contents |
+
+### Findings
+
+**Test files found in workspace root (`D:\websmith\`):**
+- `test___init__.py` (556 bytes)
+- `test_cache.py` (7,143 bytes)
+- `test_client.py` (15,537 bytes)
+- `test_crypto.py` (972 bytes)
+- `test_hardware.py` (6,272 bytes)
+- `test_license_engine.py` (38,597 bytes)
+- `test_ulc.py` (77,336 bytes)
+- `test_universal_license_center.py` (77,336 bytes)
+- `test_welcome.py` (16,144 bytes)
+
+**Publisher/Template/Runtime Generators:**
+- **ZERO** test/debug files found
+- No `test_*.py`, `test_*.ts`, `debug_*.py`, `debug_*.ts`, `welcome_test.py` files
+- No references to test files in any Publisher code
+- Runtime generators produce only 8 core Python files: `__init__.py`, `client.py`, `crypto.py`, `hardware.py`, `cache.py`, `license_engine.py`, `welcome.py`, `universal_license_center.py`
+- Template directories contain only production SDK files
+
+### Verification
+- ✅ No imports/exports depend on test files
+- ✅ No test files in Publisher/templates/runtime generators
+- ✅ No test files in SDK packaging (ZIP builder only includes generated package directory)
+- ✅ No test files in generated SDK output
+- ✅ Workspace root test files are external to SDK pipeline
+
+### Action Taken
+- Confirmed test files in `D:\websmith\` are external verification artifacts, not part of documented architecture
+- No cleanup required in Publisher/templates/generators
+- No regeneration needed — SDK pipeline clean
+- Documentation updated with audit record
+
+### Compliance
+This audit satisfies AWS-01 Rule 4 (Dependency Verification) and Rule 6 (Publisher Is Source of Truth).
