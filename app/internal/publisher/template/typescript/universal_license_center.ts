@@ -7,6 +7,14 @@ import { ApiClient } from './client';
 import { HardwareDetector } from './hardware';
 import { CacheManager } from './cache';
 
+interface HardwareInfo {
+  hardwareId: string;
+  deviceName: string;
+  systemName: string;
+  operatingSystem: string;
+  bindingStatus: 'Bound' | 'Not Bound';
+}
+
 const SDK_VERSION = '${kit_version}';
 const RUNTIME_TYPE = '${runtime}';
 
@@ -47,6 +55,7 @@ export class UniversalLicenseCenter {
   private rl: readline.Interface | null = null;
   private _locked: boolean = true;
   onLicenseReady: ((valid: boolean) => void) | null = null;
+  private _hardwareInfo: HardwareInfo | null = null;
 
   constructor(configPath?: string, onLicenseReady?: ((valid: boolean) => void) | null) {
     this.config = loadConfig(configPath);
@@ -156,7 +165,29 @@ export class UniversalLicenseCenter {
         message: `Status check failed: ${(e as Error).message}`,
       });
     }
+    this._updateHardwareStatus();
     this._printStatus();
+  }
+
+  private _updateHardwareStatus(): void {
+    const hwId = this.hardware.getFingerprint();
+    const identifiers = this.hardware.getIdentifiers();
+    const deviceName = os.hostname();
+    const systemName = os.hostname();
+    const osName = `${os.platform()} ${os.release()}`;
+
+    let bindingStatus: 'Bound' | 'Not Bound' = 'Not Bound';
+    if (this.status && this.status.valid && this.status.hardware_id === hwId) {
+      bindingStatus = 'Bound';
+    }
+
+    this._hardwareInfo = {
+      hardwareId: hwId,
+      deviceName,
+      systemName,
+      operatingSystem: osName,
+      bindingStatus,
+    };
   }
 
   private _printStatus(): void {
@@ -931,13 +962,15 @@ export class UniversalLicenseCenter {
 
   private async _viewHardwareStatus(): Promise<void> {
     console.log('── Hardware Status ──');
-    const hwId = this.hardware.getFingerprint();
+    if (!this._hardwareInfo) {
+      this._updateHardwareStatus();
+    }
     console.log(`  Hardware Status: Ready`);
-    console.log(`  Binding Status: Not Bound`);
-    console.log(`  Hardware ID: ${hwId}`);
-    console.log(`  Device Name: ${os.hostname()}`);
-    console.log(`  System Name: ${os.hostname()}`);
-    console.log(`  Operating System: ${os.platform()} ${os.release()}`);
+    console.log(`  Binding Status: ${this._hardwareInfo!.bindingStatus}`);
+    console.log(`  Hardware ID: ${this._hardwareInfo!.hardwareId}`);
+    console.log(`  Device Name: ${this._hardwareInfo!.deviceName}`);
+    console.log(`  System Name: ${this._hardwareInfo!.systemName}`);
+    console.log(`  Operating System: ${this._hardwareInfo!.operatingSystem}`);
     console.log(`  Runtime: ${RUNTIME_TYPE}`);
     console.log(`  SDK Version: 1.0`);
     console.log('');
