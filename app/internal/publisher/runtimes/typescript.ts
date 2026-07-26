@@ -962,13 +962,34 @@ export class LicenseEngine {
             this._notifyReady(false);
             return this._status;
           }
-        } catch {
+        } catch (err: any) {
+          const errCode = err?.data?.error?.code || '';
+          if (errCode === 'LICENSE_INACTIVE') {
+            LiveLog.log('License deactivated', 'admin deactivation detected');
+            this._status = {
+              valid: false, status: 'deactivated',
+              hardware_id: hardwareId,
+              message: 'Your license has been deactivated. Please contact your administrator.',
+            };
+            this._notifyReady(false);
+            return this._status;
+          }
+          if (errCode === 'LICENSE_EXPIRED') {
+            LiveLog.log('License expired', 'server returned expired status');
+            this._status = {
+              valid: false, status: 'expired',
+              hardware_id: hardwareId, license_key: this._licenseKey,
+              message: 'License has expired. Please renew.',
+            };
+            this._notifyReady(false);
+            return this._status;
+          }
           if (this.cache.hasEverActivatedPaidLicense()) {
             LiveLog.log('License validation failed', 'falling back to force_reactivation');
             this._status = {
               valid: false, status: 'force_reactivation',
               hardware_id: hardwareId, license_key: this._licenseKey,
-              message: 'License validation failed. Please reactivate.',
+              message: 'Unable to verify license. Please contact support.',
             };
             this._notifyReady(false);
             return this._status;
@@ -976,8 +997,8 @@ export class LicenseEngine {
           LiveLog.log('License validation failed', 'falling back to force_activation');
           this._status = {
             valid: false, status: 'force_activation',
-            hardware_id: hardwareId, license_key: this._licenseKey,
-            message: 'License validation failed. Please activate.',
+            hardware_id: hardwareId,
+            message: 'Unable to verify license. Please try again later.',
           };
           this._notifyReady(false);
           return this._status;
@@ -988,7 +1009,7 @@ export class LicenseEngine {
           this._status = {
             valid: false, status: 'force_reactivation',
             hardware_id: hardwareId,
-            message: 'License key missing. Please reactivate.',
+            message: 'Unable to verify license. Please contact support.',
           };
           this._notifyReady(false);
           return this._status;
@@ -1623,6 +1644,16 @@ export class UniversalLicenseCenter {
     await this.initialize();
     const statusStr = this.status?.status || 'unlicensed';
     LiveLog.log('Decision engine result', \`Status: \${statusStr}\`);
+
+    if (this.status && this.status.valid) {
+      this._unlockApp();
+      LiveLog.log('License valid', 'Launching application directly');
+      return {
+        status: this.status,
+        needs_welcome: false,
+        is_locked: false,
+      };
+    }
 
     if (statusStr === 'unlicensed' || !this.status) {
       if (!this.cache.isOnboardingComplete()) {

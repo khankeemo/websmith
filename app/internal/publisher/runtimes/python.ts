@@ -988,19 +988,55 @@ class LicenseEngine:
                         )
                         self._notify_ready(False)
                         return self._status
-                except Exception:
+                except ApiError as e:
+                    err_data = e.data if isinstance(e.data, dict) else {}
+                    err_info = err_data.get('error', {})
+                    err_code = err_info.get('code', '') if isinstance(err_info, dict) else ''
+                    err_inactive_reason = err_info.get('inactive_reason', '') if isinstance(err_info, dict) else ''
+                    if err_code == 'LICENSE_INACTIVE':
+                        self._status = LicenseStatus(
+                            valid=False, status='deactivated',
+                            hardware_id=hardware_id,
+                            message='Your license has been deactivated. Please contact your administrator.',
+                        )
+                        self._notify_ready(False)
+                        return self._status
+                    if err_code == 'LICENSE_EXPIRED':
+                        self._status = LicenseStatus(
+                            valid=False, status='expired',
+                            hardware_id=hardware_id, license_key=self._license_key,
+                            message='License has expired. Please renew.'
+                        )
+                        self._notify_ready(False)
+                        return self._status
                     if self._cache.has_ever_activated_paid_license():
                         self._status = LicenseStatus(
                             valid=False, status='force_reactivation',
                             hardware_id=hardware_id, license_key=self._license_key,
-                            message='License validation failed. Please reactivate.'
+                            message='Unable to verify license. Please contact support.'
                         )
                         self._notify_ready(False)
                         return self._status
                     self._status = LicenseStatus(
                         valid=False, status='force_activation',
-                        hardware_id=hardware_id, license_key=self._license_key,
+                        hardware_id=hardware_id,
                         message='License validation failed. Please activate.'
+                    )
+                    self._notify_ready(False)
+                    return self._status
+                except Exception:
+                    if self._cache.has_ever_activated_paid_license():
+                        self._status = LicenseStatus(
+                            valid=False, status='force_reactivation',
+                            hardware_id=hardware_id, license_key=self._license_key,
+                            message='Unable to verify license. Please contact support.'
+                        )
+                        self._notify_ready(False)
+                        return self._status
+                    self._status = LicenseStatus(
+                        valid=False, status='force_activation',
+                        hardware_id=hardware_id,
+                        message='Unable to verify license. Please try again later.'
                     )
                     self._notify_ready(False)
                     return self._status
@@ -1009,7 +1045,7 @@ class LicenseEngine:
                     self._status = LicenseStatus(
                         valid=False, status='force_reactivation',
                         hardware_id=hardware_id,
-                        message='License key missing. Please reactivate.'
+                        message='Unable to verify license. Please contact support.'
                     )
                     self._notify_ready(False)
                     return self._status
@@ -1907,6 +1943,12 @@ class UniversalLicenseCenter:
         self._log("SDK", "INFO", f"Decision engine result: {status}")
         LiveLog.log("Decision engine result", f"Status: {status}")
 
+        if self._status and self._status.valid:
+            self._unlock_application()
+            self._log("SDK", "INFO", "Valid license detected — launching application directly")
+            LiveLog.log("License valid", "Launching application directly")
+            return {'action': 'launch', 'status': self._status.to_dict(), 'unlocked': True}
+
         if status == 'unlicensed' or (not self._status):
             if not self.cache.is_onboarding_complete():
                 self._log("WELCOME", "INFO", "Opening Welcome", "Onboarding required")
@@ -2014,9 +2056,11 @@ class UniversalLicenseCenter:
 
         status = self._status.status if self._status else 'unlicensed'
         is_valid = self._status.valid if self._status else False
-        is_expired = status in ('expired', 'force_reactivation')
+        is_expired = status == 'expired'
         is_trial = status == 'trial'
         is_paid = status == 'active' and is_valid
+        is_deactivated = status == 'deactivated'
+        is_force_reactivation = status == 'force_reactivation'
 
         if is_trial:
             buttons = [
@@ -2039,12 +2083,22 @@ class UniversalLicenseCenter:
             ]
         elif is_expired:
             buttons = [
-                ("Activate License", self._activate_license, self._primary),
                 ("Renew License", self._renew_license_flow, self._primary),
                 ("Sales Enquiry", self._sales_enquiry, self._text_secondary),
                 ("Contact Support", self._contact_support, self._text_secondary),
                 ("View Conversations", self._view_conversations, self._text_secondary),
                 ("View Notifications", self._view_notifications, self._text_secondary),
+                ("Close", self._on_close, "#e5e7eb"),
+            ]
+        elif is_deactivated:
+            buttons = [
+                ("Contact Support", self._contact_support, self._primary),
+                ("Sales Enquiry", self._sales_enquiry, self._text_secondary),
+                ("Close", self._on_close, "#e5e7eb"),
+            ]
+        elif is_force_reactivation:
+            buttons = [
+                ("Contact Support", self._contact_support, self._primary),
                 ("Close", self._on_close, "#e5e7eb"),
             ]
         else:
@@ -2099,23 +2153,27 @@ class UniversalLicenseCenter:
             self._status_detail.config(text="Status: Unknown", fg=self._text_secondary)
             return
         lines = []
-        lines.append(f"Status: {self._status.status.upper()}")
-        if self._status.license_key:
-            lines.append(f"License: {self._status.license_key}")
-        if self._status.plan:
-            lines.append(f"Plan: {self._status.plan}")
-        if self._status.expiry_date:
-            lines.append(f"Expires: {self._status.expiry_date}")
-        if self._status.days_left > 0:
-            lines.append(f"Days Remaining: {self._status.days_left}")
-        if self._status.hardware_id:
-            lines.append(f"Hardware: {self._status.hardware_id[:48]}...")
-        if self._status.message:
-            lines.append(f"Message: {self._status.message}")
+
+        if self._status.status == 'deactivated':
+            lines.append("Your license has been deactivated.")
+            lines.append("Please contact your administrator.")
+        elif self._status.status == 'force_reactivation':
+            lines.append("Unable to verify your license.")
+            lines.append("Please contact support.")
+        else:
+            lines.append(f"Status: {self._status.status.upper()}")
+            if self._status.plan:
+                lines.append(f"Plan: {self._status.plan}")
+            if self._status.expiry_date:
+                lines.append(f"Expires: {self._status.expiry_date}")
+            if self._status.days_left > 0:
+                lines.append(f"Days Remaining: {self._status.days_left}")
 
         if self._status.valid:
             fg = self._success
         elif self._status.status == "trial":
+            fg = self._warning
+        elif self._status.status == "deactivated":
             fg = self._warning
         else:
             fg = self._error
@@ -2890,7 +2948,7 @@ class UniversalLicenseCenter:
     def _show_communication_dialog(self, category: str, title: str):
         dialog = tk.Toplevel(self._root)
         dialog.title(title)
-        dialog.geometry("520x480")
+        dialog.geometry("520x600")
         dialog.configure(bg=self._bg)
         dialog.transient(self._root)
         dialog.grab_set()
@@ -2975,7 +3033,7 @@ class UniversalLicenseCenter:
         tk.Button(frame, text="Send Request", command=do_send,
                   font=("Segoe UI", 11, "bold"),
                   bg=self._primary, fg="white", relief="flat",
-                  padx=16, pady=10, cursor="hand2").pack(fill="x", padx=16, pady=(8, 12))
+                  padx=16, pady=10, cursor="hand2").pack(fill="x", padx=16, pady=(8, 20))
 
         dialog.wait_window()
 

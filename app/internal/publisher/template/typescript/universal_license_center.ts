@@ -94,6 +94,15 @@ export class UniversalLicenseCenter {
 
     await this._refreshStatus();
 
+    if (this.status && this.status.valid) {
+      this._unlockApplication();
+      console.log('Valid license detected — launching application directly.');
+      const result = { status: this.status?.toDict() || null };
+      if (this.rl) this.rl.close();
+      this.rl = null;
+      return result;
+    }
+
     if (this.status?.status === 'unlicensed' && !this.cache.isOnboardingComplete()) {
       const welcomed = await this._welcomeFlow();
       if (welcomed) {
@@ -155,9 +164,19 @@ export class UniversalLicenseCenter {
       console.log('  Status: Unknown');
       return;
     }
-    console.log(`  Status: ${this.status.status}`);
+    if (this.status.status === 'deactivated') {
+      console.log('  Your license has been deactivated.');
+      console.log('  Please contact your administrator.');
+    } else if (this.status.status === 'force_reactivation') {
+      console.log('  Unable to verify your license.');
+      console.log('  Please contact support.');
+    } else {
+      console.log(`  Status: ${this.status.status}`);
+    }
     if (this.status.hardware_id) console.log(`  Hardware: ${this.status.hardware_id}`);
-    if (this.status.message) console.log(`  Message: ${this.status.message}`);
+    if (this.status.message && this.status.status !== 'deactivated' && this.status.status !== 'force_reactivation') {
+      console.log(`  Message: ${this.status.message}`);
+    }
     console.log('');
   }
 
@@ -173,11 +192,17 @@ export class UniversalLicenseCenter {
       const needsReactivation = isExpired || isForceReactivation;
 
       if (this._locked) {
+        const isDeactivated = this.status?.status === 'deactivated';
+        const showActivation = !isDeactivated && !isForceReactivation && !isExpired;
         console.log('  ┌─────────────────────────────────────┐');
         console.log('  │        APPLICATION LOCKED            │');
         console.log('  ├─────────────────────────────────────┤');
-        console.log('  │  1. Activate License                 │');
-        console.log('  │  2. Renew License                    │');
+        if (showActivation) {
+          console.log('  │  1. Activate License                 │');
+        }
+        if (!isDeactivated && !isForceReactivation) {
+          console.log('  │  2. Renew License                    │');
+        }
         console.log('  │  3. Sales Enquiry                    │');
         console.log('  │  4. Contact Support                  │');
         const pending = this.cache.getPendingCount();
@@ -217,12 +242,21 @@ export class UniversalLicenseCenter {
       let handled = false;
 
       if (this._locked) {
+        const isDeactivated = this.status?.status === 'deactivated';
+        const isForceReactivation = this.status?.status === 'force_reactivation';
+        const showActivation = !isDeactivated && !isForceReactivation && !isExpired;
         switch (trimmed) {
           case '1':
-            await this._enterLicenseKey(); handled = true;
+            if (showActivation) {
+              await this._enterLicenseKey();
+            }
+            handled = true;
             break;
           case '2':
-            await this._renewLicenseFlow(); handled = true;
+            if (!isDeactivated && !isForceReactivation) {
+              await this._renewLicenseFlow();
+            }
+            handled = true;
             break;
           case '3':
             await this._salesEnquiry(); handled = true;

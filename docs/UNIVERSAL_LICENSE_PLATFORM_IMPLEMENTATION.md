@@ -3411,4 +3411,131 @@ This caused `IndentationError` when the generated `welcome.py` was compiled with
 - No generated SDK files were edited — all changes in Publisher/runtime generator
 - Follows AWS-01 rules: Publisher is source of truth
 
+## Session Summary — 2026-07-26 (AWS-01 Universal License Center Final Corrections)
+
+### Issue 1 — Hardware Binding Logic (License Key Never Shown After Activation)
+
+#### Root Cause
+
+1. **Admin deactivation** (`app/internal/backend/admin/licenses/deactivate/route.ts`) set `activations.is_active = false` and `license_bindings.status = 'unbound'`, automatically unbinding the hardware when only the license status should change.
+2. **ULC `_refresh_display()`** included `License: {self._status.license_key}` in the status output, exposing the license key after activation.
+3. **`initialize()` in both Python and TypeScript runtimes** did not handle `LICENSE_INACTIVE` error codes from the public API — admin-deactivated licenses fell through to `force_reactivation`, which showed an activation form asking the user to re-enter the key.
+4. **`_build_ui()`** showed "Activate License" for `expired` and `force_reactivation` statuses, violating the rule that the license key must never be requested/displayed after activation.
+
+#### Fix Applied — Backend
+
+**`app/internal/backend/admin/licenses/deactivate/route.ts`:**
+- Removed `UPDATE activations SET is_active = false` — hardware binding is no longer removed on deactivation
+- Removed `UPDATE license_bindings SET status = 'unbound'` — explicit binding remains intact
+- After deactivation, only `licenses.status = 'inactive'` is set; hardware stays bound until admin performs Unbind/Reset/Replace
+
+#### Fix Applied — Python Runtime (`runtimes/python.ts`)
+
+**`initialize()` — Error handling for `LICENSE_INACTIVE`:**
+- Added `except ApiError as e:` block before generic `except Exception:`
+- Catches `LICENSE_INACTIVE` → returns `LicenseStatus(valid=False, status='deactivated', message='Your license has been deactivated. Please contact your administrator.')`
+- Catches `LICENSE_EXPIRED` → returns proper expired status
+- Other error codes fall through to existing `force_reactivation`/`force_activation` logic
+- Updated `force_reactivation` messages to "Unable to verify license. Please contact support."
+- Updated `force_activation` messages for catch blocks to "Unable to verify license. Please try again later."
+
+**`_refresh_display()` — License key and hardware ID removed from status:**
+- Removed `License: {self._status.license_key}` — license key never shown after activation
+- Removed `Hardware: {self._status.hardware_id[:48]}...` — hardware ID is internal, not end-user info
+- Added special display for `deactivated` status: "Your license has been deactivated." / "Please contact your administrator."
+- Added special display for `force_reactivation` status: "Unable to verify your license." / "Please contact support."
+- Added `deactivated` color handling (uses `self._warning`)
+
+**`_build_ui()` — Button groups updated:**
+- Split `is_expired` from `force_reactivation`: `is_expired = status == 'expired'` only
+- Added `is_deactivated` → buttons: Contact Support (primary), Sales Enquiry, Close
+- Added `is_force_reactivation` → buttons: Contact Support (primary), Close
+- Removed "Activate License" from expired button set (user should renew, not re-enter key)
+
+#### Fix Applied — TypeScript Runtime (`runtimes/typescript.ts`)
+
+**`initialize()` — Error handling for `LICENSE_INACTIVE`:**
+- Changed inner `catch { }` to `catch (err: any)` to access error details
+- Added handling for `LICENSE_INACTIVE` → returns `status: 'deactivated'`
+- Added handling for `LICENSE_EXPIRED` → returns proper expired status
+- Updated `force_reactivation` messages to "Unable to verify license. Please contact support."
+- Updated `else` branch message for no-license-key case
+
+#### Fix Applied — TypeScript Template (`template/typescript/universal_license_center.ts`)
+
+**`_printStatus()` — Special display for deactivated/force_reactivation:**
+- Shows user-friendly message instead of raw status for `deactivated` and `force_reactivation`
+
+**`_mainLoop()` — Locked menu updated:**
+- "Activate License" hidden for `deactivated`, `force_reactivation`, `expired` statuses
+- "Renew License" hidden for `deactivated`, `force_reactivation` statuses
+- Locked handler only calls `_enterLicenseKey()` when activation option is shown
+
+### Issue 2 — Sales & Contact Form Layout
+
+#### Root Cause
+
+The communication dialog (`_show_communication_dialog`) had insufficient height (`520x480`), causing the Send Request button to be clipped.
+
+#### Fix Applied — Python Runtime (`runtimes/python.ts`)
+
+**`_show_communication_dialog()`:**
+- Increased geometry from `"520x480"` to `"520x600"`
+- Increased Send Request button bottom padding from `pady=(8, 12)` to `pady=(8, 20)`
+
+*Note: TypeScript SDK is CLI-based (no GUI), so no dialog dimension fixes needed.*
+
+### Issue 3 — Welcome Dialog Appearing for Valid Licenses
+
+#### Root Cause
+
+The `show()` method in both Python and TypeScript ULC did not check for valid license status before entering the UI loop. Valid license holders saw the Welcome dialog or Universal License Center on every startup.
+
+#### Fix Applied — All Runtimes
+
+**Python Runtime (`runtimes/python.ts`) — `show()`:**
+- After `initialize()`, checks `if self._status and self._status.valid`
+- If valid: unlocks application, logs "Valid license detected — launching application directly", returns `{'action': 'launch', 'status': ..., 'unlocked': True}` immediately without showing any UI
+
+**TypeScript Runtime (`runtimes/typescript.ts`) — `show()`:**
+- After `initialize()`, checks `if (this.status && this.status.valid)`
+- If valid: unlocks application, returns `{status, needs_welcome: false, is_locked: false}` immediately
+
+**TypeScript Template (`template/typescript/universal_license_center.ts`) — `show()`:**
+- After `_refreshStatus()`, checks `if (this.status && this.status.valid)`
+- If valid: unlocks application, returns result immediately without entering `_mainLoop()`
+
+#### Startup Decision Tree (Updated)
+
+```
+                 Application Start
+                         |
+                         ▼
+               Initialize License Engine
+                         |
+                         ▼
+                    Is license valid?
+                    YES             NO
+                     |              |
+                     ▼              ▼
+               Launch App       Show ULC
+               (No Dialogs)     (Welcome/Activate/Renew/Support)
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/backend/admin/licenses/deactivate/route.ts` | Removed hardware unbind on deactivation (activations + license_bindings) |
+| `app/internal/publisher/runtimes/python.ts` | initialize() LICENSE_INACTIVE handling; _refresh_display() no license key; _build_ui() deactivated/force_reactivation button groups; show() skip for valid licenses; _show_communication_dialog() height 520x600 |
+| `app/internal/publisher/runtimes/typescript.ts` | initialize() LICENSE_INACTIVE + LICENSE_EXPIRED handling; show() skip for valid licenses; force_reactivation messages updated |
+| `app/internal/publisher/template/typescript/universal_license_center.ts` | show() skip for valid licenses; _printStatus() deactivated/force_reactivation messages; _mainLoop() button visibility by status |
+
+### Verification
+
+- `npm run build` — zero errors (13.5s Turbopack, TypeScript passed)
+- All 8 generated Python SDK files compile with `python -m py_compile`
+- No generated SDK files were edited — all changes in Publisher/runtime generators + Internal API
+- All changes follow AWS-01 rules: Publisher + Internal API is source of truth
+
 *End of Master Implementation Document*
