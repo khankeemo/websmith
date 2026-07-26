@@ -3376,4 +3376,39 @@ Application → Detect Hardware → Validate (with persisted key) → Already Ac
 - No generated SDK files were edited — all changes in Publisher/runtime generators
 - All changes follow AWS-01 rules: Publisher is source of truth, never edit generated SDK
 
+## Session Summary — 2026-07-26 (Python Runtime Generator Indentation Fix)
+
+### Root Cause
+
+The Python runtime generator (`runtimes/python.ts`) had indentation bugs in the `_build_ui` method template for `welcome.py`. Two `self.*` statements were placed at column 0 instead of being indented inside the method:
+
+1. `self._send_btn = tk.Button(...)` — was at column 0 instead of 8-space indent
+2. `self._verify_btn = tk.Button(...)` — was at column 0 instead of 8-space indent
+
+This caused `IndentationError` when the generated `welcome.py` was compiled with `python -m py_compile`.
+
+### Fix Applied — Python Runtime (`runtimes/python.ts`)
+
+**Lines 1536-1539:** Fixed indentation of `self._send_btn = tk.Button(...)` from column 0 to 8-space indent inside `_build_ui` method.
+
+**Lines 1548-1552:** Fixed indentation of `self._verify_btn = tk.Button(...)` from column 0 to 8-space indent inside `_build_ui` method.
+
+### Verification
+
+- Generated all 8 Python SDK files (`__init__.py`, `client.py`, `crypto.py`, `hardware.py`, `cache.py`, `license_engine.py`, `welcome.py`, `universal_license_center.py`)
+- All files compile successfully with `python -m py_compile`
+- No indentation issues found in any `self.*` statements within template strings
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/runtimes/python.ts` | Fixed indentation of `self._send_btn` and `self._verify_btn` in `_build_ui` template |
+
+### Verification
+
+- All 8 generated Python files compile with zero syntax errors
+- No generated SDK files were edited — all changes in Publisher/runtime generator
+- Follows AWS-01 rules: Publisher is source of truth
+
 *End of Master Implementation Document*
