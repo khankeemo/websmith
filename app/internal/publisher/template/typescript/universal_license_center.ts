@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as readline from 'readline';
 import { LicenseEngine, LicenseStatus } from './license_engine';
@@ -926,18 +927,15 @@ export class UniversalLicenseCenter {
   private async _viewHardwareStatus(): Promise<void> {
     console.log('── Hardware Status ──');
     const hwId = this.hardware.getFingerprint();
-    console.log(`  Current Hardware ID: ${hwId}`);
-    const cached = this.cache.getLicenseStatus();
-    if (cached?.hardware_id) {
-      console.log(`  Registered Hardware: ${cached.hardware_id}`);
-      console.log(`  Status: ${hwId === cached.hardware_id ? 'Matched' : 'Mismatched'}`);
-    } else {
-      console.log('  No registered hardware found.');
-    }
+    console.log(`  Hardware Status: Ready`);
+    console.log(`  Binding Status: Not Bound`);
+    console.log(`  Hardware ID: ${hwId}`);
+    console.log(`  Device Name: ${os.hostname()}`);
+    console.log(`  System Name: ${os.hostname()}`);
+    console.log(`  Operating System: ${os.platform()} ${os.release()}`);
+    console.log(`  Runtime: ${RUNTIME_TYPE}`);
+    console.log(`  SDK Version: 1.0`);
     console.log('');
-    console.log('Hardware replacement requires administrator approval.');
-    console.log('Please use Contact Support to request a hardware change.');
-    console.log('An administrator will review and process your request.');
   }
 
   private async _viewConversations(): Promise<void> {

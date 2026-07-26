@@ -2089,7 +2089,7 @@ class UniversalLicenseCenter:
         self._hw_detail.pack(anchor="w", padx=16, pady=(0, 4))
 
         self._hw_footer = tk.Label(hw_frame,
-                                    text="(No license information)",
+                                    text="Hardware information is collected for license binding.",
                                     font=("Segoe UI", 8, "italic"),
                                     bg=self._card_bg, fg="#9ca3af",
                                     justify="left", wraplength=540)
@@ -2287,17 +2287,16 @@ class UniversalLicenseCenter:
             device_name = 'N/A'
         system_name = platform.node() or 'N/A'
         os_name = f"{platform.system()} {platform.release()}"
-        cached = self.cache.get_license_status() or {}
-        cached_hw = cached.get('hardware_id', '')
-        binding_status = "Bound" if cached_hw and cached_hw == hw_id else "Not Bound"
+        binding_status = "Not Bound"
         lines = []
+        lines.append("Hardware Status: Ready")
+        lines.append(f"Binding Status: {binding_status}")
         lines.append(f"Hardware ID: {hw_id}")
         lines.append(f"Device Name: {device_name}")
         lines.append(f"System Name: {system_name}")
         lines.append(f"Operating System: {os_name}")
         lines.append(f"Runtime: {RUNTIME_TYPE}")
-        lines.append(f"SDK Version: {SDK_VERSION}")
-        lines.append(f"Hardware Binding Status: {binding_status}")
+        lines.append(f"SDK Version: 1.0")
         self._hw_detail.config(text="\\n".join(lines))
 
     def _start_trial(self):
@@ -3012,9 +3011,16 @@ class UniversalLicenseCenter:
 
     def _view_hardware_status(self):
         hw_id = self.hardware.get_fingerprint()
+        try:
+            import socket
+            device_name = socket.gethostname()
+        except Exception:
+            device_name = 'N/A'
+        system_name = platform.node() or 'N/A'
+        os_name = f"{platform.system()} {platform.release()}"
         dialog = tk.Toplevel(self._root)
         dialog.title("Hardware Status")
-        dialog.geometry("500x350")
+        dialog.geometry("500x400")
         dialog.configure(bg=self._bg)
         dialog.transient(self._root)
         dialog.grab_set()
@@ -3023,40 +3029,27 @@ class UniversalLicenseCenter:
         frame.pack(fill="both", expand=True, padx=20, pady=20)
         tk.Label(frame, text="Hardware Status", font=("Segoe UI", 16, "bold"),
                  bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(12, 8))
-        tk.Label(frame, text="Current Hardware ID:", font=("Segoe UI", 10, "bold"),
-                 bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
-        tk.Label(frame, text=hw_id, font=("Courier", 9),
-                 bg=self._card_bg, fg=self._text_secondary,
-                 wraplength=420).pack(anchor="w", padx=16, pady=(0, 4))
-        cached_hw = None
-        cached = self.cache.get_license_status()
-        if cached and cached.get('hardware_id'):
-            cached_hw = cached.get('hardware_id')
-        if cached_hw:
-            match = hw_id == cached_hw
-            tk.Label(frame, text="Registered Hardware ID:", font=("Segoe UI", 10, "bold"),
-                     bg=self._card_bg, fg=self._text_primary).pack(anchor="w", padx=16, pady=(4, 2))
-            tk.Label(frame, text=cached_hw, font=("Courier", 9),
-                     bg=self._card_bg, fg=self._text_secondary,
-                     wraplength=420).pack(anchor="w", padx=16, pady=(0, 4))
-            status_color = self._success if match else self._warning
-            status_text = "Matched" if match else "Mismatched"
-            tk.Label(frame, text=f"Status: {status_text}", font=("Segoe UI", 10, "bold"),
-                     bg=self._card_bg, fg=status_color).pack(anchor="w", padx=16, pady=(4, 8))
-        else:
-            tk.Label(frame, text="No registered hardware found.",
-                     font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary,
-                     wraplength=420).pack(anchor="w", padx=16, pady=(4, 8))
-        tk.Label(frame, text="Hardware replacement requires administrator approval.",
-                 font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary,
-                 wraplength=420).pack(anchor="w", padx=16, pady=(8, 4))
-        tk.Label(frame, text="Please use Contact Support to request a hardware change.",
-                 font=("Segoe UI", 10), bg=self._card_bg, fg=self._text_secondary,
-                 wraplength=420).pack(anchor="w", padx=16, pady=(0, 12))
+        info_lines = [
+            ("Hardware Status:", "Ready"),
+            ("Binding Status:", "Not Bound"),
+            ("Hardware ID:", hw_id),
+            ("Device Name:", device_name),
+            ("System Name:", system_name),
+            ("Operating System:", os_name),
+            ("Runtime:", RUNTIME_TYPE),
+            ("SDK Version:", "1.0"),
+        ]
+        for label, value in info_lines:
+            row = tk.Frame(frame, bg=self._card_bg)
+            row.pack(fill="x", padx=16, pady=(2, 2))
+            tk.Label(row, text=label, font=("Segoe UI", 10, "bold"),
+                     bg=self._card_bg, fg=self._text_primary, width=18, anchor="w").pack(side="left")
+            tk.Label(row, text=value, font=("Segoe UI", 10),
+                     bg=self._card_bg, fg=self._text_secondary, anchor="w").pack(side="left", fill="x", expand=True)
         tk.Button(frame, text="Close", command=dialog.destroy,
                   font=("Segoe UI", 11, "bold"),
                   bg=self._text_secondary, fg="white", relief="flat",
-                  padx=16, pady=8, cursor="hand2").pack(padx=16, pady=(8, 12))
+                  padx=16, pady=8, cursor="hand2").pack(pady=(16, 12))
         dialog.wait_window()
 
     def _contact_support(self):
