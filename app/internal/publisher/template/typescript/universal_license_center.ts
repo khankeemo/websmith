@@ -317,7 +317,12 @@ export class UniversalLicenseCenter {
             await this._contactSupport(); handled = true;
             break;
           case '0':
-            running = false; handled = true;
+            running = false;
+            handled = true;
+            if (this._locked) {
+              console.log('Exiting application...');
+              process.exit(0);
+            }
             break;
         }
         if (!handled) {

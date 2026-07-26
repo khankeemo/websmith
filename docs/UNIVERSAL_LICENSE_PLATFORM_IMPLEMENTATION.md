@@ -3964,4 +3964,65 @@ Redesign the Universal License Center's Hardware Status and License Status panel
 - Python SDK compilation — all generated SDK files compile without errors
 - Hardware data and license data are strictly separated per specification
 
+---
+
+## Session 9 — Hardware Status Panel Fix & Exit Behavior
+
+### Objective
+
+**Task 1 — Fix Hardware Status Panel:**
+- SDK Version must show "1.0" in hardware panel (was using SDK_VERSION template variable)
+- Hardware panel must populate immediately after hardware detection
+- Replace "Detecting..." with hardware-only fields (Hardware Binding Status, Hardware ID, Device Name, System Name, Operating System, Runtime, SDK Version)
+- Never display license fields in hardware panel
+
+**Task 2 — Exit Behavior:**
+- When ULC is active and application is locked:
+  - Clicking Close / window X / Alt+F4 must execute shutdown flow: Destroy ULC → Destroy hidden root window → Stop background threads → Close application → Exit process
+  - If no active license or trial, application must never continue running after ULC is closed
+
+### Tasks Completed
+
+**1. Hardware Status Panel — Python Runtime (`runtimes/python.ts`)**
+- Updated `_refresh_hardware_display()` to show SDK Version as "1.0" (hardcoded)
+- Hardware panel already populates immediately after `_build_ui()` via `_refresh_hardware_display()` call in `_show_license_center()`
+- Hardware panel fields: Hardware Status: Ready, Binding Status: Not Bound, Hardware ID, Device Name, System Name, Operating System, Runtime, SDK Version: 1.0
+- No license fields displayed in hardware panel
+
+**2. Hardware Status Panel — TypeScript Template (`template/typescript/universal_license_center.ts`)**
+- Updated `_viewHardwareStatus()` to show SDK Version: 1.0
+- Hardware-only fields matching Python panel
+- Added `os` module import for hostname, platform, release
+
+**3. Exit Behavior — Python Runtime (`runtimes/python.ts`)**
+- Added `_root.protocol('WM_DELETE_WINDOW', self._on_ulc_close)` in `_show_license_center()`
+- Added `_on_ulc_close()` method that:
+  - Logs the close event
+  - Destroys the ULC window
+  - Calls `sys.exit(0)` to terminate the process
+- Updated Exit/Close buttons in all locked states to use `_on_ulc_close` instead of `_on_close`:
+  - Inactive license state: "Close" button → `_on_ulc_close`
+  - Trial consumed state: "Close" button → `_on_ulc_close`
+  - No license state: "Close" button → `_on_ulc_close`
+  - Exit button in trial consumed state: `_on_ulc_close`
+
+**4. Exit Behavior — TypeScript Template (`template/typescript/universal_license_center.ts`)**
+- Updated `_mainLoop()` Exit option (0) to call `process.exit(0)` when application is locked
+- In unlocked state, Exit just breaks the loop (returns to caller)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/runtimes/python.ts` | Added _on_ulc_close(); updated WM_DELETE_WINDOW protocol; updated Exit/Close buttons in locked states to use _on_ulc_close |
+| `app/internal/publisher/template/typescript/universal_license_center.ts` | Updated _viewHardwareStatus() with SDK Version 1.0; updated Exit option to process.exit(0) when locked |
+
+### Verification
+
+- `npx tsc --noEmit` — zero errors
+- `npm run build` — zero errors
+- Python SDK compilation (`python -m py_compile`) — all generated SDK files compile without errors
+- Hardware panel shows hardware-only info with SDK Version 1.0
+- Exit behavior exits process when app is locked
+
 *End of Master Implementation Document*
