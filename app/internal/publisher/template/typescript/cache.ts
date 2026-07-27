@@ -163,8 +163,6 @@ export class CacheManager {
     this.delete('license_key');
     this.delete('hardware_id');
     this.delete('trial_active');
-    this.delete('has_ever_activated_paid_license');
-    this.delete('onboarding_complete');
   }
 
   setOnboardingComplete(): void {
@@ -187,6 +185,52 @@ export class CacheManager {
     const cache = this._loadCache();
     const entry = cache.has_ever_activated_paid_license;
     return entry !== undefined && entry.value === true;
+  }
+
+  markHasEverConsumedTrial(): void {
+    const cache = this._loadCache();
+    cache.has_ever_consumed_trial = { value: true, cached_at: Date.now() / 1000 };
+    this._saveCache();
+  }
+
+  hasEverConsumedTrial(): boolean {
+    const cache = this._loadCache();
+    const entry = cache.has_ever_consumed_trial;
+    return entry !== undefined && entry.value === true;
+  }
+
+  setCustomerState(state: string): void {
+    const cache = this._loadCache();
+    cache.customer_state = { value: state, cached_at: Date.now() / 1000 };
+    this._saveCache();
+  }
+
+  getCustomerState(): string | null {
+    return this.get<string>('customer_state');
+  }
+
+  setActiveBinding(bound: boolean): void {
+    const cache = this._loadCache();
+    cache.active_binding = { value: bound, cached_at: Date.now() / 1000 };
+    this._saveCache();
+  }
+
+  getActiveBinding(): boolean {
+    return this.get<boolean>('active_binding') === true;
+  }
+
+  setNotificationPrefs(prefs: Record<string, any>): void {
+    const cache = this._loadCache();
+    cache.notification_prefs = { value: prefs, cached_at: Date.now() / 1000 };
+    this._saveCache();
+  }
+
+  getNotificationPrefs(): Record<string, any> | null {
+    return this.get<Record<string, any>>('notification_prefs');
+  }
+
+  clearLicenseKey(): void {
+    this.delete('license_key');
   }
 
   // ====================================================================

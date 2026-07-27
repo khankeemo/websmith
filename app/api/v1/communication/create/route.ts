@@ -15,8 +15,8 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,
 });
 
-const MAIL_SUPPORT_ADDRESS = process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com';
-const MAIL_SALES_ADDRESS = process.env.MAIL_SALES_ADDRESS || 'sales@example.com';
+const MAIL_SUPPORT_ADDRESS = process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com';
+const MAIL_SALES_ADDRESS = process.env.MAIL_SALES_ADDRESS || 'sales@websmithdigital.com';
 
 const CATEGORY_ROUTES: Record<string, { email: string; template: string }> = {
   support: { email: MAIL_SUPPORT_ADDRESS, template: 'admin_notification' },

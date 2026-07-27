@@ -4,6 +4,7 @@ import { validateApiKey, validateProductMatch } from '@/lib/public-api/auth';
 import { verifySignature } from '@/lib/public-api/signature';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest, logSecurityViolation } from '@/lib/public-api/audit';
+import { sendEmail } from '@/lib/email/brevo';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -16,9 +17,9 @@ const pool = new Pool({
 });
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
-const SENDER_EMAIL = process.env.SENDER_EMAIL || 'support@websmithdigital.com';
-const SENDER_NAME = 'Websmith Digital';
-const SUPPORT_EMAIL = 'support@websmithdigital.com';
+const SENDER_EMAIL = process.env.MAIL_FROM_ADDRESS || 'no-reply@websmithdigital.com';
+const SENDER_NAME = process.env.MAIL_SENDER_NAME || 'Websmith Support';
+const SUPPORT_EMAIL = process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -254,25 +255,28 @@ ${todayDate}
     let emailSent = false;
     if (BREVO_API_KEY) {
       try {
-        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'api-key': BREVO_API_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sender: { name: SENDER_NAME, email: SENDER_EMAIL },
-            to: [{ email: SUPPORT_EMAIL, name: 'Websmith Support' }],
-            subject: emailSubject,
-            textContent: emailBody,
-            htmlContent: `<pre style="font-family: monospace; white-space: pre-wrap;">${emailBody}</pre>`,
-          }),
-        });
-
-        emailSent = response.ok;
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error(`Brevo send failed [renewal_request -> ${SUPPORT_EMAIL}]: ${errText}`);
+        const emailDbClient = await pool.connect();
+        try {
+          const emailResult = await sendEmail(emailDbClient, 'admin_notification', {
+            email: SUPPORT_EMAIL,
+            name: 'Support Team',
+          }, {
+            request_type: reqTypeLabel,
+            customer_name: customerName || 'N/A',
+            customer_email: finalEmail || 'N/A',
+            product_name: lic.product_name || 'N/A',
+            plan_name: finalCurrentPlanName || 'N/A',
+            license_key: normalizedLicenseKey,
+            hardware_id: body.hardware_id || 'N/A',
+            message: message || 'N/A',
+            requested_plan: finalRequestedPlanName || 'N/A',
+            company_name: process.env.BRANDING_COMPANY_NAME || 'Websmith Digital',
+            support_email: SUPPORT_EMAIL,
+            website: process.env.BRANDING_WEBSITE_URL || 'https://websmithdigital.com',
+          });
+          emailSent = emailResult.success;
+        } finally {
+          emailDbClient.release();
         }
       } catch (emailError) {
         console.error('Email send error:', emailError);

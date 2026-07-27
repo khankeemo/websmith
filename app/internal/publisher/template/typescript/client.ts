@@ -4,8 +4,33 @@ import { generateTimestamp, generateNonce, signRequest } from './crypto';
 import { HardwareDetector } from './hardware';
 import { CacheManager } from './cache';
 
-export const SDK_VERSION = '${kit_version}';
-export const RUNTIME_TYPE = '${runtime}';
+export const SDK_VERSION = 'SDK_VERSION';
+export const RUNTIME_TYPE = '{{RUNTIME_TYPE}}';
+
+// ====================================================================
+// LiveLog — Runtime Event Logging
+// ====================================================================
+
+export class LiveLog {
+  private static _log: Array<{ timestamp: string; event: string; detail: string }> = [];
+
+  static log(event: string, detail: string = ''): void {
+    const now = new Date();
+    const timestamp = now.toTimeString().split(' ')[0];
+    const entry = `${timestamp} [${event}] ${detail}`;
+    this._log.push({ timestamp, event, detail });
+    console.log(entry);
+  }
+
+  static getLog(): Array<{ timestamp: string; event: string; detail: string }> {
+    return [...this._log];
+  }
+
+  static clear(): void {
+    this._log = [];
+  }
+}
+
 const RETRYABLE_STATUSES = new Set([500, 502, 503, 504]);
 
 export class ApiError extends Error {
@@ -166,18 +191,20 @@ export class ApiClient {
     });
   }
 
-  async sendOtp(email: string): Promise<Record<string, any>> {
+  async sendOtp(email: string, purpose?: string): Promise<Record<string, any>> {
     return this._request('auth/otp/send', {
       email,
+      purpose: purpose || 'trial_activation',
       product_id: this.productId,
       hardware_id: this._getHardwareId(),
     });
   }
 
-  async verifyOtp(email: string, otp: string): Promise<Record<string, any>> {
+  async verifyOtp(email: string, otp: string, purpose?: string): Promise<Record<string, any>> {
     return this._request('auth/otp/verify', {
       email,
       otp,
+      purpose: purpose || 'trial_activation',
       product_id: this.productId,
       hardware_id: this._getHardwareId(),
     });
@@ -332,6 +359,56 @@ export class ApiClient {
 
   async getUnreadNotificationCount(email: string): Promise<Record<string, any>> {
     return this._request('notifications/unread-count', {
+      customer_email: email,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  // ====================================================================
+  // Registration
+  // ====================================================================
+
+  async registerCustomer(params: Record<string, any>): Promise<Record<string, any>> {
+    return this._request('customer/register', {
+      name: params.name,
+      email: params.email,
+      mobile: params.mobile,
+      country_code: params.country_code || '',
+      company: params.company || '',
+      hardware_id: params.hardware_id || this._getHardwareId(),
+    });
+  }
+
+  // ====================================================================
+  // Available Plans
+  // ====================================================================
+
+  async getAvailablePlans(licenseKey: string): Promise<Record<string, any>> {
+    return this._request('license/available-plans', {
+      license_key: licenseKey,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  // ====================================================================
+  // Reactivation
+  // ====================================================================
+
+  async sendReactivationRequest(params: Record<string, any>): Promise<Record<string, any>> {
+    return this._request('reactivations', {
+      license_key: params.license_key,
+      customer_name: params.customer_name,
+      customer_email: params.customer_email,
+      hardware_id: this._getHardwareId(),
+    });
+  }
+
+  // ====================================================================
+  // Request History
+  // ====================================================================
+
+  async getRequestHistory(email: string): Promise<Record<string, any>> {
+    return this._request('request', {
       customer_email: email,
       hardware_id: this._getHardwareId(),
     });

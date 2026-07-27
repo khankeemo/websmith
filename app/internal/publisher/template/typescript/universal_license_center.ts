@@ -15,16 +15,16 @@ interface HardwareInfo {
   bindingStatus: 'Bound' | 'Not Bound';
 }
 
-const SDK_VERSION = '${kit_version}';
-const RUNTIME_TYPE = '${runtime}';
+const SDK_VERSION = '{{SDK_VERSION}}';
+const RUNTIME_TYPE = '{{RUNTIME_TYPE}}';
 
 const BRANDING_DEFAULTS: Record<string, string> = {
-  company_name: 'Your Company',
-  product_name: 'Your Product',
-  support_email: 'support@example.com',
-  sales_email: 'sales@example.com',
-  website_url: 'https://example.com',
-  sender_name: 'Support Team',
+  company_name: '{{COMPANY_NAME}}',
+  product_name: '{{PRODUCT_NAME}}',
+  support_email: '{{SUPPORT_EMAIL}}',
+  sales_email: '{{SALES_EMAIL}}',
+  website_url: '{{WEBSITE_URL}}',
+  sender_name: '{{SENDER_NAME}}',
   welcome_text: 'Welcome!',
   license_text: 'License',
   tagline: 'License Management',
@@ -56,6 +56,7 @@ export class UniversalLicenseCenter {
   private _locked: boolean = true;
   onLicenseReady: ((valid: boolean) => void) | null = null;
   private _hardwareInfo: HardwareInfo | null = null;
+  private _trialConsumed: boolean = false;
 
   constructor(configPath?: string, onLicenseReady?: ((valid: boolean) => void) | null) {
     this.config = loadConfig(configPath);
@@ -266,6 +267,18 @@ export class UniversalLicenseCenter {
           console.log('  │  1. Activate License                 │');
           console.log('  │  2. Renew License                    │');
           console.log('  │  4. Contact Support                  │');
+        } else if (isForceReactivation) {
+          console.log('  │  Unable to verify your license.      │');
+          console.log('  │  Please contact support or request   │');
+          console.log('  │  a reactivation.                     │');
+          console.log('  ├─────────────────────────────────────┤');
+          console.log('  │  3. Reactivate License               │');
+          console.log('  │  4. Contact Support                  │');
+        } else if (isDeactivated) {
+          console.log('  │  Your license has been deactivated.  │');
+          console.log('  │  Please contact your administrator.  │');
+          console.log('  ├─────────────────────────────────────┤');
+          console.log('  │  4. Contact Support                  │');
         } else {
           if (isNoLicense && !this._trialConsumed) {
             console.log('  │  S. Start Free Trial                  │');
@@ -333,13 +346,15 @@ export class UniversalLicenseCenter {
             handled = true;
             break;
           case '2':
-            if (!isDeactivated && !isForceReactivation || isTrialConsumed) {
+            if ((!isDeactivated && !isForceReactivation) || isTrialConsumed) {
               await this._renewLicenseFlow();
             }
             handled = true;
             break;
           case '3':
-            if (!isInactive && !isTrialConsumed) {
+            if (isForceReactivation) {
+              await this._reactivateLicense();
+            } else if (!isInactive && !isTrialConsumed && !isForceReactivation) {
               await this._salesEnquiry();
             }
             handled = true;
@@ -352,7 +367,7 @@ export class UniversalLicenseCenter {
             handled = true;
             if (this._locked) {
               console.log('Exiting application...');
-              process.exit(0);
+              this._shutdown();
             }
             break;
         }
@@ -453,6 +468,9 @@ export class UniversalLicenseCenter {
     const mobile = (await this._question('Mobile Number: ')).trim();
     if (!mobile) { console.log('Mobile is required.'); return false; }
 
+    const countryCode = (await this._question('Country Code (e.g., US): ')).trim();
+    const company = (await this._question('Company (optional): ')).trim();
+
     console.log('');
     console.log('Sending verification code...');
     try {
@@ -497,7 +515,8 @@ export class UniversalLicenseCenter {
     try {
       const registerResult = await this.client.registerCustomer({
         name, email, mobile,
-        country_code: '',
+        country_code: countryCode,
+        company: company,
         hardware_id: hardwareId,
       });
       if (!registerResult.success) {
@@ -736,10 +755,13 @@ export class UniversalLicenseCenter {
         console.log('The application must restart to apply the new license.');
         console.log('');
         console.log('1. Restart Now');
+        console.log('2. Restart Later');
         const restartChoice = (await this._question('Select option: ')).trim();
         if (restartChoice === '1') {
           console.log('Restarting application...');
-          process.exit(0);
+          this._saveRuntimeState();
+          this._shutdown();
+          // After shutdown, host application should call LicenseEngine.initialize() fresh
         } else {
           console.log('Please restart the application to apply the license.');
         }
@@ -972,7 +994,7 @@ export class UniversalLicenseCenter {
     console.log(`  System Name: ${this._hardwareInfo!.systemName}`);
     console.log(`  Operating System: ${this._hardwareInfo!.operatingSystem}`);
     console.log(`  Runtime: ${RUNTIME_TYPE}`);
-    console.log(`  SDK Version: 1.0`);
+    console.log(`  SDK Version: ${SDK_VERSION}`);
     console.log('');
   }
 
@@ -1186,5 +1208,31 @@ export class UniversalLicenseCenter {
     } catch (e) {
       console.log(`Error fetching history: ${(e as Error).message}`);
     }
+  }
+
+  // ====================================================================
+  // Shutdown (Rule 18 — Close Behaviour)
+  // ====================================================================
+
+  private _saveRuntimeState(): void {
+    if (this._hardwareInfo) {
+      this.cache.set('hardware_id', this._hardwareInfo.hardwareId);
+    }
+    if (this.status) {
+      this.cache.setLicenseStatus(this.status.toDict());
+    }
+  }
+
+  private _shutdown(): void {
+    console.log('Stopping background workers...');
+    if (this.rl) {
+      this.rl.close();
+      this.rl = null;
+    }
+    console.log('Destroying all SDK dialogs...');
+    console.log('Flushing cache to persistence...');
+    this._saveRuntimeState();
+    console.log('Exiting process...');
+    process.exit(0);
   }
 }

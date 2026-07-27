@@ -15,6 +15,11 @@ export class LicenseStatus {
   license_key: string | null;
   trial_active: boolean;
 
+  customer_name: string | null;
+  customer_email: string | null;
+  max_devices: number;
+  device_count: number;
+
   constructor(valid: boolean, status: string, kwargs?: Record<string, any>) {
     this.valid = valid;
     this.status = status;
@@ -25,6 +30,10 @@ export class LicenseStatus {
     this.message = kwargs?.message || null;
     this.license_key = kwargs?.license_key || null;
     this.trial_active = kwargs?.trial_active || status === 'trial';
+    this.customer_name = kwargs?.customer_name || null;
+    this.customer_email = kwargs?.customer_email || null;
+    this.max_devices = kwargs?.max_devices || 999;
+    this.device_count = kwargs?.device_count || 0;
   }
 
   toDict(): Record<string, any> {
@@ -38,13 +47,17 @@ export class LicenseStatus {
       message: this.message,
       license_key: this.license_key,
       trial_active: this.trial_active,
+      customer_name: this.customer_name,
+      customer_email: this.customer_email,
+      max_devices: this.max_devices,
+      device_count: this.device_count,
     };
   }
 
   static fromDict(data: Record<string, any>): LicenseStatus {
     return new LicenseStatus(
       data.valid || false,
-      data.status || 'unlicensed',
+      data.status || 'no_license',
       {
         expires_at: data.expires_at,
         days_remaining: data.days_remaining || 0,
@@ -53,6 +66,10 @@ export class LicenseStatus {
         message: data.message,
         license_key: data.license_key,
         trial_active: data.trial_active || data.status === 'trial',
+        customer_name: data.customer_name,
+        customer_email: data.customer_email,
+        max_devices: data.max_devices || 999,
+        device_count: data.device_count || 0,
       },
     );
   }
@@ -104,30 +121,60 @@ export class LicenseEngine {
     this._cache.invalidateIfHardwareMismatch(hardwareId);
     await this._processMessageQueue();
 
-    // Check if we have a cached license status that might be invalid
     const cachedStatus = this._cache.getLicenseStatus();
-    
-    if (this._cache.isOnboardingComplete()) {
-      // User has completed onboarding, check if license is still valid
-      if (cachedStatus && cachedStatus.valid && (cachedStatus.status === 'active' || cachedStatus.status === 'trial')) {
+    const onboardingComplete = this._cache.isOnboardingComplete();
+    const hasEverActivated = this._cache.hasEverActivatedPaidLicense();
+    const hasEverConsumedTrial = this._cache.hasEverConsumedTrial();
+    const customerState = this._cache.getCustomerState();
+
+    // Check for active cached license (auto-unlock path)
+    if (cachedStatus && cachedStatus.valid && (cachedStatus.status === 'active' || cachedStatus.status === 'trial')) {
+      // Verify hardware consistency for active license
+      if (cachedStatus.hardware_id === hardwareId) {
         this._status = LicenseStatus.fromDict(cachedStatus);
         this._licenseKey = cachedStatus.license_key || null;
+        this._cache.setActiveBinding(true);
         this._notifyReady(true);
         return this._status;
       }
-      
-      // License is invalid/expired/inactive - clear all cached data
-      this._cache.clearAllLicenseData();
-      this._status = new LicenseStatus(false, 'no_license', {
-        hardware_id: hardwareId,
-        message: 'No active license or trial was found. Start a Free Trial or activate your license.',
-      });
+      // Hardware mismatch — still return cached state but invalidate
+      this._cache.invalidateLicenseStatus();
+    }
+
+    // Cache-based customer state detection (Rule 0A-6)
+    if (onboardingComplete) {
+      if (hasEverActivated) {
+        // INACTIVE_LICENSE — existing customer with paid history
+        this._cache.setCustomerState('inactive');
+        this._status = new LicenseStatus(false, 'inactive', {
+          hardware_id: hardwareId,
+          message: 'You are an existing customer, but your license is inactive. If you have a new or reactivated license, activate it now. Otherwise, please contact support.',
+        });
+      } else if (hasEverConsumedTrial) {
+        // LIFETIME_TRIAL_CONSUMED — trial was consumed, never usable again
+        this._cache.setCustomerState('trial_consumed');
+        this._status = new LicenseStatus(false, 'trial_consumed', {
+          hardware_id: hardwareId,
+          message: 'This email has already consumed its lifetime trial. Please activate a paid license or renew your existing license.',
+        });
+      } else {
+        // Cached onboarding but no paid history and no trial — treat as no_license
+        this._cache.setCustomerState('no_license');
+        this._status = new LicenseStatus(false, 'no_license', {
+          hardware_id: hardwareId,
+          message: 'No active license or trial was found. Start a Free Trial or activate your license.',
+        });
+      }
     } else {
+      // NO_LICENSE — brand-new customer
+      this._cache.setCustomerState('no_license');
       this._status = new LicenseStatus(false, 'no_license', {
         hardware_id: hardwareId,
         message: 'No license or trial was found. Start a Free Trial or activate your license.',
       });
     }
+
+    this._cache.setActiveBinding(false);
     this._notifyReady(false);
     return this._status;
   }
@@ -159,10 +206,9 @@ export class LicenseEngine {
     const hardwareId = this._hardware.getFingerprint();
     const result = await this._client.validateLicense(key, hardwareId);
     
-    // If validation fails (license expired, revoked, inactive, etc.), clear all cached data
     const data = result.data || result;
     if (data && !data.valid) {
-      this._cache.clearAllLicenseData();
+      this._cache.invalidateLicenseStatus();
       this._status = null;
       this._licenseKey = null;
     }
@@ -171,14 +217,14 @@ export class LicenseEngine {
   }
 
   async activate(licenseKey: string): Promise<Record<string, any>> {
-    // Clear any stale cached data before attempting activation
-    this._cache.clearAllLicenseData();
+    this._cache.invalidateLicenseStatus();
     
     const result = await this._client.activateLicense(licenseKey);
     if (result.success) {
       this._licenseKey = licenseKey;
       await this.initialize();
       this._cache.markHasEverActivatedPaidLicense();
+      this._cache.setOnboardingComplete();
     }
     return result;
   }
@@ -219,7 +265,7 @@ export class LicenseEngine {
     if (!key) throw new Error('License key unavailable. Please provide a key.');
     const result = await this._client.deactivateLicense(key);
     if (result.success) {
-      this._cache.clearAllLicenseData();
+      this._cache.invalidateLicenseStatus();
       this._status = null;
       if (!licenseKey) this._licenseKey = null;
     }
@@ -334,5 +380,13 @@ export class LicenseEngine {
 
   async getUnreadNotificationCount(email: string): Promise<Record<string, any>> {
     return this._client.getUnreadNotificationCount(email);
+  }
+
+  async sendReactivationRequest(params: Record<string, any>): Promise<Record<string, any>> {
+    return this._client.sendReactivationRequest(params);
+  }
+
+  async getRequestHistory(email: string): Promise<Record<string, any>> {
+    return this._client.getRequestHistory(email);
   }
 }

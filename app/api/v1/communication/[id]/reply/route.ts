@@ -26,13 +26,13 @@ const CATEGORY_ROUTE_MAP: Record<string, string> = {
 };
 
 const CATEGORY_EMAIL_MAP: Record<string, string> = {
-  support: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  sales: process.env.MAIL_SALES_ADDRESS || 'sales@example.com',
-  activation: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  renewal: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  reactivation: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  hardware_replacement: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  general: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
+  support: process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com',
+  sales: process.env.MAIL_SALES_ADDRESS || 'sales@websmithdigital.com',
+  activation: process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com',
+  renewal: process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com',
+  reactivation: process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com',
+  hardware_replacement: process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com',
+  general: process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com',
 };
 
 export async function POST(

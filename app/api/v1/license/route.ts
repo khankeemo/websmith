@@ -382,7 +382,7 @@ export async function POST(request: NextRequest) {
             success: false,
             error: {
               code: 'LICENSE_INACTIVE',
-              message: 'Your license is inactive. Please contact support: support@websmithdigital.com',
+              message: 'Your license is inactive. Please contact support.',
               inactive_reason: licenseData.inactive_reason || 'License Deactivated'
             }
           }, { status: 403 });
@@ -395,7 +395,7 @@ export async function POST(request: NextRequest) {
             success: false,
             error: {
               code: 'LICENSE_DELETED',
-              message: 'Your license is inactive. Please contact support: support@websmithdigital.com',
+              message: 'Your license is inactive. Please contact support.',
               inactive_reason: 'License Deleted'
             }
           }, { status: 403 });
