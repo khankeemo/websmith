@@ -207,10 +207,10 @@ export async function POST(request: NextRequest) {
           `SELECT EXISTS (
             SELECT 1 FROM licenses l
             INNER JOIN activations a ON l.license_key = a.license_key AND a.hardware_id = $1
-            WHERE (l.is_trial IS NULL OR l.is_trial = false)
+            WHERE (l.is_trial IS NULL OR l.is_trial = false) AND l.deleted_at IS NULL
           ) OR EXISTS (
             SELECT 1 FROM licenses l
-            WHERE l.customer_email = $2 AND (l.is_trial IS NULL OR l.is_trial = false)
+            WHERE l.customer_email = $2 AND (l.is_trial IS NULL OR l.is_trial = false) AND l.deleted_at IS NULL
           ) AS has_paid_license`,
           [hardware_id, customer_email]
         );
@@ -385,10 +385,10 @@ export async function POST(request: NextRequest) {
           `SELECT EXISTS (
             SELECT 1 FROM licenses l
             INNER JOIN activations a ON l.license_key = a.license_key AND a.hardware_id = $1
-            WHERE (l.is_trial IS NULL OR l.is_trial = false)
+            WHERE (l.is_trial IS NULL OR l.is_trial = false) AND l.deleted_at IS NULL
           ) OR EXISTS (
             SELECT 1 FROM licenses l
-            WHERE l.customer_email = $2 AND (l.is_trial IS NULL OR l.is_trial = false)
+            WHERE l.customer_email = $2 AND (l.is_trial IS NULL OR l.is_trial = false) AND l.deleted_at IS NULL
           ) AS has_paid_license`,
           [hardware_id, trial.customer_email || '']
         );

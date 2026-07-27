@@ -112,6 +112,7 @@ export async function GET(
         l.product_id,
         l.is_trial,
         l.inactive_reason,
+        l.deleted_at,
         l.created_at,
         l.last_validated,
         p.name as product_name,
@@ -145,6 +146,28 @@ export async function GET(
     }
 
     const lic = licenseResult.rows[0];
+
+    // Do not return details for deleted licenses
+    if (lic.deleted_at) {
+      client.release();
+      client = null;
+
+      await logRequest({
+        apiKeyId,
+        endpoint: '/api/v1/license/details',
+        method: 'GET',
+        statusCode: 404,
+        ipAddress,
+        userAgent,
+        latencyMs: Date.now() - startTime,
+        requestRedacted: { license_key: '[REDACTED]' }
+      });
+
+      return NextResponse.json({
+        success: false,
+        error: { code: 'LICENSE_DELETED', message: 'License has been deleted' }
+      }, { status: 404 });
+    }
 
     // Product isolation
     try {

@@ -62,8 +62,18 @@ export async function POST(request: NextRequest) {
             break;
           }
           case 'delete': {
+            // Cascade cleanup: remove all related records
+            await client.query(`DELETE FROM activations WHERE license_key = $1`, [licenseKey]);
+            await client.query(`DELETE FROM renewal_history WHERE license_key = $1`, [licenseKey]);
+            await client.query(`DELETE FROM renewal_requests WHERE license_key = $1`, [licenseKey]);
+            await client.query(`DELETE FROM reactivation_requests WHERE license_key = $1`, [licenseKey]);
+            await client.query(`UPDATE communication_conversations SET license_key = NULL WHERE license_key = $1`, [licenseKey]);
+            await client.query(`UPDATE notification_logs SET license_key = NULL WHERE license_key = $1`, [licenseKey]);
+            await client.query(`UPDATE requests SET license_key = NULL WHERE license_key = $1`, [licenseKey]);
+
+            // Soft-delete the license row (retain for audit trail)
             const r = await client.query(
-              `UPDATE licenses SET deleted_at = CURRENT_TIMESTAMP, status = 'revoked', updated_at = CURRENT_TIMESTAMP WHERE license_key = $1 AND deleted_at IS NULL`,
+              `UPDATE licenses SET deleted_at = CURRENT_TIMESTAMP, status = 'deleted', updated_at = CURRENT_TIMESTAMP WHERE license_key = $1 AND deleted_at IS NULL`,
               [licenseKey]
             );
             if (r.rowCount && r.rowCount > 0) {
@@ -79,7 +89,7 @@ export async function POST(request: NextRequest) {
           }
           case 'restore': {
             const r = await client.query(
-              `UPDATE licenses SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE license_key = $1 AND deleted_at IS NOT NULL`,
+              `UPDATE licenses SET deleted_at = NULL, status = 'active', updated_at = CURRENT_TIMESTAMP WHERE license_key = $1 AND deleted_at IS NOT NULL`,
               [licenseKey]
             );
             if (r.rowCount && r.rowCount > 0) {

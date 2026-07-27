@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
         l.plan,
         l.plan_id,
         l.status,
+        l.deleted_at,
         p.name as product_name
       FROM licenses l
       LEFT JOIN products p ON l.product_id = p.product_id
@@ -144,6 +145,17 @@ export async function POST(request: NextRequest) {
         success: false,
         error: { code: 'PRODUCT_MISMATCH', message: productError.message || 'Product mismatch' }
       }, { status: 403 });
+    }
+
+    // Do not return plans for deleted licenses
+    if (lic.deleted_at) {
+      client.release();
+      client = null;
+
+      return NextResponse.json({
+        success: false,
+        error: { code: 'LICENSE_DELETED', message: 'License has been deleted' }
+      }, { status: 404 });
     }
 
     const plansResult = await client.query(

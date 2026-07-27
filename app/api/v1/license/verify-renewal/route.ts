@@ -117,6 +117,7 @@ export async function POST(request: NextRequest) {
         l.product_id,
         l.is_trial,
         l.inactive_reason,
+        l.deleted_at,
         p.name as product_name,
         p.is_active as product_is_active,
         p.is_deleted as product_is_deleted
@@ -198,8 +199,8 @@ export async function POST(request: NextRequest) {
       ? Math.max(0, Math.ceil((expiryDate.getTime() - nowTime) / (1000 * 60 * 60 * 24)))
       : 0;
 
-    // Valid for renewal = exists (any status except revoked can request renewal info)
-    const valid = lic.status !== 'revoked';
+    // Valid for renewal = exists (any status except revoked or deleted can request renewal info)
+    const valid = lic.status !== 'revoked' && lic.status !== 'deleted' && !lic.deleted_at;
 
     // Fetch available plans for this product
     let availablePlans: Array<{id: string; name: string; duration: string; is_current_plan: boolean}> = [];

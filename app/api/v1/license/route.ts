@@ -223,6 +223,7 @@ export async function POST(request: NextRequest) {
             l.product_id,
             l.is_trial,
             l.inactive_reason,
+            l.deleted_at,
             l.status as license_status,
             p.name as product_name,
             p.is_active as product_is_active,

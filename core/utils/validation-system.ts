@@ -149,6 +149,7 @@ export function computeLicenseStatus(
   inactiveReason?: string | null
 ): LicenseStatus {
   if (isDeleted) return 'Deleted';
+  if (status === 'deleted') return 'Deleted';
   if (inactiveReason === 'License Revoked') return 'Revoked';
 
   const now = new Date();

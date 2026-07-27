@@ -143,7 +143,12 @@ export async function DELETE(
     await client.query(`DELETE FROM license_bindings WHERE license_key = $1`, [normalizedKey]);
     await client.query(`DELETE FROM license_hardware WHERE license_key = $1`, [normalizedKey]);
     await client.query(`DELETE FROM renewal_history WHERE license_key = $1`, [normalizedKey]);
+    await client.query(`DELETE FROM renewal_requests WHERE license_key = $1`, [normalizedKey]);
+    await client.query(`DELETE FROM reactivation_requests WHERE license_key = $1`, [normalizedKey]);
     await client.query(`DELETE FROM customer_licenses WHERE license_key = $1`, [normalizedKey]);
+    await client.query(`UPDATE communication_conversations SET license_key = NULL WHERE license_key = $1`, [normalizedKey]);
+    await client.query(`UPDATE notification_logs SET license_key = NULL WHERE license_key = $1`, [normalizedKey]);
+    await client.query(`UPDATE requests SET license_key = NULL WHERE license_key = $1`, [normalizedKey]);
 
     // Hard delete the license
     await client.query(`DELETE FROM licenses WHERE license_key = $1`, [normalizedKey]);
