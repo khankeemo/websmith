@@ -7,6 +7,7 @@ from typing import Optional
 
 from .license_engine import LicenseEngine
 from .live_log import LiveLog
+from .single_instance import SingleInstance
 
 
 class RestartDialog:
@@ -20,6 +21,7 @@ class RestartDialog:
         self._root: Optional[tk.Toplevel] = None
 
     def show(self) -> None:
+        self._instance_lock = SingleInstance('RestartDialog')
         self._root = tk.Toplevel(self._parent)
         self._root.title("Restart Required")
         self._root.geometry("460x280")
@@ -106,11 +108,6 @@ class RestartDialog:
     def _on_restart(self):
         LiveLog.log("Restart requested", "User clicked Restart Now")
         self._shutdown()
-        if self._root:
-            try:
-                self._root.destroy()
-            except Exception:
-                pass
         cmd = [sys.executable] + sys.argv
         LiveLog.log("Restart command", f"Executing: {' '.join(cmd[:3])}...")
         try:
@@ -118,6 +115,16 @@ class RestartDialog:
             LiveLog.log("Restart command launched", "New process started")
         except Exception as e:
             LiveLog.log("Restart launch failed", str(e))
+        if self._parent:
+            try:
+                self._parent.destroy()
+            except Exception:
+                pass
+        if self._root:
+            try:
+                self._root.destroy()
+            except Exception:
+                pass
         LiveLog.log("Current process closing", "Exiting")
         sys.exit(0)
 

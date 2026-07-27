@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-27
-> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10-12 Applied — AWS-01 Session 13 Applied: TypeScript runtime inline code peek methods added — AWS-01 Session 14 Applied: TypeScript runtime generator refactored to load from template/typescript/ files (orchestration-only, no inline code); template files updated to consistent {{PLACEHOLDER}} format and peek fallback in initialize(); ULC Python template destroys ULC window after success before showing success dialog — AWS-01 Session 15 Applied: OTP Error Message Fix — all raw server errors replaced with user-friendly messages across SDK templates (Python welcome.py, TypeScript universal_license_center.ts), server API catch-all handlers (forgot-password verify/request/reset), and client web UI (authService.ts, forgot-password/page.tsx); OTP mismatch shows bold red message; actual errors logged internally only
+> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule)
 
 ---
 
@@ -3322,6 +3322,85 @@ Implement support:
 - **Lib email fix**: Fixed missing `const EMAIL_TYPES:` declaration in `lib/email/brevo.ts` that caused build failure.
 - **Doc consolidation**: Merged all content from `docs/AWS-01-FIXES.md` into appropriate sections of this master document. Deleted `docs/AWS-01-FIXES.md`.
 - **Python template syntax fix**: Fixed template string concatenation bug in `runtimes/python.ts` line 1224 — `return status` and `return result` from adjacent methods merged onto one line, producing `return status        return result` in generated `license_engine.py`. Removed orphan `return result` fragment.
+
+### AWS-01 Remaining Root Cause Fixes (Section 16) — Applied
+
+**Completed (2026-07-27):**
+
+#### Task 1 — OTP Validation
+
+**Problem:** INVALID_OTP (HTTP 401) was treated as an exception via `ApiError` in both Python and TypeScript clients. The `_on_verify_otp` handlers caught it in the generic `except Exception` block, showing "An unexpected error occurred" instead of the friendly OTP error message. The OTP dialog closed on failure, preventing retries.
+
+**Fix (Python `welcome.py`):**
+- Added `ApiError` import
+- Added specific `except ApiError` handler before generic `except Exception` in `_on_verify_otp`
+- ApiError with 4xx status codes treated as normal validation failure: shows friendly red error message, re-enables Verify button, keeps dialog open for unlimited retries
+- Only 5xx ApiErrors and non-API exceptions enter the generic handler
+
+**Fix (TypeScript `universal_license_center.ts`):**
+- Added `ApiError` import
+- Added `e instanceof ApiError` check in both OTP verification sites (`_welcomeFlow` and `_enterLicenseKey`)
+- ApiError with 4xx status codes treated as normal validation failure: shows bold red error, keeps dialog open
+- Only unexpected exceptions enter the generic handler
+
+#### Task 2 — Restart Workflow
+
+**Problem:** The restart sequence launched the new process after destroying the dialog but before destroying the parent SDK windows. The old process could continue building the application after launching the restart.
+
+**Fixed workflow (Python `universal_restart_dialog.py`):**
+1. Save State (`_shutdown` → `_save_runtime_state`)
+2. Flush Cache (`_shutdown` → `_cache._save_cache`)
+3. Launch New Process (`subprocess.Popen(cmd)`)
+4. Destroy All SDK Windows (`self._parent.destroy()` — destroys the ULC window)
+5. Destroy Root (`self._root.destroy()` — destroys the restart dialog)
+6. Terminate Current Process Immediately (`sys.exit(0)`)
+
+**Fixed workflow (TypeScript `universal_license_center.ts`):**
+- `_shutdown()` now: saves runtime state → flushes cache → closes readline → releases instance lock → exits process
+- `_enterLicenseKey` restart path calls `_shutdown()` directly (previously called `_saveRuntimeState` and then `_shutdown` separately)
+
+#### Task 3 — Startup Restore
+
+**Problem:** `LicenseEngine.initialize()` trusted the cache unconditionally. When cached status was `trial` or `active`, it returned immediately without server validation, potentially opening ULC when it shouldn't or unlocking when the license was no longer valid.
+
+**Fixed workflow before Decision Engine:**
+```
+Load Cache
+↓
+Restore Runtime State
+↓
+Validate With Server
+↓
+Decision Engine
+```
+
+**Fix (Python `license_engine.py` and TypeScript `license_engine.ts`):**
+- After cache hit with `active` or `trial` status, the engine now calls the server to validate before accepting the cached state
+- If server confirms: keep cached status, unlock directly (never open ULC)
+- If server returns invalid: fall through to cache-miss path
+- If server unreachable: fall back to cached state (offline mode)
+- Hardware-only validation is used when no license key is cached
+- Same fix applied to the peek (expired TTL) fallback path
+
+#### Task 4 — Single Process Rule
+
+**Problem:** No mechanism prevented multiple application processes from simultaneously controlling the licensing workflow, potentially creating duplicate dialogs, callbacks, or conflicting state.
+
+**Fix (Python):**
+- Created `single_instance.py` with `SingleInstance` class using file-based lock in temp directory
+- Lock acquired at start of `UniversalLicenseCenter.show()` and `RestartDialog.show()`
+- Lock automatically released on clean exit via `atexit`
+- If another instance is running, prints error and exits with code 1
+
+**Fix (TypeScript):**
+- Added `acquireLock()` function using file-based lock in `os.tmpdir()`
+- Lock acquired at start of `show()`
+- Lock released on `_shutdown()` and via process `exit`, `SIGINT`, `SIGTERM` handlers
+
+**Files created:** `template/python/single_instance.py`
+**Files modified:** `template/python/__init__.py`, `template/python/universal_license_center.py`, `template/python/universal_restart_dialog.py`, `template/python/manifest.json`, `template/typescript/universal_license_center.ts`
+
+---
 
 ### Phase 15 — Template-First Architecture Refactor
 

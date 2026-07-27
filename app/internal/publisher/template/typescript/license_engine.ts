@@ -127,19 +127,48 @@ export class LicenseEngine {
     const hasEverConsumedTrial = this._cache.hasEverConsumedTrial();
     const customerState = this._cache.getCustomerState();
 
-    // Check for active cached license (auto-unlock path)
+    // Check for active cached license — validate with server to confirm
     if (cachedStatus && cachedStatus.valid && (cachedStatus.status === 'active' || cachedStatus.status === 'trial')) {
-      // Verify hardware consistency for active license
       if (cachedStatus.hardware_id === hardwareId) {
         this._status = LicenseStatus.fromDict(cachedStatus);
         this._licenseKey = cachedStatus.license_key || null;
-        this._cache.setActiveBinding(true);
-        console.log(`[LiveLog] Decision — cache hit (status: ${cachedStatus.status})`);
-        this._notifyReady(true);
-        return this._status;
+        console.log(`[LiveLog] Decision — cache hit (status: ${cachedStatus.status}), validating with server`);
+        try {
+          const licenseKey = this._licenseKey || '';
+          if (licenseKey) {
+            const serverResult = await this._client.validateLicense(licenseKey, hardwareId);
+            const serverData = serverResult.data || serverResult;
+            if (serverData.valid) {
+              this._cache.setLicenseStatus(cachedStatus);
+              this._cache.setActiveBinding(true);
+              console.log(`[LiveLog] Decision — server confirmed (status: ${cachedStatus.status})`);
+              this._notifyReady(true);
+              return this._status;
+            }
+            console.log(`[LiveLog] Decision — server returned invalid, falling through`);
+          } else {
+            const hwResult = await this._client.validateLicenseByHardware(hardwareId);
+            const hwData = hwResult.data || hwResult;
+            if (hwData.valid || hwData.status === 'active' || hwData.status === 'trial') {
+              this._cache.setLicenseStatus(cachedStatus);
+              this._cache.setActiveBinding(true);
+              console.log(`[LiveLog] Decision — server confirmed (status: ${cachedStatus.status})`);
+              this._notifyReady(true);
+              return this._status;
+            }
+            console.log(`[LiveLog] Decision — server returned invalid, falling through`);
+          }
+        } catch {
+          console.log(`[LiveLog] Decision — server unreachable, using cached state`);
+          this._cache.setLicenseStatus(cachedStatus);
+          console.log(`[LiveLog] Decision — cache fallback (status: ${cachedStatus.status})`);
+          this._notifyReady(true);
+          return this._status;
+        }
+        this._cache.invalidateLicenseStatus();
+      } else {
+        this._cache.invalidateLicenseStatus();
       }
-      // Hardware mismatch — still return cached state but invalidate
-      this._cache.invalidateLicenseStatus();
     }
 
     // Peek fallback — restore from expired cache if state is still valid
@@ -148,11 +177,38 @@ export class LicenseEngine {
       if (peeked && (peeked.status === 'active' || peeked.status === 'trial')) {
         this._status = LicenseStatus.fromDict(peeked);
         this._licenseKey = peeked.license_key || null;
-        this._cache.setLicenseStatus(peeked);
-        this._cache.setActiveBinding(true);
-        console.log(`[LiveLog] Decision — restored saved state, cache TTL expired (status: ${peeked.status})`);
-        this._notifyReady(true);
-        return this._status;
+        console.log(`[LiveLog] Decision — restored saved state, cache TTL expired (status: ${peeked.status}), validating with server`);
+        try {
+          const licenseKey = this._licenseKey || '';
+          if (licenseKey) {
+            const serverResult = await this._client.validateLicense(licenseKey, hardwareId);
+            const serverData = serverResult.data || serverResult;
+            if (serverData.valid) {
+              this._cache.setLicenseStatus(peeked);
+              this._cache.setActiveBinding(true);
+              console.log(`[LiveLog] Decision — server confirmed (status: ${peeked.status})`);
+              this._notifyReady(true);
+              return this._status;
+            }
+          } else {
+            const hwResult = await this._client.validateLicenseByHardware(hardwareId);
+            const hwData = hwResult.data || hwResult;
+            if (hwData.valid || hwData.status === 'active' || hwData.status === 'trial') {
+              this._cache.setLicenseStatus(peeked);
+              this._cache.setActiveBinding(true);
+              console.log(`[LiveLog] Decision — server confirmed (status: ${peeked.status})`);
+              this._notifyReady(true);
+              return this._status;
+            }
+          }
+        } catch {
+          console.log(`[LiveLog] Decision — server unreachable, using cached state`);
+          this._cache.setLicenseStatus(peeked);
+          console.log(`[LiveLog] Decision — cache fallback (status: ${peeked.status})`);
+          this._notifyReady(true);
+          return this._status;
+        }
+        console.log(`[LiveLog] Decision — server did not confirm, falling through`);
       }
     }
 

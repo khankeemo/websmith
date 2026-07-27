@@ -3,9 +3,27 @@ import * as os from 'os';
 import * as path from 'path';
 import * as readline from 'readline';
 import { LicenseEngine, LicenseStatus } from './license_engine';
-import { ApiClient } from './client';
+import { ApiClient, ApiError } from './client';
 import { HardwareDetector } from './hardware';
 import { CacheManager } from './cache';
+
+function acquireLock(lockName: string): () => void {
+  const lockFile = path.join(os.tmpdir(), `${lockName}.opencode.lock`);
+  try {
+    fs.writeFileSync(lockFile, String(process.pid), { flag: 'wx' });
+    const release = () => {
+      try { fs.unlinkSync(lockFile); } catch {}
+    };
+    process.on('exit', release);
+    process.on('SIGINT', () => { release(); process.exit(); });
+    process.on('SIGTERM', () => { release(); process.exit(); });
+    return release;
+  } catch {
+    console.error(`Another instance of ${lockName} is already running.`);
+    console.error('Only one process may control the licensing workflow.');
+    process.exit(1);
+  }
+}
 
 interface HardwareInfo {
   hardwareId: string;
@@ -57,6 +75,7 @@ export class UniversalLicenseCenter {
   onLicenseReady: ((valid: boolean) => void) | null = null;
   private _hardwareInfo: HardwareInfo | null = null;
   private _trialConsumed: boolean = false;
+  private _releaseLock: (() => void) | null = null;
 
   constructor(configPath?: string, onLicenseReady?: ((valid: boolean) => void) | null) {
     this.config = loadConfig(configPath);
@@ -98,6 +117,7 @@ export class UniversalLicenseCenter {
   }
 
   async show(): Promise<Record<string, any>> {
+    this._releaseLock = acquireLock('UniversalLicenseCenter');
     this.rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     console.log('=== UNIVERSAL LICENSE CENTER ===');
     console.log(`SDK Version: ${SDK_VERSION} | Runtime: ${RUNTIME_TYPE}`);
@@ -509,6 +529,11 @@ export class UniversalLicenseCenter {
         return true;
       }
     } catch (e) {
+      if (e instanceof ApiError && e.statusCode >= 400 && e.statusCode < 500) {
+        console.error(`[OTP] Verify failed (internal): ${e.message}`);
+        console.log('\x1b[1;31mOTP verification failed. The OTP you entered is incorrect or has expired. Please check the OTP and try again.\x1b[0m');
+        return false;
+      }
       console.error(`[OTP] Verify exception (internal): ${(e as Error).message}`);
       console.log('An unexpected error occurred. Please try again later.');
       return false;
@@ -729,6 +754,11 @@ export class UniversalLicenseCenter {
       console.log('OTP verified successfully.');
       console.log('');
     } catch (e) {
+      if (e instanceof ApiError && e.statusCode >= 400 && e.statusCode < 500) {
+        console.error(`[OTP] Verify failed (internal): ${e.message}`);
+        console.log('\x1b[1;31mOTP verification failed. The OTP you entered is incorrect or has expired. Please check the OTP and try again.\x1b[0m');
+        return;
+      }
       console.error(`[OTP] Verify exception (internal): ${(e as Error).message}`);
       console.log('An unexpected error occurred. Please try again later.');
       return;
@@ -765,9 +795,7 @@ export class UniversalLicenseCenter {
         const restartChoice = (await this._question('Select option: ')).trim();
         if (restartChoice === '1') {
           console.log('Restarting application...');
-          this._saveRuntimeState();
           this._shutdown();
-          // After shutdown, host application should call LicenseEngine.initialize() fresh
         } else {
           console.log('Please restart the application to apply the license.');
         }
@@ -1230,14 +1258,17 @@ export class UniversalLicenseCenter {
   }
 
   private _shutdown(): void {
-    console.log('Stopping background workers...');
+    console.log('Shutdown sequence started — Saving state and flushing cache');
+    this._saveRuntimeState();
     if (this.rl) {
       this.rl.close();
       this.rl = null;
     }
+    if (this._releaseLock) {
+      this._releaseLock();
+      this._releaseLock = null;
+    }
     console.log('Destroying all SDK dialogs...');
-    console.log('Flushing cache to persistence...');
-    this._saveRuntimeState();
     console.log('Exiting process...');
     process.exit(0);
   }

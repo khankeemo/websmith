@@ -15,6 +15,7 @@ from .welcome import WelcomeDialog
 from .universal_success_dialog import SuccessDialog
 from .universal_restart_dialog import RestartDialog
 from .live_log import LiveLog
+from .single_instance import SingleInstance
 
 SDK_VERSION = "{{SDK_VERSION}}"
 RUNTIME_TYPE = "{{RUNTIME_TYPE}}"
@@ -105,6 +106,7 @@ class UniversalLicenseCenter:
             self.on_license_ready(False)
 
     def show(self) -> Dict[str, Any]:
+        self._instance_lock = SingleInstance('UniversalLicenseCenter')
         self._log("SDK", "INFO", "License Center started", "Application lock engaged")
         LiveLog.log("License Center started", "Application lock engaged")
         self._lock_application()

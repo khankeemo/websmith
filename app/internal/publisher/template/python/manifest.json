@@ -8,7 +8,7 @@
   "mandatory_modules": [
     "__init__", "client", "crypto", "hardware", "cache",
     "license_engine", "welcome", "universal_license_center",
-    "universal_success_dialog", "universal_restart_dialog",
+    "universal_success_dialog", "universal_restart_dialog", "single_instance",
     "activation", "renewal", "reactivation", "trial",
     "communication", "notifications", "support", "sales", "config"
   ],
