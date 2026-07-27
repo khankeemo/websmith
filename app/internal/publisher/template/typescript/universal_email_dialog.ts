@@ -3,8 +3,8 @@ import { ApiClient } from './client';
 import { HardwareDetector } from './hardware';
 import { CacheManager } from './cache';
 
-const SDK_VERSION = '${kit_version}';
-const RUNTIME_TYPE = '${runtime}';
+const SDK_VERSION = '{{SDK_VERSION}}';
+const RUNTIME_TYPE = '{{RUNTIME_TYPE}}';
 
 interface EmailDialogOptions {
   requestType: string;

@@ -25,15 +25,14 @@ async function apiPost(path: string, body: unknown) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-  } catch (err: any) {
-    throw { response: { data: { error: `Network error: ${err?.message || err}` } } };
+  } catch {
+    throw { response: { data: { error: 'Unable to connect. Please check your internet connection and try again.' } } };
   }
   let data: any;
   try {
     data = await res.json();
   } catch {
-    const text = await res.text().catch(() => "");
-    throw { response: { data: { error: `${res.status}: ${text.slice(0, 500)}` } } };
+    throw { response: { data: { error: 'Unable to connect. Please check your internet connection and try again.' } } };
   }
   if (!res.ok) throw { response: { data } };
   return data;

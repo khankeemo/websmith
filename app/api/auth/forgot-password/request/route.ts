@@ -63,8 +63,8 @@ async function sendOTPEmail(email: string, otp: string): Promise<{ sent: boolean
     return { sent: true };
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("Failed to send OTP email:", errMsg);
-    return { sent: false, error: errMsg };
+    console.error("Failed to send OTP email (internal):", errMsg);
+    return { sent: false, error: "Failed to send OTP email. Please try again later." };
   }
 }
 
@@ -115,12 +115,12 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("Forgot password request error:", errMsg);
+    console.error("Forgot password request error (internal):", errMsg);
     if (client) {
       try { client.release(); } catch (_) {}
     }
     return NextResponse.json(
-      { success: false, error: errMsg },
+      { success: false, error: "An unexpected error occurred. Please try again later." },
       { status: 500 }
     );
   }

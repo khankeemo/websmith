@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
       setMessage(response.message || "OTP has been sent to your registered email.");
       setStep("verify");
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.error || "Email not found. Please register first.");
+      setError(err.response?.data?.error || "Email not found. Please register first.");
     } finally {
       setLoading(false);
     }
@@ -72,8 +72,7 @@ export default function ForgotPasswordPage() {
       setMessage(response.message || "OTP verified successfully.");
       setStep("reset");
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || JSON.stringify(err);
-      setError(msg);
+      setError(err?.response?.data?.error || "OTP verification failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -105,8 +104,7 @@ export default function ForgotPasswordPage() {
       setMessage(response.message || "Password reset successfully.");
       setStep("done");
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || JSON.stringify(err);
-      setError(msg);
+      setError(err?.response?.data?.error || "An unexpected error occurred. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -122,7 +120,7 @@ export default function ForgotPasswordPage() {
       setResendSecondsLeft(RESEND_COOLDOWN_SECONDS);
       setMessage("A new OTP has been sent to your email.");
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.error || "Failed to resend OTP.");
+      setError(err.response?.data?.error || "Failed to resend OTP. Please try again later.");
     } finally {
       setLoading(false);
     }

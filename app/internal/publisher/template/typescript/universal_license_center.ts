@@ -476,11 +476,13 @@ export class UniversalLicenseCenter {
     try {
       const otpResult = await this.client.sendOtp(email);
       if (!otpResult.success) {
-        console.log(`Failed to send OTP: ${otpResult.error?.message || 'Unknown error'}`);
+        console.error(`[OTP] Send failed (internal): ${otpResult.error?.message || otpResult.message || 'Unknown error'}`);
+        console.log('Failed to send OTP. Please check your email address and try again.');
         return false;
       }
     } catch (e) {
-      console.log(`Error sending OTP: ${(e as Error).message}`);
+      console.error(`[OTP] Send exception (internal): ${(e as Error).message}`);
+      console.log('An unexpected error occurred. Please try again later.');
       return false;
     }
 
@@ -492,7 +494,8 @@ export class UniversalLicenseCenter {
     try {
       const verifyResult = await this.client.verifyOtp(email, otp);
       if (!verifyResult.success) {
-        console.log(`Verification failed: ${verifyResult.error?.message || 'Invalid code'}`);
+        console.error(`[OTP] Verify failed (internal): ${verifyResult.error?.message || verifyResult.message || 'Unknown error'}`);
+        console.log('\x1b[1;31mOTP verification failed. The OTP you entered is incorrect or has expired. Please check the OTP and try again.\x1b[0m');
         return false;
       }
 
@@ -506,7 +509,8 @@ export class UniversalLicenseCenter {
         return true;
       }
     } catch (e) {
-      console.log(`Error verifying code: ${(e as Error).message}`);
+      console.error(`[OTP] Verify exception (internal): ${(e as Error).message}`);
+      console.log('An unexpected error occurred. Please try again later.');
       return false;
     }
 
@@ -700,13 +704,14 @@ export class UniversalLicenseCenter {
     try {
       const otpResult = await this.client.sendOtp(customerEmail);
       if (!otpResult.success) {
-        const errMsg = otpResult.error?.message || otpResult.message || 'Failed to send OTP';
-        console.log(`OTP send failed: ${errMsg}`);
+        console.error(`[OTP] Send failed (internal): ${otpResult.error?.message || otpResult.message || 'Unknown error'}`);
+        console.log('Failed to send OTP. Please check your email address and try again.');
         return;
       }
       console.log(`OTP sent to ${customerEmail}.`);
     } catch (e) {
-      console.log(`OTP error: ${(e as Error).message}`);
+      console.error(`[OTP] Send exception (internal): ${(e as Error).message}`);
+      console.log('An unexpected error occurred. Please try again later.');
       return;
     }
 
@@ -717,14 +722,15 @@ export class UniversalLicenseCenter {
     try {
       const verifyResult = await this.client.verifyOtp(customerEmail, otp);
       if (!verifyResult.success) {
-        const errMsg = verifyResult.error?.message || verifyResult.message || 'OTP verification failed';
-        console.log(`OTP verification failed: ${errMsg}`);
+        console.error(`[OTP] Verify failed (internal): ${verifyResult.error?.message || verifyResult.message || 'Unknown error'}`);
+        console.log('\x1b[1;31mOTP verification failed. The OTP you entered is incorrect or has expired. Please check the OTP and try again.\x1b[0m');
         return;
       }
       console.log('OTP verified successfully.');
       console.log('');
     } catch (e) {
-      console.log(`OTP error: ${(e as Error).message}`);
+      console.error(`[OTP] Verify exception (internal): ${(e as Error).message}`);
+      console.log('An unexpected error occurred. Please try again later.');
       return;
     }
 

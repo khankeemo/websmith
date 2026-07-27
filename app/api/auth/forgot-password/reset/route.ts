@@ -126,7 +126,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("Password reset error:", errMsg);
+    console.error("Password reset error (internal):", errMsg);
     if (mongoClient) {
       try { await mongoClient.close(); } catch (_) {}
     }
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
       try { pgClient.release(); } catch (_) {}
     }
     return NextResponse.json(
-      { success: false, error: errMsg },
+      { success: false, error: "An unexpected error occurred. Please try again later." },
       { status: 500 }
     );
   }

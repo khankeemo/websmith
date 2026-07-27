@@ -1,16 +1,16 @@
-# ${product_name} SDK
-## ${kit_version}
+# {{PRODUCT_NAME}} SDK
+## {{SDK_VERSION}}
 
 ## Installation
 
 ```bash
-npm install ${package_name}
+npm install {{PACKAGE_NAME}}
 ```
 
 ## Quick Start
 
 ```typescript
-import { LicenseEngine } from '${package_name}';
+import { LicenseEngine } from '{{PACKAGE_NAME}}';
 
 const engine = new LicenseEngine();
 const status = await engine.initialize();
@@ -26,4 +26,4 @@ if (status.valid) {
 
 ## License
 
-Copyright (c) ${year} ${company_name}
+Copyright (c) {{YEAR}} {{COMPANY_NAME}}

@@ -1,7 +1,7 @@
 {
-  "name": "${package_name}",
-  "version": "${product_version}",
-  "description": "${product_description} — TypeScript SDK",
+  "name": "{{PACKAGE_NAME}}",
+  "version": "{{SDK_VERSION}}",
+  "description": "{{PRODUCT_DESCRIPTION}}",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

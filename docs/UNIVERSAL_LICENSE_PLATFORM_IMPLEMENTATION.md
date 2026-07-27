@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-27
-> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10 Applied: LiveLog extracted to dedicated live_log.py template; UniversalRestartDialog uses subprocess.Popen instead of os.execl; _start_trial() calls engine.start_trial(); _renew_license_flow() calls engine.renew(); WelcomeDialog no longer calls client.start_trial() directly; _start_trial() properly validates engine result — AWS-01 Session 11 Applied: Final database cleanup script written (cleanup-licensing-data.sql); all 28 customer/business tables identified for deletion; system config tables preserved; verification queries included — AWS-01 Session 12 Applied: Startup Trial Persistence Fix — Root cause identified (trial status not cached from server check path; no peek fallback for TTL-expired cache entries); peek methods added to Python and TypeScript CacheManager; trial caching fixed in license engine; LiveLog entries added for every decision point; decision engine falls back to peek before server call and checks onboarding/paid-license flags via peek when TTL expired — AWS-01 Session 13 Applied: TypeScript runtime inline code (runtimes/typescript.ts) updated with peek methods (peekLicenseStatus, peekOnboardingComplete, peekHasEverActivatedPaidLicense) and peek fallback in initialize() between cache hit check and server check; Universal License Center Python template destroys ULC window (_destroy_ulc()) after successful trial/activation/renewal before showing success dialog to prevent stale onboarding windows
+> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10-12 Applied — AWS-01 Session 13 Applied: TypeScript runtime inline code peek methods added — AWS-01 Session 14 Applied: TypeScript runtime generator refactored to load from template/typescript/ files (orchestration-only, no inline code); template files updated to consistent {{PLACEHOLDER}} format) and peek fallback in initialize() between cache hit check and server check; Universal License Center Python template destroys ULC window (_destroy_ulc()) after successful trial/activation/renewal before showing success dialog to prevent stale onboarding windows
 
 ---
 
@@ -4119,8 +4119,8 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 - ✅ No duplicate implementation — runtime generator is orchestration only
 
 **Remaining (Phase 15 multi-runtime):**
-- TypeScript template refactored (file-based already exists, generator still has inline code)
-- Other language templates refactored (13 runtimes total)
+- ✅ TypeScript template refactored — generator now loads from template/typescript/ files (orchestration-only, no inline code)
+- Other language templates refactored (12 runtimes remaining: node, php, java, dotnet, go, rust, cpp, c, javascript, bun, deno)
 - Fresh multi-runtime SDK generation and full verification
 - Runtime drift audit for all languages
 
@@ -4143,7 +4143,8 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 15. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 16. Database review — migrate legacy `requests` table into universal conversation architecture
 17. Store Module — verify frontend rendering of products after service fix
-18. Multi-runtime template refactoring (TypeScript + 12 other runtimes)
+18. ✅ TypeScript template refactored — generator now loads from template/typescript/ (orchestration-only)
+    Multi-runtime template refactoring for remaining 12 runtimes (node, php, java, dotnet, go, rust, cpp, c, javascript, bun, deno)
 19. Fresh multi-runtime SDK generation and full verification
 20. Runtime drift audit for all languages
 

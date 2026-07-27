@@ -77,13 +77,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("OTP verify error:", errMsg);
+    console.error("OTP verify error (internal):", errMsg);
     if (client) {
       try { client.release(); } catch (_) {}
     }
     return NextResponse.json(
-      { success: false, error: errMsg },
-      { status: 500 }
+      { success: false, error: "OTP verification failed. The OTP you entered is incorrect or has expired. Please check the OTP and try again." },
+      { status: 400 }
     );
   }
 }

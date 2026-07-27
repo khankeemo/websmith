@@ -4,7 +4,7 @@ import { generateTimestamp, generateNonce, signRequest } from './crypto';
 import { HardwareDetector } from './hardware';
 import { CacheManager } from './cache';
 
-export const SDK_VERSION = 'SDK_VERSION';
+export const SDK_VERSION = '{{SDK_VERSION}}';
 export const RUNTIME_TYPE = '{{RUNTIME_TYPE}}';
 
 // ====================================================================
