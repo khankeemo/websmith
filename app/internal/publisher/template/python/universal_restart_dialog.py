@@ -87,6 +87,9 @@ class RestartDialog:
             status = self._engine.get_status()
             if status:
                 self._engine._cache.set_license_status(status.to_dict())
+                key = self._engine.get_license_key()
+                if key:
+                    self._engine._cache.save_license_key(key)
                 LiveLog.log("Runtime state saved", f"Status: {status.status}")
                 return True
             LiveLog.log("Runtime state save skipped", "No status available")

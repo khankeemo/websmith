@@ -150,17 +150,16 @@ class UniversalLicenseCenter:
             status=self._status,
             product_name=self._product_name,
             operation=operation,
-            on_restart=self._show_restart_dialog,
-            on_restart_later=self._return_to_ulc,
+            on_continue=lambda: self._show_restart_dialog(operation),
         ).show()
 
     def _show_error_dialog(self, title: str, message: str) -> None:
         LiveLog.log("Showing Error Dialog", f"{title}: {message}")
         messagebox.showerror(title, message, parent=self._root)
 
-    def _show_restart_dialog(self) -> None:
+    def _show_restart_dialog(self, operation: str = "activation") -> None:
         LiveLog.log("Showing Restart Dialog", "Starting restart workflow")
-        allow_later = self._status.status in ('trial', 'active') if self._status else False
+        allow_later = (operation == 'trial')
         RestartDialog(
             parent=self._root,
             engine=self.engine,
@@ -175,14 +174,6 @@ class UniversalLicenseCenter:
             except Exception:
                 pass
             self._root = None
-
-    def _return_to_ulc(self) -> None:
-        LiveLog.log("Returning to ULC", "User deferred restart")
-        if self._root:
-            try:
-                self._root.lift()
-            except Exception:
-                pass
 
     def _show_license_center(self, trial_consumed: bool = False) -> Dict[str, Any]:
         LiveLog.log("Opening Universal License Center",
@@ -539,7 +530,6 @@ class UniversalLicenseCenter:
                     self._app_unlocked = True
                     LiveLog.log("Activation successful", f"Key: {key[:8]}...")
                     dialog.destroy()
-                    self._destroy_ulc()
                     self._show_success_dialog("activation")
                 else:
                     err_data = result.get('data', result)
@@ -578,8 +568,7 @@ class UniversalLicenseCenter:
                     self._status = status
                     LiveLog.log("Engine status updated", f"status={status.status}, valid={status.valid}")
                 self._app_unlocked = True
-                LiveLog.log("Trial activated", "Destroying ULC and showing success dialog")
-                self._destroy_ulc()
+                LiveLog.log("Trial activated", "Showing success dialog")
                 self._show_success_dialog("trial")
             else:
                 err_msg = eng_result.get('message', 'Trial activation failed')
@@ -636,7 +625,6 @@ class UniversalLicenseCenter:
                     if status:
                         self._status = status
                     LiveLog.log("Renewal API success", "Engine state updated")
-                    self._destroy_ulc()
                     self._show_success_dialog("renewal")
                 else:
                     err_msg = eng_result.get('message', 'Renewal failed')
