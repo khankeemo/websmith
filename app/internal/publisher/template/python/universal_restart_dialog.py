@@ -1,5 +1,4 @@
 """Universal Restart Dialog — save state, close, exit, restart application"""
-import os
 import subprocess
 import sys
 import tkinter as tk
@@ -7,21 +6,17 @@ from typing import Optional
 
 from .license_engine import LicenseEngine
 from .live_log import LiveLog
-from .single_instance import SingleInstance
 
 
 class RestartDialog:
     def __init__(self, parent: tk.Toplevel, engine: LicenseEngine,
-                 product_name: str = "",
-                 allow_restart_later: bool = False):
+                 product_name: str = ""):
         self._parent = parent
         self._engine = engine
         self._product_name = product_name
-        self._allow_restart_later = allow_restart_later
         self._root: Optional[tk.Toplevel] = None
 
     def show(self) -> None:
-        self._instance_lock = SingleInstance('RestartDialog')
         self._root = tk.Toplevel(self._parent)
         self._root.title("Restart Required")
         self._root.geometry("460x280")
@@ -29,7 +24,7 @@ class RestartDialog:
         self._root.configure(bg="#f0f2f5")
         self._root.transient(self._parent)
         self._root.grab_set()
-        self._root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._root.protocol("WM_DELETE_WINDOW", self._on_restart)
         LiveLog.log("Restart dialog shown", "Waiting for user action")
         self._build_ui()
         self._center_window()
@@ -72,15 +67,7 @@ class RestartDialog:
                                 bg="#6366f1", fg="white", relief="flat",
                                 command=self._on_restart, cursor="hand2",
                                 padx=24, pady=8)
-        restart_btn.pack(side="left", expand=True, padx=(0, 6))
-
-        if self._allow_restart_later:
-            later_btn = tk.Button(btn_frame, text="Restart Later",
-                                  font=("Segoe UI", 12),
-                                  bg="#e5e7eb", fg="#374151", relief="flat",
-                                  command=self._on_restart_later, cursor="hand2",
-                                  padx=24, pady=8)
-            later_btn.pack(side="right", expand=True, padx=(6, 0))
+        restart_btn.pack(expand=True)
 
     def _save_runtime_state(self) -> bool:
         try:
@@ -98,26 +85,14 @@ class RestartDialog:
             LiveLog.log("Runtime state save failed", str(e))
             return False
 
-    def _shutdown(self) -> None:
-        LiveLog.log("Shutdown sequence started", "Saving state and flushing cache")
-        saved = self._save_runtime_state()
+    def _flush_cache(self) -> None:
         try:
             self._engine._cache._save_cache()
             LiveLog.log("Cache flushed to disk", "Pre-restart cache write complete")
         except Exception as e:
             LiveLog.log("Cache flush failed", str(e))
-        LiveLog.log("Shutdown complete", f"State saved: {saved}, exiting process")
 
-    def _on_restart(self):
-        LiveLog.log("Restart requested", "User clicked Restart Now")
-        self._shutdown()
-        cmd = [sys.executable] + sys.argv
-        LiveLog.log("Restart command", f"Executing: {' '.join(cmd[:3])}...")
-        try:
-            subprocess.Popen(cmd)
-            LiveLog.log("Restart command launched", "New process started")
-        except Exception as e:
-            LiveLog.log("Restart launch failed", str(e))
+    def _close_all_windows(self) -> None:
         if self._parent:
             try:
                 self._parent.destroy()
@@ -128,19 +103,18 @@ class RestartDialog:
                 self._root.destroy()
             except Exception:
                 pass
+
+    def _on_restart(self):
+        LiveLog.log("Restart requested", "User clicked Restart Now")
+        self._save_runtime_state()
+        self._flush_cache()
+        self._close_all_windows()
+        cmd = [sys.executable] + sys.argv
+        LiveLog.log("Restart command", f"Executing: {' '.join(cmd[:3])}...")
+        try:
+            subprocess.Popen(cmd)
+            LiveLog.log("Restart command launched", "New process started")
+        except Exception as e:
+            LiveLog.log("Restart launch failed", str(e))
         LiveLog.log("Current process closing", "Exiting")
         sys.exit(0)
-
-    def _on_restart_later(self):
-        LiveLog.log("Restart deferred", "User clicked Restart Later")
-        if self._root:
-            try:
-                self._root.destroy()
-            except Exception:
-                pass
-
-    def _on_close(self):
-        if self._allow_restart_later:
-            self._on_restart_later()
-        else:
-            self._on_restart()

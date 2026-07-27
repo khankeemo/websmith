@@ -159,12 +159,10 @@ class UniversalLicenseCenter:
 
     def _show_restart_dialog(self, operation: str = "activation") -> None:
         LiveLog.log("Showing Restart Dialog", "Starting restart workflow")
-        allow_later = (operation == 'trial')
         RestartDialog(
             parent=self._root,
             engine=self.engine,
             product_name=self._product_name,
-            allow_restart_later=allow_later,
         ).show()
 
     def _destroy_ulc(self) -> None:
@@ -287,7 +285,7 @@ class UniversalLicenseCenter:
                 ("Contact Support", self._contact_support, self._text_secondary),
                 ("View Conversations", self._view_conversations, self._text_secondary),
                 ("View Notifications", self._view_notifications, self._text_secondary),
-                ("Close", self._on_close, "#e5e7eb"),
+                ("Close", self._on_ulc_close, "#e5e7eb"),
             ]
         elif is_paid:
             buttons = [
@@ -297,7 +295,7 @@ class UniversalLicenseCenter:
                 ("Sales Enquiry", self._sales_enquiry, self._text_secondary),
                 ("View Conversations", self._view_conversations, self._text_secondary),
                 ("View Notifications", self._view_notifications, self._text_secondary),
-                ("Close", self._on_close, "#e5e7eb"),
+                ("Close", self._on_ulc_close, "#e5e7eb"),
             ]
         elif is_expired:
             buttons = [
@@ -306,18 +304,18 @@ class UniversalLicenseCenter:
                 ("Contact Support", self._contact_support, self._text_secondary),
                 ("View Conversations", self._view_conversations, self._text_secondary),
                 ("View Notifications", self._view_notifications, self._text_secondary),
-                ("Close", self._on_close, "#e5e7eb"),
+                ("Close", self._on_ulc_close, "#e5e7eb"),
             ]
         elif is_deactivated:
             buttons = [
                 ("Contact Support", self._contact_support, self._primary),
                 ("Sales Enquiry", self._sales_enquiry, self._text_secondary),
-                ("Close", self._on_close, "#e5e7eb"),
+                ("Close", self._on_ulc_close, "#e5e7eb"),
             ]
         elif is_force_reactivation:
             buttons = [
                 ("Contact Support", self._contact_support, self._primary),
-                ("Close", self._on_close, "#e5e7eb"),
+                ("Close", self._on_ulc_close, "#e5e7eb"),
             ]
         elif is_inactive:
             support_label = f"Contact Support ({self._support_email})" if self._support_email else "Contact Support"
@@ -373,12 +371,6 @@ class UniversalLicenseCenter:
                                        bg=self._bg, fg=self._text_secondary,
                                        wraplength=540, justify="left")
         self._output_label.pack(fill="x", pady=(8, 0))
-
-    def _on_close(self):
-        try:
-            self._root.destroy()
-        except Exception:
-            pass
 
     def _on_ulc_close(self):
         """Handle ULC close when application is locked - exit the process."""
