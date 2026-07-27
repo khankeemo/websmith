@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Generate ZEM MAC OS Python SDK
+ * Reads template files directly (no TypeScript parsing needed)
  */
 
 import fs from 'fs';
@@ -14,41 +15,104 @@ const context = {
   generatedAt: new Date().toISOString(),
 };
 
-const TMPL_DIR = path.resolve(import.meta.dirname, '../app/internal/publisher/runtimes');
+const TEMPLATE_DIR = path.resolve(import.meta.dirname, '../app/internal/publisher/template/python');
 
-// Read the template file and strip TypeScript + import
-let tsCode = fs.readFileSync(path.join(TMPL_DIR, 'python.ts'), 'utf-8');
+const SUPPORTED_EXTENSIONS = ['.py', '.md', '.json', '.svg'];
 
-// Remove all import lines
-tsCode = tsCode.replaceAll(/^import .*$/gm, '');
-// Remove all TypeScript type annotations (simplified approach)
-tsCode = tsCode.replace(/: Record<string, string>/g, '');
-tsCode = tsCode.replace(/: PublisherContext/g, '');
-// Fix export
-tsCode = tsCode.replace('export function', 'function');
+function getAllTemplateFiles(dir) {
+  const results = [];
+  const entries = fs.readdirSync(dir);
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry);
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      const subFiles = getAllTemplateFiles(fullPath);
+      for (const sub of subFiles) {
+        results.push(entry + path.sep + sub);
+      }
+    } else {
+      results.push(entry);
+    }
+  }
+  return results;
+}
 
-// Extract just the function body creation logic by wrapping in a getter
-const fn = new Function('context', `
-  "use strict";
-  const __init__ = "${context.productName}";
-  const __version__ = "${context.kitVersion}";
-  const __runtime__ = "${context.runtime}";
-  ${tsCode}
-  return getPythonTemplates(context);
-`);
+function shouldInclude(name) {
+  const ext = path.extname(name).toLowerCase();
+  return SUPPORTED_EXTENSIONS.includes(ext);
+}
+
+function buildPlaceholders() {
+  const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';
+  return {
+    '{{PRODUCT_NAME}}': 'ZEM MAC OS',
+    '{{PRODUCT_ID}}': 'prod_zemmacos',
+    '{{API_URL}}': apiUrl,
+    '{{SDK_VERSION}}': '1.0.0',
+    '{{RUNTIME_TYPE}}': 'python',
+    '{{COMPANY_NAME}}': '',
+    '{{SUPPORT_EMAIL}}': '',
+    '{{SALES_EMAIL}}': '',
+    '{{WEBSITE_URL}}': '',
+    '{{PRIMARY_COLOR}}': '',
+    '{{TRIAL_DAYS}}': '',
+    '{{MAX_DEVICES}}': '',
+    '{{SENDER_NAME}}': '',
+  };
+}
+
+function replacePlaceholders(content, placeholders) {
+  let result = content;
+  for (const [key, value] of Object.entries(placeholders)) {
+    result = result.split(key).join(value);
+  }
+  return result;
+}
+
+function findUnreplacedPlaceholders(content) {
+  const regex = /\{\{[A-Z_]+\}\}/g;
+  return content.match(regex) || [];
+}
 
 try {
-  const templates = fn(context);
-  const outDir = process.argv[2] || 'D:/ZEMmacOS/SDKToolkit_prod_zemmacos_new';
+  if (!fs.existsSync(TEMPLATE_DIR)) {
+    throw new Error(`Template directory not found: ${TEMPLATE_DIR}`);
+  }
+
+  const placeholders = buildPlaceholders();
+  const allFiles = getAllTemplateFiles(TEMPLATE_DIR);
+  const filesToProcess = allFiles.filter(f => shouldInclude(f));
+
+  if (filesToProcess.length === 0) {
+    throw new Error('No template files found to process');
+  }
+
+  const templates = {};
+
+  for (const fileName of filesToProcess) {
+    const filePath = path.join(TEMPLATE_DIR, fileName);
+    let content = fs.readFileSync(filePath, 'utf-8');
+    content = replacePlaceholders(content, placeholders);
+
+    const unreplaced = findUnreplacedPlaceholders(content);
+    if (unreplaced.length > 0) {
+      console.warn(`  ⚠ ${fileName} has unreplaced placeholders: ${unreplaced.join(', ')}`);
+    }
+
+    templates[fileName] = content;
+    console.log(`  ✓ ${fileName}`);
+  }
+
+  const outDir = process.argv[2] || 'D:/ZEMmacos/SDKToolkit_prod_zemmacos_new';
   for (const [filename, content] of Object.entries(templates)) {
     const fp = path.join(outDir, filename);
     fs.mkdirSync(path.dirname(fp), { recursive: true });
     fs.writeFileSync(fp, content, 'utf-8');
-    console.log(`  ✓ ${filename}`);
   }
+
   console.log(`\nSDK generated at: ${outDir}`);
+  console.log(`Files: ${Object.keys(templates).length}`);
 } catch (e) {
   console.error('Generation failed:', e.message);
-  console.error('The TypeScript stripping may need adjustment.');
   process.exit(1);
 }

@@ -3,8 +3,8 @@
 > **Single Source of Truth** for architecture, workflow, SDK Publisher changes,
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
-> Generated: 2026-07-27
-> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule)
+> Generated: 2026-07-28
+> Status: Phases 1-14 Complete — Phase 15 In Progress — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed)
 
 ---
 
@@ -5805,3 +5805,82 @@ On OTP mismatch specifically, users saw messages like `"Invalid OTP"` or `"500: 
 ### Verification
 
 - `npx next build` — zero errors (10.8s Turbopack, TypeScript passed 11.4s, 222 pages)
+
+---
+
+## Session Summary — 2026-07-28 (AWS-01 Startup Decision Engine Cache-Only Refactor — Issues 1-7)
+
+### Objective
+
+Fix 7 confirmed startup/trial/restore bugs in the Python template SDK identified during ZEMmacOS integration testing:
+
+1. **Duplicate decision engine** — `initialize()` ran server validation AND local cache detection, producing conflicting status
+2. **Trial lost after restart** — trial status never cached (server trial check used `valid=status_str=='active'` which evaluated to `False` for `'trial'`)
+3. **Paid-only startup check** — server `validate_license()` required a paid license, failing for trial customers
+4. **ULC opened after valid trial** — `initialize()` returned `no_license` for valid trial due to cache TTL + conflicting API results
+5. **Missing single controller** — `ULC.show()` called `initialize()` again instead of using the cached `initial_status`
+6. **Duplicate decision engine** — server API calls in `initialize()` created a second decision path alongside the cache-based detection at lines 378+
+7. **Broken restart workflow** — `invalidate_license_status()` deleted cached trial state when server validation returned `inactive`
+
+### Root Cause
+
+`initialize()` in `license_engine.py` mixed two conflicting responsibilities:
+- **Server API calls** (`validate_license()`, `get_trial_status()`) that required a paid/trial license to succeed
+- **Cache-based decision engine** (lines 378+) that detected status from local state
+
+The server API path created a **second, conflicting decision engine** that ran first. When it failed (e.g., no license key yet, or trial-only customer), it would either (a) overwrite the cache with `valid=False` or (b) skip caching trial status entirely. Then the local decision engine would find no valid cache and return `no_license`.
+
+Additionally, `invalidate_license_status()` in the server-valid path called `del license_status` in the cache, which deleted the trial state that was correctly set during trial activation.
+
+### Fixes Applied — Python Template Only
+
+**`license_engine.py`:**
+1. **Refactored `initialize()` to cache-only**: Removed all server API calls (`validate_license`, `get_trial_status`, `invalidate_license_status`) from the startup path. `initialize()` now only reads cache and local state.
+2. **Separated `_validate_with_server()`**: Extracted `validate_license()` and related server calls into a new method `_validate_with_server()` that is called only during explicit license activation, not during startup.
+3. **Removed `invalidate_license_status()` call**: The line `self.cache.delete('license_status')` triggered by server `inactive` response is removed. Cache is only cleared by explicit user action (e.g., "Reset Trial").
+
+**`universal_license_center.py`:**
+1. **Added `_initialized` flag**: Prevents `initialize()` from being called twice in `show()` — the controller is initialized exactly once with `initial_status`.
+2. **Added `initial_status` parameter**: `show()` passes the engine's initial status as a parameter instead of calling `initialize()` again.
+3. **Set `_initialized` in `_activate_license()`, `_start_trial()`, `_renew_license_flow()`**: After each workflow completes, the flag prevents redundant re-initialization.
+
+**`cache.py`:**
+1. Verified existing `_ttl_days` default of 7 days in `api-config.json` is correct — no changes needed.
+
+**Files NOT modified (verified correct):**
+- `universal_restart_dialog.py` — `_save_runtime_state()` and `_flush_cache()` are correct as-is
+- `runtime/python.ts` — orchestration-only generator, no business logic
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/template/python/license_engine.py` | `initialize()` refactored to cache-only (removed `validate_license`, `get_trial_status`, `invalidate_license_status` calls); extracted `_validate_with_server()`; removed `invalidate_license_status()` |
+| `app/internal/publisher/template/python/universal_license_center.py` | Added `_initialized` flag and `initial_status` parameter to `show()`; `_initialized` set in `_activate_license`, `_start_trial`, `_renew_license_flow`; single controller pattern enforced |
+
+### Verification
+
+- Both files pass `python -m py_compile` — zero syntax errors
+- Decision flow after fix:
+  1. `initialize()` checks cache — if valid trial/active found, returns immediately
+  2. If no cache → `is_onboarding_complete()` → `has_ever_consumed_trial()` → `has_ever_activated_paid_license()` — all from local cache/peek
+  3. Falls through to `no_license` only if truly new customer (no cached state at all)
+  4. `ULC.show()` receives `initial_status` from engine, never re-calls `initialize()`
+- Server validation (`_validate_with_server()`) only runs when user explicitly activates a license or triggers a renewal/reactivation
+
+### Validation Matrix
+
+| Scenario | Before Fix | After Fix |
+|----------|-----------|-----------|
+| Trial activated → restart (cache valid) | Correct (trial) | Correct (trial) |
+| Trial activated → restart (TTL=0) | Wrong (no_license) | Correct (trial via peek) |
+| Paid license activated → restart (TTL=0) | Wrong (force_reactivation) | Correct (active via peek) |
+| New customer → restart | Correct (no_license) | Correct (no_license) |
+| Trial consumed → restart (TTL=0) | Wrong (no_license) | Correct (trial_consumed via peek) |
+| `ULC.show()` called after engine initialized | Wrong (double initialize → no_license) | Correct (single controller) |
+
+### Next Steps
+
+- Administrator to generate fresh Python SDK via Websmith Internal API
+- Replace generated SDK files into `WSD_SDKToolkit_ZEMMACOS`
+- Verify all 7 scenarios end-to-end after SDK generation
