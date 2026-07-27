@@ -366,6 +366,13 @@ export class CacheManager {
     return this.get('license_status');
   }
 
+  peekLicenseStatus(): Record<string, any> | null {
+    const cache = this._loadCache();
+    const entry = cache['license_status'] as CacheEntry | undefined;
+    if (!entry) return null;
+    return entry.value as Record<string, any>;
+  }
+
   setLicenseStatus(status: Record<string, any>): void {
     this.set('license_status', status);
   }
@@ -387,12 +394,26 @@ export class CacheManager {
     return this.get('has_ever_activated_paid_license') === true;
   }
 
+  peekHasEverActivatedPaidLicense(): boolean {
+    const cache = this._loadCache();
+    const entry = cache['has_ever_activated_paid_license'] as CacheEntry | undefined;
+    if (!entry) return false;
+    return entry.value === true;
+  }
+
   setOnboardingComplete(): void {
     this.set('onboarding_complete', true);
   }
 
   isOnboardingComplete(): boolean {
     return this.get('onboarding_complete') === true;
+  }
+
+  peekOnboardingComplete(): boolean {
+    const cache = this._loadCache();
+    const entry = cache['onboarding_complete'] as CacheEntry | undefined;
+    if (!entry) return false;
+    return entry.value === true;
   }
 
   // ====================================================================
@@ -894,6 +915,20 @@ export class LicenseEngine {
           this._licenseKey = this._status.license_key;
         }
         LiveLog.log('Customer found (cache hit)', \`status: \${this._status.status}\`);
+        this._notifyReady(this._isValidStatus(this._status));
+        return this._status;
+      }
+    }
+    // Peek fallback — restore from expired cache if state is still valid
+    if (!this.cache.isCacheValid()) {
+      const peeked = this.cache.peekLicenseStatus();
+      if (peeked && (peeked.status === 'active' || peeked.status === 'trial')) {
+        this._status = LicenseEngine._toStatusData(peeked);
+        if (!this._licenseKey && this._status.license_key) {
+          this._licenseKey = this._status.license_key;
+        }
+        this.cache.setLicenseStatus(peeked);
+        LiveLog.log('Customer found (peek)', \`restored saved state, status: \${this._status.status}\`);
         this._notifyReady(this._isValidStatus(this._status));
         return this._status;
       }
