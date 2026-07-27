@@ -287,6 +287,26 @@ export class SDKValidator {
     // Check all source files for common issues
     const files = await this.listFilesRecursive(packageDir);
 
+    // Check for success/restart workflow in Python packages
+    if (runtime === 'python') {
+      const pyFiles = files.filter(f => f.endsWith('.py'));
+      for (const pyFile of pyFiles) {
+        const content = await fs.readFile(pyFile, 'utf-8');
+        if (pyFile.endsWith('universal_license_center.py') || pyFile.endsWith('__init__.py')) {
+          if (!content.includes('SuccessDialog')) {
+            result.errors.push(
+              `Universal Success Dialog (SuccessDialog) missing from ${path.relative(packageDir, pyFile)}`
+            );
+          }
+          if (!content.includes('RestartDialog')) {
+            result.errors.push(
+              `Universal Restart Dialog (RestartDialog) missing from ${path.relative(packageDir, pyFile)}`
+            );
+          }
+        }
+      }
+    }
+
     // Check for required API methods in runtime client files
     const methodChecks: Record<string, { filePattern: string; methods: string[] }> = {
       python: {
