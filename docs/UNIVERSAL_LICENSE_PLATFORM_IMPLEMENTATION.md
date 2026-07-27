@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-27
-> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10 Applied: LiveLog extracted to dedicated live_log.py template; UniversalRestartDialog uses subprocess.Popen instead of os.execl; _start_trial() calls engine.start_trial(); _renew_license_flow() calls engine.renew(); WelcomeDialog no longer calls client.start_trial() directly; _start_trial() properly validates engine result
+> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10 Applied: LiveLog extracted to dedicated live_log.py template; UniversalRestartDialog uses subprocess.Popen instead of os.execl; _start_trial() calls engine.start_trial(); _renew_license_flow() calls engine.renew(); WelcomeDialog no longer calls client.start_trial() directly; _start_trial() properly validates engine result — AWS-01 Session 11 Applied: Final database cleanup script written (cleanup-licensing-data.sql); all 28 customer/business tables identified for deletion; system config tables preserved; verification queries included
 
 ---
 
@@ -5502,6 +5502,60 @@ Fix three confirmed template bugs discovered during ZEMmacOS integration testing
 - Administrator to generate fresh SDK via Websmith Internal API
 - Verify generated SDK at `C:\Users\Admin\Downloads\WSD_SDKToolkit_ZEMMACOS`
 - Verify all workflows end-to-end after generation
+
+---
+
+## Session Summary — 2026-07-27 (AWS-01 Final Database Cleanup for End-to-End Testing)
+
+### Objective
+
+Clean all customer/business licensing data from the Neon PostgreSQL database so the complete Trial → Activation → Renewal → Reactivation flow can be tested end-to-end as a brand-new customer.
+
+### Scope
+
+**Preserved (system/config — not touched):**
+- `products`, `plans` — product/plan catalog
+- `developer_api_keys`, `api_key_audit_log`, `api_request_logs`, `public_api_nonces` — API key system
+- `countries`, `trial_templates` — reference/config data
+- `email_templates`, `sms_config`, `sms_templates`, `event_notification_config` — notification config
+- `payment_gateways`, `payment_config` — payment config
+- `system_settings`, `sdk_runtime_settings` — runtime config
+- `_migrations` — migration tracking
+
+**Cleared (all records deleted):**
+- `customers`, `customer_licenses` — customer profiles
+- `licenses`, `activations`, `license_bindings`, `license_hardware` — license data
+- `trials`, `trial_audit_logs` — trial records
+- `otp_verifications` — OTP history
+- `renewal_history`, `renewal_requests` — renewal data
+- `reactivation_requests` — reactivation data
+- `requests`, `conversation_messages` — support/sales conversations
+- `sales_enquiries` — sales enquiries
+- `sdk_jobs` — SDK generation job history
+- `orders`, `order_items`, `subscriptions`, `invoices` — store order/subscription data
+- `carts`, `cart_items`, `wishlist` — store cart/wishlist data
+- `coupons` — discount coupons
+- `audit_logs` — business audit trail
+- `notification_logs`, `notifications` — notification records
+
+### Cleanup Script
+
+Script written at: `D:\websmith\scripts\cleanup-licensing-data.sql`
+
+Run against production Neon PostgreSQL:
+```bash
+psql "$DATABASE_URL" -f scripts/cleanup-licensing-data.sql
+```
+
+### Verification
+
+The script ends with `SELECT COUNT(*)` verification queries that confirm:
+- All 28 business tables return **zero rows**
+- All 7 system config tables return their original row counts (unchanged)
+
+### Result
+
+After cleanup, the database behaves as a completely fresh production environment for customer licensing. The test email address can go through the full onboarding flow as a brand-new customer with no prior trial, license, activation, hardware binding, or workflow history.
 
 ---
 
