@@ -772,7 +772,7 @@ export class RuntimeBuilder {
       await this.validateGeneratedPythonFiles(packageDir, context.productName);
       await this.writeConfig(packageDir, apiConfig);
       await this.generateDocs(packageDir);
-      await this.generateAssets(packageDir);
+      await this.generateAssets(packageDir, runtime.name);
       await this.generateReadme(packageDir, context, runtime.name);
 
       return packageDir;
@@ -811,10 +811,30 @@ export class RuntimeBuilder {
     }
   }
 
-  private async generateAssets(packageDir: string): Promise<void> {
+  private async generateAssets(packageDir: string, runtimeName?: string): Promise<void> {
     const assetsDest = path.join(packageDir, 'assets');
     await fs.mkdir(assetsDest, { recursive: true });
 
+    // Check if runtime template has file-based assets
+    if (runtimeName) {
+      const templateAssetsDir = path.resolve(__dirname, 'template', runtimeName, 'assets');
+      try {
+        const templateAssetsExist = (await fs.stat(templateAssetsDir)).isDirectory();
+        if (templateAssetsExist) {
+          const assetFiles = await fs.readdir(templateAssetsDir);
+          for (const assetFile of assetFiles) {
+            const srcPath = path.join(templateAssetsDir, assetFile);
+            const destPath = path.join(assetsDest, assetFile);
+            await fs.copyFile(srcPath, destPath);
+          }
+          return;
+        }
+      } catch {
+        // Template assets directory doesn't exist — fall through to in-memory
+      }
+    }
+
+    // Fallback to in-memory asset templates
     for (const [filename, content] of Object.entries(ASSET_TEMPLATES)) {
       await fs.writeFile(path.join(assetsDest, filename), content);
     }

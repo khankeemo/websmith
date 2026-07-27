@@ -1,0 +1,41 @@
+{
+  "product": {
+    "id": "{{PRODUCT_ID}}",
+    "name": "{{PRODUCT_NAME}}",
+    "version": "{{SDK_VERSION}}"
+  },
+  "api": {
+    "url": "{{API_URL}}",
+    "version": "v1",
+    "public_key": "",
+    "secret": "",
+    "timeout": 30000,
+    "retry_count": 3
+  },
+  "branding": {
+    "company_name": "{{COMPANY_NAME}}",
+    "support_email": "{{SUPPORT_EMAIL}}",
+    "sales_email": "{{SALES_EMAIL}}",
+    "website_url": "{{WEBSITE_URL}}",
+    "primary_color": "{{PRIMARY_COLOR}}",
+    "sender_name": "{{SENDER_NAME}}"
+  },
+  "trial": {
+    "enabled": true,
+    "days": {{TRIAL_DAYS}}
+  },
+  "license": {
+    "max_devices": {{MAX_DEVICES}},
+    "hardware_binding": true
+  },
+  "offline": {
+    "enabled": true,
+    "cache_days": 7
+  },
+  "features": {
+    "universal_license_center": true,
+    "success_dialog": true,
+    "restart_dialog": true,
+    "welcome_dialog": true
+  }
+}

@@ -3,12 +3,13 @@ __version__ = "{{SDK_VERSION}}"
 __all__ = [
     "UniversalLicenseCenter",
     "WelcomeDialog",
+    "SuccessDialog",
+    "RestartDialog",
     "LicenseEngine", "LicenseStatus",
     "ApiClient", "ApiError",
     "HardwareDetector",
     "CacheManager",
-    "SuccessDialog",
-    "RestartDialog",
+    "LiveLog",
 ]
 
 from .client import ApiClient, ApiError
@@ -16,4 +17,16 @@ from .license_engine import LicenseEngine, LicenseStatus
 from .hardware import HardwareDetector
 from .cache import CacheManager
 from .welcome import WelcomeDialog
-from .universal_license_center import UniversalLicenseCenter, SuccessDialog, RestartDialog
+from .universal_license_center import UniversalLicenseCenter, LiveLog
+from .universal_success_dialog import SuccessDialog
+from .universal_restart_dialog import RestartDialog
+
+from . import activation
+from . import renewal
+from . import reactivation
+from . import trial
+from . import communication
+from . import notifications
+from . import support
+from . import sales
+from . import config

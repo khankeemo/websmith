@@ -21,7 +21,27 @@ const MANDATORY_FILES = [
   'license_engine.py',
   'welcome.py',
   'universal_license_center.py',
+  'universal_success_dialog.py',
+  'universal_restart_dialog.py',
+  'activation.py',
+  'renewal.py',
+  'reactivation.py',
+  'trial.py',
+  'communication.py',
+  'notifications.py',
+  'support.py',
+  'sales.py',
+  'config.py',
+  'manifest.json',
   'README.md',
+];
+
+const RUNTIME_ONLY_EXTENSIONS = ['.py', '.md'];
+
+const SUBDIR_MANDATORY = [
+  'assets/badge.svg',
+  'assets/logo.svg',
+  'config/api-config.json',
 ];
 
 interface PlaceholderMap {
@@ -50,6 +70,24 @@ function findUnreplacedPlaceholders(content: string): string[] {
   return matches || [];
 }
 
+function getAllTemplateFiles(dir: string): string[] {
+  const results: string[] = [];
+  const entries = fs.readdirSync(dir);
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry);
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      const subFiles = getAllTemplateFiles(fullPath);
+      for (const sub of subFiles) {
+        results.push(entry + '/' + sub);
+      }
+    } else {
+      results.push(entry);
+    }
+  }
+  return results;
+}
+
 export function getPythonTemplates(context: PublisherContext): Record<string, string> {
   const placeholders = buildPlaceholders(context);
   const templates: Record<string, string> = {};
@@ -69,17 +107,26 @@ export function getPythonTemplates(context: PublisherContext): Record<string, st
     );
   }
 
-  // Read all template files
-  const entries = fs.readdirSync(TEMPLATE_DIR);
-  const fileNames = entries.filter(
-    e => e.endsWith('.py') || e.endsWith('.md')
+  // Read all template files recursively
+  const allFiles = getAllTemplateFiles(TEMPLATE_DIR);
+  const rootFiles = allFiles.filter(f => !f.includes(path.sep));
+  const fileNames = rootFiles.filter(
+    f => f.endsWith('.py') || f.endsWith('.md') || f === 'manifest.json'
   );
 
-  // Validate mandatory files exist
+  // Validate mandatory root files exist
   const missingFiles: string[] = [];
   for (const mandatoryFile of MANDATORY_FILES) {
-    if (!fileNames.includes(mandatoryFile)) {
+    if (!rootFiles.includes(mandatoryFile)) {
       missingFiles.push(mandatoryFile);
+    }
+  }
+
+  // Validate mandatory subdirectory files exist
+  const missingSubdir: string[] = [];
+  for (const subdirFile of SUBDIR_MANDATORY) {
+    if (!allFiles.includes(subdirFile)) {
+      missingSubdir.push(subdirFile);
     }
   }
 
@@ -91,7 +138,15 @@ export function getPythonTemplates(context: PublisherContext): Record<string, st
     );
   }
 
-  // Read and process each template file
+  if (missingSubdir.length > 0) {
+    throw new Error(
+      `[${context.productName}] Python template validation failed — missing mandatory assets/config:\n` +
+      missingSubdir.map(f => `  - ${f}`).join('\n') +
+      '\nGeneration stopped.'
+    );
+  }
+
+  // Read and process each runtime template file
   for (const fileName of fileNames) {
     const filePath = path.join(TEMPLATE_DIR, fileName);
     let content = fs.readFileSync(filePath, 'utf-8');
