@@ -17,7 +17,8 @@ from .license_engine import LicenseEngine, LicenseStatus
 from .hardware import HardwareDetector
 from .cache import CacheManager
 from .welcome import WelcomeDialog
-from .universal_license_center import UniversalLicenseCenter, LiveLog
+from .live_log import LiveLog
+from .universal_license_center import UniversalLicenseCenter
 from .universal_success_dialog import SuccessDialog
 from .universal_restart_dialog import RestartDialog
 

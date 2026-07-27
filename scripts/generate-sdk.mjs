@@ -19,8 +19,8 @@ const TMPL_DIR = path.resolve(import.meta.dirname, '../app/internal/publisher/ru
 // Read the template file and strip TypeScript + import
 let tsCode = fs.readFileSync(path.join(TMPL_DIR, 'python.ts'), 'utf-8');
 
-// Remove the import line
-tsCode = tsCode.replace(/^import .*$/m, '');
+// Remove all import lines
+tsCode = tsCode.replaceAll(/^import .*$/gm, '');
 // Remove all TypeScript type annotations (simplified approach)
 tsCode = tsCode.replace(/: Record<string, string>/g, '');
 tsCode = tsCode.replace(/: PublisherContext/g, '');

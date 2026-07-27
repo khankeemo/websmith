@@ -19,6 +19,7 @@ const MANDATORY_FILES = [
   'hardware.py',
   'cache.py',
   'license_engine.py',
+  'live_log.py',
   'welcome.py',
   'universal_license_center.py',
   'universal_success_dialog.py',

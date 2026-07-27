@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-27
-> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied (clearAllLicenseData preserves customer state; added customer_state/has_ever_consumed_trial/active_binding/notification_prefs cache keys; fixed clearLicenseKey() definition; added missing engine/client methods; added LiveLog export; fixed OTP purpose parameter; fixed placeholder syntax; fixed hardcoded SDK_VERSION; added country/company to Welcome flow; added reactivation menu option; fixed Rule 18 shutdown; fixed hardcoded support@websmithdigital.com in API error messages; replaced direct Brevo call with sendEmail; fixed example.com fallbacks in communication routes)
+> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10 Applied: LiveLog extracted to dedicated live_log.py template; UniversalRestartDialog uses subprocess.Popen instead of os.execl; _start_trial() calls engine.start_trial(); _renew_license_flow() calls engine.renew(); WelcomeDialog no longer calls client.start_trial() directly; _start_trial() properly validates engine result
 
 ---
 
@@ -918,6 +918,7 @@ Every runtime template MUST contain all of the following modules:
 | `config` | Configuration loading, branding |
 | `universal_license_center` | Main customer-facing UI / CLI |
 | `welcome` | Onboarding workflow |
+| `live_log` | Shared event logging (used by ULC, RestartDialog, and all modules) |
 | `README` | Documentation for the SDK user |
 
 **Validation:** If any module is missing from a template directory, SDK generation MUST fail.
@@ -4098,7 +4099,8 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
   - `cache.py` — Local JSON TTL cache with message queue (offline retry)
   - `license_engine.py` — Full startup decision engine with all workflows (activation, renewal, reactivation, trial, communication, notifications)
   - `welcome.py` — Tkinter OTP-based onboarding dialog
-  - `universal_license_center.py` — Full Tkinter GUI with LiveLog, UniversalLicenseCenter, SuccessDialog, RestartDialog
+   - `live_log.py` — Shared LiveLog event logging (extracted from universal_license_center.py)
+   - `universal_license_center.py` — Full Tkinter GUI with UniversalLicenseCenter, SuccessDialog, RestartDialog
   - `README.md` — Template documentation with placeholder standard
 - ✅ Python template directory exists and is the implementation source
 - ✅ All mandatory template files exist (validated during generation)
@@ -5262,7 +5264,7 @@ Audit of SDK Publisher (`app/internal/publisher/`), runtime generators (`runtime
 - **ZERO** test/debug files found
 - No `test_*.py`, `test_*.ts`, `debug_*.py`, `debug_*.ts`, `welcome_test.py` files
 - No references to test files in any Publisher code
-- Runtime generators produce only 8 core Python files: `__init__.py`, `client.py`, `crypto.py`, `hardware.py`, `cache.py`, `license_engine.py`, `welcome.py`, `universal_license_center.py`
+- Runtime generators produce only 9 core Python files: `__init__.py`, `client.py`, `crypto.py`, `hardware.py`, `cache.py`, `license_engine.py`, `live_log.py`, `welcome.py`, `universal_license_center.py`
 - Template directories contain only production SDK files
 
 ### Verification
@@ -5432,6 +5434,74 @@ The systemic issue of runtime generators containing duplicate business logic (Ru
 - All API routes now use `sendEmail()` from Universal Email Service or have proper env var fallbacks
 - No generated SDK files were edited — all changes in Publisher/templates + Internal API
 - All changes follow AWS-01 rules: templates are source of truth, no duplicate business logic in generators
+
+---
+
+## Session Summary — 2026-07-27 (AWS-01 Session 10 — LiveLog Extraction, Restart Fix, Trial/Renewal Flow Fix)
+
+### Objective
+
+Fix three confirmed template bugs discovered during ZEMmacOS integration testing:
+1. `os.execl()` unreliable on Windows → use `subprocess.Popen()` + `sys.exit(0)`
+2. Trial flow bypassed `engine.start_trial()` → engine state never updated
+3. Renewal flow never called renewal API → showed success without actually renewing
+
+### Changes Applied
+
+**1. LiveLog extracted to dedicated `live_log.py` template:**
+- Moved `LiveLog` class from `universal_license_center.py` into new `live_log.py` template file
+- `universal_license_center.py`: imports `from .live_log import LiveLog`
+- `universal_restart_dialog.py`: imports `from .live_log import LiveLog` (no circular dependency)
+- `__init__.py`: imports `LiveLog` from `.live_log` instead of `.universal_license_center`
+- `python.ts` runtime: added `live_log.py` to `MANDATORY_FILES` array
+
+**2. Restart dialog (`universal_restart_dialog.py`) — Windows reliability fix:**
+- Replaced `os.execl(sys.executable, ...)` with `subprocess.Popen(cmd)` + `sys.exit(0)`
+- Added logging for every restart transition: initiated, state saved, cache flushed, command launched, new process started, process closing, launch failed
+- `_save_runtime_state` changed from `except Exception: pass` → logs error and returns `bool`
+
+**3. Trial flow (`universal_license_center.py` `_start_trial()`) — engine state fix:**
+- After WelcomeDialog returns `trial_started`, now calls `self.engine.start_trial(email, name, customer_data)`
+- Properly validates engine result before unlocking: only shows success dialog on `eng_result.get('success')`
+- Added `_show_error_dialog()` method for trial failure cases
+
+**4. Renewal flow (`universal_license_center.py` `_renew_license_flow()`) — API call fix:**
+- `do_renew()` now calls `self.engine.renew()` instead of just checking `self.engine.get_status()`
+- Sets `self.engine._license_key = key` before calling renew
+- Updates `self._status` from engine after successful renewal
+- Shows error on failure instead of fake success
+
+**5. Welcome dialog (`welcome.py`) — registration-only flow:**
+- Removed direct `self.client.start_trial()` call from `_complete_onboarding()`
+- Now only registers customer via `self.client.register_customer()`
+- Returns `customer_data` dict (mobile, country_code, company_name, hardware_id) in result for ULC to pass to `engine.start_trial()`
+- Registration failure handled gracefully (shows error, returns to verify button)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/template/python/live_log.py` | **NEW** — Extracted LiveLog class from universal_license_center.py |
+| `app/internal/publisher/template/python/universal_license_center.py` | Import LiveLog from .live_log; _renew_license_flow() calls engine.renew(); _start_trial() validates engine result; added _show_error_dialog() |
+| `app/internal/publisher/template/python/universal_restart_dialog.py` | Import LiveLog from .live_log; os.execl → subprocess.Popen; full restart logging; _save_runtime_state returns bool |
+| `app/internal/publisher/template/python/welcome.py` | Removed direct client.start_trial(); returns customer_data dict; handles registration failure |
+| `app/internal/publisher/template/python/__init__.py` | Imports LiveLog from .live_log |
+| `app/internal/publisher/runtimes/python.ts` | Added live_log.py to MANDATORY_FILES |
+| `scripts/generate-sdk.mjs` | Fixed import stripping regex to remove all import lines |
+
+### Verification
+
+- All imports verified: every file importing LiveLog uses `from .live_log import LiveLog`
+- No file imports LiveLog from `.universal_license_center` anymore
+- `live_log.py` is self-contained with no circular dependencies
+- LicenseEngine.start_trial() is idempotent (handles trial-already-started via API error return)
+- All template files exist and are consistent
+
+### Next Steps
+
+- Administrator to generate fresh SDK via Websmith Internal API
+- Verify generated SDK at `C:\Users\Admin\Downloads\WSD_SDKToolkit_ZEMMACOS`
+- Verify all workflows end-to-end after generation
 
 ---
 
