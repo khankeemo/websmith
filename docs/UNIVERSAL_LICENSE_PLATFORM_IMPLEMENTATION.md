@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-27
-> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10-12 Applied — AWS-01 Session 13 Applied: TypeScript runtime inline code peek methods added — AWS-01 Session 14 Applied: TypeScript runtime generator refactored to load from template/typescript/ files (orchestration-only, no inline code); template files updated to consistent {{PLACEHOLDER}} format) and peek fallback in initialize() between cache hit check and server check; Universal License Center Python template destroys ULC window (_destroy_ulc()) after successful trial/activation/renewal before showing success dialog to prevent stale onboarding windows
+> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10-12 Applied — AWS-01 Session 13 Applied: TypeScript runtime inline code peek methods added — AWS-01 Session 14 Applied: TypeScript runtime generator refactored to load from template/typescript/ files (orchestration-only, no inline code); template files updated to consistent {{PLACEHOLDER}} format and peek fallback in initialize(); ULC Python template destroys ULC window after success before showing success dialog — AWS-01 Session 15 Applied: OTP Error Message Fix — all raw server errors replaced with user-friendly messages across SDK templates (Python welcome.py, TypeScript universal_license_center.ts), server API catch-all handlers (forgot-password verify/request/reset), and client web UI (authService.ts, forgot-password/page.tsx); OTP mismatch shows bold red message; actual errors logged internally only
 
 ---
 
@@ -5670,3 +5670,59 @@ Mark Task Complete
 ```
 
 No task is complete until every step is verified. If any step fails, stop and resolve before proceeding.
+
+## Session Summary — 2026-07-27 (AWS-01 OTP Error Message Fix)
+
+### Root Cause
+
+Raw server error messages (including `500`, `Internal Server Error`, database connection errors, and exception stack traces) were being exposed to end users through three paths:
+
+1. **Server API catch-all handlers** (`forgot-password/verify/route.ts`, `request/route.ts`, `reset/route.ts`) — unhandled exceptions returned `error: errMsg` with the raw error message
+2. **Client web UI** (`authService.ts` + `forgot-password/page.tsx`) — error handling fell through to `err?.message` and `JSON.stringify(err)`, exposing raw exception text and stack traces
+3. **SDK templates** (`python/welcome.py`, `typescript/universal_license_center.ts`) — OTP send/verify errors showed `result.error?.message` directly to users, and exception catch blocks displayed `str(e)` / `(e as Error).message`
+
+On OTP mismatch specifically, users saw messages like `"Invalid OTP"` or `"500: Internal Server Error"` instead of a clear, actionable error.
+
+### Fix Applied — Server API
+
+**`app/api/auth/forgot-password/verify/route.ts`:**
+- Catch-all changed from `error: errMsg` (500) to `error: "OTP verification failed. The OTP you entered is incorrect or has expired. Please check the OTP and try again."` (400)
+- Raw error logged via `console.error("OTP verify error (internal):", errMsg)`
+
+**`app/api/auth/forgot-password/request/route.ts`:**
+- Both catch blocks changed from `error: errMsg` to user-friendly messages
+- `sendOTPEmail` catch returns `"Failed to send OTP email. Please try again later."`
+- POST handler catch returns `"An unexpected error occurred. Please try again later."`
+- Raw errors logged to `console.error` with `(internal)` prefix
+
+**`app/api/auth/forgot-password/reset/route.ts`:**
+- Catch-all changed from `error: errMsg` to `"An unexpected error occurred. Please try again later."`
+- Raw error logged via `console.error("Password reset error (internal):", errMsg)`
+
+### Fix Applied — Client Web UI
+
+**`core/services/authService.ts`:**
+- Network error: replaced `\`Network error: ${err?.message || err}\`` with `'Unable to connect. Please check your internet connection and try again.'`
+- Non-JSON response: replaced `\`${res.status}: ${text.slice(0, 500)}\`` with `'Unable to connect. Please check your internet connection and try again.'`
+
+**`app/forgot-password/page.tsx`:**
+- `handleVerifyOtp`: removed `err?.message` and `JSON.stringify(err)` fallbacks; uses `err?.response?.data?.error` with safe default `"OTP verification failed. Please try again."`
+- `handleResetPassword`: removed dangerous fallbacks; uses safe default
+- `handleRequestOtp` / `handleResendOtp`: removed `err.response?.data?.message` fallback; uses `err.response?.data?.error` only
+
+### Fix Applied — Publisher SDK Templates
+
+**`template/python/welcome.py`:**
+- OTP send failure: shows `'Failed to send OTP. Please check your email address and try again.'`, logs raw error to `self._log("OTP", "ERROR", ...)`
+- OTP verify failure: shows bold red `'OTP verification failed. The OTP you entered is incorrect or has expired. Please check the OTP and try again.'`, logs raw error to `self._log("OTP", "ERROR", ...)`
+- Exception catch blocks: show generic `'An unexpected error occurred. Please try again later.'`, log `str(e)` to internal logger
+- `_show_error()`: added `bold` parameter — sets red bold font when `bold=True`
+
+**`template/typescript/universal_license_center.ts`:**
+- OTP send failure: `console.log` shows user-friendly message, `console.error` logs raw error with `[OTP]` prefix
+- OTP verify failure: `console.log` shows `'\x1b[1;31mOTP verification failed. The OTP you entered is incorrect or has expired. Please check the OTP and try again.\x1b[0m'` (bold red ANSI), `console.error` logs raw error with `[OTP]` prefix
+- Exception catch blocks: `console.log` shows generic message, `console.error` logs raw error
+
+### Verification
+
+- `npx next build` — zero errors (10.8s Turbopack, TypeScript passed 11.4s, 222 pages)
