@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-27
-> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10 Applied: LiveLog extracted to dedicated live_log.py template; UniversalRestartDialog uses subprocess.Popen instead of os.execl; _start_trial() calls engine.start_trial(); _renew_license_flow() calls engine.renew(); WelcomeDialog no longer calls client.start_trial() directly; _start_trial() properly validates engine result — AWS-01 Session 11 Applied: Final database cleanup script written (cleanup-licensing-data.sql); all 28 customer/business tables identified for deletion; system config tables preserved; verification queries included
+> Status: Phases 1-14 Complete — Phase 15 In Progress (Template-First Architecture Refactor) — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied (Welcome is NOT a startup destination; ULC is the single entry point) — AWS-01 Final Startup Routing Applied (INACTIVE_LICENSE, LIFETIME_TRIAL_CONSUMED, NO_LICENSE as distinct states; cache-based customer detection) — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Session 10 Applied: LiveLog extracted to dedicated live_log.py template; UniversalRestartDialog uses subprocess.Popen instead of os.execl; _start_trial() calls engine.start_trial(); _renew_license_flow() calls engine.renew(); WelcomeDialog no longer calls client.start_trial() directly; _start_trial() properly validates engine result — AWS-01 Session 11 Applied: Final database cleanup script written (cleanup-licensing-data.sql); all 28 customer/business tables identified for deletion; system config tables preserved; verification queries included — AWS-01 Session 12 Applied: Startup Trial Persistence Fix — Root cause identified (trial status not cached from server check path; no peek fallback for TTL-expired cache entries); peek methods added to Python and TypeScript CacheManager; trial caching fixed in license engine; LiveLog entries added for every decision point; decision engine falls back to peek before server call and checks onboarding/paid-license flags via peek when TTL expired
 
 ---
 
@@ -4070,16 +4070,16 @@ Every future phase must follow this reporting format.
 | Phase | Status | Completion |
 |-------|--------|------------|
 | Phase 1 — Architecture Audit | ✅ Complete | 100% |
-| Phase 2 — Startup & Decision Engine | ✅ Complete | 100% |
+| Phase 2 — Startup & Decision Engine | ✅ Complete (Trial persistence fix applied) | 100% |
 | Phase 3 — Application Lock | ✅ Complete | 100% |
 | Phase 4 — Universal License Center | ✅ Complete | 100% |
-| Phase 5 — Welcome & Trial | ✅ Complete | 100% |
+| Phase 5 — Welcome & Trial | ✅ Complete (Trial caching fix applied) | 100% |
 | Phase 6 — Activation | ✅ Complete | 100% |
 | Phase 7 — Renewal | ✅ Complete | 100% |
 | Phase 8 — Reactivation | ✅ Complete | 100% |
 | Phase 9 — Support & Customer Login | ✅ Complete | 100% |
 | Phase 10 — Route Cleanup | ✅ Complete | 100% |
-| Phase 11 — Cache Management | ✅ Complete | 100% |
+| Phase 11 — Cache Management | ✅ Complete (Peek methods added) | 100% |
 | Phase 12 — Internal API Verification | ✅ Complete | 100% |
 | Phase 13 — SDK Publisher Verification | ✅ Complete | 100% |
 | Phase 14 — AWS-01 Fixes & Doc Consolidation | ✅ Complete | 100% |
@@ -4136,15 +4136,16 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 8. ✅ Runtime generator refactored to orchestration-only (template file loading, placeholder replacement, validation)
 9. ✅ SDK validation updated — checks for SuccessDialog and RestartDialog in generated packages
 10. ✅ Build verified — zero errors, 222 pages
-11. Generate fresh Python SDK and verify all workflows end-to-end
-12. Generate fresh TypeScript SDK and verify all workflows
-13. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
-14. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
-15. Database review — migrate legacy `requests` table into universal conversation architecture
-16. Store Module — verify frontend rendering of products after service fix
-17. Multi-runtime template refactoring (TypeScript + 12 other runtimes)
-18. Fresh multi-runtime SDK generation and full verification
-19. Runtime drift audit for all languages
+11. ✅ Startup Trial Persistence Fix — Root cause identified and fixed (cache TTL expiration + missing peek fallback + trial not cached from server check path); peek methods added to Python and TypeScript CacheManager; LiveLog entries added for every decision point; decision engine now restores from peek before server call
+12. Generate fresh Python SDK and verify all workflows end-to-end
+13. Generate fresh TypeScript SDK and verify all workflows
+14. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
+15. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
+16. Database review — migrate legacy `requests` table into universal conversation architecture
+17. Store Module — verify frontend rendering of products after service fix
+18. Multi-runtime template refactoring (TypeScript + 12 other runtimes)
+19. Fresh multi-runtime SDK generation and full verification
+20. Runtime drift audit for all languages
 
 ---
 
@@ -5502,6 +5503,73 @@ Fix three confirmed template bugs discovered during ZEMmacOS integration testing
 - Administrator to generate fresh SDK via Websmith Internal API
 - Verify generated SDK at `C:\Users\Admin\Downloads\WSD_SDKToolkit_ZEMMACOS`
 - Verify all workflows end-to-end after generation
+
+---
+
+## Session Summary — 2026-07-27 (AWS-01 Startup Trial Persistence Fix — Cache TTL Expiration, Decision Engine Restore)
+
+### Root Cause Analysis
+
+**Primary Root Cause — Trial Status Not Cached (Python):**
+In `license_engine.py` `initialize()`, the server trial check at line 353-354 created `LicenseStatus(valid=False, status='trial')` because `valid=status_str == 'active'` evaluated to `False` for trial status. Line 364 only saved to cache when `self._status.valid` was `True`, so **trial status was never persisted to cache** from the server trial check path.
+
+While `start_trial()` correctly saved with `valid=True`, after restart with TTL expired:
+1. `get_license_status()` returned null (TTL expired)
+2. `is_onboarding_complete()` returned false (TTL expired)
+3. `has_ever_activated_paid_license()` returned false
+4. Engine fell through to `no_license`
+
+**Secondary Root Cause — No Peek Fallback:**
+Without `peek_license_status()`, the engine had no way to restore a known-valid saved state when cache TTL expired. All cache entries (`license_status`, `onboarding_complete`, `has_ever_activated_paid_license`) were subject to TTL expiration, causing the decision engine to lose all state after a restart with TTL=0.
+
+**Identical Root Cause in TypeScript template:**
+The TypeScript `CacheManager.isOnboardingComplete()` used TTL-checking `get()` while `hasEverActivatedPaidLicense()` and `hasEverConsumedTrial()` bypassed TTL. After restart, if TTL expired, `onboardingComplete` returned false, causing the engine to return `no_license`.
+
+### Fixes Applied
+
+**Python template (`template/python/`):**
+
+1. **`cache.py`** — Added three peek methods that return raw cache values without TTL checks:
+   - `peek_license_status()` — returns saved license status even if TTL expired
+   - `peek_onboarding_complete()` — returns onboarding flag even if TTL expired
+   - `peek_has_ever_activated_paid_license()` — returns paid license flag even if TTL expired
+
+2. **`license_engine.py`** — Four fixes:
+   - **Peek restore**: After cache miss (TTL expired), `initialize()` calls `peek_license_status()`. If a valid status (active/trial) exists, it restores it and refreshes the cache TTL.
+   - **Trial caching fix**: Changed `valid=status_str == 'active'` to `status_valid = status_str in ('active', 'trial')`. Now trial status is properly saved to cache from the server trial check path.
+   - **Decision engine peek fallback**: In the fallback detection section, if `is_onboarding_complete()` returns false due to TTL, falls back to `peek_onboarding_complete()`. Same for `peek_has_ever_activated_paid_license()`.
+   - **LiveLog entries**: Added `[LiveLog] Decision — ...` log lines for every decision point: cache hit, peek restore, cache miss, server trial status, inactive, trial_consumed, no_license.
+
+**TypeScript template (`template/typescript/`):**
+
+1. **`cache.ts`** — Added two peek methods:
+   - `peekLicenseStatus()` — returns saved license status without TTL check
+   - `peekOnboardingComplete()` — returns onboarding flag without TTL check
+
+2. **`license_engine.ts`** — Three fixes:
+   - **Peek restore**: After cache miss, `initialize()` calls `peekLicenseStatus()`. If a valid status (active/trial) exists, restores it and refreshes the cache.
+   - **Onboarding peek**: `isOnboardingComplete()` now falls back to `peekOnboardingComplete()` when TTL expired.
+   - **LiveLog entries**: Added `[LiveLog] Decision — ...` for cache hit, peek restore, cache miss, and each decision branch.
+
+### Verification
+
+- Build passes (zero errors, 222 pages)
+- Decision flow after restart with valid trial cache:
+  1. TTL expired → `getLicenseStatus()` returns null
+  2. `peekLicenseStatus()` returns trial status → restores → app unlocks
+  3. If peek also fails → server trial check now correctly caches
+  4. If server also fails → fallback detection uses peek for onboarding flags
+
+### Validation Matrix
+
+| Scenario | Before Fix | After Fix |
+|----------|-----------|-----------|
+| Trial activated → restart (TTL valid) | Correct (trial) | Correct (trial) |
+| Trial activated → restart (TTL=0) | Wrong (no_license) | Correct (trial via peek) |
+| Trial activated → server offline → restart | Wrong (no_license) | Correct (trial via peek) |
+| Paid license activated → restart (TTL=0) | Wrong (force_reactivation) | Correct (active via peek) |
+| New customer → restart | Correct (no_license) | Correct (no_license) |
+| Trial consumed → restart (TTL=0) | Wrong (no_license) | Correct (trial_consumed via peek) |
 
 ---
 

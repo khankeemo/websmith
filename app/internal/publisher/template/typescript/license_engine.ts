@@ -122,7 +122,7 @@ export class LicenseEngine {
     await this._processMessageQueue();
 
     const cachedStatus = this._cache.getLicenseStatus();
-    const onboardingComplete = this._cache.isOnboardingComplete();
+    const onboardingComplete = this._cache.isOnboardingComplete() || this._cache.peekOnboardingComplete();
     const hasEverActivated = this._cache.hasEverActivatedPaidLicense();
     const hasEverConsumedTrial = this._cache.hasEverConsumedTrial();
     const customerState = this._cache.getCustomerState();
@@ -134,6 +134,7 @@ export class LicenseEngine {
         this._status = LicenseStatus.fromDict(cachedStatus);
         this._licenseKey = cachedStatus.license_key || null;
         this._cache.setActiveBinding(true);
+        console.log(`[LiveLog] Decision — cache hit (status: ${cachedStatus.status})`);
         this._notifyReady(true);
         return this._status;
       }
@@ -141,24 +142,40 @@ export class LicenseEngine {
       this._cache.invalidateLicenseStatus();
     }
 
+    // Peek fallback — restore from expired cache if state is still valid
+    if (!cachedStatus || !cachedStatus.valid) {
+      const peeked = this._cache.peekLicenseStatus();
+      if (peeked && (peeked.status === 'active' || peeked.status === 'trial')) {
+        this._status = LicenseStatus.fromDict(peeked);
+        this._licenseKey = peeked.license_key || null;
+        this._cache.setLicenseStatus(peeked);
+        this._cache.setActiveBinding(true);
+        console.log(`[LiveLog] Decision — restored saved state, cache TTL expired (status: ${peeked.status})`);
+        this._notifyReady(true);
+        return this._status;
+      }
+    }
+
+    console.log('[LiveLog] Decision — cache miss, using cache-based state detection');
+
     // Cache-based customer state detection (Rule 0A-6)
     if (onboardingComplete) {
       if (hasEverActivated) {
-        // INACTIVE_LICENSE — existing customer with paid history
+        console.log(`[LiveLog] Decision — inactive (existing customer with paid history)`);
         this._cache.setCustomerState('inactive');
         this._status = new LicenseStatus(false, 'inactive', {
           hardware_id: hardwareId,
           message: 'You are an existing customer, but your license is inactive. If you have a new or reactivated license, activate it now. Otherwise, please contact support.',
         });
       } else if (hasEverConsumedTrial) {
-        // LIFETIME_TRIAL_CONSUMED — trial was consumed, never usable again
+        console.log(`[LiveLog] Decision — trial_consumed (onboarding complete, trial history)`);
         this._cache.setCustomerState('trial_consumed');
         this._status = new LicenseStatus(false, 'trial_consumed', {
           hardware_id: hardwareId,
-          message: 'This email has already consumed its lifetime trial. Please activate a paid license or renew your existing license.',
+          message: 'This email has already consumed its lifetime trial. Please activate a paid license or renew an existing license.',
         });
       } else {
-        // Cached onboarding but no paid history and no trial — treat as no_license
+        console.log(`[LiveLog] Decision — no_license (onboarding complete, no paid history, no trial)`);
         this._cache.setCustomerState('no_license');
         this._status = new LicenseStatus(false, 'no_license', {
           hardware_id: hardwareId,
@@ -166,7 +183,7 @@ export class LicenseEngine {
         });
       }
     } else {
-      // NO_LICENSE — brand-new customer
+      console.log(`[LiveLog] Decision — no_license (new customer)`);
       this._cache.setCustomerState('no_license');
       this._status = new LicenseStatus(false, 'no_license', {
         hardware_id: hardwareId,

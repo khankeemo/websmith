@@ -142,6 +142,19 @@ export class CacheManager {
     return this.get<Record<string, any>>('license_status');
   }
 
+  peekLicenseStatus(): Record<string, any> | null {
+    const cache = this._loadCache();
+    const entry = cache.license_status;
+    if (!entry) return null;
+    return entry.value as Record<string, any> || null;
+  }
+
+  peekOnboardingComplete(): boolean {
+    const cache = this._loadCache();
+    const entry = cache.onboarding_complete;
+    return entry !== undefined && entry.value === true;
+  }
+
   setLicenseStatus(status: Record<string, any>): void {
     this.set('license_status', status);
   }
