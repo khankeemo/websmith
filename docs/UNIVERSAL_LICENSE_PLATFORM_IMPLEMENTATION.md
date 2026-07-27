@@ -1087,6 +1087,45 @@ All SDK and Internal API code must follow these error handling rules:
 | Specific error codes | Every error must have a machine-readable code (e.g., `LICENSE_EXPIRED`, `MAX_DEVICES_EXCEEDED`) in addition to a human-readable message. |
 | Graceful degradation | If a non-critical service (email, analytics) fails, the primary operation must still succeed. |
 
+### 0.11a — Universal API Response Format
+
+Every Internal API (`/api/v1/*`) endpoint must respond with a consistent JSON structure. The SDK and all consumers depend on this contract.
+
+**Success Response:**
+
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Human-readable success message",
+  "data": { }
+}
+```
+
+**Error Response:**
+
+```json
+{
+  "success": false,
+  "code": "ERROR_CODE",
+  "message": "Human-readable error message",
+  "error": {
+    "code": "MACHINE_READABLE_CODE",
+    "message": "Specific error details"
+  }
+}
+```
+
+**Rules:**
+- `success` (boolean) is always present — `true` for success, `false` for failure
+- `code` (string) is a machine-readable result code (e.g., `SUCCESS`, `LICENSE_EXPIRED`, `INVALID_REQUEST`)
+- `message` (string) is a human-readable summary suitable for display
+- `data` (object) contains the response payload on success; omitted on error
+- `error` (object) contains `code` and `message` on failure; omitted on success
+- HTTP status codes follow REST conventions: 200 for success, 400 for validation errors, 401 for auth errors, 403 for business rule violations, 404 for not found, 429 for rate limits, 500 for server errors
+- Never expose stack traces, internal paths, or database details in any response field
+- Error codes use UPPER_SNAKE_CASE and must be unique across the entire API
+
 ### 0.12 — Logging & Audit Rules
 
 The following events must always be logged to the `audit_logs` table:
@@ -1145,6 +1184,116 @@ A phase is not complete until ALL of the following pass:
 | SDK_VERSION matches across Publisher, Templates, Runtime, and Generated SDK | Version synchronization verified |
 | No duplicate implementation exists (business logic in both template AND runtime generator) | Duplicate implementation detection passes |
 | No runtime drift — all runtimes implement identical business behaviour | Runtime parity verified |
+
+### 0.14 — API Request/Response Contract
+
+Every `/api/v1/*` endpoint must follow the documented request/response contract below. The request body, success response, error response, business error codes, and HTTP status codes are specified per endpoint.
+
+#### POST /api/v1/auth/otp/send
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | Yes | Customer email (trimmed + lowercased by backend) |
+| `purpose` | string | Yes | `trial_activation` or `license_activation` |
+| `product_id` | string | Yes | Product identifier from config |
+| `hardware_id` | string | Yes | Current hardware fingerprint |
+
+**Success (200):** `{ "success": true, "code": "OTP_SENT", "message": "OTP sent to email", "data": { "email": "...", "expires_in": 600 } }`
+
+**Error codes:** `INVALID_EMAIL`, `RATE_LIMITED`, `INTERNAL_ERROR`
+
+#### POST /api/v1/auth/otp/verify
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | Yes | Customer email (normalized) |
+| `otp` | string | Yes | OTP code received via email |
+| `purpose` | string | Yes | Must match the purpose used in send |
+| `product_id` | string | Yes | Product identifier |
+| `hardware_id` | string | Yes | Current hardware fingerprint |
+
+**Success (200):** `{ "success": true, "code": "OTP_VERIFIED", "message": "OTP verified successfully", "data": { customer_exists: false } }`  
+**Customer exists (200):** `{ "success": true, "code": "OTP_VERIFIED", "message": "OTP verified successfully", "data": { customer_exists: true, open_ulc: true } }`
+
+**Error codes:** `INVALID_OTP`, `OTP_EXPIRED`, `OTP_ALREADY_USED`, `RATE_LIMITED`
+
+#### POST /api/v1/customer/register
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Customer full name |
+| `email` | string | Yes | Customer email (normalized by backend) |
+| `mobile` | string | Yes | Mobile number |
+| `country_code` | string | No | ISO country code (e.g., "US") |
+| `company` | string | No | Company name (optional) |
+| `hardware_id` | string | Yes | Hardware fingerprint |
+
+**Success (200):** `{ "success": true, "code": "CUSTOMER_REGISTERED", "message": "Customer registered successfully", "data": { "customer_id": "...", "email": "..." } }`  
+**Customer exists (200):** `{ "success": true, "code": "CUSTOMER_EXISTS", "message": "Customer already exists", "data": { "customer_id": "...", "email": "..." } }` (upsert behaviour)
+
+**Error codes:** `MISSING_FIELDS`, `INVALID_EMAIL`, `INVALID_MOBILE`, `INTERNAL_ERROR`
+
+#### POST /api/v1/trial
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `action` | string | Yes | `start` or `status` or `convert` |
+| `customer_email` | string | For `start` | Verified customer email |
+| `customer_name` | string | For `start` | Customer name |
+| `hardware_id` | string | Yes | Hardware fingerprint |
+
+**Success (start — 200):** `{ "success": true, "code": "TRIAL_STARTED", "message": "Trial started successfully", "data": { "expiry_date": "...", "trial_days": 14 } }`  
+**Trial consumed (200):** `{ "success": true, "code": "TRIAL_ALREADY_CONSUMED", "message": "This email has already used its free trial.", "data": { "trial_consumed": true } }`
+
+#### POST /api/v1/license
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `action` | string | Yes | `validate` or `activate` or `deactivate` |
+| `license_key` | string | For validate/activate | License key (uppercased by backend) |
+| `hardware_id` | string | Yes | Hardware fingerprint |
+
+**Validation success (200):** See Validation API Contract (Section 0.15)  
+**Hardware-only validation (200):** `{ "success": true, "data": { "status": "no_license", "has_license": false, "has_trial": false, "message": "..." } }`  
+**Activation success (200):** `{ "success": true, "code": "LICENSE_ACTIVATED", "message": "License activated", "data": { "plan": "...", "expiry_date": "...", "days_left": 365, "already_activated": false } }`  
+**Already activated (200):** `{ "success": true, "code": "ALREADY_ACTIVATED", "message": "Already activated on this device", "data": { "already_activated": true } }`
+
+**Error codes:** `LICENSE_NOT_FOUND`, `LICENSE_EXPIRED`, `LICENSE_REVOKED`, `LICENSE_INACTIVE`, `LICENSE_DELETED`, `MAX_DEVICES_EXCEEDED`, `PRODUCT_INACTIVE`, `PRODUCT_DELETED`
+
+#### POST /api/v1/communication/create
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `category` | string | Yes | `support`, `sales`, `renewal`, `reactivation`, `hardware_replacement`, `general` |
+| `customer_email` | string | Yes | Customer email |
+| `customer_name` | string | Yes | Customer name |
+| `subject` | string | No | Conversation subject |
+| `message` | string | Yes | Message body |
+| `product_id` | string | Yes | Product identifier |
+| `license_key` | string | No | License key if available |
+| `hardware_id` | string | Yes | Hardware fingerprint |
+| `sdk_version` | string | Yes | SDK_VERSION constant |
+| `runtime_type` | string | Yes | RUNTIME_TYPE constant |
+
+**Success (200):** `{ "success": true, "code": "MESSAGE_SENT", "message": "Message sent successfully", "data": { "conversation_id": "...", "category": "support" } }`
+
+#### POST /api/v1/device
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `action` | string | Yes | `bind` or `reset` (NOT `replace` — admin-only) |
+| `license_key` | string | For bind | License key |
+| `hardware_id` | string | Yes | Hardware fingerprint |
+| `device_name` | string | No | Friendly device name |
+
+#### POST /api/v1/license/available-plans
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `license_key` | string | Yes | License key |
+| `hardware_id` | string | Yes | Hardware fingerprint |
+
+**Success (200):** `{ "success": true, "data": { "plans": [{ "id": 1, "name": "Premium", "description": "...", "duration": "1 year", "is_current_plan": false }] } }`
 
 ---
 
@@ -1848,6 +1997,99 @@ Activation Dialog
 - Hardware already activated — return `success: true, already_activated: true` → show "Already activated on this device. Continue using application."
 - Validation success — show customer info (name, email, product, plan, status, expiry), enable activation flow
 
+### Validation API Contract
+
+The `/api/v1/license?action=validate` endpoint returns different fields depending on whether a license key is provided and whether validation succeeds.
+
+**Hardware-Only Validation (no license key — cache check only):**
+
+```
+Response body:
+{
+  "success": true,
+  "data": {
+    "status": "no_license",           // "no_license" | "trial_consumed" | "inactive" | "valid"
+    "has_license": false,
+    "has_trial": false,
+    "message": "No license key detected. Enter your license key to get started.",
+    "customer_status": null,           // "none" | "trial" | "active" | "expired" | "revoked"
+    "customer_exists": false
+  }
+}
+
+UI state after response:
+- License key entry:         ENABLED (empty)
+- Activation button:         DISABLED (no key)
+- Renew button:              DISABLED (no license)
+- Reactivate button:         DISABLED (no license)
+- Customer info fields:      HIDDEN
+- Available plans:           HIDDEN
+- Trial start button:        may be shown (based on has_trial)
+```
+
+**Full Validation (with license key — success):**
+
+```
+Response body:
+{
+  "success": true,
+  "data": {
+    "license_key": "XXXX-XXXX-XXXX-XXXX",
+    "customer_name": "John Doe",
+    "customer_email": "john@example.com",
+    "product_name": "Product Name",
+    "product_id": "prod_001",
+    "plan_name": "Premium",
+    "plan_id": 1,
+    "status": "active",               // "active" | "expired" | "revoked" | "inactive" | "deleted"
+    "expiry_date": "2026-07-27T00:00:00Z",
+    "days_left": 365,
+    "is_lifetime": false,
+    "max_devices": 3,
+    "device_count": 1,
+    "devices": [
+      {
+        "id": 1,
+        "hardware_id": "abc123",
+        "device_name": "DESKTOP-ABC",
+        "is_current_device": true
+      }
+    ],
+    "trial_consumed": false,
+    "customer_exists": true,
+    "validation_timestamp": "2025-07-27T00:00:00Z"
+  }
+}
+
+UI state after response (active license):
+- License key entry:         DISABLED (filled)
+- Activation button:         DISABLED (already active)
+- Renew button:              ENABLED (show expiry info)
+- Reactivate button:         ENABLED (show if license expired/revoked)
+- Customer info fields:      SHOWN (read-only, populated from data)
+- Manage devices:            ENABLED (show device list)
+- Available plans:           SHOWN (if renewal requested)
+- Communication:             ENABLED (support, sales)
+```
+
+**Business Error Responses:**
+
+| HTTP | code | data.status | data.message (SDK display) |
+|------|------|-------------|---------------------------|
+| 403 | LICENSE_INACTIVE | inactive | "License inactive. Contact support." |
+| 403 | LICENSE_REVOKED | revoked | "License revoked. Contact support." |
+| 403 | LICENSE_EXPIRED | expired | "License expired. Renew your license." |
+| 403 | LICENSE_DELETED | deleted | "License deleted. Contact support." |
+| 403 | MAX_DEVICES_EXCEEDED | max_devices | "Device limit reached. Deactivate another device or contact support." |
+| 404 | LICENSE_NOT_FOUND | not_found | "License key not found. Please check and try again." |
+
+**Rules:**
+- Every validation response includes `data.status` — the SDK uses this for state-machine decisions
+- Business errors (LICENSE_INACTIVE, etc.) still return HTTP 403, not 200
+- The SDK must NOT cache the validation response for longer than the current session
+- `data.devices` is included only when a valid active license is found
+- `data.validation_timestamp` is added by the backend to prevent replay attacks
+
 ### Renew License Workflow
 
 ```
@@ -2432,6 +2674,64 @@ Support communication functions as threaded conversations rather than one-way em
 - `support_request_created` — when a new request is submitted
 - `support_customer_reply` — when customer replies
 - `email_failed` — if any email delivery fails
+
+### OTP Lifecycle
+
+The OTP lifecycle is managed entirely by the Internal API (`/api/v1/auth/otp/send` and `/api/v1/auth/otp/verify`). The SDK never generates, stores, or validates OTP codes.
+
+**OTP Generation:**
+- Backend generates a numeric OTP of configurable length (default 6 digits)
+- OTP is stored in `otp_verifications` table with fields: `email`, `otp_hash`, `purpose`, `expires_at`, `verified`, `created_at`
+- OTP is stored as plaintext (short-lived, 10-minute TTL, no hashing required)
+- Each OTP record is uniquely identified by `email + purpose` for the same session
+
+**Send Workflow:**
+
+```mermaid
+SDK sends POST /api/v1/auth/otp/send
+        │
+        ▼
+Internal API
+        │
+        ├── 1. Validate email format (trim + lowercase)
+        ├── 2. Check rate limit per email (max 3 sends per 5 minutes)
+        ├── 3. Generate 6-digit OTP
+        ├── 4. Store in otp_verifications table
+        │      (email, otp, purpose, expires_at=now+600s, verified=false)
+        ├── 5. Send email via Brevo (Brevo SMTP → customer inbox)
+        ├── 6. Audit log: otp_sent (email, purpose, success/failure)
+        └── 7. Return success to SDK
+```
+
+**Verify Workflow:**
+
+```mermaid
+SDK sends POST /api/v1/auth/otp/verify
+        │
+        ▼
+Internal API
+        │
+        ├── 1. Normalize email (trim + lowercase)
+        ├── 2. Query otp_verifications WHERE email + otp + purpose AND verified = false
+        ├── 3. If not found → INVALID_OTP (401)
+        ├── 4. If expires_at < now → OTP_EXPIRED (401), delete record
+        ├── 5. If already verified → OTP_ALREADY_USED (401)
+        ├── 6. Set verified = true
+        ├── 7. Check customers table by email:
+        │       ├── Customer exists → return customer_exists: true, open_ulc: true
+        │       └── No customer → return success, no customer_exists
+        ├── 8. Audit log: otp_verified (email, purpose, customer_exists)
+        └── 9. Return response
+```
+
+**Rules:**
+- Maximum 5 failed attempts per email per 10-minute window (tracked in `otp_verifications` table)
+- Resend cooldown: 60 seconds minimum between sends to the same email
+- OTP expiry: 600 seconds (10 minutes) from creation
+- OTP is single-use — once verified, the record is marked `verified = true` and cannot be reused
+- OTP purpose must match between send and verify: `trial_activation` for Welcome flow, `license_activation` for Activation flow
+- Cleanup job (admin-only, Internal API): deletes OTP records older than 24 hours via scheduled task or admin trigger
+- Audit events: `otp_sent`, `otp_verified`, `otp_expired`, `otp_already_used`, `otp_verify_failed`
 
 ---
 
