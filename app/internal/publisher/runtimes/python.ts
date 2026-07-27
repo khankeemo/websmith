@@ -10,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { PublisherContext } from '../index';
 
-const TEMPLATE_DIR = path.resolve(__dirname, '..', 'template', 'python');
+const TEMPLATE_DIR = path.resolve(process.cwd(), 'app', 'internal', 'publisher', 'template', 'python');
 
 const MANDATORY_FILES = [
   '__init__.py',
@@ -39,9 +39,9 @@ const MANDATORY_FILES = [
 const RUNTIME_ONLY_EXTENSIONS = ['.py', '.md'];
 
 const SUBDIR_MANDATORY = [
-  'assets/badge.svg',
-  'assets/logo.svg',
-  'config/api-config.json',
+  'assets' + path.sep + 'badge.svg',
+  'assets' + path.sep + 'logo.svg',
+  'config' + path.sep + 'api-config.json',
 ];
 
 interface PlaceholderMap {
@@ -49,10 +49,22 @@ interface PlaceholderMap {
 }
 
 function buildPlaceholders(context: PublisherContext): PlaceholderMap {
+  const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';
+  const product = context.product || {} as any;
   return {
     '{{PRODUCT_NAME}}': context.productName || 'Product',
+    '{{PRODUCT_ID}}': context.productId || '',
+    '{{API_URL}}': apiUrl,
     '{{SDK_VERSION}}': context.kitVersion || '1.0.0',
     '{{RUNTIME_TYPE}}': context.runtime || 'python',
+    '{{COMPANY_NAME}}': product.company_name || '',
+    '{{SUPPORT_EMAIL}}': context.supportEmail || product.support_email || '',
+    '{{SALES_EMAIL}}': '',
+    '{{WEBSITE_URL}}': '',
+    '{{PRIMARY_COLOR}}': product.primary_color || '',
+    '{{TRIAL_DAYS}}': String(context.trialDays ?? product.trial_days ?? ''),
+    '{{MAX_DEVICES}}': String(context.maxDevices ?? ''),
+    '{{SENDER_NAME}}': '',
   };
 }
 
@@ -79,13 +91,17 @@ function getAllTemplateFiles(dir: string): string[] {
     if (stat.isDirectory()) {
       const subFiles = getAllTemplateFiles(fullPath);
       for (const sub of subFiles) {
-        results.push(entry + '/' + sub);
+        results.push(entry + path.sep + sub);
       }
     } else {
       results.push(entry);
     }
   }
   return results;
+}
+
+function isRootFile(name: string): boolean {
+  return !name.includes(path.sep);
 }
 
 export function getPythonTemplates(context: PublisherContext): Record<string, string> {
@@ -109,7 +125,7 @@ export function getPythonTemplates(context: PublisherContext): Record<string, st
 
   // Read all template files recursively
   const allFiles = getAllTemplateFiles(TEMPLATE_DIR);
-  const rootFiles = allFiles.filter(f => !f.includes(path.sep));
+  const rootFiles = allFiles.filter(f => isRootFile(f));
   const fileNames = rootFiles.filter(
     f => f.endsWith('.py') || f.endsWith('.md') || f === 'manifest.json'
   );

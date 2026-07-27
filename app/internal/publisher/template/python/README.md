@@ -24,7 +24,7 @@ This directory contains the Python language template for the Universal License P
 
 ## Placeholder Standard
 
-All templates use `{{PLACEHOLDER}}` tokens replaced at generation time.
+All templates use `DOUBLE-BRACE-PLACEHOLDER` tokens (e.g., `{{PRODUCT_NAME}}`) replaced at generation time.
 
 | Placeholder | Source |
 |-------------|--------|

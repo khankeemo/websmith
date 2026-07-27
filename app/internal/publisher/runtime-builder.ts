@@ -817,7 +817,7 @@ export class RuntimeBuilder {
 
     // Check if runtime template has file-based assets
     if (runtimeName) {
-      const templateAssetsDir = path.resolve(__dirname, 'template', runtimeName, 'assets');
+      const templateAssetsDir = path.resolve(process.cwd(), 'app', 'internal', 'publisher', 'template', runtimeName, 'assets');
       try {
         const templateAssetsExist = (await fs.stat(templateAssetsDir)).isDirectory();
         if (templateAssetsExist) {
