@@ -100,23 +100,24 @@ impl LicenseEngine {
         }
 
         let hardware_id = self.hardware.get_fingerprint();
-        // Priority 1: Validate active paid license from server
-        if let Some(ref key) = self.license_key.clone() {
-            match self.client.validate_license(key, &hardware_id) {
-                Ok(result) => {
-                    let data = result.get("data").unwrap_or(&result).clone();
-                    if data.get("valid").and_then(|v| v.as_bool()).unwrap_or(false) {
-                        let status_str = data.get("status").and_then(|v| v.as_str()).unwrap_or("active");
-                        let days_left = data.get("days_left").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+        match self.client.get_license_status(&hardware_id) {
+            Ok(status_response) => {
+                if status_response.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    let api_status = status_response.get("status").and_then(|v| v.as_str()).unwrap_or("no_license");
+                    if api_status == "licensed" {
+                        let cust = status_response.get("customer").cloned().unwrap_or_default();
+                        let lic = status_response.get("license").cloned().unwrap_or_default();
+                        let plan = status_response.get("plan").cloned().unwrap_or_default();
+                        let devices = status_response.get("devices").cloned().unwrap_or_default();
                         let status = LicenseStatus {
                             valid: true,
-                            status: status_str.to_string(),
-                            expires_at: data.get("expiry_date").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                            days_remaining: days_left,
-                            plan: data.get("plan").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                            status: "licensed".to_string(),
+                            expires_at: lic.get("expiry_date").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                            days_remaining: lic.get("days_remaining").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                            plan: plan.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
                             hardware_id: Some(hardware_id.clone()),
                             message: Some("License active".to_string()),
-                            license_key: Some(key.clone()),
+                            license_key: lic.get("license_key").and_then(|v| v.as_str()).map(|s| s.to_string()),
                             trial_active: false,
                         };
                         if status.valid {
@@ -125,98 +126,52 @@ impl LicenseEngine {
                         }
                         self.status = Some(status.clone());
                         return status;
-                    } else {
-                        // Paid license is invalid/inactive - check if user ever had one
-                        if self.cache.has_ever_activated_paid_license() {
-                            let status = LicenseStatus {
-                                valid: false,
-                                status: "force_reactivation".to_string(),
-                                expires_at: None,
-                                days_remaining: 0,
-                                plan: None,
-                                hardware_id: Some(hardware_id.clone()),
-                                message: Some("License inactive. Please reactivate.".to_string()),
-                                license_key: Some(key.clone()),
-                                trial_active: false,
-                            };
-                            self.status = Some(status.clone());
-                            return status;
-                        }
-                    }
-                }
-                Err(_) => {
-                    // Server error - check if user ever had a paid license
-                    if self.cache.has_ever_activated_paid_license() {
+                    } else if api_status == "trial" {
+                        let cust = status_response.get("customer").cloned().unwrap_or_default();
+                        let lic = status_response.get("license").cloned().unwrap_or_default();
+                        let plan = status_response.get("plan").cloned().unwrap_or_default();
                         let status = LicenseStatus {
-                            valid: false,
-                            status: "force_reactivation".to_string(),
-                            expires_at: None,
-                            days_remaining: 0,
-                            plan: None,
+                            valid: true,
+                            status: "trial".to_string(),
+                            expires_at: lic.get("expiry_date").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                            days_remaining: lic.get("days_remaining").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                            plan: plan.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()).or_else(|| Some("Trial".to_string())),
                             hardware_id: Some(hardware_id.clone()),
-                            message: Some("License validation failed. Please reactivate.".to_string()),
-                            license_key: self.license_key.clone(),
-                            trial_active: false,
+                            message: Some("Trial active".to_string()),
+                            license_key: None,
+                            trial_active: true,
                         };
+                        if status.valid {
+                            self.cache.set_license_status(status.to_map());
+                        }
                         self.status = Some(status.clone());
                         return status;
                     }
                 }
             }
-        } else {
-            // No license key but check if user ever had one
-            if self.cache.has_ever_activated_paid_license() {
-                let status = LicenseStatus {
-                    valid: false,
-                    status: "force_reactivation".to_string(),
-                    expires_at: None,
-                    days_remaining: 0,
-                    plan: None,
-                    hardware_id: Some(hardware_id.clone()),
-                    message: Some("License inactive. Please reactivate.".to_string()),
-                    license_key: None,
-                    trial_active: false,
-                };
-                self.status = Some(status.clone());
-                return status;
+            Err(_) => {
+                if let Some(cached) = self.cache.get_license_status() {
+                    let status = LicenseStatus::from_map(&cached);
+                    self.status = Some(status.clone());
+                    return status;
+                }
             }
         }
 
-        // Priority 2: Check for active trial (only if user never had a paid license)
-        if !self.cache.has_ever_activated_paid_license() {
-            match self.client.get_trial_status(&hardware_id) {
-                Ok(trial_resp) => {
-                    if let Some(trial_data) = trial_resp.get("data").and_then(|d| d.as_object()) {
-                        if trial_data.get("has_trial").and_then(|v| v.as_bool()).unwrap_or(false) {
-                            let status_str = trial_data.get("status").and_then(|v| v.as_str()).unwrap_or("trial");
-                            let days_left = trial_data.get("days_left").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-                            let status = LicenseStatus {
-                                valid: status_str == "active",
-                                status: status_str.to_string(),
-                                expires_at: trial_data.get("expiry_date").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                                days_remaining: days_left,
-                                plan: trial_data.get("plan").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                                hardware_id: Some(hardware_id.clone()),
-                                message: Some(format!("Trial is {}", status_str)),
-                                license_key: None,
-                                trial_active: true,
-                            };
-                            if status.valid {
-                                self.cache.set_license_status(status.to_map());
-                            }
-                            self.status = Some(status.clone());
-                            return status;
-                        }
-                    }
-                }
-                Err(_) => {
-                    if let Some(cached) = self.cache.get_license_status() {
-                        let status = LicenseStatus::from_map(&cached);
-                        self.status = Some(status.clone());
-                        return status;
-                    }
-                }
-            }
+        if self.cache.has_ever_activated_paid_license() {
+            let status = LicenseStatus {
+                valid: false,
+                status: "force_reactivation".to_string(),
+                expires_at: None,
+                days_remaining: 0,
+                plan: None,
+                hardware_id: Some(hardware_id.clone()),
+                message: Some("License inactive. Please reactivate.".to_string()),
+                license_key: self.license_key.clone(),
+                trial_active: false,
+            };
+            self.status = Some(status.clone());
+            return status;
         }
 
         let status = LicenseStatus {

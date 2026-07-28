@@ -178,6 +178,29 @@ impl ApiClient {
         Err(ApiError::Timeout(format!("Failed after {} retries", max_retries + 1)))
     }
 
+    pub fn get_license_status(&mut self, hardware_id: &str) -> Result<serde_json::Value, ApiError> {
+        let hw_id = if hardware_id.is_empty() { self.get_hardware_id() } else { hardware_id.to_string() };
+        let url = format!("{}/internal/backend/license/status?hardware_id={}", self.base_url, hw_id);
+        match self.http_client.get(&url).send() {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    resp.json().map_err(|e| ApiError::Serialization(e.to_string()))
+                } else {
+                    Ok(serde_json::json!({
+                        "success": false,
+                        "status": "no_license",
+                        "error": format!("HTTP {}", resp.status())
+                    }))
+                }
+            }
+            Err(e) => Ok(serde_json::json!({
+                "success": false,
+                "status": "no_license",
+                "error": e.to_string()
+            }))
+        }
+    }
+
     pub fn validate_license(&mut self, license_key: &str, hardware_id: &str) -> Result<serde_json::Value, ApiError> {
         let hw_id = if hardware_id.is_empty() { self.get_hardware_id() } else { hardware_id.to_string() };
         if let Some(ref mut cache) = self.cache {

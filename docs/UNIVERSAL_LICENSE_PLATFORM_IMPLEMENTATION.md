@@ -2135,6 +2135,15 @@ All API endpoints that return license or trial status **must** use the shared se
 | `template/python/license_engine.py` | `initialize()` no longer makes separate `get_trial_status()` + `validate_license('', hardware_id)` calls; uses single `get_license_status()`; reads flat `status`, `customer`, `license`, `plan`, `devices` from unified response; `_is_valid_status()` checks `('licensed', 'trial')` |
 | `template/python/universal_license_center.py` | `_fetch_live_license_status()` no longer makes separate trial + paid license checks; uses single `get_license_status()`; `_is_valid_for_unlock()` fixed `('active', 'trial')` → `('licensed', 'trial')`; `_refresh_display()` handles `'licensed'` status |
 | `template/typescript/client.ts` | Added `getLicenseStatus(hardwareId)` — calls `GET {base_url}/internal/backend/license/status?hardware_id=...` (forward-compatible) |
+| `template/deno/client.ts` | Has `getLicenseStatus()`, engine updated |
+| `template/bun/client.ts` | Has `getLicenseStatus()`, engine updated |
+| `template/node/client.js` | Has `getLicenseStatus()`, engine updated |
+| `template/javascript/client.js` | Has `getLicenseStatus()`, engine updated |
+| `template/rust/src/client.rs` | Added `get_license_status()`, engine updated |
+| `template/go/client.go` | Added `GetLicenseStatus()`, engine updated |
+| `template/php/client.php` | **TODO**: needs `getLicenseStatus()`, engine not updated |
+| `template/c/client.c` | **TODO**: needs `wsd_get_license_status()`, engine not updated |
+| `template/cpp/client.cpp` | **TODO**: needs `get_license_status()`, engine not updated |
 
 #### Response Structure Rules
 
@@ -6597,7 +6606,21 @@ GET /internal/backend/license/status   ← single source of truth
 | `app/internal/publisher/template/python/license_engine.py` | `initialize()` server check: dual calls → single `get_license_status()` |
 | `app/internal/publisher/template/python/universal_license_center.py` | `_fetch_live_license_status()` dual stages → single call; `_is_valid_for_unlock()` status check `'active'`→`'licensed'`; `_refresh_display()` handles `'licensed'` |
 | `app/internal/publisher/template/typescript/client.ts` | Added `getLicenseStatus()` method (forward-compatible) |
+| `app/internal/publisher/template/deno/license_engine.ts` | `initialize()`: replaced `validateLicense()`+`getTrialStatus()` dual calls with single `getLicenseStatus()` |
+| `app/internal/publisher/template/bun/license_engine.ts` | `initialize()`: replaced `validateLicense()`+`getTrialStatus()` dual calls with single `getLicenseStatus()` |
+| `app/internal/publisher/template/node/license_engine.js` | `initialize()`: replaced `validateLicense()`+`getTrialStatus()` dual calls with single `getLicenseStatus()` |
+| `app/internal/publisher/template/javascript/license_engine.js` | `initialize()`: replaced `validateLicense()`+`getTrialStatus()` dual calls with single `getLicenseStatus()` |
+| `app/internal/publisher/template/rust/src/client.rs` | Added `get_license_status()` method — GET to `/internal/backend/license/status` |
+| `app/internal/publisher/template/rust/src/license_engine.rs` | `initialize()`: replaced `validate_license()`+`get_trial_status()` dual calls with single `get_license_status()` |
+| `app/internal/publisher/template/go/client.go` | Added `GetLicenseStatus()` method — GET to `/internal/backend/license/status` |
+| `app/internal/publisher/template/go/license_engine.go` | `Initialize()`: replaced `ValidateLicense()`+`GetTrialStatus()` dual calls with single `GetLicenseStatus()` |
 | `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Updated status line, progress tracking, Python SDK Template Changes table, session summary |
+
+### Remaining (not yet fixed)
+
+- **PHP** (`template/php/client.php`, `license_engine.php`): needs `getLicenseStatus()` client method + engine fix
+- **C** (`template/c/client.c`, `license_engine.c`): needs `wsd_get_license_status()` client method + engine fix
+- **C++** (`template/cpp/client.cpp`, `license_engine.cpp`): needs `get_license_status()` client method + engine fix
 
 ### Verification
 

@@ -149,6 +149,31 @@ func (c *ApiClient) request(endpoint string, payload map[string]interface{}, ret
 	return nil, &ApiError{StatusCode: 500, Message: fmt.Sprintf("Failed after %d retries", maxRetries)}
 }
 
+func (c *ApiClient) GetLicenseStatus(hardwareID string) (map[string]interface{}, error) {
+	if hardwareID == "" {
+		hardwareID = c.getHardwareID()
+	}
+	url := fmt.Sprintf("%s/internal/backend/license/status?hardware_id=%s", c.baseURL, hardwareID)
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return map[string]interface{}{
+			"success": false,
+			"status":  "no_license",
+			"error":   err.Error(),
+		}, nil
+	}
+	defer resp.Body.Close()
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return map[string]interface{}{
+			"success": false,
+			"status":  "no_license",
+			"error":   err.Error(),
+		}, nil
+	}
+	return data, nil
+}
+
 func (c *ApiClient) ValidateLicense(licenseKey string, hardwareID string) (map[string]interface{}, error) {
 	if hardwareID == "" {
 		hardwareID = c.getHardwareID()

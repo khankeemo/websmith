@@ -69,64 +69,41 @@ export class LicenseEngine {
     }
     try {
       const hid = this._hardware.getFingerprint();
-      // Priority 1: Validate active paid license from server
-      if (this._licenseKey) {
-        try {
-          const result = await this._client.validateLicense(this._licenseKey, hid);
-          const data = result.data || result;
-          if (data.valid) {
-            this._status = new LicenseStatus(true, data.status || 'active', {
-              expires_at: data.expiry_date, days_remaining: data.days_left || 0,
-              plan: data.plan, hardware_id: hid, license_key: this._licenseKey,
-              message: 'License active',
-            });
-            if (this._status.valid) {
-              await this._cache.setLicenseStatus(this._status.toDict());
-              await this._cache.markHasEverActivatedPaidLicense();
-            }
-            return this._status;
-          } else {
-            // Paid license is invalid/inactive - check if user ever had one
-            if (await this._cache.hasEverActivatedPaidLicense()) {
-              this._status = new LicenseStatus(false, 'force_reactivation', {
-                hardware_id: hid, license_key: this._licenseKey,
-                message: 'License inactive. Please reactivate.',
-              });
-              return this._status;
-            }
-          }
-        } catch {
-          // Server error - check if user ever had a paid license
-          if (await this._cache.hasEverActivatedPaidLicense()) {
-            this._status = new LicenseStatus(false, 'force_reactivation', {
-              hardware_id: hid, license_key: this._licenseKey,
-              message: 'License validation failed. Please reactivate.',
-            });
-            return this._status;
-          }
-        }
-      } else {
-        // No license key but check if user ever had one
-        if (await this._cache.hasEverActivatedPaidLicense()) {
-          this._status = new LicenseStatus(false, 'force_reactivation', {
-            hardware_id: hid, message: 'License inactive. Please reactivate.',
+      const statusResponse = await this._client.getLicenseStatus(hid);
+      if (statusResponse.success) {
+        const apiStatus = statusResponse.status || 'no_license';
+        if (apiStatus === 'licensed') {
+          const cust = statusResponse.customer || {};
+          const lic = statusResponse.license || {};
+          const plan = statusResponse.plan || {};
+          const devices = statusResponse.devices || {};
+          this._status = new LicenseStatus(true, 'licensed', {
+            expires_at: lic.expiry_date, days_remaining: lic.days_remaining || 0,
+            plan: plan.name, hardware_id: hid, license_key: lic.license_key,
+            message: 'License active',
           });
+          if (this._status.valid) {
+            await this._cache.setLicenseStatus(this._status.toDict());
+            await this._cache.markHasEverActivatedPaidLicense();
+          }
           return this._status;
-        }
-      }
-      // Priority 2: Check for active trial (only if user never had a paid license)
-      if (!(await this._cache.hasEverActivatedPaidLicense())) {
-        const tr = await this._client.getTrialStatus(hid);
-        const td = tr.data || {};
-        if (td.has_trial) {
-          const ss = td.status || 'trial';
-          this._status = new LicenseStatus(ss === 'active', ss, {
-            expires_at: td.expiry_date, days_remaining: td.days_left || 0,
-            plan: td.plan, hardware_id: hid, message: `Trial is ${ss}`,
+        } else if (apiStatus === 'trial') {
+          const cust = statusResponse.customer || {};
+          const lic = statusResponse.license || {};
+          const plan = statusResponse.plan || {};
+          this._status = new LicenseStatus(true, 'trial', {
+            expires_at: lic.expiry_date, days_remaining: lic.days_remaining || 0,
+            plan: plan.name || 'Trial', hardware_id: hid, message: 'Trial active',
           });
           if (this._status.valid) await this._cache.setLicenseStatus(this._status.toDict());
           return this._status;
         }
+      }
+      if (await this._cache.hasEverActivatedPaidLicense()) {
+        this._status = new LicenseStatus(false, 'force_reactivation', {
+          hardware_id: hid, message: 'License inactive. Please reactivate.',
+        });
+        return this._status;
       }
       this._status = new LicenseStatus(false, 'unlicensed', { hardware_id: hid, message: 'No license or trial found' });
       return this._status;
