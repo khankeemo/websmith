@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied (Python Template — `is_hardware_consistent` uses `peek_license_status` instead of `get_license_status` to prevent TTL=0 deletion before startup peek)
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied
 
 ---
 
@@ -4183,7 +4183,8 @@ Every future phase must follow this reporting format.
 | Phase 14 — AWS-01 Fixes & Doc Consolidation | ✅ Complete | 100% |
 | Phase 15 — Template-First Architecture Refactor | ✅ Complete | 100% |
 | AWS-01 Phase 1 — Success+Restart Dialog Merge & ULC Fix | ✅ Complete | 100% |
-| **Overall** | **All 15 phases + AWS-01 Phase 1 complete** | **100%** |
+| AWS-01 Remaining SDK Issues (Template Level) — ULC Live Status, Welcome UI, OTP Font | ✅ Complete | 100% |
+| **Overall** | **All 15 phases + AWS-01 Phase 1 + AWS-01 Remaining SDK Issues complete** | **100%** |
 
 ### How much is completed?
 
@@ -4241,9 +4242,12 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 14. ✅ **AWS-01 Phase 1 — OTP Error Fix** — OTP verification failure message no longer uses bold, font reduced to 9pt, red color preserved. Raw API/server error messages are never exposed to the user.
 15. ✅ **AWS-01 Phase 1 — UI Polish Applied** — Consistent `Segoe UI` font across all SDK windows (Welcome, Activation, Renewal, Request, Success). Proper header bars with colored banner. Card-style content panels. Consistent spacing and alignment.
 16. ✅ **AWS-01 Phase 1 — SDK Validator Updated** — `sdk-validator.ts` now targets `__init__.py` for `RestartDialog` export (not `universal_license_center.py`). Pipeline audit clean — no other generator files reference the removed import.
-17. [ ] **NEXT: Generate fresh Python SDK** — User to generate from Publisher, replace SDK in `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS\`, and verify.
-18. [ ] **NEXT: Phase 2 — Review ZEMmacOS main.py** — Only after fresh SDK is verified.
-19. Generate fresh TypeScript SDK and verify all workflows
+25. ✅ **AWS-01 Remaining SDK Issues — ULC Live Licence Status** — Added `_fetch_live_license_status()` to `universal_license_center.py`; ULC now fetches live trial/license status from backend on every open.
+26. ✅ **AWS-01 Remaining SDK Issues — Welcome Dialog UI** — Increased dialog height to 650px, increased bottom padding, OTP message never clipped.
+27. ✅ **AWS-01 Remaining SDK Issues — OTP Error Font** — Increased error label font from 9pt to 10pt, normal weight, red color.
+28. [ ] **NEXT: Generate fresh SDK package** — User to generate from Publisher and replace manually for testing.
+29. [ ] **NEXT: Phase 2 — Review ZEMmacOS main.py** — Only after fresh SDK is verified.
+30. Generate fresh TypeScript SDK and verify all workflows
 20. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture
@@ -5999,3 +6003,57 @@ Return trial → main.py sees valid → Dashboard (NO ULC)
 - Administrator to generate fresh Python SDK via Websmith Internal API
 - Replace generated SDK files into `WSD_SDKToolkit_ZEMMACOS`
 - Verify restart-after-trial-activation flow end-to-end
+
+## Session Summary — 2026-07-28 (AWS-01 Remaining SDK Issues — Template Level)
+
+### Objective
+
+Fix three remaining SDK template-level issues: ULC always fetches live license/trial status on open, Welcome dialog UI spacing, and OTP error message font size.
+
+### Tasks Completed
+
+**Task 1 — ULC Live Licence Status (`universal_license_center.py`):**
+- Added `_fetch_live_license_status()` method that queries the backend for fresh trial and license status whenever the ULC opens
+- Method first tries `client.get_trial_status()` to check for active trial
+- If no active trial, tries `client.validate_license('', hardware_id)` for active paid license
+- On success, updates `self._status` and cache with fresh data from the backend
+- On failure (API unreachable), keeps existing status and logs a warning
+- Called at the start of `_show_license_center()` before UI build and display refresh
+- Backend remains the single source of truth — no reliance on stale cache or previously loaded UI values
+
+**Task 2 — Welcome Dialog UI (`welcome.py`):**
+- Increased overall dialog height from `480x580` to `480x650`
+- Increased main frame bottom padding from `pady=(0, 16)` to `pady=(0, 20)`
+- Increased error label bottom padding from `pady=(5, 10)` to `pady=(5, 16)`
+- Increased footer bottom padding from `pady=(0, 15)` to `pady=(0, 22)`
+- OTP verification message is never clipped or overlapped
+- Layout remains responsive for different DPI/scaling settings
+
+**Task 3 — OTP Error Message (`welcome.py`):**
+- Increased error label font size from `('Segoe UI', 9)` to `('Segoe UI', 10)`
+- Increased `_show_error()` method font from `('Segoe UI', 9)` to `('Segoe UI', 10)`
+- Kept normal font weight (not bold)
+- Kept red text colour (`self._error`)
+- Complete message is always visible with increased padding
+- Raw API/server errors are never exposed (sanitized error messages already in place)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/template/python/universal_license_center.py` | Added `_fetch_live_license_status()` method; called in `_show_license_center()` before UI build |
+| `app/internal/publisher/template/python/welcome.py` | Dialog height 580→650; frame padding 16→20; error label font 9→10, padding (5,10)→(5,16); footer padding (0,15)→(0,22); _show_error font 9→10 |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Updated status line, progress tracking, remaining tasks, added this session summary |
+
+### Verification
+
+- All changes are in Python template files only (template-level fix per rules)
+- No runtime generators, backend API, or database changes were made
+- No generated SDK files were edited
+- All changes follow AWS-01 rules: templates are source of truth, no hardcoded values
+
+### Next Steps
+
+1. User to generate a fresh Python SDK package from the Publisher
+2. Replace generated SDK into target project
+3. Verify end-to-end: ULC displays live status on open, Welcome dialog has proper spacing, OTP error message is readable
