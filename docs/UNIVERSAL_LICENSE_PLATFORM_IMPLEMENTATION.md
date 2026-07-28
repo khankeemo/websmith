@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Session — Shared Serializer Architecture)**
 
 ---
 
@@ -571,7 +571,8 @@ When in doubt, update this document before writing code.
 | `app/api/internal/` | **Publisher API** — internal publisher workflow routes at `/api/internal/publisher/*`. | SDK generation and download only. |
 | `app/internal/api/` | **Admin UI** — React/Next.js admin dashboard pages at `/internal/api/*`. | Admin-only. JWT-authenticated. |
 | `app/`, `components/` (outside `internal/`) | **Public Website** — public-facing pages. | No modifications without explicit approval. Architecture is deferred. |
-| `lib/` | **Shared libraries** — API clients, auth, audit, email, public-api utilities. | Shared between backend routes. |
+| `lib/` | **Shared libraries** — API clients, auth, audit, email, public-api utilities, **license serializer**. | Shared between backend routes. |
+| `lib/license/serializer.ts` | **License Serializer** — `computeNormalizedStatus()`, `buildLicenseResponse()`, `buildTrialResponse()`, `buildNoLicenseResponse()`, `buildErrorResponse()`. Single source of truth for normalized license status mapping. Every API route that returns license status must use this serializer. | All `/api/v1/*` license/trial routes AND `/internal/backend/*` validate routes. |
 | `core/` | **Core utilities** — validation, auth service, API service. | Used by Public Website. Not by Internal API. |
 | Generated SDK output | **Generated packages** — ZIP files containing SDK for customer download. | Verification only. Never edit. Never commit. |
 
@@ -1262,33 +1263,36 @@ Every `/api/v1/*` endpoint must follow the documented request/response contract 
 | `customer_name` | string | For `start` | Customer name |
 | `hardware_id` | string | Yes | Hardware fingerprint |
 
-**Success (start — 200):** `{ "success": true, "code": "TRIAL_STARTED", "message": "Trial started successfully", "data": { "expiry_date": "...", "trial_days": 14 } }`  
-**Trial consumed (200):** `{ "success": true, "code": "TRIAL_ALREADY_CONSUMED", "message": "This email has already used its free trial.", "data": { "trial_consumed": true } }`
+**All responses now use the normalized format via `lib/license/serializer.ts`. The `status` field is at the top level.**
+
+**Success (start — 200):** `{ "success": true, "status": "trial", "trial": { "has_trial": true, "days_left": 14, "expiry_date": "...", "status": "active" }, "message": "Trial active with 14 days remaining" }`  
+**Trial consumed (200):** `{ "success": true, "status": "unlicensed", "trial": { "has_trial": true, "days_left": 0, "expiry_date": "...", "status": "expired" }, "message": "Trial has expired" }`
 
 **Trial Status (status — 200):**
 ```json
 {
   "success": true,
-  "data": {
+  "status": "trial",
+  "trial": {
     "has_trial": true,
-    "trial_id": 123,
-    "status": "active",
     "days_left": 12,
     "expiry_date": "2026-08-09T00:00:00.000Z",
+    "status": "active",
     "started_at": "2026-07-26T00:00:00.000Z",
     "customer_name": "John",
-    "customer_email": "john@example.com",
-    "customer_phone": ""
-  }
+    "customer_email": "john@example.com"
+  },
+  "message": "Trial active with 12 days remaining"
 }
 ```
 
 **Critical contract rules for SDK parsing:**
-- The `has_trial` field (boolean) indicates whether a trial record exists — use this, NOT `active`
-- The `status` field for an active, running trial is `"active"`, NOT `"trial"`
-- Fields `customer_name`, `customer_email`, `days_left`, `expiry_date` are present on active trials
+- The normalized `status` at the top level is `"trial"` for an active trial, `"unlicensed"` for no trial or expired trial
+- The `trial.has_trial` field (boolean) indicates whether a trial record exists
+- The `trial.status` field for an active, running trial is `"active"`, NOT `"trial"`
+- SDK must check `status == "trial"` to detect an active trial, or equivalently `trial.has_trial == true && trial.status == "active"`
+- Fields `trial.customer_name`, `trial.customer_email`, `trial.days_left`, `trial.expiry_date` are present on active trials
 - No `plan` or `product` fields are returned — these come from config
-- SDK must check `has_trial == true && status == "active"` to detect an active trial
 
 #### POST /api/v1/license
 
@@ -1298,10 +1302,53 @@ Every `/api/v1/*` endpoint must follow the documented request/response contract 
 | `license_key` | string | For validate/activate | License key (uppercased by backend) |
 | `hardware_id` | string | Yes | Hardware fingerprint |
 
-**Validation success (200):** See Validation API Contract (Section 0.15)  
-**Hardware-only validation (200):** `{ "success": true, "data": { "status": "no_license", "has_license": false, "has_trial": false, "message": "..." } }`  
-**Activation success (200):** `{ "success": true, "code": "LICENSE_ACTIVATED", "message": "License activated", "data": { "plan": "...", "expiry_date": "...", "days_left": 365, "already_activated": false } }`  
-**Already activated (200):** `{ "success": true, "code": "ALREADY_ACTIVATED", "message": "Already activated on this device", "data": { "already_activated": true } }`
+**All responses now use the normalized response format via `lib/license/serializer.ts`. The `status` field is always at the top level of the response, not nested inside `data`.**
+
+**Validation success (200):**
+```json
+{
+  "success": true,
+  "status": "licensed",
+  "license": {
+    "license_key": "XXXX-XXXX-XXXX-XXXX",
+    "plan": "Premium",
+    "expiry_date": "2027-07-28",
+    "max_devices": 3,
+    "device_count": 1,
+    "is_trial": false
+  },
+  "customer": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "",
+    "mobile": ""
+  },
+  "plan": { "name": "Premium" },
+  "hardware": {
+    "hardware_id": "abc123",
+    "is_activated": true
+  },
+  "message": "License is active and valid"
+}
+```
+
+**Hardware-only validation (200):** `{ "success": true, "status": "unlicensed", "hardware": { "hardware_id": "...", "is_activated": false }, "message": "No license found for this hardware. Please enter a license key to activate." }`  
+**Activation success (200):** `{ "success": true, "status": "licensed", "license": { "license_key": "...", "plan": "Premium", "expiry_date": "2027-07-28", "max_devices": 3, "device_count": 1, "is_trial": false }, "customer": { "name": "...", "email": "...", "phone": "", "mobile": "" }, "message": "License is active and valid" }`  
+**Business error (403):** `{ "success": false, "status": "expired", "error": { "code": "LICENSE_EXPIRED", "message": "License has expired", "inactive_reason": "Subscription Expired" } }`
+
+**Normalized status values:**
+| Status | Meaning |
+|--------|---------|
+| `licensed` | License active and hardware-activated |
+| `trial` | Active trial (not expired) |
+| `expired` | Past expiry date |
+| `revoked` | Admin-revoked |
+| `suspended` | Admin-suspended |
+| `disabled` | Admin-disabled |
+| `inactive` | Active on other device, not this hardware |
+| `deleted` | Soft-deleted license |
+| `force_reactivation` | Active on another device — must reactivate |
+| `unlicensed` | No license or trial found |
 
 **Error codes:** `LICENSE_NOT_FOUND`, `LICENSE_EXPIRED`, `LICENSE_REVOKED`, `LICENSE_INACTIVE`, `LICENSE_DELETED`, `MAX_DEVICES_EXCEEDED`, `PRODUCT_INACTIVE`, `PRODUCT_DELETED`
 
@@ -2042,9 +2089,60 @@ Activation Dialog
 - Hardware already activated — return `success: true, already_activated: true` → show "Already activated on this device. Continue using application."
 - Validation success — show customer info (name, email, product, plan, status, expiry), enable activation flow
 
-### Validation API Contract
+### Validation API Contract — Shared Serializer Architecture
 
-The `/api/v1/license?action=validate` endpoint returns different fields depending on whether a license key is provided and whether validation succeeds.
+All API endpoints that return license or trial status **must** use the shared serializer at `lib/license/serializer.ts`. This is the single source of truth for the normalized license status response format.
+
+#### Serializer Functions
+
+| Function | Purpose |
+|----------|---------|
+| `computeNormalizedStatus(dbStatus, expiryDate, isDeleted, isTrial, isHardwareActivated, hasActiveLicenseOnOtherDevice)` | Maps raw DB status + business rules to a normalized status string |
+| `buildLicenseResponse(licenseRow, hardwareId?, isHardwareActivated?, hasActiveLicenseOnOtherDevice?)` | Builds full validate/activate success response with `license`, `customer`, `plan`, `hardware` sub-objects |
+| `buildTrialResponse(trialRow, daysLeft, hardwareId)` | Builds trial status/start response with `trial` sub-object |
+| `buildNoLicenseResponse(hardwareId?, message?)` | Builds "no license/trial found" response |
+| `buildErrorResponse(status, errorCode, errorMessage, inactiveReason?)` | Builds business error response with `success: false` + `error` object |
+
+#### Normalized Status Mapping (`computeNormalizedStatus`)
+
+| Condition | Normalized Status |
+|-----------|-------------------|
+| `isDeleted` or `dbStatus === 'deleted'` | `deleted` |
+| `dbStatus === 'revoked'` | `revoked` |
+| `dbStatus === 'suspended'` | `suspended` |
+| `dbStatus === 'disabled'` | `disabled` |
+| `dbStatus === 'inactive'` | `inactive` |
+| `expiry < now` | `expired` |
+| `isTrial && dbStatus === 'active'` | `trial` |
+| `dbStatus === 'active' && isHardwareActivated` | `licensed` |
+| `dbStatus === 'active' && !isHardwareActivated && hasActiveLicenseOnOtherDevice` | `force_reactivation` |
+| `dbStatus === 'active' && !isHardwareActivated` (no other device) | `inactive` |
+| Fallback (nothing matched) | `unlicensed` |
+
+#### Affected Routes
+
+| Route | Usage |
+|-------|-------|
+| `app/api/v1/license/route.ts` (POST) | All validate/activate/deactivate paths use `buildLicenseResponse`, `buildNoLicenseResponse`, `buildErrorResponse` |
+| `app/api/v1/trial/route.ts` (POST) | Trial status/start paths use `buildTrialResponse`, `buildNoLicenseResponse` |
+| `app/internal/backend/licenses/validate/route.ts` (POST) | Internal validate uses `buildLicenseResponse`, `buildNoLicenseResponse`, `buildErrorResponse` |
+
+#### Python SDK Template Changes
+
+| Template | Change |
+|----------|--------|
+| `template/python/license_engine.py` | `_validate_with_server()` reads flat `status` at top level; `isValidStatus()` checks `'licensed'` and `'trial'`; `force_reactivation` status handled for active-on-other-device detection; `activate()` reads `status=licensed` on success |
+| `template/python/universal_license_center.py` | `_fetch_live_license_status()` reads flat `status` field; `_build_ui()` maps `licensed` to paid-active state, `force_reactivation` to reactivation-required state |
+
+#### Response Structure Rules
+
+- `success` (boolean) — always present
+- `status` (NormalizedStatus) — always at the **top level**, never nested inside `data`
+- `license`, `customer`, `plan`, `hardware`, `trial` — sub-objects present only when applicable
+- `error` — present only when `success: false`; contains `code`, `message`, optional `inactive_reason`
+- `message` (string) — human-readable summary always present
+
+The `/api/v1/license?action=validate` endpoint uses the shared serializer (`lib/license/serializer.ts`). The normalized `status` field is always at the top level of the response, not nested inside `data`.
 
 **Hardware-Only Validation (no license key — cache check only):**
 
@@ -2052,14 +2150,12 @@ The `/api/v1/license?action=validate` endpoint returns different fields dependin
 Response body:
 {
   "success": true,
-  "data": {
-    "status": "no_license",           // "no_license" | "trial_consumed" | "inactive" | "valid"
-    "has_license": false,
-    "has_trial": false,
-    "message": "No license key detected. Enter your license key to get started.",
-    "customer_status": null,           // "none" | "trial" | "active" | "expired" | "revoked"
-    "customer_exists": false
-  }
+  "status": "unlicensed",          // "unlicensed" | "trial" | "licensed" | etc.
+  "hardware": {
+    "hardware_id": "abc123",
+    "is_activated": false
+  },
+  "message": "No license found for this hardware. Please enter a license key to activate."
 }
 
 UI state after response:
@@ -2078,32 +2174,33 @@ UI state after response:
 Response body:
 {
   "success": true,
-  "data": {
+  "status": "licensed",             // "licensed" | "trial" | "expired" | "revoked" | "inactive" | "deleted" | "force_reactivation" | "unlicensed"
+  "license": {
     "license_key": "XXXX-XXXX-XXXX-XXXX",
-    "customer_name": "John Doe",
-    "customer_email": "john@example.com",
-    "product_name": "Product Name",
-    "product_id": "prod_001",
-    "plan_name": "Premium",
-    "plan_id": 1,
-    "status": "active",               // "active" | "expired" | "revoked" | "inactive" | "deleted"
-    "expiry_date": "2026-07-27T00:00:00Z",
-    "days_left": 365,
-    "is_lifetime": false,
+    "plan": "Premium",
+    "expiry_date": "2026-07-27",
     "max_devices": 3,
     "device_count": 1,
-    "devices": [
-      {
-        "id": 1,
-        "hardware_id": "abc123",
-        "device_name": "DESKTOP-ABC",
-        "is_current_device": true
-      }
-    ],
-    "trial_consumed": false,
-    "customer_exists": true,
-    "validation_timestamp": "2025-07-27T00:00:00Z"
-  }
+    "is_trial": false,
+    "duration_days": 365,
+    "created_at": "2025-07-27T00:00:00Z",
+    "activated_at": "2025-07-27T00:00:00Z"
+  },
+  "customer": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "",
+    "mobile": ""
+  },
+  "plan": {
+    "name": "Premium"
+  },
+  "hardware": {
+    "hardware_id": "abc123",
+    "is_activated": true,
+    "device_name": "DESKTOP-ABC"
+  },
+  "message": "License is active and valid"
 }
 
 UI state after response (active license):
@@ -2119,21 +2216,24 @@ UI state after response (active license):
 
 **Business Error Responses:**
 
-| HTTP | code | data.status | data.message (SDK display) |
-|------|------|-------------|---------------------------|
-| 403 | LICENSE_INACTIVE | inactive | "License inactive. Contact support." |
-| 403 | LICENSE_REVOKED | revoked | "License revoked. Contact support." |
-| 403 | LICENSE_EXPIRED | expired | "License expired. Renew your license." |
-| 403 | LICENSE_DELETED | deleted | "License deleted. Contact support." |
-| 403 | MAX_DEVICES_EXCEEDED | max_devices | "Device limit reached. Deactivate another device or contact support." |
-| 404 | LICENSE_NOT_FOUND | not_found | "License key not found. Please check and try again." |
+| HTTP | code | status | message (SDK display) |
+|------|------|--------|-----------------------|
+| 403 | LICENSE_INACTIVE | inactive | "Your license is inactive. Please contact support." |
+| 403 | LICENSE_REVOKED | revoked | "License has been revoked" |
+| 403 | LICENSE_EXPIRED | expired | "License has expired" |
+| 403 | LICENSE_DELETED | deleted | "Your license is inactive. Please contact support." |
+| 403 | LICENSE_SUSPENDED | suspended | "License is suspended" |
+| 403 | LICENSE_DISABLED | disabled | "License is disabled" |
+| 403 | MAX_DEVICES_EXCEEDED | inactive | "Device limit reached. Deactivate another device or contact support." |
+| 404 | LICENSE_NOT_FOUND | unlicensed | "License key not found. Please check and try again." |
 
 **Rules:**
-- Every validation response includes `data.status` — the SDK uses this for state-machine decisions
-- Business errors (LICENSE_INACTIVE, etc.) still return HTTP 403, not 200
+- The `status` field at the top level is the normalized status — SDK uses this for state-machine decisions
+- `license`, `customer`, `plan`, `hardware` are nested objects only present when applicable
+- Business errors (LICENSE_INACTIVE, etc.) return HTTP 403 with `success: false` + `error` object
+- `computeNormalizedStatus()` in `lib/license/serializer.ts` maps DB status + expiry + hardware state to a normalized status
 - The SDK must NOT cache the validation response for longer than the current session
-- `data.devices` is included only when a valid active license is found
-- `data.validation_timestamp` is added by the backend to prevent replay attacks
+- `hardware.device_name` is included only when a valid active license is found
 
 ### Renew License Workflow
 
@@ -4229,7 +4329,8 @@ Every future phase must follow this reporting format.
 | AWS-01 ULC trial_consumed Passthrough Bug Fix & Live Logging | ✅ Complete | 100% |
 | AWS-01 Trial Status Diagnostic Logging (4-layer comparison in public API) | ✅ Complete | 100% |
 | AWS-01 Internal Backend Trial Routes Product Isolation Fix | ✅ Complete | 100% |
-| **Overall** | **All 15 phases + AWS-01 Phase 1 + AWS-01 Remaining SDK Issues + AWS-01 Audit + ULC trial_consumed fix + Trial Status Diagnostic Logging + Internal Trial Routes Product Isolation Fix** | **100%** |
+| **Normalized License Status API Response Format** | ✅ Complete (Shared serializer + all route fixes + Python SDK templates updated) | 100% |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format** | **100%** |
 
 ### How much is completed?
 
@@ -6288,6 +6389,82 @@ When an internal register/start request arrived with `product_id=B` for a hardwa
 - ✅ No business logic changed in public API routes
 - ✅ No changes to `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS\*`
 - ✅ User will generate fresh SDK to get fixes
-
 ### Next Step
+
 User to generate fresh SDK from Websmith Internal API and replace `WSD_SDKToolkit_ZEMMACOS` manually.
+
+---
+
+## Session Summary — 2026-07-28 (Normalized License Status API Response Format — Shared Serializer Architecture)
+
+### Root Cause
+
+The `/api/v1/license` public API returned raw `licenseData.status` (DB values like `"active"`, `"inactive"`) in the response body at varying nesting levels. The SDK had no single reliable field to determine the license's normalized business state. The generated Python SDK could not distinguish between `trial`, `licensed`, `expired`, `unlicensed`, and `force_reactivation` states.
+
+Specific issues:
+- **`app/api/v1/license/route.ts:475`**: `computeLicenseStatus` computed the correct status but the return value was **ignored** — the raw `licenseData.status` was returned instead of `computedStatus`
+- **No shared serializer**: Each route replicated its own response format logic, causing drift between public API, internal backend, and trial endpoints
+- **No `force_reactivation` status in backend**: The status existed in SDK templates (10+ files) but in **zero backend files** — the backend never returned it
+
+### Fix Applied
+
+**1. Created shared serializer** (`lib/license/serializer.ts`):
+- `computeNormalizedStatus()` — maps DB status + expiry + hardware state to one of 10 normalized statuses
+- `buildLicenseResponse()` — full validate/activate success with nested `license`, `customer`, `plan`, `hardware`
+- `buildTrialResponse()` — trial status/start response with `trial` sub-object
+- `buildNoLicenseResponse()` — base unlicensed response
+- `buildErrorResponse()` — business error with `success: false` + `error` object
+- All responses have `status` at the **top level**, never nested inside `data`
+
+**2. Fixed public API** (`app/api/v1/license/route.ts`):
+- All validate/activate/deactivate paths now call serializer functions
+- `force_reactivation` status returned when license is active-on-other-device and current hardware is not activated
+- Every path returns a normalized `status` field
+
+**3. Fixed trial API** (`app/api/v1/trial/route.ts`):
+- Uses `buildTrialResponse()` / `buildNoLicenseResponse()`
+- `status` at top level (`"trial"` or `"unlicensed"`)
+- `trial` sub-object with `has_trial`, `days_left`, `expiry_date`, `status`, `customer_name`, `customer_email`
+
+**4. Fixed internal backend** (`app/internal/backend/licenses/validate/route.ts`):
+- Uses `buildLicenseResponse()`, `buildNoLicenseResponse()`, `buildErrorResponse()`
+- Responses match public API format exactly
+
+**5. Updated Python SDK templates**:
+- `license_engine.py`: `isValidStatus()` checks `('licensed', 'trial')`; `_validate_with_server()` reads flat `status`; `activate()` checks `status=licensed`; added `force_reactivation` handling for active-on-other-device detection
+- `universal_license_center.py`: `_fetch_live_license_status()` reads flat `status`; `_build_ui()` maps `licensed` → paid active, `force_reactivation` → reactivation required
+
+### Normalized Status Values
+
+| Status | DB / Business Condition |
+|--------|------------------------|
+| `licensed` | `status=active` + hardware activated + not expired |
+| `trial` | `is_trial=true` + `status=active` + not expired |
+| `expired` | Past expiry date (any DB status) |
+| `revoked` | DB status `revoked` |
+| `suspended` | DB status `suspended` |
+| `disabled` | DB status `disabled` |
+| `inactive` | DB status `inactive`, or `status=active` + not activated + no other device |
+| `deleted` | `deleted_at` set or DB status `deleted` |
+| `force_reactivation` | `status=active` + not activated + active on another device |
+| `unlicensed` | No license/trial found |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `lib/license/serializer.ts` | **NEW** — Shared serializer with `computeNormalizedStatus()`, `buildLicenseResponse()`, `buildTrialResponse()`, `buildNoLicenseResponse()`, `buildErrorResponse()` |
+| `app/api/v1/license/route.ts` | All validate/activate/deactivate paths use serializer; returns normalized `status` at top level; added `force_reactivation` path |
+| `app/api/v1/trial/route.ts` | Uses `buildTrialResponse()`/`buildNoLicenseResponse()`; flat `status` at top level |
+| `app/internal/backend/licenses/validate/route.ts` | Uses serializer for all responses |
+| `app/internal/publisher/template/python/license_engine.py` | Reads flat `status`; status values `'active'` → `'licensed'`; `force_reactivation` handling |
+| `app/internal/publisher/template/python/universal_license_center.py` | `_fetch_live_license_status()` reads flat `status`; `_build_ui()` maps new statuses |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Updated status line, Section 0.2 (lib/), Section 0.14 (API contracts), Validation API Contract (new response format + serializer architecture), progress tracking, session summary |
+
+### Verification
+
+- `npx tsc --noEmit` — zero errors
+- All route changes reference only `@/lib/license/serializer` exports
+- All Python template changes use the new `status` at top level (not nested `data.status`)
+- No generated SDK files were edited
+- All changes follow Rule 11 (Template-First): templates updated, not runtime generators
