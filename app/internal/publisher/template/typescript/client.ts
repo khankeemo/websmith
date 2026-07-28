@@ -254,6 +254,34 @@ export class ApiClient {
     return this._request('trial', payload);
   }
 
+  async getLicenseStatus(hardwareId?: string): Promise<Record<string, any>> {
+    if (!hardwareId) hardwareId = this._getHardwareId();
+    const url = `${this.baseUrl}/internal/backend/license/status?hardware_id=${encodeURIComponent(hardwareId)}`;
+    return new Promise((resolve) => {
+      const urlObj = new URL(url);
+      const isHttps = urlObj.protocol === 'https:';
+      const transport = isHttps ? https : http;
+      const options: http.RequestOptions = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || (isHttps ? 443 : 80),
+        path: urlObj.pathname + urlObj.search,
+        method: 'GET',
+        timeout: this.timeout * 1000,
+      };
+      const req = transport.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk: string) => { data += chunk; });
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch { resolve({ success: false, status: 'no_license' }); }
+        });
+      });
+      req.on('error', () => resolve({ success: false, status: 'no_license' }));
+      req.on('timeout', () => { req.destroy(); resolve({ success: false, status: 'no_license' }); });
+      req.end();
+    });
+  }
+
   async getTrialStatus(hardwareId?: string): Promise<Record<string, any>> {
     if (!hardwareId) hardwareId = this._getHardwareId();
     return this._request('trial', { action: 'status', hardware_id: hardwareId });

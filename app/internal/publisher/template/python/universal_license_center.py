@@ -94,7 +94,7 @@ class UniversalLicenseCenter:
     def _is_valid_for_unlock(self) -> bool:
         if not self._status:
             return False
-        return self._status.status in ('active', 'trial')
+        return self._status.status in ('licensed', 'trial')
 
     def _unlock_application(self):
         self._app_unlocked = True
@@ -180,106 +180,73 @@ class UniversalLicenseCenter:
 
     def _fetch_live_license_status(self) -> None:
         hardware_id = self.hardware.get_fingerprint()
-        self._log("SDK", "INFO", "=== STAGE 1: Fetching live license status from backend",
+        self._log("SDK", "INFO", "=== STAGE 1: Fetching live license status from unified endpoint",
                   f"hardware={hardware_id[:16] if hardware_id else 'NONE'}...")
 
-        # ---- STAGE 2: Trial status check ----
-        self._log("SDK", "INFO", "=== STAGE 2: Checking trial status via client.get_trial_status()")
         try:
-            trial_response = self.client.get_trial_status(hardware_id)
-            self._log("SDK", "INFO", "=== STAGE 2a: Raw API response",
-                      f"response={json.dumps(trial_response, default=str)}")
-            trial_status = trial_response.get('status', '')
-            trial_data = trial_response.get('trial', {}) if isinstance(trial_response.get('trial'), dict) else {}
-            trial_has_trial = trial_data.get('has_trial', False)
-            self._log("SDK", "INFO", "=== STAGE 2c: Condition evaluation",
-                      f"status='{trial_status}', has_trial={trial_has_trial}, "
-                      f"condition=(status=='trial'={trial_status == 'trial'} and has_trial={trial_has_trial})")
-            if trial_status == 'trial' and trial_has_trial:
-                plan_default = trial_data.get('plan', 'Trial')
-                days_left_val = trial_data.get('days_left', trial_data.get('duration_days', 0))
-                expiry = trial_data.get('expiry_date')
-                cust_name = trial_data.get('customer_name')
-                cust_email = trial_data.get('customer_email')
-                self._log("SDK", "INFO", "=== STAGE 2d: Creating trial LicenseStatus",
-                          f"plan={plan_default}, days_left={days_left_val}, "
-                          f"expiry={expiry}, customer={cust_name}, email={cust_email}")
+            status_response = self.client.get_license_status(hardware_id)
+            self._log("SDK", "INFO", "=== STAGE 1a: Raw API response",
+                      f"response={json.dumps(status_response, default=str)}")
+
+            if not status_response.get('success'):
+                self._log("SDK", "WARNING", "=== STAGE 1b: API returned success=false",
+                          "keeping current status")
+                return
+
+            api_status = status_response.get('status', 'no_license')
+            self._log("SDK", "INFO", "=== STAGE 1c: Status evaluation",
+                      f"api_status='{api_status}'")
+
+            if api_status == 'trial':
+                cust = status_response.get('customer', {})
+                lic = status_response.get('license', {})
+                plan = status_response.get('plan', {})
+                self._log("SDK", "INFO", "=== STAGE 1d: Creating trial LicenseStatus from unified response")
                 self._status = LicenseStatus(
                     valid=True, status='trial',
-                    expiry_date=expiry,
-                    days_left=days_left_val,
-                    plan=plan_default,
+                    expiry_date=lic.get('expiry_date'),
+                    days_left=lic.get('days_remaining', 0),
+                    plan=plan.get('name', 'Trial'),
                     hardware_id=hardware_id,
-                    customer_name=cust_name,
-                    customer_email=cust_email,
+                    customer_name=cust.get('name'),
+                    customer_email=cust.get('email'),
                     trial_active=True,
                 )
                 self.cache.set_license_status(self._status.to_dict())
-                self._log("SDK", "INFO", "=== STAGE 2e: Trial status SET successfully",
+                self._log("SDK", "INFO", "=== STAGE 1e: Trial status SET from unified endpoint",
                           f"status=trial, days_left={self._status.days_left}")
-                self._log("SDK", "INFO", "=== STAGE 2f: self._status final",
-                          f"{json.dumps(self._status.to_dict(), default=str)}")
                 return
-            else:
-                self._log("SDK", "INFO", "=== STAGE 2g: Trial condition NOT met",
-                          f"status='{trial_status}' - falling through")
-        except Exception as e:
-            self._log("SDK", "WARNING", "=== STAGE 2-EXCEPTION: Live trial status fetch failed", str(e))
 
-        # ---- STAGE 3: Paid license validation check ----
-        self._log("SDK", "INFO", "=== STAGE 3: Checking paid license via client.validate_license()")
-        try:
-            hw_result = self.client.validate_license('', hardware_id)
-            self._log("SDK", "INFO", "=== STAGE 3a: Raw validate_license response",
-                      f"response={json.dumps(hw_result, default=str)}")
-            hw_status = hw_result.get('status', '')
-            lic_data = hw_result.get('license', {}) if isinstance(hw_result.get('license'), dict) else {}
-            cust = hw_result.get('customer', {}) if isinstance(hw_result.get('customer'), dict) else {}
-            self._log("SDK", "INFO", "=== STAGE 3c: Condition evaluation",
-                      f"status='{hw_status}', "
-                      f"condition=(status in ('licensed',)={hw_status in ('licensed',)})")
-            if hw_status in ('licensed',):
-                self._log("SDK", "INFO", "=== STAGE 3d: Creating active LicenseStatus",
-                          f"plan={lic_data.get('plan')}, days_left={lic_data.get('days_left', 0)}")
+            elif api_status == 'licensed':
+                cust = status_response.get('customer', {})
+                lic = status_response.get('license', {})
+                plan = status_response.get('plan', {})
+                devices = status_response.get('devices', {})
+                self._log("SDK", "INFO", "=== STAGE 1f: Creating licensed LicenseStatus from unified response")
                 self._status = LicenseStatus(
                     valid=True, status='licensed',
-                    expiry_date=lic_data.get('expiry_date'),
-                    days_left=lic_data.get('days_left', 0),
-                    plan=lic_data.get('plan'),
+                    expiry_date=lic.get('expiry_date'),
+                    days_left=lic.get('days_remaining', 0),
+                    plan=plan.get('name'),
                     hardware_id=hardware_id,
-                    license_key=lic_data.get('license_key'),
+                    license_key=lic.get('license_key'),
                     customer_name=cust.get('name'),
                     customer_email=cust.get('email'),
-                    max_devices=lic_data.get('max_devices', 999),
-                    device_count=lic_data.get('device_count', 0),
+                    max_devices=devices.get('maximum', 999),
+                    device_count=devices.get('current', 0),
                 )
                 self.cache.set_license_status(self._status.to_dict())
                 self.cache.mark_has_ever_activated_paid_license()
-                self._log("SDK", "INFO", "=== STAGE 3e: Active license SET successfully",
+                self._log("SDK", "INFO", "=== STAGE 1g: Licensed status SET from unified endpoint",
                           f"status=licensed, plan={self._status.plan}")
-                self._log("SDK", "INFO", "=== STAGE 3f: self._status final",
-                          f"{json.dumps(self._status.to_dict(), default=str)}")
                 return
-            elif hw_status == 'force_reactivation':
-                self._log("SDK", "INFO", "=== STAGE 3h: Force reactivation detected")
-                self._status = LicenseStatus(
-                    valid=False, status='force_reactivation',
-                    hardware_id=hardware_id,
-                    message='License requires reactivation. Please contact support.',
-                    license_key=lic_data.get('license_key'),
-                )
-                self.cache.set_license_status(self._status.to_dict())
-                return
-            else:
-                self._log("SDK", "INFO", "=== STAGE 3g: License condition NOT met",
-                          f"status='{hw_status}' - falling through")
-        except Exception as e:
-            self._log("SDK", "WARNING", "=== STAGE 3-EXCEPTION: Live license status fetch failed", str(e))
 
-        # ---- STAGE 4: No live status found ----
-        current_status = self._status.status if self._status else 'None'
-        self._log("SDK", "INFO", "=== STAGE 4: No live license or trial found",
-                  f"keeping current status='{current_status}'")
+            else:
+                self._log("SDK", "INFO", f"=== STAGE 1h: No active status (status='{api_status}')",
+                          "keeping current status")
+
+        except Exception as e:
+            self._log("SDK", "WARNING", "=== STAGE 1-EXCEPTION: Unified license status fetch failed", str(e))
 
     def _show_license_center(self, trial_consumed: bool = False) -> Dict[str, Any]:
         pre_fetch_status = self._status.status if self._status else 'None'
@@ -562,7 +529,7 @@ class UniversalLicenseCenter:
             if self._status.expiry_date:
                 lines.append(f"Expires: {self._status.expiry_date}")
             fg = self._success
-        elif self._status.status == 'active':
+        elif self._status.status in ('active', 'licensed'):
             lines.append("Status: ACTIVE")
             if self._product_name:
                 lines.append(f"Product: {self._product_name}")

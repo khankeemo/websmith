@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Session — Shared Serializer Architecture)**
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Session — Shared Serializer Architecture)** — **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored**
 
 ---
 
@@ -3110,6 +3110,41 @@ Before deploying, audit every Internal API module. If any module contains its ow
 
 ### Internal Backend Trial Routes — Product Isolation Fix Applied
 
+### Admin Backend License Status Endpoint (AWS-01)
+
+Added `GET /internal/backend/license/status?hardware_id=xxx` — single license status endpoint used by the Universal License Center.
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/internal/backend/license/status` | GET | Returns standardized license status JSON for a given hardware_id. Accepts `hardware_id` query param. |
+
+**Lookup order:**
+1. Activations table by hardware_id → license → customer → plan → product (returns licensed response with full details)
+2. Trials table by hardware_id (returns trial response with status "Trial Active" or "Trial Expired")
+3. Neither found (returns "No License" response with empty fields)
+
+**Standardized response structure (always the same shape):**
+```json
+{
+  "success": true,
+  "status": "licensed | trial | no_license",
+  "customer": { "name": "", "email": "", "mobile": "" },
+  "license": { "license_key": "", "status": "", "expiry_date": "", "days_remaining": 0 },
+  "plan": { "name": "", "device_limit": 1 },
+  "product": { "name": "" },
+  "devices": { "current": 0, "maximum": 1 }
+}
+```
+
+**Rules enforced:**
+- Hardware ID is the sole lookup key
+- Backend (database) is the single source of truth for status
+- Status is normalized by the backend, never by the ULC
+- Response structure is identical regardless of license state
+- No business logic exists in the ULC — it only displays what the backend returns
+
+### Internal Backend Trial Routes — Product Isolation Fix Applied
+
 The following routes under `/internal/backend/trials/` are used for software registration and trial lifecycle. They must maintain product isolation — a trial created under one product must not be silently reassigned to a different product.
 
 | Route | Method | Purpose | Auth |
@@ -4330,7 +4365,8 @@ Every future phase must follow this reporting format.
 | AWS-01 Trial Status Diagnostic Logging (4-layer comparison in public API) | ✅ Complete | 100% |
 | AWS-01 Internal Backend Trial Routes Product Isolation Fix | ✅ Complete | 100% |
 | **Normalized License Status API Response Format** | ✅ Complete (Shared serializer + all route fixes + Python SDK templates updated) | 100% |
-| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format** | **100%** |
+| **AWS-01 ULC Admin Center Implementation** | ✅ Complete (Backend `/internal/backend/license/status` endpoint created; `UniversalLicenseCenter` pure display component built; `LicenseDialog` refactored; `getLicenseStatus` added to API client; API config updated) | 100% |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center** | **100%** |
 
 ### How much is completed?
 
@@ -4397,7 +4433,7 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 31. ✅ **AWS-01 ULC trial_consumed Passthrough Bug Fix** — Root cause: `show()` set `self._trial_consumed = self.cache.is_onboarding_complete()` at line 137, but then called `self._show_license_center()` without the `trial_consumed` argument on line 141. Inside `_show_license_center()`, the line `self._trial_consumed = trial_consumed` (with default `False`) always overwrote the correct cache value to `False`. This caused `_refresh_display()` to always show "Status: NO LICENSE FOUND" with "Start Free Trial" button, even when the trial was already consumed. **Fix:** `show()` now passes `self._trial_consumed` to `_show_license_center(trial_consumed=self._trial_consumed)`.
 32. ✅ **ULC Stage-by-Stage Logging Added** — Added comprehensive logging at every stage of `_fetch_live_license_status()` (raw API response, parsed data, condition evaluation, final `self._status`). Added status logging before/after fetch in `_show_license_center()`. Added logging immediately before `_refresh_display()`. Added logging in `_build_ui()` for button status evaluation. Added logging in `_refresh_display()` for displayed status. Every stage is tagged with `=== STAGE N` markers for easy log filtering.
 33. ✅ **AWS-01 Trial Status Diagnostic Logging** — Added comprehensive 4-layer diagnostic logging to `app/api/v1/trial/route.ts` case 'status'. Logs SDK values (hardware_id, config.product_id from body, masked API key), API values (authResult.productId, apiKeyId), database values (diagnostic query WITHOUT product_id filter: trial.product_id, trial.hardware_id, trial.status), and response values (has_trial, status). Compares DB product_id vs API productId to detect mismatches. Root cause analysis of ZEMmacOS case proved trial was deleted from DB (via `admin/cleanup/route.ts:67`) while cache retained stale `status=trial` via `peek_license_status()` bypassing TTL. Documentation updated.
-34. [ ] **NEXT: Generate fresh SDK package** — User to generate from Publisher and replace manually for testing.
+34. ✅ **AWS-01 ULC Admin Center Implementation** — Created `GET /internal/backend/license/status?hardware_id=xxx` endpoint as single source of truth for license status lookup. Hardware ID is the primary lookup key. Backend searches activation→license→customer→plan→product chain, then falls back to trial table, then returns "No License". Response always uses the same JSON structure regardless of state. Created `components/license/UniversalLicenseCenter.tsx` as a pure display-only component — zero business logic, zero status calculations, zero caching. Replaced `UniversalActivationCenter` in `LicenseDialog.tsx` with the new pure display component. Added `getLicenseStatus(hardwareId)` to `LicenseApiClient`. All TypeScript compilation passes with zero errors.
 20. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture

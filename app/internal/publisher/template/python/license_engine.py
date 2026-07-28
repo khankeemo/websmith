@@ -179,62 +179,44 @@ class LicenseEngine:
                     return self._status
                 print(f"{time.strftime('%H:%M:%S')} LiveLog: Decision — cache hit (status: {self._status.status}), not valid, falling through")
 
-        # Cache missed — ask server for trial status
+        # Cache missed — ask server via unified license status endpoint
         try:
-            trial_response = self._client.get_trial_status(hardware_id)
-            trial_data = trial_response.get('trial', trial_response)
-            trial_has_trial = trial_data.get('has_trial', False) if isinstance(trial_data, dict) else False
-            if trial_response.get('status') == 'trial' and trial_has_trial:
-                days_left = trial_data.get('days_left', 0)
-                self._status = LicenseStatus(
-                    valid=True, status='trial',
-                    expiry_date=trial_data.get('expiry_date'),
-                    days_left=days_left,
-                    plan=trial_data.get('plan', 'Trial'),
-                    hardware_id=hardware_id,
-                    customer_name=trial_data.get('customer_name'),
-                    customer_email=trial_data.get('customer_email'),
-                    customer_phone=trial_data.get('customer_phone'),
-                    customer_mobile=trial_data.get('customer_mobile'),
-                    trial_active=True,
-                )
-                self._cache.set_license_status(self._status.to_dict())
-                print(f"{time.strftime('%H:%M:%S')} LiveLog: Decision — trial active on server (restored from API)")
-                self._notify_ready(True)
-                return self._status
-            print(f"{time.strftime('%H:%M:%S')} LiveLog: Decision — no active trial on server")
+            status_response = self._client.get_license_status(hardware_id)
+            if status_response.get('success'):
+                api_status = status_response.get('status', 'no_license')
+                if api_status in ('licensed', 'trial'):
+                    cust = status_response.get('customer', {})
+                    lic = status_response.get('license', {})
+                    plan = status_response.get('plan', {})
+                    product = status_response.get('product', {})
+                    devices = status_response.get('devices', {})
+                    self._status = LicenseStatus(
+                        valid=True,
+                        status=api_status,
+                        expiry_date=lic.get('expiry_date'),
+                        days_left=lic.get('days_remaining', 0),
+                        plan=plan.get('name', 'Trial' if api_status == 'trial' else ''),
+                        hardware_id=hardware_id,
+                        license_key=lic.get('license_key', ''),
+                        customer_name=cust.get('name'),
+                        customer_email=cust.get('email'),
+                        customer_mobile=cust.get('mobile'),
+                        max_devices=devices.get('maximum', 999),
+                        device_count=devices.get('current', 0),
+                        trial_active=(api_status == 'trial'),
+                    )
+                    self._cache.set_license_status(self._status.to_dict())
+                    if api_status == 'licensed' and self._status.license_key:
+                        self._license_key = self._status.license_key
+                        self._cache.mark_has_ever_activated_paid_license()
+                    print(f"{time.strftime('%H:%M:%S')} LiveLog: Decision — {api_status} on server (unified API)")
+                    self._notify_ready(True)
+                    return self._status
+                print(f"{time.strftime('%H:%M:%S')} LiveLog: Decision — no active state on server (status={api_status})")
+            else:
+                print(f"{time.strftime('%H:%M:%S')} LiveLog: Decision — server returned error, falling through")
         except Exception as e:
-            print(f"{time.strftime('%H:%M:%S')} LiveLog: Warning — trial status check failed: {e}")
-
-        # Validate paid license on server
-        try:
-            hw_result = self._client.validate_license('', hardware_id)
-            hw_data = hw_result.get('license', hw_result)
-            if hw_result.get('status') in ('licensed',):
-                self._status = LicenseStatus(
-                    valid=True, status='licensed',
-                    expiry_date=hw_data.get('expiry_date'),
-                    days_left=hw_data.get('days_left', 0),
-                    plan=hw_data.get('plan'),
-                    hardware_id=hardware_id,
-                    license_key=hw_data.get('license_key'),
-                    customer_name=hw_result.get('customer', {}).get('name'),
-                    customer_email=hw_result.get('customer', {}).get('email'),
-                    customer_phone=hw_result.get('customer', {}).get('phone'),
-                    customer_mobile=hw_result.get('customer', {}).get('mobile'),
-                    max_devices=hw_data.get('max_devices', 999),
-                    device_count=hw_data.get('device_count', 0),
-                )
-                self._cache.set_license_status(self._status.to_dict())
-                self._cache.mark_has_ever_activated_paid_license()
-                if self._status.license_key:
-                    self._license_key = self._status.license_key
-                print(f"{time.strftime('%H:%M:%S')} LiveLog: Decision — paid license active on server (restored from API)")
-                self._notify_ready(True)
-                return self._status
-            print(f"{time.strftime('%H:%M:%S')} LiveLog: Decision — no paid license on server")
-        except Exception as e:
-            print(f"{time.strftime('%H:%M:%S')} LiveLog: Warning — paid license check failed: {e}")
+            print(f"{time.strftime('%H:%M:%S')} LiveLog: Warning — unified license status check failed: {e}")
 
         # Final decision: server confirmed no active state exists
         onboarding_complete = self._cache.is_onboarding_complete()
