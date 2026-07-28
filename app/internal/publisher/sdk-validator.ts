@@ -290,19 +290,31 @@ export class SDKValidator {
     // Check for success/restart workflow in Python packages
     if (runtime === 'python') {
       const pyFiles = files.filter(f => f.endsWith('.py'));
-      for (const pyFile of pyFiles) {
-        const content = await fs.readFile(pyFile, 'utf-8');
-        if (pyFile.endsWith('universal_license_center.py') || pyFile.endsWith('__init__.py')) {
-          if (!content.includes('SuccessDialog')) {
-            result.errors.push(
-              `Universal Success Dialog (SuccessDialog) missing from ${path.relative(packageDir, pyFile)}`
-            );
-          }
-          if (!content.includes('RestartDialog')) {
-            result.errors.push(
-              `Universal Restart Dialog (RestartDialog) missing from ${path.relative(packageDir, pyFile)}`
-            );
-          }
+      const initPy = pyFiles.find(f => f.endsWith('__init__.py'));
+      const ulcPy = pyFiles.find(f => f.endsWith('universal_license_center.py'));
+
+      // __init__.py must export both dialogs
+      if (initPy) {
+        const initContent = await fs.readFile(initPy, 'utf-8');
+        if (!initContent.includes('SuccessDialog')) {
+          result.errors.push(
+            `Universal Success Dialog (SuccessDialog) missing from ${path.relative(packageDir, initPy)}`
+          );
+        }
+        if (!initContent.includes('RestartDialog')) {
+          result.errors.push(
+            `Universal Restart Dialog (RestartDialog) missing from ${path.relative(packageDir, initPy)}`
+          );
+        }
+      }
+
+      // universal_license_center.py uses SuccessDialog directly
+      if (ulcPy) {
+        const ulcContent = await fs.readFile(ulcPy, 'utf-8');
+        if (!ulcContent.includes('SuccessDialog')) {
+          result.errors.push(
+            `Universal Success Dialog (SuccessDialog) missing from ${path.relative(packageDir, ulcPy)}`
+          );
         }
       }
     }

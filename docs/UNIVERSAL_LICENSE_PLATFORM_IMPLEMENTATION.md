@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 In Progress — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed)
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated
 
 ---
 
@@ -307,15 +307,12 @@ Decision Engine
     Customer Workflow
             │
             ├── Start Free Trial → Welcome → OTP → Register → Trial → Unlock
-            ├── Activate License → Validate → OTP → Activate → Restart → Unlock
+            ├── Activate License → Validate → OTP → Activate → Unlock
             ├── Renew License → Validate → Select Plan → Communication → Unlock
             └── Reactivate → Request → Approval → Unlock
             │
             ▼
-    Success Dialog
-            │
-            ▼
-    Restart (if activation was performed, mandatory restart required)
+    Success Dialog (with Restart Now button — single combined dialog)
             │
             ▼
     Main Application
@@ -352,27 +349,34 @@ Activation Success (or Renewal/Reactivation approved)
 Save all state to cache and persistence
     │
     ▼
-Show Success Dialog
+Show Success Dialog (with Restart Now button)
     ├── Customer Name (read-only)
+    ├── Customer Email (read-only)
     ├── Product (read-only)
     ├── Plan (read-only)
     ├── License Status: ACTIVE
-    ├── Activation Date (or Renewal Date)
     ├── Expiry Date
-    ├── Remaining Validity
-    └── Restart Prompt: "Restart Now" (1) | "Restart Later" (2)
+    ├── Days Remaining
+    └── "Your licence has been updated successfully.
+         Please restart the application to apply the latest licence information."
     │
     ▼
-User clicks Restart Now
+User clicks Restart Now (single button, no Continue step)
     │
     ▼
-Close all dialogs
+Save runtime state → Flush cache
     │
     ▼
-Destroy root window
+Close Welcome / OTP / ULC / Success dialogs
     │
     ▼
-Exit process (complete shutdown, no orphan processes)
+Destroy all SDK child windows → Destroy Tk root
+    │
+    ▼
+Launch new process (sys.executable + sys.argv)
+    │
+    ▼
+Exit current process
     │
     ▼
 Restart application (fresh start)
@@ -421,17 +425,17 @@ Shutdown (via Close Behaviour rules)
 
 ## AWS-01 – Universal Restart Workflow
 
-The SDK must provide ONE Universal Restart Dialog.
+The SDK provides ONE combined Success+Restart dialog.
 
-This dialog is part of the SDK platform and must be shared by all supported runtimes.
+The restart functionality is merged into `universal_success_dialog.py` — a single dialog that displays success information and offers the "Restart Now" button.
 
-The dialog must NOT be duplicated.
+`RestartDialog` (`universal_restart_dialog.py`) is retained as a backward-compatible export in `__init__.py` but is no longer the primary entry point.
 
 ------------------------------------------------------------
 WHEN TO SHOW
 ------------------------------------------------------------
 
-Display the Universal Restart Dialog only after a successful operation that changes the customer's licensing state, including:
+Display the Success Dialog (with Restart Now button) only after a successful operation that changes the customer's licensing state, including:
 
 • Trial Started Successfully
 • License Activated Successfully
@@ -442,64 +446,79 @@ Display the Universal Restart Dialog only after a successful operation that chan
 Do not display it for failed or cancelled operations.
 
 ------------------------------------------------------------
-WORKFLOW
+DIALOG CONTENT
 ------------------------------------------------------------
 
-Customer Action
-        ↓
-Internal API Validation
-        ↓
-Database Updated
-        ↓
-Operation Successful
-        ↓
-Success Dialog
-        ↓
-Universal Restart Dialog
-        ↓
-Customer clicks Restart
-        ↓
-Save runtime state
-        ↓
-Close all SDK dialogs
-        ↓
-Destroy hidden application root
-        ↓
-Exit application
-        ↓
-Restart Product
-        ↓
-LicenseEngine.initialize()
-        ↓
-Decision Engine
-        ↓
-Load latest license state
-        ↓
-Launch Main Application
-
-------------------------------------------------------------
-DIALOG MESSAGE
-------------------------------------------------------------
-
-Title:
-Restart Required
+✓ Success Status
+Customer Name (read-only)
+Customer Email (read-only)
+Product (read-only)
+Plan (read-only)
+License Status (read-only)
+Expiry Date (read-only)
+Days Remaining (read-only)
 
 Message:
 
-Your product has been updated successfully.
-
-Please restart the application to load the latest license information and apply all changes.
+"Your licence has been updated successfully.
+Please restart the application to apply the latest licence information."
 
 Buttons:
 
-• Restart Now
-• Restart Later (optional, only if the current workflow allows it)
+• Restart Now (single button, no Continue step)
+
+------------------------------------------------------------
+RESTART WORKFLOW
+------------------------------------------------------------
+
+User clicks Restart Now
+        ↓
+Save Runtime State (status → cache, license key → file, onboarding flag)
+        ↓
+Flush Cache to disk
+        ↓
+Close Welcome Dialog (if open)
+        ↓
+Close OTP Dialog (if open)
+        ↓
+Close Universal License Center
+        ↓
+Close Success Dialog
+        ↓
+Destroy all SDK child windows
+        ↓
+Destroy Tk root
+        ↓
+Launch new process (sys.executable + sys.argv)
+        ↓
+Exit current process
+
+No SDK window or callback may remain alive after restart.
+
+------------------------------------------------------------
+ULC MUST NEVER RUN THE DECISION ENGINE
+------------------------------------------------------------
+
+ULC is a customer workflow only.
+
+ULC must never:
+- call LicenseEngine.initialize()
+- rerun the Decision Engine
+- perform startup decisions
+
+Startup owns all licence decisions.
+
+LicenseEngine.initialize() runs exactly once during application startup.
+The result (LicenseStatus) is passed to ULC as `initial_status`.
+
+If ULC is shown without a pre-initialised status, it defaults to `no_license`
+and logs a warning. It never calls `initialize()`.
 
 ------------------------------------------------------------
 RULES
 ------------------------------------------------------------
 
-• Use one shared Restart Dialog across all runtimes.
+• Use one shared Success+Restart Dialog across all runtimes.
 • Never create runtime-specific restart dialogs.
 • Never duplicate restart logic.
 • Restart workflow must be generated from the runtime template.
@@ -4163,7 +4182,8 @@ Every future phase must follow this reporting format.
 | Phase 13 — SDK Publisher Verification | ✅ Complete | 100% |
 | Phase 14 — AWS-01 Fixes & Doc Consolidation | ✅ Complete | 100% |
 | Phase 15 — Template-First Architecture Refactor | ✅ Complete | 100% |
-| **Overall** | **All 15 phases complete** | **100%** |
+| AWS-01 Phase 1 — Success+Restart Dialog Merge & ULC Fix | ✅ Complete | 100% |
+| **Overall** | **All 15 phases + AWS-01 Phase 1 complete** | **100%** |
 
 ### How much is completed?
 
@@ -4179,16 +4199,16 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
   - `license_engine.py` — Full startup decision engine with all workflows (activation, renewal, reactivation, trial, communication, notifications)
   - `welcome.py` — Tkinter OTP-based onboarding dialog
    - `live_log.py` — Shared LiveLog event logging (extracted from universal_license_center.py)
-   - `universal_license_center.py` — Full Tkinter GUI with UniversalLicenseCenter, SuccessDialog, RestartDialog
-  - `README.md` — Template documentation with placeholder standard
+   - `universal_license_center.py` — Full Tkinter GUI with UniversalLicenseCenter
+   - `README.md` — Template documentation with placeholder standard
 - ✅ Python template directory exists and is the implementation source
 - ✅ All mandatory template files exist (validated during generation)
 - ✅ Python runtime generator refactored to orchestration-only (loads templates, replaces placeholders, validates, returns file map)
 - ✅ Runtime generator contains NO business logic — all logic resides in template files
-- ✅ Universal Success Dialog (`SuccessDialog`) added — shows after every successful licensing operation with customer info, plan, dates, validity
-- ✅ Universal Restart Dialog (`RestartDialog`) added — save state → close dialogs → exit → restart → LicenseEngine.initialize()
+- ✅ Universal Success Dialog (`SuccessDialog`) added — shows after every successful licensing operation with customer info, plan, dates, validity. Merged with restart workflow — single "Restart Now" button, no extra Continue step.
+- ✅ Universal Restart Dialog (`RestartDialog`) retained as backward-compatible export in `__init__.py`; restart logic now lives inside `universal_success_dialog.py`.
 - ✅ Success → Restart workflow automatically shown after: Trial Started, License Activated, License Renewed, License Reactivated, Device Rebound
-- ✅ Restart Now button always available; Restart Later available for active/trial states
+- ✅ Restart Now performs: save runtime state → flush cache → close Welcome/OTP/ULC/Success dialogs → destroy all SDK child windows → destroy Tk root → launch new process → exit current process
 - ✅ Placeholder standard uses `{{PLACEHOLDER}}` tokens replaced at generation time
 - ✅ Validation fails if any mandatory file is missing from template directory
 - ✅ Validation fails if any placeholder remains unreplaced
@@ -4216,16 +4236,22 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 9. ✅ SDK validation updated — checks for SuccessDialog and RestartDialog in generated packages
 10. ✅ Build verified — zero errors, 222 pages
 11. ✅ Startup Trial Persistence Fix — Root cause identified and fixed (cache TTL expiration + missing peek fallback + trial not cached from server check path); peek methods added to Python and TypeScript CacheManager; LiveLog entries added for every decision point; decision engine now restores from peek before server call
-12. Generate fresh Python SDK and verify all workflows end-to-end
-13. Generate fresh TypeScript SDK and verify all workflows
-14. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
-15. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
-16. Database review — migrate legacy `requests` table into universal conversation architecture
-17. Store Module — verify frontend rendering of products after service fix
-18. ✅ TypeScript template refactored — generator now loads from template/typescript/ (orchestration-only)
+12. ✅ **AWS-01 Phase 1 — Success+Restart Dialog Merged** — `universal_success_dialog.py` now contains the full restart workflow (save state → flush cache → close all dialogs → destroy tk root → launch new process → exit). No separate RestartDialog needed. Single "Restart Now" button with no extra Continue step.
+13. ✅ **AWS-01 Phase 1 — ULC No Longer Runs Decision Engine** — `UniversalLicenseCenter.show()` never calls `LicenseEngine.initialize()`. The decision engine runs exactly once during startup. ULC receives pre-initialized status from the caller.
+14. ✅ **AWS-01 Phase 1 — OTP Error Fix** — OTP verification failure message no longer uses bold, font reduced to 9pt, red color preserved. Raw API/server error messages are never exposed to the user.
+15. ✅ **AWS-01 Phase 1 — UI Polish Applied** — Consistent `Segoe UI` font across all SDK windows (Welcome, Activation, Renewal, Request, Success). Proper header bars with colored banner. Card-style content panels. Consistent spacing and alignment.
+16. ✅ **AWS-01 Phase 1 — SDK Validator Updated** — `sdk-validator.ts` now targets `__init__.py` for `RestartDialog` export (not `universal_license_center.py`). Pipeline audit clean — no other generator files reference the removed import.
+17. [ ] **NEXT: Generate fresh Python SDK** — User to generate from Publisher, replace SDK in `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS\`, and verify.
+18. [ ] **NEXT: Phase 2 — Review ZEMmacOS main.py** — Only after fresh SDK is verified.
+19. Generate fresh TypeScript SDK and verify all workflows
+20. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
+21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
+22. Database review — migrate legacy `requests` table into universal conversation architecture
+23. Store Module — verify frontend rendering of products after service fix
+24. ✅ TypeScript template refactored — generator now loads from template/typescript/ (orchestration-only)
     Multi-runtime template refactoring for remaining 12 runtimes (node, php, java, dotnet, go, rust, cpp, c, javascript, bun, deno)
-19. Fresh multi-runtime SDK generation and full verification
-20. Runtime drift audit for all languages
+25. Fresh multi-runtime SDK generation and full verification
+26. Runtime drift audit for all languages
 
 ---
 
