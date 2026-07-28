@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Session — Shared Serializer Architecture)** — **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored**
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Session — Shared Serializer Architecture)** — **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored** — **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status; _is_valid_for_unlock bug fixed; _refresh_display licensed status mapping added; TypeScript client getLicenseStatus method added**
 
 ---
 
@@ -2131,8 +2131,10 @@ All API endpoints that return license or trial status **must** use the shared se
 
 | Template | Change |
 |----------|--------|
-| `template/python/license_engine.py` | `_validate_with_server()` reads flat `status` at top level; `isValidStatus()` checks `'licensed'` and `'trial'`; `force_reactivation` status handled for active-on-other-device detection; `activate()` reads `status=licensed` on success |
-| `template/python/universal_license_center.py` | `_fetch_live_license_status()` reads flat `status` field; `_build_ui()` maps `licensed` to paid-active state, `force_reactivation` to reactivation-required state |
+| `template/python/client.py` | Added `get_license_status(hardware_id)` — calls `GET {base_url}/internal/backend/license/status?hardware_id=...` (no HMAC, unified response) |
+| `template/python/license_engine.py` | `initialize()` no longer makes separate `get_trial_status()` + `validate_license('', hardware_id)` calls; uses single `get_license_status()`; reads flat `status`, `customer`, `license`, `plan`, `devices` from unified response; `_is_valid_status()` checks `('licensed', 'trial')` |
+| `template/python/universal_license_center.py` | `_fetch_live_license_status()` no longer makes separate trial + paid license checks; uses single `get_license_status()`; `_is_valid_for_unlock()` fixed `('active', 'trial')` → `('licensed', 'trial')`; `_refresh_display()` handles `'licensed'` status |
+| `template/typescript/client.ts` | Added `getLicenseStatus(hardwareId)` — calls `GET {base_url}/internal/backend/license/status?hardware_id=...` (forward-compatible) |
 
 #### Response Structure Rules
 
@@ -4366,7 +4368,8 @@ Every future phase must follow this reporting format.
 | AWS-01 Internal Backend Trial Routes Product Isolation Fix | ✅ Complete | 100% |
 | **Normalized License Status API Response Format** | ✅ Complete (Shared serializer + all route fixes + Python SDK templates updated) | 100% |
 | **AWS-01 ULC Admin Center Implementation** | ✅ Complete (Backend `/internal/backend/license/status` endpoint created; `UniversalLicenseCenter` pure display component built; `LicenseDialog` refactored; `getLicenseStatus` added to API client; API config updated) | 100% |
-| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center** | **100%** |
+| **AWS-01 SDK Unified License Status Endpoint** | ✅ Complete (Python SDK `_fetch_live_license_status()` and `LicenseEngine.initialize()` no longer make separate trial+license calls; both use single `GET /internal/backend/license/status`; `_is_valid_for_unlock` status check fixed; `_refresh_display` handles `licensed`; TypeScript client `getLicenseStatus` added) | 100% |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint** | **100%** |
 
 ### How much is completed?
 
@@ -6504,3 +6507,103 @@ Specific issues:
 - All Python template changes use the new `status` at top level (not nested `data.status`)
 - No generated SDK files were edited
 - All changes follow Rule 11 (Template-First): templates updated, not runtime generators
+
+---
+
+## Session Summary — 2026-07-28 (AWS-01 SDK Unified License Status Endpoint — Dual API Calls Replaced)
+
+### Root Cause
+
+The Python SDK ULC template made **two separate API calls** to determine license status:
+1. `POST /api/v1/trial` (`get_trial_status()`) — check for active trial
+2. `POST /api/v1/license` (`validate_license()`) — check for active paid license
+
+Each returned a **different response shape** with different field names. The trial endpoint returned `has_trial`/`status: 'active'` while the code expected `active`/`status: 'trial'` — a field-name mismatch that silently failed.
+
+Meanwhile, the React web ULC consumed a single unified endpoint (`GET /internal/backend/license/status`) with a consistent response shape across all states. The Dashboard and ULC had diverged into two separate sources of truth.
+
+### Fix Applied
+
+**1. Added `get_license_status()` to `client.py`:**
+- Calls `GET {base_url}/internal/backend/license/status?hardware_id=...`
+- Returns the same unified JSON response as the React web ULC
+- No HMAC signing required (GET request to internal endpoint)
+
+**2. Replaced dual calls in `LicenseEngine.initialize()` (`license_engine.py`):**
+- Old: `get_trial_status()` → `validate_license('', hardware_id)` (2 POSTs, 2 response shapes)
+- New: `get_license_status(hardware_id)` (1 GET, 1 unified response)
+- Parses `customer`, `license`, `plan`, `devices` sub-objects directly
+
+**3. Replaced dual calls in `_fetch_live_license_status()` (`universal_license_center.py`):**
+- Old: STAGE 2 (trial check) → STAGE 3 (license check) → STAGE 4 (fallback)
+- New: Single `get_license_status()` call → trial/licensed/no_license dispatch
+
+**4. Fixed `_is_valid_for_unlock()` (`universal_license_center.py:97`):**
+- Was: `return self._status.status in ('active', 'trial')`
+- Fixed: `return self._status.status in ('licensed', 'trial')`
+- The old code checked for `'active'` but the engine sets `status='licensed'` for paid licenses
+
+**5. Added `'licensed'` to `_refresh_display()` (`universal_license_center.py:532`):**
+- Was: `elif self._status.status == 'active':`
+- Fixed: `elif self._status.status in ('active', 'licensed'):`
+- Ensures the `'licensed'` status (from unified endpoint) shows the active UI panel
+
+**6. Added `getLicenseStatus()` to TypeScript client (`client.ts`):**
+- Forward-compatible method for future TypeScript template migration
+
+### Unified Response Contract
+
+All three states return the same top-level structure:
+
+```json
+{
+  "success": true,
+  "status": "trial | licensed | no_license",
+  "customer": { "name": "", "email": "", "mobile": "" },
+  "license": { "license_key": "", "status": "", "expiry_date": "", "days_remaining": 0 },
+  "plan": { "name": "", "device_limit": 0 },
+  "product": { "name": "" },
+  "devices": { "current": 0, "maximum": 0 }
+}
+```
+
+### Architecture After Fix
+
+```
+Database
+     │
+     ▼
+GET /internal/backend/license/status   ← single source of truth
+     │
+     ├──► React ULC (web — UniversalLicenseCenter.tsx)
+     │
+     └──► SDK ULC (Python — client.get_license_status())
+              │
+              ▼
+         LicenseEngine.initialize()
+              │
+              ▼
+         UniversalLicenseCenter.show()
+              │
+              ▼
+         Pure display — zero business logic, zero separate checks
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/template/python/client.py` | Added `get_license_status()` method — GET to `/internal/backend/license/status` |
+| `app/internal/publisher/template/python/license_engine.py` | `initialize()` server check: dual calls → single `get_license_status()` |
+| `app/internal/publisher/template/python/universal_license_center.py` | `_fetch_live_license_status()` dual stages → single call; `_is_valid_for_unlock()` status check `'active'`→`'licensed'`; `_refresh_display()` handles `'licensed'` |
+| `app/internal/publisher/template/typescript/client.ts` | Added `getLicenseStatus()` method (forward-compatible) |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Updated status line, progress tracking, Python SDK Template Changes table, session summary |
+
+### Verification
+
+- `npx tsc --noEmit` — zero errors
+- Python syntax verification — all three modified files pass `py_compile`
+- Old `get_trial_status()` and `validate_license()` methods preserved for backward compatibility with other SDK workflows
+- No generated SDK files were edited
+- All changes follow Rule 11 (Template-First): templates updated, not runtime generators
+- Both Dashboard and ULC now consume the exact same backend response from `GET /internal/backend/license/status`
