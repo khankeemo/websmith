@@ -235,8 +235,8 @@ export async function POST(request: NextRequest) {
     // ============================================================
     
     const existingTrial = await client.query(
-      `SELECT id, status, expiry_date FROM trials WHERE hardware_id = $1`,
-      [hardware_id]
+      `SELECT id, status, expiry_date FROM trials WHERE hardware_id = $1 AND product_id = $2`,
+      [hardware_id, product_id]
     );
     
     const hasActiveTrial = existingTrial.rows.length > 0 && 
@@ -264,24 +264,22 @@ export async function POST(request: NextRequest) {
            status = 'active',
            expiry_date = $1,
            started_at = $2,
-           product_id = $3,
-           plan_id = $4,
-           customer_name = COALESCE($5, customer_name),
-           customer_email = COALESCE($6, customer_email),
-           mobile_number = COALESCE($7, mobile_number),
-           ip_address = $8,
-           cpu_id = COALESCE($9, cpu_id),
-           motherboard_id = COALESCE($10, motherboard_id),
-           device_hash = COALESCE($11, device_hash),
-           software_version = COALESCE($12, software_version),
-           os_info = COALESCE($13, os_info),
-           installation_timestamp = COALESCE($14, installation_timestamp),
-           trial_template_id = COALESCE($15, trial_template_id)
-         WHERE hardware_id = $16`,
+           plan_id = $3,
+           customer_name = COALESCE($4, customer_name),
+           customer_email = COALESCE($5, customer_email),
+           mobile_number = COALESCE($6, mobile_number),
+           ip_address = $7,
+           cpu_id = COALESCE($8, cpu_id),
+           motherboard_id = COALESCE($9, motherboard_id),
+           device_hash = COALESCE($10, device_hash),
+           software_version = COALESCE($11, software_version),
+           os_info = COALESCE($12, os_info),
+           installation_timestamp = COALESCE($13, installation_timestamp),
+           trial_template_id = COALESCE($14, trial_template_id)
+         WHERE hardware_id = $15`,
         [
           expiryDateISO,
           nowISO,
-          product_id,
           trialPlan.id,
           customer_name || null,
           customer_email || null,

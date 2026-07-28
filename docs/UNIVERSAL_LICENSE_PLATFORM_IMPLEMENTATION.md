@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied
 
 ---
 
@@ -3008,9 +3008,25 @@ The following routes already work correctly and need no changes:
 
 Before deploying, audit every Internal API module. If any module contains its own email implementation (direct SMTP call, direct Brevo API call outside `lib/email/brevo.ts`), remove it and replace it with the Universal Email Service. Only the `sendEmail()` function in `lib/email/brevo.ts` may communicate with Brevo. No exceptions.
 
-### Internal Admin Routes — No Changes Required
+### Internal Backend Trial Routes — Product Isolation Fix Applied
 
-All routes under `/internal/backend/` remain as admin-only. They are not exposed to customers.
+The following routes under `/internal/backend/trials/` are used for software registration and trial lifecycle. They must maintain product isolation — a trial created under one product must not be silently reassigned to a different product.
+
+| Route | Method | Purpose | Auth |
+|-------|--------|---------|------|
+| `/internal/backend/trials/register` | POST | Universal Software Registration — creates/updates trial record | Internal (no API key) |
+| `/internal/backend/trials/start` | POST | Start a trial with notification | JWT (admin session) |
+| `/internal/backend/trials/status` | POST | Check trial status for a hardware device | Internal (no API key) |
+| `/internal/backend/trials/convert` | POST | Convert trial to paid license | JWT (admin session) |
+
+**Product isolation rule (enforced 2026-07-28):**
+- `register/route.ts`: Existing trial lookup now includes `AND product_id = $2` to scope by product. Update clause no longer overwrites `product_id` — the field is set only on INSERT, never on UPDATE.
+- `start/route.ts`: Existing trial lookup now includes `AND product_id = $2` to scope by product. Create/update paths respect product isolation.
+- These routes receive `product_id` from the request body (not from API key validation). The lookup scoping ensures a trial for product A is never found or overwritten by a request for product B.
+- A hardware ID may have separate trials for different products — one per product.
+
+**Root cause of previous issue:**
+Previously, both `register` and `start` looked up existing trials by `hardware_id` only. If a register request came in with `product_id=B` for a hardware that already had a trial with `product_id=A`, the existing trial was found and its `product_id` was silently overwritten to B. The public API's trial status query (`WHERE hardware_id = $1 AND product_id = $2`) then correctly returned `has_trial: false` because the trial now belonged to product B, but the SDK's API key still authorized product A.
 
 ---
 
@@ -4212,7 +4228,8 @@ Every future phase must follow this reporting format.
 | AWS-01 Audit — Live Trial Detection Fix & Status Panel Mapping | ✅ Complete | 100% |
 | AWS-01 ULC trial_consumed Passthrough Bug Fix & Live Logging | ✅ Complete | 100% |
 | AWS-01 Trial Status Diagnostic Logging (4-layer comparison in public API) | ✅ Complete | 100% |
-| **Overall** | **All 15 phases + AWS-01 Phase 1 + AWS-01 Remaining SDK Issues + AWS-01 Audit + ULC trial_consumed fix + Trial Status Diagnostic Logging** | **100%** |
+| AWS-01 Internal Backend Trial Routes Product Isolation Fix | ✅ Complete | 100% |
+| **Overall** | **All 15 phases + AWS-01 Phase 1 + AWS-01 Remaining SDK Issues + AWS-01 Audit + ULC trial_consumed fix + Trial Status Diagnostic Logging + Internal Trial Routes Product Isolation Fix** | **100%** |
 
 ### How much is completed?
 
@@ -6240,3 +6257,37 @@ The logging in `app/api/v1/trial/route.ts:362-506` now traces:
 - No business logic changed
 - No product_id filter removed
 - Diagnostic code is console.log only — no side effects
+
+---
+
+## Session Summary — 2026-07-28 (AWS-01 Internal Backend Trial Routes Product Isolation Fix)
+
+### Task
+Fix product isolation in `/internal/backend/trials/register` and `/internal/backend/trials/start` routes. Previously both routes looked up existing trials by `hardware_id` only, then silently overwrote `product_id` on update, breaking the public API's trial status query which filters by `authResult.productId`.
+
+### Root Cause
+When an internal register/start request arrived with `product_id=B` for a hardware that had a trial with `product_id=A`:
+1. Lookup found the existing trial (by `hardware_id` only — no `product_id` filter)
+2. Update clause overwrote `product_id` to B
+3. Public API status check queried `WHERE hardware_id = $1 AND product_id = $2` where `$2 = authResult.productId` (still A)
+4. Result: 0 rows → `has_trial: false`
+
+### Changes Made
+
+| File | Change |
+|------|--------|
+| `app/internal/backend/trials/register/route.ts` | Existing trial lookup now includes `AND product_id = $2`. Update SET clause no longer overwrites `product_id`. |
+| `app/internal/backend/trials/start/route.ts` | Existing trial lookup now includes `AND product_id = $2`. Create/update paths respect product isolation. |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Documented internal trial routes and product isolation fix. Updated status line, progress tracking, added this session summary. |
+
+### Rules Compliance
+- ✅ AWS-01 Rule 3 (MD first) — documented before code
+- ✅ AWS-01 Rule 6 (Never touch generated SDK) — only Internal API routes changed
+- ✅ AWS-01 Rule 7 (Documentation First) — MD updated before code
+- ✅ No product_id filter removed from public API
+- ✅ No business logic changed in public API routes
+- ✅ No changes to `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS\*`
+- ✅ User will generate fresh SDK to get fixes
+
+### Next Step
+User to generate fresh SDK from Websmith Internal API and replace `WSD_SDKToolkit_ZEMMACOS` manually.

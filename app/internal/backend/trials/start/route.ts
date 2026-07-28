@@ -172,8 +172,8 @@ export async function POST(request: NextRequest) {
     const existingResult = await client.query(
       `SELECT id, hardware_id, status, expiry_date, started_at, customer_name, customer_email 
        FROM trials 
-       WHERE hardware_id = $1`,
-      [hardware_id]
+       WHERE hardware_id = $1 AND (product_id = $2 OR $2 IS NULL)`,
+      [hardware_id, product_id || null]
     );
     
     const existingTrial = existingResult.rows[0] || null;
