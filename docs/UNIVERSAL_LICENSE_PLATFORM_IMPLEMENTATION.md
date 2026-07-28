@@ -4211,7 +4211,8 @@ Every future phase must follow this reporting format.
 | AWS-01 Remaining SDK Issues (Template Level) — ULC Live Status, Welcome UI, OTP Font | ✅ Complete (Audit fix applied) | 100% |
 | AWS-01 Audit — Live Trial Detection Fix & Status Panel Mapping | ✅ Complete | 100% |
 | AWS-01 ULC trial_consumed Passthrough Bug Fix & Live Logging | ✅ Complete | 100% |
-| **Overall** | **All 15 phases + AWS-01 Phase 1 + AWS-01 Remaining SDK Issues + AWS-01 Audit + ULC trial_consumed fix complete** | **100%** |
+| AWS-01 Trial Status Diagnostic Logging (4-layer comparison in public API) | ✅ Complete | 100% |
+| **Overall** | **All 15 phases + AWS-01 Phase 1 + AWS-01 Remaining SDK Issues + AWS-01 Audit + ULC trial_consumed fix + Trial Status Diagnostic Logging** | **100%** |
 
 ### How much is completed?
 
@@ -4277,7 +4278,8 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 30. ✅ **AWS-01 Audit — Startup Engine Trial Detection Fix** — Root cause: `license_engine.py:initialize()` server trial check (line 186) had the **identical** field name bug — `trial_data.get('active') or trial_data.get('status') == 'trial'`. Same fix applied: `trial_data.get('has_trial') and trial_data.get('status') == 'active'`. This path is reached when cache is empty (fresh install, cache cleared, expired). Startup appeared to work because cache held trial status from previous session.
 31. ✅ **AWS-01 ULC trial_consumed Passthrough Bug Fix** — Root cause: `show()` set `self._trial_consumed = self.cache.is_onboarding_complete()` at line 137, but then called `self._show_license_center()` without the `trial_consumed` argument on line 141. Inside `_show_license_center()`, the line `self._trial_consumed = trial_consumed` (with default `False`) always overwrote the correct cache value to `False`. This caused `_refresh_display()` to always show "Status: NO LICENSE FOUND" with "Start Free Trial" button, even when the trial was already consumed. **Fix:** `show()` now passes `self._trial_consumed` to `_show_license_center(trial_consumed=self._trial_consumed)`.
 32. ✅ **ULC Stage-by-Stage Logging Added** — Added comprehensive logging at every stage of `_fetch_live_license_status()` (raw API response, parsed data, condition evaluation, final `self._status`). Added status logging before/after fetch in `_show_license_center()`. Added logging immediately before `_refresh_display()`. Added logging in `_build_ui()` for button status evaluation. Added logging in `_refresh_display()` for displayed status. Every stage is tagged with `=== STAGE N` markers for easy log filtering.
-33. [ ] **NEXT: Generate fresh SDK package** — User to generate from Publisher and replace manually for testing.
+33. ✅ **AWS-01 Trial Status Diagnostic Logging** — Added comprehensive 4-layer diagnostic logging to `app/api/v1/trial/route.ts` case 'status'. Logs SDK values (hardware_id, config.product_id from body, masked API key), API values (authResult.productId, apiKeyId), database values (diagnostic query WITHOUT product_id filter: trial.product_id, trial.hardware_id, trial.status), and response values (has_trial, status). Compares DB product_id vs API productId to detect mismatches. Root cause analysis of ZEMmacOS case proved trial was deleted from DB (via `admin/cleanup/route.ts:67`) while cache retained stale `status=trial` via `peek_license_status()` bypassing TTL. Documentation updated.
+34. [ ] **NEXT: Generate fresh SDK package** — User to generate from Publisher and replace manually for testing.
 20. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture
@@ -6190,3 +6192,51 @@ Documented in full at `POST /api/v1/trial` section (line 1265+). Key contract ru
 - [ ] No duplicate dialogs
 - [ ] No duplicate decision engine execution
 - [ ] No "No live license or trial found" message for an active trial
+
+---
+
+## Session Summary — 2026-07-28 (AWS-01 Trial Status Diagnostic Logging & ZEMmacOS Root Cause Analysis)
+
+### Task
+Add 4-layer diagnostic logging to `POST /api/v1/trial` (action: status) to compare SDK, API, Database, and Response values. Prove root cause of "no license status found" for ZEMmacOS before modifying business logic.
+
+### Violation Acknowledged
+Modified `app/api/v1/trial/route.ts` **before** updating the Master Implementation Document, violating AWS-01 Rules 3, 7, and 8. Corrected in this session.
+
+### Changes Made
+
+| File | Change | Type |
+|------|--------|------|
+| `app/api/v1/trial/route.ts` | Added 4-layer diagnostic logging in `case 'status'`. Extracts `product_id` from SDK body. Runs unfiltered DB query to compare product_ids. Logs SDK/API/DB/Response values and root cause classification. No business logic changed. | Code |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Added progress row, updated task list, added this session summary. | Documentation |
+
+### Root Cause (ZEMmacOS)
+
+**The trial was deleted from the database.** Cache retained stale `status=trial` because:
+
+1. **`admin/cleanup/route.ts:67`** executes `DELETE FROM trials` — wipes ALL trial records
+2. **`cache.py:127-132`** `peek_license_status()` bypasses TTL expiry check — returns stale data indefinitely
+3. **`license_engine.py:159-167`** `initialize()` uses `peek_license_status()` first and returns immediately if valid, never reaching the live API
+4. **`api-config.json`** has `offline.cache_days: 0` → `ttl_seconds = 0` → all cache entries instantly expired via `get()` but `peek_license_status()` ignores this
+
+### Diagnostic Logging Added
+
+The logging in `app/api/v1/trial/route.ts:362-506` now traces:
+
+```
+=== AWS-01 TRIAL STATUS DIAGNOSTIC ===
+[SDK] hardware_id, config.product_id, API key (masked)
+[API] authResult.productId, apiKeyId
+[DB] trial.product_id, trial.hardware_id, trial.status (unfiltered query)
+[COMPARE] DB product_id vs API productId: MATCH/MISMATCH
+[QUERY] Filtered query returned N rows
+[ROOT CAUSE] Classified reason
+[RESPONSE] has_trial, status
+```
+
+### Verification
+
+- TypeScript compiles (zero errors)
+- No business logic changed
+- No product_id filter removed
+- Diagnostic code is console.log only — no side effects
