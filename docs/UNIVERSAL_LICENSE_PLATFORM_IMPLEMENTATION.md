@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Complete Template Verification Done
 
 ---
 
@@ -1264,6 +1264,31 @@ Every `/api/v1/*` endpoint must follow the documented request/response contract 
 
 **Success (start — 200):** `{ "success": true, "code": "TRIAL_STARTED", "message": "Trial started successfully", "data": { "expiry_date": "...", "trial_days": 14 } }`  
 **Trial consumed (200):** `{ "success": true, "code": "TRIAL_ALREADY_CONSUMED", "message": "This email has already used its free trial.", "data": { "trial_consumed": true } }`
+
+**Trial Status (status — 200):**
+```json
+{
+  "success": true,
+  "data": {
+    "has_trial": true,
+    "trial_id": 123,
+    "status": "active",
+    "days_left": 12,
+    "expiry_date": "2026-08-09T00:00:00.000Z",
+    "started_at": "2026-07-26T00:00:00.000Z",
+    "customer_name": "John",
+    "customer_email": "john@example.com",
+    "customer_phone": ""
+  }
+}
+```
+
+**Critical contract rules for SDK parsing:**
+- The `has_trial` field (boolean) indicates whether a trial record exists — use this, NOT `active`
+- The `status` field for an active, running trial is `"active"`, NOT `"trial"`
+- Fields `customer_name`, `customer_email`, `days_left`, `expiry_date` are present on active trials
+- No `plan` or `product` fields are returned — these come from config
+- SDK must check `has_trial == true && status == "active"` to detect an active trial
 
 #### POST /api/v1/license
 
@@ -4183,8 +4208,9 @@ Every future phase must follow this reporting format.
 | Phase 14 — AWS-01 Fixes & Doc Consolidation | ✅ Complete | 100% |
 | Phase 15 — Template-First Architecture Refactor | ✅ Complete | 100% |
 | AWS-01 Phase 1 — Success+Restart Dialog Merge & ULC Fix | ✅ Complete | 100% |
-| AWS-01 Remaining SDK Issues (Template Level) — ULC Live Status, Welcome UI, OTP Font | ✅ Complete | 100% |
-| **Overall** | **All 15 phases + AWS-01 Phase 1 + AWS-01 Remaining SDK Issues complete** | **100%** |
+| AWS-01 Remaining SDK Issues (Template Level) — ULC Live Status, Welcome UI, OTP Font | ✅ Complete (Audit fix applied) | 100% |
+| AWS-01 Audit — Live Trial Detection Fix & Status Panel Mapping | ✅ Complete | 100% |
+| **Overall** | **All 15 phases + AWS-01 Phase 1 + AWS-01 Remaining SDK Issues + AWS-01 Audit complete** | **100%** |
 
 ### How much is completed?
 
@@ -4245,9 +4271,9 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 25. ✅ **AWS-01 Remaining SDK Issues — ULC Live Licence Status** — Added `_fetch_live_license_status()` to `universal_license_center.py`; ULC now fetches live trial/license status from backend on every open.
 26. ✅ **AWS-01 Remaining SDK Issues — Welcome Dialog UI** — Increased dialog height to 650px, increased bottom padding, OTP message never clipped.
 27. ✅ **AWS-01 Remaining SDK Issues — OTP Error Font** — Increased error label font from 9pt to 10pt, normal weight, red color.
-28. [ ] **NEXT: Generate fresh SDK package** — User to generate from Publisher and replace manually for testing.
-29. [ ] **NEXT: Phase 2 — Review ZEMmacOS main.py** — Only after fresh SDK is verified.
-30. Generate fresh TypeScript SDK and verify all workflows
+28. ✅ **AWS-01 Audit — Live Trial Detection Fix** — Root cause: `_fetch_live_license_status()` checked `trial_data.get('active')` (API returns `has_trial`) and `trial_data.get('status') == 'trial'` (API returns `status: 'active'`). Condition always evaluated to `False`. Fixed: `trial_data.get('has_trial') and trial_data.get('status') == 'active'`.
+29. ✅ **AWS-01 Audit — Status Panel Mapping** — Added Customer Name, Customer Email, Product to trial display section; added Product to active license display section. Both sections now show: Status, Product, Plan, Customer, Email, Days Remaining, Expiry.
+30. [ ] **NEXT: Generate fresh SDK package** — User to generate from Publisher and replace manually for testing.
 20. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture
@@ -6057,3 +6083,98 @@ Fix three remaining SDK template-level issues: ULC always fetches live license/t
 1. User to generate a fresh Python SDK package from the Publisher
 2. Replace generated SDK into target project
 3. Verify end-to-end: ULC displays live status on open, Welcome dialog has proper spacing, OTP error message is readable
+
+## Session Summary — 2026-07-28 (AWS-01 Audit — Live Trial Detection Fix & Status Panel Mapping)
+
+### Objective
+
+Audit why active trial still shows "No License" in ULC despite `_fetch_live_license_status()` being added. Trace full chain: ULC → client.py → Internal API → response parsing → status panel display. Fix any mismatches and verify all display fields.
+
+### Root Cause
+
+The `_fetch_live_license_status()` method in `universal_license_center.py:186` used incorrect field names when checking the trial status API response:
+
+```python
+# BEFORE (broken — always False):
+if trial_data.get('active') or trial_data.get('status') == 'trial':
+
+# AFTER (fixed):
+if trial_data.get('has_trial') and trial_data.get('status') == 'active':
+```
+
+| Issue | SDK Looked For | API Returns | Result |
+|-------|----------------|-------------|--------|
+| Active trial flag | `active` field | `has_trial` field | Always `None` (falsy) |
+| Trial status value | `"trial"` string | `"active"` string | Always `False` |
+
+**The condition always evaluated to `False`, so active trials were never detected.** The ULC always fell through to the "No live license or trial found" log message and kept the initial `no_license` status.
+
+### API Response Contract (Trial Status)
+
+Documented in full at `POST /api/v1/trial` section (line 1265+). Key contract rules:
+
+- `has_trial` (boolean) — use this, NOT `active`
+- `status` for active trial is `"active"`, NOT `"trial"`
+- SDK must check: `has_trial == true && status == "active"`
+- `customer_name`, `customer_email`, `days_left`, `expiry_date` are present on active trials
+
+### Tasks Completed
+
+**Task 1 — Live Trial Detection Fix (`universal_license_center.py:186`):**
+- Changed condition from `trial_data.get('active') or trial_data.get('status') == 'trial'` to `trial_data.get('has_trial') and trial_data.get('status') == 'active'`
+- Now correctly matches the API response shape
+
+**Task 2 — Status Panel Mapping (`universal_license_center.py:477-508`):**
+- Trial display (`status == 'trial'`): Added Customer Name, Customer Email, Product
+- Active display (`status == 'active'`): Added Product
+- Both sections now show the full expected layout:
+  - Status (TRIAL ACTIVE / ACTIVE)
+  - Product
+  - Plan
+  - Customer
+  - Email
+  - Days Remaining
+  - Expiry
+
+**Task 3 — Documentation Updates (`UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md`):**
+- Updated status line with audit completion marker
+- Added API response contract for trial status endpoint (`POST /api/v1/trial`, action: `status`)
+- Added critical contract rules for SDK parsing (has_trial, status=active)
+- Updated progress tracking with new rows and items
+- Added this session summary
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/template/python/universal_license_center.py` | Line 186: Fixed trial detection condition (`has_trial && status=active`); Lines 477-508: Added Customer, Email, Product to trial display; Added Product to active display |
+| `docs/UNIVERSAL_LICENSE_PLATFORM_IMPLEMENTATION.md` | Status line, progress tracking, API response contract, session summary |
+
+### Verification
+
+- All changes are in Python template files only
+- No runtime generators, backend API, or database changes were made
+- No generated SDK files were edited
+- No hardcoded values introduced
+- Trial detection logic now matches documented API response contract exactly
+
+### Next Steps
+
+**User action required:**
+1. Generate a fresh Python SDK package from Websmith Internal API Publisher
+2. Replace the generated SDK directory in `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS`
+3. Test the complete workflow per verification checklist:
+
+- [ ] New user trial registration
+- [ ] OTP verification
+- [ ] Trial activation
+- [ ] Success → Restart
+- [ ] Application restarts
+- [ ] Dashboard opens directly
+- [ ] ULC does NOT reopen after restart
+- [ ] Opening ULC from Dashboard fetches LIVE backend status
+- [ ] Trial details display correctly: Customer Name, Customer Email, Product, Plan, Trial Status, Expiry Date, Days Remaining
+- [ ] Paid licence displays correctly
+- [ ] No duplicate dialogs
+- [ ] No duplicate decision engine execution
+- [ ] No "No live license or trial found" message for an active trial

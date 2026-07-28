@@ -183,7 +183,7 @@ class UniversalLicenseCenter:
         try:
             trial_response = self.client.get_trial_status(hardware_id)
             trial_data = trial_response.get('data', trial_response)
-            if trial_data.get('active') or trial_data.get('status') == 'trial':
+            if trial_data.get('has_trial') and trial_data.get('status') == 'active':
                 self._status = LicenseStatus(
                     valid=True, status='trial',
                     expiry_date=trial_data.get('expiry_date'),
@@ -476,7 +476,14 @@ class UniversalLicenseCenter:
             fg = self._error
         elif self._status.status == 'trial':
             lines.append("Status: TRIAL ACTIVE")
-            lines.append(f"Plan: {self._status.plan or 'Trial'}")
+            if self._product_name:
+                lines.append(f"Product: {self._product_name}")
+            if self._status.plan:
+                lines.append(f"Plan: {self._status.plan}")
+            if self._status.customer_name:
+                lines.append(f"Customer: {self._status.customer_name}")
+            if self._status.customer_email:
+                lines.append(f"Email: {self._status.customer_email}")
             if self._status.days_left is not None:
                 lines.append(f"Days remaining: {self._status.days_left}")
             if self._status.expiry_date:
@@ -484,7 +491,10 @@ class UniversalLicenseCenter:
             fg = self._success
         elif self._status.status == 'active':
             lines.append("Status: ACTIVE")
-            lines.append(f"Plan: {self._status.plan or 'N/A'}")
+            if self._product_name:
+                lines.append(f"Product: {self._product_name}")
+            if self._status.plan:
+                lines.append(f"Plan: {self._status.plan}")
             if self._status.days_left is not None and self._status.days_left > 0:
                 lines.append(f"Days remaining: {self._status.days_left}")
             elif self._status.days_left is not None:
