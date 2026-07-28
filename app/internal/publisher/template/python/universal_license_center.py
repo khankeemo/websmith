@@ -189,15 +189,13 @@ class UniversalLicenseCenter:
             trial_response = self.client.get_trial_status(hardware_id)
             self._log("SDK", "INFO", "=== STAGE 2a: Raw API response",
                       f"response={json.dumps(trial_response, default=str)}")
-            trial_data = trial_response.get('data', trial_response)
-            self._log("SDK", "INFO", "=== STAGE 2b: Parsed trial data",
-                      f"data={json.dumps(trial_data, default=str)}")
-            has_trial = trial_data.get('has_trial', False)
-            trial_status = trial_data.get('status', 'none')
+            trial_status = trial_response.get('status', '')
+            trial_data = trial_response.get('trial', {}) if isinstance(trial_response.get('trial'), dict) else {}
+            trial_has_trial = trial_data.get('has_trial', False)
             self._log("SDK", "INFO", "=== STAGE 2c: Condition evaluation",
-                      f"has_trial={has_trial}, status='{trial_status}', "
-                      f"condition=(has_trial={has_trial} and status=='active'={trial_status == 'active'})")
-            if has_trial and trial_status == 'active':
+                      f"status='{trial_status}', has_trial={trial_has_trial}, "
+                      f"condition=(status=='trial'={trial_status == 'trial'} and has_trial={trial_has_trial})")
+            if trial_status == 'trial' and trial_has_trial:
                 plan_default = trial_data.get('plan', 'Trial')
                 days_left_val = trial_data.get('days_left', trial_data.get('duration_days', 0))
                 expiry = trial_data.get('expiry_date')
@@ -224,7 +222,7 @@ class UniversalLicenseCenter:
                 return
             else:
                 self._log("SDK", "INFO", "=== STAGE 2g: Trial condition NOT met",
-                          f"has_trial={has_trial}, status='{trial_status}' - falling through")
+                          f"status='{trial_status}' - falling through")
         except Exception as e:
             self._log("SDK", "WARNING", "=== STAGE 2-EXCEPTION: Live trial status fetch failed", str(e))
 
@@ -234,39 +232,47 @@ class UniversalLicenseCenter:
             hw_result = self.client.validate_license('', hardware_id)
             self._log("SDK", "INFO", "=== STAGE 3a: Raw validate_license response",
                       f"response={json.dumps(hw_result, default=str)}")
-            hw_data = hw_result.get('data', hw_result)
-            self._log("SDK", "INFO", "=== STAGE 3b: Parsed license data",
-                      f"data={json.dumps(hw_data, default=str)}")
-            hw_valid = hw_data.get('valid', False)
-            hw_status = hw_data.get('status', 'none')
+            hw_status = hw_result.get('status', '')
+            lic_data = hw_result.get('license', {}) if isinstance(hw_result.get('license'), dict) else {}
+            cust = hw_result.get('customer', {}) if isinstance(hw_result.get('customer'), dict) else {}
             self._log("SDK", "INFO", "=== STAGE 3c: Condition evaluation",
-                      f"valid={hw_valid}, status='{hw_status}', "
-                      f"condition=(valid={hw_valid} and status in ('active',)={hw_status in ('active',)})")
-            if hw_valid and hw_status in ('active',):
+                      f"status='{hw_status}', "
+                      f"condition=(status in ('licensed',)={hw_status in ('licensed',)})")
+            if hw_status in ('licensed',):
                 self._log("SDK", "INFO", "=== STAGE 3d: Creating active LicenseStatus",
-                          f"plan={hw_data.get('plan')}, days_left={hw_data.get('days_left', 0)}")
+                          f"plan={lic_data.get('plan')}, days_left={lic_data.get('days_left', 0)}")
                 self._status = LicenseStatus(
-                    valid=True, status='active',
-                    expiry_date=hw_data.get('expiry_date'),
-                    days_left=hw_data.get('days_left', 0),
-                    plan=hw_data.get('plan'),
+                    valid=True, status='licensed',
+                    expiry_date=lic_data.get('expiry_date'),
+                    days_left=lic_data.get('days_left', 0),
+                    plan=lic_data.get('plan'),
                     hardware_id=hardware_id,
-                    license_key=hw_data.get('license_key'),
-                    customer_name=hw_data.get('customer_name'),
-                    customer_email=hw_data.get('customer_email'),
-                    max_devices=hw_data.get('max_devices', 999),
-                    device_count=hw_data.get('device_count', 0),
+                    license_key=lic_data.get('license_key'),
+                    customer_name=cust.get('name'),
+                    customer_email=cust.get('email'),
+                    max_devices=lic_data.get('max_devices', 999),
+                    device_count=lic_data.get('device_count', 0),
                 )
                 self.cache.set_license_status(self._status.to_dict())
                 self.cache.mark_has_ever_activated_paid_license()
                 self._log("SDK", "INFO", "=== STAGE 3e: Active license SET successfully",
-                          f"status=active, plan={self._status.plan}")
+                          f"status=licensed, plan={self._status.plan}")
                 self._log("SDK", "INFO", "=== STAGE 3f: self._status final",
                           f"{json.dumps(self._status.to_dict(), default=str)}")
                 return
+            elif hw_status == 'force_reactivation':
+                self._log("SDK", "INFO", "=== STAGE 3h: Force reactivation detected")
+                self._status = LicenseStatus(
+                    valid=False, status='force_reactivation',
+                    hardware_id=hardware_id,
+                    message='License requires reactivation. Please contact support.',
+                    license_key=lic_data.get('license_key'),
+                )
+                self.cache.set_license_status(self._status.to_dict())
+                return
             else:
                 self._log("SDK", "INFO", "=== STAGE 3g: License condition NOT met",
-                          f"valid={hw_valid}, status='{hw_status}' - falling through")
+                          f"status='{hw_status}' - falling through")
         except Exception as e:
             self._log("SDK", "WARNING", "=== STAGE 3-EXCEPTION: Live license status fetch failed", str(e))
 
@@ -386,7 +392,7 @@ class UniversalLicenseCenter:
         is_valid = self._status.valid if self._status else False
         is_expired = status == 'expired'
         is_trial = status == 'trial'
-        is_paid = status == 'active' and is_valid
+        is_paid = status == 'licensed' and is_valid
         is_deactivated = status == 'deactivated'
         is_force_reactivation = status == 'force_reactivation'
         is_inactive = status == 'inactive'

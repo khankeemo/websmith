@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { validateLicenseBeforeAction, computeLicenseStatus, computeInactiveReason } from '@/core/utils/validation-system';
+import { buildLicenseResponse, buildNoLicenseResponse, buildErrorResponse } from '@/lib/license/serializer';
 
 // Database connection pool
 const pool = new Pool({
@@ -72,10 +73,7 @@ export async function POST(request: NextRequest) {
     
     if (licenseResult.rows.length === 0) {
       client.release();
-      return NextResponse.json({ 
-        valid: false, 
-        error: "Invalid license key" 
-      });
+      return NextResponse.json(buildNoLicenseResponse(undefined, 'Invalid license key'));
     }
     
     const license = licenseResult.rows[0];
@@ -127,62 +125,32 @@ export async function POST(request: NextRequest) {
         ['expired', inactiveReason || 'Subscription Expired', nowISO, normalizedLicenseKey]
       );
       client.release();
-      return NextResponse.json({ 
-        valid: false, 
-        error: "License has expired",
-        status: 'expired',
-        inactive_reason: inactiveReason || 'Subscription Expired'
-      });
+      return NextResponse.json(buildErrorResponse('expired', 'LICENSE_EXPIRED', 'License has expired', inactiveReason || 'Subscription Expired'));
     }
     
     if (computedStatus === 'Revoked') {
       client.release();
-      return NextResponse.json({ 
-        valid: false, 
-        error: "License has been revoked",
-        status: 'revoked',
-        inactive_reason: 'License Revoked'
-      });
+      return NextResponse.json(buildErrorResponse('revoked', 'LICENSE_REVOKED', 'License has been revoked', 'License Revoked'));
     }
     
     if (computedStatus === 'Suspended') {
       client.release();
-      return NextResponse.json({ 
-        valid: false, 
-        error: "License is suspended",
-        status: 'suspended',
-        inactive_reason: license.inactive_reason || 'Suspended'
-      });
+      return NextResponse.json(buildErrorResponse('suspended', 'LICENSE_SUSPENDED', 'License is suspended', license.inactive_reason || 'Suspended'));
     }
     
     if (computedStatus === 'Disabled') {
       client.release();
-      return NextResponse.json({ 
-        valid: false, 
-        error: "License is disabled",
-        status: 'disabled',
-        inactive_reason: license.inactive_reason || 'Manual Deactivation'
-      });
+      return NextResponse.json(buildErrorResponse('disabled', 'LICENSE_DISABLED', 'License is disabled', license.inactive_reason || 'Manual Deactivation'));
     }
 
     if (computedStatus === 'Inactive') {
       client.release();
-      return NextResponse.json({ 
-        valid: false, 
-        error: "Your license is inactive. Please contact support: support@company.com",
-        status: 'inactive',
-        inactive_reason: license.inactive_reason || 'License Deactivated'
-      });
+      return NextResponse.json(buildErrorResponse('inactive', 'LICENSE_INACTIVE', 'Your license is inactive. Please contact support.', license.inactive_reason || 'License Deactivated'));
     }
 
     if (computedStatus === 'Deleted') {
       client.release();
-      return NextResponse.json({ 
-        valid: false, 
-        error: "Your license is inactive. Please contact support: support@company.com",
-        status: 'deleted',
-        inactive_reason: 'License Deleted'
-      });
+      return NextResponse.json(buildErrorResponse('deleted', 'LICENSE_DELETED', 'Your license is inactive. Please contact support.', 'License Deleted'));
     }
     
     // Check expiry
@@ -194,11 +162,7 @@ export async function POST(request: NextRequest) {
         ['expired', 'Subscription Expired', nowISO, normalizedLicenseKey]
       );
       client.release();
-      return NextResponse.json({ 
-        valid: false, 
-        error: "License expired",
-        inactive_reason: 'Subscription Expired'
-      });
+      return NextResponse.json(buildErrorResponse('expired', 'LICENSE_EXPIRED', 'License expired', 'Subscription Expired'));
     }
     
     // ✅ UPDATE last_validated on successful validation
@@ -256,38 +220,41 @@ export async function POST(request: NextRequest) {
       message = "License is available but not activated yet";
     }
     
-    const responseData: any = {
-      valid: true,
-      message: message,
-      license_key: license.license_key,
-      status: license.status,
-      inactive_reason: inactiveReason,
-      product_id: license.product_id,
-      plan: license.plan,
-      expiry_date: license.expiry_date?.split('T')[0],
-      days_left: daysLeft,
-      customer_name: license.customer_name,
-      customer_email: license.customer_email,
-      customer_username: license.customer_username,
-      max_devices: license.max_devices,
-      device_count: license.device_count || 0,
-      duration_days: license.duration_days,
-      is_activated: license.is_activated,
-      activated_at: license.activated_at,
-      last_validated: nowISO,
-      created_at: license.created_at,
-    };
-    
-    if (productName) {
-      responseData.product_name = productName;
-    }
-    
-    if (hardware_id) {
-      responseData.is_device_activated = isDeviceActivated;
-      responseData.active_devices = deviceCount;
-    }
-    
-    return NextResponse.json(responseData);
+    const hasActiveLicenseOnOtherDevice = !isDeviceActivated && deviceCount > 0;
+
+    const serialized = buildLicenseResponse(
+      {
+        ...license,
+        device_count: license.device_count || 0,
+      },
+      hardware_id,
+      isDeviceActivated,
+      hasActiveLicenseOnOtherDevice,
+    );
+
+    return NextResponse.json({
+      ...serialized,
+      license: {
+        ...serialized.license,
+        product_id: license.product_id,
+        product_name: productName || '',
+        days_left: daysLeft,
+        is_activated: license.is_activated,
+        activated_at: license.activated_at,
+        last_validated: nowISO,
+        created_at: license.created_at,
+        duration_days: license.duration_days,
+        customer_username: license.customer_username,
+      },
+      message: serialized.message,
+      hardware: hardware_id
+        ? {
+            hardware_id,
+            is_activated: isDeviceActivated,
+            device_name: '',
+          }
+        : undefined,
+    });
     
   } catch (error) {
     console.error("❌ License validation error:", error);

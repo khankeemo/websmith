@@ -12,6 +12,7 @@ import { verifySignature } from '@/lib/public-api/signature';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest, logSecurityViolation, redactSensitiveData } from '@/lib/public-api/audit';
 import { validateLicenseBeforeAction, computeLicenseStatus, computeInactiveReason } from '@/core/utils/validation-system';
+import { buildLicenseResponse, buildNoLicenseResponse, buildErrorResponse } from '@/lib/license/serializer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -194,15 +195,7 @@ export async function POST(request: NextRequest) {
             // No activation found for this hardware — normal business state
             client.release();
             client = null;
-            return NextResponse.json({
-              success: true,
-              data: {
-                status: 'no_license',
-                has_license: false,
-                has_trial: false,
-                message: 'No license found for this hardware. Please enter a license key to activate.'
-              }
-            });
+            return NextResponse.json(buildNoLicenseResponse(hardware_id, 'No license found for this hardware. Please enter a license key to activate.'));
           }
         } else {
           licenseLookupKey = normalizedLicenseKey;
@@ -249,15 +242,7 @@ export async function POST(request: NextRequest) {
             requestRedacted: { action, license_key: validateByHardware ? '[HARDWARE_LOOKUP]' : '[REDACTED]' }
           });
           
-          return NextResponse.json({
-            success: true,
-            data: {
-              status: 'no_license',
-              has_license: false,
-              has_trial: false,
-              message: validateByHardware ? 'No license found for this hardware.' : 'License key not found'
-            }
-          });
+          return NextResponse.json(buildNoLicenseResponse(undefined, validateByHardware ? 'No license found for this hardware.' : 'License key not found'));
         }
 
         const licenseData = validateResult.rows[0];
@@ -327,79 +312,37 @@ export async function POST(request: NextRequest) {
           );
           client.release();
           client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_EXPIRED',
-              message: inactiveReason ? `License ${inactiveReason.toLowerCase()}` : 'License has expired',
-              inactive_reason: inactiveReason
-            }
-          }, { status: 403 });
+          return NextResponse.json(buildErrorResponse('expired', 'LICENSE_EXPIRED', inactiveReason ? `License ${inactiveReason.toLowerCase()}` : 'License has expired', inactiveReason), { status: 403 });
         }
 
         if (computedStatus === 'Revoked') {
           client.release();
           client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_REVOKED',
-              message: 'License has been revoked',
-              inactive_reason: 'License Revoked'
-            }
-          }, { status: 403 });
+          return NextResponse.json(buildErrorResponse('revoked', 'LICENSE_REVOKED', 'License has been revoked', 'License Revoked'), { status: 403 });
         }
 
         if (computedStatus === 'Suspended') {
           client.release();
           client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_SUSPENDED',
-              message: 'License is suspended',
-              inactive_reason: licenseData.inactive_reason || 'Suspended'
-            }
-          }, { status: 403 });
+          return NextResponse.json(buildErrorResponse('suspended', 'LICENSE_SUSPENDED', 'License is suspended', licenseData.inactive_reason || 'Suspended'), { status: 403 });
         }
 
         if (computedStatus === 'Disabled') {
           client.release();
           client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_DISABLED',
-              message: 'License is disabled',
-              inactive_reason: licenseData.inactive_reason || 'Manual Deactivation'
-            }
-          }, { status: 403 });
+          return NextResponse.json(buildErrorResponse('disabled', 'LICENSE_DISABLED', 'License is disabled', licenseData.inactive_reason || 'Manual Deactivation'), { status: 403 });
         }
 
         if (computedStatus === 'Inactive') {
           client.release();
           client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_INACTIVE',
-              message: 'Your license is inactive. Please contact support.',
-              inactive_reason: licenseData.inactive_reason || 'License Deactivated'
-            }
-          }, { status: 403 });
+          return NextResponse.json(buildErrorResponse('inactive', 'LICENSE_INACTIVE', 'Your license is inactive. Please contact support.', licenseData.inactive_reason || 'License Deactivated'), { status: 403 });
         }
 
         if (computedStatus === 'Deleted') {
           client.release();
           client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_DELETED',
-              message: 'Your license is inactive. Please contact support.',
-              inactive_reason: 'License Deleted'
-            }
-          }, { status: 403 });
+          return NextResponse.json(buildErrorResponse('deleted', 'LICENSE_DELETED', 'Your license is inactive. Please contact support.', 'License Deleted'), { status: 403 });
         }
 
         // Check raw expiry
@@ -412,14 +355,7 @@ export async function POST(request: NextRequest) {
           client.release();
           client = null;
           
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_EXPIRED',
-              message: 'License has expired',
-              inactive_reason: 'Subscription Expired'
-            }
-          }, { status: 403 });
+          return NextResponse.json(buildErrorResponse('expired', 'LICENSE_EXPIRED', 'License has expired', 'Subscription Expired'), { status: 403 });
         }
 
         // Update last_validated
@@ -467,29 +403,36 @@ export async function POST(request: NextRequest) {
           requestRedacted: { action, license_key: '[REDACTED]' }
         });
 
+        const hasActiveLicenseOnOtherDevice = !thisDeviceActivated && totalActiveDevices > 0;
+
+        const serializedResponse = buildLicenseResponse(
+          {
+            ...licenseData,
+            device_count: effectiveDeviceCount,
+          },
+          hardware_id,
+          thisDeviceActivated,
+          hasActiveLicenseOnOtherDevice,
+        );
+
         return NextResponse.json({
-          success: true,
-          data: {
-            valid: true,
-            license_key: licenseData.license_key,
-            status: licenseData.status,
-            inactive_reason: inactiveReason,
+          ...serializedResponse,
+          license: {
+            ...serializedResponse.license,
             product_id: licenseData.product_id,
             product_name: licenseData.product_name,
-            plan: licenseData.plan,
-            expiry_date: licenseData.expiry_date?.split('T')[0],
             days_left: daysLeft,
-            customer_name: licenseData.customer_name,
-            customer_email: licenseData.customer_email,
-            customer_phone: licenseData.customer_phone,
-            customer_mobile: licenseData.customer_mobile,
-            max_devices: licenseData.max_devices,
-            device_count: effectiveDeviceCount,
-            active_devices: effectiveDeviceCount,
-            this_device_activated: thisDeviceActivated,
-            total_active_devices: totalActiveDevices,
-            last_validated: nowISO
-          }
+            last_validated: nowISO,
+          },
+          customer: serializedResponse.customer,
+          hardware: hardware_id
+            ? {
+                hardware_id,
+                is_activated: thisDeviceActivated,
+                device_name: device_name || '',
+              }
+            : undefined,
+          message: inactiveReason ? `License status: ${inactiveReason}` : serializedResponse.message,
         }, {
           headers: {
             'X-RateLimit-Limit': String(rateLimitResult.limit),
@@ -676,8 +619,20 @@ export async function POST(request: NextRequest) {
           
           return NextResponse.json({
             success: true,
+            status: 'licensed',
             message: 'License already activated on this device',
-            already_activated: true
+            license: {
+              license_key: license.license_key,
+              plan: license.plan,
+              expiry_date: license.expiry_date?.split('T')[0],
+              max_devices: license.max_devices,
+              device_count: license.device_count,
+              is_trial: license.is_trial || false,
+            },
+            hardware: {
+              hardware_id,
+              is_activated: true,
+            },
           });
         }
 
@@ -756,19 +711,29 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          data: {
-            message: 'License activated successfully',
+          status: 'licensed',
+          license: {
             license_key: normalizedLicenseKey,
-            expiry_date: license.expiry_date?.split('T')[0],
-            days_left: daysLeftAct,
             plan: license.plan,
+            expiry_date: license.expiry_date?.split('T')[0],
             max_devices: license.max_devices,
             device_count: currentCount + 1,
-            customer_name: license.customer_name,
-            customer_email: license.customer_email,
-            customer_phone: license.customer_phone,
-            customer_mobile: license.customer_mobile
-          }
+            is_trial: false,
+          },
+          customer: {
+            name: license.customer_name || '',
+            email: license.customer_email || '',
+            phone: license.customer_phone || license.customer_mobile || '',
+            mobile: license.customer_mobile || license.customer_phone || '',
+          },
+          plan: {
+            name: license.plan || '',
+          },
+          hardware: {
+            hardware_id: hardware_id,
+            is_activated: true,
+          },
+          message: 'License activated successfully',
         }, {
           headers: {
             'X-RateLimit-Limit': String(rateLimitResult.limit),
@@ -885,11 +850,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          data: {
-            message: 'Device deactivated successfully',
-            license_key: normalizedLicenseKey,
-            hardware_id: hardware_id
-          }
+          status: 'unlicensed',
+          message: 'Device deactivated successfully',
+          hardware: hardware_id ? { hardware_id, is_activated: false } : undefined,
         }, {
           headers: {
             'X-RateLimit-Limit': String(rateLimitResult.limit),

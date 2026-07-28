@@ -12,6 +12,7 @@ import { verifySignature } from '@/lib/public-api/signature';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest, logSecurityViolation } from '@/lib/public-api/audit';
 import { validateTrialStart, validateTrialConversion, validateEmail, validateHardwareId, generateLicenseKey } from '@/core/utils/validation-system';
+import { buildTrialResponse, buildNoLicenseResponse, buildLicenseResponse } from '@/lib/license/serializer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -435,13 +436,8 @@ export async function POST(request: NextRequest) {
           client.release();
           client = null;
           console.log(`[TRIAL STATUS DEBUG] Returning has_trial=false for hardware_id=${hardware_id} productId=${productId}`);
-          return NextResponse.json({
-            success: true,
-            data: {
-              has_trial: false,
-              message: 'No trial found for this hardware'
-            }
-          });
+          const noTrialResponse = buildNoLicenseResponse(hardware_id, 'No trial found for this hardware');
+          return NextResponse.json(noTrialResponse);
         }
 
         const trial = statusResult.rows[0];
@@ -463,10 +459,14 @@ export async function POST(request: NextRequest) {
           client = null;
           return NextResponse.json({
             success: true,
-            data: {
+            status: 'licensed',
+            trial: {
               has_trial: false,
-              message: 'Trial is not available - paid license detected'
-            }
+              days_left: 0,
+              expiry_date: '',
+              status: 'override'
+            },
+            message: 'A paid license is associated with this hardware. Trial is not available.'
           });
         }
         const tExpiry = new Date(trial.expiry_date);
@@ -505,20 +505,8 @@ export async function POST(request: NextRequest) {
         console.log(`[RESPONSE] status: ${trial.status}`);
         console.log('=== AWS-01 DIAGNOSTIC END ===');
         
-        return NextResponse.json({
-          success: true,
-          data: {
-            has_trial: true,
-            trial_id: trial.id,
-            status: trial.status,
-            days_left: daysLeftStatus,
-            expiry_date: trial.expiry_date,
-            started_at: trial.started_at,
-            customer_name: trial.customer_name,
-            customer_email: trial.customer_email,
-            customer_phone: trial.customer_phone || trial.mobile_number || ''
-          }
-        }, {
+        const trialResponse = buildTrialResponse(trial, daysLeftStatus, hardware_id);
+        return NextResponse.json(trialResponse, {
           headers: {
             'X-RateLimit-Limit': String(rateLimitResult.limit),
             'X-RateLimit-Remaining': String(rateLimitResult.remaining),
