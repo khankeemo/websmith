@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied (Python Template — `is_hardware_consistent` uses `peek_license_status` instead of `get_license_status` to prevent TTL=0 deletion before startup peek)
 
 ---
 
@@ -5910,3 +5910,92 @@ Additionally, `invalidate_license_status()` in the server-valid path called `del
 - Administrator to generate fresh Python SDK via Websmith Internal API
 - Replace generated SDK files into `WSD_SDKToolkit_ZEMMACOS`
 - Verify all 7 scenarios end-to-end after SDK generation
+
+---
+
+## Session Summary — 2026-07-28 (AWS-01 Cache Hardware-Consistency TTL Deletion Fix)
+
+### Root Cause
+
+A remaining startup bug caused `initialize()` to return `no_license` after a successful trial activation and restart, even after the Phase 1 peek-restore fix was applied.
+
+**Call chain that deleted the cached trial entry:**
+
+```
+initialize()
+  ↓
+invalidate_if_hardware_mismatch(hardware_id)
+  ↓
+is_hardware_consistent(hardware_id)
+  ↓
+get_license_status()             ← TTL-aware read
+  ↓
+get('license_status')
+  ↓
+is_expired(entry)                ← cache_days=0 → ttl_seconds=0 → ALWAYS expired
+  ↓
+self.delete(key)                 ← DELETES the cached trial status!
+  ↓
+peek_license_status()            ← returns None (entry was already deleted)
+  ↓
+Fall through to server checks → no_license → ULC opens
+```
+
+The root cause: `invalidate_if_hardware_mismatch()` used `get_license_status()` which goes through the TTL check in `get()`. Since `api-config.json` sets `"cache_days": 0`, the cached trial entry was immediately considered expired after any elapsed time, causing `get()` to delete it via `self.delete(key)` before `peek_license_status()` could read it.
+
+### Fix Applied — Python Template Only
+
+**`cache.py`** — `is_hardware_consistent()` changed from `get_license_status()` to `peek_license_status()`:
+
+- `get_license_status()` goes through `get()` → `is_expired()` → may delete the entry when TTL=0
+- `peek_license_status()` reads the raw cached value without TTL checks
+- Hardware consistency is about matching hardware IDs, not about cache TTL. A hardware mismatch should trigger invalidation only when the hardware ID has actually changed, not when the cache TTL happened to expire.
+
+### Verified Startup Workflow (After Fix)
+
+```
+Restart
+  ↓
+LicenseEngine.initialize()
+  ↓
+invalidate_if_hardware_mismatch()
+  ↓
+peek_license_status()            ← no TTL check, no deletion
+  ↓
+Retrieves cached trial status
+  ↓
+_is_valid_status() → True
+  ↓
+Return trial → main.py sees valid → Dashboard (NO ULC)
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/internal/publisher/template/python/cache.py` | `is_hardware_consistent()`: `get_license_status()` → `peek_license_status()` |
+
+### Verification
+
+- Only Python template affected; other language templates do not have `is_hardware_consistent` or `invalidate_if_hardware_mismatch`
+- `initialize()` still works correctly:
+  - **Cache first** (line 159): `peek_license_status()` — no TTL check, returns raw cached data
+  - **TTL cache** (line 170): `is_valid()` + `get_license_status()` — old TTL path, still works
+  - **Server fallback** (line 183): `get_trial_status()` — queries backend if cache truly empty
+  - **Paid fallback** (line 208): `validate_license()` — queries backend for paid license
+  - **Final decision** (line 238): onboarding/history peek fallbacks
+
+### Validation Matrix
+
+| Scenario | Before Fix | After Fix |
+|----------|-----------|-----------|
+| Trial activated → restart (TTL=0) — hardware unchanged | Wrong (no_license — cache deleted by TTL check in `invalidate_if_hardware_mismatch`) | Correct (trial via peek — no premature deletion) |
+| Trial activated → restart (TTL=0) — hardware changed | Correct (no_license — cache invalidated on hardware mismatch) | Correct (no_license — cache still invalidated on hardware mismatch via peek) |
+| Trial activated → restart (TTL > 0) | Correct (trial) | Correct (trial — unchanged) |
+| New customer → restart | Correct (no_license) | Correct (no_license — unchanged) |
+
+### Next Steps
+
+- Administrator to generate fresh Python SDK via Websmith Internal API
+- Replace generated SDK files into `WSD_SDKToolkit_ZEMMACOS`
+- Verify restart-after-trial-activation flow end-to-end
