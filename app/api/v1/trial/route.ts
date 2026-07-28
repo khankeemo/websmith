@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { action, hardware_id, customer_email, customer_name, plan, sdk_version, runtime_type, activation_source } = body;
+    const { action, hardware_id, product_id: sdk_product_id, customer_email, customer_name, plan, sdk_version, runtime_type, activation_source } = body;
 
     if (!action) {
       return NextResponse.json({
@@ -359,6 +359,46 @@ export async function POST(request: NextRequest) {
         // 6b. TRIAL STATUS
         // ============================================================
         
+        // ============================================================
+        // AWS-01 DIAGNOSTIC: Compare all four value sources
+        // ============================================================
+        console.log('=== AWS-01 TRIAL STATUS DIAGNOSTIC ===');
+        
+        // 1. SDK VALUES (from request body)
+        console.log(`[SDK] hardware_id: ${hardware_id}`);
+        console.log(`[SDK] config.product_id: ${sdk_product_id || '(not sent)'}`);
+        console.log(`[SDK] API key (masked): ${apiKey ? apiKey.substring(0, 8) + '...' : 'MISSING'}`);
+        
+        // 2. API VALUES (from API key validation)
+        console.log(`[API] authResult.productId: ${productId}`);
+        console.log(`[API] authResult.apiKeyId: ${apiKeyId}`);
+        
+        // 3. DATABASE VALUES (diagnostic query WITHOUT product_id filter)
+        const diagTrialResult = await client.query(
+          `SELECT id, product_id, hardware_id, status, expiry_date, customer_email
+           FROM trials 
+           WHERE hardware_id = $1`,
+          [hardware_id]
+        );
+        
+        if (diagTrialResult.rows.length > 0) {
+          const dbTrial = diagTrialResult.rows[0];
+          console.log(`[DB] trial.product_id: ${dbTrial.product_id}`);
+          console.log(`[DB] trial.hardware_id: ${dbTrial.hardware_id}`);
+          console.log(`[DB] trial.status: ${dbTrial.status}`);
+          console.log(`[DB] trial.expiry_date: ${dbTrial.expiry_date}`);
+          
+          // Compare product IDs
+          const productIdMatch = dbTrial.product_id === productId;
+          console.log(`[COMPARE] DB product_id (${dbTrial.product_id}) vs API productId (${productId}): ${productIdMatch ? 'MATCH' : 'MISMATCH'}`);
+        } else {
+          console.log(`[DB] NO TRIAL FOUND for hardware_id=${hardware_id} (unfiltered query)`);
+        }
+        
+        // 4. Now run the ACTUAL query with product_id filter
+        console.log(`[QUERY] Running filtered: WHERE hardware_id=$1 AND product_id=$2`);
+        console.log(`[QUERY] Params: hardware_id=${hardware_id}, productId=${productId}`);
+        
         const statusResult = await client.query(
           `SELECT id, status, expiry_date, started_at, customer_name, customer_email, mobile_number as customer_phone
            FROM trials 
@@ -366,9 +406,35 @@ export async function POST(request: NextRequest) {
           [hardware_id, productId]
         );
 
+        console.log(`[QUERY] Filtered query returned ${statusResult.rows.length} rows`);
+        if (statusResult.rows.length > 0) {
+          console.log(`[QUERY] Trial found: id=${statusResult.rows[0].id}, status=${statusResult.rows[0].status}`);
+        } else {
+          console.log(`[QUERY] NO MATCH for hardware_id=${hardware_id} productId=${productId}`);
+          
+          if (diagTrialResult.rows.length > 0) {
+            const dbTrial = diagTrialResult.rows[0];
+            if (dbTrial.product_id !== productId) {
+              console.log(`[ROOT CAUSE] PRODUCT ID MISMATCH: Trial exists with product_id="${dbTrial.product_id}" but API key authorizes product_id="${productId}". has_trial=false returned.`);
+            } else if (dbTrial.status !== 'active') {
+              console.log(`[ROOT CAUSE] TRIAL STATUS NOT ACTIVE: Trial exists but status="${dbTrial.status}". has_trial=false returned.`);
+            } else {
+              console.log(`[ROOT CAUSE] UNKNOWN: Trial exists with matching product_id and active status but filtered query found nothing. Investigate SQL or data integrity.`);
+            }
+          } else {
+            console.log(`[ROOT CAUSE] NO TRIAL EXISTS for hardware_id=${hardware_id} in database.`);
+          }
+        }
+
         if (statusResult.rows.length === 0) {
+          // 5. RESPONSE VALUES
+          console.log(`[RESPONSE] has_trial: false`);
+          console.log(`[RESPONSE] status: (none - no trial found)`);
+          console.log('=== AWS-01 DIAGNOSTIC END ===');
+          
           client.release();
           client = null;
+          console.log(`[TRIAL STATUS DEBUG] Returning has_trial=false for hardware_id=${hardware_id} productId=${productId}`);
           return NextResponse.json({
             success: true,
             data: {
@@ -434,6 +500,11 @@ export async function POST(request: NextRequest) {
           requestRedacted: { action, hardware_id: '[REDACTED]' }
         });
 
+        // 5. RESPONSE VALUES
+        console.log(`[RESPONSE] has_trial: true`);
+        console.log(`[RESPONSE] status: ${trial.status}`);
+        console.log('=== AWS-01 DIAGNOSTIC END ===');
+        
         return NextResponse.json({
           success: true,
           data: {
