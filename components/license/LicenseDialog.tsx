@@ -1,15 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import UniversalActivationCenter from "@/components/internal-api/UniversalActivationCenter";
+import UniversalLicenseCenter from "@/components/license/UniversalLicenseCenter";
 
 export default function LicenseDialog() {
-  const [isOpen, setIsOpen] = useState(true);
-
-  return (
-    <UniversalActivationCenter
-      isOpen={isOpen}
-      onClose={() => setIsOpen(false)}
-    />
-  );
+  return <UniversalLicenseCenter />;
 }

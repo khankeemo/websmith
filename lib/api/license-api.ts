@@ -58,6 +58,33 @@ export interface Trial {
   started_at: string;
 }
 
+export interface LicenseStatusResponse {
+  success: boolean;
+  status: "licensed" | "trial" | "no_license";
+  customer: {
+    name: string;
+    email: string;
+    mobile: string;
+  };
+  license: {
+    license_key: string;
+    status: string;
+    expiry_date: string;
+    days_remaining: number;
+  };
+  plan: {
+    name: string;
+    device_limit: number;
+  };
+  product: {
+    name: string;
+  };
+  devices?: {
+    current: number;
+    maximum: number;
+  };
+}
+
 export interface ActivationLog {
   id: string;
   license_key: string;
@@ -242,6 +269,11 @@ class LicenseApiClient {
 
   async getCustomer(id: string): Promise<ApiResponse<Customer & { licenses: License[] }>> {
     return this.request("GET", `/internal/backend/customers/${id}`);
+  }
+
+  // ========== LICENSE STATUS (AWS-01) ==========
+  async getLicenseStatus(hardwareId: string): Promise<ApiResponse<LicenseStatusResponse>> {
+    return this.request("GET", `/internal/backend/license/status?hardware_id=${encodeURIComponent(hardwareId)}`);
   }
 
   // ========== HARDWARE ==========

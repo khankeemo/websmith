@@ -28,6 +28,7 @@ export const API_CONFIG = {
       activate: "/internal/api/licenses/activate",    // ✅ Render API path
       reset: "/internal/api/licenses/reset",          // ✅ Render API path
       info: "/internal/api/licenses/info",            // ✅ Render API path
+      status: "/internal/backend/license/status",     // ✅ AWS-01 License Status Endpoint
     },
     
     // Trial endpoints
