@@ -56,22 +56,24 @@ export async function GET(request: NextRequest) {
       const dbStatus = row.license_status || '';
 
       let normalizedStatus: string;
+      let isExpiredStatus = false;
       if (isDeleted || dbStatus === 'deleted') {
-        normalizedStatus = 'Deleted';
+        normalizedStatus = 'deleted';
       } else if (dbStatus === 'revoked') {
-        normalizedStatus = 'Revoked';
+        normalizedStatus = 'revoked';
       } else if (dbStatus === 'suspended') {
-        normalizedStatus = 'Suspended';
+        normalizedStatus = 'suspended';
       } else if (dbStatus === 'disabled') {
-        normalizedStatus = 'Disabled';
+        normalizedStatus = 'disabled';
       } else if (dbStatus === 'inactive') {
-        normalizedStatus = 'Inactive';
+        normalizedStatus = 'inactive';
       } else if (expiryDate && expiryDate < now) {
-        normalizedStatus = 'Expired';
+        normalizedStatus = 'expired';
+        isExpiredStatus = true;
       } else if (dbStatus === 'active' || dbStatus === '') {
-        normalizedStatus = 'Licensed';
+        normalizedStatus = 'licensed';
       } else {
-        normalizedStatus = 'No License';
+        normalizedStatus = 'no_license';
       }
 
       const deviceCountRes = await client.query(
@@ -80,11 +82,22 @@ export async function GET(request: NextRequest) {
       );
       const currentDevices = parseInt(deviceCountRes.rows[0]?.count || '0');
 
+      const otherActivationRes = await client.query(
+        `SELECT COUNT(*) as count FROM activations WHERE license_key = $1 AND hardware_id != $2 AND (is_active = TRUE OR is_active IS NULL)`,
+        [row.lic_key, hardwareId]
+      );
+      const otherDeviceCount = parseInt(otherActivationRes.rows[0]?.count || '0');
+
       client.release();
+
+      // Determine is_hardware_activated: this hardware has an activation record
+      const isHardwareActivated = true;
+      // Has active license on other device: other activations exist for same license
+      const hasActiveLicenseOnOtherDevice = otherDeviceCount > 0;
 
       return NextResponse.json({
         success: true,
-        status: normalizedStatus === 'Licensed' ? 'licensed' : (normalizedStatus === 'Expired' ? 'licensed' : 'no_license'),
+        status: normalizedStatus,
         customer: {
           name: row.customer_name || row.cust_name || '',
           email: row.customer_email || row.cust_email || '',
@@ -139,12 +152,13 @@ export async function GET(request: NextRequest) {
 
       const isExpired = row.status === 'expired' || (expiryDate && expiryDate <= now);
       const trialStatus = isExpired ? 'Trial Expired' : 'Trial Active';
+      const normalizedTrialStatus = isExpired ? 'no_license' : 'trial';
 
       client.release();
 
       return NextResponse.json({
         success: true,
-        status: 'trial',
+        status: normalizedTrialStatus,
         customer: {
           name: row.customer_name || '',
           email: row.customer_email || '',
