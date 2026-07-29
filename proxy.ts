@@ -17,6 +17,7 @@ const PUBLIC_PATHS = [
   "/internal/backend/health",
   "/internal/backend/store",
   "/internal/backend/store/products",
+  "/internal/backend/license/status",
   "/internal/backend/store/enquiries",
   "/internal/backend/licenses/validate",
   "/internal/backend/licenses/activate",
