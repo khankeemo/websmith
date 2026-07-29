@@ -41,6 +41,8 @@ export async function POST(request: NextRequest) {
 
     console.log('[OTP send] body keys:', Object.keys(body), 'email:', email);
 
+    const OTP_EXPIRY_SECONDS = 5 * 60;
+
     if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       console.warn('[OTP send] email validation failed:', JSON.stringify(rawEmail));
       return NextResponse.json({
@@ -52,13 +54,13 @@ export async function POST(request: NextRequest) {
 
     const otp = generateOTP();
     dbClient = await pool.connect();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_SECONDS * 1000).toISOString();
 
     await dbClient.query(
-      `INSERT INTO otp_verifications (email, phone, otp_code, purpose, expires_at, verified)
-       VALUES ($1, NULL, $2, 'trial_activation', $3, FALSE)
+      `INSERT INTO otp_verifications (email, phone, otp_code, purpose, expires_at, verified, attempts, max_attempts)
+       VALUES ($1, NULL, $2, 'trial_activation', $3, FALSE, 0, 15)
        ON CONFLICT (email, purpose)
-       DO UPDATE SET otp_code = EXCLUDED.otp_code, expires_at = EXCLUDED.expires_at, verified = FALSE`,
+       DO UPDATE SET otp_code = EXCLUDED.otp_code, expires_at = EXCLUDED.expires_at, verified = FALSE, attempts = 0`,
       [email, otp, expiresAt]
     );
 
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
       requestRedacted: { email, action: 'otp_sent' },
     });
 
-    return NextResponse.json({ success: true, message: 'OTP sent successfully' });
+    return NextResponse.json({ success: true, message: 'OTP sent successfully', expires_in: OTP_EXPIRY_SECONDS });
   } catch (error: any) {
     console.error('[OTP send] UNCAUGHT ERROR:', error?.message || error, error?.stack || '');
     await logRequest({

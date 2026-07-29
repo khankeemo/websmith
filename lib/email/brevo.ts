@@ -91,10 +91,10 @@ const EMAIL_TYPES: Record<string, {
       <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello,</p>
       <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Your OTP verification code is:</p>
       <div style="font-size:36px;font-weight:bold;text-align:center;color:#3b82f6;background:#eff6ff;padding:20px;border-radius:8px;letter-spacing:5px;margin:20px 0">${d.otp_code || 'N/A'}</div>
-      <p style="text-align:center;color:#555">Valid for <strong>10 minutes</strong>.</p>
+      <p style="text-align:center;color:#555">Valid for <strong>5 minutes</strong>.</p>
       <p style="margin:12px 0 0;font-size:13px;color:#8899aa;font-style:italic">If you did not request this code, please ignore this email.</p>
     `),
-    defaultPlainText: (d) => `Your OTP verification code is: ${d.otp_code || 'N/A'}. Valid for 10 minutes.
+    defaultPlainText: (d) => `Your OTP verification code is: ${d.otp_code || 'N/A'}. Valid for 5 minutes.
 
 If you did not request this code, please ignore this email.`
   },
@@ -831,14 +831,14 @@ The ${COMPANY_NAME} Team`
       <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
       <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">We received a request to reset your password for <strong style="color:#1a1a2e">${d.product_name || 'Websmith Digital'}</strong>.</p>
       <div style="font-size:36px;font-weight:bold;text-align:center;color:#3b82f6;background:#eff6ff;padding:20px;border-radius:8px;letter-spacing:5px;margin:20px 0">${d.otp_code || 'N/A'}</div>
-      <p style="text-align:center;color:#555">Valid for <strong>10 minutes</strong>.</p>
+      <p style="text-align:center;color:#555">Valid for <strong>5 minutes</strong>.</p>
       <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">If you did not request this password reset, please ignore this email or contact our support team immediately.</p>
     `),
     defaultPlainText: (d) => `Hello ${d.customer_name || 'there'},
 
 We received a request to reset your password for ${d.product_name || 'Websmith Digital'}.
 
-Your OTP verification code is: ${d.otp_code || 'N/A'}. Valid for 10 minutes.
+Your OTP verification code is: ${d.otp_code || 'N/A'}. Valid for 5 minutes.
 
 If you did not request this password reset, please ignore this email or contact our support team immediately.
 
@@ -934,23 +934,43 @@ export async function sendEmail(
       htmlBody = htmlBody.replace('</body>', `${disclaimer}</body>`);
     }
 
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': BREVO_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { name: senderName, email: senderEmail },
-        to: [{ email: to.email, name: to.name || 'Valued Customer' }],
-        subject,
-        htmlContent: htmlBody,
-        textContent: plainText,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    if (!response.ok) {
-      const err = await response.text();
+    let response: Response | null = null;
+    let lastError: string = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        response = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': BREVO_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email: to.email, name: to.name || 'Valued Customer' }],
+            subject,
+            htmlContent: htmlBody,
+            textContent: plainText,
+          }),
+          signal: controller.signal,
+        });
+        if (response.ok) break;
+        const errText = await response.text();
+        lastError = errText;
+        console.warn(`Brevo attempt ${attempt + 1} failed [${emailType} -> ${to.email}]: ${errText}`);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+      } catch (fetchError: any) {
+        lastError = fetchError?.message || 'Network error';
+        console.warn(`Brevo attempt ${attempt + 1} network error [${emailType} -> ${to.email}]: ${lastError}`);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    clearTimeout(timeoutId);
+
+    if (!response || !response.ok) {
+      const err = lastError || 'Failed to send email after 3 retries';
       console.error(`Brevo send failed [${emailType} -> ${to.email}]: ${err}`);
       await logEmailDelivery(client, {
         emailType,

@@ -16,6 +16,7 @@ import {
   HardDrive,
   Cpu,
   Search,
+  Smartphone,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 
@@ -41,10 +42,16 @@ interface LicenseStatusData {
   };
   product: {
     name: string;
+    product_id?: string;
   };
   devices?: {
     current: number;
     maximum: number;
+  };
+  hardware?: {
+    hardware_id: string;
+    device_name?: string;
+    is_activated?: boolean;
   };
 }
 
@@ -93,6 +100,20 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function FieldDisplay({ label, value, icon }: { label: string; value: string | number | null | undefined; icon: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+      <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-[var(--text-muted)]">{label}</p>
+        <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+          {value !== null && value !== undefined && String(value).trim() !== "" ? String(value) : "\u2014"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function UniversalLicenseCenter({ hardwareId: propHardwareId }: UniversalLicenseCenterProps) {
   const [hardwareId, setHardwareId] = useState(propHardwareId || "");
   const [data, setData] = useState<LicenseStatusData | null>(null);
@@ -136,8 +157,6 @@ export default function UniversalLicenseCenter({ hardwareId: propHardwareId }: U
   const isNoLicense = data?.status === "no_license";
   const isTrial = data?.status === "trial";
   const isLicensed = data?.status === "licensed";
-
-  const statusColor = isLicensed ? "green" : isTrial ? "purple" : "gray";
 
   return (
     <div className="space-y-6">
@@ -197,13 +216,17 @@ export default function UniversalLicenseCenter({ hardwareId: propHardwareId }: U
         </div>
       )}
 
-      {/* No License State */}
-      {hasFetched && !loading && isNoLicense && data && (
-        <div className="rounded-2xl border border-gray-500/20 bg-[var(--bg-tertiary)]/10 p-6">
+      {/* Data Display - Shows for all statuses when data is available */}
+      {hasFetched && !loading && data && (
+        <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/10 p-6">
           <div className="flex items-center gap-2 mb-6">
-            <ShieldCheck className="h-5 w-5 text-gray-400" />
+            <ShieldCheck className={`h-5 w-5 ${isLicensed ? 'text-emerald-400' : isTrial ? 'text-purple-400' : 'text-gray-400'}`} />
             <h3 className="font-semibold text-[var(--text-primary)]">License Status</h3>
-            <StatusBadge status={data.license.status} />
+            <StatusBadge status={
+              isLicensed ? 'Licensed' :
+              isTrial ? (data.license.status || 'Trial Active') :
+              data.license.status || 'No License'
+            } />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -211,64 +234,28 @@ export default function UniversalLicenseCenter({ hardwareId: propHardwareId }: U
             <FieldDisplay label="Email" value={data.customer.email} icon={<Mail size={16} />} />
             <FieldDisplay label="Mobile" value={data.customer.mobile} icon={<Phone size={16} />} />
             <FieldDisplay label="License Key" value={data.license.license_key} icon={<KeyRound size={16} />} />
-            <FieldDisplay label="Plan" value={data.plan.name} icon={<Package size={16} />} />
-            <FieldDisplay label="Product" value={data.product.name} icon={<HardDrive size={16} />} />
+            <FieldDisplay label="Active Plan" value={data.plan.name} icon={<Package size={16} />} />
+            <FieldDisplay label="License Status" value={data.license.status} icon={<ShieldCheck size={16} />} />
+            <FieldDisplay label="Product Name" value={data.product.name} icon={<HardDrive size={16} />} />
             <FieldDisplay label="Expiry Date" value={data.license.expiry_date} icon={<Calendar size={16} />} />
             <FieldDisplay label="Days Remaining" value={data.license.days_remaining} icon={<Clock size={16} />} />
-          </div>
-        </div>
-      )}
-
-      {/* Trial State */}
-      {hasFetched && !loading && isTrial && data && (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-purple-500/20 bg-[var(--bg-tertiary)]/10 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldCheck className="h-5 w-5 text-purple-400" />
-              <h3 className="font-semibold text-[var(--text-primary)]">License Status</h3>
-              <StatusBadge status={data.license.status} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FieldDisplay label="Customer Name" value={data.customer.name} icon={<User size={16} />} />
-              <FieldDisplay label="Email" value={data.customer.email} icon={<Mail size={16} />} />
-              <FieldDisplay label="Mobile" value={data.customer.mobile} icon={<Phone size={16} />} />
-              <FieldDisplay label="License Key" value={data.license.license_key} icon={<KeyRound size={16} />} />
-              <FieldDisplay label="Plan" value={data.plan.name} icon={<Package size={16} />} />
-              <FieldDisplay label="Product" value={data.product.name} icon={<HardDrive size={16} />} />
-              <FieldDisplay label="Expiry Date" value={data.license.expiry_date} icon={<Calendar size={16} />} />
-              <FieldDisplay label="Days Remaining" value={data.license.days_remaining} icon={<Clock size={16} />} />
-              <FieldDisplay label="Device Limit" value={data.devices ? `${data.devices.current} / ${data.devices.maximum}` : "\u2014"} icon={<Monitor size={16} />} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Licensed State */}
-      {hasFetched && !loading && isLicensed && data && (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-emerald-500/20 bg-[var(--bg-tertiary)]/10 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldCheck className="h-5 w-5 text-emerald-400" />
-              <h3 className="font-semibold text-[var(--text-primary)]">License Status</h3>
-              <StatusBadge status={data.license.status} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FieldDisplay label="Customer Name" value={data.customer.name} icon={<User size={16} />} />
-              <FieldDisplay label="Email" value={data.customer.email} icon={<Mail size={16} />} />
-              <FieldDisplay label="Mobile" value={data.customer.mobile} icon={<Phone size={16} />} />
-              <FieldDisplay label="License Key" value={data.license.license_key} icon={<KeyRound size={16} />} />
-              <FieldDisplay label="Plan" value={data.plan.name} icon={<Package size={16} />} />
-              <FieldDisplay label="Product" value={data.product.name} icon={<HardDrive size={16} />} />
-              <FieldDisplay label="Expiry Date" value={data.license.expiry_date} icon={<Calendar size={16} />} />
-              <FieldDisplay label="Days Remaining" value={data.license.days_remaining} icon={<Clock size={16} />} />
-              <FieldDisplay label="Device Count" value={data.devices ? `${data.devices.current} / ${data.devices.maximum}` : "\u2014"} icon={<Monitor size={16} />} />
-            </div>
+            {data.devices && (
+              <FieldDisplay label="Device Count" value={`${data.devices.current} / ${data.devices.maximum}`} icon={<Monitor size={16} />} />
+            )}
+            {data.hardware && (
+              <>
+                <FieldDisplay label="Hardware ID" value={data.hardware.hardware_id} icon={<Cpu size={16} />} />
+                {data.hardware.device_name && (
+                  <FieldDisplay label="Device Name" value={data.hardware.device_name} icon={<Smartphone size={16} />} />
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
 
       {/* Hardware Info */}
-      {hasFetched && !loading && data && (
+      {hasFetched && !loading && hardwareId && (
         <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/10 p-4">
           <div className="flex items-center gap-2 mb-3">
             <Cpu className="h-4 w-4 text-cyan-400" />
@@ -277,20 +264,6 @@ export default function UniversalLicenseCenter({ hardwareId: propHardwareId }: U
           <p className="text-sm font-mono text-[var(--text-muted)] break-all">{hardwareId}</p>
         </div>
       )}
-    </div>
-  );
-}
-
-function FieldDisplay({ label, value, icon }: { label: string; value: string | number | null | undefined; icon: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
-      <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 shrink-0">{icon}</div>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-[var(--text-muted)]">{label}</p>
-        <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-          {value !== null && value !== undefined && String(value).trim() !== "" ? String(value) : "\u2014"}
-        </p>
-      </div>
     </div>
   );
 }

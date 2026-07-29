@@ -65,7 +65,7 @@ async function sendOTPEmail(email: string, otp: string, name: string): Promise<b
                 <h2 style="text-align: center; color: #fff; font-weight: 300;">Password Reset Request</h2>
                 <p style="color: #94A3B8; text-align: center; line-height: 1.6;">We received a request to reset your password. Use the following code to reset it:</p>
                 <div style="font-size: 48px; font-weight: bold; text-align: center; color: #60A5FA; letter-spacing: 8px; padding: 20px; background: #0B1120; border-radius: 12px; margin: 20px 0; font-family: monospace;">${otp}</div>
-                <p style="color: #94A3B8; text-align: center; line-height: 1.6;">This code will expire in <strong style="color: #fff;">10 minutes</strong>.</p>
+                <p style="color: #94A3B8; text-align: center; line-height: 1.6;">This code will expire in <strong style="color: #fff;">5 minutes</strong>.</p>
                 <p style="color: #94A3B8; text-align: center; line-height: 1.6;">If you didn't request this, please ignore this email.</p>
                 <div style="color: #F59E0B; font-size: 14px; text-align: center; margin-top: 20px;">⚠️ Do not share this code with anyone</div>
                 <div style="text-align: center; color: #475569; font-size: 12px; margin-top: 30px; border-top: 1px solid #333; padding-top: 20px;">
@@ -76,7 +76,7 @@ async function sendOTPEmail(email: string, otp: string, name: string): Promise<b
             </body>
           </html>
         `,
-        textContent: `Password Reset Request\n\nYour OTP code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you didn't request this, please ignore this email.\n\nWebsmith Digital · Universal API Center`,
+        textContent: `Password Reset Request\n\nYour OTP code is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf you didn't request this, please ignore this email.\n\nWebsmith Digital · Universal API Center`,
       }),
     });
 
@@ -123,13 +123,14 @@ export async function POST(request: Request) {
 
     const user = userResult.rows[0];
     const otp = generateOTP();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const expiresAtISO = expiresAt.toISOString();
 
     await client.query(
-      `INSERT INTO otp_verifications (email, otp_code, purpose, expires_at, created_at, verified)
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, false)
+      `INSERT INTO otp_verifications (email, otp_code, purpose, expires_at, created_at, verified, attempts, max_attempts)
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, false, 0, 15)
        ON CONFLICT (email, purpose)
-       DO UPDATE SET otp_code = $2, expires_at = $4, created_at = CURRENT_TIMESTAMP, verified = false`,
+       DO UPDATE SET otp_code = $2, expires_at = $4, created_at = CURRENT_TIMESTAMP, verified = false, attempts = 0`,
       [email.trim().toLowerCase(), otp, "password_reset", expiresAt]
     );
 
@@ -148,6 +149,7 @@ export async function POST(request: Request) {
       success: true,
       message: "OTP sent successfully",
       email: email,
+      expires_at: expiresAtISO,
     });
   } catch (error) {
     console.error("Forgot password error:", error);

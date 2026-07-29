@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
               l.license_key as lic_key, l.customer_name, l.customer_email, l.customer_phone, l.customer_mobile,
               l.plan, l.status as license_status, l.expiry_date, l.max_devices, l.device_count,
               l.is_trial, l.inactive_reason, l.deleted_at,
-              p.name as product_name,
+              p.name as product_name, p.product_id,
               pl.name as plan_name, pl.max_devices as plan_max_devices,
               c.name as cust_name, c.email as cust_email, c.mobile as cust_mobile, c.phone as cust_phone
        FROM activations a
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        status: 'licensed',
+        status: normalizedStatus === 'Licensed' ? 'licensed' : (normalizedStatus === 'Expired' ? 'licensed' : 'no_license'),
         customer: {
           name: row.customer_name || row.cust_name || '',
           email: row.customer_email || row.cust_email || '',
@@ -101,18 +101,24 @@ export async function GET(request: NextRequest) {
           device_limit: row.plan_max_devices || row.max_devices || 1
         },
         product: {
-          name: row.product_name || ''
+          name: row.product_name || '',
+          product_id: row.product_id || ''
         },
         devices: {
           current: currentDevices,
           maximum: row.plan_max_devices || row.max_devices || 1
+        },
+        hardware: {
+          hardware_id: hardwareId,
+          device_name: row.device_name || '',
+          is_activated: row.activation_active !== false
         }
       });
     }
 
     // Step 2: If no activation, search Trial by Hardware ID
     const trialRes = await client.query(
-      `SELECT t.*, p.name as product_name, pl.name as plan_name, pl.max_devices as plan_max_devices
+      `SELECT t.*, p.name as product_name, p.product_id, pl.name as plan_name, pl.max_devices as plan_max_devices
        FROM trials t
        LEFT JOIN products p ON t.product_id = p.product_id
        LEFT JOIN plans pl ON t.plan_id = pl.id
@@ -155,11 +161,17 @@ export async function GET(request: NextRequest) {
           device_limit: row.plan_max_devices || 1
         },
         product: {
-          name: row.product_name || ''
+          name: row.product_name || '',
+          product_id: row.product_id || ''
         },
         devices: {
           current: 1,
           maximum: row.plan_max_devices || 1
+        },
+        hardware: {
+          hardware_id: hardwareId,
+          device_name: '',
+          is_activated: isExpired ? false : true
         }
       });
     }
@@ -186,11 +198,17 @@ export async function GET(request: NextRequest) {
         device_limit: 1
       },
       product: {
-        name: ''
+        name: '',
+        product_id: ''
       },
       devices: {
         current: 0,
         maximum: 1
+      },
+      hardware: {
+        hardware_id: hardwareId,
+        device_name: '',
+        is_activated: false
       }
     });
 

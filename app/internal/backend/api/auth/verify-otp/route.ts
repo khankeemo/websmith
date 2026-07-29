@@ -34,18 +34,18 @@ export async function POST(request: Request) {
 
     // Check OTP
     const otpResult = await client.query(
-      `SELECT id, email, otp_code, expires_at, verified
+      `SELECT id, email, otp_code, expires_at, verified, attempts, max_attempts
        FROM otp_verifications
-       WHERE email = $1 AND otp_code = $2 AND purpose = 'password_reset'
+       WHERE email = $1 AND purpose = 'password_reset'
        ORDER BY created_at DESC
        LIMIT 1`,
-      [email.trim().toLowerCase(), otp]
+      [email.trim().toLowerCase()]
     );
 
     if (otpResult.rows.length === 0) {
       client.release();
       return NextResponse.json(
-        { success: false, error: "Invalid OTP" },
+        { success: false, error: "No OTP found. Please request a new one." },
         { status: 400 }
       );
     }
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     if (new Date(otpRecord.expires_at) < new Date()) {
       client.release();
       return NextResponse.json(
-        { success: false, error: "OTP has expired. Please request a new one." },
+        { success: false, error: "OTP has expired. Please request a new one.", expired: true },
         { status: 400 }
       );
     }
@@ -66,6 +66,20 @@ export async function POST(request: Request) {
       client.release();
       return NextResponse.json(
         { success: false, error: "OTP already verified" },
+        { status: 400 }
+      );
+    }
+
+    // Check OTP code match
+    if (otpRecord.otp_code !== otp) {
+      const newAttempts = (otpRecord.attempts || 0) + 1;
+      await client.query(
+        `UPDATE otp_verifications SET attempts = $1 WHERE id = $2`,
+        [newAttempts, otpRecord.id]
+      );
+      client.release();
+      return NextResponse.json(
+        { success: false, error: "Invalid OTP", attempts_used: newAttempts, max_attempts: otpRecord.max_attempts || 15 },
         { status: 400 }
       );
     }

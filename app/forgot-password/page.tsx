@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
-import { useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Mail, ShieldCheck, Clock, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import {
   requestPasswordResetOtp,
@@ -17,7 +16,6 @@ import {
 } from "@/core/utils/validation";
 
 type ResetStep = "request" | "verify" | "reset" | "done";
-const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<ResetStep>("request");
@@ -27,12 +25,49 @@ export default function ForgotPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [expiryCountdown, setExpiryCountdown] = useState(0);
+  const [otpExpired, setOtpExpired] = useState(false);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
+  const expiryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const checklistItems = useMemo(() => getPasswordChecklistItems(newPassword), [newPassword]);
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const clearExpiryTimer = () => {
+    if (expiryTimerRef.current) {
+      clearInterval(expiryTimerRef.current);
+      expiryTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => clearExpiryTimer();
+  }, []);
+
+  const startExpiryTimer = (expiresAtISO: string) => {
+    clearExpiryTimer();
+    setOtpExpired(false);
+    const expiresAt = new Date(expiresAtISO).getTime();
+
+    const tick = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
+      setExpiryCountdown(remaining);
+      if (remaining <= 0) {
+        setOtpExpired(true);
+        clearExpiryTimer();
+      }
+    };
+
+    tick();
+    expiryTimerRef.current = setInterval(tick, 1000);
+  };
 
   const handleRequestOtp = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -48,7 +83,9 @@ export default function ForgotPasswordPage() {
     try {
       const response = await requestPasswordResetOtp(email);
       setMessage(response.message || "OTP has been sent to your registered email.");
+      setAttemptsUsed(0);
       setStep("verify");
+      startExpiryTimer(response.expires_at);
     } catch (err: any) {
       setError(err.response?.data?.error || "Email not found. Please register first.");
     } finally {
@@ -61,6 +98,11 @@ export default function ForgotPasswordPage() {
     setError("");
     setMessage("");
 
+    if (otpExpired) {
+      setError("OTP has expired. Please request a new one.");
+      return;
+    }
+
     if (!otp.trim() || otp.trim().length !== 6) {
       setError("Enter the 6-digit OTP sent to your email.");
       return;
@@ -70,9 +112,19 @@ export default function ForgotPasswordPage() {
     try {
       const response = await verifyPasswordResetOtp(email, otp.trim());
       setMessage(response.message || "OTP verified successfully.");
+      clearExpiryTimer();
       setStep("reset");
     } catch (err: any) {
-      setError(err?.response?.data?.error || "OTP verification failed. Please try again.");
+      const data = err?.response?.data;
+      if (data?.expired) {
+        setOtpExpired(true);
+        clearExpiryTimer();
+        setExpiryCountdown(0);
+      }
+      if (data?.attempts_used) {
+        setAttemptsUsed(data.attempts_used);
+      }
+      setError(data?.error || "OTP verification failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -111,14 +163,13 @@ export default function ForgotPasswordPage() {
   };
 
   const handleResendOtp = async () => {
-    if (resendSecondsLeft > 0 || loading) {
-      return;
-    }
+    if (loading || expiryCountdown > 0) return;
     setLoading(true);
     try {
-      await requestPasswordResetOtp(email);
-      setResendSecondsLeft(RESEND_COOLDOWN_SECONDS);
+      const response = await requestPasswordResetOtp(email);
+      setAttemptsUsed(0);
       setMessage("A new OTP has been sent to your email.");
+      startExpiryTimer(response.expires_at);
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to resend OTP. Please try again later.");
     } finally {
@@ -126,13 +177,15 @@ export default function ForgotPasswordPage() {
     }
   };
 
+  const checklistItems = useMemo(() => getPasswordChecklistItems(newPassword), [newPassword]);
+
   return (
     <div style={styles.page}>
       <header style={styles.headerMenu}>
         <nav style={styles.nav}>
           <Link href="/" style={styles.logoArea}>
             <div style={styles.logoCircle}>
-              <Image src="/images/websmith_1x1.jpg" alt="Websmith Digital logo" width={34} height={34} style={styles.logoImage} priority />
+              <img src="/images/websmith_1x1.jpg" alt="Websmith Digital logo" width={34} height={34} style={styles.logoImage} />
             </div>
             <span style={styles.logoText}>Websmith</span>
           </Link>
@@ -185,18 +238,57 @@ export default function ForgotPasswordPage() {
               <label style={styles.label}>Registered email address</label>
               <div style={styles.inputWrap}>
                 <Mail size={18} style={styles.inputIcon} />
-                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" style={styles.input} />
+                <input value={email} disabled type="email" style={styles.input} />
               </div>
+
+              {/* OTP Expiry Countdown */}
+              <div style={styles.countdownContainer}>
+                <Clock size={16} color={otpExpired ? "#EF4444" : "#3B82F6"} />
+                <span style={{ ...styles.countdownText, color: otpExpired ? "#EF4444" : "#3B82F6" }}>
+                  {otpExpired ? "OTP Expired" : `${formatCountdown(expiryCountdown)} remaining`}
+                </span>
+              </div>
+
+              {/* Expired warning */}
+              {otpExpired && (
+                <div style={styles.expiredWarning}>
+                  <AlertTriangle size={16} />
+                  <span>OTP has expired. Please request a new one.</span>
+                </div>
+              )}
+
               <label style={styles.label}>OTP</label>
               <div style={styles.inputWrap}>
                 <KeyRound size={18} style={styles.inputIcon} />
-                <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} type="text" style={styles.input} placeholder="123456" />
+                <input
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  type="text"
+                  style={{ ...styles.input, ...(otpExpired ? { opacity: 0.5 } : {}) }}
+                  placeholder="123456"
+                  disabled={otpExpired}
+                />
               </div>
-              <button type="submit" style={styles.primaryButton} disabled={loading}>
+
+              {attemptsUsed > 0 && (
+                <p style={styles.attemptsInfo}>Attempts: {attemptsUsed} / 15</p>
+              )}
+
+              <button
+                type="submit"
+                style={{ ...styles.primaryButton, ...(otpExpired ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
+                disabled={loading || otpExpired}
+              >
                 {loading ? "Verifying..." : "Verify OTP"}
               </button>
-              <button type="button" onClick={handleResendOtp} style={styles.secondaryButton} disabled={loading || resendSecondsLeft > 0} title={resendSecondsLeft > 0 ? `Please wait ${resendSecondsLeft}s` : ""}>
-                {resendSecondsLeft > 0 ? `Resend OTP in ${resendSecondsLeft}s` : "Resend OTP"}
+
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                style={{ ...styles.secondaryButton, ...(otpExpired ? {} : {}) }}
+                disabled={loading || expiryCountdown > 0}
+              >
+                {expiryCountdown > 0 ? `Resend OTP in ${formatCountdown(expiryCountdown)}` : "Resend OTP"}
               </button>
             </form>
           )}
@@ -386,6 +478,38 @@ const styles: Record<string, any> = {
     cursor: "pointer",
     display: "flex",
   },
+  countdownContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 14px",
+    backgroundColor: "#EFF6FF",
+    borderRadius: "12px",
+    border: "1px solid rgba(59, 130, 246, 0.2)",
+  },
+  countdownText: {
+    fontSize: "15px",
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums",
+  },
+  expiredWarning: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 14px",
+    backgroundColor: "#FEF2F2",
+    borderRadius: "12px",
+    border: "1px solid rgba(239, 68, 68, 0.2)",
+    color: "#DC2626",
+    fontSize: "14px",
+    fontWeight: 600,
+  },
+  attemptsInfo: {
+    margin: 0,
+    fontSize: "12px",
+    color: "#6B7280",
+    textAlign: "right",
+  },
   primaryButton: {
     marginTop: "6px",
     border: "none",
@@ -425,7 +549,7 @@ const styles: Record<string, any> = {
     padding: "14px",
   },
   checklistItem: { display: "flex", alignItems: "center", gap: "10px", fontSize: "14px" },
-  checkDot: { width: "10px", height: "10px", borderRadius: "999px", flexShrink: 0 },
+  checkDot: { width: "10px", height: "10px", borderRadius: "999px", flexSrhink: 0 },
   doneState: { display: "flex", justifyContent: "flex-start" },
   primaryLinkButton: {
     display: "inline-flex",

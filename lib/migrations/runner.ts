@@ -163,6 +163,13 @@ const MIGRATIONS: { filename: string; sql: string }[] = [
       CREATE INDEX IF NOT EXISTS idx_reactivation_requests_created_at ON reactivation_requests(created_at DESC);
     `
   },
+  {
+    filename: '009_otp_attempts.sql',
+    sql: `
+      ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0;
+      ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS max_attempts INTEGER DEFAULT 15;
+    `
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

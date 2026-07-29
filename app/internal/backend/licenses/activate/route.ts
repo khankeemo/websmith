@@ -80,7 +80,7 @@ async function sendOTPEmail(email: string, otp: string): Promise<boolean> {
               </div>
               <h2 style="text-align: center; color: #333;">Your Verification Code</h2>
               <div class="otp-code">${otp}</div>
-              <p style="text-align: center; color: #555;">This code is valid for <strong>10 minutes</strong>.</p>
+              <p style="text-align: center; color: #555;">This code is valid for <strong>5 minutes</strong>.</p>
               <p style="text-align: center; color: #555;">If you didn't request this code, please ignore this email.</p>
               <div class="footer">
                 <p>${getBrandName()} - License Management System</p>
@@ -90,7 +90,7 @@ async function sendOTPEmail(email: string, otp: string): Promise<boolean> {
           </body>
           </html>
         `,
-        textContent: `Your OTP verification code is: ${otp}. Valid for 10 minutes.`
+        textContent: `Your OTP verification code is: ${otp}. Valid for 5 minutes.`
       })
     });
     

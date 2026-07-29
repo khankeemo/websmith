@@ -1,23 +1,21 @@
-// FILE: app\internal\api\auth\forgot-password/page.tsx
-// PURPOSE: API Center Forgot Password - Send OTP via Brevo Email
-// FEATURES: Email input, OTP verification, password reset flow
-
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Mail, 
-  ArrowLeft, 
-  Send, 
-  CheckCircle, 
-  AlertCircle, 
+import {
+  Mail,
+  ArrowLeft,
+  Send,
+  CheckCircle,
+  AlertCircle,
   Loader2,
   Shield,
   KeyRound,
   Eye,
   EyeOff,
-  Lock
+  Lock,
+  Clock,
+  AlertTriangle
 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
@@ -32,19 +30,48 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [expiryCountdown, setExpiryCountdown] = useState(0);
+  const [otpExpired, setOtpExpired] = useState(false);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const expiryTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const clearExpiryTimer = () => {
+    if (expiryTimerRef.current) {
+      clearInterval(expiryTimerRef.current);
+      expiryTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
+    return () => clearExpiryTimer();
   }, []);
 
-  useEffect(() => {
-    if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendCooldown]);
+  const startExpiryTimer = (expiresAtISO: string) => {
+    clearExpiryTimer();
+    setOtpExpired(false);
+    const expiresAt = new Date(expiresAtISO).getTime();
+
+    const tick = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
+      setExpiryCountdown(remaining);
+      if (remaining <= 0) {
+        setOtpExpired(true);
+        clearExpiryTimer();
+      }
+    };
+
+    tick();
+    expiryTimerRef.current = setInterval(tick, 1000);
+  };
 
   const handleRequestOTP = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -69,8 +96,9 @@ export default function ForgotPasswordPage() {
 
       if (data.success) {
         setSuccess("OTP sent to your email. Please check your inbox.");
+        setAttemptsUsed(0);
         setStep("otp");
-        setResendCooldown(60);
+        startExpiryTimer(data.expires_at);
       } else {
         setError(data.error || "Failed to send OTP. Please try again.");
       }
@@ -85,6 +113,11 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (otpExpired) {
+      setError("OTP has expired. Please request a new one.");
+      return;
+    }
 
     if (!otp || otp.length !== 6) {
       setError("Please enter a valid 6-digit OTP");
@@ -104,8 +137,17 @@ export default function ForgotPasswordPage() {
 
       if (data.success) {
         setSuccess("OTP verified! Please set your new password.");
+        clearExpiryTimer();
         setStep("reset");
       } else {
+        if (data.expired) {
+          setOtpExpired(true);
+          clearExpiryTimer();
+          setExpiryCountdown(0);
+        }
+        if (data.attempts_used) {
+          setAttemptsUsed(data.attempts_used);
+        }
         setError(data.error || "Invalid OTP. Please try again.");
       }
     } catch (err) {
@@ -161,7 +203,7 @@ export default function ForgotPasswordPage() {
   };
 
   const handleResendOTP = async () => {
-    if (resendCooldown > 0) return;
+    if (expiryCountdown > 0 || loading) return;
 
     setError(null);
     setLoading(true);
@@ -177,7 +219,8 @@ export default function ForgotPasswordPage() {
 
       if (data.success) {
         setSuccess("New OTP sent to your email.");
-        setResendCooldown(60);
+        setAttemptsUsed(0);
+        startExpiryTimer(data.expires_at);
       } else {
         setError(data.error || "Failed to resend OTP.");
       }
@@ -307,6 +350,24 @@ export default function ForgotPasswordPage() {
 
             {step === "otp" && (
               <form onSubmit={handleVerifyOTP} className="space-y-5">
+                {/* OTP Expiry Countdown */}
+                <div className={`flex items-center gap-2 p-3 rounded-lg border ${
+                  otpExpired
+                    ? "bg-red-500/10 border-red-500/20"
+                    : "bg-blue-500/10 border-blue-500/20"
+                }`}>
+                  {otpExpired ? (
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-blue-400" />
+                  )}
+                  <span className={`text-sm font-bold tabular-nums ${
+                    otpExpired ? "text-red-400" : "text-blue-400"
+                  }`}>
+                    {otpExpired ? "OTP Expired" : `${formatCountdown(expiryCountdown)} remaining`}
+                  </span>
+                </div>
+
                 <div className="space-y-1.5">
                   <label htmlFor="otp" className="text-sm font-medium text-slate-300 block">
                     Enter 6-Digit Code
@@ -321,32 +382,32 @@ export default function ForgotPasswordPage() {
                       inputMode="numeric"
                       value={otp}
                       onChange={handleOtpChange}
-                      className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-center text-2xl tracking-[0.5em] font-mono placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                      className={`w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-center text-2xl tracking-[0.5em] font-mono placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all ${otpExpired ? "opacity-50" : ""}`}
                       placeholder="• • • • • •"
                       maxLength={6}
-                      disabled={loading}
+                      disabled={loading || otpExpired}
                       autoFocus
                     />
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Enter the 6-digit code sent to your email
-                  </p>
+                  {attemptsUsed > 0 && (
+                    <p className="text-xs text-slate-500 mt-1 text-right">Attempts: {attemptsUsed} / 15</p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
                   <button
                     type="button"
                     onClick={handleResendOTP}
-                    disabled={resendCooldown > 0 || loading}
+                    disabled={expiryCountdown > 0 || loading}
                     className="text-sm text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code"}
+                    {expiryCountdown > 0 ? `Resend in ${formatCountdown(expiryCountdown)}` : "Resend Code"}
                   </button>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading || otp.length !== 6}
+                  disabled={loading || otp.length !== 6 || otpExpired}
                   className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
                   {loading ? (

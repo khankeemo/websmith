@@ -17,7 +17,7 @@ export type SmsType = typeof SMS_TYPES[number];
 
 const DEFAULT_SMS_TEMPLATES: Record<string, { message: string }> = {
   otp_verification: {
-    message: 'Your WebSmith verification code is: {{otp_code}}. Valid for 10 minutes. Do not share this code.'
+    message: 'Your WebSmith verification code is: {{otp_code}}. Valid for 5 minutes. Do not share this code.'
   },
   license_created: {
     message: 'Hi {{customer_name}}, your {{product}} license has been created! Key: {{license_key}}. Expires: {{expiry_date}}. Welcome to WebSmith!'

@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     client = await pool.connect();
 
     const result = await client.query(
-      `SELECT id, email, otp_code, expires_at, verified
+      `SELECT id, email, otp_code, expires_at, verified, attempts, max_attempts
        FROM otp_verifications
        WHERE email = $1 AND purpose = $2
        ORDER BY created_at DESC
@@ -51,15 +51,20 @@ export async function POST(request: Request) {
     if (new Date(record.expires_at) < new Date()) {
       client.release();
       return NextResponse.json(
-        { success: false, error: "OTP has expired. Please request a new one." },
+        { success: false, error: "OTP has expired. Please request a new one.", expired: true },
         { status: 400 }
       );
     }
 
     if (record.otp_code !== otp.toString()) {
+      const newAttempts = (record.attempts || 0) + 1;
+      await client.query(
+        `UPDATE otp_verifications SET attempts = $1 WHERE id = $2`,
+        [newAttempts, record.id]
+      );
       client.release();
       return NextResponse.json(
-        { success: false, error: "Invalid OTP. Please try again." },
+        { success: false, error: "Invalid OTP. Please try again.", attempts_used: newAttempts, max_attempts: record.max_attempts || 15 },
         { status: 400 }
       );
     }

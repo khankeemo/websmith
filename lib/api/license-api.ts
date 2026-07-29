@@ -78,10 +78,16 @@ export interface LicenseStatusResponse {
   };
   product: {
     name: string;
+    product_id?: string;
   };
   devices?: {
     current: number;
     maximum: number;
+  };
+  hardware?: {
+    hardware_id: string;
+    device_name?: string;
+    is_activated?: boolean;
   };
 }
 

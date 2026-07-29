@@ -16,7 +16,7 @@ const SMS_TYPES = [
 ];
 
 const DEFAULT_MESSAGES: Record<string, string> = {
-  otp_verification: 'Your WebSmith verification code is: {{otp_code}}. Valid for 10 minutes. Do not share this code.',
+  otp_verification: 'Your WebSmith verification code is: {{otp_code}}. Valid for 5 minutes. Do not share this code.',
   license_created: 'Hi {{customer_name}}, your {{product}} license has been created! Key: {{license_key}}. Expires: {{expiry_date}}. Welcome to WebSmith!',
   trial_started: 'Hi {{customer_name}}, your {{product}} trial has started! You have {{trial_days}} days to explore. Expires: {{expiry_date}}. Upgrade anytime!',
   trial_ending_reminder: 'Hi {{customer_name}}, your {{product}} trial ends in {{days_remaining}} days ({{expiry_date}}). Upgrade now to keep access!',

@@ -1297,6 +1297,10 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_reactivation_requests_status ON reactivation_requests(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_reactivation_requests_created_at ON reactivation_requests(created_at DESC)`);
     
+    // Add attempts tracking to otp_verifications (AWS-01)
+    try { await client.query(`ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0`); } catch (e) { }
+    try { await client.query(`ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS max_attempts INTEGER DEFAULT 15`); } catch (e) { }
+
     await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_verifications_email ON otp_verifications(email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_verifications_expires_at ON otp_verifications(expires_at)`);
     

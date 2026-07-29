@@ -46,7 +46,7 @@ async function sendOTPEmail(email: string, otp: string): Promise<{ sent: boolean
     <h2 style="text-align:center;color:#fff;font-weight:400;font-size:20px">Password Reset Request</h2>
     <p style="color:#94A3B8;text-align:center;line-height:1.6">Use the code below to reset your password:</p>
     <div class="code">${otp}</div>
-    <p style="color:#94A3B8;text-align:center;font-size:14px">This code will expire in <strong style="color:#fff">10 minutes</strong>.</p>
+    <p style="color:#94A3B8;text-align:center;font-size:14px">This code will expire in <strong style="color:#fff">5 minutes</strong>.</p>
     <p style="color:#475569;text-align:center;font-size:13px;margin-top:24px">If you didn't request this, please ignore this email.</p>
   </div>
 </body>
@@ -83,15 +83,16 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.trim().toLowerCase();
     const otp = generateOTP();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const expiresAtISO = expiresAt.toISOString();
 
     client = await pool.connect();
 
     await client.query(
-      `INSERT INTO otp_verifications (email, otp_code, purpose, expires_at, created_at, verified)
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, false)
+      `INSERT INTO otp_verifications (email, otp_code, purpose, expires_at, created_at, verified, attempts, max_attempts)
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, false, 0, 15)
        ON CONFLICT (email, purpose)
-       DO UPDATE SET otp_code = EXCLUDED.otp_code, expires_at = EXCLUDED.expires_at, created_at = CURRENT_TIMESTAMP, verified = false`,
+       DO UPDATE SET otp_code = EXCLUDED.otp_code, expires_at = EXCLUDED.expires_at, created_at = CURRENT_TIMESTAMP, verified = false, attempts = 0`,
       [normalizedEmail, otp, "password_reset", expiresAt]
     );
 
@@ -112,6 +113,8 @@ export async function POST(request: Request) {
       success: true,
       message: "OTP sent successfully",
       email: normalizedEmail,
+      expires_at: expiresAtISO,
+      expires_in_seconds: 300,
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
