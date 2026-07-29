@@ -340,11 +340,16 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          data: {
+          trial: {
             active: true,
             days_left: trialDuration,
-            expiry_date: expiryDateISO,
+            expiry_date: expiryDateISO.split('T')[0],
             duration_days: trialDuration,
+            plan: 'Trial',
+            customer_name: customer_name || '',
+            customer_email: customer_email,
+            customer_phone: '',
+            customer_mobile: '',
             message: `${trialDuration}-day trial started successfully`
           }
         }, {
