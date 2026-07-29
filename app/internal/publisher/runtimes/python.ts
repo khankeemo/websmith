@@ -51,11 +51,13 @@ interface PlaceholderMap {
 
 function buildPlaceholders(context: PublisherContext): PlaceholderMap {
   const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';
+  const appUrl = process.env.WEBSMITH_APP_URL || apiUrl;
   const product = context.product || {} as any;
   return {
     '{{PRODUCT_NAME}}': context.productName || 'Product',
     '{{PRODUCT_ID}}': context.productId || '',
     '{{API_URL}}': apiUrl,
+    '{{APP_URL}}': appUrl,
     '{{SDK_VERSION}}': context.kitVersion || '1.0.0',
     '{{RUNTIME_TYPE}}': context.runtime || 'python',
     '{{COMPANY_NAME}}': product.company_name || '',

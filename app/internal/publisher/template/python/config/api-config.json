@@ -6,6 +6,7 @@
   },
   "api": {
     "url": "{{API_URL}}",
+    "app_url": "{{APP_URL}}",
     "version": "v1",
     "public_key": "",
     "secret": "",
