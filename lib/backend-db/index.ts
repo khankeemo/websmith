@@ -1057,11 +1057,35 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_customer_email ON requests(customer_email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at DESC)`);
 
-    // 27b. Create conversation_messages table for threaded support conversations (AWS-01 Issue 7)
+    // 27b. Create communication_conversations table (public API /api/v1/communication/create)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS communication_conversations (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        customer_email TEXT NOT NULL,
+        customer_name TEXT DEFAULT '',
+        subject TEXT DEFAULT '',
+        product_id TEXT DEFAULT '',
+        license_key TEXT DEFAULT '',
+        hardware_id TEXT DEFAULT '',
+        sdk_version TEXT DEFAULT '',
+        runtime_type TEXT DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_category ON communication_conversations(category)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_customer_email ON communication_conversations(customer_email)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_status ON communication_conversations(status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_created_at ON communication_conversations(created_at DESC)`);
+
+    // 27c. Create conversation_messages table for threaded conversations
     await client.query(`
       CREATE TABLE IF NOT EXISTS conversation_messages (
         id SERIAL PRIMARY KEY,
-        request_id TEXT NOT NULL REFERENCES requests(request_id) ON DELETE CASCADE,
+        request_id TEXT REFERENCES requests(request_id) ON DELETE CASCADE,
+        conversation_id TEXT REFERENCES communication_conversations(id) ON DELETE CASCADE,
         sender_type TEXT NOT NULL CHECK (sender_type IN ('customer', 'admin')),
         sender_name TEXT NOT NULL,
         sender_email TEXT NOT NULL,
@@ -1072,7 +1096,12 @@ export async function getDb(): Promise<Pool> {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Migration: add conversation_id column to existing conversation_messages
+    try { await client.query(`ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS conversation_id TEXT REFERENCES communication_conversations(id) ON DELETE CASCADE`); } catch (e) {}
+    try { await client.query(`ALTER TABLE conversation_messages ALTER COLUMN request_id DROP NOT NULL`); } catch (e) {}
+    // Indexes
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_request_id ON conversation_messages(request_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id ON conversation_messages(conversation_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_created_at ON conversation_messages(created_at ASC)`);
 
     // 28. Create sales_enquiries table (Phase 12 - Purchase Workflow)
