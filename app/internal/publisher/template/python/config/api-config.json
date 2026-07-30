@@ -23,15 +23,47 @@
   },
   "trial": {
     "enabled": true,
-    "days": {{TRIAL_DAYS}}
+    "days": {{TRIAL_DAYS}},
+    "require_email": true,
+    "require_company": false,
+    "auto_convert": true,
+    "message": "Start your free trial. No credit card required."
   },
   "license": {
+    "enabled": true,
     "max_devices": {{MAX_DEVICES}},
-    "hardware_binding": true
+    "hardware_binding": true,
+    "offline_days": 0,
+    "renewal_reminder_days": 7
+  },
+  "hardware": {
+    "fingerprint": {
+      "include_cpu": true,
+      "include_motherboard": true,
+      "include_mac": true,
+      "include_os": true,
+      "hash_algorithm": "sha256"
+    },
+    "replacement": {
+      "enabled": true,
+      "require_approval": false,
+      "max_replacements_per_year": 2
+    }
   },
   "offline": {
     "enabled": true,
-    "cache_days": 7
+    "cache_days": 7,
+    "encryption": "AES-256-GCM",
+    "validate_on_reconnect": true
+  },
+  "security": {
+    "hmac_algorithm": "SHA256",
+    "timestamp_window": 300,
+    "require_nonce": true,
+    "rate_limit": {
+      "requests_per_minute": 100,
+      "requests_per_hour": 1000
+    }
   },
   "features": {
     "universal_license_center": true,

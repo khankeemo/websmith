@@ -29,6 +29,7 @@ class LicenseStatus:
         self.customer_email = kwargs.get('customer_email')
         self.customer_phone = kwargs.get('customer_phone')
         self.customer_mobile = kwargs.get('customer_mobile')
+        self.product_name = kwargs.get('product_name')
         self.max_devices = kwargs.get('max_devices', 999)
         self.device_count = kwargs.get('device_count', 0)
 
@@ -47,6 +48,7 @@ class LicenseStatus:
             'customer_email': self.customer_email,
             'customer_phone': self.customer_phone,
             'customer_mobile': self.customer_mobile,
+            'product_name': self.product_name,
             'max_devices': self.max_devices,
             'device_count': self.device_count,
         }
@@ -67,6 +69,7 @@ class LicenseStatus:
             customer_email=data.get('customer_email'),
             customer_phone=data.get('customer_phone'),
             customer_mobile=data.get('customer_mobile'),
+            product_name=data.get('product_name'),
             max_devices=data.get('max_devices', 999),
             device_count=data.get('device_count', 0),
         )
@@ -209,6 +212,7 @@ class LicenseEngine:
                         plan=plan.get('name', 'Trial' if api_status == 'trial' else ''),
                         hardware_id=hardware_id,
                         license_key=lic.get('license_key', ''),
+                        product_name=product.get('name'),
                         customer_name=cust.get('name'),
                         customer_email=cust.get('email'),
                         customer_mobile=cust.get('mobile'),
