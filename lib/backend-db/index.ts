@@ -1104,6 +1104,21 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id ON conversation_messages(conversation_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_created_at ON conversation_messages(created_at ASC)`);
 
+    // 27d. Create conversation_attachments table for file attachments on messages
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversation_attachments (
+        id SERIAL PRIMARY KEY,
+        message_id INTEGER REFERENCES conversation_messages(id) ON DELETE CASCADE,
+        file_name TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        mime_type TEXT NOT NULL,
+        storage_path TEXT NOT NULL,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    try { await client.query(`ALTER TABLE conversation_attachments ADD COLUMN IF NOT EXISTS message_id INTEGER REFERENCES conversation_messages(id) ON DELETE CASCADE`); } catch (e) {}
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_attachments_message_id ON conversation_attachments(message_id)`);
+
     // 28. Create sales_enquiries table (Phase 12 - Purchase Workflow)
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_enquiries (

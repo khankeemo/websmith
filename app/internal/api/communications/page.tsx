@@ -577,9 +577,21 @@ export default function CommunicationsPage() {
         <p className="text-sm text-[var(--text-secondary)] truncate">
           {conv.subject || '(No subject)'}
         </p>
-        <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">
-          {conv.customer_email}
-        </p>
+        <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] mt-0.5">
+          <span>{conv.customer_email}</span>
+          {conv.product_id && (
+            <>
+              <span className="w-1 h-1 rounded-full bg-[var(--border-color)]" />
+              <span>{conv.product_id}</span>
+            </>
+          )}
+          {conv.license_key && (
+            <>
+              <span className="w-1 h-1 rounded-full bg-[var(--border-color)]" />
+              <code className="text-[10px]">{conv.license_key.substring(0, 20)}</code>
+            </>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <CategoryBadge category={conv.category} />
