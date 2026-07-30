@@ -39,6 +39,7 @@ import {
   ShieldCheck,
   Inbox,
   Settings,
+  MessageCircle,
 } from "lucide-react";
 
 const menu = [
@@ -78,6 +79,12 @@ const menu = [
     items: [
       { name: "Trial Dashboard", icon: Activity, path: "/internal/api/trials" },
       { name: "Trial Templates", icon: Gift, path: "/internal/api/trial/trial-templates" },
+    ],
+  },
+  {
+    title: "COMMUNICATIONS",
+    items: [
+      { name: "Communications", icon: MessageCircle, path: "/internal/api/communications" },
     ],
   },
   {
