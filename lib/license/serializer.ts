@@ -75,7 +75,7 @@ export function computeNormalizedStatus(
 
   if (dbStatus === 'active' && isHardwareActivated) return 'licensed';
   if (dbStatus === 'active' && !isHardwareActivated && hasActiveLicenseOnOtherDevice) return 'force_reactivation';
-  if (dbStatus === 'active' && !isHardwareActivated) return 'inactive';
+  if (dbStatus === 'active') return 'licensed';
 
   return 'unlicensed';
 }
