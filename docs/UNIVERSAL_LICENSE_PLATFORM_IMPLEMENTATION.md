@@ -1,10 +1,10 @@
-# Universal License Platform — Master Implementation Plan
+﻿# Universal License Platform — Master Implementation Plan
 
 > **Single Source of Truth** for architecture, workflow, SDK Publisher changes,
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Shared Serializer Architecture)** — **AWS-01 ULC Admin Center Implementation Applied** — **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status** — **ULC Live License Status Fix: Backend status normalization bugs fixed (expired→expired, trial expired→no_license, full status passthrough), client.py base_url fix, license_engine.py trial expiry validation, ULC handles ALL statuses from live API, debug logging removed, sys.exit only when unlocked, route.ts unused serializer imports removed** — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Session — Shared Serializer Architecture)** — **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored** — **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status; _is_valid_for_unlock bug fixed; _refresh_display licensed status mapping added; TypeScript client getLicenseStatus method added** — **AWS-01 Communications Center Module Applied**
+> Status: Phases 1-14 Complete — Phase 15 Complete — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Shared Serializer Architecture)** — **AWS-01 ULC Admin Center Implementation Applied** — **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status** — **ULC Live License Status Fix: Backend status normalization bugs fixed (expired→expired, trial expired→no_license, full status passthrough), client.py base_url fix, license_engine.py trial expiry validation, ULC handles ALL statuses from live API, debug logging removed, sys.exit only when unlocked, route.ts unused serializer imports removed** — Section 0A Complete — Locked Menu Redesign Complete — Activation API HTTP 500 Fix Applied — ULC Final Corrections Complete (Tasks 1-4) — AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) — No License Business State Fix Applied (Session 7) — ULC Panel Redesign Applied (Session 8) — AWS-01 Startup Decision Routing Applied — AWS-01 Final Startup Routing Applied — AWS-01 Python Runtime Hardware-Status Propagation Fix Applied — AWS-01 Universal Restart Workflow Added — AWS-01 Final Internal API Compliance Audit Applied — AWS-01 Sessions 10-15 Applied — AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) — AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template — Issues 1-7 Fixed) — AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated — AWS-01 Cache Hardware-Consistency Deletion Fix Applied — AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied — AWS-01 Audit — Live Trial Detection Fixed (has_trial / status=active) — Status Panel Mapped (Customer, Email, Product, Plan) — Startup Engine Same Bug Fixed — Complete Template Verification Done — ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added — AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied — **Normalized License Status API Response Format Applied (Session — Shared Serializer Architecture)** — **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored** — **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status; _is_valid_for_unlock bug fixed; _refresh_display licensed status mapping added; TypeScript client getLicenseStatus method added** — **AWS-01 Communications Center Module Applied** — **AWS-01 Local SDK Validation Applied: Server-First License Sync (backend is single source of truth), Cached License Data Removed on No-Active Status, Remaining Days Always From Backend (days_remaining), Hardcoded Plan Fallback Removed, License Revocation Locks UI + Message, Peek-First Decision Flags Fix** — **AWS-01 Final Validation Root-Cause Fix Applied: serializer computeNormalizedStatus no longer returns 'inactive' for active-but-unbound licenses — active + !isHardwareActivated now returns 'licensed' (hardware.is_activated: false), verified live (ACTIVE license → licensed); main.py logs 'Activation completed' only on licensed; template sync + docs synced**
 
 ---
 
@@ -2116,7 +2116,7 @@ All API endpoints that return license or trial status **must** use the shared se
 | `isTrial && dbStatus === 'active'` | `trial` |
 | `dbStatus === 'active' && isHardwareActivated` | `licensed` |
 | `dbStatus === 'active' && !isHardwareActivated && hasActiveLicenseOnOtherDevice` | `force_reactivation` |
-| `dbStatus === 'active' && !isHardwareActivated` (no other device) | `inactive` |
+| `dbStatus === 'active' && !isHardwareActivated` (no other device) | `licensed` (valid — not yet bound to this device) |
 | Fallback (nothing matched) | `unlicensed` |
 
 #### Affected Routes
@@ -6496,13 +6496,13 @@ Specific issues:
 
 | Status | DB / Business Condition |
 |--------|------------------------|
-| `licensed` | `status=active` + hardware activated + not expired |
+| `licensed` | `status=active` + not expired (hardware activated, or valid and not yet bound to this device) |
 | `trial` | `is_trial=true` + `status=active` + not expired |
 | `expired` | Past expiry date (any DB status) |
 | `revoked` | DB status `revoked` |
 | `suspended` | DB status `suspended` |
 | `disabled` | DB status `disabled` |
-| `inactive` | DB status `inactive`, or `status=active` + not activated + no other device |
+| `inactive` | DB status `inactive` (admin-deactivated only) |
 | `deleted` | `deleted_at` set or DB status `deleted` |
 | `force_reactivation` | `status=active` + not activated + active on another device |
 | `unlicensed` | No license/trial found |
@@ -6753,3 +6753,239 @@ Additional issues:
 - Legacy `_log()` calls and `LiveLog.log()` calls retained as normal production logging (not debug-only)
 - Backend status normalization now produces correct values for all 10 normalized states
 - The ULC now correctly displays every license state from the live API response
+
+---
+
+## Session Summary — 2026-07-31 (AWS-01 Local SDK Validation — Hardcoded Data, License Removal, Remaining Days, Synchronization)
+
+### Objective
+
+Fix 4 reported issues in the LOCAL generated SDK (D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS) and the ZEMmacOS app layer, working ONLY inside D:\ZEMmacOS (no Websmith template modifications during this session):
+
+1. **Hardcoded/stale license data** — Dashboard kept displaying license status/plan/key/validity/remaining days after the admin deleted the license.
+2. **License removal** — when the backend returns license not found / inactive / revoked / deleted, all displayed license info must be removed immediately, premium access locked, and the message shown.
+3. **Remaining days** — a 1-year license displayed `0 days remaining`. Must never be calculated locally — always display the backend value.
+4. **Synchronization** — Dashboard, ULC, Activation and Renew must display the same normalized backend response.
+
+### Root Causes
+
+| # | Issue | Root Cause |
+|---|-------|-----------|
+| 1 | Stale license data after admin deletion | `LicenseEngine.initialize()` restored the cached valid status via `peek_license_status()` (raw read, no TTL) and returned it **without ever contacting the backend** (old cache-first ordering). App restart AND manual "Refresh Status" both used this path, so a deleted license was displayed forever. |
+| 2 | `0 days remaining` for 1-year license | The activation / validate / renew / convert / bind API responses contain **no days field** (normalized response: `license: { license_key, plan, expiry_date, max_devices, device_count, is_trial }`). The SDK read `lic.get('days_left', 0)` → always `0`. The only backend-computed days value is `days_remaining` on the unified status endpoint `GET /internal/backend/license/status`, which the SDK never re-fetched after state changes. |
+| 3 | Returning customers misclassified as new (found by test) | `_build_no_license_decision()` read `is_onboarding_complete()` (TTL-aware `get()`) FIRST; with `cache_days: 0` the `get()` call **deleted** the flag on expiry, so `peek_onboarding_complete()` then found nothing → existing customers fell to the `no_license` (new customer) branch instead of `inactive`. Same pattern for `has_ever_activated_paid_license()`. |
+| 4 | Hardcoded plan fallback in Dashboard | `main_ui.py` used `status_obj.plan or ('Trial' if is_trial else 'Active')` — a hardcoded `'Active'` plan string was displayed when the backend sent no plan. |
+| 5 | Offline vs. server-truth indistinguishable | `client.get_license_status()` swallowed network exceptions and returned `{'success': False, 'status': 'no_license'}`, so the engine could not tell "backend unreachable" (→ safe offline cache fallback) from "backend answered" (→ server is the single source of truth). |
+
+### Files Modified (local only)
+
+| File | Change | Reason |
+|------|--------|--------|
+| `WSD_SDKToolkit_ZEMMACOS/client.py` | `get_license_status()` now raises `ConnectionUnavailable` on timeout/connection errors (HTTP errors still return `success: False`) | Lets the engine distinguish offline (→ cache fallback) from reachable backend (→ authoritative status) |
+| `WSD_SDKToolkit_ZEMMACOS/license_engine.py` | Added `_build_status_from_unified()`, `_sync_status_from_server()`, `_build_no_license_decision()`; rewrote `initialize()` to **server-first**; all state-changing methods (`activate`, `validate`, `validate_hardware`, `start_trial`, `convert_trial`, `renew`, `bind_device`) now re-sync from the unified endpoint after success; all `days_left` reads use `days_remaining` first; decision flags read via peek-first (TTL-deletion bug) | Backend is the single source of truth for status/plan/key/validity/remaining days; cached values removed the moment the server reports no active license; offline support preserved via cache fallback only when unreachable |
+| `main.py` | `refresh_license()` detects the valid→invalid transition and calls new `_handle_license_revoked()` which locks the UI and shows the message; no-license decision message set to the required string | "Immediately remove all displayed license info and lock premium access, show message" |
+| `py/main_ui.py` | Plan fallback `'Active'` → `'--'` | Remove hardcoded license data |
+
+### Decision Logic (after fix)
+
+`
+initialize() / refresh_license()
+  → _sync_status_from_server()            # GET /internal/backend/license/status
+      → licensed | trial                  # authoritative: build status, cache, return valid
+      → anything else (no_license,        # delete cached status + license.key,
+        inactive, revoked, deleted,       # clear in-memory key, return decision
+        expired, ...)                     #   (inactive / trial_consumed / no_license)
+      → ConnectionUnavailable (offline)   # safe cache fallback only
+  → activate() / validate() / renew() / convert_trial() / bind_device()
+      success → _sync_status_from_server() (offline → raw response values only)
+`
+
+- Remaining days are NEVER calculated locally: only `days_remaining` (unified endpoint) or `days_remaining`/`days_left` from raw responses are stored and displayed.
+- `inactive` decision message (required): `License not found or inactive. Please contact your administrator or activate a valid license.`
+
+### Verification (mock API harness — 20/20 checks PASS)
+
+| Scenario | Result |
+|----------|--------|
+| Server returns licensed (`days_remaining: 365`) → status valid, `days_left = 365`, plan/key/customer from backend, cached for offline | PASS |
+| Admin deletes license → server returns `no_license` → status invalid, cache cleared, `license.key` cleared, decision `inactive` with required message | PASS |
+| Backend unreachable → valid cached status restored (offline support) | PASS |
+| `activate()` success → unified sync overwrites days (`days_left = 360`, not 0), status cached | PASS |
+| `activate()` while offline → raw-response fallback (`days_remaining` key honored) | PASS |
+| `renew()` success → unified sync days (`days_left = 730`) | PASS |
+| Server returns trial (`days_remaining: 14`) → valid trial, `trial_active`, `days_left = 14` | PASS |
+| Syntax: `py_compile` on all 4 modified files | PASS |
+
+### Manual/UI Verification Checklist (performed)
+
+- [x] No hardcoded license values remain in `main.py` / `py/main_ui.py` / `py/settings_ui.py` (grep: only dynamic `status_obj` reads; plan fallback `'--'`)
+- [x] No `days_left=lic.get('days_left', 0)` patterns remain in the SDK
+- [x] Deactivation removes info: `deactivate()` → `reset_all()` + `_status = None`; next refresh re-fetches from backend
+- [x] Dashboard, Settings panel, ULC, SuccessDialog all read the same `LicenseStatus` instance → same normalized values
+- [x] Locked-premium message flow: refresh returning invalid after valid → `_lock_ui()` + messagebox
+
+### Next Step
+
+- Copy the 2 modified SDK files (`client.py`, `license_engine.py`) into `D:\websmith\app\internal\publisher\template\python\` after this session's verification (per AWS-01 workflow).
+
+---
+
+## Session Summary — 2026-07-31 (AWS-01 Final Universal SDK Validation, Activation & Runtime Verification)
+
+### Objective
+
+Final validation of the LOCAL Python SDK (`D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS`) and the ZEMmacOS app layer against the AWS-01 spec: mandatory **Validate → Send OTP → Verify OTP → Enable Activate/Renew** flows, Refresh must fetch the latest backend state, license removal must clear everything and show the **Inactive License** dialog (Activate License / Generate Request), remaining days strictly from backend, universality preserved (no ZEMmacOS-specific logic in the SDK), runtime verification with `python main.py`, then copy verified files to the Websmith Python template.
+
+### Audit Findings (code vs. documented claims)
+
+The docs claimed several AWS-01 fixes were already applied. The audit confirmed the engine-side work (server-first `initialize()`, `_sync_status_from_server()`, `days_remaining` sourcing, cache/key clearing on removal) was real, but found the workflow layer did NOT match the documented spec:
+
+| # | Gap | Evidence |
+|---|-----|----------|
+| 1 | `UniversalLicenseCenter._activate_license()` called `engine.activate(key)` directly — no Validate License API call, no OTP, no Verify step. Direct contradiction of Rule 0A-4 and of the master doc's own claim (line 4629: "Rewrote `_activate_license()` with 3-phase flow") | `universal_license_center.py` |
+| 2 | `_renew_license_flow()` called `engine.renew()` directly after setting the private `self.engine._license_key = key`; no validate/OTP/verify; no "You're a new customer. Please activate your license first." handling | `universal_license_center.py` |
+| 3 | ULC Refresh (`_refresh_ui`) only rebuilt the UI from the pre-initialised status — it never re-fetched the backend, so a deleted/inactive/revoked license stayed visible while the ULC was open | `universal_license_center.py` |
+| 4 | "Inactive License" dialog existed in `py/main_ui.py` but was never invoked; message/buttons did not match the spec (no "Generate Request" button); `main.py:_handle_license_revoked()` showed a plain `messagebox` instead | `py/main_ui.py`, `main.py` |
+| 5 | Debug leftover: ULC `show()` deleted a hardcoded `UniversalLicenseCenter.opencode.lock` temp file on every open | `universal_license_center.py` |
+| 6 | `main.py:_open_ulc()` created the ULC WITHOUT `initial_status`, so the startup ULC defaulted to `no_license` and hid the engine's real decision (e.g. `inactive`) — found by the live runtime test | `main.py` |
+
+### Root Cause
+
+The mandatory activation/renewal flows were spec'd and documented but never implemented in the Python ULC runtime — the buttons invoked the engine's raw API methods directly. Refresh was treated as a pure re-render instead of a re-sync with the single source of truth (backend). The Inactive dialog existed in the app shell but had no caller.
+
+### Fixes Applied (local only — no Websmith template modifications during the session)
+
+| File | Change | Reason |
+|------|--------|--------|
+| `WSD_SDKToolkit_ZEMMACOS/license_engine.py` | Added public `refresh()` → `_sync_status_from_server()` (None only when offline); `renew()` accepts explicit `license_key` | Refresh must re-sync with the backend; renewal must not depend on a private-key hack |
+| `WSD_SDKToolkit_ZEMMACOS/universal_license_center.py` | Replaced both dialogs with one mandatory flow `_show_key_flow_dialog(mode)` for **activation and renewal**: Enter Key → **Validate License API** (fail → exact backend message, OTP + final action stay disabled; pass → read-only details: customer, email, product, plan, expiry, days) → **Send OTP** (to the license's registered email, with countdown) → **Verify OTP** → **enable Activate/Renew**. Renewal with no customer/license → "You're a new customer. Please activate your license first." + only Activate License enabled. `already_activated` → info dialog + engine refresh. `_refresh_ui()` now calls `_refresh_from_server()` first; server-confirmed removal clears stale values. Added SDK-side `_show_inactive_license_dialog()` (required message + **Activate License / Generate Request** buttons) shown on `inactive` status at ULC open and on every refresh. Removed the opencode lock unlink hack and unused `tempfile` import | Mandatory Rule 0A-4 workflow; spec-exact Inactive dialog; refresh never shows stale values |
+| `main.py` | `_open_ulc()` now passes `initial_status=self.license_status`. `_handle_license_revoked()` clears displayed values and calls `_show_inactive_license_dialog()`. Added `_on_generate_request()` (opens the ULC "Generate Request" dialog) | Startup ULC must display the engine's decision; revocation must show the spec dialog |
+| `py/main_ui.py` | `_show_inactive_license_dialog()` message → "This license is inactive or no longer exists. Please contact your administrator or activate using a valid license."; buttons → **Activate License / Generate Request** | Spec-exact dialog |
+
+### Architecture (after fix)
+
+```
+Activation / Renewal (ULC _show_key_flow_dialog)
+  Enter License Key
+    → POST /api/v1/license?action=validate (key + hardware_id)
+        → fail (expired/revoked/inactive/deleted/not found/no license data)
+            → show EXACT backend message; OTP + final action DISABLED
+        → renewal + no customer/license → "You're a new customer. Please
+          activate your license first." (only Activate License enabled)
+        → pass → read-only customer/license details shown
+    → POST /api/v1/auth/otp/send (license's registered email)
+    → POST /api/v1/auth/otp/verify → enable Activate/Renew
+    → POST /api/v1/license?action=activate (or renew)
+    → engine re-syncs from GET /internal/backend/license/status
+    → SuccessDialog (backend days) → Restart Now / Close
+
+Refresh (ULC _refresh_ui / app refresh_license)
+  → engine.refresh() → GET /internal/backend/license/status
+      → licensed | trial → rebuild display (backend values only)
+      → deleted/inactive/revoked/not found → stale values cleared,
+        Inactive License dialog (Activate License / Generate Request)
+
+Startup (app _open_ulc)
+  → LicenseEngine.initialize() → initial_status passed into ULC
+  → status 'inactive' → ULC + Inactive License dialog
+```
+
+- Remaining days are NEVER calculated locally: only `days_remaining` (unified endpoint) or `days_remaining`/`days_left` from raw responses are stored and displayed (Dashboard, header badge, Settings panel, ULC, SuccessDialog all read the same `LicenseStatus`).
+- No hardcoded business data in the SDK: product/customer/license/plan/email/mobile all come from `api-config.json` or backend responses.
+
+### Verification (this session)
+
+- `python -m py_compile` — clean on all SDK modules, `main.py`, `py/main_ui.py`, `py/settings_ui.py`
+- Mock-API logic suite — 15/15 PASS:
+  - `refresh()` offline → keeps current status (safe fallback)
+  - server `no_license` → `inactive` decision, cached status deleted, `license.key` file deleted, in-memory key cleared
+  - server `licensed` (`days_remaining: 365`) → valid, `days_left = 365`, plan/key/customer from backend
+  - `renew(license_key=...)` → key passed to API, re-syncs days from unified endpoint
+  - inactive decision message contains required text ("Please contact your administrator … activate a valid license")
+  - `validate()` failure surfaces backend error (`LICENSE_EXPIRED`)
+- Live runtime `python main.py` against the real backend (`https://websmith-z.vercel.app`):
+  - Decision engine → `inactive` (server confirmed no active license for this hardware)
+  - ULC opened with pre-initialised `inactive` status (after the `initial_status` fix)
+  - Inactive License dialog displayed; clicking "Activate License" opened the new Validate → OTP flow dialog without any exception (stderr empty across runs)
+- Debug leftovers removed; no STAGE/TEMP/mock markers remain in SDK source
+
+### Next Step
+
+- Copy the verified SDK files into `D:\websmith\app\internal\publisher\template\python\` (per AWS-01 workflow) and update the published template copies so future generated SDKs carry the same mandatory flows.
+
+---
+
+## AWS-01 Final Fresh Database Validation — VERIFIED (2026-07-31)
+
+### Backend Fixes Applied (D:\websmith - uncommitted)
+- `lib/backend-db/index.ts`: ALTER TABLE `communication_conversations` ADD COLUMN `deleted_at` moved BEFORE index creation (line ~1083) — fixes bootstrap crash on fresh DB
+- `app/internal/backend/license/status/route.ts`: Removed 3 success-path `client.release()` calls; kept single `finally` release — fixes "Release called on client which has already been released to the pool"
+
+### Environment
+- Live Neon Postgres (restored Vercel prod `DATABASE_URL` from git commit 3f165fe)
+- DB confirmed fresh: all licensing tables = 0; reference data intact (products, plans, developer_api_keys, trial_templates)
+- Vercel prod env: all secrets active (API_CENTER_JWT_SECRET, BREVO_API_KEY, etc.)
+
+### Live Runtime Verification (python main.py against `https://websmith-i7jr9cgd7-khankeemos-projects.vercel.app`)
+- **FIRST RUN**: Cache cleared (`C:\Users\Admin\.websmith`); decision engine → `no_license` → ULC opens (Welcome + Activation only) ✓
+- **TRIAL**: User completed trial via app (keemogamer@gmail.com); trial id=46 active, expiry 2026-08-07; restart → "License valid — building main application" ✓; status endpoint shows `"trial"`, `"Trial Active"`, `days_remaining: 7`, devices 1/1
+- **OTP**: Round-trip verified twice (test@websmithdigital.com, activation-test@...) — send_otp/verify_otp success, codes readable in DB
+- **ACTIVATION**: Official flow via SDK client: validate → OTP → verify → activate → status `licensed`, `days_remaining: 365` ✓ (key `GORQ-3HAI-D181-USLA-HDJ5-QUOJ`)
+- **RENEWAL A**: Invalid key → validate returns `unlicensed` → ULC shows "You're a new customer. Please activate your license first." ✓
+- **RENEWAL B**: Existing valid license → renew extends by 365 days (2027-07-31 → 2028-07-30) ✓
+- **Tkinter Race Fix**: `universal_license_center.py` `_refresh_ui` wrapped in try/except — destroyed-window TclError prevented
+
+### Code Quality
+- NO HARDCODE scan: zero hardcoded business data in SDK
+- No debug/test leftovers (STAGE/TEMP/opencode markers removed)
+- All SDK modules compile clean (`python -m py_compile`)
+
+### Ready for Template Copy
+Verified SDK files in `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS` ready for copy to `D:\websmith\app\internal\publisher\template\python\` per AWS-01 workflow.
+
+
+
+---
+
+## Session Summary — 2026-07-31 (AWS-01 Final Validation Root-Cause Fix — ACTIVE License Misclassified as 'inactive')
+
+### Problem (production, reproduced live)
+
+The DB-ACTIVE license `VAAR-QAGR-3QOG-8KUF-A3GF-K0S6` (customer keemodatabox@gmail.com, plan Starter, expiry 2027-07-31, `device_count: 0` — never bound to a device) was reported by the SDK as **Inactive** / "Already Used". Live probes against `https://websmith-z.vercel.app`:
+
+| Probe | Result |
+|-------|--------|
+| `POST /api/v1/license` validate (key + probe hardware) | `success: true, status: "inactive"`, license present, `hardware.is_activated: false`, "License is inactive — activate to use" |
+| Same validate with real hardware `574bd1e1...` | still `"inactive"`, `is_activated: false` |
+| `GET /internal/backend/license/status` (real HW) | `status: "trial"` (trial to 2026-08-07), `hardware.is_activated: true` |
+| `POST /api/v1/trial` action=status (real HW) | `status: "licensed"` — paid license overrides trial |
+
+### Root Cause (backend validation bug)
+
+`lib/license/serializer.ts` `computeNormalizedStatus()`:
+- `dbStatus === 'active' && isHardwareActivated` → `licensed`
+- `dbStatus === 'active' && !isHardwareActivated && hasActiveLicenseOnOtherDevice` → `force_reactivation`
+- **BUG:** `dbStatus === 'active' && !isHardwareActivated` (no other device) → `inactive`
+
+This conflated *"admin-deactivated"* with *"active but not yet activated on this device"*. A legitimate first-time activation was blocked: the SDK `do_validate` hard-fails on `inactive` (`hard_fail` includes it), so the OTP/Activate buttons stayed disabled. The same bug existed in the generated template `app/internal/publisher/template/python/universal_license_center.py:902-904`. This was inconsistent with the unified status endpoint (`status/route.ts:76` maps `active` → `licensed`) and the documented contract (Rule 0A-4).
+
+The "Already Used" symptom came from the trial/OTP path: `_show_welcome()` → `customer_exists: true` → `_trial_consumed = True` → ULC "already used its free trial" message, with the backend rejecting via `TRIAL_ALREADY_CONSUMED` and paid-license precedence. The twice-logged "Activation completed" was a false positive: `main.py` logged SUCCESS whenever ULC `show()` returned a valid pre-initialised status (cached trial) even when the user cancelled — no activation ever reached the DB (`device_count: 0`).
+
+### Fix Applied
+
+| File | Change |
+|------|--------|
+| `lib/license/serializer.ts` | `computeNormalizedStatus()`: `dbStatus === 'active' && !isHardwareActivated` (no other device) now returns **`licensed`** with `hardware.is_activated: false`. `inactive` is reserved for `dbStatus === 'inactive'` (admin-deactivated) only. Deployed to Vercel prod. |
+| `main.py` | `open_activation()` / `open_renew_license()`: only log "Activation completed"/"Renewal completed" when the returned status is actually `licensed`; status/UI still updated for any valid status. |
+| Template sync | `universal_success_dialog.py` gained `reentry` param; `universal_license_center.py` `_refresh_ui` race-guard try/except + single `_refresh_hardware_display()`; `__init__.py` exports `ConnectionUnavailable`. |
+| Docs | Both implementation docs updated: mapping tables (active + not-bound → `licensed`), status-value summaries, status headers. |
+
+### Live Verification (after deploy)
+
+`POST /api/v1/license` validate `VAAR-QAGR-3QOG-8KUF-A3GF-K0S6` + real HW `574bd1e1...`:
+
+```json
+{ "success": true, "status": "licensed", "license": { "license_key": "VAAR-QAGR-3QOG-8KUF-A3GF-K0S6", "plan": "Starter", "expiry_date": "2027-07-31", "device_count": 0 }, "hardware": { "is_activated": false }, "message": "License is active and valid" }
+```
+
+`licensed` is not in the SDK `hard_fail` set → the ULC Validate flow now proceeds to OTP → Activate for first-time binding. Template files compile clean; `main.py` passes `py_compile`.

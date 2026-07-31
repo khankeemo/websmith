@@ -6,14 +6,14 @@ __all__ = [
     "SuccessDialog",
     "RestartDialog",
     "LicenseEngine", "LicenseStatus",
-    "ApiClient", "ApiError",
+    "ApiClient", "ApiError", "ConnectionUnavailable",
     "HardwareDetector",
     "CacheManager",
     "LiveLog",
     "SingleInstance",
 ]
 
-from .client import ApiClient, ApiError
+from .client import ApiClient, ApiError, ConnectionUnavailable
 from .license_engine import LicenseEngine, LicenseStatus
 from .hardware import HardwareDetector
 from .cache import CacheManager
