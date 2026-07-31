@@ -91,8 +91,6 @@ export async function GET(request: NextRequest) {
       );
       const otherDeviceCount = parseInt(otherActivationRes.rows[0]?.count || '0');
 
-      client.release();
-
       // Determine is_hardware_activated: this hardware has an activation record
       const isHardwareActivated = true;
       // Has active license on other device: other activations exist for same license
@@ -157,8 +155,6 @@ export async function GET(request: NextRequest) {
       const trialStatus = isExpired ? 'Trial Expired' : 'Trial Active';
       const normalizedTrialStatus = isExpired ? 'no_license' : 'trial';
 
-      client.release();
-
       return NextResponse.json({
         success: true,
         status: normalizedTrialStatus,
@@ -194,7 +190,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Step 3: No license or trial found
-    client.release();
 
     return NextResponse.json({
       success: true,

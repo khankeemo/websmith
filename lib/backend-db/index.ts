@@ -1076,14 +1076,13 @@ export async function getDb(): Promise<Pool> {
         deleted_at TIMESTAMP
       )
     `);
+    // Migration: add deleted_at column for soft delete BEFORE creating indexes on it
+    try { await client.query(`ALTER TABLE communication_conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`); } catch (e) {}
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_category ON communication_conversations(category)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_customer_email ON communication_conversations(customer_email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_status ON communication_conversations(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_created_at ON communication_conversations(created_at DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_deleted_at ON communication_conversations(deleted_at)`);
-
-    // Migration: add deleted_at column for soft delete if missing
-    try { await client.query(`ALTER TABLE communication_conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`); } catch (e) {}
 
     // 27c. Create conversation_messages table for threaded conversations
     await client.query(`
