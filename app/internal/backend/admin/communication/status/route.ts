@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+import { getDb } from '@/lib/backend-db';
 
 const VALID_STATUSES = ['open', 'waiting_customer', 'waiting_support', 'waiting_sales', 'resolved', 'closed'];
 
@@ -33,7 +23,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    client = await pool.connect();
+    client = await (await getDb()).connect();
 
     const convResult = await client.query(
       'SELECT * FROM communication_conversations WHERE id = $1',

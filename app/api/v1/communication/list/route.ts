@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     client = await pool.connect();
 
     const queryEmail = email || (await request.json().catch(() => ({}))).customer_email?.trim().toLowerCase();
-    let query = 'SELECT * FROM communication_conversations WHERE LOWER(customer_email) = $1';
+    let query = 'SELECT * FROM communication_conversations WHERE LOWER(customer_email) = $1 AND deleted_at IS NULL';
     const params: any[] = [queryEmail];
 
     if (category) {

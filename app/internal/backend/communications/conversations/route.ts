@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+import { getDb } from '@/lib/backend-db';
 
 const VALID_STATUSES = ['open', 'waiting_customer', 'waiting_support', 'waiting_sales', 'resolved', 'closed'];
 const VALID_CATEGORIES = ['support', 'sales', 'activation', 'renewal', 'reactivation', 'hardware_replacement', 'general'];
@@ -22,15 +12,23 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const email = searchParams.get('email');
     const search = searchParams.get('search');
+    const showDeleted = searchParams.get('show_deleted') === 'true';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
     const offset = (page - 1) * limit;
 
-    client = await pool.connect();
+    client = await (await getDb()).connect();
 
     let whereClauses: string[] = [];
     let params: any[] = [];
     let paramIndex = 1;
+
+    // By default, exclude soft-deleted conversations
+    if (!showDeleted) {
+      whereClauses.push(`cc.deleted_at IS NULL`);
+    } else {
+      whereClauses.push(`cc.deleted_at IS NOT NULL`);
+    }
 
     if (status) {
       const statuses = status.split(',');
@@ -103,6 +101,80 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to list conversations.' }
+    }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  let client = null;
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const action = searchParams.get('action');
+    const ids = searchParams.get('ids')?.split(',').filter(Boolean) || [];
+
+    client = await (await getDb()).connect();
+
+    if (action === 'empty_trash') {
+      // Permanently delete ALL soft-deleted conversations
+      const result = await client.query(
+        `DELETE FROM communication_conversations
+         WHERE deleted_at IS NOT NULL
+         RETURNING id`,
+        []
+      );
+      const deletedCount = result.rows.length;
+
+      client.release();
+      client = null;
+
+      return NextResponse.json({
+        success: true,
+        data: { message: `${deletedCount} conversation(s) permanently deleted.`, deleted: deletedCount }
+      });
+    }
+
+    if (ids.length > 0) {
+      // Permanently delete selected conversations (admin only)
+      await client.query(
+        `DELETE FROM conversation_messages WHERE conversation_id = ANY($1)`,
+        [ids]
+      );
+      try {
+        await client.query(
+          `DELETE FROM message_queue WHERE conversation_id = ANY($1)`,
+          [ids]
+        );
+      } catch (queueDeleteError) {
+        console.warn('message_queue cleanup skipped:', queueDeleteError.message);
+      }
+      await client.query(
+        `DELETE FROM communication_conversations WHERE id = ANY($1)`,
+        [ids]
+      );
+
+      client.release();
+      client = null;
+
+      return NextResponse.json({
+        success: true,
+        data: { message: `${ids.length} conversation(s) permanently deleted.`, deleted: ids.length }
+      });
+    }
+
+    client.release();
+    client = null;
+
+    return NextResponse.json({
+      success: false,
+      error: { code: 'INVALID_ACTION', message: 'Invalid delete action.' }
+    }, { status: 400 });
+
+  } catch (error: any) {
+    console.error('Communications conversations delete error:', error);
+    if (client) { client.release(); }
+    return NextResponse.json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to delete conversations.' }
     }, { status: 500 });
   }
 }

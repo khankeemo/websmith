@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getDb } from '@/lib/backend-db';
 import { sendEmail } from '@/lib/email/brevo';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
 
 const CATEGORY_ROUTE_MAP: Record<string, string> = {
   support: 'support_reply',
@@ -46,7 +36,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    client = await pool.connect();
+    const db = await getDb();
+    client = await db.connect();
 
     const convResult = await client.query(
       'SELECT * FROM communication_conversations WHERE id = $1',
@@ -89,7 +80,7 @@ export async function POST(request: NextRequest) {
       const adminEmail = CATEGORY_ADMIN_EMAIL_MAP[conv.category] || process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com';
       try {
         const emailResult = await sendEmail(
-          pool,
+          db,
           emailTemplate,
           { email: adminEmail, name: conv.category === 'sales' ? 'Sales' : 'Support' },
           {

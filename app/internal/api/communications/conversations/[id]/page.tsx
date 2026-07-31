@@ -7,7 +7,7 @@ import {
   Reply, User, Clock, Tag, MessageSquare, Paperclip,
   UserCircle, Shield, Trash2, ExternalLink, Search,
   X, CheckCircle2, XCircle, Clock3, Activity,
-  FileText, Eye, Repeat,
+  FileText, Eye, Repeat, RotateCcw, Delete,
 } from "lucide-react";
 
 const API_BASE = "/internal/backend/communications";
@@ -26,6 +26,7 @@ interface Conversation {
   runtime_type: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 interface Message {
@@ -116,6 +117,7 @@ export default function ConversationDetailPage() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState(false);
   const [showDeliveryLog, setShowDeliveryLog] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryResult, setRetryResult] = useState<string | null>(null);
@@ -199,6 +201,38 @@ export default function ConversationDetailPage() {
     setShowDeleteConfirm(false);
   };
 
+  const handlePermanentDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}?permanent=true`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        router.push('/internal/api/communications?tab=trash');
+      }
+    } catch {}
+    setDeleting(false);
+    setShowPermanentDeleteConfirm(false);
+  };
+
+  const handleRestore = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'restore' }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        fetchConversation();
+      }
+    } catch {}
+    setDeleting(false);
+  };
+
   const handleRetry = async () => {
     setRetrying(true);
     setRetryResult(null);
@@ -269,14 +303,36 @@ export default function ConversationDetailPage() {
           <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 w-[400px] max-w-full mx-4 space-y-4">
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">Delete Conversation</h2>
             <p className="text-sm text-[var(--text-secondary)]">
-              Are you sure you want to delete this conversation and all its messages? This action cannot be undone.
+              Move this conversation to the Trash? It can be restored later from the Recovery Bin.
             </p>
             <div className="flex gap-2 pt-2">
               <button onClick={handleDelete} disabled={deleting}
                 className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-                {deleting ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</> : <><Trash2 size={14} /> Delete</>}
+                {deleting ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</> : <><Trash2 size={14} /> Move to Trash</>}
               </button>
               <button onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent delete confirmation modal */}
+      {showPermanentDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 w-[400px] max-w-full mx-4 space-y-4">
+            <h2 className="text-lg font-semibold text-red-400">Permanently Delete</h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              This will permanently delete this conversation and ALL related messages, attachments, and queue records. This action CANNOT be undone.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button onClick={handlePermanentDelete} disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                {deleting ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</> : <><Delete size={14} /> Delete Forever</>}
+              </button>
+              <button onClick={() => setShowPermanentDeleteConfirm(false)}
                 className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
                 Cancel
               </button>
@@ -430,30 +486,50 @@ export default function ConversationDetailPage() {
 
       {/* Action bar */}
       <div className="flex items-center gap-2 flex-wrap">
-        <select
-          value={conversation.status}
-          onChange={e => handleStatusChange(e.target.value)}
-          disabled={statusUpdating}
-          className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-sm disabled:opacity-50"
-        >
-          {VALID_STATUSES.map(s => (
-            <option key={s} value={s}>{STATUS_LABELS[s]?.label || s}</option>
-          ))}
-        </select>
-        {statusUpdating && <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />}
+        {conversation.deleted_at ? (
+          <>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-xs text-red-400">
+              <Trash2 size={12} /> In Trash
+            </span>
+            <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
+            <button onClick={handleRestore} disabled={deleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw size={12} />}
+              Restore
+            </button>
+            <button onClick={() => { setShowPermanentDeleteConfirm(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-xs text-red-400 hover:bg-red-500/10 transition-colors">
+              <Delete size={12} /> Permanently Delete
+            </button>
+          </>
+        ) : (
+          <>
+            <select
+              value={conversation.status}
+              onChange={e => handleStatusChange(e.target.value)}
+              disabled={statusUpdating}
+              className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-sm disabled:opacity-50"
+            >
+              {VALID_STATUSES.map(s => (
+                <option key={s} value={s}>{STATUS_LABELS[s]?.label || s}</option>
+              ))}
+            </select>
+            {statusUpdating && <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />}
 
-        <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
+            <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
 
-        <button onClick={handleRetry} disabled={retrying}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/50 hover:text-[var(--text-primary)] disabled:opacity-50 transition-colors">
-          {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat size={12} />}
-          Retry Failed
-        </button>
+            <button onClick={handleRetry} disabled={retrying}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/50 hover:text-[var(--text-primary)] disabled:opacity-50 transition-colors">
+              {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat size={12} />}
+              Retry Failed
+            </button>
 
-        <button onClick={() => { setShowDeleteConfirm(true); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-xs text-red-400 hover:bg-red-500/10 transition-colors">
-          <Trash2 size={12} /> Delete
-        </button>
+            <button onClick={() => { setShowDeleteConfirm(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-xs text-red-400 hover:bg-red-500/10 transition-colors">
+              <Trash2 size={12} /> Delete
+            </button>
+          </>
+        )}
 
         {retryResult && (
           <span className="text-xs text-blue-400 animate-pulse">{retryResult}</span>
@@ -519,7 +595,7 @@ export default function ConversationDetailPage() {
       </div>
 
       {/* Reply box */}
-      {conversation.status !== 'closed' && conversation.status !== 'resolved' && (
+      {!conversation.deleted_at && conversation.status !== 'closed' && conversation.status !== 'resolved' && (
         <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">

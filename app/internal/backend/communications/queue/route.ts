@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+import { getDb } from '@/lib/backend-db';
 
 export async function GET(request: NextRequest) {
   let client = null;
@@ -20,7 +10,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
     const offset = (page - 1) * limit;
 
-    client = await pool.connect();
+    client = await (await getDb()).connect();
 
     let whereClauses: string[] = [];
     let params: any[] = [];

@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+import { getDb } from '@/lib/backend-db';
 
 const DEFAULT_COMM_SETTINGS = {
   mail_accounts: [
@@ -65,7 +55,7 @@ const DEFAULT_COMM_SETTINGS = {
 export async function GET() {
   let client = null;
   try {
-    client = await pool.connect();
+    client = await (await getDb()).connect();
 
     const tableCheck = await client.query(`
       SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'system_settings') as exists
@@ -109,7 +99,7 @@ export async function POST(request: NextRequest) {
   let client = null;
   try {
     const body = await request.json();
-    client = await pool.connect();
+    client = await (await getDb()).connect();
 
     const tableCheck = await client.query(`
       SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'system_settings') as exists
@@ -145,7 +135,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const logClient = await pool.connect();
+      const logClient = await (await getDb()).connect();
       await logClient.query(
         `INSERT INTO audit_logs (event_type, message, timestamp) VALUES ($1, $2, $3)`,
         ['communication_settings_updated', 'Communication settings were updated.', now]

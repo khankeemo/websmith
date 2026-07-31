@@ -1,15 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+import { getDb } from '@/lib/backend-db';
 
 export async function GET(request: Request) {
   let client = null;
@@ -19,9 +9,9 @@ export async function GET(request: Request) {
     const category = url.searchParams.get('category');
     const email = url.searchParams.get('email');
 
-    client = await pool.connect();
+    client = await (await getDb()).connect();
 
-    let query = `SELECT * FROM communication_conversations WHERE 1=1`;
+    let query = `SELECT * FROM communication_conversations WHERE deleted_at IS NULL`;
     const params: any[] = [];
     let paramIndex = 1;
 

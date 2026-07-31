@@ -1072,13 +1072,18 @@ export async function getDb(): Promise<Pool> {
         sdk_version TEXT DEFAULT '',
         runtime_type TEXT DEFAULT '',
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        deleted_at TIMESTAMP
       )
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_category ON communication_conversations(category)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_customer_email ON communication_conversations(customer_email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_status ON communication_conversations(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_created_at ON communication_conversations(created_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_deleted_at ON communication_conversations(deleted_at)`);
+
+    // Migration: add deleted_at column for soft delete if missing
+    try { await client.query(`ALTER TABLE communication_conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`); } catch (e) {}
 
     // 27c. Create conversation_messages table for threaded conversations
     await client.query(`
@@ -1118,6 +1123,30 @@ export async function getDb(): Promise<Pool> {
     `);
     try { await client.query(`ALTER TABLE conversation_attachments ADD COLUMN IF NOT EXISTS message_id INTEGER REFERENCES conversation_messages(id) ON DELETE CASCADE`); } catch (e) {}
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_attachments_message_id ON conversation_attachments(message_id)`);
+
+    // 27e. Create message_queue table for email delivery queue and retry logic
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS message_queue (
+        id SERIAL PRIMARY KEY,
+        conversation_id TEXT REFERENCES communication_conversations(id) ON DELETE CASCADE,
+        category TEXT NOT NULL,
+        customer_email TEXT NOT NULL,
+        customer_name TEXT DEFAULT '',
+        subject TEXT DEFAULT '',
+        message TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        max_retries INTEGER DEFAULT 5,
+        last_error TEXT,
+        next_retry_at TIMESTAMP,
+        sent_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_message_queue_conversation_id ON message_queue(conversation_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_message_queue_status ON message_queue(status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_message_queue_next_retry_at ON message_queue(next_retry_at)`);
 
     // 28. Create sales_enquiries table (Phase 12 - Purchase Workflow)
     await client.query(`

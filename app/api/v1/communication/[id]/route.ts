@@ -58,7 +58,7 @@ export async function GET(
     client = await pool.connect();
 
     const convResult = await client.query(
-      'SELECT * FROM communication_conversations WHERE id = $1',
+      'SELECT * FROM communication_conversations WHERE id = $1 AND deleted_at IS NULL',
       [id]
     );
 

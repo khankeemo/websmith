@@ -7,7 +7,7 @@ import {
   ChevronRight, CheckCircle2, XCircle, Clock3, AlertCircle,
   Eye, Trash2, MoreHorizontal, Users, Tag, ChevronLeft, ChevronRight as ChevronRightIcon,
   Ban, Smartphone, CreditCard, KeyRound, Activity, UserPlus,
-  BookOpen, HelpCircle, ShoppingBag, ExternalLink,
+  BookOpen, HelpCircle, ShoppingBag, ExternalLink, RotateCcw, Delete,
 } from "lucide-react";
 
 const API_BASE = "/internal/backend/communications";
@@ -24,6 +24,7 @@ interface Conversation {
   hardware_id: string;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
   message_count: number;
   unread_replies: number;
   last_message_preview?: string | null;
@@ -77,7 +78,7 @@ interface PaginatedResponse<T> {
   };
 }
 
-type TabId = 'inbox' | 'sent' | 'failed' | 'conversations' | 'templates' | 'accounts' | 'queue' | 'delivery-logs' | 'settings';
+type TabId = 'inbox' | 'sent' | 'failed' | 'conversations' | 'templates' | 'accounts' | 'queue' | 'delivery-logs' | 'settings' | 'trash';
 
 const TABS: { id: TabId; label: string; icon: any; badge?: (s: Stats) => number }[] = [
   { id: 'inbox', label: 'Inbox', icon: Inbox, badge: (s) => s.inbox },
@@ -88,6 +89,7 @@ const TABS: { id: TabId; label: string; icon: any; badge?: (s: Stats) => number 
   { id: 'accounts', label: 'Accounts', icon: Users },
   { id: 'queue', label: 'Queue', icon: Clock, badge: (s) => s.queued },
   { id: 'delivery-logs', label: 'Logs', icon: Activity },
+  { id: 'trash', label: 'Trash', icon: Trash2 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -258,6 +260,10 @@ export default function CommunicationsPage() {
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [settingsForm, setSettingsForm] = useState<any>(null);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Conversation | null>(null);
+  const [confirmPermanentDelete, setConfirmPermanentDelete] = useState<Conversation | null>(null);
+  const [confirmEmptyTrash, setConfirmEmptyTrash] = useState(false);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -278,6 +284,7 @@ export default function CommunicationsPage() {
       if (tabId === 'inbox') params.set('status', 'open,waiting_customer');
       else if (tabId === 'sent') params.set('status', 'resolved,closed');
       else if (tabId === 'failed') params.set('status', 'waiting_support,waiting_sales');
+      else if (tabId === 'trash') params.set('show_deleted', 'true');
 
       if (tabId === 'conversations') {
         if (statusFilter) params.set('status', statusFilter);
@@ -400,6 +407,7 @@ export default function CommunicationsPage() {
       sent: () => fetchConversations('sent', 1),
       failed: () => fetchConversations('failed', 1),
       conversations: () => fetchConversations('conversations', 1),
+      trash: () => fetchConversations('trash', 1),
       templates: fetchTemplates,
       accounts: fetchMailAccounts,
       queue: () => fetchQueue(1),
@@ -428,6 +436,7 @@ export default function CommunicationsPage() {
       sent: fetchConversations.bind(null, 'sent'),
       failed: fetchConversations.bind(null, 'failed'),
       conversations: fetchConversations.bind(null, 'conversations'),
+      trash: fetchConversations.bind(null, 'trash'),
       templates: fetchTemplates,
       accounts: fetchMailAccounts,
       queue: fetchQueue,
@@ -557,13 +566,103 @@ export default function CommunicationsPage() {
     return d.toLocaleDateString();
   };
 
+  const handleSoftDelete = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setConfirmDelete(null);
+        fetchData();
+        fetchStats();
+      } else {
+        setError(json.error?.message || 'Failed to delete conversation');
+      }
+    } catch {
+      setError('Failed to delete conversation');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'restore' }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        fetchData();
+        fetchStats();
+      } else {
+        setError(json.error?.message || 'Failed to restore conversation');
+      }
+    } catch {
+      setError('Failed to restore conversation');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handlePermanentDelete = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}?permanent=true`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setConfirmPermanentDelete(null);
+        fetchData();
+        fetchStats();
+      } else {
+        setError(json.error?.message || 'Failed to permanently delete conversation');
+      }
+    } catch {
+      setError('Failed to permanently delete conversation');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    setActionLoading('empty-trash');
+    try {
+      const res = await fetch(`${API_BASE}/conversations?action=empty_trash`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setConfirmEmptyTrash(false);
+        fetchData();
+        fetchStats();
+      } else {
+        setError(json.error?.message || 'Failed to empty trash');
+      }
+    } catch {
+      setError('Failed to empty trash');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const renderConversationRow = (conv: Conversation) => (
-    <a
+    <div
       key={conv.id}
-      href={`/internal/api/communications/conversations/${conv.id}`}
       className="flex items-center gap-4 p-4 border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)]/20 transition-colors group"
     >
-      <div className="flex-1 min-w-0">
+      <a
+        href={`/internal/api/communications/conversations/${conv.id}`}
+        className="flex-1 min-w-0"
+      >
         <div className="flex items-center gap-2 mb-1">
           <span className="font-medium text-[var(--text-primary)] text-sm truncate">
             {conv.customer_name || 'Unknown'}
@@ -592,7 +691,7 @@ export default function CommunicationsPage() {
             </>
           )}
         </div>
-      </div>
+      </a>
       <div className="flex items-center gap-2 shrink-0">
         <CategoryBadge category={conv.category} />
         <StatusBadge status={conv.status} />
@@ -600,8 +699,39 @@ export default function CommunicationsPage() {
       <span className="text-xs text-[var(--text-muted)] shrink-0 w-16 text-right">
         {formatTime(conv.updated_at)}
       </span>
+      <div className="flex items-center gap-1 shrink-0">
+        {activeTab === 'trash' ? (
+          <>
+            <button
+              onClick={() => handleRestore(conv.id)}
+              disabled={actionLoading === conv.id}
+              title="Restore"
+              className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+            >
+              {actionLoading === conv.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw size={14} />}
+            </button>
+            <button
+              onClick={() => setConfirmPermanentDelete(conv)}
+              disabled={actionLoading === conv.id}
+              title="Permanently Delete"
+              className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+            >
+              <Delete size={14} />
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(conv)}
+            disabled={actionLoading === conv.id}
+            title="Delete"
+            className="p-2 rounded-lg text-[var(--text-muted)] hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-50"
+          >
+            {actionLoading === conv.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={14} />}
+          </button>
+        )}
+      </div>
       <ChevronRightIcon size={14} className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-    </a>
+    </div>
   );
 
   const renderTable = () => {
@@ -670,6 +800,7 @@ export default function CommunicationsPage() {
       case 'sent':
       case 'failed':
       case 'conversations':
+      case 'trash':
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -704,6 +835,15 @@ export default function CommunicationsPage() {
                     <option value="general">General</option>
                   </select>
                 </>
+              )}
+              {activeTab === 'trash' && (
+                <button
+                  onClick={() => setConfirmEmptyTrash(true)}
+                  disabled={conversations.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/20 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors shrink-0"
+                >
+                  <Trash2 size={14} /> Empty Trash
+                </button>
               )}
               <button onClick={fetchData} className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)]/50 transition-colors">
                 <RefreshCw size={16} className="text-[var(--text-muted)]" />
@@ -1043,6 +1183,80 @@ export default function CommunicationsPage() {
       </div>
 
       {renderTabContent()}
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 w-[400px] max-w-full mx-4 space-y-4">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Delete Conversation</h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              Move this conversation to the Trash? It can be restored later.
+            </p>
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3 text-sm">
+              <p className="font-medium text-[var(--text-primary)]">{confirmDelete.customer_name || 'Unknown'}</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">{confirmDelete.subject || '(No subject)'}</p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => handleSoftDelete(confirmDelete.id)} disabled={actionLoading === confirmDelete.id}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                {actionLoading === confirmDelete.id ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</> : <><Trash2 size={14} /> Move to Trash</>}
+              </button>
+              <button onClick={() => setConfirmDelete(null)}
+                className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent delete confirmation modal */}
+      {confirmPermanentDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 w-[400px] max-w-full mx-4 space-y-4">
+            <h2 className="text-lg font-semibold text-red-400">Permanently Delete</h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              This will permanently delete this conversation and ALL related messages, attachments, and queue records. This action CANNOT be undone.
+            </p>
+            <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-sm">
+              <p className="font-medium text-[var(--text-primary)]">{confirmPermanentDelete.customer_name || 'Unknown'}</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">{confirmPermanentDelete.subject || '(No subject)'}</p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => handlePermanentDelete(confirmPermanentDelete.id)} disabled={actionLoading === confirmPermanentDelete.id}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                {actionLoading === confirmPermanentDelete.id ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</> : <><Delete size={14} /> Delete Forever</>}
+              </button>
+              <button onClick={() => setConfirmPermanentDelete(null)}
+                className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Empty Trash confirmation modal */}
+      {confirmEmptyTrash && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-6 w-[400px] max-w-full mx-4 space-y-4">
+            <h2 className="text-lg font-semibold text-red-400">Empty Trash</h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              This will permanently delete ALL {conversations.length} conversation(s) currently in the Trash, including all related messages, attachments, and queue records. This action CANNOT be undone.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button onClick={handleEmptyTrash} disabled={actionLoading === 'empty-trash'}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                {actionLoading === 'empty-trash' ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</> : <><Trash2 size={14} /> Empty Trash</>}
+              </button>
+              <button onClick={() => setConfirmEmptyTrash(false)}
+                className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
