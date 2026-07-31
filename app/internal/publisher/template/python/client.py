@@ -8,8 +8,8 @@ from .crypto import generate_timestamp, generate_nonce, sign_request
 from .hardware import HardwareDetector
 from .cache import CacheManager
 
-SDK_VERSION = "{{SDK_VERSION}}"
-RUNTIME_TYPE = "{{RUNTIME_TYPE}}"
+SDK_VERSION = "1.0.0"
+RUNTIME_TYPE = "python"
 RETRYABLE_STATUSES = {500, 502, 503, 504}
 
 

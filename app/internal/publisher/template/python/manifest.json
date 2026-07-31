@@ -1,18 +1,8 @@
 {
-  "template": "python",
-  "version": "{{SDK_VERSION}}",
-  "product_name": "{{PRODUCT_NAME}}",
-  "product_id": "{{PRODUCT_ID}}",
-  "api_url": "{{API_URL}}",
-  "runtime_type": "{{RUNTIME_TYPE}}",
-  "mandatory_modules": [
-    "__init__", "client", "crypto", "hardware", "cache",
-    "license_engine", "welcome", "universal_license_center",
-    "universal_success_dialog", "universal_restart_dialog", "single_instance",
-    "activation", "renewal", "reactivation", "trial",
-    "communication", "notifications", "support", "sales", "config"
-  ],
-  "assets": ["badge.svg", "logo.svg"],
+  "kit_version": "1.0.0",
+  "api_version": "v1",
+  "runtime": "python",
   "generated_at": "",
-  "sdk_version": "{{SDK_VERSION}}"
+  "product_id": "{{PRODUCT_ID}}",
+  "product_name": "{{PRODUCT_NAME}}"
 }

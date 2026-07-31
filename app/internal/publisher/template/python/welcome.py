@@ -12,8 +12,8 @@ from .client import ApiClient, ApiError
 from .hardware import HardwareDetector
 from .cache import CacheManager
 
-SDK_VERSION = "{{SDK_VERSION}}"
-RUNTIME_TYPE = "{{RUNTIME_TYPE}}"
+SDK_VERSION = "1.0.0"
+RUNTIME_TYPE = "python"
 
 
 _COUNTRIES_CACHE: list = []

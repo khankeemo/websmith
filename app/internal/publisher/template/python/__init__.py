@@ -1,5 +1,5 @@
-"""{{PRODUCT_NAME}} SDK - Universal License Center"""
-__version__ = "{{SDK_VERSION}}"
+"""Universal SDK — License Center, API client, hardware detection, and messaging"""
+__version__ = "1.0.0"
 __all__ = [
     "UniversalLicenseCenter",
     "WelcomeDialog",
