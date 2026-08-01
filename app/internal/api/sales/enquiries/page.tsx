@@ -145,19 +145,17 @@ export default function SalesEnquiriesPage() {
           ))}
         </div>
       )}
-    </div>
-  );
+</div>
+   );
 
-  {/* Universal Email Dialog for new enquiries */}
-  <UniversalEmailDialog
-    isOpen={emailDialogOpen}
-    onClose={() => setEmailDialogOpen(false)}
-    defaultEmail=""
-    defaultLicenseKey=""
-    defaultProductName=""
-    defaultProductId=""
-    defaultAction="support"
-  />
-}
-  );
-}
+   {/* Universal Email Dialog for new enquiries */}
+   <UniversalEmailDialog
+     isOpen={emailDialogOpen}
+     onClose={() => setEmailDialogOpen(false)}
+     defaultEmail=""
+     defaultLicenseKey=""
+     defaultProductName=""
+     defaultProductId=""
+     defaultAction="support"
+   />
+ }
