@@ -89,8 +89,15 @@ interface CustomerDetail {
   email: string;
   avatar: string | null;
   phone: string | null;
+  mobile: string | null;
+  alternative_mobile: string | null;
   company: string | null;
   country: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
   notes: string | null;
   status: string | null;
   total_licenses: number;
@@ -195,8 +202,15 @@ export default function CustomerDetailPage() {
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
+    mobile: "",
+    alternative_mobile: "",
     company: "",
     country: "",
+    address_line1: "",
+    address_line2: "",
+    city: "",
+    state: "",
+    postal_code: "",
     notes: "",
     status: "active",
   });
@@ -234,8 +248,15 @@ export default function CustomerDetailPage() {
     setEditForm({
       name: customer.name || "",
       phone: customer.phone || "",
+      mobile: customer.mobile || "",
+      alternative_mobile: customer.alternative_mobile || "",
       company: customer.company || "",
       country: customer.country || "",
+      address_line1: customer.address_line1 || "",
+      address_line2: customer.address_line2 || "",
+      city: customer.city || "",
+      state: customer.state || "",
+      postal_code: customer.postal_code || "",
       notes: customer.notes || "",
       status: customer.status || "active",
     });
@@ -259,8 +280,15 @@ export default function CustomerDetailPage() {
       const body: Record<string, string> = {};
       if (editForm.name !== (customer.name || "")) body.name = editForm.name;
       if (editForm.phone !== (customer.phone || "")) body.phone = editForm.phone;
+      if (editForm.mobile !== (customer.mobile || "")) body.mobile = editForm.mobile;
+      if (editForm.alternative_mobile !== (customer.alternative_mobile || "")) body.alternative_mobile = editForm.alternative_mobile;
       if (editForm.company !== (customer.company || "")) body.company = editForm.company;
       if (editForm.country !== (customer.country || "")) body.country = editForm.country;
+      if (editForm.address_line1 !== (customer.address_line1 || "")) body.address_line1 = editForm.address_line1;
+      if (editForm.address_line2 !== (customer.address_line2 || "")) body.address_line2 = editForm.address_line2;
+      if (editForm.city !== (customer.city || "")) body.city = editForm.city;
+      if (editForm.state !== (customer.state || "")) body.state = editForm.state;
+      if (editForm.postal_code !== (customer.postal_code || "")) body.postal_code = editForm.postal_code;
       if (editForm.notes !== (customer.notes || "")) body.notes = editForm.notes;
       if (editForm.status !== (customer.status || "active")) body.status = editForm.status;
 
@@ -489,23 +517,77 @@ export default function CustomerDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-[var(--text-muted)] mb-1">Company</label>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Mobile</label>
                   <input
                     type="text"
-                    value={editForm.company}
-                    onChange={(e) => setEditForm(f => ({ ...f, company: e.target.value }))}
+                    value={editForm.mobile}
+                    onChange={(e) => setEditForm(f => ({ ...f, mobile: e.target.value }))}
                     className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
-                    placeholder="Company name"
+                    placeholder="Mobile number"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-[var(--text-muted)] mb-1">Country</label>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Alternative Mobile</label>
                   <input
                     type="text"
-                    value={editForm.country}
-                    onChange={(e) => setEditForm(f => ({ ...f, country: e.target.value }))}
+                    value={editForm.alternative_mobile}
+                    onChange={(e) => setEditForm(f => ({ ...f, alternative_mobile: e.target.value }))}
                     className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
-                    placeholder="Country"
+                    placeholder="Alternative mobile"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Address Line 1</label>
+                  <input
+                    type="text"
+                    value={editForm.address_line1}
+                    onChange={(e) => setEditForm(f => ({ ...f, address_line1: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="Street address"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Address Line 2</label>
+                  <input
+                    type="text"
+                    value={editForm.address_line2}
+                    onChange={(e) => setEditForm(f => ({ ...f, address_line2: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="Apartment, suite, etc."
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">City</label>
+                  <input
+                    type="text"
+                    value={editForm.city}
+                    onChange={(e) => setEditForm(f => ({ ...f, city: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="City"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">State</label>
+                  <input
+                    type="text"
+                    value={editForm.state}
+                    onChange={(e) => setEditForm(f => ({ ...f, state: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="State/Province"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Postal Code</label>
+                  <input
+                    type="text"
+                    value={editForm.postal_code}
+                    onChange={(e) => setEditForm(f => ({ ...f, postal_code: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="Postal/ZIP code"
                   />
                 </div>
               </div>
@@ -553,6 +635,30 @@ export default function CustomerDetailPage() {
                   <div className="flex items-center gap-1">
                     <Globe size={14} />
                     <span>{customer.country}</span>
+                  </div>
+                )}
+                {customer.mobile && (
+                  <div className="flex items-center gap-1">
+                    <Phone size={14} />
+                    <span>{customer.mobile}</span>
+                  </div>
+                )}
+                {customer.alternative_mobile && (
+                  <div className="flex items-center gap-1">
+                    <Phone size={14} />
+                    <span>{customer.alternative_mobile}</span>
+                  </div>
+                )}
+                {customer.address_line1 && (
+                  <div className="flex items-center gap-1">
+                    <Building2 size={14} />
+                    <span>{customer.address_line1}{customer.address_line2 ? `, ${customer.address_line2}` : ''}</span>
+                  </div>
+                )}
+                {(customer.city || customer.state || customer.postal_code) && (
+                  <div className="flex items-center gap-1">
+                    <Globe size={14} />
+                    <span>{[customer.city, customer.state, customer.postal_code].filter(Boolean).join(', ')}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-1">

@@ -73,8 +73,15 @@ export async function GET(
         name: dbCustomer.name || licenses[0]?.customer_name || "Unknown",
         email,
         phone: dbCustomer.phone || null,
+        mobile: dbCustomer.mobile || null,
+        alternative_mobile: dbCustomer.alternative_mobile || null,
         company: dbCustomer.company || null,
         country: dbCustomer.country || null,
+        address_line1: dbCustomer.address_line1 || null,
+        address_line2: dbCustomer.address_line2 || null,
+        city: dbCustomer.city || null,
+        state: dbCustomer.state || null,
+        postal_code: dbCustomer.postal_code || null,
         notes: dbCustomer.notes || null,
         status: dbCustomer.status || 'active',
         last_login: dbCustomer.last_login || null,
@@ -143,7 +150,7 @@ export async function PUT(
     }
     const email = decodeURIComponent(id).toLowerCase().trim();
     const body = await request.json();
-    const allowed = ['name', 'phone', 'company', 'country', 'notes', 'status'];
+    const allowed = ['name', 'phone', 'mobile', 'alternative_mobile', 'company', 'country', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'notes', 'status'];
     const updateFields = allowed.filter(k => body[k] !== undefined);
 
     if (updateFields.length === 0) {
@@ -168,6 +175,14 @@ export async function PUT(
       const result = validateCountry(body.country);
       if (!result.valid) errors.push(...result.errors);
     }
+    if (body.mobile !== undefined && body.mobile) {
+      const result = validateMobile(body.mobile);
+      if (!result.valid) errors.push(...result.errors);
+    }
+    if (body.alternative_mobile !== undefined && body.alternative_mobile) {
+      const result = validateMobile(body.alternative_mobile);
+      if (!result.valid) errors.push(...result.errors);
+    }
     if (body.notes !== undefined) {
       const result = validateNotes(body.notes);
       if (!result.valid) errors.push(...result.errors);
@@ -180,8 +195,15 @@ export async function PUT(
     const normalizedValues = updateFields.map(k => {
       if (k === 'name') return body.name.trim();
       if (k === 'phone') return body.phone ? body.phone.replace(/[\s\-\(\)]/g, '') : null;
+      if (k === 'mobile') return body.mobile ? body.mobile.replace(/[\s\-\(\)]/g, '') : null;
+      if (k === 'alternative_mobile') return body.alternative_mobile ? body.alternative_mobile.replace(/[\s\-\(\)]/g, '') : null;
       if (k === 'company') return body.company ? body.company.trim() : null;
       if (k === 'country') return body.country ? body.country.trim().toUpperCase() : null;
+      if (k === 'address_line1') return body.address_line1 ? body.address_line1.trim() : null;
+      if (k === 'address_line2') return body.address_line2 ? body.address_line2.trim() : null;
+      if (k === 'city') return body.city ? body.city.trim() : null;
+      if (k === 'state') return body.state ? body.state.trim() : null;
+      if (k === 'postal_code') return body.postal_code ? body.postal_code.trim() : null;
       if (k === 'notes') return body.notes ? body.notes.trim() : null;
       return body[k];
     });

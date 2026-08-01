@@ -28,6 +28,8 @@ import {
   X,
   Mail,
 } from "lucide-react";
+import { isValidEmail } from "@/lib/validation";
+import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
 // ============================================================
 // LICENSE MANAGER TAB
@@ -81,6 +83,8 @@ export function LicenseManagerTab() {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailContext, setEmailContext] = useState<{ email: string; licenseKey: string; productName?: string; productId?: string } | null>(null);
 
   // Deactivate & Revoke
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
@@ -860,6 +864,21 @@ export function LicenseManagerTab() {
                       >
                         <FileText className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--api-blue-400)] transition-colors" />
                       </button>
+                      <button
+                        onClick={() => {
+                          setEmailContext({
+                            email: license.customer_email || "",
+                            licenseKey: license.license_key,
+                            productName: license.product_name || undefined,
+                            productId: license.product_id ? String(license.product_id) : undefined,
+                          });
+                          setEmailDialogOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)]/50 transition-colors group"
+                        title="Send Email"
+                      >
+                        <Mail className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--api-blue-400)] transition-colors" />
+                      </button>
                       {license.status === 'active' && (
                         <>
                           <button
@@ -1257,7 +1276,7 @@ export function LicenseManagerTab() {
                   type="email"
                   value={bulkEmailValue}
                   onChange={(e) => setBulkEmailValue(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !bulkProcessing && bulkEmailValue && bulkEmailValue.includes('@')) { handleBulkAction(); } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !bulkProcessing && bulkEmailValue && isValidEmail(bulkEmailValue)) { handleBulkAction(); } }}
                   placeholder="customer@example.com"
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 text-sm"
                 />
@@ -1273,7 +1292,7 @@ export function LicenseManagerTab() {
               </button>
               <button
                 onClick={handleBulkAction}
-                disabled={bulkProcessing || (bulkActionType === 'change_email' && (!bulkEmailValue || !bulkEmailValue.includes('@')))}
+                disabled={bulkProcessing || (bulkActionType === 'change_email' && (!bulkEmailValue || !isValidEmail(bulkEmailValue)))}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 ${
                   bulkActionType === 'delete' || bulkActionType === 'revoke'
                     ? 'bg-red-500 text-white hover:bg-red-600'
@@ -1473,6 +1492,17 @@ export function LicenseManagerTab() {
           </div>
         </div>
       )}
+
+      {/* Universal Email Dialog — email customer with license + SDK attachment */}
+      <UniversalEmailDialog
+        isOpen={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+        defaultEmail={emailContext?.email || ""}
+        defaultLicenseKey={emailContext?.licenseKey || undefined}
+        defaultProductId={emailContext?.productId}
+        defaultProductName={emailContext?.productName}
+        defaultAction="send"
+      />
     </div>
   );
 }

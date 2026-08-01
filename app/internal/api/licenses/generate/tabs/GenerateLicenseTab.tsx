@@ -18,7 +18,11 @@ import {
   Layers,
   Copy,
   Sparkles,
+  Mail,
 } from "lucide-react";
+import { isValidEmail, mobileDigitsError } from "@/lib/validation";
+import { FieldIndicator } from "@/components/internal-api/validation/FieldIndicator";
+import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
 // ============================================================
 // TYPES
@@ -28,47 +32,11 @@ interface CountryData {
   code: string;
   country: string;
   name: string;
+  dial: string;
+  flag: string;
+  minDigits?: number | null;
+  maxDigits?: number | null;
 }
-
-const FALLBACK_COUNTRIES: CountryData[] = [
-  { code: "+91", country: "IN", name: "India" },
-  { code: "+1", country: "US", name: "United States" },
-  { code: "+44", country: "GB", name: "United Kingdom" },
-  { code: "+1", country: "CA", name: "Canada" },
-  { code: "+61", country: "AU", name: "Australia" },
-  { code: "+49", country: "DE", name: "Germany" },
-  { code: "+33", country: "FR", name: "France" },
-  { code: "+81", country: "JP", name: "Japan" },
-  { code: "+86", country: "CN", name: "China" },
-  { code: "+971", country: "AE", name: "United Arab Emirates" },
-  { code: "+65", country: "SG", name: "Singapore" },
-  { code: "+82", country: "KR", name: "South Korea" },
-  { code: "+39", country: "IT", name: "Italy" },
-  { code: "+34", country: "ES", name: "Spain" },
-  { code: "+55", country: "BR", name: "Brazil" },
-  { code: "+52", country: "MX", name: "Mexico" },
-  { code: "+7", country: "RU", name: "Russia" },
-  { code: "+27", country: "ZA", name: "South Africa" },
-  { code: "+966", country: "SA", name: "Saudi Arabia" },
-  { code: "+92", country: "PK", name: "Pakistan" },
-  { code: "+880", country: "BD", name: "Bangladesh" },
-  { code: "+62", country: "ID", name: "Indonesia" },
-  { code: "+63", country: "PH", name: "Philippines" },
-  { code: "+64", country: "NZ", name: "New Zealand" },
-  { code: "+31", country: "NL", name: "Netherlands" },
-  { code: "+46", country: "SE", name: "Sweden" },
-  { code: "+41", country: "CH", name: "Switzerland" },
-  { code: "+353", country: "IE", name: "Ireland" },
-  { code: "+972", country: "IL", name: "Israel" },
-  { code: "+90", country: "TR", name: "Turkey" },
-  { code: "+234", country: "NG", name: "Nigeria" },
-  { code: "+254", country: "KE", name: "Kenya" },
-  { code: "+20", country: "EG", name: "Egypt" },
-  { code: "+971", country: "AE", name: "UAE" },
-  { code: "+974", country: "QA", name: "Qatar" },
-  { code: "+965", country: "KW", name: "Kuwait" },
-  { code: "+973", country: "BH", name: "Bahrain" },
-];
 
 interface Product {
   id: string;
@@ -177,6 +145,9 @@ export function GenerateLicenseTab() {
     show: false,
   });
   const [licensePreview, setLicensePreview] = useState<string>("");
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [generatedCustomerEmail, setGeneratedCustomerEmail] = useState("");
+  const [generatedProductId, setGeneratedProductId] = useState("");
 
   // ============================================================
   // TRIAL PLAN STATE (NEW)
@@ -189,10 +160,10 @@ export function GenerateLicenseTab() {
   // ============================================================
 
   // ============================================================
-  // COUNTRY DATA (API-based with fallback)
+  // COUNTRY DATA (API-based from the internal countries endpoint)
   // ============================================================
 
-  const [countries, setCountries] = useState<CountryData[]>(FALLBACK_COUNTRIES);
+  const [countries, setCountries] = useState<CountryData[]>([]);
   const [countrySearch, setCountrySearch] = useState("");
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const countryRef = useRef<HTMLDivElement>(null);
@@ -200,21 +171,23 @@ export function GenerateLicenseTab() {
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        const res = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2,idd");
+        const res = await fetch(`${API_BASE}/country-codes`);
         if (!res.ok) throw new Error("API failed");
         const data = await res.json();
-        const list: CountryData[] = data
-          .filter((c: any) => c.idd?.root)
+        const list: CountryData[] = (data.data || [])
           .map((c: any) => ({
-            code: `${c.idd.root}${c.idd.suffixes?.[0] || ""}`,
-            country: c.cca2,
-            name: c.name.common,
+            code: c.dial,
+            country: c.code,
+            name: c.name,
+            dial: c.dial,
+            flag: c.flag || "",
+            minDigits: typeof c.min_digits === "number" ? c.min_digits : c.minDigits ?? null,
+            maxDigits: typeof c.max_digits === "number" ? c.max_digits : c.maxDigits ?? null,
           }))
-          .filter((c: CountryData) => c.code.length > 1)
           .sort((a: CountryData, b: CountryData) => a.name.localeCompare(b.name));
         if (list.length > 0) setCountries(list);
       } catch {
-        // fallback already set
+        // countries list unavailable - the form stays disabled until loaded
       }
     };
     fetchCountries();
@@ -451,9 +424,19 @@ export function GenerateLicenseTab() {
       setError("Customer name is required");
       return;
     }
-    if (!formData.customerEmail || !formData.customerEmail.includes("@")) {
+    if (!isValidEmail(formData.customerEmail)) {
       setError("Valid customer email is required");
       return;
+    }
+    if (formData.customerPhone.trim()) {
+      const selectedCountry = countries.find((c) => c.code === formData.countryCode);
+      const phoneError = selectedCountry
+        ? mobileDigitsError(selectedCountry, formData.customerPhone)
+        : "";
+      if (phoneError) {
+        setError(phoneError);
+        return;
+      }
     }
     if (formData.licenseType === "trial_conversion" && !formData.hardwareId) {
       setError("Hardware ID is required for trial conversion");
@@ -519,6 +502,8 @@ export function GenerateLicenseTab() {
       if (data.success) {
         setGeneratedLicense(data.license_key);
         setGeneratedLicenseData(data);
+        setGeneratedCustomerEmail(formData.customerEmail.trim());
+        setGeneratedProductId(formData.productId);
         setSuccess(data.message || "License created successfully");
 
         setFormData(prev => ({
@@ -609,6 +594,12 @@ export function GenerateLicenseTab() {
             </button>
           </div>
           <div className="flex gap-3 mt-3">
+            <button
+              onClick={() => setEmailDialogOpen(true)}
+              className="flex items-center gap-1.5 text-sm text-[var(--api-blue-400)] hover:text-[var(--api-blue-300)] transition-colors"
+            >
+              <Mail size={14} /> Send Email
+            </button>
             <button
               onClick={() => router.push(`/internal/api/licenses/${generatedLicense}`)}
               className="text-sm text-[var(--api-blue-400)] hover:text-[var(--api-blue-300)] transition-colors"
@@ -863,18 +854,29 @@ export function GenerateLicenseTab() {
                 placeholder="Customer Name *"
                 className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
               />
-              <input
-                type="email"
-                value={formData.customerEmail}
-                onChange={(e) => {
-                  setFormData({ ...formData, customerEmail: e.target.value });
-                  setCustomerCheckResult(null);
-                  setDuplicateWarning({ show: false });
-                }}
-                onBlur={checkCustomer}
-                placeholder="Customer Email *"
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="email"
+                  value={formData.customerEmail}
+                  onChange={(e) => {
+                    setFormData({ ...formData, customerEmail: e.target.value });
+                    setCustomerCheckResult(null);
+                    setDuplicateWarning({ show: false });
+                  }}
+                  onBlur={checkCustomer}
+                  placeholder="Customer Email *"
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
+                />
+                <FieldIndicator
+                  state={
+                    formData.customerEmail.trim() === ""
+                      ? "empty"
+                      : isValidEmail(formData.customerEmail)
+                        ? "valid"
+                        : "invalid"
+                  }
+                />
+              </div>
               <div className="flex gap-2">
                 <div className="relative w-52" ref={countryRef}>
                   <div
@@ -921,13 +923,27 @@ export function GenerateLicenseTab() {
                     </div>
                   )}
                 </div>
-                <input
-                  type="tel"
-                  value={formData.customerPhone}
-                  onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value.replace(/[^0-9]/g, '') })}
-                  placeholder="Mobile Number (optional)"
-                  className="flex-1 px-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
-                />
+                <div className="flex flex-1 items-center gap-2">
+                  <input
+                    type="tel"
+                    value={formData.customerPhone}
+                    onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value.replace(/[^0-9]/g, '') })}
+                    placeholder="Mobile Number (optional)"
+                    className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
+                  />
+                  <FieldIndicator
+                    state={
+                      formData.customerPhone.trim() === ""
+                        ? "empty"
+                        : mobileDigitsError(
+                            countries.find((c) => c.code === formData.countryCode),
+                            formData.customerPhone
+                          ) === ""
+                          ? "valid"
+                          : "invalid"
+                    }
+                  />
+                </div>
               </div>
               <input
                 type="text"
@@ -1253,6 +1269,17 @@ export function GenerateLicenseTab() {
           </div>
         </div>
       </div>
+
+      {/* Universal Email Dialog — license email + SDK attachment */}
+      <UniversalEmailDialog
+        isOpen={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+        defaultEmail={generatedCustomerEmail}
+        defaultLicenseKey={generatedLicense || undefined}
+        defaultProductId={generatedProductId}
+        defaultProductName={selectedProduct?.name || undefined}
+        defaultAction="send"
+      />
     </div>
   );
 }

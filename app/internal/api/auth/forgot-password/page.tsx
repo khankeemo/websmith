@@ -17,6 +17,7 @@ import {
   Clock,
   AlertTriangle
 } from "lucide-react";
+import { isValidEmail } from "@/lib/validation";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -78,7 +79,7 @@ export default function ForgotPasswordPage() {
     setError(null);
     setSuccess(null);
 
-    if (!email || !email.includes("@")) {
+    if (!email || !isValidEmail(email)) {
       setError("Please enter a valid email address");
       return;
     }

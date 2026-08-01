@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Loader2
 } from "lucide-react";
+import { isValidEmail } from "@/lib/validation";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -55,7 +56,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
 
-    if (!email || !email.includes("@")) {
+    if (!email || !isValidEmail(email)) {
       setError("Please enter a valid email address");
       return;
     }

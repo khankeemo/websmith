@@ -18,6 +18,7 @@ import {
   KeyRound,
   Shield,
 } from "lucide-react";
+import { isValidEmail } from "@/lib/validation";
 
 // Inner component that uses useSearchParams
 function ResetPasswordContent() {
@@ -46,7 +47,7 @@ function ResetPasswordContent() {
     setError(null);
     setSuccess(null);
 
-    if (!email || !email.includes("@")) {
+    if (!email || !isValidEmail(email)) {
       setError("Please enter a valid email address");
       return;
     }

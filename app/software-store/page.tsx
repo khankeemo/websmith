@@ -785,24 +785,21 @@ export default function SoftwareStorePage() {
   };
 
   const handleBuyNow = useCallback((product: StoreProduct, plan?: StoreProductPlan) => {
-    const params = new URLSearchParams();
-    params.set("product", product.name);
-    if (plan) params.set("plan", plan.name);
-    params.set("version", product.version || "1.0.0");
-    router.push(`/contact?${params.toString()}`);
-  }, [router]);
+    // Buy Now replaces the cart with the selected product+plan and
+    // proceeds straight to the universal checkout.
+    cart.clearCart();
+    cart.addItem(product, plan);
+    router.push("/software-store/checkout");
+  }, [cart, router]);
 
   const handleCheckout = useCallback(() => {
-    const items = cart.items.map(i => ({
-      product: i.product.name,
-      plan: i.plan?.name || '',
-      version: i.product.version || '1.0.0',
-      quantity: i.quantity,
-    }));
-    const params = new URLSearchParams();
-    params.set("cart_items", JSON.stringify(items));
-    router.push(`/contact?${params.toString()}`);
-  }, [cart.items, router]);
+    // Cart is already persisted to localStorage by the cart hook.
+    if (cart.items.length === 0) {
+      showToast("Your cart is empty");
+      return;
+    }
+    router.push("/software-store/checkout");
+  }, [cart.items.length, router, showToast]);
 
   const handleAddToCart = useCallback((product: StoreProduct, plan?: StoreProductPlan) => {
     cart.addItem(product, plan);

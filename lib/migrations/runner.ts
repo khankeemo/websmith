@@ -170,6 +170,62 @@ const MIGRATIONS: { filename: string; sql: string }[] = [
       ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS max_attempts INTEGER DEFAULT 15;
     `
   },
+  {
+    filename: '010_country_mobile_rules.sql',
+    sql: `
+      ALTER TABLE countries ADD COLUMN IF NOT EXISTS min_digits INTEGER;
+      ALTER TABLE countries ADD COLUMN IF NOT EXISTS max_digits INTEGER;
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'IN';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'US';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'GB';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'CA';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'AU';
+      UPDATE countries SET min_digits = 9,  max_digits = 11 WHERE code = 'DE';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'FR';
+      UPDATE countries SET min_digits = 9,  max_digits = 10 WHERE code = 'IT';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'ES';
+      UPDATE countries SET min_digits = 10, max_digits = 11 WHERE code = 'BR';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'JP';
+      UPDATE countries SET min_digits = 11, max_digits = 11 WHERE code = 'CN';
+      UPDATE countries SET min_digits = 9,  max_digits = 10 WHERE code = 'KR';
+      UPDATE countries SET min_digits = 8,  max_digits = 8  WHERE code = 'SG';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'AE';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'SA';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'ZA';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'NG';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'KE';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'EG';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'MX';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'AR';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'CL';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'CO';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'NL';
+      UPDATE countries SET min_digits = 7,  max_digits = 9  WHERE code = 'SE';
+      UPDATE countries SET min_digits = 8,  max_digits = 8  WHERE code = 'NO';
+      UPDATE countries SET min_digits = 8,  max_digits = 8  WHERE code = 'DK';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'FI';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'CH';
+      UPDATE countries SET min_digits = 9,  max_digits = 10 WHERE code = 'AT';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'BE';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'PT';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'IE';
+      UPDATE countries SET min_digits = 8,  max_digits = 10 WHERE code = 'NZ';
+      UPDATE countries SET min_digits = 8,  max_digits = 8  WHERE code = 'HK';
+      UPDATE countries SET min_digits = 9,  max_digits = 10 WHERE code = 'MY';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'TH';
+      UPDATE countries SET min_digits = 9,  max_digits = 10 WHERE code = 'VN';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'PH';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'PK';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'BD';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'TR';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'RU';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'UA';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'PL';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'RO';
+      UPDATE countries SET min_digits = 10, max_digits = 10 WHERE code = 'GR';
+      UPDATE countries SET min_digits = 9,  max_digits = 9  WHERE code = 'IL';
+    `
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

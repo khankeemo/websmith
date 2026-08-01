@@ -7,6 +7,7 @@
 
 import { Pool } from 'pg';
 import { runMigrations } from '@/lib/migrations/runner';
+import { COUNTRY_CODES } from '@/lib/data/country-codes';
 
 let pool: Pool | null = null;
 
@@ -509,10 +510,129 @@ export async function getDb(): Promise<Pool> {
         { code: 'IL', name: 'Israel', dial: '+972' },
       ];
       for (const c of countries) {
+        const rules = COUNTRY_CODES.find(cc => cc.code === c.code);
         await client.query(
-          `INSERT INTO countries (code, name, dial, display_order) VALUES ($1, $2, $3, $4) ON CONFLICT (code) DO NOTHING`,
-          [c.code, c.name, c.dial, c.display_order || 99]
+          `INSERT INTO countries (code, name, dial, display_order, min_digits, max_digits)
+           VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (code) DO NOTHING`,
+          [c.code, c.name, c.dial, c.display_order || 99,
+           rules ? rules.minDigits : null, rules ? rules.maxDigits : null]
         );
+      }
+    }
+
+    // ============================================================
+    // STATES & CITIES (checkout location pickers — DB driven)
+    // ============================================================
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS states (
+        id SERIAL PRIMARY KEY,
+        country_code TEXT NOT NULL,
+        name TEXT NOT NULL,
+        code TEXT,
+        display_order INTEGER DEFAULT 0,
+        UNIQUE(country_code, name)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cities (
+        id SERIAL PRIMARY KEY,
+        state_id INTEGER REFERENCES states(id) ON DELETE CASCADE,
+        country_code TEXT NOT NULL,
+        name TEXT NOT NULL,
+        UNIQUE(state_id, name)
+      )
+    `);
+
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_states_country ON states(country_code)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_cities_country ON cities(country_code)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_cities_state ON cities(state_id)`);
+
+    const stateCount = await client.query('SELECT COUNT(*) FROM states');
+    if (parseInt(stateCount.rows[0].count) === 0) {
+      const STATES: Record<string, Array<[string, string?]>> = {
+        IN: [['Andhra Pradesh','AP'],['Arunachal Pradesh','AR'],['Assam','AS'],['Bihar','BR'],['Chhattisgarh','CG'],['Goa','GA'],['Gujarat','GJ'],['Haryana','HR'],['Himachal Pradesh','HP'],['Jharkhand','JH'],['Karnataka','KA'],['Kerala','KL'],['Madhya Pradesh','MP'],['Maharashtra','MH'],['Manipur','MN'],['Meghalaya','ML'],['Mizoram','MZ'],['Nagaland','NL'],['Odisha','OD'],['Punjab','PB'],['Rajasthan','RJ'],['Sikkim','SK'],['Tamil Nadu','TN'],['Telangana','TS'],['Tripura','TR'],['Uttar Pradesh','UP'],['Uttarakhand','UK'],['West Bengal','WB'],['Andaman and Nicobar Islands','AN'],['Chandigarh','CH'],['Dadra and Nagar Haveli and Daman and Diu','DN'],['Delhi','DL'],['Jammu and Kashmir','JK'],['Ladakh','LA'],['Lakshadweep','LD'],['Puducherry','PY']],
+        US: [['Alabama','AL'],['Alaska','AK'],['Arizona','AZ'],['Arkansas','AR'],['California','CA'],['Colorado','CO'],['Connecticut','CT'],['Delaware','DE'],['Florida','FL'],['Georgia','GA'],['Hawaii','HI'],['Idaho','ID'],['Illinois','IL'],['Indiana','IN'],['Iowa','IA'],['Kansas','KS'],['Kentucky','KY'],['Louisiana','LA'],['Maine','ME'],['Maryland','MD'],['Massachusetts','MA'],['Michigan','MI'],['Minnesota','MN'],['Mississippi','MS'],['Missouri','MO'],['Montana','MT'],['Nebraska','NE'],['Nevada','NV'],['New Hampshire','NH'],['New Jersey','NJ'],['New Mexico','NM'],['New York','NY'],['North Carolina','NC'],['North Dakota','ND'],['Ohio','OH'],['Oklahoma','OK'],['Oregon','OR'],['Pennsylvania','PA'],['Rhode Island','RI'],['South Carolina','SC'],['South Dakota','SD'],['Tennessee','TN'],['Texas','TX'],['Utah','UT'],['Vermont','VT'],['Virginia','VA'],['Washington','WA'],['West Virginia','WV'],['Wisconsin','WI'],['Wyoming','WY']],
+        CA: [['Alberta','AB'],['British Columbia','BC'],['Manitoba','MB'],['New Brunswick','NB'],['Newfoundland and Labrador','NL'],['Northwest Territories','NT'],['Nova Scotia','NS'],['Nunavut','NU'],['Ontario','ON'],['Prince Edward Island','PE'],['Quebec','QC'],['Saskatchewan','SK'],['Yukon','YT']],
+        AU: [['New South Wales','NSW'],['Queensland','QLD'],['South Australia','SA'],['Tasmania','TAS'],['Victoria','VIC'],['Western Australia','WA'],['Australian Capital Territory','ACT'],['Northern Territory','NT']],
+        GB: [['England','ENG'],['Scotland','SCT'],['Wales','WLS'],['Northern Ireland','NIR']],
+        DE: [['Baden-Württemberg','BW'],['Bavaria','BY'],['Berlin','BE'],['Brandenburg','BB'],['Bremen','HB'],['Hamburg','HH'],['Hesse','HE'],['Lower Saxony','NI'],['Mecklenburg-Vorpommern','MV'],['North Rhine-Westphalia','NW'],['Rhineland-Palatinate','RP'],['Saarland','SL'],['Saxony','SN'],['Saxony-Anhalt','ST'],['Schleswig-Holstein','SH'],['Thuringia','TH']],
+        FR: [['Auvergne-Rhône-Alpes'],['Bourgogne-Franche-Comté'],['Bretagne'],['Centre-Val de Loire'],['Corse'],['Grand Est'],['Hauts-de-France'],['Île-de-France'],['Normandie'],['Nouvelle-Aquitaine'],['Occitanie'],['Pays de la Loire'],['Provence-Alpes-Côte d\'Azur']],
+      };
+      for (const [cc, list] of Object.entries(STATES)) {
+        for (const [name, code] of list) {
+          await client.query(
+            `INSERT INTO states (country_code, name, code) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+            [cc, name, code || null]
+          );
+        }
+      }
+    }
+
+    const cityCount = await client.query('SELECT COUNT(*) FROM cities');
+    if (parseInt(cityCount.rows[0].count) === 0) {
+      const CITIES: Record<string, Record<string, string[]>> = {
+        IN: {
+          'Andhra Pradesh': ['Visakhapatnam','Vijayawada','Guntur','Nellore','Tirupati'],
+          'Assam': ['Guwahati','Silchar','Dibrugarh'],
+          'Bihar': ['Patna','Gaya','Bhagalpur','Muzaffarpur'],
+          'Chhattisgarh': ['Raipur','Bilaspur','Korba'],
+          'Delhi': ['New Delhi'],
+          'Gujarat': ['Ahmedabad','Surat','Vadodara','Rajkot','Gandhinagar'],
+          'Haryana': ['Gurugram','Faridabad','Panipat'],
+          'Jharkhand': ['Ranchi','Jamshedpur','Dhanbad'],
+          'Karnataka': ['Bengaluru','Mysuru','Hubballi','Mangaluru'],
+          'Kerala': ['Thiruvananthapuram','Kochi','Kozhikode','Kollam'],
+          'Madhya Pradesh': ['Indore','Bhopal','Gwalior','Jabalpur'],
+          'Maharashtra': ['Mumbai','Pune','Nagpur','Nashik','Aurangabad','Thane','Navi Mumbai'],
+          'Odisha': ['Bhubaneswar','Cuttack','Rourkela'],
+          'Punjab': ['Ludhiana','Amritsar','Jalandhar','Chandigarh'],
+          'Rajasthan': ['Jaipur','Jodhpur','Udaipur','Kota'],
+          'Tamil Nadu': ['Chennai','Coimbatore','Madurai','Salem','Tiruchirappalli'],
+          'Telangana': ['Hyderabad','Warangal','Karimnagar'],
+          'Uttar Pradesh': ['Lucknow','Kanpur','Varanasi','Agra','Ghaziabad','Noida','Prayagraj'],
+          'Uttarakhand': ['Dehradun','Haridwar','Nainital'],
+          'West Bengal': ['Kolkata','Howrah','Siliguri','Durgapur'],
+        },
+        US: {
+          'California': ['Los Angeles','San Francisco','San Diego','San Jose','Sacramento'],
+          'New York': ['New York City','Buffalo','Rochester','Albany'],
+          'Texas': ['Houston','Dallas','Austin','San Antonio','Fort Worth'],
+          'Florida': ['Miami','Orlando','Tampa','Jacksonville'],
+          'Illinois': ['Chicago','Naperville','Springfield'],
+          'Washington': ['Seattle','Spokane','Tacoma'],
+          'Massachusetts': ['Boston','Cambridge','Worcester'],
+          'Georgia': ['Atlanta','Savannah','Augusta'],
+          'Colorado': ['Denver','Boulder','Colorado Springs'],
+          'Arizona': ['Phoenix','Tucson','Scottsdale'],
+          'Nevada': ['Las Vegas','Reno','Henderson'],
+          'Oregon': ['Portland','Eugene','Salem'],
+          'Pennsylvania': ['Philadelphia','Pittsburgh','Harrisburg'],
+          'Michigan': ['Detroit','Grand Rapids','Ann Arbor'],
+          'North Carolina': ['Charlotte','Raleigh','Durham'],
+          'Virginia': ['Richmond','Virginia Beach','Arlington'],
+          'Ohio': ['Columbus','Cleveland','Cincinnati'],
+          'New Jersey': ['Newark','Jersey City','Princeton'],
+          'Maryland': ['Baltimore','Annapolis','Bethesda'],
+          'Minnesota': ['Minneapolis','Saint Paul'],
+        },
+      };
+      for (const [cc, byState] of Object.entries(CITIES)) {
+        for (const [stateName, cityList] of Object.entries(byState)) {
+          const stateRes = await client.query(
+            `SELECT id FROM states WHERE country_code = $1 AND name = $2`,
+            [cc, stateName]
+          );
+          const stateId = stateRes.rows[0]?.id;
+          if (!stateId) continue;
+          for (const cityName of cityList) {
+            await client.query(
+              `INSERT INTO cities (state_id, country_code, name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+              [stateId, cc, cityName]
+            );
+          }
+        }
       }
     }
 
@@ -831,6 +951,26 @@ export async function getDb(): Promise<Pool> {
       )
     `);
 
+    // 20b. Create payments table (payment records — one row per captured payment)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        payment_number TEXT UNIQUE NOT NULL,
+        order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+        order_number TEXT NOT NULL,
+        customer_email TEXT NOT NULL,
+        gateway TEXT NOT NULL DEFAULT 'dummy',
+        transaction_id TEXT,
+        method TEXT,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        currency TEXT DEFAULT 'USD',
+        status TEXT DEFAULT 'pending',
+        paid_at TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // 21. Create subscriptions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS subscriptions (
@@ -1123,6 +1263,25 @@ export async function getDb(): Promise<Pool> {
     try { await client.query(`ALTER TABLE conversation_attachments ADD COLUMN IF NOT EXISTS message_id INTEGER REFERENCES conversation_messages(id) ON DELETE CASCADE`); } catch (e) {}
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_attachments_message_id ON conversation_attachments(message_id)`);
 
+    // 27f. Create email_attachments table — metadata for files attached to outbound emails
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS email_attachments (
+        id SERIAL PRIMARY KEY,
+        notification_log_id INTEGER REFERENCES notification_logs(id) ON DELETE SET NULL,
+        email_type TEXT,
+        recipient TEXT,
+        license_key TEXT,
+        file_name TEXT NOT NULL,
+        file_size BIGINT,
+        mime_type TEXT,
+        storage_path TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_attachments_notification_log_id ON email_attachments(notification_log_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_attachments_recipient ON email_attachments(recipient)`);
+
+
     // 27e. Create message_queue table for email delivery queue and retry logic
     await client.query(`
       CREATE TABLE IF NOT EXISTS message_queue (
@@ -1328,6 +1487,14 @@ export async function getDb(): Promise<Pool> {
     try { await client.query(`ALTER TABLE trials ADD COLUMN IF NOT EXISTS notified_admin BOOLEAN DEFAULT FALSE`); } catch (e) {}
     // Customers table migrations
     try { await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS mobile TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS address_line1 TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS address_line2 TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS city TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS state TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS postal_code TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS alternative_mobile TEXT`); } catch (e) {}
+    // Orders table migrations — structured billing snapshot (source: customers record)
+    try { await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_address JSONB`); } catch (e) {}
     // Trial templates migrations
     try { await client.query(`ALTER TABLE trial_templates ADD COLUMN IF NOT EXISTS is_system_default BOOLEAN DEFAULT FALSE`); } catch (e) {}
     try { await client.query(`ALTER TABLE trial_templates ADD COLUMN IF NOT EXISTS max_devices INTEGER DEFAULT 1`); } catch (e) {}
@@ -1400,6 +1567,25 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_notification_logs_channel ON notification_logs(channel)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_notification_logs_created ON notification_logs(created_at)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_notification_logs_license ON notification_logs(license_key)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_payments_customer_email ON payments(customer_email)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_orders_customer_email ON orders(customer_email)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`);
+
+    // ============================================================
+    // PAYMENT GATEWAYS SEED (DB-driven checkout; dummy = development)
+    // ============================================================
+    await client.query(
+      `INSERT INTO payment_gateways (name, display_name, is_active, supported_currencies) VALUES
+         ('dummy', 'Test Payment (Development)', TRUE, ARRAY['USD','EUR','GBP','INR']),
+         ('stripe', 'Stripe', FALSE, ARRAY['USD','EUR','GBP']),
+         ('razorpay', 'Razorpay', FALSE, ARRAY['INR']),
+         ('paypal', 'PayPal', FALSE, ARRAY['USD','EUR','GBP']),
+         ('paddle', 'Paddle', FALSE, ARRAY['USD','EUR','GBP'])
+       ON CONFLICT (name) DO UPDATE SET display_name = EXCLUDED.display_name,
+         supported_currencies = EXCLUDED.supported_currencies,
+         is_active = CASE WHEN payment_gateways.name = 'dummy' THEN TRUE ELSE payment_gateways.is_active END`
+    );
 
     console.log('[Database] Neon PostgreSQL connected successfully with complete schema and all indexes');
   } catch (error) {

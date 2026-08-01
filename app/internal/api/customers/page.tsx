@@ -34,6 +34,8 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { isValidEmail } from "@/lib/validation";
+import { FieldIndicator } from "@/components/internal-api/validation/FieldIndicator";
 
 // ============================================================
 // TYPES - Based on actual customers API response
@@ -277,8 +279,15 @@ export default function CustomersPage() {
     email: "",
     name: "",
     phone: "",
+    mobile: "",
+    alternative_mobile: "",
     company: "",
     country: "",
+    address_line1: "",
+    address_line2: "",
+    city: "",
+    state: "",
+    postal_code: "",
     notes: "",
   });
 
@@ -356,7 +365,7 @@ export default function CustomersPage() {
 
   const createCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createForm.email || !createForm.email.includes("@")) {
+    if (!isValidEmail(createForm.email)) {
       setError("A valid email address is required");
       return;
     }
@@ -364,23 +373,30 @@ export default function CustomersPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/customers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: createForm.email,
-          name: createForm.name || undefined,
-          phone: createForm.phone || undefined,
-          company: createForm.company || undefined,
-          country: createForm.country || undefined,
-          notes: createForm.notes || undefined,
-        }),
-      });
+const response = await fetch(`${API_BASE}/customers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: createForm.email,
+            name: createForm.name || undefined,
+            phone: createForm.phone || undefined,
+            mobile: createForm.mobile || undefined,
+            alternative_mobile: createForm.alternative_mobile || undefined,
+            company: createForm.company || undefined,
+            country: createForm.country || undefined,
+            address_line1: createForm.address_line1 || undefined,
+            address_line2: createForm.address_line2 || undefined,
+            city: createForm.city || undefined,
+            state: createForm.state || undefined,
+            postal_code: createForm.postal_code || undefined,
+            notes: createForm.notes || undefined,
+          }),
+        });
       const data = await response.json();
 
       if (data.success) {
         setShowCreateModal(false);
-        setCreateForm({ email: "", name: "", phone: "", company: "", country: "", notes: "" });
+        setCreateForm({ email: "", name: "", phone: "", mobile: "", alternative_mobile: "", company: "", country: "", address_line1: "", address_line2: "", city: "", state: "", postal_code: "", notes: "" });
         fetchCustomers();
       } else {
         setError(data.error || "Failed to create customer");
@@ -550,14 +566,25 @@ export default function CustomersPage() {
             <form onSubmit={createCustomer} className="space-y-4">
               <div>
                 <label className="block text-xs text-[var(--text-muted)] mb-1">Email *</label>
-                <input
-                  type="email"
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm(f => ({ ...f, email: e.target.value }))}
-                  required
-                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
-                  placeholder="customer@example.com"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="customer@example.com"
+                  />
+                  <FieldIndicator
+                    state={
+                      createForm.email.trim() === ""
+                        ? "empty"
+                        : isValidEmail(createForm.email)
+                          ? "valid"
+                          : "invalid"
+                    }
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-[var(--text-muted)] mb-1">Name</label>
@@ -600,6 +627,82 @@ export default function CustomersPage() {
                   className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
                   placeholder="Country"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Mobile</label>
+                  <input
+                    type="text"
+                    value={createForm.mobile}
+                    onChange={(e) => setCreateForm(f => ({ ...f, mobile: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="Mobile number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Alternative Mobile</label>
+                  <input
+                    type="text"
+                    value={createForm.alternative_mobile}
+                    onChange={(e) => setCreateForm(f => ({ ...f, alternative_mobile: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="Alternative mobile"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Address Line 1</label>
+                  <input
+                    type="text"
+                    value={createForm.address_line1}
+                    onChange={(e) => setCreateForm(f => ({ ...f, address_line1: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="Street address"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Address Line 2</label>
+                  <input
+                    type="text"
+                    value={createForm.address_line2}
+                    onChange={(e) => setCreateForm(f => ({ ...f, address_line2: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="Apartment, suite, etc."
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">City</label>
+                  <input
+                    type="text"
+                    value={createForm.city}
+                    onChange={(e) => setCreateForm(f => ({ ...f, city: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="City"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">State</label>
+                  <input
+                    type="text"
+                    value={createForm.state}
+                    onChange={(e) => setCreateForm(f => ({ ...f, state: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="State/Province"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] mb-1">Postal Code</label>
+                  <input
+                    type="text"
+                    value={createForm.postal_code}
+                    onChange={(e) => setCreateForm(f => ({ ...f, postal_code: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all text-sm"
+                    placeholder="Postal/ZIP code"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-[var(--text-muted)] mb-1">Notes</label>

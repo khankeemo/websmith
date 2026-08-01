@@ -84,17 +84,24 @@ export async function POST(request: NextRequest) {
 
     client = await pool.connect();
     const result = await client.query(
-      `INSERT INTO customers (email, name, phone, company, country, notes, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `INSERT INTO customers (email, name, phone, company, country, mobile, alternative_mobile, address_line1, address_line2, city, state, postal_code, notes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        ON CONFLICT (email) DO UPDATE SET
          name = COALESCE($2, customers.name),
          phone = COALESCE($3, customers.phone),
          company = COALESCE($4, customers.company),
          country = COALESCE($5, customers.country),
-         notes = COALESCE($6, customers.notes),
+         mobile = COALESCE($6, customers.mobile),
+         alternative_mobile = COALESCE($7, customers.alternative_mobile),
+         address_line1 = COALESCE($8, customers.address_line1),
+         address_line2 = COALESCE($9, customers.address_line2),
+         city = COALESCE($10, customers.city),
+         state = COALESCE($11, customers.state),
+         postal_code = COALESCE($12, customers.postal_code),
+         notes = COALESCE($13, customers.notes),
          updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
-      [validation.data.email, validation.data.name, validation.data.mobile, validation.data.company, validation.data.country, validation.data.notes]
+      [validation.data.email, validation.data.name, validation.data.mobile, validation.data.company, validation.data.country, validation.data.mobile, validation.data.alternative_mobile, validation.data.address_line1, validation.data.address_line2, validation.data.city, validation.data.state, validation.data.postal_code, validation.data.notes]
     );
     client.release();
 

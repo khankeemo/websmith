@@ -353,8 +353,14 @@ export async function validateCustomerInput(
     name: nameResult.data,
     email: emailResult.data,
     mobile: body.mobile ? normalizePhone(body.mobile.trim()) : null,
+    alternative_mobile: body.alternative_mobile ? normalizePhone(body.alternative_mobile.trim()) : null,
     company: body.company ? body.company.trim() : null,
     country: body.country ? body.country.trim().toUpperCase() : null,
+    address_line1: body.address_line1 ? body.address_line1.trim() : null,
+    address_line2: body.address_line2 ? body.address_line2.trim() : null,
+    city: body.city ? body.city.trim() : null,
+    state: body.state ? body.state.trim() : null,
+    postal_code: body.postal_code ? body.postal_code.trim() : null,
     notes: body.notes ? body.notes.trim() : null
   });
 }

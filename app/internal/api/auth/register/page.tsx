@@ -19,6 +19,7 @@ import {
   Sparkles,
   Shield,
 } from "lucide-react";
+import { isValidEmail } from "@/lib/validation";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -61,7 +62,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!formData.email || !formData.email.includes("@")) {
+    if (!isValidEmail(formData.email)) {
       setError("Please enter a valid email address");
       return;
     }

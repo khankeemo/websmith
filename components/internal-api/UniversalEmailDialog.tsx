@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Mail,
   Send,
@@ -17,16 +17,13 @@ import {
   CheckCircle,
   AlertCircle,
   Search,
-  Eye,
   User,
   Phone,
-  FileText,
   ArrowLeft,
-  Download,
-  Clock,
-  Copy,
-  ExternalLink,
+  Paperclip,
   Package,
+  FileArchive,
+  Trash2,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -52,6 +49,20 @@ interface EmailRecord {
   subject: string;
   status: string;
   sent_at: string;
+  attachments: { id: number; file_name: string; file_size: number }[];
+}
+
+interface SelectedFile {
+  file: File;
+  size: number;
+}
+
+interface SdkJobInfo {
+  job_id: string;
+  filename: string;
+  product_name: string;
+  file_size: number;
+  has_sdk: boolean;
 }
 
 interface EmailDialogProps {
@@ -60,6 +71,7 @@ interface EmailDialogProps {
   defaultEmail?: string;
   defaultLicenseKey?: string;
   defaultProductName?: string;
+  defaultProductId?: string;
   defaultAction?: EmailAction;
 }
 
@@ -75,7 +87,19 @@ const actionConfig: Record<EmailAction, { label: string; icon: typeof Mail; desc
   general: { label: "General Request", icon: MessageSquare, description: "Submit a general inquiry" },
 };
 
-export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, defaultLicenseKey, defaultProductName, defaultAction }: EmailDialogProps) {
+function formatSize(bytes: number): string {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  let v = bytes;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction }: EmailDialogProps) {
   const [view, setView] = useState<"actions" | "form" | "history">("actions");
   const [action, setAction] = useState<EmailAction>(defaultAction || "send");
   const [loading, setLoading] = useState(false);
@@ -98,16 +122,45 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
   const [historyLoading, setHistoryLoading] = useState(false);
   const [searchEmail, setSearchEmail] = useState("");
 
+  // Attachments
+  const [files, setFiles] = useState<SelectedFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [sdkJob, setSdkJob] = useState<SdkJobInfo | null>(null);
+  const [attachSdk, setAttachSdk] = useState(false);
+  const [sdkLoading, setSdkLoading] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       setView("actions");
       setError("");
       setSuccess("");
+      setFiles([]);
+      setAttachSdk(false);
+      setSdkJob(null);
       if (defaultAction) {
         openAction(defaultAction);
       }
     }
   }, [isOpen, defaultAction]);
+
+  // Load SDK job info for the product when the dialog opens
+  useEffect(() => {
+    if (isOpen && (defaultProductId || defaultProductName)) {
+      let cancelled = false;
+      const productId = defaultProductId || "";
+      if (productId) {
+        setSdkLoading(true);
+        fetch(`${API_BASE}/admin/sdk/latest-job?product_id=${encodeURIComponent(productId)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (!cancelled && data.success && data.job) setSdkJob(data.job);
+          })
+          .catch(() => {})
+          .finally(() => { if (!cancelled) setSdkLoading(false); });
+      }
+      return () => { cancelled = true; };
+    }
+  }, [isOpen, defaultProductId, defaultProductName]);
 
   const openAction = useCallback((a: EmailAction) => {
     setAction(a);
@@ -170,17 +223,18 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
     if (!search) return;
     setHistoryLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/admin/search/email?email=${encodeURIComponent(search)}`);
+      const res = await fetch(`${API_BASE}/admin/communication/history?email=${encodeURIComponent(search)}`);
       const data = await res.json();
       if (data.success) {
-        setEmailHistory([{
-          id: "1",
-          email_type: data.license_key ? "license_lookup" : "search",
-          recipient: search,
-          subject: `License: ${data.license_key || "N/A"}`,
-          status: data.status || "found",
-          sent_at: data.created_at || new Date().toISOString(),
-        }]);
+        setEmailHistory(data.data.map((row: any) => ({
+          id: String(row.id),
+          email_type: row.event_type,
+          recipient: row.recipient,
+          subject: row.subject || "",
+          status: row.status,
+          sent_at: row.created_at,
+          attachments: row.attachments || [],
+        })));
       } else {
         setEmailHistory([]);
       }
@@ -191,9 +245,32 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
     }
   }, [searchEmail]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    setFiles(prev => {
+      const merged = [...prev, ...selected.map(f => ({ file: f, size: f.size }))];
+      return merged.slice(0, 5);
+    });
+    e.target.value = "";
+  };
+
+  const emailTypeForAction = () => {
+    switch (action) {
+      case "buy-license": return "welcome_customer";
+      case "renew": return "license_renewed";
+      case "activate": return "activation_success";
+      case "reactivation": return "reactivation_approved";
+      default: return "admin_notification";
+    }
+  };
+
   const handleSendEmail = async () => {
     if (!recipientEmail) {
       setError("Recipient email is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail.trim())) {
+      setError("A valid recipient email is required");
       return;
     }
     setLoading(true);
@@ -201,32 +278,38 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
     setSuccess("");
 
     try {
-      const token = localStorage.getItem("api_center_token");
-      const emailType = action === "send" ? "admin_notification" :
-        action === "buy-license" ? "welcome_customer" :
-        action === "renew" ? "license_renewed" :
-        action === "activate" ? "activation_success" :
-        action === "reactivation" ? "reactivation_approved" :
-        action === "support" ? "admin_notification" : "admin_notification";
+      const emailType = emailTypeForAction();
+      const common = {
+        to_email: recipientEmail.trim(),
+        to_name: recipientName.trim() || customerName.trim(),
+        subject,
+        message,
+        email_type: emailType,
+        license_key: licenseKey,
+        product_id: defaultProductId || "",
+        attach_sdk: attachSdk ? "true" : "false",
+        sdk_job_id: attachSdk && sdkJob ? sdkJob.job_id : "",
+      };
 
-      const res = await fetch(`${API_BASE}/admin/email/templates`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          email_type: emailType,
-          subject,
-          body: `<p>${message.replace(/\n/g, "<br/>")}</p>`,
-          plain_text: message,
-          is_active: true,
-        }),
-      });
+      let res: Response;
+      if (files.length > 0) {
+        const formData = new FormData();
+        for (const [k, v] of Object.entries(common)) formData.append(k, String(v));
+        for (const f of files) formData.append("files", f.file);
+        res = await fetch(`${API_BASE}/admin/communication/send`, { method: "POST", body: formData });
+      } else {
+        res = await fetch(`${API_BASE}/admin/communication/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(common),
+        });
+      }
 
       const data = await res.json();
       if (data.success) {
-        setSuccess("Email sent successfully");
+        setSuccess(`Email sent to ${recipientEmail}`);
+        setFiles([]);
+        setAttachSdk(false);
         setTimeout(() => {
           setView("actions");
           setSuccess("");
@@ -263,6 +346,73 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
       })}
     </div>
   );
+
+  const renderAttachmentSection = () => {
+    const canAttachSdk = Boolean(sdkJob?.has_sdk) && Boolean(licenseKey || defaultProductId);
+    return (
+      <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/10 p-3 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-xs font-medium text-[var(--text-secondary)]">Attachments</p>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            <Paperclip size={13} /> Add files (max 5)
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+        </div>
+
+        {files.length > 0 && (
+          <div className="space-y-1.5">
+            {files.map((f, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-primary)]/60 border border-[var(--border-color)]">
+                <Paperclip size={13} className="text-[var(--text-muted)] shrink-0" />
+                <span className="text-xs text-[var(--text-primary)] truncate flex-1">{f.file.name}</span>
+                <span className="text-[10px] text-[var(--text-muted)] shrink-0">{formatSize(f.size)}</span>
+                <button
+                  type="button"
+                  onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}
+                  className="text-[var(--text-muted)] hover:text-red-400 transition-colors shrink-0"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {canAttachSdk && (
+          <label className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 cursor-pointer hover:bg-blue-500/10 transition-colors">
+            <input
+              type="checkbox"
+              checked={attachSdk}
+              onChange={e => setAttachSdk(e.target.checked)}
+              className="accent-blue-500"
+            />
+            <FileArchive size={14} className="text-blue-400 shrink-0" />
+            <span className="text-xs text-[var(--text-primary)] flex-1">
+              Attach product SDK package
+            </span>
+            <span className="text-[10px] text-[var(--text-muted)] shrink-0">
+              {sdkJob ? sdkJob.filename : "…"}
+            </span>
+          </label>
+        )}
+        {sdkLoading && (
+          <p className="text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
+            <Loader2 size={11} className="animate-spin" /> Checking for product SDK…
+          </p>
+        )}
+      </div>
+    );
+  };
 
   const renderEmailForm = () => {
     const isSupportAction = ["buy-license", "renew", "reactivation", "device-replacement", "support", "general"].includes(action);
@@ -421,6 +571,8 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
           </>
         )}
 
+        {renderAttachmentSection()}
+
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-xl border border-red-500/20 bg-red-500/5">
             <AlertCircle size={16} className="text-red-400 shrink-0" />
@@ -473,19 +625,25 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <Mail size={14} className="text-[var(--text-muted)] shrink-0" />
-                  <p className="text-sm font-medium text-[var(--text-primary)] truncate">{record.subject}</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)] truncate">{record.subject || record.email_type}</p>
+                  {record.attachments.length > 0 && (
+                    <span className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] shrink-0">
+                      <Paperclip size={10} /> {record.attachments.length}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs text-[var(--text-muted)]">{record.recipient}</span>
                   <span className="text-xs text-[var(--text-muted)]">
-                    {record.sent_at ? new Date(record.sent_at).toLocaleDateString() : ""}
+                    {record.sent_at ? new Date(record.sent_at).toLocaleString() : ""}
                   </span>
+                  <span className="text-[10px] text-[var(--text-muted)]">{record.email_type}</span>
                 </div>
               </div>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                record.status === "sent" || record.status === "found"
+                record.status === "sent"
                   ? "bg-green-500/10 text-green-400"
-                  : "bg-amber-500/10 text-amber-400"
+                  : "bg-red-500/10 text-red-400"
               }`}>
                 {record.status}
               </span>
@@ -509,7 +667,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="" maxWidth="640px">
+    <Modal isOpen={isOpen} onClose={onClose} title="" maxWidth="760px">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>

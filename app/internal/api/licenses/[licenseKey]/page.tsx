@@ -29,6 +29,7 @@ import {
   Layers
 } from "lucide-react";
 import { licenseApi, License } from "@/lib/api/license-api";
+import { isValidEmail } from "@/lib/validation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL + "/internal/backend" : "";
 
@@ -113,7 +114,7 @@ export default function LicenseDetailPage() {
 
   const handleChangeEmail = async () => {
     const newEmail = prompt("Enter new email address:", license?.customer_email);
-    if (!newEmail || !newEmail.includes("@")) {
+    if (!newEmail || !isValidEmail(newEmail)) {
       alert("Please enter a valid email address");
       return;
     }

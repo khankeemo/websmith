@@ -52,7 +52,7 @@ async function handleCountries(request: NextRequest) {
       const client = await pool.connect();
       try {
         const result = await client.query(
-          'SELECT code, name, dial FROM countries WHERE is_active = TRUE ORDER BY display_order ASC, name ASC'
+          'SELECT code, name, dial, min_digits, max_digits FROM countries WHERE is_active = TRUE ORDER BY display_order ASC, name ASC'
         );
         countries = result.rows.map(r => ({ ...r, flag: codeToFlag(r.code) }));
       } finally {

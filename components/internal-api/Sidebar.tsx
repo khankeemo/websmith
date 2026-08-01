@@ -91,6 +91,8 @@ const menu = [
     title: "SALES",
     items: [
       { name: "Sales Enquiries", icon: Store, path: "/internal/api/sales/enquiries" },
+      { name: "Sales Orders", icon: ShoppingBag, path: "/internal/api/sales/orders" },
+      { name: "Sales Invoices", icon: Receipt, path: "/internal/api/sales/invoices" },
       { name: "Generate License", icon: KeyRound, path: "/internal/api/sales/purchase" },
     ],
   },

@@ -461,7 +461,7 @@ export class Publisher {
         return String.fromCodePoint(...code.split('').map(c => 0x1F1E6 + c.codePointAt(0)! - 65));
       }
       const countryResult = await db.query(
-        'SELECT code, name, dial FROM countries WHERE is_active = TRUE ORDER BY display_order ASC, name ASC'
+        'SELECT code, name, dial, min_digits, max_digits FROM countries WHERE is_active = TRUE ORDER BY display_order ASC, name ASC'
       );
       countries = countryResult.rows.map((r: any) => ({ ...r, flag: codeToFlag(r.code) }));
     } catch (err) {

@@ -896,11 +896,23 @@ async function logEmailDelivery(
   }
 }
 
+export interface EmailAttachmentInput {
+  name: string;
+  content: string; // base64 content
+  type?: string;
+}
+
+export interface EmailSendOptions {
+  attachments?: EmailAttachmentInput[];
+  custom?: { subject: string; html: string; plainText: string } | null;
+}
+
 export async function sendEmail(
   client: any,
   emailType: string,
   to: { email: string; name?: string },
-  data: Record<string, string> = {}
+  data: Record<string, string> = {},
+  options: EmailSendOptions = {}
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   if (!BREVO_API_KEY) {
     console.warn(`BREVO_API_KEY not set — skipping email: ${emailType} to ${to.email}`);
@@ -910,14 +922,14 @@ export async function sendEmail(
   try {
     const template = await getTemplate(client, emailType);
     const config = EMAIL_TYPES[emailType];
-    if (!config) {
+    if (!config && !options.custom) {
       console.warn(`Unknown email type: ${emailType}`);
       return { success: false, error: 'Unknown email type' };
     }
 
-    const subject = template?.subject || config.subject;
-    let htmlBody = template?.body || config.defaultBody(data);
-    let plainText = template?.plain_text || config.defaultPlainText(data);
+    const subject = options.custom?.subject || template?.subject || config?.subject || '';
+    let htmlBody = options.custom?.html || template?.body || config?.defaultBody(data) || '';
+    let plainText = options.custom?.plainText || template?.plain_text || config?.defaultPlainText(data) || '';
 
     for (const [key, val] of Object.entries(data)) {
       htmlBody = htmlBody.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val || '');
@@ -953,6 +965,9 @@ export async function sendEmail(
             subject,
             htmlContent: htmlBody,
             textContent: plainText,
+            ...(options.attachments && options.attachments.length > 0
+              ? { attachment: options.attachments.map(a => ({ name: a.name, content: a.content })) }
+              : {}),
           }),
           signal: controller.signal,
         });

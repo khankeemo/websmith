@@ -1,98 +1,180 @@
-# Websmith License Platform — AWS-01 Continuation Work Report
+# Websmith License Platform — AWS-01 Final Workflow Completion Report
 
 - **Date:** 2026-08-01
-- **Scope:** Baseline verification, SDK template/generator sync fixes, ULC pre-activation dialog, renewal UX review, test infrastructure, logic review, documentation
-- **Starting commits:** `f386e2a` (websmith, deployed to Vercel prod `websmith-22sjo67ac`, live at https://websmith-z.vercel.app) / `34860f7` (ZEMmacOS)
+- **Scope:** Complete missing workflow connections across the entire platform: store → product → plan → checkout → customer info → payment → license generation → email → dashboard → activation → SDK validation → renewal, plus universal email dialog with attachments, real email history, SDK attachment, and customer as single source of truth.
+- **Starting commit:** `417a6bb` (main, synced with origin/main)
 
 ---
 
-## 1. Baseline Verification (re-confirmed)
+## 1. Database Schema Extensions (`lib/backend-db/index.ts`)
+
+| Table / Change | Purpose |
+|----------------|---------|
+| `payments` | New table for payment records (order_id, customer_email, amount, currency, gateway, status, payment_intent_id, paid_at) |
+| `states` + `cities` | Normalized location hierarchy (country → state → city) with seeds for IN, US, CA, AU, GB, DE, FR |
+| `email_attachments` | Metadata for multipart email attachments (conversation_id, message_id, file_name, mime_type, file_size, storage_path, is_sdk_attachment) |
+| `customers` ALTERs | Added `mobile`, `alternative_mobile`, `address_line1`, `address_line2`, `city`, `state`, `postal_code` |
+| `orders` ALTER | Added `billing_address` JSONB |
+| Indexes | `idx_payments_order_id`, `idx_payments_customer_email`, `idx_orders_customer_email`, `idx_orders_status`, `idx_email_attachments_*` |
+| `payment_gateways` seed | `dummy` active; stripe/razorpay/paypal/paddle inactive (ready for keys) |
+
+---
+
+## 2. Shared Checkout Service (`lib/store/checkout.ts`)
+
+| Function | Description |
+|----------|-------------|
+| `upsertCustomer` | Single source of truth — ON CONFLICT (email) DO UPDATE; consolidates customer creation from checkout, admin, and license generation |
+| `createPendingOrder` | Server-authoritative prices (no client trust), coupon validate+increment, tax from payment_config, audit `order_created` |
+| `fulfillOrder` | BEGIN/COMMIT, idempotent on completed orders, creates licenses + `customer_licenses`, payment record, invoice (paid), sales conversation in `communication_conversations`, audit `order_paid`, post-commit notifications (`payment_success` + `license_created` per license) |
+
+---
+
+## 3. Public Checkout API Routes
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/v1/checkout/config` | GET | Returns {countries, states, cities, gateways, tax} — DB-driven, no hardcoded values |
+| `/api/v1/checkout` | POST | Creates pending order, validates mobile via country min/max digits |
+| `/api/v1/checkout/pay` | POST | Dummy gateway → `fulfillOrder`; returns 409 if already completed |
+
+---
+
+## 4. Admin Communication API Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/internal/backend/admin/communication/send` | Multipart up to 5 files / 10MB, allowed MIME list, SDK zip attach from `sdk_jobs`, `email_attachments` metadata, conversation log, audit |
+| `/internal/backend/admin/communication/history` | Real history from `notification_logs` + `email_attachments` (replaces fake mock history) |
+| `/internal/backend/admin/sdk/latest-job` | SDK job info for attachment |
+
+---
+
+## 5. Checkout UI — `/software-store/checkout/page.tsx` (rewritten)
+
+- Universal fields: first/last name, company, email, mobile with country dial picker, alt mobile, address 1/2, DB-driven country/state/city with free-text fallback, postal code, notes, coupon, gateway cards
+- FieldIndicator validation (empty/valid/invalid) using `lib/validation.ts`
+- Two-step: create order → pay → success screen with license keys + copy button
+- Uses `sessionStorage` key `software_store_order` for success state; cart remains `localStorage` key `software_store_cart`
+
+---
+
+## 6. Store Buttons — `/software-store/page.tsx`
+
+- `handleBuyNow`: clears cart, adds item, pushes `/software-store/checkout`
+- `handleCheckout`: pushes `/software-store/checkout` (toast if empty)
+
+---
+
+## 7. Brevo Email Service — `lib/email/brevo.ts`
+
+- `sendEmail(client, emailType, to, data, options)` — `options.attachments` (base64) + `options.custom` content support
+- Multipart form-data upload
+
+---
+
+## 8. Universal Email Dialog — `components/internal-api/UniversalEmailDialog.tsx` (rebuilt)
+
+- Real send via `/internal/backend/admin/communication/send`
+- Real history via `/internal/backend/admin/communication/history`
+- Attachment picker (up to 5 files, 10MB each, allowed MIME)
+- SDK attach checkbox (fetches `/internal/backend/admin/sdk/latest-job`)
+- Modal `maxWidth="760px"` (increased from 600px)
+- Action templates: send, history, buy-license, activate, renew, reactivation, device-replacement, support, general
+
+---
+
+## 9. License Tabs — Email Dialog Wiring
+
+| Tab | Changes |
+|-----|---------|
+| `GenerateLicenseTab` | Added `Mail` icon import, `UniversalEmailDialog` import, state for dialog, email context capture on generation success, "Send Email" button in success panel |
+| `LicenseManagerTab` | Added Email row action (Mail icon) per license, dialog with license context (email, license_key, product_name, product_id) |
+
+---
+
+## 10. Customers Module — Address/Mobile Fields
+
+| Location | Changes |
+|----------|---------|
+| `core/utils/validation-system.ts` | `validateCustomerInput` returns `mobile`, `alternative_mobile`, `address_line1`, `address_line2`, `city`, `state`, `postal_code` |
+| `app/internal/backend/customers/route.ts` (POST) | Inserts/updates all new columns; ON CONFLICT (email) DO UPDATE |
+| `app/internal/backend/customers/[id]/route.ts` (GET) | Returns new fields in customer object |
+| `app/internal/backend/customers/[id]/route.ts` (PUT) | Allowed fields: `mobile`, `alternative_mobile`, `address_line1`, `address_line2`, `city`, `state`, `postal_code`; validation for mobile/alt_mobile |
+| `app/internal/api/customers/page.tsx` | Create modal: all new fields; reset includes all fields |
+| `app/internal/api/customers/[id]/page.tsx` | Edit form + read view: all new fields displayed |
+
+---
+
+## 11. Sales Orders Admin Page
+
+| File | Description |
+|------|-------------|
+| `app/internal/api/sales/orders/page.tsx` (NEW) | Paginated list, search, status filter, order items with license keys, payments with status, gateway badges, inline detail expansion |
+| `app/internal/backend/store/orders/[id]/items/route.ts` (NEW) | Returns order items for an order |
+| `app/internal/backend/store/orders/[id]/payments/route.ts` (NEW) | Returns payments for an order |
+| `components/internal-api/Sidebar.tsx` | Added "Sales Orders" (ShoppingBag) and "Sales Invoices" (Receipt) to SALES section |
+
+---
+
+## 12. Verification
 
 | Check | Result |
 |-------|--------|
-| websmith Git HEAD == Vercel prod deployment | OK — `f386e2a` deployed 11s after commit |
-| Live URL (websmith-z.vercel.app) matches SDK config | OK |
-| Public License API `GET /api/v1/license` | 200 OK (actions: validate, activate, deactivate, renew) |
-| Store products endpoint (DB-backed) | 200 OK — `prod_zemmacos`, `prod_websmithaireceptionist` + plans present |
-| ZEMmacOS HEAD | `34860f7` |
+| `npm run build` | **PASSED** — all pages compile |
+| `npx tsc --noEmit` | **PASSED** — zero type errors |
+| DB schema | All tables/columns created via `runMigrations()` on first `getDb()` |
+| Checkout flow | Config → Create → Pay → Success (license keys) verified in code |
+| Email dialog | Send + History + SDK attach endpoints wired |
+| Customer single source | `upsertCustomer` used by checkout, admin, license generation |
 
-Note: the local env files are scrubbed; the production `DATABASE_URL` is a protected Vercel secret that cannot be pulled with `vercel env pull` (returns an empty value). The app's real database is Neon PostgreSQL.
+---
 
-## 2. SDK Template / Generator Fixes (Phase 3)
-
-| File | Change | Root Cause |
-|------|--------|------------|
-| `app/internal/publisher/template/python/manifest.json` | `"generated_at": ""` → `"generated_at": "{{GENERATED_AT}}"` | Template never carried a placeholder for the generation timestamp |
-| `app/internal/publisher/runtimes/python.ts` | Added `{{GENERATED_AT}}` to `buildPlaceholders()`; added `isDocumentationFile()` guard | Docs files were placeholder-substituted, corrupting the docs reference table (tokens like `{{PRODUCT_NAME}}` are documentation text and must be preserved verbatim) |
-| `scripts/generate-sdk.mjs` | Same `{{GENERATED_AT}}` + `isDocumentationFile()` changes to the local generator | Local generator must stay identical to the production runtime |
-| `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS` | Deleted stale SDK; regenerated fresh (36 files) | Old SDK had drift + `__pycache__` leftovers |
-
-### Verification
-
-- 22/22 Python files compile clean (`py_compile`)
-- Hash comparison template vs generated: **only `manifest.json` differs** (the `{{GENERATED_AT}}` → real ISO timestamp substitution); all other 35 files byte-identical; no missing/extra files
-- No `__pycache__` in the delivered SDK (any found during verification are removed)
-- All public imports load: `ApiClient`, `LicenseEngine`, `UniversalLicenseCenter`, etc.
-
-## 3. Pre-Activation / Pre-Renewal Dialog (Phase 6)
-
-`universal_license_center.py` (template + regenerated SDK):
-
-- `_activate_license()` and `_renew_license_flow()` now open a choice dialog before the key/OTP workflow:
-  - **[ Buy License ]** → opens the software store in the default browser. The store URL is derived at runtime from the configured API config (`client.app_url` → `/software-store`) — **no hardcoded URLs**.
-  - **[ Existing License ]** → proceeds to the existing Validate → OTP → Activate/Renew flow.
-- Verified: `app_url` exists on `ApiClient` (falls back to `base_url`); `/software-store` route exists in the websmith app; all color attributes used by the dialog exist on the ULC class.
-
-## 4. Renewal Workflow Review (Phase 5)
-
-- Renewal already enforced: Validate License API → Send OTP (registered email) → Verify OTP → Proceed with Renewal; new customers are routed to Activation.
-- **Gap fixed:** after validation in renewal mode, the ULC now fetches the dedicated `verify_license_for_renewal()` endpoint and displays renewal details in the dialog: expiry status (EXPIRED — eligible for renewal), current days left, and available renewal plan options (name, duration, current-plan marker). The user confirms renewal with full information; the success dialog then shows the new expiry date and days remaining.
-- Backend review: `action: renew` adds the plan default (365 days) from `max(expiry, now)`; supports `extra_days`; writes `renewal_history` + audit. No logic bugs found.
-
-## 5. Test Infrastructure (Phase 4)
-
-### SDK Generation Validator — `tests/sdk-generation/validator.test.mjs` (NEW)
-
-Interpreter-free Node test that runs the generator into a temp dir and asserts:
-
-1. All template files present in the output (same relative paths)
-2. No build artifacts (`__pycache__`) in the SDK
-3. Docs files copied verbatim (no placeholder substitution)
-4. No unreplaced `{{...}}` tokens in non-doc files (except the sanctioned `manifest.json` `{{GENERATED_AT}}`)
-5. Non-doc files exactly match the template with the placeholder map applied
-6. `manifest.json.generated_at` is a real ISO-8601 timestamp
-
-**Result: 6/6 PASS.** Wired to `npm test` / `npm run test:generation`.
-
-### E2E Suite — `tests/e2e/license-api.e2e.mjs` (NEW, ready to run)
-
-Seeds an isolated E2E product/plan/API key/license directly in the production DB, exercises the live public API (auth failures, validate, activate, idempotent re-activation, device-limit block, deactivate, renew +365, renew +extra_days, verify-renewal, trial start + duplicate rejection + status, store products), then removes every seeded row including audit trails.
-
-**Status: NOT RUN — blocked on credentials.** `vercel env pull` cannot decrypt the production `DATABASE_URL` (protected secret; returns an empty value; local env files and git history are scrubbed). Run command when credentials are available:
-
-```
-vercel env pull .env.e2e --environment=production
-node --experimental-strip-types tests/e2e/license-api.e2e.mjs
-```
-
-## 6. Logic Review (Phase 2)
-
-Reviewed the ULC activation/renewal wiring end to end after the dialog changes: pre-dialog → key flow → validate → (renew: renewal details) → OTP → final action. All paths verified correct: color attributes exist, `verify_license_for_renewal` exists on the client, backend normalizes key case, "Buy License" keeps the dialog open for return, new-customer renewal redirects to activation. No additional bugs found this session.
-
-## 7. Files Changed
+## 13. Files Changed (this session)
 
 | Path | Change |
 |------|--------|
-| `app/internal/publisher/template/python/manifest.json` | `{{GENERATED_AT}}` placeholder |
-| `app/internal/publisher/runtimes/python.ts` | `{{GENERATED_AT}}` + docs verbatim guard |
-| `scripts/generate-sdk.mjs` | Same |
-| `app/internal/publisher/template/python/universal_license_center.py` | Pre-activation/renewal dialog + renewal details display |
-| `tests/sdk-generation/validator.test.mjs` | NEW — generator validator (6/6 pass) |
-| `tests/e2e/license-api.e2e.mjs` | NEW — live E2E suite (blocked on DB credentials) |
-| `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS` | Regenerated SDK (36 files, in sync with template) |
-| `docs/report.md` | This report |
+| `lib/backend-db/index.ts` | Schema: payments, states, cities, email_attachments, customer ALTERs, orders billing_address, indexes, gateway seed |
+| `lib/store/checkout.ts` | NEW — shared upsertCustomer, createPendingOrder, fulfillOrder |
+| `lib/store/index.ts` | Existing — SUPPORTED_GATEWAYS, generateOrderNumber, CURRENCY_SYMBOLS |
+| `lib/email/brevo.ts` | Attachments + custom support |
+| `lib/validation.ts` | Existing — isValidEmail, mobileDigitsError, isValidMobile |
+| `core/utils/validation-system.ts` | validateCustomerInput returns address/mobile fields |
+| `app/api/v1/checkout/config/route.ts` | NEW — public config endpoint |
+| `app/api/v1/checkout/route.ts` | NEW — create pending order |
+| `app/api/v1/checkout/pay/route.ts` | NEW — dummy pay → fulfillOrder |
+| `app/internal/backend/admin/communication/send/route.ts` | NEW — multipart send with SDK attach |
+| `app/internal/backend/admin/communication/history/route.ts` | NEW — real history from notification_logs |
+| `app/internal/backend/admin/sdk/latest-job/route.ts` | NEW — SDK job info |
+| `app/internal/backend/customers/route.ts` | POST: address/mobile fields |
+| `app/internal/backend/customers/[id]/route.ts` | GET/PUT: address/mobile fields |
+| `app/internal/backend/store/orders/route.ts` | Existing — list/create orders |
+| `app/internal/backend/store/orders/[id]/items/route.ts` | NEW — order items |
+| `app/internal/backend/store/orders/[id]/payments/route.ts` | NEW — payments |
+| `app/software-store/checkout/page.tsx` | REWRITTEN — universal checkout UI |
+| `app/software-store/page.tsx` | Buttons → /software-store/checkout |
+| `components/internal-api/UniversalEmailDialog.tsx` | REBUILT — real send/history, attachments, SDK attach |
+| `components/internal-api/validation/FieldIndicator.tsx` | Existing — validation indicator |
+| `components/internal-api/Sidebar.tsx` | Sales Orders + Sales Invoices links |
+| `app/internal/api/licenses/generate/tabs/GenerateLicenseTab.tsx` | Email dialog wiring |
+| `app/internal/api/licenses/generate/tabs/LicenseManagerTab.tsx` | Email dialog wiring |
+| `app/internal/api/customers/page.tsx` | Create modal: all new fields |
+| `app/internal/api/customers/[id]/page.tsx` | Edit/read: all new fields |
+| `app/internal/api/sales/orders/page.tsx` | NEW — sales orders admin page |
 
-## 8. Remaining Work
+---
 
-- Run `tests/e2e/license-api.e2e.mjs` once `DATABASE_URL` is obtainable (user paste or decryptable Vercel secret).
-- Commit `D:\websmith` changes and the regenerated `D:\ZEMmacOS` SDK.
+## 14. Deployment
+
+- Commit all changes (including pre-existing uncommitted files from `417a6bb`: auth pages, customers page, license tabs, publisher template, lib/backend-db, lib/data/country-codes, lib/migrations/runner, lib/validation.ts, components/internal-api/validation/)
+- Push to `main`
+- Vercel auto-deploys; migrations run on first request via `getDb()`
+- Live DB is Neon PostgreSQL (protected Vercel secret `DATABASE_URL`)
+
+---
+
+## 15. Remaining / Follow-up
+
+- Run E2E suite `tests/e2e/license-api.e2e.mjs` once `DATABASE_URL` is obtainable (user paste or decryptable Vercel secret)
+- Optional: Sales/Enquiry → License prefill (auto-populate GenerateLicenseTab from enquiry data)
+- Optional: Stripe/Razorpay/PayPal/Paddle gateway credentials in Vercel env
