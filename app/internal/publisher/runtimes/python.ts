@@ -68,6 +68,7 @@ function buildPlaceholders(context: PublisherContext): PlaceholderMap {
     '{{TRIAL_DAYS}}': String(context.trialDays ?? product.trial_days ?? ''),
     '{{MAX_DEVICES}}': String(context.maxDevices ?? ''),
     '{{SENDER_NAME}}': '',
+    '{{GENERATED_AT}}': context.generatedAt || new Date().toISOString(),
   };
 }
 
@@ -83,6 +84,10 @@ function findUnreplacedPlaceholders(content: string): string[] {
   const regex = /\{\{[A-Z_]+\}\}/g;
   const matches = content.match(regex);
   return matches || [];
+}
+
+function isDocumentationFile(fileName: string): boolean {
+  return fileName.split(path.sep).includes('docs');
 }
 
 function getAllTemplateFiles(dir: string): string[] {
@@ -170,7 +175,9 @@ export function getPythonTemplates(context: PublisherContext): Record<string, st
     const filePath = path.join(TEMPLATE_DIR, fileName);
     let content = fs.readFileSync(filePath, 'utf-8');
 
-    content = replacePlaceholders(content, placeholders);
+    if (!isDocumentationFile(fileName)) {
+      content = replacePlaceholders(content, placeholders);
+    }
 
     // Check for unreplaced placeholders
     const unreplaced = findUnreplacedPlaceholders(content);

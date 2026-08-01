@@ -58,6 +58,7 @@ function buildPlaceholders() {
     '{{TRIAL_DAYS}}': '',
     '{{MAX_DEVICES}}': '',
     '{{SENDER_NAME}}': '',
+    '{{GENERATED_AT}}': context.generatedAt,
   };
 }
 
@@ -72,6 +73,10 @@ function replacePlaceholders(content, placeholders) {
 function findUnreplacedPlaceholders(content) {
   const regex = /\{\{[A-Z_]+\}\}/g;
   return content.match(regex) || [];
+}
+
+function isDocumentationFile(fileName) {
+  return fileName.split(/[\\/]/).includes('docs');
 }
 
 try {
@@ -92,7 +97,9 @@ try {
   for (const fileName of filesToProcess) {
     const filePath = path.join(TEMPLATE_DIR, fileName);
     let content = fs.readFileSync(filePath, 'utf-8');
-    content = replacePlaceholders(content, placeholders);
+    if (!isDocumentationFile(fileName)) {
+      content = replacePlaceholders(content, placeholders);
+    }
 
     const unreplaced = findUnreplacedPlaceholders(content);
     if (unreplaced.length > 0) {

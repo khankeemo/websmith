@@ -6989,3 +6989,44 @@ The "Already Used" symptom came from the trial/OTP path: `_show_welcome()` → `
 ```
 
 `licensed` is not in the SDK `hard_fail` set → the ULC Validate flow now proceeds to OTP → Activate for first-time binding. Template files compile clean; `main.py` passes `py_compile`.
+
+---
+
+## Session 2026-08-01 — AWS-01 Continuation: SDK Sync, Pre-Activation Dialog, Renewal UX, Test Infrastructure
+
+### SDK Template / Generator Sync (Phase 3)
+
+| File | Change | Reason |
+|------|--------|--------|
+| `template/python/manifest.json` | `"generated_at": ""` → `"{{GENERATED_AT}}"` | Template lacked a placeholder for the generation timestamp; hash comparison of Template vs Generated SDK always flagged `manifest.json` |
+| `runtimes/python.ts` + `scripts/generate-sdk.mjs` | Added `{{GENERATED_AT}}` to `buildPlaceholders()`; added `isDocumentationFile()` so `docs/` files are copied verbatim | The docs files contain a placeholder reference table (tokens such as `{{PRODUCT_NAME}}`, `{{PLACEHOLDER}}`) that is documentation text — substituting it corrupted the shipped docs. Docs must be byte-identical Template == Generated |
+| `D:\ZEMmacOS\WSD_SDKToolkit_ZEMMACOS` | Deleted stale SDK, regenerated (36 files) | Rebuild in sync with the fixed template; no `__pycache__` in output |
+
+Verified: 22/22 `py_compile` clean; hash comparison shows **only `manifest.json` differs** (approved `{{GENERATED_AT}}` substitution); all 35 other files byte-identical; all package imports load.
+
+### Pre-Activation / Pre-Renewal Dialog (Phase 6)
+
+`universal_license_center.py` `_activate_license()` and `_renew_license_flow()` now open `_show_pre_activation_dialog(mode)` before the key/OTP workflow:
+
+- **[ Buy License ]** → `_open_store()` — opens the software store in the default browser. URL derived at runtime from the configured API config (`client.app_url` + `/software-store`); **no hardcoded URLs** (config supplies `api.url`; the `/software-store` route exists in the websmith app).
+- **[ Existing License ]** → `_show_key_flow_dialog(mode)` — existing mandatory Validate → OTP → Activate/Renew flow.
+
+### Renewal Workflow Review (Phase 5)
+
+Renewal already enforced the mandatory flow (Validate License API → Send OTP to registered email → Verify OTP → Proceed with Renewal; new customers routed to Activation). **Gap closed:** in renewal mode the ULC now calls the dedicated `verify_license_for_renewal()` endpoint after validation and displays renewal details — expiry status (EXPIRED — eligible for renewal), current days left, and available renewal plan options (name, duration, current-plan marker) — so the user confirms renewal with full information. Backend renewal verified: default +365 days from `max(expiry, now)`, `extra_days` honored, `renewal_history` + audit written.
+
+### Test Infrastructure (Phase 4)
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `tests/sdk-generation/validator.test.mjs` | Interpreter-free generator validator (files present, no artifacts, docs verbatim, no unreplaced tokens, template+map match, ISO `generated_at`) | **6/6 PASS** (`npm test`) |
+| `tests/e2e/license-api.e2e.mjs` | Live E2E: seeds isolated product/plan/API key/license in the prod DB, exercises public API (auth, validate, activate, idempotency, device limit, deactivate, renew +365/+extra, verify-renewal, trial start/duplicate/status, store), cleans up fully | **Ready — blocked on DB credentials** (production `DATABASE_URL` is a protected Vercel secret; `vercel env pull` returns an empty value) |
+
+### Logic Review (Phase 2)
+
+End-to-end review of the new dialog wiring: color attributes exist on the ULC class; `verify_license_for_renewal` exists on `ApiClient`; backend normalizes license key case; "Buy License" keeps the pre-dialog open for return; new-customer renewal redirects to activation. No additional bugs found.
+
+### Verification
+
+- SDK validator 6/6 PASS; template + regenerated SDK compile clean; imports load.
+- Details in `docs/report.md`.
