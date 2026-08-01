@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MessageSquare, Mail, Phone, Search, ChevronDown, ExternalLink } from 'lucide-react';
+import { MessageSquare, Mail, Phone, Search, ChevronDown, ExternalLink, MessageSquare as MessageSquareIcon, Plus } from 'lucide-react';
+import UniversalEmailDialog from '@/components/internal-api/UniversalEmailDialog';
 
 interface Enquiry {
   id: number;
@@ -38,6 +39,8 @@ export default function SalesEnquiriesPage() {
     }
   };
 
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+
   useEffect(() => { fetchEnquiries(statusFilter); }, [statusFilter]);
 
   const filtered = enquiries.filter(e => {
@@ -59,6 +62,12 @@ export default function SalesEnquiriesPage() {
       </div>
 
       <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', alignItems: 'center' }}>
+        <button
+          onClick={() => setEmailDialogOpen(true)}
+          style={{ padding: '10px 20px', borderRadius: '8px', backgroundColor: '#007AFF', color: 'white', border: 'none', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <Plus size={16} /> New Enquiry
+        </button>
         <div style={{ flex: 1, position: 'relative' }}>
           <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', opacity: 0.4 }} />
           <input
@@ -137,5 +146,16 @@ export default function SalesEnquiriesPage() {
         </div>
       )}
     </div>
+
+    {/* Universal Email Dialog for new enquiries */}
+    <UniversalEmailDialog
+      isOpen={emailDialogOpen}
+      onClose={() => setEmailDialogOpen(false)}
+      defaultEmail=""
+      defaultLicenseKey=""
+      defaultProductName=""
+      defaultProductId=""
+      defaultAction="support"
+    />
   );
 }

@@ -57,6 +57,7 @@ import {
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { SDKGenerationDialog } from '@/components/internal-api/sdk/SDKGenerationDialog';
+import UniversalEmailDialog from '@/components/internal-api/UniversalEmailDialog';
 
 // ============================================================
 // TYPES
@@ -162,8 +163,6 @@ export default function IntegrationsPage() {
   const [allowConversion, setAllowConversion] = useState(true);
   const [countryList, setCountryList] = useState<{ code: string; name: string; dial: string; flag: string }[]>([]);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
 
   const [packageDetails, setPackageDetails] = useState<PackageDetails>({
     downloadUrl: null,
@@ -1388,58 +1387,17 @@ export default function IntegrationsPage() {
       />
 
       {/* Send Email Dialog */}
-      {emailDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--bg-secondary)] rounded-2xl max-w-lg w-full border border-[var(--border-color)]">
-            <div className="px-6 py-4 border-b border-[var(--border-color)]">
-              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Send SDK by Email</h3>
-            </div>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              setEmailSending(true);
-              try {
-                const form = e.target as HTMLFormElement;
-                const fd = new FormData(form);
-                const res = await fetch('/internal/backend/send-email', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    to: fd.get('recipient'),
-                    subject: fd.get('subject'),
-                    html: `<p>${fd.get('message')}</p><p><a href="${packageDetails.downloadUrl}">Download SDK</a></p>`,
-                    attachments: [],
-                    email_type: 'sdk_generated',
-                    metadata: {
-                      product_name: selectedProductData?.name,
-                      runtime: selectedRuntime,
-                      download_url: packageDetails.downloadUrl,
-                    }
-                  }),
-                });
-                if (res.ok) setEmailSent(true);
-              } catch {}
-              setEmailSending(false);
-            }} className="p-6 space-y-4">
-              <input name="recipient" required placeholder="Recipient Email" type="email" className="w-full px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-sm text-[var(--text-primary)]" />
-              <input name="subject" defaultValue={`SDK Generated for ${selectedProductData?.name || 'Product'}`} required placeholder="Subject" className="w-full px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-sm text-[var(--text-primary)]" />
-              <textarea name="message" defaultValue={`Hi there,\n\nYour SDK for ${selectedProductData?.name || 'your product'} is ready.\n\nRuntime: ${selectedRuntime}\n\nYou can download it from the link below.`} rows={4} required placeholder="Message" className="w-full px-3 py-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-sm text-[var(--text-primary)] resize-none" />
-              <div className="text-xs text-[var(--text-secondary)] space-y-1 bg-[var(--bg-tertiary)]/30 rounded-lg p-3">
-                <p className="font-medium text-[var(--text-primary)]">Attachments included in email:</p>
-                <p>• SDK ZIP — {packageDetails.filename || selectedProductData?.name + '_SDK.zip'}</p>
-                <p>• API Configuration</p>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={emailSending || emailSent} className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50 transition-colors">
-                  {emailSending ? 'Sending...' : emailSent ? 'Sent!' : 'Send Email'}
-                </button>
-                <button type="button" onClick={() => { setEmailDialogOpen(false); setEmailSent(false); }} className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <UniversalEmailDialog
+        isOpen={emailDialogOpen}
+        onClose={() => {
+          setEmailDialogOpen(false);
+        }}
+        defaultEmail=""
+        defaultLicenseKey=""
+        defaultProductName={selectedProductData?.name || ""}
+        defaultProductId={selectedProduct}
+        defaultAction="send"
+      />
     </div>
   );
 }
