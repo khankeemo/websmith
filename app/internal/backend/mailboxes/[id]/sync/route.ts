@@ -1,0 +1,203 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/lib/backend-db';
+
+export async function POST(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  let client = null;
+  let syncStartTime = Date.now();
+  try {
+    const { id } = await params;
+    client = await (await getDb()).connect();
+
+    const result = await client.query('SELECT * FROM mailboxes WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      client.release();
+      client = null;
+      return NextResponse.json({
+        success: false,
+        error: { code: 'MAILBOX_NOT_FOUND', message: 'Mailbox not found.' }
+      }, { status: 404 });
+    }
+
+    const mailbox = result.rows[0];
+    const now = new Date().toISOString();
+
+    await client.query(
+      `UPDATE mailboxes SET sync_status = 'syncing', updated_at = $1 WHERE id = $2`,
+      [now, id]
+    );
+
+    const logId = await client.query(
+      `INSERT INTO mailbox_sync_logs (mailbox_id, status, started_at) VALUES ($1, 'running', $2) RETURNING id`,
+      [id, now]
+    );
+    const syncLogId = logId.rows[0].id;
+
+    let messagesFetched = 0;
+    let messagesNew = 0;
+    let messagesUpdated = 0;
+    let errorMessage = '';
+    let syncStatus = 'completed';
+
+    try {
+      const Imap = (await import('imap')).default;
+      const { simpleParser } = await import('mailparser');
+
+      const imap = new Imap({
+        host: mailbox.imap_host,
+        port: mailbox.imap_port,
+        tls: mailbox.imap_secure,
+        tlsOptions: { rejectUnauthorized: false },
+        user: mailbox.imap_username,
+        password: mailbox.imap_password,
+        connTimeout: 30000,
+        authTimeout: 30000,
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        imap.once('ready', () => resolve());
+        imap.once('error', (err: Error) => reject(err));
+        imap.connect();
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        imap.openBox('INBOX', true, (err: Error | null, box: any) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+
+      const searchCriteria = ['UNSEEN'];
+      await new Promise<void>((resolve, reject) => {
+        imap.search(searchCriteria, async (err: Error | null, uids: number[]) => {
+          if (err) return reject(err);
+          if (!uids || uids.length === 0) {
+            imap.end();
+            return resolve();
+          }
+
+          messagesFetched = uids.length;
+          const fetch = imap.fetch(uids, { bodies: '', struct: true });
+
+          fetch.on('message', (msg: any, seqno: number) => {
+            msg.on('body', async (stream: any) => {
+              try {
+                const parsed = await simpleParser(stream);
+                const messageId = parsed.messageId || `<${Date.now()}-${Math.random().toString(36).substring(2)}@${mailbox.email_address}>`;
+                const subject = parsed.subject || '(No Subject)';
+                const from = parsed.from?.text || '';
+                const to = parsed.to?.text || '';
+                const date = parsed.date || new Date();
+                const text = parsed.text || '';
+                const html = parsed.html || '';
+                const hasAttachments = parsed.attachments && parsed.attachments.length > 0;
+
+                const existing = await client?.query(
+                  'SELECT id FROM communication_conversations WHERE customer_email = $1 AND subject = $2 AND deleted_at IS NULL',
+                  [from, subject]
+                );
+
+                let conversationId: string;
+                if (existing?.rows.length > 0) {
+                  conversationId = existing.rows[0].id;
+                  await client?.query(
+                    `UPDATE communication_conversations SET updated_at = $1 WHERE id = $2`,
+                    [new Date().toISOString(), conversationId]
+                  );
+                  messagesUpdated++;
+                } else {
+                  conversationId = `CONV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+                  await client?.query(
+                    `INSERT INTO communication_conversations (id, category, status, customer_email, customer_name, subject, created_at, updated_at)
+                     VALUES ($1, 'general', 'open', $2, $3, $4, $5, $5)`,
+                    [conversationId, from, from, subject, date.toISOString()]
+                  );
+                  messagesNew++;
+                }
+
+                await client?.query(
+                  `INSERT INTO conversation_messages (conversation_id, sender_type, sender_name, sender_email, message, has_attachments, created_at)
+                   VALUES ($1, 'customer', $2, $3, $4, $5, $6)`,
+                  [conversationId, from, from, text || html || '(No content)', hasAttachments, date.toISOString()]
+                );
+              } catch (parseError: any) {
+                console.error('Failed to parse email:', parseError);
+              }
+            });
+          });
+
+          fetch.once('error', (err: Error) => reject(err));
+          fetch.once('end', () => {
+            imap.end();
+            resolve();
+          });
+        });
+      });
+
+    } catch (syncError: any) {
+      syncStatus = 'failed';
+      errorMessage = syncError?.message || 'Sync failed';
+      console.error('Mailbox sync error:', syncError);
+    }
+
+    const durationMs = Date.now() - syncStartTime;
+    const completedAt = new Date().toISOString();
+
+    await client.query(
+      `UPDATE mailboxes SET 
+         sync_status = $1, 
+         last_sync = $2, 
+         last_success = $3, 
+         last_failure = $4, 
+         last_error = $5, 
+         queue_size = $6,
+         updated_at = $2 
+       WHERE id = $7`,
+      [syncStatus, completedAt, syncStatus === 'completed' ? completedAt : null, syncStatus === 'failed' ? completedAt : null, errorMessage, messagesNew, id]
+    );
+
+    await client.query(
+      `UPDATE mailbox_sync_logs SET 
+         status = $1, 
+         messages_fetched = $2, 
+         messages_new = $3, 
+         messages_updated = $4, 
+         error_message = $5, 
+         duration_ms = $6, 
+         completed_at = $7 
+       WHERE id = $8`,
+      [syncStatus, messagesFetched, messagesNew, messagesUpdated, errorMessage, durationMs, completedAt, syncLogId]
+    );
+
+    await client.query(
+      `INSERT INTO audit_logs (event_type, message, timestamp)
+       VALUES ($1, $2, $3)`,
+      ['mailbox_synced', `Mailbox ${mailbox.email_address} synced: ${messagesNew} new, ${messagesUpdated} updated, status=${syncStatus}`, completedAt]
+    );
+
+    client.release();
+    client = null;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        messages_fetched: messagesFetched,
+        messages_new: messagesNew,
+        messages_updated: messagesUpdated,
+        status: syncStatus,
+        error: errorMessage,
+        duration_ms: durationMs,
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Mailbox sync error:', error);
+    if (client) { client.release(); }
+    return NextResponse.json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to sync mailbox.' }
+    }, { status: 500 });
+  }
+}

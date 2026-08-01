@@ -1306,6 +1306,61 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_message_queue_status ON message_queue(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_message_queue_next_retry_at ON message_queue(next_retry_at)`);
 
+    // 27g. Create mailboxes table for external email account management (IMAP/SMTP)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS mailboxes (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        email_address TEXT NOT NULL UNIQUE,
+        display_name TEXT DEFAULT '',
+        imap_host TEXT NOT NULL,
+        imap_port INTEGER NOT NULL DEFAULT 993,
+        imap_secure BOOLEAN NOT NULL DEFAULT TRUE,
+        imap_username TEXT NOT NULL,
+        imap_password TEXT NOT NULL,
+        smtp_host TEXT NOT NULL,
+        smtp_port INTEGER NOT NULL DEFAULT 465,
+        smtp_secure BOOLEAN NOT NULL DEFAULT TRUE,
+        smtp_username TEXT NOT NULL,
+        smtp_password TEXT NOT NULL,
+        connection_status TEXT NOT NULL DEFAULT 'unknown',
+        sync_status TEXT NOT NULL DEFAULT 'never',
+        is_default_sender BOOLEAN NOT NULL DEFAULT FALSE,
+        is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        signature TEXT DEFAULT '',
+        auto_reply_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+        auto_reply_message TEXT DEFAULT '',
+        queue_size INTEGER NOT NULL DEFAULT 0,
+        last_sync TIMESTAMP,
+        last_success TIMESTAMP,
+        last_failure TIMESTAMP,
+        last_error TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_mailboxes_email ON mailboxes(email_address)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_mailboxes_enabled ON mailboxes(is_enabled)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_mailboxes_default ON mailboxes(is_default_sender)`);
+
+    // 27h. Create mailbox_sync_logs table for tracking sync history
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS mailbox_sync_logs (
+        id SERIAL PRIMARY KEY,
+        mailbox_id TEXT NOT NULL REFERENCES mailboxes(id) ON DELETE CASCADE,
+        status TEXT NOT NULL,
+        messages_fetched INTEGER DEFAULT 0,
+        messages_new INTEGER DEFAULT 0,
+        messages_updated INTEGER DEFAULT 0,
+        error_message TEXT DEFAULT '',
+        duration_ms INTEGER DEFAULT 0,
+        started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_mailbox_sync_logs_mailbox_id ON mailbox_sync_logs(mailbox_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_mailbox_sync_logs_started_at ON mailbox_sync_logs(started_at DESC)`);
+
     // 28. Create sales_enquiries table (Phase 12 - Purchase Workflow)
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_enquiries (
