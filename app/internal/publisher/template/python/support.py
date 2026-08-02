@@ -10,4 +10,4 @@ def send_support_request(engine: LicenseEngine, **kwargs) -> dict:
 
 
 def open_support_dialog(center: UniversalLicenseCenter) -> None:
-    center._contact_support()
+    UniversalEmailDialog(center, "Contact Support", "support").show()

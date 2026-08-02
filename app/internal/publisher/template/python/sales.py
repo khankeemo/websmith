@@ -10,4 +10,4 @@ def send_sales_enquiry(engine: LicenseEngine, **kwargs) -> dict:
 
 
 def open_sales_dialog(center: UniversalLicenseCenter) -> None:
-    center._sales_enquiry()
+    UniversalEmailDialog(center, "Sales Enquiry", "sales").show()

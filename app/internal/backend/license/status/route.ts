@@ -136,9 +136,8 @@ export async function GET(request: NextRequest) {
        FROM trials t
        LEFT JOIN products p ON t.product_id = p.product_id
        LEFT JOIN plans pl ON t.plan_id = pl.id
-       WHERE t.hardware_id = $1
-       ORDER BY t.started_at DESC
-       LIMIT 1`,
+       LEFT JOIN customers c ON LOWER(t.customer_email) = LOWER(c.email)
+       WHERE t.hardware_id = $1`,
       [hardwareId]
     );
 
@@ -191,14 +190,14 @@ export async function GET(request: NextRequest) {
 
     // Step 3: No license or trial found
 
-    return NextResponse.json({
-      success: true,
-      status: 'no_license',
-      customer: {
-        name: '',
-        email: '',
-        mobile: ''
-      },
+      return NextResponse.json({
+        success: true,
+        status: 'no_license',
+        customer: {
+          name: '',
+          email: '',
+          mobile: ''
+        },
       license: {
         license_key: '',
         status: 'No License',
