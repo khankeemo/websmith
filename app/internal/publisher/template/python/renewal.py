@@ -1,6 +1,7 @@
 """License renewal workflow — delegates to LicenseEngine"""
 from .license_engine import LicenseEngine
 from .universal_license_center import UniversalLicenseCenter
+from .universal_email_dialog import UniversalEmailDialog
 
 __all__ = ["renew_license", "verify_license_for_renewal", "get_available_plans", "send_renewal_request", "open_renewal_dialog"]
 
