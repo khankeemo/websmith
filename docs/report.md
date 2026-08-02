@@ -176,5 +176,53 @@
 ## 15. Remaining / Follow-up
 
 - Run E2E suite `tests/e2e/license-api.e2e.mjs` once `DATABASE_URL` is obtainable (user paste or decryptable Vercel secret)
-- Optional: Sales/Enquiry → License prefill (auto-populate GenerateLicenseTab from enquiry data)
 - Optional: Stripe/Razorpay/PayPal/Paddle gateway credentials in Vercel env
+
+---
+
+## 16. Addendum — Store Compare & Purchase History (2026-08-02)
+
+Follow-up to the checkout workflow: added product comparison and email-based purchase history to `/software-store`.
+
+### 16.1 Product Compare
+
+| Piece | Description |
+|-------|-------------|
+| `useCompare` (context hook) | Compare list state with `toggle`, `remove`, `clear`, `isInCompare`; max 4 items (oldest dropped) |
+| `CompareButton` | Icon button used in grid-card quick actions, list rows, and product detail modal (active state = indigo) |
+| Compare tray | Fixed bottom bar showing chips per product (remove on hover), count `n/4`, `Compare (n)` button (disabled <2), clear |
+| `CompareModal` | Feature-matrix table: product header (logo, name, price from cheapest active plan), specs (rating, units, version), plan-by-plan price rows, feature rows with ✓/✗ — union of all features across compared products |
+| Detail modal | "Add to Compare" / "Remove from Compare" toggle button |
+| Enforcement | Toast + block when trying to add beyond 4 items; modal auto-closes if compare drops below 2 |
+
+### 16.2 Purchase History
+
+| Piece | Description |
+|-------|-------------|
+| `GET /api/v1/checkout/orders?email=` | NEW route — real orders lookup by customer email (orders → items → product names, status, totals, dates); returns `{ success, orders }` |
+| `PurchaseHistoryPanel` | Slide-in panel: email lookup (prefilled from `localStorage` + last checkout email from `sessionStorage`), status badges (pending/paid/completed/failed/cancelled), per-order product/plan/price lines |
+| Nav button | History icon (HistoryIcon) in store topbar next to wishlist |
+
+### 16.3 Verification
+
+| Check | Result |
+|-------|--------|
+| `npx tsc --noEmit` | **PASSED** — zero type errors |
+| `npm run build` | **PASSED** — compiled successfully (only pre-existing next.config.ts NFT trace warning) |
+
+### 16.4 Files Changed
+
+| Path | Change |
+|------|--------|
+| `app/software-store/page.tsx` | Compare button/tray/modal, detail-modal compare toggle, history nav button, `PurchaseHistoryPanel`, `useCompare` hook, MAX_COMPARE enforcement |
+| `app/api/v1/checkout/orders/route.ts` | NEW — email-based order history endpoint |
+
+### 16.5 Sales Enquiry → License Prefill (completed follow-up)
+
+From any sales enquiry, "Generate License" jumps to the License Generator with the form pre-filled.
+
+| Piece | Description |
+|-------|-------------|
+| `app/internal/api/sales/enquiries/page.tsx` | "Generate License" button per enquiry card → writes payload (enquiry id, product name/version, plan, customer name/email/phone, notes) to `sessionStorage['license_prefill']` → navigates to `/internal/api/licenses/generate?prefill=1` |
+| `GenerateLicenseTab.tsx` | Reads `prefill=1` + sessionStorage payload once; auto-matches product by normalized name (version-aware), auto-selects plan by name after plans load; fills customer name/email/phone/notes; dismissible "Prefilled from Sales Enquiry #n" banner; tab wrapped in Suspense (useSearchParams requirement) |
+| Scope | UI-only — no backend changes; matching falls back gracefully when product/plan names differ |

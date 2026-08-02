@@ -6,8 +6,8 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   KeyRound,
   Plus,
@@ -19,10 +19,25 @@ import {
   Copy,
   Sparkles,
   Mail,
+  X,
 } from "lucide-react";
 import { isValidEmail, mobileDigitsError } from "@/lib/validation";
 import { FieldIndicator } from "@/components/internal-api/validation/FieldIndicator";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
+
+const LICENSE_PREFILL_KEY = "license_prefill";
+
+interface LicensePrefill {
+  enquiryId?: number;
+  productName?: string;
+  productVersion?: string;
+  plan?: string;
+  customerName?: string;
+  customerEmail?: string;
+  phone?: string;
+  country?: string;
+  notes?: string;
+}
 
 // ============================================================
 // TYPES
@@ -102,7 +117,21 @@ interface FormData {
 // ============================================================
 
 export function GenerateLicenseTab() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 text-[var(--api-blue-400)] animate-spin" />
+        <span className="ml-3 text-[var(--text-secondary)]">Loading...</span>
+      </div>
+    }>
+      <GenerateLicenseTabInner />
+    </Suspense>
+  );
+}
+
+function GenerateLicenseTabInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const API_BASE = "/internal/backend";
 
   // ============================================================
@@ -148,6 +177,13 @@ export function GenerateLicenseTab() {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [generatedCustomerEmail, setGeneratedCustomerEmail] = useState("");
   const [generatedProductId, setGeneratedProductId] = useState("");
+
+  // ============================================================
+  // SALES ENQUIRY PREFILL STATE
+  // ============================================================
+  const [prefill, setPrefill] = useState<LicensePrefill | null>(null);
+  const productPrefilled = useRef(false);
+  const planPrefilled = useRef(false);
 
   // ============================================================
   // TRIAL PLAN STATE (NEW)
@@ -241,6 +277,82 @@ export function GenerateLicenseTab() {
     };
     fetchProducts();
   }, []);
+
+  // ============================================================
+  // SALES ENQUIRY PREFILL - READ PAYLOAD
+  // ============================================================
+
+  useEffect(() => {
+    if (searchParams.get("prefill") !== "1") return;
+    try {
+      const raw = sessionStorage.getItem(LICENSE_PREFILL_KEY);
+      if (raw) {
+        setPrefill(JSON.parse(raw));
+        sessionStorage.removeItem(LICENSE_PREFILL_KEY);
+      }
+    } catch {
+      // malformed prefill payload - ignore
+    }
+  }, [searchParams]);
+
+  const dismissPrefill = useCallback(() => {
+    setPrefill(null);
+    productPrefilled.current = false;
+    planPrefilled.current = false;
+    try {
+      sessionStorage.removeItem(LICENSE_PREFILL_KEY);
+    } catch {}
+  }, []);
+
+  // Apply customer fields from the enquiry payload
+  useEffect(() => {
+    if (!prefill) return;
+    setFormData(prev => ({
+      ...prev,
+      customerName: prefill.customerName || prev.customerName,
+      customerEmail: prefill.customerEmail || prev.customerEmail,
+      customerPhone: prefill.phone ? prefill.phone.replace(/[^0-9]/g, '') : prev.customerPhone,
+      notes: prefill.notes || prev.notes,
+    }));
+  }, [prefill]);
+
+  // Match the enquiry product once products have loaded
+  useEffect(() => {
+    if (!prefill?.productName || !products.length || productPrefilled.current) return;
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const target = norm(prefill.productName);
+    const candidates = products.filter(p => {
+      const n = norm(p.name);
+      return n === target || n.includes(target) || target.includes(n);
+    });
+    let match = candidates[0];
+    if (prefill.productVersion && candidates.length > 0) {
+      const versionMatch = candidates.find(p => p.version === prefill.productVersion)
+        || candidates.find(p => norm(p.version) === norm(prefill.productVersion!));
+      if (versionMatch) match = versionMatch;
+    }
+    if (match) {
+      productPrefilled.current = true;
+      setFormData(prev => ({ ...prev, productId: match.id }));
+    }
+  }, [prefill, products]);
+
+  // Match the enquiry plan once plans have loaded
+  useEffect(() => {
+    if (!prefill?.plan || !plans.length || planPrefilled.current) return;
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const target = norm(prefill.plan);
+    const match = plans.find(p => {
+      const n = norm(p.name);
+      return n === target || n.includes(target) || target.includes(n);
+    });
+    if (match) {
+      planPrefilled.current = true;
+      selectPlan(match);
+    } else if (plans.length > 0) {
+      planPrefilled.current = true;
+    }
+  }, [prefill, plans]);
 
   // ============================================================
   // FETCH PLANS ON PRODUCT CHANGE (UPDATED to handle trial plans)
@@ -628,6 +740,31 @@ export function GenerateLicenseTab() {
             <p className="text-[var(--api-red-400)] text-sm">{error}</p>
             <button onClick={() => setError(null)} className="ml-auto text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
               Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sales Enquiry Prefill Banner */}
+      {prefill && (
+        <div className="rounded-2xl border border-[var(--api-blue-500-20)] bg-[var(--api-blue-500-5)] p-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-start gap-3">
+            <Sparkles className="h-4 w-4 text-[var(--api-blue-400)] mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-[var(--api-blue-400)]">
+                Form prefilled from Sales Enquiry {prefill.enquiryId ? `#${prefill.enquiryId}` : ""}
+              </p>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                {[prefill.productName, prefill.productVersion && `v${prefill.productVersion}`, prefill.plan].filter(Boolean).join(" · ")}
+                {" — review the details below before generating."}
+              </p>
+            </div>
+            <button
+              onClick={dismissPrefill}
+              title="Clear prefill and start fresh"
+              className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/40 transition-colors shrink-0"
+            >
+              <X size={14} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
             </button>
           </div>
         </div>

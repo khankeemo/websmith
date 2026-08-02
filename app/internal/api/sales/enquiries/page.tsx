@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MessageSquare, Mail, Phone, Search, ChevronDown, ExternalLink, MessageSquare as MessageSquareIcon, Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { MessageSquare, Mail, Phone, Search, ChevronDown, ExternalLink, MessageSquare as MessageSquareIcon, Plus, KeyRound } from 'lucide-react';
 import UniversalEmailDialog from '@/components/internal-api/UniversalEmailDialog';
+
+const LICENSE_PREFILL_KEY = 'license_prefill';
 
 interface Enquiry {
   id: number;
@@ -20,6 +23,7 @@ interface Enquiry {
 }
 
 export default function SalesEnquiriesPage() {
+  const router = useRouter();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -40,6 +44,21 @@ export default function SalesEnquiriesPage() {
   };
 
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+
+  const handleGenerateLicense = (enquiry: Enquiry) => {
+    sessionStorage.setItem(LICENSE_PREFILL_KEY, JSON.stringify({
+      enquiryId: enquiry.id,
+      productName: enquiry.product_name,
+      productVersion: enquiry.product_version,
+      plan: enquiry.selected_plan,
+      customerName: enquiry.full_name,
+      customerEmail: enquiry.email,
+      phone: enquiry.mobile,
+      country: enquiry.country,
+      notes: `Prefill from sales enquiry #${enquiry.id}${enquiry.requirements ? `: ${enquiry.requirements}` : ''}`,
+    }));
+    router.push('/internal/api/licenses/generate?prefill=1');
+  };
 
   useEffect(() => { fetchEnquiries(statusFilter); }, [statusFilter]);
 
@@ -120,9 +139,18 @@ export default function SalesEnquiriesPage() {
                     {enquiry.product_version && <span>· v{enquiry.product_version}</span>}
                   </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {new Date(enquiry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    {new Date(enquiry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <button
+                    onClick={() => handleGenerateLicense(enquiry)}
+                    style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(0,122,255,0.12)', color: '#007AFF', border: '1px solid rgba(0,122,255,0.3)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                    title="Pre-fill the License Generator with this enquiry's details"
+                  >
+                    <KeyRound size={13} /> Generate License
+                  </button>
+                </div>
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>

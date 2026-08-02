@@ -8,13 +8,17 @@ import {
   Plus, Minus, Trash2, ArrowRight, Star, LayoutGrid, List,
   BookOpen, LifeBuoy, ExternalLink, Filter, SlidersHorizontal,
   Sparkles, Tag, Monitor, Layers, Package, Loader2, AlertCircle,
-  ShoppingBag, RefreshCw, Globe
+  ShoppingBag, RefreshCw, Globe, Scale, History as HistoryIcon,
+  Receipt, BadgeCheck, CreditCard
 } from "lucide-react";
 import { getPublicProducts, StoreProduct, StoreProductPlan } from "./services/softwareStoreService";
 import { getSoftwareStoreVisibility } from "@/core/services/publicSettingsService";
 
 const STORAGE_CART_KEY = "software_store_cart";
 const STORAGE_WISHLIST_KEY = "software_store_wishlist";
+const STORAGE_COMPARE_KEY = "software_store_compare";
+const STORAGE_HISTORY_EMAIL_KEY = "software_store_history_email";
+const MAX_COMPARE = 4;
 
 interface CartItem {
   product: StoreProduct;
@@ -159,6 +163,45 @@ function useWishlist() {
   }, [items]);
 
   return { items, addItem, removeItem, isInWishlist };
+}
+
+function useCompare() {
+  const [items, setItems] = useState<StoreProduct[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_COMPARE_KEY);
+      if (stored) setItems(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  const toggle = useCallback((product: StoreProduct) => {
+    setItems(prev => {
+      const exists = prev.some(p => p.id === product.id);
+      const next = exists ? prev.filter(p => p.id !== product.id) : [...prev, product].slice(-MAX_COMPARE);
+      localStorage.setItem(STORAGE_COMPARE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const remove = useCallback((productId: string) => {
+    setItems(prev => {
+      const next = prev.filter(p => p.id !== productId);
+      localStorage.setItem(STORAGE_COMPARE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clear = useCallback(() => {
+    setItems([]);
+    localStorage.removeItem(STORAGE_COMPARE_KEY);
+  }, []);
+
+  const isInCompare = useCallback((productId: string) => {
+    return items.some(p => p.id === productId);
+  }, [items]);
+
+  return { items, toggle, remove, clear, isInCompare };
 }
 
 const GST_RATE = 0.18;
@@ -443,7 +486,7 @@ function WishlistPanel({ wishlist, cart, onClose, onAddToCart, onRemoveFromWishl
   );
 }
 
-function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCart, onAddToWishlist, onRemoveFromWishlist, onBuyNow }: {
+function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCart, onAddToWishlist, onRemoveFromWishlist, onBuyNow, inCompare, onToggleCompare }: {
   product: StoreProduct;
   plans: StoreProductPlan[];
   cart: ReturnType<typeof useCart>;
@@ -453,6 +496,8 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
   onAddToWishlist: (product: StoreProduct, plan?: StoreProductPlan) => void;
   onRemoveFromWishlist: (productId: string, planId?: number) => void;
   onBuyNow: (product: StoreProduct, plan?: StoreProductPlan) => void;
+  inCompare: boolean;
+  onToggleCompare: (product: StoreProduct) => void;
 }) {
   const activePlans = plans.filter(p => p.is_active);
   const hasTrial = activePlans.some(p => p.is_trial_plan);
@@ -663,6 +708,16 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
                     Add to Wishlist
                   </motion.button>
                 )}
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  onClick={() => onToggleCompare(product)}
+                  className={`flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl border-2 text-xs font-bold transition-all ${
+                    inCompare
+                      ? "border-indigo-500/50 bg-indigo-500/15 text-indigo-300"
+                      : "border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:border-indigo-500/40"
+                  }`}>
+                  <Scale className="w-3.5 h-3.5" />
+                  {inCompare ? "Remove from Compare" : "Add to Compare"}
+                </motion.button>
               </div>
 
               {activePlans.length > 0 && (
@@ -675,6 +730,350 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
               )}
             </div>
           </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function CompareButton({ active, onClick }: { active: boolean; onClick: (e: React.MouseEvent) => void }) {
+  return (
+    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+      onClick={onClick}
+      title={active ? "Remove from compare" : "Add to compare"}
+      className={`px-2.5 py-2 rounded-lg text-[10px] font-bold transition-all border ${
+        active
+          ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
+          : "bg-white/10 text-white/70 border-white/10 hover:bg-white/20"
+      }`}>
+      <Scale className="w-3.5 h-3.5" />
+    </motion.button>
+  );
+}
+
+function CompareModal({ products, onClose, onRemove }: {
+  products: StoreProduct[];
+  onClose: () => void;
+  onRemove: (productId: string) => void;
+}) {
+  const activePlans = (p: StoreProduct) => p.plans?.filter(pl => pl.is_active) || [];
+  const cheapest = (p: StoreProduct) => {
+    const plans = activePlans(p);
+    return plans.length > 0 ? Math.min(...plans.map(pl => pl.price)) : null;
+  };
+  const allFeatures = Array.from(new Set(
+    products.flatMap(p => activePlans(p).flatMap(pl => pl.features || []))
+  ));
+  const hasFeature = (p: StoreProduct, f: string) => activePlans(p).some(pl => (pl.features || []).includes(f));
+
+  const row = (label: string, value: (p: StoreProduct) => React.ReactNode) => (
+    <tr className="border-b border-[var(--border-color)]">
+      <td className="px-4 py-3 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap w-32 align-top">{label}</td>
+      {products.map(p => (
+        <td key={p.id} className="px-4 py-3 text-xs text-[var(--text-primary)] align-top min-w-[160px]">{value(p)}</td>
+      ))}
+    </tr>
+  );
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8" onClick={onClose}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-md" />
+      <motion.div className="relative w-full max-w-6xl bg-[var(--bg-primary)] rounded-3xl shadow-2xl shadow-black/30 overflow-hidden max-h-[85vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ type: "spring" as const, stiffness: 300, damping: 28 }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
+              <Scale className="w-4 h-4 text-indigo-400" />
+            </div>
+            <h2 className="text-lg font-bold text-[var(--text-primary)]">Compare Products ({products.length})</h2>
+          </div>
+          <motion.button onClick={onClose} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors">
+            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+          </motion.button>
+        </div>
+
+        <div className="flex-1 overflow-auto scrollbar-thin">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[var(--border-color)]">
+                <th className="px-4 py-4 text-left text-[10px] uppercase tracking-wider text-[var(--text-muted)] w-32" />
+                {products.map(p => (
+                  <th key={p.id} className="px-4 py-4 text-left min-w-[180px] align-top">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-lg shrink-0 border border-white/10">
+                          {p.logo_url ? <img src={p.logo_url} alt={p.name} className="w-7 h-7 rounded-lg object-contain" /> : p.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-[var(--text-primary)] truncate max-w-[130px]">{p.name}</p>
+                          {p.company_name && <p className="text-[11px] text-[var(--text-muted)] truncate max-w-[130px]">{p.company_name}</p>}
+                        </div>
+                      </div>
+                      <button onClick={() => onRemove(p.id)} className="p-1 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0" title="Remove">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {row("Category", p => p.product_type || <span className="text-[var(--text-muted)]">-</span>)}
+              {row("Platform", p => p.platform || <span className="text-[var(--text-muted)]">-</span>)}
+              {row("Version", p => p.version || <span className="text-[var(--text-muted)]">-</span>)}
+              {row("Description", p => (
+                <span className="line-clamp-4 text-[var(--text-secondary)]">{p.short_description || p.description || '-'}</span>
+              ))}
+              {row("Starting Price", p => {
+                const c = cheapest(p);
+                return c === null ? <span className="text-[var(--text-muted)]">-</span> : c === 0
+                  ? <span className="font-bold text-emerald-400">Free</span>
+                  : <span className="font-bold text-[var(--text-primary)]">{formatPrice(c)}</span>;
+              })}
+              {row("Plans", p => {
+                const plans = activePlans(p);
+                if (plans.length === 0) return <span className="text-[var(--text-muted)]">-</span>;
+                return (
+                  <span className="space-y-1 block">
+                    {plans.map(pl => (
+                      <span key={pl.id} className="flex flex-col">
+                        <span className="text-[var(--text-primary)]">{pl.name}{pl.is_trial_plan && <span className="ml-1 text-[10px] text-emerald-400">(Trial)</span>}</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">
+                          {pl.price === 0 ? 'Free' : formatPrice(pl.price)}
+                          {pl.price > 0 && pl.duration_days > 0 ? ` / ${formatDuration(pl.duration_days)}` : ''} · {pl.max_devices} device{pl.max_devices !== 1 ? 's' : ''}
+                        </span>
+                      </span>
+                    ))}
+                  </span>
+                );
+              })}
+              {row("Free Trial", p => activePlans(p).some(pl => pl.is_trial_plan)
+                ? <span className="text-emerald-400 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Yes</span>
+                : <span className="text-[var(--text-muted)]">No</span>)}
+              {allFeatures.length > 0 && row("Features", p => (
+                <span className="space-y-1 block">
+                  {allFeatures.map(f => (
+                    <span key={f} className={`flex items-center gap-1.5 text-[11px] ${hasFeature(p, f) ? 'text-emerald-400' : 'text-[var(--text-muted)] opacity-50'}`}>
+                      {hasFeature(p, f) ? <Check className="w-3 h-3 shrink-0" /> : <X className="w-3 h-3 shrink-0" />}
+                      <span className="truncate">{f}</span>
+                    </span>
+                  ))}
+                </span>
+              ))}
+              {row("Resources", p => (
+                <span className="flex flex-col gap-1">
+                  {p.docs_url && <a href={p.docs_url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline flex items-center gap-1"><BookOpen className="w-3 h-3" /> Docs</a>}
+                  {p.support_url && <a href={p.support_url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline flex items-center gap-1"><LifeBuoy className="w-3 h-3" /> Support</a>}
+                  {p.website && <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Website</a>}
+                  {!p.docs_url && !p.support_url && !p.website && <span className="text-[var(--text-muted)]">-</span>}
+                </span>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+interface PurchaseOrder {
+  id: number;
+  order_number: string;
+  customer_email: string;
+  customer_name: string | null;
+  status: string;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  currency: string;
+  coupon_code: string | null;
+  payment_gateway: string | null;
+  paid_at: string | null;
+  notes: string | null;
+  created_at: string;
+  items: any[];
+  payments: any[];
+  licenses: any[];
+}
+
+function PurchaseHistoryPanel({ onClose, onToast }: {
+  onClose: () => void;
+  onToast: (message: string, type?: "success" | "error") => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [orders, setOrders] = useState<PurchaseOrder[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lookedUp, setLookedUp] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_HISTORY_EMAIL_KEY);
+    if (saved) setEmail(saved);
+    try {
+      const lastOrder = sessionStorage.getItem("software_store_order");
+      if (lastOrder) {
+        const parsed = JSON.parse(lastOrder);
+        if (parsed?.customer_email) setEmail(parsed.customer_email);
+      }
+    } catch {}
+  }, []);
+
+  const lookup = async () => {
+    const e = email.trim().toLowerCase();
+    if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setLookedUp(false);
+    try {
+      const res = await fetch(`/api/v1/checkout/orders?email=${encodeURIComponent(e)}`);
+      const json = await res.json();
+      if (json.success) {
+        setOrders(json.orders);
+        setLookedUp(true);
+        localStorage.setItem(STORAGE_HISTORY_EMAIL_KEY, e);
+        if (json.orders.length === 0) onToast("No purchases found for this email", "error");
+      } else {
+        setError(json.error || "Failed to load purchase history");
+      }
+    } catch {
+      setError("Failed to load purchase history. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, { label: string; cls: string }> = {
+      pending: { label: 'Pending', cls: 'bg-amber-500/15 text-amber-500 border-amber-500/30' },
+      paid: { label: 'Paid', cls: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' },
+      completed: { label: 'Completed', cls: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' },
+      failed: { label: 'Failed', cls: 'bg-red-500/15 text-red-500 border-red-500/30' },
+      cancelled: { label: 'Cancelled', cls: 'bg-gray-500/15 text-gray-400 border-gray-500/30' },
+    };
+    const s = map[status] || { label: status, cls: 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border-[var(--border-color)]' };
+    return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${s.cls}`}>{s.label}</span>;
+  };
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      <motion.div className="relative w-full max-w-2xl bg-[var(--bg-primary)] shadow-2xl shadow-black/50 overflow-y-auto border-l border-[var(--border-color)]"
+        onClick={e => e.stopPropagation()}
+        variants={slideInRight} initial="hidden" animate="show" exit="exit">
+        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-primary)]/90 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
+              <HistoryIcon className="w-4 h-4 text-emerald-400" />
+            </div>
+            <h2 className="text-lg font-bold text-[var(--text-primary)]">Purchase History</h2>
+          </div>
+          <motion.button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors"
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+          </motion.button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div>
+            <p className="text-sm text-[var(--text-secondary)] mb-3">Enter the email you used at checkout to see your orders, payments and license keys.</p>
+            <div className="flex gap-2">
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && lookup()}
+                placeholder="you@example.com"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/50 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all" />
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                onClick={lookup} disabled={loading}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />} Lookup
+              </motion.button>
+            </div>
+            {error && <p className="text-xs text-red-400 mt-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>}
+          </div>
+
+          {orders && orders.length > 0 && (
+            <div className="space-y-3">
+              {orders.map(order => {
+                const paid = order.status === "paid" || order.status === "completed" || order.paid_at;
+                return (
+                  <motion.div key={order.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 overflow-hidden hover:border-indigo-500/30 transition-all">
+                    <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+                      <div>
+                        <p className="font-bold text-sm text-[var(--text-primary)]">#{order.order_number}</p>
+                        <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{formatDate(order.created_at)} · {order.payment_gateway || 'checkout'}</p>
+                      </div>
+                      <div className="text-right flex items-center gap-2">
+                        {statusBadge(order.status)}
+                        <p className="font-bold text-[var(--text-primary)]">
+                          {formatPrice(order.total)} <span className="text-[10px] text-[var(--text-muted)] font-normal">{order.currency}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {order.items.length > 0 && (
+                        <div className="space-y-1.5">
+                          {order.items.map((item: any) => (
+                            <div key={item.id} className="flex items-center gap-2 text-xs">
+                              <ShoppingBag className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
+                              <span className="text-[var(--text-primary)] truncate flex-1">{item.plan_name || item.product_id} × {item.quantity}</span>
+                              <span className="text-[var(--text-secondary)]">{formatPrice(Number(item.total_price) || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {order.payments.length > 0 && (
+                        <div className="space-y-1.5">
+                          {order.payments.map((p: any) => (
+                            <div key={p.id} className="flex items-center gap-2 text-[11px]">
+                              <CreditCard className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
+                              <span className="text-[var(--text-secondary)]">Payment {p.payment_number} · {p.gateway}</span>
+                              <span className={`ml-auto ${p.status === 'paid' || p.status === 'completed' ? 'text-emerald-400' : 'text-amber-400'}`}>{p.status}</span>
+                              {p.paid_at && <span className="text-[var(--text-muted)]">{formatDate(p.paid_at)}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {order.licenses.length > 0 && (
+                        <div className="space-y-1.5">
+                          {order.licenses.map((l: any) => (
+                            <div key={l.license_key} className="flex items-center gap-2 text-[11px] rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1.5">
+                              <BadgeCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <code className="text-emerald-400 font-mono truncate flex-1">{l.license_key}</code>
+                              <span className="text-[var(--text-muted)]">{l.plan_name || ''}{l.status ? ` · ${l.status}` : ''}</span>
+                              {l.expiry_date && <span className="text-[var(--text-muted)]">until {formatDate(l.expiry_date)}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!paid && order.payments.length === 0 && order.licenses.length === 0 && (
+                        <p className="text-[11px] text-[var(--text-muted)]">No payment captured for this order.</p>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
+          {orders && orders.length === 0 && lookedUp && (
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-4 border border-[var(--border-color)]">
+                <Receipt className="w-7 h-7 text-[var(--border-color)]" />
+              </div>
+              <p className="text-[var(--text-secondary)] font-semibold">No purchases found</p>
+              <p className="text-sm text-[var(--text-muted)] mt-1">We couldn't find any orders for this email address.</p>
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>
@@ -712,11 +1111,24 @@ export default function SoftwareStorePage() {
 
   const cart = useCart();
   const wishlist = useWishlist();
+  const compare = useCompare();
+  const [showCompare, setShowCompare] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2500);
   }, []);
+
+  const handleToggleCompare = useCallback((product: StoreProduct) => {
+    const inCompare = compare.isInCompare(product.id);
+    if (!inCompare && compare.items.length >= MAX_COMPARE) {
+      showToast(`You can compare up to ${MAX_COMPARE} products`, "error");
+      return;
+    }
+    compare.toggle(product);
+    showToast(inCompare ? `${product.name} removed from compare` : `${product.name} added to compare`);
+  }, [compare, showToast]);
 
   useEffect(() => {
     let mounted = true;
@@ -868,6 +1280,12 @@ export default function SoftwareStorePage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <motion.button onClick={() => setShowHistory(true)}
+              className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] transition-all"
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              title="Purchase History">
+              <HistoryIcon className="w-4 h-4 text-emerald-400" />
+            </motion.button>
             <motion.button onClick={() => setShowWishlist(true)}
               className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] transition-all"
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -1115,6 +1533,8 @@ export default function SoftwareStorePage() {
                       className="flex-1 px-3 py-2 rounded-lg bg-indigo-600/90 text-white text-[10px] font-bold hover:bg-indigo-500 transition-all text-center backdrop-blur-sm shadow-lg">
                       <ShoppingCart className="w-3 h-3 inline mr-0.5" /> Add to Cart
                     </motion.button>
+                    <CompareButton active={compare.isInCompare(product.id)}
+                      onClick={(e) => { e.stopPropagation(); handleToggleCompare(product); }} />
                     {inWishlist ? (
                       <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                         onClick={(e) => { e.stopPropagation(); wishlist.removeItem(product.id); showToast(`${product.name} removed from wishlist`); }}
@@ -1211,6 +1631,15 @@ export default function SoftwareStorePage() {
                         className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg">
                         <ShoppingCart className="w-3 h-3 inline mr-1" /> Add to Cart
                       </motion.button>
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                        onClick={(e) => { e.stopPropagation(); handleToggleCompare(product); }}
+                        className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                          compare.isInCompare(product.id)
+                            ? "border-indigo-500/40 bg-indigo-500/15 text-indigo-400"
+                            : "border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+                        }`}>
+                        <Scale className="w-3.5 h-3.5" />
+                      </motion.button>
                       {inWishlist ? (
                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                           onClick={(e) => { e.stopPropagation(); wishlist.removeItem(product.id); showToast(`${product.name} removed from wishlist`); }}
@@ -1246,6 +1675,8 @@ export default function SoftwareStorePage() {
             onAddToWishlist={handleAddToWishlist}
             onRemoveFromWishlist={(productId, planId) => wishlist.removeItem(productId, planId)}
             onBuyNow={handleBuyNow}
+            inCompare={compare.isInCompare(selectedProduct.id)}
+            onToggleCompare={handleToggleCompare}
           />
         )}
       </AnimatePresence>
@@ -1278,6 +1709,59 @@ export default function SoftwareStorePage() {
             onAddToCart={(product, plan) => { cart.addItem(product, plan); showToast(`${product.name} moved to cart`); }}
             onRemoveFromWishlist={(productId, planId) => wishlist.removeItem(productId, planId)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showHistory && (
+          <PurchaseHistoryPanel key="history-panel" onClose={() => setShowHistory(false)} onToast={showToast} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCompare && compare.items.length >= 2 && (
+          <CompareModal
+            key="compare-modal"
+            products={compare.items}
+            onClose={() => setShowCompare(false)}
+            onRemove={id => { compare.remove(id); if (compare.items.length - 1 < 2) setShowCompare(false); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Compare tray — fixed bottom bar */}
+      <AnimatePresence>
+        {compare.items.length > 0 && (
+          <motion.div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40"
+            initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
+            transition={{ type: "spring" as const, stiffness: 300, damping: 26 }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-[var(--bg-secondary)]/95 backdrop-blur-xl border border-indigo-500/30 shadow-2xl shadow-black/40">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 pl-1.5 pr-1">
+                <Scale className="w-3.5 h-3.5" /> {compare.items.length}/{MAX_COMPARE}
+              </span>
+              {compare.items.map(p => (
+                <div key={p.id} className="relative group">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-sm border border-white/10 cursor-pointer"
+                    title={p.name}>
+                    {p.logo_url ? <img src={p.logo_url} alt={p.name} className="w-6 h-6 rounded-lg object-contain" /> : p.name.charAt(0)}
+                  </div>
+                  <button onClick={() => compare.remove(p.id)}
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ))}
+              <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                onClick={() => compare.items.length >= 2 && setShowCompare(true)}
+                disabled={compare.items.length < 2}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold hover:from-indigo-500 hover:to-purple-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/25 ml-1">
+                Compare {compare.items.length >= 2 ? `(${compare.items.length})` : '(min 2)'}
+              </motion.button>
+              <button onClick={compare.clear} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Clear compare">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
