@@ -400,6 +400,47 @@ export default function CommunicationsPage() {
     }
   }, []);
 
+  // Client-driven auto-sync (no cron on serverless): process queue + pull IMAP
+  // for every enabled mailbox once per minute while the page is visible.
+  useEffect(() => {
+    const runAutoSync = async () => {
+      if (document.hidden) return;
+      try {
+        const token = localStorage.getItem("api_center_token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        await fetch(`${API_BASE}/queue/process`, { method: 'POST', headers });
+        const mbRes = await fetch(`${MB_BASE}`, { headers });
+        const mbJson = await mbRes.json();
+        const enabled = (mbJson.data?.mailboxes || []).filter((m: any) => m.is_enabled);
+        await Promise.all(enabled.map((m: any) =>
+          fetch(`${MB_BASE}/${m.id}/sync`, { method: 'POST', headers }).catch(() => {})
+        ));
+        fetchStats();
+        if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter);
+      } catch {}
+    };
+    const iv = setInterval(runAutoSync, 60000);
+    return () => clearInterval(iv);
+  }, [activeFolderDef, searchQuery, statusFilter, categoryFilter, loadConversations, fetchStats]);
+
+  const syncAllMailboxes = useCallback(async () => {
+    setBusy('sync-all');
+    try {
+      let synced = 0;
+      for (const mb of mailboxes.filter(m => m.is_enabled)) {
+        const res = await fetch(`${MB_BASE}/${mb.id}/sync`, { method: 'POST', headers: getAuthHeaders() });
+        const json = await res.json();
+        if (json.success) synced++;
+      }
+      showToast('ok', `${synced} mailbox(es) synced`);
+      await loadMailboxes();
+    } catch {
+      showToast('err', 'Mailbox sync failed');
+    } finally {
+      setBusy(null);
+    }
+  }, [mailboxes, loadMailboxes, showToast]);
+
   const refreshCurrent = useCallback(() => {
     const f = FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0];
     if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter);
@@ -409,6 +450,23 @@ export default function CommunicationsPage() {
     else if (f.kind === 'mailboxes') loadMailboxes();
     fetchStats();
   }, [activeFolder, searchQuery, statusFilter, categoryFilter, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, fetchStats]);
+
+  // Phase 5: deliver queued emails via the default sender mailbox SMTP
+  const processQueue = useCallback(async () => {
+    setBusy('process-queue');
+    try {
+      const res = await fetch(`${API_BASE}/queue/process`, { method: 'POST', headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) {
+        if (json.delivered > 0) showToast('ok', `${json.delivered} queued email(s) delivered via SMTP`);
+        else if (json.no_mailbox && json.processed > 0) showToast('err', 'No default sender mailbox configured — queue not processed');
+      }
+    } catch {}
+    finally {
+      setBusy(null);
+      refreshCurrent();
+    }
+  }, [refreshCurrent, showToast]);
 
   useEffect(() => { refreshCurrent(); }, [refreshCurrent]);
 
@@ -906,31 +964,41 @@ export default function CommunicationsPage() {
 
   const renderQueueList = () => {
     if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
-    if (queue.length === 0) return (
-      <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)]">
-        <Clock size={32} className="mb-2 opacity-30" />
-        <p className="text-xs">Queue is empty</p>
-      </div>
-    );
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="divide-y divide-[var(--border-color)]">
-          {queue.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setSelectedQueueItem(item)}
-              className={`w-full text-left px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors ${selectedQueueItem?.id === item.id ? 'bg-blue-500/10' : ''}`}
-            >
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-medium ${QUEUE_STATUS_LABELS[item.status]?.color || 'text-gray-400'}`}>{QUEUE_STATUS_LABELS[item.status]?.label || item.status}</span>
-                <CategoryBadge category={item.category} />
-                <span className="text-[10px] text-[var(--text-muted)] ml-auto">Retry {item.retry_count}/{item.max_retries}</span>
-              </div>
-              <p className="text-xs text-[var(--text-primary)] truncate mt-1">{item.customer_name || item.customer_email} — {item.subject || '(no subject)'}</p>
-              {item.last_error && <p className="text-[10px] text-red-400 truncate mt-0.5">{item.last_error}</p>}
-            </button>
-          ))}
+      <div className="flex flex-col min-h-0 h-full">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] shrink-0">
+          <p className="text-xs text-[var(--text-muted)]">{queue.length} queued message(s) — delivered via default sender mailbox SMTP</p>
+          <button onClick={processQueue} disabled={busy === 'process-queue'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
+            {busy === 'process-queue' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Process Queue
+          </button>
         </div>
+        {queue.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)]">
+            <Clock size={32} className="mb-2 opacity-30" />
+            <p className="text-xs">Queue is empty</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
+            <div className="divide-y divide-[var(--border-color)]">
+              {queue.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedQueueItem(item)}
+                  className={`w-full text-left px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors ${selectedQueueItem?.id === item.id ? 'bg-blue-500/10' : ''}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-medium ${QUEUE_STATUS_LABELS[item.status]?.color || 'text-gray-400'}`}>{QUEUE_STATUS_LABELS[item.status]?.label || item.status}</span>
+                    <CategoryBadge category={item.category} />
+                    <span className="text-[10px] text-[var(--text-muted)] ml-auto">Retry {item.retry_count}/{item.max_retries}</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-primary)] truncate mt-1">{item.customer_name || item.customer_email} — {item.subject || '(no subject)'}</p>
+                  {item.last_error && <p className="text-[10px] text-red-400 truncate mt-0.5">{item.last_error}</p>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1012,10 +1080,16 @@ export default function CommunicationsPage() {
       <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs text-[var(--text-muted)]">{mailboxes.length} mailbox(es) — IMAP receive + SMTP send</p>
-          <button onClick={() => { setEditingMailbox(null); setMailboxForm({ provider: 'custom', imap_port: 993, smtp_port: 465, imap_secure: true, smtp_secure: true }); setShowMailboxForm(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
-            <Plus size={13} /> Add Mailbox
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button onClick={syncAllMailboxes} disabled={busy === 'sync-all'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
+              {busy === 'sync-all' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
+            </button>
+            <button onClick={() => { setEditingMailbox(null); setMailboxForm({ provider: 'custom', imap_port: 993, smtp_port: 465, imap_secure: true, smtp_secure: true }); setShowMailboxForm(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
+              <Plus size={13} /> Add Mailbox
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-2">
           {mailboxes.map(mb => (
