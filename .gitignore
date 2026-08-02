@@ -6,3 +6,4 @@ next-env.d.ts
 scripts/
 query_debug.*
 .env*
+tsconfig.tsbuildinfo
