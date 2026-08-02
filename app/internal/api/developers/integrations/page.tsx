@@ -921,10 +921,10 @@ export default function IntegrationsPage() {
               <button
                 onClick={() => setEmailDialogOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-xs font-medium"
-                title="Send SDK via email"
+                title="Send the generated SDK package via email"
               >
                 <Mail className="w-3.5 h-3.5" />
-                Send Email
+                Send SDK Email
               </button>
             </div>
           </div>
