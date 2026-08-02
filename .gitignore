@@ -7,3 +7,6 @@ scripts/
 query_debug.*
 .env*
 tsconfig.tsbuildinfo
+
+__pycache__/
+*.pyc
