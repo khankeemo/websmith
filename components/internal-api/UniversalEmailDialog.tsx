@@ -73,6 +73,7 @@ interface EmailDialogProps {
   defaultProductName?: string;
   defaultProductId?: string;
   defaultAction?: EmailAction;
+  allowedActions?: EmailAction[];
 }
 
 const actionConfig: Record<EmailAction, { label: string; icon: typeof Mail; description: string }> = {
@@ -99,7 +100,7 @@ function formatSize(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction }: EmailDialogProps) {
+export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions }: EmailDialogProps) {
   const [view, setView] = useState<"actions" | "form" | "history">("actions");
   const [action, setAction] = useState<EmailAction>(defaultAction || "send");
   const [loading, setLoading] = useState(false);
@@ -326,7 +327,9 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
 
   const renderActions = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {(Object.entries(actionConfig) as [EmailAction, typeof actionConfig[EmailAction]][]).map(([key, cfg]) => {
+      {(Object.entries(actionConfig) as [EmailAction, typeof actionConfig[EmailAction]][])
+        .filter(([key]) => !allowedActions || allowedActions.includes(key))
+        .map(([key, cfg]) => {
         const Icon = cfg.icon;
         return (
           <button
@@ -655,13 +658,13 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
   );
 
   const getActionTitle = () => {
-    if (view === "actions") return "Email Center";
+    if (view === "actions") return allowedActions ? "Email Options" : "Email Center";
     if (view === "history") return "Email History";
     return actionConfig[action]?.label || "Send Email";
   };
 
   const getActionDescription = () => {
-    if (view === "actions") return "Select an email action to get started";
+    if (view === "actions") return allowedActions ? "Select an admin email action to get started" : "Select an email action to get started";
     if (view === "history") return "View sent emails and request history";
     return actionConfig[action]?.description || "";
   };

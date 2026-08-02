@@ -88,7 +88,7 @@ export default function Topbar() {
   // NAVIGATION HANDLERS
   // ============================================================
   const handleGoHome = () => {
-    window.location.href = process.env.NEXT_PUBLIC_APP_URL || "/";
+    router.push("/internal/api/dashboard");
   };
 
   const handleGoBackend = () => {

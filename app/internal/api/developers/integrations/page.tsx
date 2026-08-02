@@ -1398,7 +1398,10 @@ export default function IntegrationsPage() {
         defaultLicenseKey=""
         defaultProductName={selectedProductData?.name || ""}
         defaultProductId={selectedProduct}
-        defaultAction="send"
+        // AWS-01 Phase 1 Final: SDK page is an admin tool — Email Options menu
+        // shows only admin actions (Send Email + Email History). User self-service
+        // actions (Buy License, Activate, Renew, etc.) stay in their own modules.
+        allowedActions={["send", "history"]}
       />
     </div>
   );
