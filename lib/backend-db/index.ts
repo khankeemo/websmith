@@ -1364,6 +1364,54 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_mailbox_sync_logs_mailbox_id ON mailbox_sync_logs(mailbox_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_mailbox_sync_logs_started_at ON mailbox_sync_logs(started_at DESC)`);
 
+    // 27i. Create conversation_folders table (database-driven mailbox folders)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversation_folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        section TEXT NOT NULL DEFAULT 'internal',
+        kind TEXT NOT NULL DEFAULT 'list',
+        filter_json TEXT DEFAULT '{}',
+        is_system BOOLEAN NOT NULL DEFAULT FALSE,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        deleted_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_folders_section ON conversation_folders(section)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_folders_deleted ON conversation_folders(deleted_at)`);
+
+    // 27i. Seed system folders (id = stable key used by the Communication Center UI)
+    await client.query(`
+      INSERT INTO conversation_folders (id, name, section, kind, filter_json, is_system, display_order)
+      SELECT * FROM (VALUES
+        ('all', 'All', 'internal', 'list', '{}', TRUE, 0),
+        ('sales', 'Sales', 'internal', 'list', '{"category":"sales"}', TRUE, 1),
+        ('support', 'Support', 'internal', 'list', '{"category":"support"}', TRUE, 2),
+        ('activation', 'Activation', 'internal', 'list', '{"category":"activation"}', TRUE, 3),
+        ('renewal', 'Renewal', 'internal', 'list', '{"category":"renewal"}', TRUE, 4),
+        ('reactivation', 'Reactivation', 'internal', 'list', '{"category":"reactivation"}', TRUE, 5),
+        ('hardware', 'Hardware', 'internal', 'list', '{"category":"hardware_replacement"}', TRUE, 6),
+        ('trial', 'Trial', 'internal', 'list', '{"search":"trial"}', TRUE, 7),
+        ('payment', 'Payment', 'internal', 'list', '{"search":"payment"}', TRUE, 8),
+        ('sdk', 'SDK', 'internal', 'list', '{"search":"sdk"}', TRUE, 9),
+        ('customer', 'Customer', 'internal', 'list', '{"has_customer":"true"}', TRUE, 10),
+        ('notifications', 'Notifications', 'internal', 'logs', '{}', TRUE, 11),
+        ('email-history', 'Universal Email', 'internal', 'history', '{}', TRUE, 12),
+        ('ext-inbox', 'Inbox', 'external', 'list', '{"status":"open,waiting_customer"}', TRUE, 13),
+        ('ext-sent', 'Sent', 'external', 'list', '{"status":"resolved,closed"}', TRUE, 14),
+        ('ext-draft', 'Draft', 'external', 'list', '{"status":"draft"}', TRUE, 15),
+        ('ext-waiting', 'Waiting', 'external', 'list', '{"status":"waiting_customer"}', TRUE, 16),
+        ('ext-failed', 'Failed', 'external', 'list', '{"status":"waiting_support,waiting_sales"}', TRUE, 17),
+        ('ext-queued', 'Queued', 'external', 'queue', '{}', TRUE, 18),
+        ('ext-spam', 'Spam', 'external', 'list', '{"status":"spam"}', TRUE, 19),
+        ('ext-trash', 'Trash', 'external', 'list', '{"show_deleted":"true"}', TRUE, 20),
+        ('mailboxes', 'Mailboxes', 'external', 'mailboxes', '{}', TRUE, 21)
+      ) AS v(id, name, section, kind, filter_json, is_system, display_order)
+      WHERE NOT EXISTS (SELECT 1 FROM conversation_folders)
+    `);
+
     // 28. Create sales_enquiries table (Phase 12 - Purchase Workflow)
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_enquiries (

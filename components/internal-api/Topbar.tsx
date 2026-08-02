@@ -9,8 +9,8 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   User,
-  Home,
-  Server,
+  LayoutDashboard,
+  MessagesSquare,
   LogOut,
   Settings,
   UserCircle,
@@ -92,7 +92,7 @@ export default function Topbar() {
   };
 
   const handleGoBackend = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_APP_URL || ""}/internal/backend`;
+    window.location.href = `${process.env.NEXT_PUBLIC_APP_URL || ""}/internal/api/communications`;
   };
 
   const handleLogout = async () => {
@@ -143,8 +143,8 @@ export default function Topbar() {
           className="group relative flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]/50 hover:border-[var(--border-color)] transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/5 overflow-hidden"
         >
           <span className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <Home size={16} className="relative transition-transform duration-300 group-hover:scale-110" />
-          <span className="text-sm font-medium hidden sm:inline relative">Home</span>
+          <LayoutDashboard size={16} className="relative transition-transform duration-300 group-hover:scale-110" />
+          <span className="text-sm font-medium hidden sm:inline relative">Dashboard</span>
         </button>
 
         <button
@@ -152,8 +152,8 @@ export default function Topbar() {
           className="group relative flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]/50 hover:border-[var(--border-color)] transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/5 overflow-hidden"
         >
           <span className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <Server size={16} className="relative transition-transform duration-300 group-hover:scale-110" />
-          <span className="text-sm font-medium hidden sm:inline relative">Backend</span>
+          <MessagesSquare size={16} className="relative transition-transform duration-300 group-hover:scale-110" />
+          <span className="text-sm font-medium hidden sm:inline relative">Communication</span>
         </button>
 
         {/* Title Section */}

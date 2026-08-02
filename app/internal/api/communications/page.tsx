@@ -13,6 +13,7 @@ import {
   Database, Wrench, History as HistoryIcon, Download, X,
   ChevronDown, ArchiveRestore, MailX, Eye, ChevronLeft,
   UserPlus, BookOpen, Ban, Smartphone, Save,
+  Folder, FolderPlus, FolderOpen, FolderCog,
 } from "lucide-react";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
@@ -150,6 +151,17 @@ interface FolderDef {
   params?: Record<string, string>;
   badgeKey?: keyof Stats;
   emptyNote?: string;
+}
+
+interface FolderRow {
+  id: string;
+  name: string;
+  section: 'internal' | 'external';
+  kind: string;
+  filter_json: string;
+  is_system: boolean;
+  display_order: number;
+  deleted_at: string | null;
 }
 
 const FOLDERS: FolderDef[] = [
@@ -298,13 +310,147 @@ export default function CommunicationsPage() {
   const [showDeleteMailboxConfirm, setShowDeleteMailboxConfirm] = useState<string | null>(null);
   const [testEmailTo, setTestEmailTo] = useState('');
 
-  const activeFolderDef = useMemo(() => FOLDERS.find(f => f.key === activeFolder) || FOLDERS[0], [activeFolder]);
+  const [folders, setFolders] = useState<FolderRow[]>([]);
+  const [showFolderManager, setShowFolderManager] = useState(false);
+  const [deletedFolders, setDeletedFolders] = useState<FolderRow[]>([]);
+  const [renamingFolder, setRenamingFolder] = useState<{ id: string; name: string } | null>(null);
+  const [folderForm, setFolderForm] = useState<{ name: string; section: 'internal' | 'external'; status: string; category: string; search: string }>({
+    name: '', section: 'internal', status: '', category: '', search: '',
+  });
+
+  const folderDefFor = useCallback((row: FolderRow): FolderDef => {
+    const sys = FOLDERS.find(f => f.key === row.id);
+    let params: Record<string, string> = {};
+    try { params = JSON.parse(row.filter_json || '{}'); } catch {}
+    if (sys) {
+      return {
+        ...sys,
+        label: row.name || sys.label,
+        kind: (['list', 'queue', 'logs', 'history', 'mailboxes', 'empty'].includes(row.kind) ? row.kind : sys.kind) as ViewKind,
+        params,
+      };
+    }
+    return {
+      key: row.id,
+      label: row.name,
+      icon: Folder,
+      section: row.section === 'external' ? 'external' : 'internal',
+      kind: (['list', 'queue', 'logs', 'history', 'mailboxes', 'empty'].includes(row.kind) ? row.kind : 'list') as ViewKind,
+      params,
+    };
+  }, []);
+
+  const loadFolders = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/folders`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setFolders(json.data.folders || []);
+      const del = await fetch(`${API_BASE}/folders?include_deleted=1`, { headers: getAuthHeaders() });
+      const delJson = await del.json();
+      if (delJson.success) setDeletedFolders((delJson.data.folders || []).filter((f: FolderRow) => f.deleted_at));
+    } catch {}
+  }, []);
+
+  const activeFolderDef = useMemo(() => {
+    const row = folders.find(f => f.id === activeFolder);
+    if (row) return folderDefFor(row);
+    return FOLDERS.find(f => f.key === activeFolder) || FOLDERS[0];
+  }, [activeFolder, folders, folderDefFor]);
   const isTrash = activeFolder === 'ext-trash';
 
   const showToast = useCallback((type: 'ok' | 'err', text: string) => {
     setToast({ type, text });
     setTimeout(() => setToast(null), 4000);
   }, []);
+
+  const createFolder = useCallback(async () => {
+    if (!folderForm.name.trim()) { showToast('err', 'Folder name is required'); return; }
+    setBusy('create-folder');
+    try {
+      const filter: Record<string, string> = {};
+      if (folderForm.status) filter.status = folderForm.status;
+      if (folderForm.category) filter.category = folderForm.category;
+      if (folderForm.search.trim()) filter.search = folderForm.search.trim();
+      const res = await fetch(`${API_BASE}/folders`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: folderForm.name.trim(), section: folderForm.section, filter }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', `Folder "${folderForm.name.trim()}" created`);
+        setShowFolderManager(false);
+        setFolderForm({ name: '', section: 'internal', status: '', category: '', search: '' });
+        await loadFolders();
+        handleFolderChange(json.data.folder.id);
+      } else {
+        showToast('err', json.error?.message || 'Failed to create folder');
+      }
+    } catch {
+      showToast('err', 'Failed to create folder');
+    } finally {
+      setBusy(null);
+    }
+  }, [folderForm, loadFolders, showToast]);
+
+  const renameFolder = useCallback(async (id: string, name: string) => {
+    if (!name.trim()) { showToast('err', 'Folder name is required'); return; }
+    setBusy(`rename-folder:${id}`);
+    try {
+      const res = await fetch(`${API_BASE}/folders/${id}`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) showToast('ok', 'Folder renamed');
+      else showToast('err', json.error?.message || 'Failed to rename folder');
+      await loadFolders();
+    } catch {
+      showToast('err', 'Failed to rename folder');
+    } finally {
+      setBusy(null);
+      setRenamingFolder(null);
+    }
+  }, [loadFolders, showToast]);
+
+  const deleteFolder = useCallback(async (id: string) => {
+    setBusy(`delete-folder:${id}`);
+    try {
+      const res = await fetch(`${API_BASE}/folders/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', json.message || 'Folder deleted');
+        if (activeFolder === id) handleFolderChange('ext-inbox');
+      } else {
+        showToast('err', json.error?.message || 'Failed to delete folder');
+      }
+      await loadFolders();
+    } catch {
+      showToast('err', 'Failed to delete folder');
+    } finally {
+      setBusy(null);
+    }
+  }, [activeFolder, loadFolders, showToast]);
+
+  const restoreFolder = useCallback(async (id: string) => {
+    setBusy(`restore-folder:${id}`);
+    try {
+      const res = await fetch(`${API_BASE}/folders/${id}`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore' }),
+      });
+      const json = await res.json();
+      if (json.success) showToast('ok', 'Folder restored');
+      else showToast('err', json.error?.message || 'Failed to restore folder');
+      await loadFolders();
+    } catch {
+      showToast('err', 'Failed to restore folder');
+    } finally {
+      setBusy(null);
+    }
+  }, [loadFolders, showToast]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -442,14 +588,15 @@ export default function CommunicationsPage() {
   }, [mailboxes, loadMailboxes, showToast]);
 
   const refreshCurrent = useCallback(() => {
-    const f = FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0];
+    const row = folders.find(x => x.id === activeFolder);
+    const f = row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]);
     if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter);
     else if (f.kind === 'queue') loadQueue();
     else if (f.kind === 'logs') loadLogs();
     else if (f.kind === 'history') loadHistory();
     else if (f.kind === 'mailboxes') loadMailboxes();
     fetchStats();
-  }, [activeFolder, searchQuery, statusFilter, categoryFilter, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, fetchStats]);
+  }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, fetchStats]);
 
   // Phase 5: deliver queued emails via the default sender mailbox SMTP
   const processQueue = useCallback(async () => {
@@ -469,6 +616,8 @@ export default function CommunicationsPage() {
   }, [refreshCurrent, showToast]);
 
   useEffect(() => { refreshCurrent(); }, [refreshCurrent]);
+
+  useEffect(() => { loadFolders(); }, [loadFolders]);
 
   useEffect(() => {
     const iv = setInterval(fetchStats, 30000);
@@ -854,39 +1003,48 @@ export default function CommunicationsPage() {
     { key: 'unread', label: 'Unread', icon: MailOpen, color: 'bg-cyan-500/10 text-cyan-400' },
   ];
 
-  // ---- Sidebar ----
+  // ---- Sidebar (database-driven folders) ----
   const renderSidebar = () => (
     <aside className="w-52 flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)]">
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 scrollbar-thin">
-        {(['internal', 'external'] as const).map(section => (
-          <div key={section}>
-            <p className="px-2 mb-1.5 text-[10px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
-              {section === 'internal' ? 'Internal Communications' : 'External Mailboxes'}
-            </p>
-            <div className="space-y-0.5">
-              {FOLDERS.filter(f => f.section === section).map(folder => {
-                const Icon = folder.icon;
-                const active = activeFolder === folder.key;
-                const badge = folder.badgeKey ? stats[folder.badgeKey] : 0;
-                return (
-                  <button
-                    key={folder.key}
-                    onClick={() => handleFolderChange(folder.key)}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <Icon size={14} className="flex-shrink-0" />
-                    <span className="flex-1 text-left truncate">{folder.label}</span>
-                    {badge > 0 && (
-                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${folder.key === 'all' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-blue-500/20 text-blue-400'}`}>{badge}</span>
-                    )}
-                  </button>
-                );
-              })}
+        {(['internal', 'external'] as const).map(section => {
+          const sectionFolders = folders.filter(f => f.section === section);
+          return (
+            <div key={section}>
+              <p className="px-2 mb-1.5 text-[10px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
+                {section === 'internal' ? 'Internal Communications' : 'External Mailboxes'}
+              </p>
+              <div className="space-y-0.5">
+                {sectionFolders.map(row => {
+                  const def = folderDefFor(row);
+                  const Icon = def.icon;
+                  const active = activeFolder === row.id;
+                  const badge = def.badgeKey ? stats[def.badgeKey] : 0;
+                  return (
+                    <button
+                      key={row.id}
+                      onClick={() => handleFolderChange(row.id)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <Icon size={14} className="flex-shrink-0" />
+                      <span className="flex-1 text-left truncate">{def.label}</span>
+                      {!row.is_system && <FolderOpen size={10} className="flex-shrink-0 opacity-40" />}
+                      {badge > 0 && (
+                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${row.id === 'all' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-blue-500/20 text-blue-400'}`}>{badge}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+        <button onClick={() => setShowFolderManager(true)}
+          className="w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
+          <FolderPlus size={13} /> New Folder
+        </button>
       </div>
     </aside>
   );
@@ -1489,7 +1647,8 @@ export default function CommunicationsPage() {
             provider: mb.provider, email_address: mb.email_address, display_name: mb.display_name,
             imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username,
             smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username,
-            signature: mb.signature, is_enabled: mb.is_enabled,
+            signature: mb.signature, is_enabled: mb.is_enabled, is_default_sender: mb.is_default_sender,
+            auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message,
           }); setShowMailboxForm(true); }}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 text-[11px] font-medium transition-colors">
             <Pencil size={11} /> Edit
@@ -1588,6 +1747,122 @@ export default function CommunicationsPage() {
         defaultAction={emailDialog.defaultAction}
       />
 
+      {/* Folder manager modal */}
+      {showFolderManager && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] w-[560px] max-w-full mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)] sticky top-0 bg-[var(--bg-secondary)] z-10">
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">Manage Folders</h2>
+              <button onClick={() => setShowFolderManager(false)} className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-muted)] transition-colors"><X size={15} /></button>
+            </div>
+            <div className="p-5 space-y-5">
+              {/* New folder */}
+              <div className="space-y-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--api-blue-400)] flex items-center gap-1.5"><FolderPlus size={12} /> New Folder</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Folder Name *">
+                    <input type="text" value={folderForm.name} onChange={e => setFolderForm({ ...folderForm, name: e.target.value })}
+                      className={inputCls} placeholder="e.g. VIP Customers" onKeyDown={e => e.key === 'Enter' && createFolder()} />
+                  </Field>
+                  <Field label="Section">
+                    <select value={folderForm.section} onChange={e => setFolderForm({ ...folderForm, section: e.target.value as 'internal' | 'external' })} className={inputCls}>
+                      <option value="internal">Internal Communications</option>
+                      <option value="external">External Mailboxes</option>
+                    </select>
+                  </Field>
+                  <Field label="Status filter">
+                    <select value={folderForm.status} onChange={e => setFolderForm({ ...folderForm, status: e.target.value })} className={inputCls}>
+                      <option value="">All Status</option>
+                      <option value="open">Open</option>
+                      <option value="waiting_customer">Waiting Customer</option>
+                      <option value="waiting_support">Waiting Support</option>
+                      <option value="waiting_sales">Waiting Sales</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                      <option value="draft">Draft</option>
+                      <option value="spam">Spam</option>
+                    </select>
+                  </Field>
+                  <Field label="Category filter">
+                    <select value={folderForm.category} onChange={e => setFolderForm({ ...folderForm, category: e.target.value })} className={inputCls}>
+                      <option value="">All Categories</option>
+                      {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                <Field label="Search keyword (optional)">
+                  <input type="text" value={folderForm.search} onChange={e => setFolderForm({ ...folderForm, search: e.target.value })}
+                    className={inputCls} placeholder="e.g. enterprise" />
+                </Field>
+                <button onClick={createFolder} disabled={busy === 'create-folder' || !folderForm.name.trim()}
+                  className="w-full px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                  {busy === 'create-folder' ? <><Loader2 size={13} className="animate-spin" /> Creating...</> : <><FolderPlus size={13} /> Create Folder</>}
+                </button>
+              </div>
+
+              {/* Active folders */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex items-center gap-1.5"><FolderCog size={12} /> Folders ({folders.length})</p>
+                <div className="space-y-1.5 max-h-56 overflow-y-auto scrollbar-thin">
+                  {folders.map(row => {
+                    const def = folderDefFor(row);
+                    return (
+                      <div key={row.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-tertiary)]/10 border border-[var(--border-color)]">
+                        <Folder size={13} className="text-blue-400 shrink-0" />
+                        {renamingFolder?.id === row.id ? (
+                          <>
+                            <input type="text" value={renamingFolder.name} onChange={e => setRenamingFolder({ id: row.id, name: e.target.value })}
+                              onKeyDown={e => { if (e.key === 'Enter') renameFolder(row.id, renamingFolder.name); if (e.key === 'Escape') setRenamingFolder(null); }}
+                              autoFocus className={`${inputCls} flex-1`} />
+                            <button onClick={() => renameFolder(row.id, renamingFolder.name)} disabled={busy === `rename-folder:${row.id}`}
+                              className="px-2 py-1 rounded-lg bg-blue-600 text-white text-[10px] font-medium transition-colors disabled:opacity-50"><Save size={11} /></button>
+                            <button onClick={() => setRenamingFolder(null)} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/50 transition-colors"><X size={12} /></button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-xs text-[var(--text-primary)] truncate">{def.label}</span>
+                            {row.is_system
+                              ? <span className="text-[9px] uppercase tracking-wider text-[var(--text-muted)] px-1.5 py-0.5 rounded-full bg-[var(--bg-tertiary)]/40">system</span>
+                              : (
+                                <div className="flex items-center gap-0.5">
+                                  <button onClick={() => setRenamingFolder({ id: row.id, name: def.label })} title="Rename"
+                                    className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-blue-400 hover:bg-[var(--bg-tertiary)]/50 transition-colors"><Pencil size={11} /></button>
+                                  <button onClick={() => deleteFolder(row.id)} disabled={busy === `delete-folder:${row.id}`} title="Delete"
+                                    className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={11} /></button>
+                                </div>
+                              )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {folders.length === 0 && <p className="text-xs text-[var(--text-muted)] text-center py-3">No folders yet — create one above.</p>}
+                </div>
+              </div>
+
+              {/* Deleted folders (restore) */}
+              {deletedFolders.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex items-center gap-1.5"><ArchiveRestore size={12} /> Deleted — Restore ({deletedFolders.length})</p>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-thin">
+                    {deletedFolders.map(row => (
+                      <div key={row.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/20 opacity-80">
+                        <FolderOpen size={13} className="text-[var(--text-muted)] shrink-0" />
+                        <span className="flex-1 text-xs text-[var(--text-primary)] line-through decoration-[var(--text-muted)]/50">{row.name}</span>
+                        <button onClick={() => restoreFolder(row.id)} disabled={busy === `restore-folder:${row.id}`}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 text-[10px] font-medium hover:bg-emerald-500/10 transition-colors disabled:opacity-50">
+                          {busy === `restore-folder:${row.id}` ? <Loader2 size={11} className="animate-spin" /> : <ArchiveRestore size={11} />} Restore
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mailbox form modal */}
       {showMailboxForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -1660,6 +1935,15 @@ export default function CommunicationsPage() {
               <Field label="Email Signature">
                 <textarea rows={2} value={mailboxForm.signature || ''} onChange={e => setMailboxForm({ ...mailboxForm, signature: e.target.value })} className={`${inputCls} resize-none`} />
               </Field>
+              <div className="space-y-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+                <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                  <input type="checkbox" checked={mailboxForm.auto_reply_enabled === true} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_enabled: e.target.checked })} className="accent-blue-500" />
+                  Enable auto-reply for incoming mail
+                </label>
+                <textarea rows={3} value={mailboxForm.auto_reply_message || ''} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_message: e.target.value })}
+                  placeholder="Auto-reply message sent to new incoming conversations (e.g. Thanks for your message — we will get back to you within 24 hours.)"
+                  className={`${inputCls} resize-none`} />
+              </div>
               {error && <p className="text-xs text-red-400">{error}</p>}
             </div>
             <div className="flex gap-2 px-5 py-4 border-t border-[var(--border-color)] sticky bottom-0 bg-[var(--bg-secondary)]">

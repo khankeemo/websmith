@@ -660,6 +660,8 @@ export default function IntegrationsPage() {
     });
     setGenerateSuccess(true);
     setDialogOpen(false);
+    // AWS-01 Phase 1: Generate SDK → UniversalEmailDialog directly (no intermediate Email Center)
+    setEmailDialogOpen(true);
   };
 
   const handleDialogFailed = (error: string) => {
