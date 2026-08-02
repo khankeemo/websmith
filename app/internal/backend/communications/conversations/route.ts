@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const email = searchParams.get('email');
     const search = searchParams.get('search');
+    const hasCustomer = searchParams.get('has_customer') === 'true';
     const showDeleted = searchParams.get('show_deleted') === 'true';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
@@ -56,9 +57,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      whereClauses.push(`(cc.subject ILIKE $${paramIndex} OR cc.customer_name ILIKE $${paramIndex} OR cc.customer_email ILIKE $${paramIndex})`);
+      whereClauses.push(`(cc.subject ILIKE $${paramIndex} OR cc.customer_name ILIKE $${paramIndex} OR cc.customer_email ILIKE $${paramIndex} OR cc.license_key ILIKE $${paramIndex} OR EXISTS (SELECT 1 FROM conversation_messages cm WHERE cm.conversation_id = cc.id AND cm.message ILIKE $${paramIndex}))`);
       params.push(`%${search}%`);
       paramIndex++;
+    }
+
+    if (hasCustomer) {
+      whereClauses.push(`EXISTS (SELECT 1 FROM customers c WHERE c.email = cc.customer_email)`);
     }
 
     const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -72,9 +77,10 @@ export async function GET(request: NextRequest) {
     const result = await client.query(
       `SELECT cc.*, 
         (SELECT COUNT(*) FROM conversation_messages cm WHERE cm.conversation_id = cc.id) as message_count,
-        (SELECT COUNT(*) FROM conversation_messages cm WHERE cm.conversation_id = cc.id AND cm.sender_type = 'customer' AND cm.created_at > COALESCE(
-          (SELECT MAX(cm2.created_at) FROM conversation_messages cm2 WHERE cm2.conversation_id = cc.id AND cm2.sender_type = 'admin')
-        , '1970-01-01')) as unread_replies
+        (SELECT COUNT(*) FROM conversation_attachments ca JOIN conversation_messages cm ON cm.id = ca.message_id WHERE cm.conversation_id = cc.id) as attachment_count,
+        (SELECT COUNT(*) FROM conversation_messages cm WHERE cm.conversation_id = cc.id AND cm.sender_type = 'customer' AND cm.created_at > GREATEST(
+          COALESCE((SELECT MAX(cm2.created_at) FROM conversation_messages cm2 WHERE cm2.conversation_id = cc.id AND cm2.sender_type = 'admin'), '1970-01-01'),
+          COALESCE(cc.admin_read_at, '1970-01-01'))) as unread_replies
        FROM communication_conversations cc
        ${whereSQL}
        ORDER BY cc.updated_at DESC

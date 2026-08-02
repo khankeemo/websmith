@@ -22,18 +22,26 @@ export async function GET(request: NextRequest) {
     }
 
     const email = request.nextUrl.searchParams.get("email") || "";
-    if (!email) {
-      return NextResponse.json({ success: false, error: "email query parameter is required", data: [] }, { status: 400 });
-    }
+    const limit = Math.min(200, Math.max(1, parseInt(request.nextUrl.searchParams.get("limit") || "100", 10)));
 
     client = await pool.connect();
-    const r = await client.query(
-      `SELECT id, event_type, recipient, subject, status, error, created_at, license_key
-       FROM notification_logs
-       WHERE LOWER(recipient) = LOWER($1)
-       ORDER BY created_at DESC LIMIT 100`,
-      [email]
-    );
+    let r;
+    if (email) {
+      r = await client.query(
+        `SELECT id, event_type, recipient, subject, status, error, created_at, license_key
+         FROM notification_logs
+         WHERE LOWER(recipient) = LOWER($1)
+         ORDER BY created_at DESC LIMIT $2`,
+        [email, limit]
+      );
+    } else {
+      r = await client.query(
+        `SELECT id, event_type, recipient, subject, status, error, created_at, license_key
+         FROM notification_logs
+         ORDER BY created_at DESC LIMIT $1`,
+        [limit]
+      );
+    }
 
     const history = await Promise.all(r.rows.map(async (row: any) => {
       let attachments: any[] = [];

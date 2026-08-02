@@ -1218,6 +1218,9 @@ export async function getDb(): Promise<Pool> {
     `);
     // Migration: add deleted_at column for soft delete BEFORE creating indexes on it
     try { await client.query(`ALTER TABLE communication_conversations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`); } catch (e) {}
+    // Migration: admin_read_at — admin "Mark Read" tracking; conversations with customer
+    // messages newer than this timestamp are treated as unread.
+    try { await client.query(`ALTER TABLE communication_conversations ADD COLUMN IF NOT EXISTS admin_read_at TIMESTAMP`); } catch (e) {}
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_category ON communication_conversations(category)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_customer_email ON communication_conversations(customer_email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_status ON communication_conversations(status)`);

@@ -24,6 +24,8 @@ export async function GET(
       }, { status: 404 });
     }
 
+    const conversation = convResult.rows[0];
+
     const messagesResult = await client.query(
       `SELECT * FROM conversation_messages 
        WHERE conversation_id = $1 AND (is_internal = false OR is_internal IS NULL)
@@ -51,17 +53,122 @@ export async function GET(
       deliveryLogsResult = { rows: [] };
     }
 
+    // Attachments for every message in this conversation
+    let attachmentsResult = { rows: [] };
+    try {
+      attachmentsResult = await client.query(
+        `SELECT ca.id, ca.message_id, ca.file_name, ca.file_size, ca.mime_type, ca.uploaded_at,
+                cm.sender_name, cm.created_at AS message_created_at
+         FROM conversation_attachments ca
+         JOIN conversation_messages cm ON cm.id = ca.message_id
+         WHERE ca.message_id IN (SELECT id FROM conversation_messages WHERE conversation_id = $1)
+         ORDER BY ca.uploaded_at DESC`,
+        [id]
+      );
+    } catch (attachmentsError) {
+      console.warn('conversation_attachments table not available, skipping:', attachmentsError.message);
+    }
+
+    const customerEmail = conversation.customer_email || '';
+
+    // Customer record (single source of truth)
+    let customerResult = { rows: [] };
+    if (customerEmail) {
+      try {
+        customerResult = await client.query(
+          `SELECT id, name, email, company, phone, mobile, country, city, state, postal_code, created_at
+           FROM customers WHERE email = $1 LIMIT 1`,
+          [customerEmail]
+        );
+      } catch (customerError) {
+        console.warn('customers lookup skipped:', customerError.message);
+      }
+    }
+
+    // Licenses for this customer
+    let licensesResult = { rows: [] };
+    if (customerEmail) {
+      try {
+        licensesResult = await client.query(
+          `SELECT license_key, product_id, product_name, plan_name, status, expiry_date, activated_at, created_at
+           FROM licenses WHERE customer_email = $1 ORDER BY created_at DESC LIMIT 10`,
+          [customerEmail]
+        );
+      } catch (licenseError) {
+        console.warn('licenses lookup skipped:', licenseError.message);
+      }
+    }
+
+    // Orders + payments for this customer
+    let ordersResult = { rows: [] };
+    let paymentsResult = { rows: [] };
+    if (customerEmail) {
+      try {
+        ordersResult = await client.query(
+          `SELECT id, order_number, status, subtotal, discount, tax, total, currency, coupon_code, payment_gateway, created_at
+           FROM orders WHERE customer_email = $1 ORDER BY created_at DESC LIMIT 10`,
+          [customerEmail]
+        );
+        if (ordersResult.rows.length > 0) {
+          const orderIds = ordersResult.rows.map((o: any) => o.id);
+          paymentsResult = await client.query(
+            `SELECT id, order_id, amount, currency, gateway, status, payment_intent_id, paid_at
+             FROM payments WHERE order_id = ANY($1) ORDER BY created_at DESC LIMIT 20`,
+            [orderIds]
+          );
+        }
+      } catch (orderError) {
+        console.warn('orders/payments lookup skipped:', orderError.message);
+      }
+    }
+
+    // Audit history: events tied to this conversation or its license
+    let auditResult = { rows: [] };
+    try {
+      const auditParams: any[] = [];
+      const clauses: string[] = [];
+      let pi = 1;
+      if (conversation.license_key) {
+        clauses.push(`license_key = $${pi++}`);
+        auditParams.push(conversation.license_key);
+      }
+      if (customerEmail) {
+        clauses.push(`message ILIKE $${pi++}`);
+        auditParams.push(`%${customerEmail}%`);
+      }
+      clauses.push(`message ILIKE $${pi++}`);
+      auditParams.push(`%${id}%`);
+      auditResult = await client.query(
+        `SELECT event_type, message, timestamp FROM audit_logs
+         WHERE (${clauses.join(' OR ')})
+         ORDER BY timestamp DESC LIMIT 20`,
+        auditParams
+      );
+    } catch (auditError) {
+      console.warn('audit lookup skipped:', auditError.message);
+    }
+
     client.release();
     client = null;
 
-    const conversation = convResult.rows[0];
     const messages = messagesResult.rows;
     const internalNotes = internalResult.rows;
     const deliveryLogs = deliveryLogsResult.rows;
 
     return NextResponse.json({
       success: true,
-      data: { conversation, messages, internal_notes: internalNotes, delivery_logs: deliveryLogs }
+      data: {
+        conversation,
+        messages,
+        internal_notes: internalNotes,
+        delivery_logs: deliveryLogs,
+        attachments: attachmentsResult.rows,
+        customer: customerResult.rows[0] || null,
+        licenses: licensesResult.rows,
+        orders: ordersResult.rows,
+        payments: paymentsResult.rows,
+        audit: auditResult.rows,
+      }
     });
 
   } catch (error: any) {
@@ -158,10 +265,11 @@ export async function PATCH(
     const body = await _request.json();
     const { action } = body;
 
-    if (action !== 'restore') {
+    const SUPPORTED_ACTIONS = ['restore', 'mark_read', 'mark_unread', 'archive'];
+    if (!SUPPORTED_ACTIONS.includes(action)) {
       return NextResponse.json({
         success: false,
-        error: { code: 'INVALID_ACTION', message: 'Invalid action. Supported: restore' }
+        error: { code: 'INVALID_ACTION', message: `Invalid action. Supported: ${SUPPORTED_ACTIONS.join(', ')}` }
       }, { status: 400 });
     }
 
@@ -182,24 +290,67 @@ export async function PATCH(
 
     const conversation = convResult.rows[0];
 
-    if (!conversation.deleted_at) {
+    if (action === 'mark_read') {
+      await client.query(
+        'UPDATE communication_conversations SET admin_read_at = NOW() WHERE id = $1',
+        [id]
+      );
       client.release();
-      return NextResponse.json({
-        success: false,
-        error: { code: 'NOT_DELETED', message: 'Conversation is not deleted.' }
-      }, { status: 400 });
+      client = null;
+      return NextResponse.json({ success: true, data: { message: 'Conversation marked as read.' } });
     }
 
-    const now = new Date().toISOString();
-    await client.query(
-      'UPDATE communication_conversations SET deleted_at = NULL, updated_at = $1 WHERE id = $2',
-      [now, id]
-    );
+    if (action === 'mark_unread') {
+      await client.query(
+        'UPDATE communication_conversations SET admin_read_at = NULL WHERE id = $1',
+        [id]
+      );
+      client.release();
+      client = null;
+      return NextResponse.json({ success: true, data: { message: 'Conversation marked as unread.' } });
+    }
+
+    if (action === 'archive') {
+      if (conversation.deleted_at) {
+        client.release();
+        return NextResponse.json({
+          success: false,
+          error: { code: 'ALREADY_DELETED', message: 'Conversation is in trash; restore it before archiving.' }
+        }, { status: 400 });
+      }
+      const now = new Date().toISOString();
+      await client.query(
+        `UPDATE communication_conversations SET status = 'closed', updated_at = $1 WHERE id = $2`,
+        [now, id]
+      );
+      client.release();
+      client = null;
+      return NextResponse.json({ success: true, data: { message: 'Conversation archived.' } });
+    }
+
+    if (action === 'restore') {
+      if (!conversation.deleted_at) {
+        client.release();
+        return NextResponse.json({
+          success: false,
+          error: { code: 'NOT_DELETED', message: 'Conversation is not deleted.' }
+        }, { status: 400 });
+      }
+
+      const now = new Date().toISOString();
+      await client.query(
+        'UPDATE communication_conversations SET deleted_at = NULL, updated_at = $1 WHERE id = $2',
+        [now, id]
+      );
+
+      client.release();
+      client = null;
+
+      return NextResponse.json({ success: true, data: { message: 'Conversation restored from trash.' } });
+    }
 
     client.release();
     client = null;
-
-    return NextResponse.json({ success: true, data: { message: 'Conversation restored from trash.' } });
 
   } catch (error: any) {
     console.error('Communications conversation restore error:', error);
