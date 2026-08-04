@@ -7,12 +7,12 @@
     "contact": {
       "name": "Websmith Support",
       "email": "support@websmithdigital.com",
-      "url": "https://websmith.com"
+      "url": "https://www.websmithdigital.com"
     }
   },
   "servers": [
     {
-      "url": "https://websmith.vercel.app/api/v1",
+      "url": "https://www.websmithdigital.com/api/v1",
       "description": "Production Server"
     },
     {

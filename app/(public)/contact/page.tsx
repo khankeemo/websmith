@@ -1,7 +1,6 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import Script from "next/script";
 import { PublicPage } from "../_components/PublicPage";
 import { SimplePublicBody } from "../_components/SimplePublicContent";
 import { useState, useEffect, Suspense } from "react";
@@ -242,25 +241,6 @@ export default function ContactPage() {
               Share a few details about your project or support request and our team will get back to you.
             </p>
           </div>
-          <div style={styles.embeddedFormShell}>
-            <iframe
-              src="https://api.websmithdigital.com/widget/form/QkTAKDjNsh0O6sYg88Iy"
-              style={styles.embeddedForm}
-              id="inline-QkTAKDjNsh0O6sYg88Iy"
-              data-layout="{'id':'INLINE'}"
-              data-trigger-type="alwaysShow"
-              data-trigger-value=""
-              data-activation-type="alwaysActivated"
-              data-activation-value=""
-              data-deactivation-type="neverDeactivate"
-              data-deactivation-value=""
-              data-form-name="Form 0"
-              data-height="745"
-              data-layout-iframe-id="inline-QkTAKDjNsh0O6sYg88Iy"
-              data-form-id="QkTAKDjNsh0O6sYg88Iy"
-              title="Form 0"
-            />
-          </div>
         </section>
 
         {/* Social channels */}
@@ -315,8 +295,6 @@ export default function ContactPage() {
           </p>
         </section>
       </SimplePublicBody>
-
-      <Script src="https://api.websmithdigital.com/js/form_embed.js" strategy="afterInteractive" />
 
       <style>{`
         .public-page-hero-inner h1 {

@@ -15,7 +15,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const BASE_URL = process.env.E2E_BASE_URL || 'https://websmith-z.vercel.app';
+const BASE_URL = process.env.E2E_BASE_URL || 'https://www.websmithdigital.com';
 
 const failures = [];
 let passCount = 0;
