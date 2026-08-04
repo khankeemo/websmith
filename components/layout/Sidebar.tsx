@@ -182,7 +182,7 @@ export default function Sidebar({
               { name: "Software Store", path: `${basePath}/software-store`, icon: Store },
               { name: "Manage Page", path: `${basePath}/manage-page`, icon: Monitor },
               { name: "Notifications", path: `${basePath}/notifications`, icon: Bell },
-              { name: "API Center", path: "/internal/api", icon: Database },
+              { name: "API Center", path: "/internal/api/auth/login", icon: Database },
             ],
           },
         ]
