@@ -6,7 +6,7 @@
 // 
 // 🟢 MAIN WEBSITE API
 //    - Handles: Clients, Projects, Invoices, Messages, Tasks, Team, Auth
-//    - URL: configured via NEXT_PUBLIC_API_URL
+//    - URL: same-origin /api (served by this Next.js deployment)
 //
 // 🔵 LICENSE API
 //    - Handles: Licenses, Products, Hardware, Trials, Dashboard
@@ -22,46 +22,22 @@ import axios from "axios";
 import { clearAuthSession, getToken, isPublicPath } from "../../lib/auth";
 
 // ============================================
-// 🟢 MAIN WEBSITE API CONFIGURATION (UNCHANGED)
+// 🟢 MAIN WEBSITE API RESOLUTION (SAME-ORIGIN)
 // ============================================
-// This handles ALL non-license API calls (clients, projects, invoices, etc.)
-// DO NOT CHANGE THIS - Your main website depends on it
-// ============================================
-function getRequiredEnv(name: string): string {
-  const val = process.env[name];
-  if (!val) throw new Error(`${name} environment variable is required`);
-  return val;
-}
-
-const normalizeApiBaseUrl = (value: string) => {
-  const trimmed = value.replace(/\/$/, "");
-  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
-};
-
+// The Public Website API (/api/*) is served by the SAME Next.js deployment as
+// the browser origin (Next.js route handlers). It must ALWAYS resolve through
+// the current production origin so requests keep working after every future
+// deployment without changing any code. It never references NEXT_PUBLIC_API_URL
+// or any preview/temporary/generated Vercel deployment URL.
 const getApiBaseUrl = () => {
-  const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (fromEnv) {
-    return normalizeApiBaseUrl(fromEnv);
-  }
-
   if (typeof window !== "undefined") {
-    const { hostname, origin } = window.location;
-    const isLoopback = hostname === "127.0.0.1" || hostname.endsWith(".local");
-    const isPrivateIpv4 =
-      /^10\./.test(hostname) ||
-      /^192\.168\./.test(hostname) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
-
-    // In local development, prefer the same-origin Next.js rewrite so browser
-    // requests always hit the paired local Express server even over LAN IPs.
-    if (process.env.NODE_ENV === "development" || isLoopback || isPrivateIpv4) {
-      return `${origin}/api`;
-    }
-    return normalizeApiBaseUrl(getRequiredEnv('NEXT_PUBLIC_API_URL'));
+    return `${window.location.origin}/api`;
   }
 
-  const internalUrl = process.env.API_URL_INTERNAL?.trim();
-  return internalUrl ? normalizeApiBaseUrl(internalUrl) : normalizeApiBaseUrl(getRequiredEnv('NEXT_PUBLIC_API_URL'));
+  // Server-side fallback (the Public Website only calls the API from the
+  // browser, so this path is defensive): prefer an explicit internal URL,
+  // otherwise fall back to a relative /api path.
+  return process.env.API_URL_INTERNAL?.trim() || "/api";
 };
 
 // ============================================
