@@ -65,6 +65,24 @@ const getApiBaseUrl = () => {
 };
 
 // ============================================
+// AUTH API RESOLUTION (SINGLE PRODUCTION DEPLOYMENT)
+// ============================================
+// Public Website authentication endpoints (/api/auth/*) are Next.js API routes
+// served by the same deployment as the browser origin. They MUST always resolve
+// through the same origin so login, register, change-password, logout and
+// forgot-password all hit the same server, the same environment variables and
+// the same users collection. They never route through NEXT_PUBLIC_API_URL or any
+// preview/temporary deployment URL.
+const isAuthPath = (url?: string) => typeof url === "string" && url.startsWith("/auth/");
+
+const getAuthApiBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api`;
+  }
+  return "/api";
+};
+
+// ============================================
 // MAIN AXIOS INSTANCE (For Main Website API)
 // ============================================
 const API = axios.create();
@@ -90,7 +108,7 @@ LicenseAPI.interceptors.request.use((config) => {
 // ============================================
 // attach token automatically
 API.interceptors.request.use((config) => {
-  config.baseURL = getApiBaseUrl();
+  config.baseURL = isAuthPath(config.url) ? getAuthApiBaseUrl() : getApiBaseUrl();
   const token = getToken();
 
   if (token) {
