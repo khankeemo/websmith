@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ShoppingCart, Heart, ArrowRight, Check, Clock, X, Star, ExternalLink, BookOpen, LifeBuoy, Monitor, Smartphone, Globe, Terminal, ChevronLeft } from "lucide-react";
+import { ShoppingCart, Heart, ArrowRight, Check, Clock, X, Star, ExternalLink, BookOpen, LifeBuoy, Monitor, Smartphone, Globe, Terminal, ChevronLeft, ShieldCheck } from "lucide-react";
 import { getProductById, StoreProduct, StoreProductPlan } from "../../services/softwareStoreService";
 
 const formatPrice = (price: number) =>
@@ -281,6 +281,25 @@ export default function ProductDetailPage() {
               <div className="p-6 space-y-6">
                 {selectedPlan && (
                   <>
+                    {activePlans.length > 1 && (
+                      <div>
+                        <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-2">Select Plan</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {activePlans.map((p, i) => (
+                            <button
+                              key={p.id}
+                              onClick={() => setSelectedPlanIndex(i)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                selectedPlanIndex === i
+                                  ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/40 shadow-[0_0_12px_-4px_rgba(99,102,241,0.4)]"
+                                  : "border-[var(--border-color)] text-[var(--text-secondary)] hover:border-indigo-500/30 hover:text-[var(--text-primary)]"
+                              }`}>
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-1">{selectedPlan.name}</p>
                       <div className="flex items-baseline gap-2">
@@ -339,6 +358,11 @@ export default function ProductDetailPage() {
                     <Heart className={`w-4 h-4 ${inWishlist ? "fill-current" : ""}`} />
                     {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
                   </button>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 px-4 py-2.5 text-[11px] text-[var(--text-secondary)]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  Instant license delivery&nbsp;·&nbsp;Secure checkout
                 </div>
               </div>
             </div>

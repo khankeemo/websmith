@@ -274,6 +274,14 @@ export default function CheckoutPage() {
   const mobileError = mobileDigitsError(selectedCountry, mobile.replace(/\D/g, ""));
   const altMobileError = altMobile.trim() && mobileDigitsError(selectedCountry, altMobile.replace(/\D/g, ""));
 
+  const contactDone = Boolean(firstName.trim() && lastName.trim() && isValidEmail(email));
+  const billingDone = Boolean(addressLine1.trim() && city.trim() && countryName.trim() && postalCode.trim());
+  const stepsMeta = [
+    { label: "Contact", done: contactDone, icon: User },
+    { label: "Billing", done: billingDone, icon: MapPin },
+    { label: "Payment", done: gateways.length > 0, icon: CreditCard },
+  ];
+
   const validateForm = (): string | null => {
     if (!firstName.trim() || !lastName.trim()) return "First name and last name are required";
     if (!isValidEmail(email)) return "A valid email address is required";
@@ -496,13 +504,41 @@ export default function CheckoutPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 mb-8"
+          className="flex items-center gap-3 mb-6"
         >
           <a href="/software-store" className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
             <ArrowLeft className="w-4 h-4" /> Store
           </a>
           <ChevronRight className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
           <span className="text-sm font-semibold text-[var(--text-primary)]">Checkout</span>
+        </motion.div>
+
+        {/* Checkout progress stepper */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="mb-8"
+        >
+          <div className="flex items-center">
+            {stepsMeta.map((s, i) => (
+              <div key={s.label} className={`flex items-center ${i < stepsMeta.length - 1 ? "flex-1" : ""}`}>
+                <div className="flex flex-col items-center shrink-0">
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center border-2 transition-all ${
+                    s.done
+                      ? "bg-gradient-to-br from-indigo-500 to-purple-600 border-transparent text-white shadow-lg shadow-indigo-600/25"
+                      : "border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+                  }`}>
+                    {s.done ? <Check className="w-5 h-5" /> : <s.icon className="w-5 h-5" />}
+                  </div>
+                  <span className={`mt-2 text-[11px] font-semibold ${s.done ? "text-indigo-400" : "text-[var(--text-secondary)]"}`}>{s.label}</span>
+                </div>
+                {i < stepsMeta.length - 1 && (
+                  <div className={`flex-1 h-0.5 mx-3 rounded-full mb-5 transition-all ${stepsMeta[i].done ? "bg-gradient-to-r from-indigo-500 to-purple-500" : "bg-[var(--border-color)]"}`} />
+                )}
+              </div>
+            ))}
+          </div>
         </motion.div>
 
         <motion.div
@@ -527,9 +563,12 @@ export default function CheckoutPage() {
               transition={{ delay: 0.1 }}
               className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
             >
-              <div className="flex items-center gap-2 mb-5">
-                <User className="w-5 h-5 text-indigo-400" />
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                  <User className="w-5 h-5 text-indigo-400" />
+                </div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Contact Information</h2>
+                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Step 1</span>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="First Name" required>
@@ -652,9 +691,12 @@ export default function CheckoutPage() {
               transition={{ delay: 0.2 }}
               className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
             >
-              <div className="flex items-center gap-2 mb-5">
-                <MapPin className="w-5 h-5 text-indigo-400" />
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5 text-indigo-400" />
+                </div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Billing Address</h2>
+                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Step 2</span>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
@@ -785,9 +827,12 @@ export default function CheckoutPage() {
               transition={{ delay: 0.4 }}
               className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
             >
-              <div className="flex items-center gap-2 mb-5">
-                <CreditCard className="w-5 h-5 text-indigo-400" />
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                  <CreditCard className="w-5 h-5 text-indigo-400" />
+                </div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Payment Method</h2>
+                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Step 3</span>
               </div>
               {gateways.length === 0 ? (
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400">
@@ -851,21 +896,35 @@ export default function CheckoutPage() {
                 }} />
 
                 <div className="relative">
-                  <div className="flex items-center gap-2 mb-5">
-                    <ShoppingCart className="w-5 h-5 text-indigo-400" />
-                    <h2 className="text-lg font-bold text-[var(--text-primary)]">Order Summary</h2>
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                      <ShoppingCart className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-[var(--text-primary)]">Order Summary</h2>
+                      <p className="text-[11px] text-[var(--text-secondary)]">{cartItems.length} item{cartItems.length !== 1 ? "s" : ""}</p>
+                    </div>
                   </div>
 
                   <div className="space-y-3 mb-5">
                     {cartItems.map((item, idx) => (
-                      <div key={`${item.product.id}-${item.plan?.id || 0}-${idx}`} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-primary)]/50">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-base font-bold shrink-0">
-                          {item.product.name.charAt(0)}
+                      <div key={`${item.product.id}-${item.plan?.id || 0}-${idx}`} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-primary)]/50 border border-[var(--border-color)]/50 hover:border-indigo-500/30 transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-base font-bold shrink-0 overflow-hidden">
+                          {item.product.logo_url ? (
+                            <img src={item.product.logo_url} alt={item.product.name} className="w-8 h-8 rounded-lg object-contain" />
+                          ) : (
+                            item.product.name.charAt(0)
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{item.product.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{item.product.name}</p>
+                            {item.product.version && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-[var(--text-secondary)] font-medium shrink-0">v{item.product.version}</span>
+                            )}
+                          </div>
                           <p className="text-xs text-[var(--text-secondary)]">
-                            {item.plan?.name || "Standard"} &times; {item.quantity}
+                            {item.plan?.name || "Standard"} &times; {item.quantity} · ${(item.plan?.price || item.product.price || 0).toFixed(2)} each
                           </p>
                         </div>
                         <p className="text-sm font-bold text-[var(--text-primary)] shrink-0">

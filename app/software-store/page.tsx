@@ -243,11 +243,24 @@ const staggerItem = (i: number) => ({
   }
 });
 
+function Shimmer() {
+  return (
+    <motion.div
+      className="absolute inset-0"
+      style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), rgba(99,102,241,0.08), transparent)" }}
+      animate={{ x: ["-100%", "100%"] }}
+      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+    />
+  );
+}
+
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl overflow-hidden bg-[var(--bg-secondary)] border border-[var(--border-color)] animate-pulse">
-      <div className="h-36 bg-[var(--border-color)]" />
-      <div className="p-5 space-y-3">
+    <div className="relative overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] animate-pulse">
+      <div className="relative h-36 bg-[var(--border-color)]/70 overflow-hidden">
+        <Shimmer />
+      </div>
+      <div className="relative p-5 space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[var(--border-color)]" />
           <div className="flex-1 space-y-2">
@@ -324,17 +337,25 @@ function CartPanel({ cart, wishlist, onClose, onRemoveFromCart, onUpdateQty, onC
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-sm text-[var(--text-primary)] truncate">{item.product.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-[var(--text-primary)] truncate">{item.product.name}</h4>
+                    {item.product.version && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-[var(--text-secondary)] font-medium shrink-0">v{item.product.version}</span>
+                    )}
+                  </div>
                   {item.plan && <p className="text-xs text-[var(--text-secondary)]">{item.plan.name}</p>}
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{formatPrice(item.plan?.price || item.product.price || 0)} each</p>
                   <div className="flex items-center gap-2 mt-2">
                     <motion.button whileTap={{ scale: 0.9 }}
                       onClick={() => onUpdateQty(item.product.id, item.plan?.id, -1)}
+                      aria-label={`Decrease quantity of ${item.product.name}`}
                       className="w-7 h-7 rounded-full border border-[var(--border-color)] flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors hover:border-indigo-500/40">
                       <Minus className="w-3 h-3 text-[var(--text-secondary)]" />
                     </motion.button>
                     <span className="text-sm font-bold text-[var(--text-primary)] w-6 text-center">{item.quantity}</span>
                     <motion.button whileTap={{ scale: 0.9 }}
                       onClick={() => onUpdateQty(item.product.id, item.plan?.id, 1)}
+                      aria-label={`Increase quantity of ${item.product.name}`}
                       className="w-7 h-7 rounded-full border border-[var(--border-color)] flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors hover:border-indigo-500/40">
                       <Plus className="w-3 h-3 text-[var(--text-secondary)]" />
                     </motion.button>
@@ -342,47 +363,60 @@ function CartPanel({ cart, wishlist, onClose, onRemoveFromCart, onUpdateQty, onC
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-bold text-sm text-[var(--text-primary)]">
-                    ${((item.plan?.price || item.product.price || 0) * item.quantity).toFixed(0)}
+                    {formatPrice((item.plan?.price || item.product.price || 0) * item.quantity)}
                   </p>
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={() => onRemoveFromCart(item.product.id, item.plan?.id)}
-                    className="text-xs text-red-400 hover:text-red-300 mt-1.5 transition-colors">
-                    Remove
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+                    aria-label={`Remove ${item.product.name} from cart`}>
+                    <Trash2 className="w-3 h-3" /> Remove
                   </motion.button>
                 </div>
               </motion.div>
             ))}
 
-            <div className="border-t border-[var(--border-color)] pt-4 mt-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-[var(--text-secondary)]">Subtotal</span>
-                <span className="font-bold text-lg text-[var(--text-primary)]">${cart.totalPrice.toFixed(0)}</span>
+            <div className="mt-5 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
+                <Receipt className="w-4 h-4 text-indigo-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Order Summary</span>
               </div>
-              <label className="flex items-center justify-between text-sm cursor-pointer">
-                <span className="text-[var(--text-secondary)]">
-                  GST ({Math.round(GST_RATE * 100)}%)
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[var(--text-primary)] font-bold">
-                    {showGst ? `+$${(cart.totalPrice * GST_RATE).toFixed(0)}` : '-'}
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={showGst}
-                    onChange={onToggleGst}
-                    className="w-4 h-4 rounded border-[var(--border-color)] text-indigo-500 focus:ring-indigo-500/50"
-                  />
+              <div className="p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-[var(--text-secondary)]">Subtotal</span>
+                  <span className="font-semibold text-[var(--text-primary)]">{formatPrice(cart.totalPrice)}</span>
                 </div>
-              </label>
-              <div className="flex justify-between text-sm font-bold pt-1 border-t border-[var(--border-color)]">
-                <span className="text-[var(--text-primary)]">Total</span>
-                <span className="text-[var(--text-primary)]">${(cart.totalPrice + (showGst ? cart.totalPrice * GST_RATE : 0)).toFixed(0)}</span>
+                <label className="flex items-center justify-between text-sm cursor-pointer select-none">
+                  <span className="text-[var(--text-secondary)]">
+                    GST ({Math.round(GST_RATE * 100)}%)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--text-primary)] font-semibold">
+                      {showGst ? `+${formatPrice(cart.totalPrice * GST_RATE)}` : '-'}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={showGst}
+                      aria-label="Toggle GST"
+                      onClick={onToggleGst}
+                      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${showGst ? "bg-indigo-500" : "bg-[var(--border-color)]"}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform ${showGst ? "translate-x-4" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                </label>
+                <div className="flex justify-between items-center pt-3 border-t border-[var(--border-color)]">
+                  <span className="text-sm font-bold text-[var(--text-primary)]">Total</span>
+                  <span className="text-lg font-extrabold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                    {formatPrice(cart.totalPrice + (showGst ? cart.totalPrice * GST_RATE : 0))}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="flex flex-col gap-2 pt-2">
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                onClick={() => { const first = cart.items[0]; if (first) onBuyNow(first); }}
+                onClick={onCheckout}
                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25">
                 <ArrowRight className="w-4 h-4" />
                 Proceed to Checkout
@@ -459,11 +493,16 @@ function WishlistPanel({ wishlist, cart, onClose, onAddToCart, onRemoveFromWishl
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-sm text-[var(--text-primary)] truncate">{item.product.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-[var(--text-primary)] truncate">{item.product.name}</h4>
+                    {item.product.version && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-[var(--text-secondary)] font-medium shrink-0">v{item.product.version}</span>
+                    )}
+                  </div>
                   {item.plan && <p className="text-xs text-[var(--text-secondary)]">{item.plan.name}</p>}
-                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                    {item.plan ? `$${item.plan.price.toFixed(0)}` : ''}
-                  </p>
+                  {item.plan && (
+                    <p className="text-xs font-semibold text-[var(--text-primary)] mt-0.5">{formatPrice(item.plan.price)}</p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
@@ -1432,8 +1471,8 @@ export default function SoftwareStorePage() {
               const inWishlist = wishlist.isInWishlist(product.id);
               return (
                 <motion.div key={product.id} variants={itemVariants}
-                  whileHover={{ scale: 1.02, y: -4 }}
-                  className="group relative rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 backdrop-blur-sm overflow-hidden cursor-pointer hover:border-indigo-500/30 hover:shadow-[0_8px_40px_-8px_rgba(99,102,241,0.15)] transition-all duration-300">
+                  whileHover={{ scale: 1.015, y: -6 }}
+                  className="group relative rounded-3xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 backdrop-blur-sm overflow-hidden cursor-pointer hover:border-indigo-500/40 hover:shadow-[0_24px_70px_-18px_rgba(99,102,241,0.35)] focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:ring-indigo-500/50 transition-all duration-300">
                   {product.featured && (
                     <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/30 backdrop-blur-sm">
                       <Star className="w-3 h-3 fill-current" /> Featured
@@ -1441,7 +1480,7 @@ export default function SoftwareStorePage() {
                   )}
 
                   <div onClick={() => openDetail(product)}>
-                    <div className="relative h-36 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 overflow-hidden">
+                    <div className="relative h-36 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 overflow-hidden transform-gpu transition-transform duration-700 group-hover:scale-105">
                       <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-secondary)]/80 to-transparent" />
                       <div className="absolute bottom-4 left-5 right-5 flex items-end gap-4">
                         <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg border border-white/20 shrink-0">
@@ -1514,7 +1553,7 @@ export default function SoftwareStorePage() {
                       <motion.div className="w-full"
                         initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}>
-                        <button className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/20 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+                        <button className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-bold hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/20 opacity-100 md:opacity-0 md:group-hover:opacity-100 translate-y-0 md:translate-y-2 md:group-hover:translate-y-0 transition-all duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
                           View Details <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       </motion.div>
@@ -1522,7 +1561,7 @@ export default function SoftwareStorePage() {
                   </div>
 
                   {/* Quick Actions overlay */}
-                  <div className="absolute bottom-14 left-5 right-5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
+                  <div className="absolute bottom-14 left-5 right-5 hidden md:flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
                     <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                       onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleBuyNow(product, firstPlan); }}
                       className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-500 transition-all text-center shadow-lg">
@@ -1620,7 +1659,7 @@ export default function SoftwareStorePage() {
                     {product.plans && product.plans.length > 0 && (
                       <div className="text-[10px] text-[var(--text-secondary)]">{product.plans.filter(p => p.is_active).length} plan{product.plans.filter(p => p.is_active).length !== 1 ? 's' : ''}</div>
                     )}
-                    <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
                       <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                         onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleBuyNow(product, firstPlan); }}
                         className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg">
