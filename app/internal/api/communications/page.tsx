@@ -14,6 +14,7 @@ import {
   ChevronDown, ArchiveRestore, MailX, Eye, ChevronLeft,
   UserPlus, BookOpen, Ban, Smartphone, Save,
   Folder, FolderPlus, FolderOpen, FolderCog,
+  Sparkles, ShieldCheck, Upload, Wifi, WifiOff, KeySquare,
 } from "lucide-react";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
@@ -60,6 +61,9 @@ interface Mailbox {
   auto_reply_enabled: boolean;
   auto_reply_message: string;
   queue_size: number;
+  last_sync?: string | null;
+  last_success?: string | null;
+  last_failure?: string | null;
   created_at: string;
   updated_at: string;
   imap_password?: string;
@@ -213,6 +217,84 @@ const groupFor = (def: FolderDef): string => {
   return def.section;
 };
 
+// ---- Provider auto-configuration (UI-only; backend stores a free string) ----
+interface ProviderPreset {
+  key: string;
+  label: string;
+  match: RegExp;
+  imap: { host: string; port: number; secure: boolean };
+  smtp: { host: string; port: number; secure: boolean };
+}
+
+const PROVIDER_PRESETS: ProviderPreset[] = [
+  { key: 'gmail', label: 'Gmail / Google Workspace', match: /gmail\.com|googlemail\.com$/i, imap: { host: 'imap.gmail.com', port: 993, secure: true }, smtp: { host: 'smtp.gmail.com', port: 465, secure: true } },
+  { key: 'outlook', label: 'Outlook / Microsoft 365', match: /outlook\.com|hotmail\.com|live\.com|msn\.com|office365\.com|outlook\.co$/i, imap: { host: 'outlook.office365.com', port: 993, secure: true }, smtp: { host: 'smtp.office365.com', port: 587, secure: false } },
+  { key: 'yahoo', label: 'Yahoo Mail', match: /yahoo\.com|ymail\.com$/i, imap: { host: 'imap.mail.yahoo.com', port: 993, secure: true }, smtp: { host: 'smtp.mail.yahoo.com', port: 465, secure: true } },
+  { key: 'zoho', label: 'Zoho Mail', match: /zohomail\.|zoho\.com$/i, imap: { host: 'imap.zoho.com', port: 993, secure: true }, smtp: { host: 'smtp.zoho.com', port: 465, secure: true } },
+  { key: 'icloud', label: 'iCloud Mail', match: /icloud\.com|me\.com$/i, imap: { host: 'imap.mail.me.com', port: 993, secure: true }, smtp: { host: 'smtp.mail.me.com', port: 587, secure: false } },
+  { key: 'fastmail', label: 'Fastmail', match: /fastmail\.(com|fm)|fastmailbox\.net$/i, imap: { host: 'imap.fastmail.com', port: 993, secure: true }, smtp: { host: 'smtp.fastmail.com', port: 465, secure: true } },
+  { key: 'proton', label: 'Proton Mail (via Bridge)', match: /proton\.(me|mail|ch)$/i, imap: { host: '127.0.0.1', port: 1143, secure: false }, smtp: { host: '127.0.0.1', port: 1025, secure: false } },
+  { key: 'custom', label: 'Custom / Other', match: /.*/, imap: { host: '', port: 993, secure: true }, smtp: { host: '', port: 465, secure: true } },
+];
+
+const presetForEmail = (email: string): ProviderPreset => {
+  const domain = (email || '').split('@')[1] || '';
+  return PROVIDER_PRESETS.find(p => p.match.test(domain)) || PROVIDER_PRESETS[PROVIDER_PRESETS.length - 1];
+};
+
+const presetForKey = (key: string): ProviderPreset =>
+  PROVIDER_PRESETS.find(p => p.key === key) || PROVIDER_PRESETS[PROVIDER_PRESETS.length - 1];
+
+const MAILBOX_LABELS: Record<string, { label: string; purpose: string }> = {
+  no_reply: { label: 'No-Reply', purpose: 'Automated system emails (OTP, license, payments, notifications).' },
+  support: { label: 'Support', purpose: 'Customer support conversations and technical requests.' },
+  sales: { label: 'Sales', purpose: 'Sales enquiries and purchase conversations.' },
+};
+
+const MB_FIELD_LABELS: Record<string, string> = {
+  provider: 'Provider',
+  email_address: 'Mail Address',
+  display_name: 'Display Name',
+  imap_host: 'Incoming Mail Server (IMAP)',
+  imap_port: 'Incoming Mail Port',
+  imap_secure: 'Incoming Encryption',
+  imap_username: 'Incoming Username',
+  imap_password: 'Incoming Password',
+  smtp_host: 'Outgoing Mail Server (SMTP)',
+  smtp_port: 'Outgoing Mail Port',
+  smtp_secure: 'Outgoing Encryption',
+  smtp_username: 'Outgoing Username',
+  smtp_password: 'Outgoing Password',
+  signature: 'Email Signature',
+  auto_reply_enabled: 'Auto-reply',
+  auto_reply_message: 'Auto-reply Message',
+  is_enabled: 'Enabled',
+  is_default_sender: 'Default Sender',
+};
+
+const mailboxHealth = (mb: Mailbox): { status: 'online' | 'offline' | 'auth_failed' | 'syncing' | 'unknown'; label: string; color: string } => {
+  if (!mb.is_enabled) return { status: 'unknown', label: 'Disabled', color: 'text-gray-400 bg-gray-500/10' };
+  if (mb.sync_status === 'syncing') return { status: 'syncing', label: 'Syncing', color: 'text-blue-400 bg-blue-500/10' };
+  if (mb.connection_status === 'connected') return { status: 'online', label: 'Online', color: 'text-green-400 bg-green-500/10' };
+  if (mb.connection_status === 'failed') {
+    const err = (mb.last_error || '').toLowerCase();
+    if (err.includes('auth') || err.includes('credential') || err.includes('invalid') || err.includes('password') || err.includes('login')) {
+      return { status: 'auth_failed', label: 'Auth Failed', color: 'text-rose-400 bg-rose-500/10' };
+    }
+    return { status: 'offline', label: 'Offline', color: 'text-red-400 bg-red-500/10' };
+  }
+  return { status: 'unknown', label: 'Unknown', color: 'text-gray-400 bg-gray-500/10' };
+};
+
+const HEALTH_ICONS: Record<string, any> = {
+  online: Wifi, offline: AlertTriangle, auth_failed: KeySquare, syncing: RefreshCw, unknown: Ban,
+};
+
+function HealthBadge({ h }: { h: { status: string; label: string; color: string } }) {
+  const Icon = HEALTH_ICONS[h.status] || Ban;
+  return <Badge className={h.color}><Icon size={10} className="inline" /> {h.label}</Badge>;
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   support: 'Support', sales: 'Sales', activation: 'Activation',
   renewal: 'Renewal', reactivation: 'Reactivation',
@@ -289,12 +371,28 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge className={s.color}>{s.label}</Badge>;
 }
 
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onChange}
+      aria-checked={checked}
+      role="switch"
+      className={`relative inline-flex h-4.5 w-8 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${checked ? 'bg-blue-500' : 'bg-gray-500/30'}`}
+    >
+      <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : 'translate-x-1'}`} />
+    </button>
+  );
+}
+
 export default function CommunicationsPage() {
   const [stats, setStats] = useState<Stats>({ inbox: 0, sent: 0, waiting: 0, failed: 0, queued: 0, unread: 0 });
   const [activeFolder, setActiveFolder] = useState<string>('ext-inbox');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all');
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -315,6 +413,11 @@ export default function CommunicationsPage() {
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [showFilter, setShowFilter] = useState(false);
 
+  const displayConversations = useMemo(() => {
+    if (readFilter === 'all') return conversations;
+    return conversations.filter(c => readFilter === 'unread' ? (c.unread_replies || 0) > 0 : !(c.unread_replies || 0));
+  }, [conversations, readFilter]);
+
   const [emailDialog, setEmailDialog] = useState<{
     isOpen: boolean;
     defaultEmail?: string;
@@ -333,6 +436,7 @@ export default function CommunicationsPage() {
   const [commSettings, setCommSettings] = useState<any>(null);
   const [commSettingsLoading, setCommSettingsLoading] = useState(false);
   const [commSettingsDirty, setCommSettingsDirty] = useState(false);
+  const [commMailboxes, setCommMailboxes] = useState<Mailbox[]>([]);
 
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [showFolderManager, setShowFolderManager] = useState(false);
@@ -574,9 +678,14 @@ export default function CommunicationsPage() {
   const loadCommsSettings = useCallback(async () => {
     setCommSettingsLoading(true);
     try {
-      const res = await fetch('/internal/backend/communications/settings', { headers: getAuthHeaders() });
-      const json = await res.json();
-      if (json.success) setCommSettings(json.settings);
+      const [settingsRes, mbRes] = await Promise.all([
+        fetch('/internal/backend/communications/settings', { headers: getAuthHeaders() }),
+        fetch(`${MB_BASE}`, { headers: getAuthHeaders() }),
+      ]);
+      const settingsJson = await settingsRes.json();
+      if (settingsJson.success) setCommSettings(settingsJson.settings);
+      const mbJson = await mbRes.json();
+      if (mbJson.success) setCommMailboxes(mbJson.data.mailboxes || []);
     } catch {} finally {
       setCommSettingsLoading(false);
     }
@@ -739,6 +848,8 @@ export default function CommunicationsPage() {
             headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'mark_read' }),
           });
+          setDetail((prev: DetailData | null) => prev ? { ...prev, conversation: { ...prev.conversation, unread_replies: 0 } } : prev);
+          setConversations(prev => prev.map(c => c.id === id ? { ...c, unread_replies: 0 } : c));
           fetchStats();
           refreshCurrent();
         }
@@ -897,10 +1008,18 @@ export default function CommunicationsPage() {
   const saveMailbox = async () => {
     setBusy('save-mailbox');
     try {
+      const payload = { ...mailboxForm };
+      if (editingMailbox) {
+        // Never overwrite stored credentials with blank values on edit.
+        const protectedKeys = ['imap_password', 'smtp_password'] as const;
+        for (const key of protectedKeys) {
+          if (payload[key] === '' || payload[key] === '********') delete payload[key];
+        }
+      }
       const res = await fetch(editingMailbox ? `${MB_BASE}/${editingMailbox.id}` : `${MB_BASE}`, {
         method: editingMailbox ? 'PATCH' : 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(mailboxForm),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (json.success) {
@@ -1150,21 +1269,29 @@ export default function CommunicationsPage() {
   const renderListTable = () => {
     if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
     if (error) return <div className="flex-1 flex flex-col items-center justify-center gap-2 text-[var(--text-muted)]"><AlertCircle className="h-6 w-6 text-red-400" /><p className="text-xs">{error}</p></div>;
-    if (conversations.length === 0) return (
+    if (displayConversations.length === 0) return (
       <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)]">
         <Inbox size={32} className="mb-2 opacity-30" />
-        <p className="text-xs">No conversations found</p>
+        <p className="text-xs">{readFilter === 'all' ? 'No conversations found' : readFilter === 'unread' ? 'No unread conversations' : 'No read conversations'}</p>
       </div>
     );
     return (
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-color)] sticky top-0 z-10 bg-[var(--bg-primary)]">
           <input type="checkbox" checked={selectedIds.size === conversations.length && conversations.length > 0} onChange={toggleSelectAll} className="accent-blue-500" />
-          <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{conversations.length} conversation(s)</span>
+          <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{displayConversations.length} conversation(s)</span>
           {selectedIds.size > 0 && <span className="text-[10px] text-blue-400 ml-auto">{selectedIds.size} selected</span>}
         </div>
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20">
+          {(['all', 'unread', 'read'] as const).map(f => (
+            <button key={f} onClick={() => setReadFilter(f)}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${readFilter === f ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/40'}`}>
+              {f === 'all' ? 'All' : f === 'unread' ? `Unread (${conversations.filter(c => (c.unread_replies || 0) > 0).length})` : `Read (${conversations.filter(c => !(c.unread_replies || 0)).length})`}
+            </button>
+          ))}
+        </div>
         <div className="divide-y divide-[var(--border-color)]">
-          {conversations.map(conv => {
+          {displayConversations.map(conv => {
             const sel = selectedIds.has(conv.id);
             const prio = priorityOf(conv.status);
             const unread = (conv.unread_replies || 0) > 0;
@@ -1326,9 +1453,33 @@ export default function CommunicationsPage() {
         </button>
       </div>
     );
+    const online = mailboxes.filter(m => m.is_enabled && mailboxHealth(m).status === 'online').length;
+    const authFailed = mailboxes.filter(m => mailboxHealth(m).status === 'auth_failed').length;
+    const syncing = mailboxes.filter(m => m.sync_status === 'syncing').length;
+    const failed = mailboxes.filter(m => m.last_failure && (!m.last_success || m.last_failure > m.last_success)).length;
+    const lastSync = mailboxes
+      .map(m => m.last_sync)
+      .filter(Boolean)
+      .sort()
+      .pop();
+    const fmtAgo = (iso?: string | null) => {
+      if (!iso) return 'never';
+      const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+      if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+      return `${Math.floor(s / 86400)}d ago`;
+    };
+    const overview = [
+      { label: 'Mailboxes', value: mailboxes.length, icon: AtSign, cls: 'text-blue-400' },
+      { label: 'Online', value: online, icon: Wifi, cls: 'text-green-400' },
+      { label: 'Auth Failed', value: authFailed, icon: KeySquare, cls: 'text-red-400' },
+      { label: 'Syncing', value: syncing, icon: RefreshCw, cls: 'text-amber-400' },
+      { label: 'Last Sync', value: fmtAgo(lastSync), icon: Clock, cls: 'text-[var(--text-muted)]' },
+    ];
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
-        <div className="flex items-center justify-between mb-3">
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
+        <div className="flex items-center justify-between">
           <p className="text-xs text-[var(--text-muted)]">{mailboxes.length} mailbox(es) — IMAP receive + SMTP send</p>
           <div className="flex items-center gap-1.5">
             <button onClick={syncAllMailboxes} disabled={busy === 'sync-all'}
@@ -1341,26 +1492,65 @@ export default function CommunicationsPage() {
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-2">
-          {mailboxes.map(mb => (
-            <button
-              key={mb.id}
-              onClick={() => loadMailboxDetail(mb.id)}
-              className={`text-left rounded-xl border p-3 transition-colors ${selectedMailbox?.id === mb.id ? 'border-blue-500/40 bg-blue-500/10' : 'border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 hover:bg-[var(--bg-tertiary)]/20'}`}
-            >
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${mb.is_enabled ? 'bg-green-400' : 'bg-gray-400'}`} />
-                <span className="text-xs font-medium text-[var(--text-primary)] truncate">{mb.display_name || mb.email_address}</span>
-                {mb.is_default_sender && <Badge className="text-blue-400 bg-blue-500/10">Default Sender</Badge>}
-                <span className="ml-auto flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
-                  {mb.connection_status === 'connected' ? 'Connected' : (mb.connection_status || 'Unknown')}
-                  {mb.sync_status === 'syncing' && <Loader2 size={10} className="animate-spin text-blue-400" />}
-                </span>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          {overview.map(card => (
+            <div key={card.label} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                <card.icon size={11} className={card.cls} /> {card.label}
               </div>
-              <p className="text-[11px] text-[var(--text-secondary)] truncate mt-1">{mb.email_address}</p>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{mb.provider} · IMAP {mb.imap_host}:{mb.imap_port} · SMTP {mb.smtp_host}:{mb.smtp_port}</p>
-            </button>
+              <p className={`text-lg font-bold mt-1 ${card.cls}`}>{card.value}</p>
+            </div>
           ))}
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          {mailboxes.map(mb => {
+            const h = mailboxHealth(mb);
+            const busyKey = (e: string) => busy === `${e}:${mb.id}`;
+            return (
+              <div
+                key={mb.id}
+                onClick={() => loadMailboxDetail(mb.id)}
+                className={`cursor-pointer rounded-xl border p-3 transition-colors ${selectedMailbox?.id === mb.id ? 'border-blue-500/40 bg-blue-500/10' : 'border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 hover:bg-[var(--bg-tertiary)]/20'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <HealthBadge h={h} />
+                  <span className="text-xs font-medium text-[var(--text-primary)] truncate">{mb.display_name || mb.email_address}</span>
+                  {mb.is_default_sender && <Badge className="text-blue-400 bg-blue-500/10">Default Sender</Badge>}
+                  <span className="ml-auto flex items-center gap-2">
+                    {mb.sync_status === 'syncing' && <Loader2 size={12} className="animate-spin text-blue-400" />}
+                    <Toggle checked={mb.is_enabled !== false} onChange={() => mailboxAction(mb.id, mb.is_enabled ? 'disable' : 'enable', 'POST', undefined, mb.is_enabled ? 'Mailbox disabled' : 'Mailbox enabled')} />
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)] truncate mt-1.5">{mb.email_address}</p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[10px] text-[var(--text-muted)]">
+                  <span className="flex items-center gap-1"><Wifi size={10} className={mb.imap_secure ? 'text-green-400' : 'text-amber-400'} /> IMAP {mb.imap_host}:{mb.imap_port}</span>
+                  <span className="flex items-center gap-1"><Send size={10} className={mb.smtp_secure ? 'text-green-400' : 'text-amber-400'} /> SMTP {mb.smtp_host}:{mb.smtp_port}</span>
+                  {mb.queue_size > 0 && <span className="flex items-center gap-1 text-amber-400"><Clock size={10} /> {mb.queue_size} queued</span>}
+                  <span>Sync {fmtAgo(mb.last_sync)}</span>
+                  <span>Sent {fmtAgo(mb.last_success)}</span>
+                  {mb.last_error && <span className="flex items-center gap-1 text-red-400 truncate max-w-[200px]"><AlertTriangle size={10} /> {mb.last_error}</span>}
+                </div>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <button onClick={(e) => { e.stopPropagation(); mailboxAction(mb.id, 'test', 'POST', undefined, 'Connection test completed'); }} disabled={busyKey('test')}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
+                    {busyKey('test') ? <Loader2 size={10} className="animate-spin" /> : <ShieldCheck size={10} />} Test
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); mailboxAction(mb.id, 'sync', 'POST', undefined, 'IMAP sync completed'); }} disabled={busyKey('sync')}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
+                    {busyKey('sync') ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Sync
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, imap_password: '', smtp_password: '' }); setShowMailboxForm(true); }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30">
+                    <Pencil size={10} /> Edit
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setShowDeleteMailboxConfirm(mb.id); }} disabled={busy === `delete:${mb.id}`}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-red-500/20 text-[10px] text-red-400 hover:bg-red-500/10 disabled:opacity-50">
+                    <Trash2 size={10} /> Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -1442,6 +1632,42 @@ export default function CommunicationsPage() {
                 {a.reply_to && <p className="text-[10px] text-[var(--text-muted)]">Reply-To: {a.reply_to}</p>}
                 {a.signature && <p className="text-[10px] text-[var(--text-muted)] whitespace-pre-wrap break-words mt-0.5">{a.signature}</p>}
                 <p className="text-[10px] text-[var(--text-muted)] mt-1">Templates: {(a.templates || []).join(', ') || '-'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+          <div className="px-3 py-2 border-b border-[var(--border-color)]">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Mailbox Status ({commMailboxes.length})</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Per-mailbox IMAP/SMTP connection, sync and queue status.</p>
+          </div>
+          <div className="p-3 space-y-2">
+            {commMailboxes.length === 0 && <p className="text-xs text-[var(--text-muted)]">No mailboxes configured yet — add them under the Mailboxes folder.</p>}
+            {commMailboxes.map((mb: Mailbox) => (
+              <div key={mb.id} className="rounded-lg border border-[var(--border-color)] p-2.5">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${mb.is_enabled ? 'bg-green-400' : 'bg-gray-400'}`} />
+                  <span className="text-xs text-[var(--text-primary)] font-medium truncate">{mb.display_name || mb.email_address}</span>
+                  {mb.is_default_sender && <Badge className="text-blue-400 bg-blue-500/10">Default Sender</Badge>}
+                  {!mb.is_enabled && <Badge className="text-gray-400 bg-gray-500/10">Disabled</Badge>}
+                </div>
+                <p className="text-[10px] text-[var(--text-secondary)] truncate mt-1">{mb.email_address}</p>
+                <div className="grid grid-cols-2 gap-1.5 text-[10px] text-[var(--text-muted)] mt-1.5">
+                  <span className="flex items-center gap-1">
+                    <Database size={10} /> IMAP: <span className={mb.connection_status === 'connected' ? 'text-green-400' : mb.connection_status === 'failed' ? 'text-red-400' : ''}>{mb.connection_status || 'unknown'}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Server size={10} /> SMTP: {mb.smtp_host || '-'}{mb.smtp_port ? `:${mb.smtp_port}` : ''}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <RefreshCw size={10} /> Sync: {mb.sync_status || 'never'}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock size={10} /> Queue: {mb.queue_size ?? 0}
+                  </span>
+                </div>
+                {mb.last_error && <p className="text-[10px] text-red-400 break-words mt-1">{mb.last_error}</p>}
               </div>
             ))}
           </div>
@@ -2082,53 +2308,97 @@ export default function CommunicationsPage() {
             <div className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Provider">
-                  <select value={mailboxForm.provider || 'custom'} onChange={e => setMailboxForm({ ...mailboxForm, provider: e.target.value })}
-                    className={inputCls}>
-                    <option value="gmail">Gmail / Google Workspace</option>
-                    <option value="outlook">Outlook / Microsoft 365</option>
-                    <option value="yahoo">Yahoo</option>
-                    <option value="zoho">Zoho</option>
-                    <option value="custom">Custom / Other</option>
+                  <select value={mailboxForm.provider || 'custom'} onChange={e => {
+                    const p = presetForKey(e.target.value);
+                    setMailboxForm((prev: any) => ({
+                      ...prev,
+                      provider: p.key,
+                      imap_host: p.imap.host || prev.imap_host,
+                      imap_port: p.imap.port,
+                      imap_secure: p.imap.secure,
+                      smtp_host: p.smtp.host || prev.smtp_host,
+                      smtp_port: p.smtp.port,
+                      smtp_secure: p.smtp.secure,
+                    }));
+                  }} className={inputCls}>
+                    {PROVIDER_PRESETS.filter(p => p.key !== 'custom').map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                    <option value="custom">Custom / Other (manual)</option>
                   </select>
                 </Field>
-                <Field label="Email Address *">
-                  <input type="email" value={mailboxForm.email_address || ''} onChange={e => setMailboxForm({ ...mailboxForm, email_address: e.target.value })}
-                    className={inputCls} placeholder="support@yourdomain.com" />
+                <Field label="Mail Address *">
+                  <input type="email" value={mailboxForm.email_address || ''} onChange={e => {
+                    const email = e.target.value;
+                    const detected = presetForEmail(email);
+                    setMailboxForm((prev: any) => {
+                      const next: any = { ...prev, email_address: email };
+                      if (detected.key !== 'custom' && prev.provider !== 'custom') {
+                        next.provider = detected.key;
+                        next.imap_host = detected.imap.host;
+                        next.imap_port = detected.imap.port;
+                        next.imap_secure = detected.imap.secure;
+                        next.smtp_host = detected.smtp.host;
+                        next.smtp_port = detected.smtp.port;
+                        next.smtp_secure = detected.smtp.secure;
+                      }
+                      return next;
+                    });
+                  }} className={inputCls} placeholder="admin@gmail.com" />
                 </Field>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => {
+                  const detected = presetForEmail(mailboxForm.email_address || '');
+                  if (detected.key === 'custom') { showToast('err', 'Unknown provider — enter server settings manually.'); return; }
+                  setMailboxForm((prev: any) => ({
+                    ...prev,
+                    provider: detected.key,
+                    imap_host: detected.imap.host,
+                    imap_port: detected.imap.port,
+                    imap_secure: detected.imap.secure,
+                    smtp_host: detected.smtp.host,
+                    smtp_port: detected.smtp.port,
+                    smtp_secure: detected.smtp.secure,
+                  }));
+                  showToast('ok', `Auto-detected ${detected.label} settings.`);
+                }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-500/30 text-[11px] text-blue-400 hover:bg-blue-500/10 transition-colors">
+                  <Sparkles size={12} /> Detect Server Settings
+                </button>
+                <span className="text-[10px] text-[var(--text-muted)]">Auto-fills IMAP/SMTP for Gmail, Outlook / Microsoft 365, Yahoo, Zoho, Proton, iCloud, Fastmail.</span>
               </div>
               <Field label="Display Name">
                 <input type="text" value={mailboxForm.display_name || ''} onChange={e => setMailboxForm({ ...mailboxForm, display_name: e.target.value })}
                   className={inputCls} placeholder="Support Team" />
               </Field>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] pt-1">IMAP (receive)</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] pt-1">Incoming Mail (IMAP)</p>
               <div className="grid grid-cols-3 gap-3">
-                <Field label="Host *"><input type="text" value={mailboxForm.imap_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_host: e.target.value })} className={inputCls} placeholder="imap.example.com" /></Field>
-                <Field label="Port">
+                <Field label="Incoming Mail Server *"><input type="text" value={mailboxForm.imap_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_host: e.target.value })} className={inputCls} placeholder="imap.example.com" /></Field>
+                <Field label="Incoming Mail Port">
                   <input type="number" value={mailboxForm.imap_port ?? 993} onChange={e => setMailboxForm({ ...mailboxForm, imap_port: parseInt(e.target.value) || 993 })} className={inputCls} />
                 </Field>
-                <Field label="Secure">
+                <Field label="Encryption">
                   <select value={mailboxForm.imap_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, imap_secure: e.target.value === 'true' })} className={inputCls}>
                     <option value="true">SSL / TLS</option>
                     <option value="false">None</option>
                   </select>
                 </Field>
-                <Field label="Username *"><input type="text" value={mailboxForm.imap_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_username: e.target.value })} className={inputCls} placeholder="user@example.com" /></Field>
-                <Field label="Password *"><input type="password" value={mailboxForm.imap_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_password: e.target.value })} className={inputCls} placeholder={editingMailbox ? '•••••••• (unchanged)' : ''} /></Field>
+                <Field label="Incoming Username *"><input type="text" value={mailboxForm.imap_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_username: e.target.value })} className={inputCls} placeholder="user@example.com" /></Field>
+                <Field label="Incoming Password *"><input type="password" value={mailboxForm.imap_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_password: e.target.value })} className={inputCls} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} /></Field>
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] pt-1">SMTP (send)</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] pt-1">Outgoing Mail (SMTP)</p>
               <div className="grid grid-cols-3 gap-3">
-                <Field label="Host *"><input type="text" value={mailboxForm.smtp_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_host: e.target.value })} className={inputCls} placeholder="smtp.example.com" /></Field>
-                <Field label="Port">
+                <Field label="Outgoing Mail Server *"><input type="text" value={mailboxForm.smtp_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_host: e.target.value })} className={inputCls} placeholder="smtp.example.com" /></Field>
+                <Field label="Outgoing Mail Port">
                   <input type="number" value={mailboxForm.smtp_port ?? 465} onChange={e => setMailboxForm({ ...mailboxForm, smtp_port: parseInt(e.target.value) || 465 })} className={inputCls} />
                 </Field>
-                <Field label="Secure">
+                <Field label="Encryption">
                   <select value={mailboxForm.smtp_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, smtp_secure: e.target.value === 'true' })} className={inputCls}>
                     <option value="true">SSL / TLS</option>
                     <option value="false">None</option>
                   </select>
                 </Field>
-                <Field label="Username *"><input type="text" value={mailboxForm.smtp_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_username: e.target.value })} className={inputCls} /></Field>
-                <Field label="Password *"><input type="password" value={mailboxForm.smtp_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_password: e.target.value })} className={inputCls} placeholder={editingMailbox ? '•••••••• (unchanged)' : ''} /></Field>
+                <Field label="Outgoing Username *"><input type="text" value={mailboxForm.smtp_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_username: e.target.value })} className={inputCls} /></Field>
+                <Field label="Outgoing Password *"><input type="password" value={mailboxForm.smtp_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_password: e.target.value })} className={inputCls} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} /></Field>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
