@@ -46,6 +46,16 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
 - **Unread is derived**: count = conversations with customer replies newer than
   the last admin reply / `admin_read_at` (GREATEST subquery). Stats handler is
   `force-dynamic`.
+- **Add Mailbox workflow** (see master doc Phase 5 "Add Mailbox Workflow Fix"):
+  new mailboxes are verified (IMAP + SMTP) **before** they are saved via
+  `POST /internal/backend/mailboxes/test-connection` (reuses the same
+  `imap`/`nodemailer` connection logic as `[id]/test`; never changes the SMTP/IMAP
+  implementations). Verification failure → the UI blocks the save and shows the
+  specific reason; success saves through the unchanged `POST /internal/backend/
+  mailboxes`. All mailbox events log to `audit_logs`
+  (`mailbox_created`, `mailbox_create_failed`, `mailbox_connection_test`), readable
+  via `GET /internal/backend/logs`. The error/success toast must always stay above
+  open modals (`z-[100]`).
 - **Architecture hierarchy**: Master Doc → Language Templates → SDK Publisher →
   Generated SDK. Never edit Generated SDKs directly; never embed business logic
   in runtime generators.
