@@ -4,7 +4,7 @@
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete ΓÇö Phase 15 Complete ΓÇö Section 0A Complete ΓÇö Locked Menu Redesign Complete ΓÇö Activation API HTTP 500 Fix Applied ΓÇö ULC Final Corrections Complete (Tasks 1-4) ΓÇö AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) ΓÇö No License Business State Fix Applied (Session 7) ΓÇö ULC Panel Redesign Applied (Session 8) ΓÇö AWS-01 Startup Decision Routing Applied ΓÇö AWS-01 Final Startup Routing Applied ΓÇö AWS-01 Python Runtime Hardware-Status Propagation Fix Applied ΓÇö AWS-01 Universal Restart Workflow Added ΓÇö AWS-01 Final Internal API Compliance Audit Applied ΓÇö AWS-01 Sessions 10-15 Applied ΓÇö AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) ΓÇö AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template ΓÇö Issues 1-7 Fixed) ΓÇö AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated ΓÇö AWS-01 Cache Hardware-Consistency Deletion Fix Applied ΓÇö AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied ΓÇö AWS-01 Audit ΓÇö Live Trial Detection Fixed (has_trial / status=active) ΓÇö Status Panel Mapped (Customer, Email, Product, Plan) ΓÇö Startup Engine Same Bug Fixed ΓÇö Complete Template Verification Done ΓÇö ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added ΓÇö AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied ΓÇö **Normalized License Status API Response Format Applied (Shared Serializer Architecture)** ΓÇö **AWS-01 ULC Admin Center Implementation Applied** ΓÇö **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status** ΓÇö **ULC Live License Status Fix: Backend status normalization bugs fixed (expiredΓåÆexpired, trial expiredΓåÆno_license, full status passthrough), client.py base_url fix, license_engine.py trial expiry validation, ULC handles ALL statuses from live API, debug logging removed, sys.exit only when unlocked, route.ts unused serializer imports removed** ΓÇö Section 0A Complete ΓÇö Locked Menu Redesign Complete ΓÇö Activation API HTTP 500 Fix Applied ΓÇö ULC Final Corrections Complete (Tasks 1-4) ΓÇö AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) ΓÇö No License Business State Fix Applied (Session 7) ΓÇö ULC Panel Redesign Applied (Session 8) ΓÇö AWS-01 Startup Decision Routing Applied ΓÇö AWS-01 Final Startup Routing Applied ΓÇö AWS-01 Python Runtime Hardware-Status Propagation Fix Applied ΓÇö AWS-01 Universal Restart Workflow Added ΓÇö AWS-01 Final Internal API Compliance Audit Applied ΓÇö AWS-01 Sessions 10-15 Applied ΓÇö AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) ΓÇö AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template ΓÇö Issues 1-7 Fixed) ΓÇö AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated ΓÇö AWS-01 Cache Hardware-Consistency Deletion Fix Applied ΓÇö AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied ΓÇö AWS-01 Audit ΓÇö Live Trial Detection Fixed (has_trial / status=active) ΓÇö Status Panel Mapped (Customer, Email, Product, Plan) ΓÇö Startup Engine Same Bug Fixed ΓÇö Complete Template Verification Done ΓÇö ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added ΓÇö AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied ΓÇö **Normalized License Status API Response Format Applied (Session ΓÇö Shared Serializer Architecture)** ΓÇö **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored** ΓÇö **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status; _is_valid_for_unlock bug fixed; _refresh_display licensed status mapping added; TypeScript client getLicenseStatus method added** ΓÇö **AWS-01 Communications Center Module Applied** — **AWS-01 Local SDK Validation Applied: Server-First License Sync (backend is single source of truth), Cached License Data Removed on No-Active Status, Remaining Days Always From Backend (days_remaining), Hardcoded Plan Fallback Removed, License Revocation Locks UI + Message, Peek-First Decision Flags Fix** — **AWS-01 Final Validation Root-Cause Fix Applied: serializer computeNormalizedStatus no longer returns 'inactive' for active-but-unbound licenses — active + !isHardwareActivated now returns 'licensed' (hardware.is_activated: false), verified live (ACTIVE license → licensed); main.py logs 'Activation completed' only on licensed; template sync + docs synced**
+> Status: Phases 1-14 Complete ΓÇö Phase 15 Complete ΓÇö Section 0A Complete ΓÇö Locked Menu Redesign Complete ΓÇö Activation API HTTP 500 Fix Applied ΓÇö ULC Final Corrections Complete (Tasks 1-4) ΓÇö AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) ΓÇö No License Business State Fix Applied (Session 7) ΓÇö ULC Panel Redesign Applied (Session 8) ΓÇö AWS-01 Startup Decision Routing Applied ΓÇö AWS-01 Final Startup Routing Applied ΓÇö AWS-01 Python Runtime Hardware-Status Propagation Fix Applied ΓÇö AWS-01 Universal Restart Workflow Added ΓÇö AWS-01 Final Internal API Compliance Audit Applied ΓÇö AWS-01 Sessions 10-15 Applied ΓÇö AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) ΓÇö AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template ΓÇö Issues 1-7 Fixed) ΓÇö AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated ΓÇö AWS-01 Cache Hardware-Consistency Deletion Fix Applied ΓÇö AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied ΓÇö AWS-01 Audit ΓÇö Live Trial Detection Fixed (has_trial / status=active) ΓÇö Status Panel Mapped (Customer, Email, Product, Plan) ΓÇö Startup Engine Same Bug Fixed ΓÇö Complete Template Verification Done ΓÇö ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added ΓÇö AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied ΓÇö **Normalized License Status API Response Format Applied (Shared Serializer Architecture)** ΓÇö **AWS-01 ULC Admin Center Implementation Applied** ΓÇö **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status** ΓÇö **ULC Live License Status Fix: Backend status normalization bugs fixed (expiredΓåÆexpired, trial expiredΓåÆno_license, full status passthrough), client.py base_url fix, license_engine.py trial expiry validation, ULC handles ALL statuses from live API, debug logging removed, sys.exit only when unlocked, route.ts unused serializer imports removed** ΓÇö Section 0A Complete ΓÇö Locked Menu Redesign Complete ΓÇö Activation API HTTP 500 Fix Applied ΓÇö ULC Final Corrections Complete (Tasks 1-4) ΓÇö AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) ΓÇö No License Business State Fix Applied (Session 7) ΓÇö ULC Panel Redesign Applied (Session 8) ΓÇö AWS-01 Startup Decision Routing Applied ΓÇö AWS-01 Final Startup Routing Applied ΓÇö AWS-01 Python Runtime Hardware-Status Propagation Fix Applied ΓÇö AWS-01 Universal Restart Workflow Added ΓÇö AWS-01 Final Internal API Compliance Audit Applied ΓÇö AWS-01 Sessions 10-15 Applied ΓÇö AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) ΓÇö AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template ΓÇö Issues 1-7 Fixed) ΓÇö AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated ΓÇö AWS-01 Cache Hardware-Consistency Deletion Fix Applied ΓÇö AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied ΓÇö AWS-01 Audit ΓÇö Live Trial Detection Fixed (has_trial / status=active) ΓÇö Status Panel Mapped (Customer, Email, Product, Plan) ΓÇö Startup Engine Same Bug Fixed ΓÇö Complete Template Verification Done ΓÇö ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added ΓÇö AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied ΓÇö **Normalized License Status API Response Format Applied (Session ΓÇö Shared Serializer Architecture)** ΓÇö **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored** ΓÇö **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status; _is_valid_for_unlock bug fixed; _refresh_display licensed status mapping added; TypeScript client getLicenseStatus method added** ΓÇö **AWS-01 Communications Center Module Applied** — **AWS-01 Local SDK Validation Applied: Server-First License Sync (backend is single source of truth), Cached License Data Removed on No-Active Status, Remaining Days Always From Backend (days_remaining), Hardcoded Plan Fallback Removed, License Revocation Locks UI + Message, Peek-First Decision Flags Fix** — **AWS-01 Final Validation Root-Cause Fix Applied: serializer computeNormalizedStatus no longer returns 'inactive' for active-but-unbound licenses — active + !isHardwareActivated now returns 'licensed' (hardware.is_activated: false), verified live (ACTIVE license → licensed); main.py logs 'Activation completed' only on licensed; template sync + docs synced** — **AWS-01 Final ULC Event Messaging & Activation Rules Applied (SECTION 0B, Phase 5): Rules 1-10 documented; fresh-activation cache reset (CacheManager.reset_on_fresh_activation + engine.activate), engine diagnostics migrated print→LiveLog.log, structured events (license.*/activation.success/renewal.success/trial.started/refresh.*/operation.error), server-message passthrough + actionable error phrasing (Rule 8), progress/refresh events, SuccessDialog on all success paths, permanent hardware binding verified; py_compile + tsc + build (274 pages) pass — 2026-08**
 
 ---
 
@@ -1491,6 +1491,144 @@ All implementation changes must be made in:
 - Documentation
 
 Generated SDKs must **never** be edited directly. Always regenerate after changes.
+
+---
+
+## SECTION 0B — Event Messaging & Activation Rules (Mandatory, Final)
+
+This section defines the **final, mandatory event messaging and activation rules** for the
+Universal License Center (ULC) and its underlying engine in the **Python language template**
+(`app/internal/publisher/template/python/`). These rules have the same priority as AWS-01 and
+govern every user-visible message, every LiveLog event, and every state mutation during the
+license lifecycle. They apply to the current ULC architecture where:
+- Decision Engine runs **exactly once** before the ULC opens (`LicenseEngine.initialize()`);
+  the ULC **never** runs the Decision Engine and only re-reads the authoritative status
+  (`_refresh_from_server()` → `engine.refresh()`).
+- The backend `/internal/backend/license/status` endpoint is the **single source of truth**.
+- All flows flow through a shared `LiveLog` shared event log that stays in sync with the UI.
+
+### Rule 1 — The API Is the Single Source of Truth
+
+- The backend (PostgreSQL) is the **exclusive** authority for license validity, plan, key,
+  remaining days, expiry, customer, max devices and device count.
+- The ULC and the engine **must never** calculate or default these values locally except for
+  absent-optional fallbacks. All reads come from the unified status response.
+- When the backend reports no active license (not found / inactive / revoked / deleted /
+  expired), **all** cached license values must be cleared immediately and local state must
+  never be shown as valid. Offline cache fallback is permitted **only** when the backend is
+  genuinely unreachable (network error / timeout).
+
+### Rule 2 — Hardware Binding Is Permanent
+
+- Hardware binding is decided **only** by the backend (administrator / activation).
+- The ULC/engine **must never** unbind, replace, or locally clear the bound hardware. There is
+  **no** local "change hardware" path. Current hardware is read-only via
+  `HardwareDetector.get_fingerprint()`.
+- A hardware mismatch (`invalidate_if_hardware_mismatch`) only invalidates the cached
+  `license_status` key; it **never** clears the hardware binding and never re-binds locally.
+- The message for a conflicting hardware state is: *"Hardware replacement requires
+  administrator approval."* — the user must contact support; the local app takes no binding
+  action.
+- On a fresh license **activation** the current hardware immediately becomes the bound
+  hardware per the backend response (server-authoritative).
+
+### Rule 3 — Fresh License Activation Resets the Cached License State
+
+- When a **new** license key is successfully activated (a fresh activation, not a renewal), the
+  engine **must** clear the old cached license state (license, plan, expiry, activation values,
+  customer values and conversation-derived data) **before** it reloads the authoritative status
+  from the backend.
+- Preserve only the minimal run-state that is true regardless of customer: the hardware ID
+  (computed live) and the offline message queue (outbound, unsent communications).
+- Onboarding / paid flags and the new `license_status` are then written again from the fresh
+  backend response so a stale previous-customer license can never resurface after a fresh
+  activation.
+
+### Rule 4 — Event Messages per Flow
+
+Every flow emits a consistent event into `LiveLog` (and the external SDK log when configured).
+The canonical event names (event = short code, detail = human string) are:
+
+| Flow | Event | Detail (examples) |
+|------|-------|-------------------|
+| Startup | `license_center.start` | "License Center started" |
+| Startup | `license.valid` / `license.invalid` | "Valid license detected — launching application directly" |
+| Trial | `trial.start` | "Opening Welcome Dialog" |
+| Trial | `trial.started` | "Trial started on server" |
+| Trial | `trial.success` | "Trial activated" |
+| Activation | `activation.start` | "Activation started" |
+| Activation | `activation.success` | "License activated successfully" |
+| Renewal | `renewal.start` / `renewal.success` | "Renewal started" / "License renewed successfully" |
+| Refresh | `refresh.start` / `refresh.success` | "Refreshing license with the server" / "License refreshed from server" |
+| Hardware | `hardware.status` | "Hardware replacement requires administrator approval" |
+| Communication | `communication.sent` / `communication.queued` | "Message sent" / "Message queued - will send when online" |
+| General | `general.locked` / `general.unlocked` | "Application locked" / "Application unlocked" |
+
+The **UI and the LiveLog must always stay in sync** (Rule 9). Show one widget `LiveLog.log(...)`
+and (when configured) the valid content in the same message.
+
+### Rule 5 — Pass Through Real Server Messages
+
+- The ULC **must display the exact server-provided message** (`error.message` /
+  `result.message`) for validation, activation, renewal, trial and removal outcomes.
+- The ULC **must never** replace a real server message with a generic local string
+  ("Something went wrong", "Error", "Failed").
+- Generic text is allowed **only** for a client-side (not answered by the server) condition
+  (e.g. empty license key / empty OTP / or when the server is unreachable and the exact text is
+  genuinely the network error).
+
+### Rule 6 — Progress for Long Operations
+
+Operations expected to take longer than ~1s (validate, send OTP, verify OTP, activate, renew,
+refresh, tria pupil) must show a live "working" state (disabled button + "…" / a progress
+title in the status label) from the instant the request starts until it completes, so the user
+is never left with an unbounded and unlabelled wait.
+
+### Rule 7 — Success Dialog
+
+Every successful state-changing flow (trial start, activation, renewal) **must** present the
+`SuccessDialog` with the full summary fields:
+Customer Name, Customer Email, Product, Plan, License Status (Active), Expiry Date,
+Remaining, and (activation/renewal) "Operation Successful" header with the single
+Restart Now / Close action. Success must also be emitted to LiveLog.
+
+### Rule 8 — Error Message Quality
+
+- Each error must explain **what happened**, **why** (when supplied by the server) and **what
+  to do next** (the available instruction).
+- Avoid bare "Error", "Failed", "Unknown Error", or technical exception dumps in the UI.
+- Prefer the server's message verbatim; otherwise phrase as: *"<action> could not be
+  completed. <reason>. <next step>."*
+
+### Rule 9 — UI ↔ LiveLog Synchronization
+
+- Every user-visible message **must** also be written to LiveLog (and the external forwarder
+  when configured) on the same path.
+- LiveLog share one `LiveLog.set_external_logger(...)` channel; modules never print raw debug
+  info to stdout for user-facing text (they use `LiveLog.log`).
+
+### Rule 10 — Final Validation Scenarios
+
+Run and verify (fresh / returning / offline) all scenarios before delivery:
+1. New device + new email — Welcome → OTP → successful trial; success dialog; cache written.
+2. Trial active device — ULC shows Trial Active (product/plan/email/days); Activate/Renew/Support
+   buttons available.
+3. Trial consumed device — ULC shows TRIAL CONSUMED; no Start Free Trial; Activate/Renew.
+4. Inactive (paid history) device — ULC shows INACTIVE bottom that leads to Inactive License
+   dialog (Activate / Generate Request).
+5. Expired license — ULC shows EXPIRED; Renew available.
+6. Validate a wrong license key — exact server message shown, no OTP, no Activate.
+7. Validate an already-activated device — message "Already Activated", app stays usable.
+8. Send/verify OTP — timer decrements; expiry disables OTP; wrong OTP shows the shared invalid
+   message.
+9. Activate (fresh) — old cached license cleared, success dialog, restart flow, new key from
+   server.
+10. Renew — Renewal-gabeled final flows; success dialog; new expiry from server.
+11. Backend unreachable → Refresh keeps throwing the current state; UI states "offline".
+12. License removed on server → Refresh clears cached values and shows Inactive License dialog.
+13. Hardware mismatch cache → `license_status` invalidated; never re-binded locally.
+14. Communication send while offline → queued with "m will send when online"; Nothing else
+   cleared.
 
 ---
 
@@ -4480,6 +4618,15 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
       - **Stale caching removed**: added `export const dynamic = 'force-dynamic'` to every read GET route handler (conversations list, detail, stats, delivery-logs, folders + folders/[id], queue, settings, mailboxes + mailboxes/[id]) so no Next.js response snapshot ever serves stale unread/folder/mailbox values — switching folders can no longer restore stale counts.
       - **Live synchronization**: auto-sync interval lowered to 45s and now refreshes the mailbox grid / settings as well as conversations; stats badge poll lowered to 15s; a `visibilitychange` listener triggers a full sync the moment the tab regains focus. All user-driven mutations (mark read/unread, archive/move, delete/restore, send) already call `refreshCurrent()` + `fetchStats()`. The `UniversalEmailDialog` gained an optional, backward-compatible `onSent` callback so the Communications page refreshes immediately after composing/sending mail.
       - **Field mapping verified**: frontend reads `unread_replies` (list + detail), `stats.unread` (badge), `stats.inbox/sent/waiting/failed/queued` (folder counts), and `connection_status`/`sync_status`/`is_enabled`/`last_sync`/`smtp_host`/`imap_host` (mailboxes). No simulated unread; all state is fetched from backend. Boundaries preserved — SMTP/IMAP engines, queue, schema, and other Internal API modules untouched.
+    - **Phase 5 — ULC Event Messaging & Activation Rules (2026-08)** — Final event-messaging and activation hardening of the Python SDK template (`app/internal/publisher/template/python/`). New **SECTION 0B** in this master doc (and matching `docs/AGENTS.md` section) codifies Rules 1-10 (API authority, permanent hardware binding, fresh-activation cache reset, per-flow event messages, server-message passthrough, long-operation progress, success dialog, error quality, UI↔LiveLog sync, 14 final validation scenarios):
+      - **Rule 1** already held (single unified `GET /internal/backend/license/status`); confirmed no local license decisions in ULC.
+      - **Rule 3 (fresh-activation cache reset)**: added `CacheManager.reset_on_fresh_activation()` — clears stale `license_status` + `customer_email` keys (preserving the offline message queue and hardware ID) — and `LicenseEngine.activate()` now calls it **before** re-syncing the authoritative backend state on a successful fresh activation, so a previous customer's license can never resurface.
+      - **Rule 4 + Rule 9 (LiveLog sync)**: all previously-`print`ed engine diagnostics (`_build_no_license_decision`, `_sync_status_from_server`, `initialize`) now emit structured `LiveLog.log` events (`license.valid`, `license.invalid`, `license.offline`, `license.cache`, `engine.initialize`); success events added to `activation.success`, `renewal.success`, `trial.started`, `refresh.success`/`refresh.start`/`refresh.offline`/`refresh.error`, `general.unlocked`, `operation.error`; ULC status-header/button rebuild still drives the same messages.
+      - **Rule 5 + Rule 8 (server-message passthrough & error quality)**: `_show_key_flow_dialog` validate/activate/renew errors keep the exact server message first; the generic fallbacks were rewritten to actionable "what / why / next" phrasing (no bare "Activation failed" / "Renewal failed" / "Unknown Error") and are logged to LiveLog.
+      - **Rule 6 (progress)**: all network dialogs already show a live working state (disabled button + "…" label) during validate / send OTP / verify OTP / activate / renew / refresh; refresh now emits a `refresh.start` event when it begins.
+      - **Rule 7 (success dialog)**: confirmed every success path (trial, activation, renewal) routes through `SuccessDialog` with the full summary fields and the single Restart Now / Close action.
+      - **Rule 2 (permanent hardware binding)**: verified there is no local unbind/re-bind path — hardware is read-only via `HardwareDetector`, hardware-mismatch only invalidates the cached `license_status` key, and the "Hardware replacement requires administrator approval" guidance is preserved.
+      - Verification: `python -m py_compile` on all modified template files passes; `npx tsc --noEmit` and `npm run build` pass (274 pages, zero errors).
 36. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture

@@ -49,3 +49,25 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
 - **Architecture hierarchy**: Master Doc → Language Templates → SDK Publisher →
   Generated SDK. Never edit Generated SDKs directly; never embed business logic
   in runtime generators.
+
+## AWS-01 ULC Event Messaging & Activation Rules (Final)
+
+See master doc **SECTION 0B** (Event Messaging & Activation Rules). Always honour:
+
+- **Rule 1** — the backend `/internal/backend/license/status` API is the single source of
+  truth; never compute license/plan/days/validity locally except absent-optional fallbacks.
+- **Rule 2** — hardware binding is permanent; never unbind/re-bind/clear it locally; a
+  hardware mismatch only invalidates the cached `license_status` key. Message: "Hardware
+  replacement requires administrator approval."
+- **Rule 3** — a **fresh** license activation clears the old cached license state
+  (license/plan/customer/expiry/activation) then reloads from the backend; preserve only the
+  hardware ID and the offline message queue.
+- **Rules 4 & 9** — every user-visible message is also written to the shared `LiveLog` (and the
+  external forwarder); UI and LiveLog stay in sync per flow (startup/trial/activation/renewal/
+  refresh/hardware/communication/general).
+- **Rule 5** — pass through real server messages verbatim; never substitute a generic local
+  string for a server-provided message.
+- **Rule 6** — show a live "working…" progress state for any operation expected to take >1s.
+- **Rule 7** — successful trial/activation/renewal always shows the `SuccessDialog` summary.
+- **Rule 8** — errors explain what / why / next; avoid bare "Error"/"Failed"/"Unknown".
+- **Rule 10** — run the 14 end-to-end validation scenarios before delivery.
