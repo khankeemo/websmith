@@ -437,6 +437,8 @@ export default function CommunicationsPage() {
   const [commSettingsLoading, setCommSettingsLoading] = useState(false);
   const [commSettingsDirty, setCommSettingsDirty] = useState(false);
   const [commMailboxes, setCommMailboxes] = useState<Mailbox[]>([]);
+  const [editAccountId, setEditAccountId] = useState<string | null>(null);
+  const [accountDraft, setAccountDraft] = useState<any>(null);
 
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [showFolderManager, setShowFolderManager] = useState(false);
@@ -727,14 +729,73 @@ export default function CommunicationsPage() {
     setCommSettingsDirty(true);
   }, []);
 
-  // Client-driven auto-sync (no cron on serverless): process queue + pull IMAP
-  // for every enabled mailbox once per minute while the page is visible.
+  // Persist a settings payload immediately (used by the system-account toggles
+  // and inline edits so they take effect without a separate Save click).
+  const persistCommSettings = useCallback(async (payload: any) => {
+    setBusy('save-comm-settings');
+    try {
+      const res = await fetch('/internal/backend/communications/settings', {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', 'Communication settings saved');
+        setCommSettingsDirty(false);
+        await loadCommsSettings();
+      } else {
+        showToast('err', json.error?.message || 'Failed to save settings');
+      }
+    } catch {
+      showToast('err', 'Failed to save settings');
+    } finally {
+      setBusy(null);
+    }
+  }, [showToast, loadCommsSettings]);
+
+  // Toggle a built-in system mail account (support / sales / no-reply).
+  // Backed by the real `settings.communications.mail_accounts[].is_active`
+  // flag — never a hardcoded/fake state. Saves immediately.
+  const toggleSystemAccount = useCallback((id: string) => {
+    setCommSettings((prev: any) => {
+      if (!prev) return prev;
+      const next: any = {
+        ...prev,
+        mail_accounts: (prev.mail_accounts || []).map((a: any) =>
+          a.id === id ? { ...a, is_active: !(a.is_active === true) } : a
+        ),
+      };
+      setCommSettingsDirty(true);
+      persistCommSettings(next);
+      return next;
+    });
+  }, [persistCommSettings]);
+
+  const saveAccountDraft = useCallback((id: string, draft: any) => {
+    setCommSettings((prev: any) => {
+      if (!prev) return prev;
+      const next: any = {
+        ...prev,
+        mail_accounts: (prev.mail_accounts || []).map((a: any) =>
+          a.id === id ? { ...a, display_name: draft.display_name, reply_to: draft.reply_to, signature: draft.signature } : a
+        ),
+      };
+      setCommSettingsDirty(true);
+      persistCommSettings(next);
+      return next;
+    });
+  }, [persistCommSettings]);
+
+  // Live auto-sync (no cron on serverless): process queue + pull IMAP for every
+  // enabled mailbox on a timer, and refresh immediately whenever the tab regains
+  // focus so counts never appear stale. No cached/hardcoded unread values — every
+  // value is refetched from the backend (which is the single source of truth).
   useEffect(() => {
     const runAutoSync = async () => {
-      if (document.hidden) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
-        const token = localStorage.getItem("api_center_token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers = getAuthHeaders();
         await fetch(`${API_BASE}/queue/process`, { method: 'POST', headers });
         const mbRes = await fetch(`${MB_BASE}`, { headers });
         const mbJson = await mbRes.json();
@@ -744,11 +805,15 @@ export default function CommunicationsPage() {
         ));
         fetchStats();
         if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter);
+        else if (activeFolderDef.kind === 'mailboxes') loadMailboxes();
+        else if (activeFolderDef.kind === 'settings') loadCommsSettings();
       } catch {}
     };
-    const iv = setInterval(runAutoSync, 60000);
-    return () => clearInterval(iv);
-  }, [activeFolderDef, searchQuery, statusFilter, categoryFilter, loadConversations, fetchStats]);
+    const iv = setInterval(runAutoSync, 45000);
+    const onVisible = () => { if (typeof document !== 'undefined' && !document.hidden) runAutoSync(); };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(iv); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible); };
+  }, [activeFolderDef, searchQuery, statusFilter, categoryFilter, loadConversations, loadMailboxes, loadCommsSettings, fetchStats]);
 
   const syncAllMailboxes = useCallback(async () => {
     setBusy('sync-all');
@@ -802,7 +867,7 @@ export default function CommunicationsPage() {
   useEffect(() => { loadFolders(); }, [loadFolders]);
 
   useEffect(() => {
-    const iv = setInterval(fetchStats, 30000);
+    const iv = setInterval(fetchStats, 15000);
     return () => clearInterval(iv);
   }, [fetchStats]);
 
@@ -1685,23 +1750,122 @@ export default function CommunicationsPage() {
   };
 
   const renderSettingsAccounts = () => {
+    if (commSettingsLoading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
     if (!commSettings) return <div className="flex-1 flex items-center justify-center text-[var(--text-muted)] text-center px-6 text-xs">Communication settings load here.</div>;
     const accounts = commSettings.mail_accounts || [];
+    const fmtSync = (iso?: string | null) => {
+      if (!iso) return 'never';
+      const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+      if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+      return `${Math.floor(s / 86400)}d ago`;
+    };
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] px-1">Sender Identities</p>
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">System Mail Accounts</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Built-in sender routing accounts. Toggles persist via the real backend configuration.</p>
+          </div>
+          <button onClick={() => { setEditAccountId(null); setAccountDraft(null); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+
         {accounts.length === 0 && <p className="text-xs text-[var(--text-muted)] px-1">No mail accounts configured.</p>}
-        {accounts.map((a: any) => (
-          <label key={a.id} className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3 cursor-pointer transition-colors hover:bg-[var(--bg-tertiary)]/20">
-            <input type="checkbox" checked={a.is_active === true} onChange={e => setCommAccount(a.id, 'is_active', e.target.checked)} className="accent-blue-500" />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-[var(--text-primary)] font-medium truncate">{a.display_name || a.name}</p>
-              <p className="text-[10px] text-[var(--text-muted)] truncate">{a.email}</p>
+
+        {accounts.map((a: any) => {
+          const isActive = a.is_active === true;
+          const matching = (commMailboxes || []).find(m => m.email_address.toLowerCase() === String(a.email || '').toLowerCase()) || null;
+          const h = matching ? mailboxHealth(matching) : null;
+          const editing = editAccountId === a.id;
+          return (
+            <div key={a.id} className={`rounded-xl border p-3 transition-colors ${isActive ? 'border-[var(--border-color)] bg-[var(--bg-tertiary)]/5' : 'border-gray-500/20 bg-[var(--bg-tertiary)]/5 opacity-80'}`}>
+              {/* Header: identity + status + toggle */}
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-[var(--text-primary)] truncate">{a.display_name || a.name}</span>
+                    <Badge className={isActive ? 'text-green-400 bg-green-500/10' : 'text-gray-400 bg-gray-500/10'}>{isActive ? 'Active' : 'Inactive'}</Badge>
+                    <Badge className="text-purple-400 bg-purple-500/10">System</Badge>
+                    <span className="text-[10px] text-[var(--text-muted)]">{a.type}</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1"><AtSign size={10} className="text-[var(--text-muted)]" />{a.email}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Purpose: {MAILBOX_LABELS[String(a.id).replace(/-/g, '_')]?.purpose || (a.type === 'sales' ? 'Sales enquiries and purchase conversations.' : a.type === 'support' ? 'Customer support conversations.' : 'Automated system emails (OTP, license, payments, notifications).')}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
+                    Status: <Toggle checked={isActive} onChange={() => toggleSystemAccount(a.id)} disabled={busy === 'save-comm-settings'} />
+                  </div>
+                  {busy === 'save-comm-settings' && <Loader2 size={11} className="animate-spin text-blue-400" />}
+                </div>
+              </div>
+
+              {/* Connection / sync status (real mailbox row when present, else honest "n/a") */}
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] text-[var(--text-muted)] mt-2">
+                <span className="flex items-center gap-1">
+                  <Database size={10} className="text-blue-400" /> IMAP:
+                  {matching ? <span className={matching.connection_status === 'connected' ? 'text-green-400' : matching.connection_status === 'failed' ? 'text-red-400' : ''}>{matching.connection_status || 'unknown'}</span> : <span className="text-[var(--text-muted)]">n/a (native)</span>}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Server size={10} className="text-emerald-400" /> SMTP:
+                  {matching ? <span>{matching.smtp_host || '-'}{matching.smtp_port ? `:${matching.smtp_port}` : ''}</span> : <span className="text-[var(--text-muted)]">n/a (native)</span>}
+                </span>
+                <span className="flex items-center gap-1">
+                  <RefreshCw size={10} className="text-amber-400" /> Sync:
+                  {matching ? <span>{fmtSync(matching.last_sync)}</span> : <span className="text-[var(--text-muted)]">n/a (native)</span>}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Activity size={10} className="text-purple-400" /> Health:
+                  {h ? <HealthBadge h={h} /> : <span className="text-[var(--text-muted)]">system (no external mailbox)</span>}
+                </span>
+              </div>
+              {matching?.last_error && <p className="text-[10px] text-red-400 break-words mt-1">{matching.last_error}</p>}
+
+              {/* Inline edit */}
+              {editing && (
+                <div className="mt-2 rounded-lg border border-[var(--border-color)] p-2 space-y-2">
+                  <Field label="Display Name"><input type="text" value={accountDraft?.display_name ?? a.display_name} onChange={e => setAccountDraft({ ...(accountDraft || a), display_name: e.target.value })} className={inputCls} /></Field>
+                  <Field label="Reply-To"><input type="email" value={accountDraft?.reply_to ?? a.reply_to} onChange={e => setAccountDraft({ ...(accountDraft || a), reply_to: e.target.value })} className={inputCls} /></Field>
+                  <Field label="Signature"><textarea rows={2} value={accountDraft?.signature ?? a.signature} onChange={e => setAccountDraft({ ...(accountDraft || a), signature: e.target.value })} className={inputCls} /></Field>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => saveAccountDraft(a.id, { display_name: accountDraft?.display_name ?? a.display_name, reply_to: accountDraft?.reply_to ?? a.reply_to, signature: accountDraft?.signature ?? a.signature })} disabled={busy === 'save-comm-settings'}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-medium disabled:opacity-50">
+                      {busy === 'save-comm-settings' ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />} Save
+                    </button>
+                    <button onClick={() => setEditAccountId(null)} className="px-2.5 py-1 rounded-lg border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)]">Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-1.5 mt-2">
+                <button onClick={() => { setEditAccountId(editing ? null : a.id); setAccountDraft(null); }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30">
+                  <Pencil size={10} /> Edit
+                </button>
+                <button onClick={() => matching
+                  ? fetch(`${MB_BASE}/${matching.id}/test`, { method: 'POST', headers: getAuthHeaders() }).then(r => r.json()).then(j => showToast(j.success ? 'ok' : 'err', j.success ? 'Connection test passed' : j.error?.message || 'Test failed')).catch(() => showToast('err', 'Test failed'))
+                  : showToast('ok', 'Native system account — no external SMTP/IMAP to test.')}
+                  disabled={busy === 'save-comm-settings'}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
+                  <ShieldCheck size={10} /> Test
+                </button>
+                <button onClick={() => matching
+                  ? fetch(`${MB_BASE}/${matching.id}/sync`, { method: 'POST', headers: getAuthHeaders() }).then(r => r.json()).then(j => { showToast(j.success ? 'ok' : 'err', j.success ? 'IMAP sync completed' : j.error?.message || 'Sync failed'); if (j.success) loadCommsSettings(); }).catch(() => showToast('err', 'Sync failed'))
+                  : showToast('ok', 'Native system account — no external IMAP mailbox to sync.')}
+                  disabled={busy === 'save-comm-settings'}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
+                  <RefreshCw size={10} /> Sync
+                </button>
+              </div>
             </div>
-            <Badge className="text-gray-400 bg-gray-500/10">{a.type}</Badge>
-          </label>
-        ))}
-        <p className="text-[10px] text-[var(--text-muted)] px-1 pt-1 leading-relaxed">Toggle sender identities on or off. Saved together with the general settings.</p>
+          );
+        })}
+
+        <p className="text-[10px] text-[var(--text-muted)] px-1 pt-1 leading-relaxed">System accounts are routing identities controlled by the backend ({commMailboxes.length} external mailbox(es) configured). External IMAP/SMTP mailboxes are managed under the Mailboxes folder.</p>
       </div>
     );
   };
@@ -2174,6 +2338,7 @@ export default function CommunicationsPage() {
       <UniversalEmailDialog
         isOpen={emailDialog.isOpen}
         onClose={() => setEmailDialog({ isOpen: false })}
+        onSent={() => { setEmailDialog({ isOpen: false }); refreshCurrent(); }}
         defaultEmail={emailDialog.defaultEmail}
         defaultLicenseKey={emailDialog.defaultLicenseKey}
         defaultProductId={emailDialog.defaultProductId}

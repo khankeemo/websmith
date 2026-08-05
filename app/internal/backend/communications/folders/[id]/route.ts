@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
 
+export const dynamic = 'force-dynamic';
+
 // FILE: app/internal/backend/communications/folders/[id]/route.ts
 // PURPOSE: Rename / restore / soft-delete a Communication Center folder
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
 
+export const dynamic = 'force-dynamic';
+
 // FILE: app/internal/backend/communications/folders/route.ts
 // PURPOSE: Database-driven Communication Center folders (create/list)
 

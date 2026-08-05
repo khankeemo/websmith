@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
 
+export const dynamic = 'force-dynamic';
+
 const getAuthHeaders = (request: NextRequest) => {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   return token ? { Authorization: `Bearer ${token}` } : {};

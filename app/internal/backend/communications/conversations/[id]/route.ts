@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -12,7 +14,20 @@ export async function GET(
     client = await (await getDb()).connect();
 
     const convResult = await client.query(
-      'SELECT * FROM communication_conversations WHERE id = $1',
+      `SELECT cc.*,
+         (SELECT COUNT(*) FROM conversation_messages cm
+          WHERE cm.conversation_id = cc.id
+            AND cm.sender_type = 'customer'
+            AND (cm.is_internal IS NULL OR cm.is_internal = false)
+            AND cm.created_at > GREATEST(
+              COALESCE((
+                SELECT MAX(cm2.created_at) FROM conversation_messages cm2
+                WHERE cm2.conversation_id = cc.id AND cm2.sender_type = 'admin'
+              ), '1970-01-01T00:00:00Z'),
+              COALESCE(cc.admin_read_at, '1970-01-01T00:00:00Z')
+            )) as unread_replies
+       FROM communication_conversations cc
+       WHERE cc.id = $1`,
       [id]
     );
 

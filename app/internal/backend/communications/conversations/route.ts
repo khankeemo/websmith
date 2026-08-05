@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
 
+export const dynamic = 'force-dynamic';
+
 const VALID_STATUSES = ['open', 'waiting_customer', 'waiting_support', 'waiting_sales', 'resolved', 'closed'];
 const VALID_CATEGORIES = ['support', 'sales', 'activation', 'renewal', 'reactivation', 'hardware_replacement', 'general'];
 

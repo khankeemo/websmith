@@ -68,6 +68,7 @@ interface SdkJobInfo {
 interface EmailDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onSent?: () => void;
   defaultEmail?: string;
   defaultLicenseKey?: string;
   defaultProductName?: string;
@@ -100,7 +101,7 @@ function formatSize(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions }: EmailDialogProps) {
+export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions }: EmailDialogProps) {
   const [view, setView] = useState<"actions" | "form" | "history">("actions");
   const [action, setAction] = useState<EmailAction>(defaultAction || "send");
   const [loading, setLoading] = useState(false);
@@ -311,6 +312,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, defaultEmail, de
         setSuccess(`Email sent to ${recipientEmail}`);
         setFiles([]);
         setAttachSdk(false);
+        if (onSent) onSent();
         setTimeout(() => {
           setView("actions");
           setSuccess("");

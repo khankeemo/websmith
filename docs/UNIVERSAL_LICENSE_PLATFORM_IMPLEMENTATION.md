@@ -10,6 +10,12 @@
 
 ## AWS-01 — Mandatory Execution Rules (Read Before Every Task)
 
+> **ALWAYS-READ RULE:** Before any work, read `docs/AGENTS.md` (the global
+> opencode instruction) and this master document. These final md files are the
+> source of truth. When ANY rule or behavior changes, update BOTH
+> `docs/AGENTS.md` AND this file on the same task — never let code and
+> documentation diverge.
+
 This section is mandatory. Every implementation, modification, review, refactor, bug fix, or feature must satisfy these rules before any code is written.
 
 ### Rule 1 — Architecture First
@@ -4468,6 +4474,12 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
       - **Client-side read/unread filters**: `readFilter` chips (All / Unread / Read) applied via `displayConversations` memo.
       - **Dead Software Store admin subsystem removed**: deleted the admin MongoDB `software_listings` page, service and `/api/software-store/admin/**` routes plus its sidebar entry (never read by the working public PostgreSQL storefront, which is untouched).
       - **Security**: the mailboxes list endpoint returns `imap_password`/`smtp_password` in plaintext — the UI masks them with `********` and never renders stored values.
+    - **Phase 4 — Communications Fix Task (2026-08)** — Follow-up fix pass for the three outstanding Communications issues:
+      - **System Mail ON/OFF toggle (implemented)**: the Settings right-panel (`renderSettingsAccounts`) now renders the built-in `support@`, `sales@`, `no-reply@` accounts as managed **System Mail Account** cards. Each card shows Mail address, Purpose, Status (Active/Inactive), an ON/OFF `Toggle` wired to the real backend `settings.communications.mail_accounts[].is_active` (saved immediately via `toggleSystemAccount` → `persistCommSettings`, then re-pulled from the server — no hardcoded/fake state), plus Edit (inline display-name / reply-to / signature), Test Connection, and Last Sync / SMTP status / IMAP status / Health — all derived from the matching external `mailboxes` row when one exists, else an honest "n/a (native)" indicator for native routing accounts.
+      - **Unread counter fixed (root cause)**: the auto-mark-read-on-open path in `openDetail` was dead code because `conversations/[id]/route.ts` GET never returned `unread_replies`. The detail GET now computes and returns `unread_replies` (same GREATEST(MAX(admin msg), admin_read_at) subquery as the list + stats), so opening an email immediately PATCHes `mark_read`, zeroes the local `unread_replies`, calls `fetchStats()` and reloads the list — the badge and folder counts update instantly. Detail header badge now renders from the real field.
+      - **Stale caching removed**: added `export const dynamic = 'force-dynamic'` to every read GET route handler (conversations list, detail, stats, delivery-logs, folders + folders/[id], queue, settings, mailboxes + mailboxes/[id]) so no Next.js response snapshot ever serves stale unread/folder/mailbox values — switching folders can no longer restore stale counts.
+      - **Live synchronization**: auto-sync interval lowered to 45s and now refreshes the mailbox grid / settings as well as conversations; stats badge poll lowered to 15s; a `visibilitychange` listener triggers a full sync the moment the tab regains focus. All user-driven mutations (mark read/unread, archive/move, delete/restore, send) already call `refreshCurrent()` + `fetchStats()`. The `UniversalEmailDialog` gained an optional, backward-compatible `onSent` callback so the Communications page refreshes immediately after composing/sending mail.
+      - **Field mapping verified**: frontend reads `unread_replies` (list + detail), `stats.unread` (badge), `stats.inbox/sent/waiting/failed/queued` (folder counts), and `connection_status`/`sync_status`/`is_enabled`/`last_sync`/`smtp_host`/`imap_host` (mailboxes). No simulated unread; all state is fetched from backend. Boundaries preserved — SMTP/IMAP engines, queue, schema, and other Internal API modules untouched.
 36. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture
