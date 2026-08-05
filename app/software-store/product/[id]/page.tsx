@@ -18,6 +18,19 @@ const formatDuration = (days: number) => {
 const STORAGE_CART_KEY = "software_store_cart";
 const STORAGE_WISHLIST_KEY = "software_store_wishlist";
 
+// Matches the Software Store's premium dark theme (presentation only).
+const PRODUCT_PAGE_DARK_STYLE = {
+  "--bg-primary": "#070B14",
+  "--bg-secondary": "#0B1220",
+  "--bg-tertiary": "#111827",
+  "--text-primary": "#F1F5F9",
+  "--text-secondary": "#94A3B8",
+  "--text-muted": "#64748B",
+  "--border-color": "rgba(148, 163, 184, 0.16)",
+  "--card-shadow": "0 20px 60px -15px rgba(0, 0, 0, 0.6)",
+  colorScheme: "dark",
+} as React.CSSProperties;
+
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -87,7 +100,7 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)]">
+      <div className="min-h-screen bg-[var(--bg-primary)]" style={PRODUCT_PAGE_DARK_STYLE}>
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="animate-pulse space-y-8">
             <div className="h-8 w-48 rounded-xl bg-[var(--border-color)]" />
@@ -109,7 +122,7 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center" style={PRODUCT_PAGE_DARK_STYLE}>
         <div className="text-center">
           <div className="text-6xl mb-4 opacity-30">🔍</div>
           <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Product Not Found</h2>
@@ -127,7 +140,7 @@ export default function ProductDetailPage() {
   const hasTrial = activePlans.some((p) => p.is_trial_plan);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
+    <div className="min-h-screen bg-[var(--bg-primary)]" style={PRODUCT_PAGE_DARK_STYLE}>
       <div className="max-w-7xl mx-auto px-6 py-6">
         <button onClick={() => router.push("/software-store")} className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-indigo-400 transition-colors mb-6">
           <ChevronLeft className="w-4 h-4" /> Back to Store
@@ -344,10 +357,14 @@ export default function ProductDetailPage() {
                     {inCart ? "Added to Cart" : "Add to Cart"}
                   </button>
                   <button
-                    onClick={() => router.push(`/software-store/checkout`)}
-                    className="flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-xl border-2 border-emerald-500/30 text-emerald-400 font-bold text-sm hover:bg-emerald-500/5 transition-all">
+                    onClick={() => { addToCart(); router.push(`/software-store/checkout`); }}
+                    className={`flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+                      inCart
+                        ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_10px_32px_-8px_rgba(99,102,241,0.6)] hover:brightness-110"
+                        : "border-2 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 hover:border-indigo-500/50"
+                    }`}>
                     <ArrowRight className="w-4 h-4" />
-                    Buy Now
+                    Proceed to Checkout
                   </button>
                   <button onClick={toggleWishlist}
                     className={`flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl border-2 transition-all text-sm font-bold ${

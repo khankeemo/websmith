@@ -6,9 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, ShoppingCart, Heart, X, Check, Clock, ChevronRight,
   Plus, Minus, Trash2, ArrowRight, Star, LayoutGrid, List,
-  BookOpen, LifeBuoy, ExternalLink, Filter, SlidersHorizontal,
+  BookOpen, LifeBuoy, ExternalLink, Filter, ArrowLeft, ShieldCheck,
   Sparkles, Tag, Monitor, Layers, Package, Loader2, AlertCircle,
-  ShoppingBag, RefreshCw, Globe, Scale, History as HistoryIcon,
+  ShoppingBag, RefreshCw, Scale, History as HistoryIcon,
   Receipt, BadgeCheck, CreditCard
 } from "lucide-react";
 import { getPublicProducts, StoreProduct, StoreProductPlan } from "./services/softwareStoreService";
@@ -19,6 +19,20 @@ const STORAGE_WISHLIST_KEY = "software_store_wishlist";
 const STORAGE_COMPARE_KEY = "software_store_compare";
 const STORAGE_HISTORY_EMAIL_KEY = "software_store_history_email";
 const MAX_COMPARE = 4;
+
+// Scoped premium dark theme — CSS variables are redefined only inside the
+// software store subtree, so the rest of the site is untouched.
+const STORE_DARK_STYLE = {
+  "--bg-primary": "#070B14",
+  "--bg-secondary": "#0B1220",
+  "--bg-tertiary": "#111827",
+  "--text-primary": "#F1F5F9",
+  "--text-secondary": "#94A3B8",
+  "--text-muted": "#64748B",
+  "--border-color": "rgba(148, 163, 184, 0.16)",
+  "--card-shadow": "0 20px 60px -15px rgba(0, 0, 0, 0.6)",
+  colorScheme: "dark",
+} as React.CSSProperties;
 
 interface CartItem {
   product: StoreProduct;
@@ -256,71 +270,77 @@ function Shimmer() {
 
 function SkeletonCard() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] animate-pulse">
-      <div className="relative h-36 bg-[var(--border-color)]/70 overflow-hidden">
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl animate-pulse shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <div className="relative h-40 bg-white/[0.04] overflow-hidden">
         <Shimmer />
       </div>
       <div className="relative p-5 space-y-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--border-color)]" />
+          <div className="w-10 h-10 rounded-xl bg-white/[0.06]" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 w-3/4 rounded bg-[var(--border-color)]" />
-            <div className="h-3 w-1/2 rounded bg-[var(--border-color)]" />
+            <div className="h-4 w-3/4 rounded bg-white/[0.06]" />
+            <div className="h-3 w-1/2 rounded bg-white/[0.06]" />
           </div>
         </div>
-        <div className="h-3 w-full rounded bg-[var(--border-color)]" />
-        <div className="h-3 w-2/3 rounded bg-[var(--border-color)]" />
+        <div className="h-3 w-full rounded bg-white/[0.06]" />
+        <div className="h-3 w-2/3 rounded bg-white/[0.06]" />
         <div className="flex gap-2">
-          <div className="h-5 w-16 rounded-full bg-[var(--border-color)]" />
-          <div className="h-5 w-14 rounded-full bg-[var(--border-color)]" />
+          <div className="h-5 w-16 rounded-full bg-white/[0.06]" />
+          <div className="h-5 w-14 rounded-full bg-white/[0.06]" />
         </div>
-        <div className="h-10 rounded-xl bg-[var(--border-color)]" />
+        <div className="h-10 rounded-xl bg-white/[0.06]" />
       </div>
     </div>
   );
 }
 
-function CartPanel({ cart, wishlist, onClose, onRemoveFromCart, onUpdateQty, onClearCart, onCheckout, onBuyNow, showGst, onToggleGst }: {
+function CartPanel({ cart, onClose, onRemoveFromCart, onUpdateQty, onClearCart, onCheckout, showGst, onToggleGst }: {
   cart: ReturnType<typeof useCart>;
-  wishlist: ReturnType<typeof useWishlist>;
   onClose: () => void;
   onRemoveFromCart: (productId: string, planId?: number) => void;
   onUpdateQty: (productId: string, planId: number | undefined, delta: number) => void;
   onClearCart: () => void;
   onCheckout: () => void;
-  onBuyNow: (item: CartItem) => void;
   showGst: boolean;
   onToggleGst: () => void;
 }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <motion.div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-      <motion.div className="relative w-full max-w-lg bg-[var(--bg-primary)] shadow-2xl shadow-black/50 overflow-y-auto border-l border-[var(--border-color)]"
+      <div className="fixed inset-0 bg-[#02040A]/70 backdrop-blur-sm" />
+      <motion.div role="dialog" aria-modal="true" aria-label="Shopping cart"
+        className="relative w-full max-w-lg bg-[var(--bg-secondary)]/95 backdrop-blur-2xl shadow-2xl shadow-black/50 overflow-y-auto border-l border-white/10"
         onClick={e => e.stopPropagation()}
         variants={slideInRight} initial="hidden" animate="show" exit="exit">
-        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-primary)]/90 backdrop-blur-md">
+        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b border-white/10 bg-[var(--bg-secondary)]/90 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
-              <ShoppingCart className="w-4 h-4 text-indigo-400" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/25 to-violet-500/25 flex items-center justify-center border border-indigo-400/20">
+              <ShoppingCart className="w-4 h-4 text-indigo-300" />
             </div>
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Cart ({cart.totalItems})</h2>
+            <h2 className="text-lg font-bold text-white">Cart ({cart.totalItems})</h2>
           </div>
-          <motion.button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors"
+          <motion.button onClick={onClose} aria-label="Close cart"
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
             whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+            <X className="w-4 h-4 text-slate-400" />
           </motion.button>
         </div>
 
         {cart.items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center px-6">
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" as const, stiffness: 200, damping: 20 }}>
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-5 border border-[var(--border-color)]">
-                <ShoppingBag className="w-8 h-8 text-[var(--border-color)]" />
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500/10 to-violet-500/10 flex items-center justify-center mb-5 border border-white/10">
+                <ShoppingBag className="w-8 h-8 text-slate-600" />
               </div>
             </motion.div>
-            <p className="text-[var(--text-secondary)] font-semibold text-lg">Your cart is empty</p>
-            <p className="text-sm text-[var(--text-secondary)] mt-1.5 max-w-xs">Browse our software catalog and add items you'd like to purchase</p>
+            <p className="text-slate-300 font-semibold text-lg">Your cart is empty</p>
+            <p className="text-sm text-slate-500 mt-1.5 max-w-xs">Browse our software catalog and add items you'd like to purchase</p>
           </div>
         ) : (
           <motion.div className="p-5 space-y-3"
@@ -328,46 +348,46 @@ function CartPanel({ cart, wishlist, onClose, onRemoveFromCart, onUpdateQty, onC
             {cart.items.map((item, idx) => (
               <motion.div key={`${item.product.id}-${item.plan?.id || 0}-${idx}`}
                 variants={staggerItem(idx)}
-                className="flex gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 hover:border-indigo-500/30 transition-all">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-lg shrink-0 border border-white/10">
+                className="flex gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-indigo-400/30 hover:bg-white/[0.05] transition-all">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/25 to-violet-500/25 flex items-center justify-center text-lg shrink-0 border border-white/10">
                   {item.product.logo_url ? (
                     <img src={item.product.logo_url} alt={item.product.name} className="w-8 h-8 rounded-lg object-contain" />
                   ) : (
-                    item.product.name.charAt(0)
+                    <span className="font-bold text-white">{item.product.name.charAt(0)}</span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-sm text-[var(--text-primary)] truncate">{item.product.name}</h4>
+                    <h4 className="font-bold text-sm text-white truncate">{item.product.name}</h4>
                     {item.product.version && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-[var(--text-secondary)] font-medium shrink-0">v{item.product.version}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/10 text-slate-400 font-medium border border-white/10 shrink-0">v{item.product.version}</span>
                     )}
                   </div>
-                  {item.plan && <p className="text-xs text-[var(--text-secondary)]">{item.plan.name}</p>}
-                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{formatPrice(item.plan?.price || item.product.price || 0)} each</p>
+                  {item.plan && <p className="text-xs text-slate-400">{item.plan.name}</p>}
+                  <p className="text-[11px] text-slate-500 mt-0.5">{formatPrice(item.plan?.price || item.product.price || 0)} each</p>
                   <div className="flex items-center gap-2 mt-2">
                     <motion.button whileTap={{ scale: 0.9 }}
                       onClick={() => onUpdateQty(item.product.id, item.plan?.id, -1)}
                       aria-label={`Decrease quantity of ${item.product.name}`}
-                      className="w-7 h-7 rounded-full border border-[var(--border-color)] flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors hover:border-indigo-500/40">
-                      <Minus className="w-3 h-3 text-[var(--text-secondary)]" />
+                      className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors hover:border-indigo-400/40">
+                      <Minus className="w-3 h-3 text-slate-400" />
                     </motion.button>
-                    <span className="text-sm font-bold text-[var(--text-primary)] w-6 text-center">{item.quantity}</span>
+                    <span className="text-sm font-bold text-white w-6 text-center">{item.quantity}</span>
                     <motion.button whileTap={{ scale: 0.9 }}
                       onClick={() => onUpdateQty(item.product.id, item.plan?.id, 1)}
                       aria-label={`Increase quantity of ${item.product.name}`}
-                      className="w-7 h-7 rounded-full border border-[var(--border-color)] flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors hover:border-indigo-500/40">
-                      <Plus className="w-3 h-3 text-[var(--text-secondary)]" />
+                      className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors hover:border-indigo-400/40">
+                      <Plus className="w-3 h-3 text-slate-400" />
                     </motion.button>
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-bold text-sm text-[var(--text-primary)]">
+                  <p className="font-bold text-sm text-white">
                     {formatPrice((item.plan?.price || item.product.price || 0) * item.quantity)}
                   </p>
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={() => onRemoveFromCart(item.product.id, item.plan?.id)}
-                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-rose-400 hover:text-rose-300 transition-colors"
                     aria-label={`Remove ${item.product.name} from cart`}>
                     <Trash2 className="w-3 h-3" /> Remove
                   </motion.button>
@@ -375,22 +395,22 @@ function CartPanel({ cart, wishlist, onClose, onRemoveFromCart, onUpdateQty, onC
               </motion.div>
             ))}
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
-                <Receipt className="w-4 h-4 text-indigo-400" />
-                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Order Summary</span>
+            <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-gradient-to-r from-indigo-500/15 to-violet-500/10">
+                <Receipt className="w-4 h-4 text-indigo-300" />
+                <span className="text-xs font-bold uppercase tracking-wider text-white">Order Summary</span>
               </div>
               <div className="p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-[var(--text-secondary)]">Subtotal</span>
-                  <span className="font-semibold text-[var(--text-primary)]">{formatPrice(cart.totalPrice)}</span>
+                  <span className="text-sm text-slate-400">Subtotal</span>
+                  <span className="font-semibold text-white">{formatPrice(cart.totalPrice)}</span>
                 </div>
                 <label className="flex items-center justify-between text-sm cursor-pointer select-none">
-                  <span className="text-[var(--text-secondary)]">
+                  <span className="text-slate-400">
                     GST ({Math.round(GST_RATE * 100)}%)
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[var(--text-primary)] font-semibold">
+                    <span className="text-white font-semibold">
                       {showGst ? `+${formatPrice(cart.totalPrice * GST_RATE)}` : '-'}
                     </span>
                     <button
@@ -399,15 +419,15 @@ function CartPanel({ cart, wishlist, onClose, onRemoveFromCart, onUpdateQty, onC
                       aria-checked={showGst}
                       aria-label="Toggle GST"
                       onClick={onToggleGst}
-                      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${showGst ? "bg-indigo-500" : "bg-[var(--border-color)]"}`}
+                      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${showGst ? "bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.5)]" : "bg-white/15"}`}
                     >
                       <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform ${showGst ? "translate-x-4" : "translate-x-0"}`} />
                     </button>
                   </div>
                 </label>
-                <div className="flex justify-between items-center pt-3 border-t border-[var(--border-color)]">
-                  <span className="text-sm font-bold text-[var(--text-primary)]">Total</span>
-                  <span className="text-lg font-extrabold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                <div className="flex justify-between items-center pt-3 border-t border-white/10">
+                  <span className="text-sm font-bold text-white">Total</span>
+                  <span className="text-lg font-extrabold bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">
                     {formatPrice(cart.totalPrice + (showGst ? cart.totalPrice * GST_RATE : 0))}
                   </span>
                 </div>
@@ -417,19 +437,19 @@ function CartPanel({ cart, wishlist, onClose, onRemoveFromCart, onUpdateQty, onC
             <div className="flex flex-col gap-2 pt-2">
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 onClick={onCheckout}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25">
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold text-sm shadow-[0_10px_32px_-8px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all duration-300">
                 <ArrowRight className="w-4 h-4" />
                 Proceed to Checkout
               </motion.button>
               <div className="flex gap-2">
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                   onClick={onClearCart}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/5 transition-all">
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-400/30 text-rose-300 text-xs font-medium hover:bg-rose-500/10 transition-all">
                   <Trash2 className="w-3.5 h-3.5" /> Clear Cart
                 </motion.button>
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                   onClick={onClose}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)] text-xs font-medium hover:bg-[var(--bg-secondary)] transition-all">
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 text-xs font-medium hover:bg-white/5 transition-all">
                   Continue Shopping
                 </motion.button>
               </div>
@@ -448,35 +468,43 @@ function WishlistPanel({ wishlist, cart, onClose, onAddToCart, onRemoveFromWishl
   onAddToCart: (product: StoreProduct, plan?: StoreProductPlan) => void;
   onRemoveFromWishlist: (productId: string, planId?: number) => void;
 }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <motion.div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-      <motion.div className="relative w-full max-w-lg bg-[var(--bg-primary)] shadow-2xl shadow-black/50 overflow-y-auto border-l border-[var(--border-color)]"
+      <div className="fixed inset-0 bg-[#02040A]/70 backdrop-blur-sm" />
+      <motion.div role="dialog" aria-modal="true" aria-label="Wishlist"
+        className="relative w-full max-w-lg bg-[var(--bg-secondary)]/95 backdrop-blur-2xl shadow-2xl shadow-black/50 overflow-y-auto border-l border-white/10"
         onClick={e => e.stopPropagation()}
         variants={slideInRight} initial="hidden" animate="show" exit="exit">
-        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-primary)]/90 backdrop-blur-md">
+        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b border-white/10 bg-[var(--bg-secondary)]/90 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500/20 to-pink-500/20 flex items-center justify-center">
-              <Heart className="w-4 h-4 text-rose-400" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500/25 to-pink-500/25 flex items-center justify-center border border-rose-400/20">
+              <Heart className="w-4 h-4 text-rose-300" />
             </div>
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Wishlist ({wishlist.items.length})</h2>
+            <h2 className="text-lg font-bold text-white">Wishlist ({wishlist.items.length})</h2>
           </div>
-          <motion.button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors"
+          <motion.button onClick={onClose} aria-label="Close wishlist"
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
             whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+            <X className="w-4 h-4 text-slate-400" />
           </motion.button>
         </div>
 
         {wishlist.items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center px-6">
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" as const, stiffness: 200, damping: 20 }}>
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-500/10 to-pink-500/10 flex items-center justify-center mb-5 border border-[var(--border-color)]">
-                <Heart className="w-8 h-8 text-[var(--border-color)]" />
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-500/10 to-pink-500/10 flex items-center justify-center mb-5 border border-white/10">
+                <Heart className="w-8 h-8 text-slate-600" />
               </div>
             </motion.div>
-            <p className="text-[var(--text-secondary)] font-semibold text-lg">Your wishlist is empty</p>
-            <p className="text-sm text-[var(--text-secondary)] mt-1.5 max-w-xs">Save products you're interested in and come back to them later</p>
+            <p className="text-slate-300 font-semibold text-lg">Your wishlist is empty</p>
+            <p className="text-sm text-slate-500 mt-1.5 max-w-xs">Save products you're interested in and come back to them later</p>
           </div>
         ) : (
           <motion.div className="p-5 space-y-3"
@@ -484,35 +512,35 @@ function WishlistPanel({ wishlist, cart, onClose, onAddToCart, onRemoveFromWishl
             {wishlist.items.map((item, idx) => (
               <motion.div key={`wl-${item.product.id}-${item.plan?.id || 0}-${idx}`}
                 variants={staggerItem(idx)}
-                className="flex gap-3 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 hover:border-rose-500/30 transition-all">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500/20 to-pink-500/20 flex items-center justify-center text-lg shrink-0 border border-white/10">
+                className="flex gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-rose-400/30 hover:bg-white/[0.05] transition-all">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500/25 to-pink-500/25 flex items-center justify-center text-lg shrink-0 border border-white/10">
                   {item.product.logo_url ? (
                     <img src={item.product.logo_url} alt={item.product.name} className="w-8 h-8 rounded-lg object-contain" />
                   ) : (
-                    item.product.name.charAt(0)
+                    <span className="font-bold text-white">{item.product.name.charAt(0)}</span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-sm text-[var(--text-primary)] truncate">{item.product.name}</h4>
+                    <h4 className="font-bold text-sm text-white truncate">{item.product.name}</h4>
                     {item.product.version && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--bg-tertiary)] text-[var(--text-secondary)] font-medium shrink-0">v{item.product.version}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/10 text-slate-400 font-medium border border-white/10 shrink-0">v{item.product.version}</span>
                     )}
                   </div>
-                  {item.plan && <p className="text-xs text-[var(--text-secondary)]">{item.plan.name}</p>}
+                  {item.plan && <p className="text-xs text-slate-400">{item.plan.name}</p>}
                   {item.plan && (
-                    <p className="text-xs font-semibold text-[var(--text-primary)] mt-0.5">{formatPrice(item.plan.price)}</p>
+                    <p className="text-xs font-semibold text-white mt-0.5">{formatPrice(item.plan.price)}</p>
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={() => { onAddToCart(item.product, item.plan); onRemoveFromWishlist(item.product.id, item.plan?.id); }}
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold hover:from-indigo-500 hover:to-purple-500 transition-all">
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-xs font-bold shadow-[0_6px_20px_-6px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all">
                     <ShoppingCart className="w-3 h-3" /> Move to Cart
                   </motion.button>
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={() => onRemoveFromWishlist(item.product.id, item.plan?.id)}
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/5 transition-all">
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-400/30 text-rose-300 text-xs font-medium hover:bg-rose-500/10 transition-all">
                     <X className="w-3 h-3" /> Remove
                   </motion.button>
                 </div>
@@ -525,7 +553,7 @@ function WishlistPanel({ wishlist, cart, onClose, onAddToCart, onRemoveFromWishl
   );
 }
 
-function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCart, onAddToWishlist, onRemoveFromWishlist, onBuyNow, inCompare, onToggleCompare }: {
+function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCart, onAddToWishlist, onRemoveFromWishlist, onProceedToCheckout, inCompare, onToggleCompare }: {
   product: StoreProduct;
   plans: StoreProductPlan[];
   cart: ReturnType<typeof useCart>;
@@ -534,7 +562,7 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
   onAddToCart: (product: StoreProduct, plan?: StoreProductPlan) => void;
   onAddToWishlist: (product: StoreProduct, plan?: StoreProductPlan) => void;
   onRemoveFromWishlist: (productId: string, planId?: number) => void;
-  onBuyNow: (product: StoreProduct, plan?: StoreProductPlan) => void;
+  onProceedToCheckout: (product: StoreProduct, plan?: StoreProductPlan) => void;
   inCompare: boolean;
   onToggleCompare: (product: StoreProduct) => void;
 }) {
@@ -545,51 +573,82 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
 
   const selectedPlan = selectedPlanIndex !== null ? activePlans[selectedPlanIndex] : undefined;
   const inWishlist = wishlist.isInWishlist(product.id, selectedPlan?.id);
-
+  const inCart = cart.items.some(i => i.product.id === product.id);
   const featuresList = selectedPlan?.features || [];
 
-  return (
-    <motion.div className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8 overflow-y-auto" onClick={onClose}
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-md" />
-      <motion.div className="relative w-full max-w-5xl mx-4 bg-[var(--bg-primary)] rounded-3xl shadow-2xl shadow-black/30 overflow-hidden"
-        onClick={e => e.stopPropagation()}
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        transition={{ type: "spring" as const, stiffness: 300, damping: 28 }}>
-        <motion.button onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-all border border-white/10"
-          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <X className="w-4 h-4" />
-        </motion.button>
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
-        <div className="relative h-56 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 overflow-hidden">
-          <div className="absolute inset-0 opacity-30"
-            style={{ backgroundImage: 'radial-gradient(circle at 25% 50%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 75% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)' }} />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)] via-transparent to-transparent" />
-          <div className="absolute bottom-6 left-8 flex items-center gap-5">
-            <motion.div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-4xl shadow-xl border border-white/30"
-              initial={{ scale: 0, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring" as const, stiffness: 260, damping: 20, delay: 0.1 }}>
-              {product.logo_url ? (
-                <img src={product.logo_url} alt={product.name} className="w-14 h-14 rounded-xl object-contain" />
-              ) : (
-                product.name.charAt(0).toUpperCase()
-              )}
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-start justify-center pt-6 pb-6 px-3 overflow-y-auto"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+      onClick={onClose}>
+      <div className="fixed inset-0 bg-[#02040A]/80 backdrop-blur-md" />
+      <motion.div role="dialog" aria-modal="true" aria-label={product.name}
+        className="relative w-full max-w-6xl my-auto bg-[#0B1220]/90 backdrop-blur-2xl rounded-[28px] border border-white/10 overflow-hidden shadow-[0_0_0_1px_rgba(99,102,241,0.08),0_60px_140px_-30px_rgba(0,0,0,0.9)]"
+        onClick={e => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.95, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 24 }}
+        transition={{ type: "spring" as const, stiffness: 300, damping: 28 }}>
+
+        {/* top actions — Back to Store closes the popup */}
+        <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+          <button onClick={onClose}
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#070B14]/70 backdrop-blur-md border border-white/10 text-slate-200 text-xs font-semibold hover:border-indigo-400/40 hover:text-white hover:bg-[#070B14]/90 active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50">
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Store
+          </button>
+          <button onClick={onClose} aria-label="Close product details"
+            className="pointer-events-auto w-9 h-9 rounded-full bg-[#070B14]/70 backdrop-blur-md border border-white/10 text-slate-300 flex items-center justify-center hover:border-indigo-400/40 hover:text-white hover:rotate-90 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* hero */}
+        <div className="relative h-64 md:h-72 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(99,102,241,0.45),transparent_55%),radial-gradient(ellipse_at_80%_20%,rgba(139,92,246,0.3),transparent_50%),radial-gradient(ellipse_at_60%_100%,rgba(34,211,238,0.15),transparent_55%)]" />
+          <div className="absolute inset-0 opacity-40"
+            style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
+          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#0B1220] via-[#0B1220]/70 to-transparent" />
+          <div className="absolute top-[72px] left-6 md:left-8 right-6 flex items-start gap-5 z-10">
+            <motion.div className="relative w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-[#0B1220]/80 backdrop-blur-md flex items-center justify-center text-4xl border border-white/15 shadow-[0_20px_60px_-15px_rgba(99,102,241,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] shrink-0"
+              initial={{ scale: 0, rotate: -12 }} animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring" as const, stiffness: 260, damping: 20, delay: 0.1 }}>
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-indigo-500/30 via-violet-500/20 to-cyan-400/20" />
+              <span className="relative font-bold text-white">
+                {product.logo_url ? (
+                  <img src={product.logo_url} alt={product.name} className="w-14 h-14 md:w-16 md:h-16 rounded-2xl object-contain" />
+                ) : (
+                  product.name.charAt(0).toUpperCase()
+                )}
+              </span>
             </motion.div>
-            <div className="text-white">
-              <motion.h2 className="text-3xl font-bold drop-shadow-sm"
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>{product.name}</motion.h2>
-              <motion.div className="flex items-center gap-3 mt-1.5"
+            <div className="min-w-0 pt-1 text-white">
+              <motion.h2 className="text-2xl md:text-4xl font-extrabold drop-shadow-lg truncate"
+                initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
+                {product.name}
+              </motion.h2>
+              <motion.div className="flex flex-wrap items-center gap-2 mt-2 text-sm"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-                {product.company_name && <span className="text-sm text-white/80">{product.company_name}</span>}
-                <span className="text-white/40">·</span>
-                <span className="text-sm text-white/80">v{product.version || '1.0.0'}</span>
+                {product.company_name && <span className="text-slate-300">{product.company_name}</span>}
+                <span className="text-slate-500">·</span>
+                <span className="text-slate-300">v{product.version || '1.0.0'}</span>
+                {product.product_type && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-slate-200 text-[10px] font-semibold border border-white/15">{product.product_type}</span>
+                )}
+                {product.platform && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-cyan-400/15 text-cyan-200 text-[10px] font-semibold border border-cyan-400/25">{product.platform}</span>
+                )}
+                {product.featured && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400/15 text-amber-200 text-[10px] font-bold border border-amber-400/25">
+                    <Star className="w-2.5 h-2.5 fill-current" /> Featured
+                  </span>
+                )}
                 {hasTrial && (
-                  <>
-                    <span className="text-white/40">·</span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-400/25 text-emerald-200 border border-emerald-400/30 font-medium">Free Trial</span>
-                  </>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-400/15 text-emerald-200 text-[10px] font-semibold border border-emerald-400/25">Free Trial</span>
                 )}
               </motion.div>
             </div>
@@ -597,94 +656,111 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
         </div>
 
         <div className="flex flex-col lg:flex-row">
-          <div className="flex-1 p-8 space-y-8">
+          <div className="flex-1 p-6 md:p-8 space-y-8 min-w-0">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Overview</h3>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{product.description || 'No description available.'}</p>
+              <h3 className="flex items-center gap-2 text-lg font-bold text-white mb-2">
+                <span className="w-1.5 h-5 rounded-full bg-gradient-to-b from-indigo-400 to-violet-500" />
+                Overview
+              </h3>
+              <p className="text-sm text-slate-400 leading-relaxed">{product.description || 'No description available.'}</p>
               {product.short_description && (
-                <p className="text-sm text-[var(--text-secondary)] mt-3 italic">{product.short_description}</p>
+                <p className="text-sm text-slate-400 mt-3 italic border-l-2 border-indigo-400/40 pl-4">{product.short_description}</p>
               )}
             </motion.div>
 
             {activePlans.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Pricing Plans</h3>
-                <div className="grid gap-3">
-                  {activePlans.map((plan, index) => (
-                    <motion.div
-                      key={plan.id}
-                      onClick={() => setSelectedPlanIndex(index)}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      className={`flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer ${
-                        selectedPlanIndex === index
-                          ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_30px_-5px_rgba(99,102,241,0.3)]'
-                          : 'border-[var(--border-color)] bg-[var(--bg-secondary)]/30 hover:border-indigo-500/40 hover:shadow-sm'
-                      }`}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                            selectedPlanIndex === index ? 'border-indigo-500' : 'border-[var(--border-color)]'
-                          }`}>
-                            {selectedPlanIndex === index && (
-                              <motion.div className="w-2.5 h-2.5 rounded-full bg-indigo-500"
-                                initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" as const, stiffness: 400, damping: 15 }} />
+                <h3 className="flex items-center gap-2 text-lg font-bold text-white mb-4">
+                  <span className="w-1.5 h-5 rounded-full bg-gradient-to-b from-indigo-400 to-violet-500" />
+                  Pricing Plans
+                </h3>
+                <div className="grid gap-3" role="radiogroup" aria-label="Pricing plans">
+                  {activePlans.map((plan, index) => {
+                    const selected = selectedPlanIndex === index;
+                    return (
+                      <motion.div
+                        key={plan.id}
+                        onClick={() => setSelectedPlanIndex(index)}
+                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedPlanIndex(index); } }}
+                        whileHover={{ scale: 1.012, y: -2 }}
+                        whileTap={{ scale: 0.99 }}
+                        role="radio"
+                        aria-checked={selected}
+                        tabIndex={0}
+                        className={`relative flex items-center justify-between gap-4 p-5 rounded-2xl border cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                          selected
+                            ? 'border-indigo-400/60 bg-indigo-500/[0.08] shadow-[0_0_0_1px_rgba(129,140,248,0.35),0_0_40px_-8px_rgba(99,102,241,0.5)]'
+                            : 'border-white/10 bg-white/[0.03] hover:border-indigo-400/30 hover:bg-white/[0.05]'
+                        }`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2.5 mb-1">
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 shrink-0 ${
+                              selected ? 'border-indigo-400 bg-indigo-500/25' : 'border-white/15'
+                            }`}>
+                              {selected && (
+                                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" as const, stiffness: 400, damping: 16 }}>
+                                  <Check className="w-3.5 h-3.5 text-white" />
+                                </motion.div>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-sm text-white">{plan.name}</h4>
+                            {plan.is_trial_plan && (
+                              <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30">Trial</span>
                             )}
                           </div>
-                          <h4 className="font-bold text-sm text-[var(--text-primary)]">{plan.name}</h4>
-                          {plan.is_trial_plan && (
-                            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">Trial</span>
+                          {plan.description && <p className="text-xs text-slate-400 mb-2 ml-8">{plan.description}</p>}
+                          <div className="flex items-center gap-3 text-xs text-slate-400 ml-8">
+                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(plan.duration_days)}</span>
+                            <span className="flex items-center gap-1"><Monitor className="w-3 h-3" />{plan.max_devices} device{plan.max_devices !== 1 ? 's' : ''}</span>
+                          </div>
+                          {plan.features && plan.features.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2 ml-8">
+                              {plan.features.slice(0, 4).map((f, i) => (
+                                <span key={i} className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                  <Check className="w-2.5 h-2.5" />{f}
+                                </span>
+                              ))}
+                              {plan.features.length > 4 && (
+                                <span className="text-[10px] text-slate-500">+{plan.features.length - 4} more</span>
+                              )}
+                            </div>
                           )}
                         </div>
-                        {plan.description && <p className="text-xs text-[var(--text-secondary)] mb-2 ml-7">{plan.description}</p>}
-                        <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)] ml-7">
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(plan.duration_days)}</span>
-                          <span className="flex items-center gap-1"><Monitor className="w-3 h-3" />{plan.max_devices} device{plan.max_devices !== 1 ? 's' : ''}</span>
+                        <div className="text-right shrink-0">
+                          <div className="text-2xl font-extrabold text-white">{plan.price === 0 ? 'Free' : formatPrice(plan.price)}</div>
+                          {plan.price > 0 && plan.duration_days > 0 && (
+                            <div className="text-[11px] text-slate-500">per {formatDuration(plan.duration_days)}</div>
+                          )}
                         </div>
-                        {plan.features && plan.features.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2 ml-7">
-                            {plan.features.slice(0, 4).map((f, i) => (
-                              <span key={i} className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                                <Check className="w-2.5 h-2.5" />{f}
-                              </span>
-                            ))}
-                            {plan.features.length > 4 && (
-                              <span className="text-[10px] text-[var(--text-secondary)]">+{plan.features.length - 4} more</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right ml-4 shrink-0">
-                        <div className="text-2xl font-bold text-[var(--text-primary)]">{plan.price === 0 ? 'Free' : formatPrice(plan.price)}</div>
-                        {plan.price > 0 && plan.duration_days > 0 && (
-                          <div className="text-[11px] text-[var(--text-secondary)]">per {formatDuration(plan.duration_days)}</div>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </motion.div>
             )}
 
             {(product.docs_url || product.support_url || product.website) && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-                <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3">Resources</h3>
+                <h3 className="flex items-center gap-2 text-lg font-bold text-white mb-3">
+                  <span className="w-1.5 h-5 rounded-full bg-gradient-to-b from-indigo-400 to-violet-500" />
+                  Resources
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {product.docs_url && (
                     <a href={product.docs_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:text-indigo-400 hover:border-indigo-500/30 transition-all">
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-slate-300 hover:text-indigo-300 hover:border-indigo-500/30 hover:bg-white/[0.06] transition-all">
                       <BookOpen className="w-4 h-4" /> Documentation
                     </a>
                   )}
                   {product.support_url && (
                     <a href={product.support_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:text-indigo-400 hover:border-indigo-500/30 transition-all">
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-slate-300 hover:text-indigo-300 hover:border-indigo-500/30 hover:bg-white/[0.06] transition-all">
                       <LifeBuoy className="w-4 h-4" /> Support
                     </a>
                   )}
                   {product.website && (
                     <a href={product.website} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[var(--border-color)] text-sm text-[var(--text-secondary)] hover:text-indigo-400 hover:border-indigo-500/30 transition-all">
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-slate-300 hover:text-indigo-300 hover:border-indigo-500/30 hover:bg-white/[0.06] transition-all">
                       <ExternalLink className="w-4 h-4" /> Website
                     </a>
                   )}
@@ -694,13 +770,16 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
 
             {featuresList.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3">Features</h3>
+                <h3 className="flex items-center gap-2 text-lg font-bold text-white mb-3">
+                  <span className="w-1.5 h-5 rounded-full bg-gradient-to-b from-indigo-400 to-violet-500" />
+                  Features
+                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {featuresList.map((f, i) => (
-                    <motion.div key={i} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"
+                    <motion.div key={i} className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-slate-300"
                       initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.05 }}>
                       <div className="w-5 h-5 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
-                        <Check className="w-3 h-3 text-emerald-500" />
+                        <Check className="w-3 h-3 text-emerald-400" />
                       </div>
                       {f}
                     </motion.div>
@@ -710,49 +789,77 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
             )}
           </div>
 
-          <div className="lg:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-[var(--border-color)] bg-[var(--bg-secondary)]/20">
-            <div className="sticky top-8 p-6 space-y-5">
-              {cheapestPrice > 0 && (
+          {/* floating action panel */}
+          <div className="lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-white/10 bg-white/[0.02]">
+            <div className="sticky top-8 p-6 space-y-4">
+              {selectedPlan ? (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                  <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-1">Starting from</p>
-                  <p className="text-4xl font-bold text-[var(--text-primary)]">{formatPrice(cheapestPrice)}</p>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">{selectedPlan.name}</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-4xl font-extrabold text-white">{selectedPlan.price === 0 ? 'Free' : formatPrice(selectedPlan.price)}</p>
+                    {selectedPlan.price > 0 && selectedPlan.duration_days > 0 && (
+                      <span className="text-sm text-slate-400">/ {formatDuration(selectedPlan.duration_days)}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5">
+                    <Monitor className="w-3.5 h-3.5" /> {selectedPlan.max_devices} device{selectedPlan.max_devices !== 1 ? 's' : ''}
+                  </div>
                 </motion.div>
+              ) : cheapestPrice > 0 ? (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Starting from</p>
+                  <p className="text-4xl font-extrabold text-white">{formatPrice(cheapestPrice)}</p>
+                </motion.div>
+              ) : (
+                <p className="text-xs text-slate-500">Select a plan above to see pricing</p>
               )}
 
-              <div className="flex flex-col gap-2">
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                  onClick={() => { onBuyNow(product, selectedPlan); }}
-                  className="flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg shadow-emerald-600/25">
-                  <ArrowRight className="w-4 h-4" />
-                  Buy Now
-                </motion.button>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              <div className="flex flex-col gap-2.5 pt-2 border-t border-white/10">
+                <motion.button whileTap={{ scale: 0.98 }}
                   onClick={() => { onAddToCart(product, selectedPlan); }}
-                  className="flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-xl border-2 border-indigo-500/30 text-indigo-400 font-bold text-sm hover:bg-indigo-500/10 transition-all hover:border-indigo-500/50">
+                  className="flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold text-sm shadow-[0_12px_36px_-10px_rgba(99,102,241,0.7)] hover:brightness-110 active:brightness-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60">
                   <ShoppingCart className="w-4 h-4" />
                   Add to Cart
                 </motion.button>
+
+                <motion.button whileTap={{ scale: 0.98 }}
+                  onClick={() => { onProceedToCheckout(product, selectedPlan); }}
+                  className={`flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
+                    inCart
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-[0_12px_36px_-10px_rgba(52,211,153,0.6)] hover:brightness-110"
+                      : "border border-white/15 bg-white/[0.04] text-slate-200 hover:border-indigo-400/50 hover:bg-indigo-500/10 hover:text-white"
+                  }`}>
+                  <ArrowRight className="w-4 h-4" />
+                  Proceed to Checkout
+                </motion.button>
+                {inCart && (
+                  <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                    className="text-[11px] text-emerald-300 text-center">
+                    <Check className="w-3 h-3 inline mr-1" />Added to cart — ready to checkout
+                  </motion.p>
+                )}
+
                 {inWishlist ? (
-                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  <motion.button whileTap={{ scale: 0.98 }}
                     onClick={() => { onRemoveFromWishlist(product.id, selectedPlan?.id); }}
-                    className="flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-xl border-2 border-rose-400/40 text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition-all">
+                    className="flex items-center justify-center gap-2 w-full px-5 py-3 rounded-2xl border border-rose-400/30 text-rose-300 text-sm font-bold hover:bg-rose-500/10 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50">
                     <Heart className="w-4 h-4 fill-current" />
                     Remove from Wishlist
                   </motion.button>
                 ) : (
-                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  <motion.button whileTap={{ scale: 0.98 }}
                     onClick={() => { onAddToWishlist(product, selectedPlan); }}
-                    className="flex items-center justify-center gap-2 w-full px-5 py-3.5 rounded-xl border-2 border-indigo-500/30 text-indigo-400 font-bold text-sm hover:bg-indigo-500/10 transition-all hover:border-indigo-500/50">
+                    className="flex items-center justify-center gap-2 w-full px-5 py-3 rounded-2xl border border-white/10 bg-white/[0.03] text-slate-300 text-sm font-bold hover:border-rose-400/40 hover:text-rose-300 hover:bg-rose-500/5 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50">
                     <Heart className="w-4 h-4" />
                     Add to Wishlist
                   </motion.button>
                 )}
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                <motion.button whileTap={{ scale: 0.98 }}
                   onClick={() => onToggleCompare(product)}
-                  className={`flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl border-2 text-xs font-bold transition-all ${
+                  className={`flex items-center justify-center gap-2 w-full px-5 py-3 rounded-2xl border text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
                     inCompare
-                      ? "border-indigo-500/50 bg-indigo-500/15 text-indigo-300"
-                      : "border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:border-indigo-500/40"
+                      ? "border-indigo-400/50 bg-indigo-500/15 text-indigo-300 shadow-[0_0_24px_-8px_rgba(99,102,241,0.5)]"
+                      : "border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.07] hover:border-indigo-400/40 hover:text-indigo-300"
                   }`}>
                   <Scale className="w-3.5 h-3.5" />
                   {inCompare ? "Remove from Compare" : "Add to Compare"}
@@ -760,33 +867,22 @@ function ProductDetailModal({ product, plans, cart, wishlist, onClose, onAddToCa
               </div>
 
               {activePlans.length > 0 && (
-                <motion.div className="space-y-2 text-xs text-[var(--text-secondary)] pt-4 border-t border-[var(--border-color)]"
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
+                <div className="space-y-2 text-xs text-slate-400 pt-3 border-t border-white/10">
                   <div className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-400" />{activePlans.length} plan{activePlans.length !== 1 ? 's' : ''} available</div>
                   <div className="flex items-center gap-2"><Monitor className="w-3.5 h-3.5 text-emerald-400" />Up to {Math.max(...activePlans.map(p => p.max_devices))} devices</div>
                   {hasTrial && <div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-emerald-400" />Free trial available</div>}
-                </motion.div>
+                </div>
               )}
+
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-[11px] text-slate-400">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                Instant license delivery&nbsp;·&nbsp;Secure checkout
+              </div>
             </div>
           </div>
         </div>
       </motion.div>
     </motion.div>
-  );
-}
-
-function CompareButton({ active, onClick }: { active: boolean; onClick: (e: React.MouseEvent) => void }) {
-  return (
-    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-      onClick={onClick}
-      title={active ? "Remove from compare" : "Add to compare"}
-      className={`px-2.5 py-2 rounded-lg text-[10px] font-bold transition-all border ${
-        active
-          ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
-          : "bg-white/10 text-white/70 border-white/10 hover:bg-white/20"
-      }`}>
-      <Scale className="w-3.5 h-3.5" />
-    </motion.button>
   );
 }
 
@@ -806,55 +902,63 @@ function CompareModal({ products, onClose, onRemove }: {
   const hasFeature = (p: StoreProduct, f: string) => activePlans(p).some(pl => (pl.features || []).includes(f));
 
   const row = (label: string, value: (p: StoreProduct) => React.ReactNode) => (
-    <tr className="border-b border-[var(--border-color)]">
-      <td className="px-4 py-3 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap w-32 align-top">{label}</td>
+    <tr className="border-b border-white/10">
+      <td className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap w-32 align-top">{label}</td>
       {products.map(p => (
-        <td key={p.id} className="px-4 py-3 text-xs text-[var(--text-primary)] align-top min-w-[160px]">{value(p)}</td>
+        <td key={p.id} className="px-4 py-3 text-xs text-white align-top min-w-[160px]">{value(p)}</td>
       ))}
     </tr>
   );
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8" onClick={onClose}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-md" />
-      <motion.div className="relative w-full max-w-6xl bg-[var(--bg-primary)] rounded-3xl shadow-2xl shadow-black/30 overflow-hidden max-h-[85vh] flex flex-col"
+      <div className="fixed inset-0 bg-[#02040A]/80 backdrop-blur-md" />
+      <motion.div role="dialog" aria-modal="true" aria-label="Compare products"
+        className="relative w-full max-w-6xl bg-[var(--bg-secondary)]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 overflow-hidden max-h-[85vh] flex flex-col"
         onClick={e => e.stopPropagation()}
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ type: "spring" as const, stiffness: 300, damping: 28 }}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
-              <Scale className="w-4 h-4 text-indigo-400" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/25 to-violet-500/25 flex items-center justify-center border border-indigo-400/20">
+              <Scale className="w-4 h-4 text-indigo-300" />
             </div>
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Compare Products ({products.length})</h2>
+            <h2 className="text-lg font-bold text-white">Compare Products ({products.length})</h2>
           </div>
-          <motion.button onClick={onClose} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors">
-            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+          <motion.button onClick={onClose} aria-label="Close compare"
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
+            <X className="w-4 h-4 text-slate-400" />
           </motion.button>
         </div>
 
         <div className="flex-1 overflow-auto scrollbar-thin">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-b border-[var(--border-color)]">
-                <th className="px-4 py-4 text-left text-[10px] uppercase tracking-wider text-[var(--text-muted)] w-32" />
+              <tr className="border-b border-white/10">
+                <th className="px-4 py-4 text-left text-[10px] uppercase tracking-wider text-slate-500 w-32" />
                 {products.map(p => (
                   <th key={p.id} className="px-4 py-4 text-left min-w-[180px] align-top">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-lg shrink-0 border border-white/10">
-                          {p.logo_url ? <img src={p.logo_url} alt={p.name} className="w-7 h-7 rounded-lg object-contain" /> : p.name.charAt(0)}
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/25 to-violet-500/25 flex items-center justify-center text-lg shrink-0 border border-white/10">
+                          {p.logo_url ? <img src={p.logo_url} alt={p.name} className="w-7 h-7 rounded-lg object-contain" /> : <span className="font-bold text-white">{p.name.charAt(0)}</span>}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-bold text-sm text-[var(--text-primary)] truncate max-w-[130px]">{p.name}</p>
-                          {p.company_name && <p className="text-[11px] text-[var(--text-muted)] truncate max-w-[130px]">{p.company_name}</p>}
+                          <p className="font-bold text-sm text-white truncate max-w-[130px]">{p.name}</p>
+                          {p.company_name && <p className="text-[11px] text-slate-500 truncate max-w-[130px]">{p.company_name}</p>}
                         </div>
                       </div>
-                      <button onClick={() => onRemove(p.id)} className="p-1 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0" title="Remove">
+                      <button onClick={() => onRemove(p.id)} className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0" title="Remove">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -993,47 +1097,56 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
 
   const statusBadge = (status: string) => {
     const map: Record<string, { label: string; cls: string }> = {
-      pending: { label: 'Pending', cls: 'bg-amber-500/15 text-amber-500 border-amber-500/30' },
-      paid: { label: 'Paid', cls: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' },
-      completed: { label: 'Completed', cls: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' },
-      failed: { label: 'Failed', cls: 'bg-red-500/15 text-red-500 border-red-500/30' },
-      cancelled: { label: 'Cancelled', cls: 'bg-gray-500/15 text-gray-400 border-gray-500/30' },
+      pending: { label: 'Pending', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+      paid: { label: 'Paid', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+      completed: { label: 'Completed', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+      failed: { label: 'Failed', cls: 'bg-red-500/15 text-red-300 border-red-500/30' },
+      cancelled: { label: 'Cancelled', cls: 'bg-white/5 text-slate-400 border-white/10' },
     };
-    const s = map[status] || { label: status, cls: 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border-[var(--border-color)]' };
+    const s = map[status] || { label: status, cls: 'bg-white/5 text-slate-400 border-white/10' };
     return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${s.cls}`}>{s.label}</span>;
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
     <motion.div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-      <motion.div className="relative w-full max-w-2xl bg-[var(--bg-primary)] shadow-2xl shadow-black/50 overflow-y-auto border-l border-[var(--border-color)]"
+      <div className="fixed inset-0 bg-[#02040A]/70 backdrop-blur-sm" />
+      <motion.div role="dialog" aria-modal="true" aria-label="Purchase history"
+        className="relative w-full max-w-2xl bg-[var(--bg-secondary)]/95 backdrop-blur-2xl shadow-2xl shadow-black/50 overflow-y-auto border-l border-white/10"
         onClick={e => e.stopPropagation()}
         variants={slideInRight} initial="hidden" animate="show" exit="exit">
-        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b border-[var(--border-color)] bg-[var(--bg-primary)]/90 backdrop-blur-md">
+        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b border-white/10 bg-[var(--bg-secondary)]/90 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
-              <HistoryIcon className="w-4 h-4 text-emerald-400" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/25 to-teal-500/25 flex items-center justify-center border border-emerald-400/20">
+              <HistoryIcon className="w-4 h-4 text-emerald-300" />
             </div>
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Purchase History</h2>
+            <h2 className="text-lg font-bold text-white">Purchase History</h2>
           </div>
-          <motion.button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--bg-secondary)] transition-colors"
+          <motion.button onClick={onClose} aria-label="Close purchase history"
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
             whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <X className="w-4 h-4 text-[var(--text-secondary)]" />
+            <X className="w-4 h-4 text-slate-400" />
           </motion.button>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <p className="text-sm text-[var(--text-secondary)] mb-3">Enter the email you used at checkout to see your orders, payments and license keys.</p>
+            <p className="text-sm text-slate-400 mb-3">Enter the email you used at checkout to see your orders, payments and license keys.</p>
             <div className="flex gap-2">
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && lookup()}
                 placeholder="you@example.com"
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/50 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all" />
+                aria-label="Email used at checkout"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all" />
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={lookup} disabled={loading}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50">
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold text-sm shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all disabled:opacity-50">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />} Lookup
               </motion.button>
             </div>
@@ -1045,16 +1158,16 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
               {orders.map(order => {
                 const paid = order.status === "paid" || order.status === "completed" || order.paid_at;
                 return (
-                  <motion.div key={order.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 overflow-hidden hover:border-indigo-500/30 transition-all">
-                    <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+                  <motion.div key={order.id} className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden hover:border-indigo-400/30 transition-all">
+                    <div className="flex items-center justify-between p-4 border-b border-white/10">
                       <div>
-                        <p className="font-bold text-sm text-[var(--text-primary)]">#{order.order_number}</p>
-                        <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{formatDate(order.created_at)} · {order.payment_gateway || 'checkout'}</p>
+                        <p className="font-bold text-sm text-white">#{order.order_number}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{formatDate(order.created_at)} · {order.payment_gateway || 'checkout'}</p>
                       </div>
                       <div className="text-right flex items-center gap-2">
                         {statusBadge(order.status)}
-                        <p className="font-bold text-[var(--text-primary)]">
-                          {formatPrice(order.total)} <span className="text-[10px] text-[var(--text-muted)] font-normal">{order.currency}</span>
+                        <p className="font-bold text-white">
+                          {formatPrice(order.total)} <span className="text-[10px] text-slate-500 font-normal">{order.currency}</span>
                         </p>
                       </div>
                     </div>
@@ -1063,9 +1176,9 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                         <div className="space-y-1.5">
                           {order.items.map((item: any) => (
                             <div key={item.id} className="flex items-center gap-2 text-xs">
-                              <ShoppingBag className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
-                              <span className="text-[var(--text-primary)] truncate flex-1">{item.plan_name || item.product_id} × {item.quantity}</span>
-                              <span className="text-[var(--text-secondary)]">{formatPrice(Number(item.total_price) || 0)}</span>
+                              <ShoppingBag className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span className="text-white truncate flex-1">{item.plan_name || item.product_id} × {item.quantity}</span>
+                              <span className="text-slate-400">{formatPrice(Number(item.total_price) || 0)}</span>
                             </div>
                           ))}
                         </div>
@@ -1074,10 +1187,10 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                         <div className="space-y-1.5">
                           {order.payments.map((p: any) => (
                             <div key={p.id} className="flex items-center gap-2 text-[11px]">
-                              <CreditCard className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
-                              <span className="text-[var(--text-secondary)]">Payment {p.payment_number} · {p.gateway}</span>
+                              <CreditCard className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span className="text-slate-400">Payment {p.payment_number} · {p.gateway}</span>
                               <span className={`ml-auto ${p.status === 'paid' || p.status === 'completed' ? 'text-emerald-400' : 'text-amber-400'}`}>{p.status}</span>
-                              {p.paid_at && <span className="text-[var(--text-muted)]">{formatDate(p.paid_at)}</span>}
+                              {p.paid_at && <span className="text-slate-500">{formatDate(p.paid_at)}</span>}
                             </div>
                           ))}
                         </div>
@@ -1085,17 +1198,17 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                       {order.licenses.length > 0 && (
                         <div className="space-y-1.5">
                           {order.licenses.map((l: any) => (
-                            <div key={l.license_key} className="flex items-center gap-2 text-[11px] rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1.5">
+                            <div key={l.license_key} className="flex items-center gap-2 text-[11px] rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-2.5 py-1.5">
                               <BadgeCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-                              <code className="text-emerald-400 font-mono truncate flex-1">{l.license_key}</code>
-                              <span className="text-[var(--text-muted)]">{l.plan_name || ''}{l.status ? ` · ${l.status}` : ''}</span>
-                              {l.expiry_date && <span className="text-[var(--text-muted)]">until {formatDate(l.expiry_date)}</span>}
+                              <code className="text-emerald-300 font-mono truncate flex-1">{l.license_key}</code>
+                              <span className="text-slate-500">{l.plan_name || ''}{l.status ? ` · ${l.status}` : ''}</span>
+                              {l.expiry_date && <span className="text-slate-500">until {formatDate(l.expiry_date)}</span>}
                             </div>
                           ))}
                         </div>
                       )}
                       {!paid && order.payments.length === 0 && order.licenses.length === 0 && (
-                        <p className="text-[11px] text-[var(--text-muted)]">No payment captured for this order.</p>
+                        <p className="text-[11px] text-slate-500">No payment captured for this order.</p>
                       )}
                     </div>
                   </motion.div>
@@ -1106,11 +1219,11 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
 
           {orders && orders.length === 0 && lookedUp && (
             <div className="flex flex-col items-center justify-center py-14 text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-4 border border-[var(--border-color)]">
-                <Receipt className="w-7 h-7 text-[var(--border-color)]" />
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500/10 to-violet-500/10 flex items-center justify-center mb-4 border border-white/10">
+                <Receipt className="w-7 h-7 text-slate-600" />
               </div>
-              <p className="text-[var(--text-secondary)] font-semibold">No purchases found</p>
-              <p className="text-sm text-[var(--text-muted)] mt-1">We couldn't find any orders for this email address.</p>
+              <p className="text-slate-300 font-semibold">No purchases found</p>
+              <p className="text-sm text-slate-500 mt-1">We couldn't find any orders for this email address.</p>
             </div>
           )}
         </div>
@@ -1123,9 +1236,158 @@ function StarRating() {
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map(i => (
-        <Star key={i} className="w-3.5 h-3.5 text-[var(--border-color)]" />
+        <Star key={i} className="w-3.5 h-3.5 text-white/15" />
       ))}
     </div>
+  );
+}
+
+function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOpen, onAddToCart }: {
+  product: StoreProduct;
+  cheapestPrice: number | null;
+  planCount: number;
+  hasTrial: boolean;
+  inCart: boolean;
+  onOpen: () => void;
+  onAddToCart: () => void;
+}) {
+  return (
+    <motion.div
+      variants={itemVariants}
+      whileHover={{ scale: 1.02, y: -8 }}
+      transition={{ type: "spring" as const, stiffness: 260, damping: 22 }}
+      onClick={onOpen}
+      className="group relative h-full flex flex-col rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden cursor-pointer
+        shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_50px_-20px_rgba(0,0,0,0.7)]
+        hover:border-indigo-400/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(129,140,248,0.18),0_30px_80px_-20px_rgba(99,102,241,0.45)]
+        focus-within:ring-2 focus-within:ring-indigo-400/50 transition-all duration-300"
+      role="button" tabIndex={0}
+      aria-label={`View details of ${product.name}`}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}>
+      {/* hover glow orb */}
+      <div className="pointer-events-none absolute -top-20 -right-16 w-56 h-56 rounded-full bg-indigo-500/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      {/* icon header */}
+      <div className="relative h-40 shrink-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.28),rgba(139,92,246,0.12)_45%,transparent_75%)]" />
+        <div className="absolute inset-0 opacity-35"
+          style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0B1220] via-transparent to-transparent" />
+
+        {/* status badges */}
+        <div className="absolute top-3.5 right-3.5 z-10 flex items-center gap-1.5">
+          {product.featured && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/15 text-amber-300 text-[10px] font-bold border border-amber-400/25 backdrop-blur-sm">
+              <Star className="w-3 h-3 fill-current" /> Featured
+            </span>
+          )}
+          {hasTrial && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-400/15 text-emerald-300 text-[10px] font-bold border border-emerald-400/25 backdrop-blur-sm">
+              <Sparkles className="w-3 h-3" /> Trial
+            </span>
+          )}
+        </div>
+
+        {/* floating icon */}
+        <div className="absolute bottom-4 left-5 right-5 flex items-end gap-4">
+          <motion.div
+            className="relative w-16 h-16 rounded-2xl bg-[#0B1220]/85 backdrop-blur-md flex items-center justify-center border border-white/10 shadow-[0_8px_30px_-6px_rgba(99,102,241,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] shrink-0"
+            animate={{ y: [0, -5, 0] }}
+            transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}>
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/25 to-cyan-400/20 opacity-80" />
+            <span className="relative text-2xl font-bold text-white">
+              {product.logo_url ? (
+                <img src={product.logo_url} alt={product.name} className="w-10 h-10 rounded-xl object-contain" />
+              ) : (
+                product.name.charAt(0).toUpperCase()
+              )}
+            </span>
+          </motion.div>
+          <div className="min-w-0 flex-1 pb-0.5">
+            <h3 className="font-bold text-base text-white truncate group-hover:text-indigo-200 transition-colors duration-300">{product.name}</h3>
+            <div className="flex items-center gap-2 mt-0.5">
+              {product.company_name && <p className="text-[11px] text-slate-400 truncate">{product.company_name}</p>}
+              {product.version && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/10 text-slate-300 font-medium border border-white/10 shrink-0">v{product.version}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* body */}
+      <div className="flex flex-1 flex-col p-5 pt-4 space-y-3">
+        <p className="text-xs leading-relaxed text-slate-400 line-clamp-2">
+          {product.short_description || product.description || 'No description available.'}
+        </p>
+
+        {/* chips */}
+        <div className="flex flex-wrap gap-1.5">
+          {product.product_type && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              <Tag className="w-2.5 h-2.5" />{product.product_type}
+            </span>
+          )}
+          {product.platform && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+              <Monitor className="w-2.5 h-2.5" />{product.platform}
+            </span>
+          )}
+          {(product.tags || []).slice(0, 2).map(t => (
+            <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-slate-400 border border-white/10">{t}</span>
+          ))}
+        </div>
+
+        {/* rating + updated */}
+        <div className="flex items-center justify-between">
+          <StarRating />
+          <span className="text-[10px] text-slate-500">
+            <Clock className="w-2.5 h-2.5 inline mr-0.5" />
+            {formatDate((product as any).updated_at) || formatDate((product as any).created_at) || "Recently"}
+          </span>
+        </div>
+
+        {/* pricing */}
+        {planCount > 0 && cheapestPrice !== null && (
+          <div className="flex items-center justify-between pt-3 border-t border-white/10">
+            <span className="flex items-center gap-1 text-xs text-slate-400">
+              <Layers className="w-3 h-3" /> {planCount} plan{planCount !== 1 ? 's' : ''}
+            </span>
+            <span className="text-lg font-extrabold text-white">
+              {cheapestPrice === 0 ? 'Free' : `${formatPrice(cheapestPrice)}+`}
+            </span>
+          </div>
+        )}
+
+        {/* actions */}
+        <div className="mt-auto pt-2 space-y-2">
+          {hasTrial && (
+            <button onClick={(e) => { e.stopPropagation(); onOpen(); }}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.07] text-emerald-300 text-xs font-semibold hover:bg-emerald-500/15 hover:border-emerald-400/40 hover:shadow-[0_0_28px_-8px_rgba(52,211,153,0.5)] active:scale-[0.98] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50">
+              <Sparkles className="w-3 h-3" /> Free Trial
+            </button>
+          )}
+          <div className="flex gap-2">
+            <motion.button whileTap={{ scale: 0.97 }}
+              onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
+              aria-label={`Add ${product.name} to cart`}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                inCart
+                  ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/25 hover:shadow-[0_0_24px_-6px_rgba(52,211,153,0.5)]"
+                  : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_8px_28px_-8px_rgba(99,102,241,0.6)] hover:brightness-110 hover:shadow-[0_10px_36px_-8px_rgba(99,102,241,0.8)]"
+              }`}>
+              {inCart ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+              {inCart ? "In Cart" : "Add to Cart"}
+            </motion.button>
+            <button onClick={(e) => { e.stopPropagation(); onOpen(); }}
+              className="group/btn flex-1 flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-slate-200 text-xs font-semibold hover:border-indigo-400/40 hover:bg-white/[0.08] hover:text-white active:scale-[0.97] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50">
+              View Details
+              <ChevronRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -1235,14 +1497,6 @@ export default function SoftwareStorePage() {
     setSelectedProduct(product);
   };
 
-  const handleBuyNow = useCallback((product: StoreProduct, plan?: StoreProductPlan) => {
-    // Buy Now replaces the cart with the selected product+plan and
-    // proceeds straight to the universal checkout.
-    cart.clearCart();
-    cart.addItem(product, plan);
-    router.push("/software-store/checkout");
-  }, [cart, router]);
-
   const handleCheckout = useCallback(() => {
     // Cart is already persisted to localStorage by the cart hook.
     if (cart.items.length === 0) {
@@ -1251,6 +1505,15 @@ export default function SoftwareStorePage() {
     }
     router.push("/software-store/checkout");
   }, [cart.items.length, router, showToast]);
+
+  // Proceed to Checkout never bypasses the cart: the selected product is
+  // added first if it isn't there yet, then the universal checkout opens.
+  const handleProceedToCheckout = useCallback((product: StoreProduct, plan?: StoreProductPlan) => {
+    if (!cart.items.some(i => i.product.id === product.id)) {
+      cart.addItem(product, plan);
+    }
+    router.push("/software-store/checkout");
+  }, [cart, router]);
 
   const handleAddToCart = useCallback((product: StoreProduct, plan?: StoreProductPlan) => {
     cart.addItem(product, plan);
@@ -1279,20 +1542,18 @@ export default function SoftwareStorePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
+    <div className="min-h-screen bg-[var(--bg-primary)]" style={STORE_DARK_STYLE}>
       <AnimatePresence>
         {toast && (
           <motion.div className="fixed top-4 right-4 z-[100]"
             initial={{ opacity: 0, y: -20, x: 20 }} animate={{ opacity: 1, y: 0, x: 0 }}
             exit={{ opacity: 0, y: -20, x: 20 }} transition={{ type: "spring" as const, stiffness: 400, damping: 25 }}>
-            <div className={`flex items-center gap-2.5 px-5 py-3 rounded-xl shadow-lg backdrop-blur-md border ${
+            <div className={`flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-2xl border ${
               toast.type === "success"
-                ? "bg-emerald-500/90 border-emerald-400/30 text-white"
-                : "bg-red-500/90 border-red-400/30 text-white"
+                ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-200 shadow-emerald-500/10"
+                : "bg-red-500/15 border-red-400/30 text-red-200 shadow-red-500/10"
             }`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                toast.type === "success" ? "bg-white/20" : "bg-white/20"
-              }`}>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/10">
                 {toast.type === "success" ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
               </div>
               <span className="text-sm font-medium">{toast.message}</span>
@@ -1302,47 +1563,60 @@ export default function SoftwareStorePage() {
       </AnimatePresence>
 
       {/* Sticky Nav */}
-      <div className="sticky top-0 z-40 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-color)]">
+      <div className="sticky top-0 z-40 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <Package className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-sm font-bold text-[var(--text-primary)] hidden sm:block">Software Store</span>
+            <motion.div
+              className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-indigo-500 flex items-center justify-center shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)]"
+              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }}>
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-indigo-500/40 to-cyan-400/30 opacity-70" />
+              <Package className="w-4 h-4 text-white relative" />
+            </motion.div>
+            <span className="text-sm font-bold text-white hidden sm:block tracking-tight">Software Store</span>
           </div>
 
           <div className="flex-1 max-w-md relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input value={query} onChange={e => setQuery(e.target.value)}
               placeholder="Search software..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/50 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all backdrop-blur-sm" />
+              aria-label="Search software"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all backdrop-blur-sm" />
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <motion.button onClick={() => setShowHistory(true)}
-              className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] transition-all"
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] text-emerald-300 hover:bg-white/[0.07] hover:border-emerald-400/40 transition-all"
+              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+              aria-label="Purchase History"
               title="Purchase History">
-              <HistoryIcon className="w-4 h-4 text-emerald-400" />
+              <HistoryIcon className="w-4 h-4" />
             </motion.button>
             <motion.button onClick={() => setShowWishlist(true)}
-              className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-[var(--border-color)] hover:bg-[var(--bg-secondary)] transition-all"
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Heart className="w-4 h-4 text-rose-400" />
+              className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] text-rose-300 hover:bg-white/[0.07] hover:border-rose-400/40 transition-all"
+              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+              aria-label={`Wishlist (${wishlist.items.length} items)`}>
+              <Heart className="w-4 h-4" />
               {wishlist.items.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                <motion.span key={`wish-${wishlist.items.length}`}
+                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  transition={{ type: "spring" as const, stiffness: 500, damping: 16 }}
+                  className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-[0_0_12px_rgba(244,63,94,0.6)]">
                   {wishlist.items.length}
-                </span>
+                </motion.span>
               )}
             </motion.button>
             <motion.button onClick={() => setShowCart(true)}
-              className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-600/20 hover:from-indigo-400 hover:to-purple-500 transition-all"
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all"
+              whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+              aria-label={`Cart (${cart.totalItems} items)`}>
               <ShoppingCart className="w-4 h-4" />
               {cart.totalItems > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-amber-400 text-amber-900 text-[9px] font-bold flex items-center justify-center leading-none">
+                <motion.span key={`cart-${cart.totalItems}`}
+                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  transition={{ type: "spring" as const, stiffness: 500, damping: 16 }}
+                  className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-amber-950 text-[9px] font-bold flex items-center justify-center leading-none shadow-[0_0_12px_rgba(251,191,36,0.7)]">
                   {cart.totalItems}
-                </span>
+                </motion.span>
               )}
             </motion.button>
           </div>
@@ -1350,42 +1624,60 @@ export default function SoftwareStorePage() {
       </div>
 
       {/* Hero */}
-      <div className="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 overflow-hidden">
-        <div className="absolute inset-0 opacity-20"
-          style={{ backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.2) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.15) 0%, transparent 40%)' }} />
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-20%,rgba(99,102,241,0.35),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(34,211,238,0.12),transparent_50%),radial-gradient(ellipse_at_5%_45%,rgba(139,92,246,0.16),transparent_55%)]" />
+        <div className="absolute inset-0 opacity-30"
+          style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
+        <motion.div className="absolute -top-24 left-[22%] w-72 h-72 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none"
+          animate={{ y: [0, 22, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} />
+        <motion.div className="absolute top-6 right-[20%] w-56 h-56 rounded-full bg-violet-600/15 blur-3xl pointer-events-none"
+          animate={{ y: [0, -18, 0] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} />
         <div className="relative max-w-7xl mx-auto px-6 py-16 md:py-20 text-center">
-          <motion.h1 className="text-4xl md:text-6xl font-extrabold text-white mb-4 drop-shadow-lg"
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring" as const, stiffness: 260, damping: 24 }}>
-            Software Store
+          <motion.span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-indigo-400/25 bg-indigo-500/10 text-indigo-300 text-xs font-semibold backdrop-blur-sm"
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring" as const, stiffness: 260, damping: 22 }}>
+            <Sparkles className="w-3.5 h-3.5" /> Premium Software Marketplace
+          </motion.span>
+          <motion.h1 className="text-4xl md:text-6xl font-extrabold text-white mt-4 tracking-tight"
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring" as const, stiffness: 260, damping: 24, delay: 0.05 }}>
+            Software <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-300 bg-clip-text text-transparent">Store</span>
           </motion.h1>
-          <motion.p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1, duration: 0.4 }}>
+          <motion.p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mt-3"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12, duration: 0.4 }}>
             Discover production-ready software solutions for your business
           </motion.p>
-          <motion.div className="mt-6 max-w-md mx-auto relative"
+          <motion.div className="mt-7 max-w-md mx-auto relative"
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
             <input value={query} onChange={e => setQuery(e.target.value)}
               placeholder="Search software..."
-              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 text-white placeholder-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-white/30 transition-all" />
+              aria-label="Search software"
+              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/10 text-white placeholder-slate-500 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all" />
           </motion.div>
+          {!loading && products.length > 0 && (
+            <motion.p className="text-xs text-slate-500 mt-4"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+              {products.length} products available · instant license delivery · secure checkout
+            </motion.p>
+          )}
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="sticky top-[57px] z-30 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border-color)]">
+      <div className="sticky top-[57px] z-30 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)] mr-2">
-              <Filter className="w-4 h-4" />
-              <span className="font-medium">{filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}</span>
-            </div>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 bg-white/[0.04] border border-white/10 rounded-full px-3 py-1.5 backdrop-blur-sm">
+              <Filter className="w-3.5 h-3.5 text-indigo-300" />
+              {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
+            </span>
 
             <div className="flex-1" />
 
             {categories.length > 0 && (
               <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/50 text-sm text-[var(--text-primary)] outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all">
+                aria-label="Filter by category"
+                className="px-3 py-2 rounded-xl border border-white/10 bg-[#0B1220]/90 text-sm text-slate-200 outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all">
                 <option value="">All Categories</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -1393,30 +1685,34 @@ export default function SoftwareStorePage() {
 
             {platforms.length > 0 && (
               <select value={platformFilter} onChange={e => setPlatformFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/50 text-sm text-[var(--text-primary)] outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all">
+                aria-label="Filter by platform"
+                className="px-3 py-2 rounded-xl border border-white/10 bg-[#0B1220]/90 text-sm text-slate-200 outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all">
                 <option value="">All Platforms</option>
                 {platforms.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             )}
 
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/50 text-sm text-[var(--text-primary)] outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all">
+              aria-label="Sort products"
+              className="px-3 py-2 rounded-xl border border-white/10 bg-[#0B1220]/90 text-sm text-slate-200 outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all">
               <option value="newest">Sort: Newest</option>
               <option value="price-asc">Price: Low to High</option>
               <option value="price-desc">Price: High to Low</option>
               <option value="name">Name: A-Z</option>
             </select>
 
-            <div className="flex items-center border border-[var(--border-color)] rounded-xl overflow-hidden">
+            <div className="flex items-center border border-white/10 rounded-xl overflow-hidden bg-white/[0.03]">
               <motion.button onClick={() => setViewMode("grid")}
                 whileTap={{ scale: 0.9 }}
-                className={`p-2 transition-all ${viewMode === "grid" ? "bg-indigo-500/15 text-indigo-400" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}>
+                aria-label="Grid view"
+                className={`p-2 transition-all ${viewMode === "grid" ? "bg-indigo-500/25 text-indigo-300" : "text-slate-400 hover:text-white"}`}>
                 <LayoutGrid className="w-4 h-4" />
               </motion.button>
-              <div className="w-px h-4 bg-[var(--border-color)]" />
+              <div className="w-px h-4 bg-white/10" />
               <motion.button onClick={() => setViewMode("list")}
                 whileTap={{ scale: 0.9 }}
-                className={`p-2 transition-all ${viewMode === "list" ? "bg-indigo-500/15 text-indigo-400" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}>
+                aria-label="List view"
+                className={`p-2 transition-all ${viewMode === "list" ? "bg-indigo-500/25 text-indigo-300" : "text-slate-400 hover:text-white"}`}>
                 <List className="w-4 h-4" />
               </motion.button>
             </div>
@@ -1461,136 +1757,28 @@ export default function SoftwareStorePage() {
             </motion.button>
           </motion.div>
         ) : viewMode === "grid" ? (
-          <motion.div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+          <motion.div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch"
             variants={containerVariants} initial="hidden" animate="show">
             {filteredProducts.map(product => {
               const hasTrial = product.has_trial || product.plans?.some(p => p.is_trial_plan);
               const cheapestPrice = product.plans && product.plans.length > 0
                 ? Math.min(...product.plans.filter(p => p.is_active).map(p => p.price)) : null;
               const planCount = product.plans?.filter(p => p.is_active).length || 0;
-              const inWishlist = wishlist.isInWishlist(product.id);
+              const inCart = cart.items.some(i => i.product.id === product.id);
               return (
-                <motion.div key={product.id} variants={itemVariants}
-                  whileHover={{ scale: 1.015, y: -6 }}
-                  className="group relative rounded-3xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 backdrop-blur-sm overflow-hidden cursor-pointer hover:border-indigo-500/40 hover:shadow-[0_24px_70px_-18px_rgba(99,102,241,0.35)] focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:ring-indigo-500/50 transition-all duration-300">
-                  {product.featured && (
-                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/30 backdrop-blur-sm">
-                      <Star className="w-3 h-3 fill-current" /> Featured
-                    </div>
-                  )}
-
-                  <div onClick={() => openDetail(product)}>
-                    <div className="relative h-36 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 overflow-hidden transform-gpu transition-transform duration-700 group-hover:scale-105">
-                      <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-secondary)]/80 to-transparent" />
-                      <div className="absolute bottom-4 left-5 right-5 flex items-end gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg border border-white/20 shrink-0">
-                          {product.logo_url ? (
-                            <img src={product.logo_url} alt={product.name} className="w-10 h-10 rounded-xl object-contain" />
-                          ) : (
-                            <span className="text-white/80 font-bold">{product.name.charAt(0).toUpperCase()}</span>
-                          )}
-                        </div>
-                        <div className="text-white min-w-0 flex-1">
-                          <h3 className="font-bold text-base drop-shadow-sm truncate">{product.name}</h3>
-                          <div className="flex items-center gap-2">
-                            {product.company_name && <p className="text-[11px] text-white/70 truncate">{product.company_name}</p>}
-                            {product.version && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 text-white/70 font-medium shrink-0">v{product.version}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-5 space-y-3">
-                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2">
-                        {product.short_description || product.description || 'No description available.'}
-                      </p>
-
-                      {/* Tags */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {product.product_type && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                            <Tag className="w-2.5 h-2.5" />{product.product_type}
-                          </span>
-                        )}
-                        {product.platform && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                            <Monitor className="w-2.5 h-2.5" />{product.platform}
-                          </span>
-                        )}
-                        {hasTrial && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">Free Trial</span>
-                        )}
-                        {product.featured && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-500 border border-amber-500/30">Featured</span>
-                        )}
-                      </div>
-
-                      {/* Rating placeholder + Last updated */}
-                      <div className="flex items-center justify-between">
-                        <StarRating />
-                        <span className="text-[10px] text-[var(--text-secondary)]">
-                          <Clock className="w-2.5 h-2.5 inline mr-0.5" />
-                          {formatDate((product as any).updated_at) || formatDate((product as any).created_at) || "Recently"}
-                        </span>
-                      </div>
-
-                      {/* Pricing */}
-                      {planCount > 0 && cheapestPrice !== null && (
-                        <div className="flex items-center justify-between pt-3 border-t border-[var(--border-color)]">
-                          <div className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
-                            <Layers className="w-3 h-3" />
-                            {planCount} plan{planCount !== 1 ? 's' : ''}
-                          </div>
-                          <div className="text-lg font-bold text-[var(--text-primary)]">
-                            {cheapestPrice === 0 ? 'Free' : `${formatPrice(cheapestPrice)}+`}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* View Details button */}
-                      <motion.div className="w-full"
-                        initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}>
-                        <button className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-bold hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/20 opacity-100 md:opacity-0 md:group-hover:opacity-100 translate-y-0 md:translate-y-2 md:group-hover:translate-y-0 transition-all duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
-                          View Details <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </motion.div>
-                    </div>
-                  </div>
-
-                  {/* Quick Actions overlay */}
-                  <div className="absolute bottom-14 left-5 right-5 hidden md:flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                      onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleBuyNow(product, firstPlan); }}
-                      className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-500 transition-all text-center shadow-lg">
-                      Buy Now
-                    </motion.button>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                      onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleAddToCart(product, firstPlan); }}
-                      className="flex-1 px-3 py-2 rounded-lg bg-indigo-600/90 text-white text-[10px] font-bold hover:bg-indigo-500 transition-all text-center backdrop-blur-sm shadow-lg">
-                      <ShoppingCart className="w-3 h-3 inline mr-0.5" /> Add to Cart
-                    </motion.button>
-                    <CompareButton active={compare.isInCompare(product.id)}
-                      onClick={(e) => { e.stopPropagation(); handleToggleCompare(product); }} />
-                    {inWishlist ? (
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={(e) => { e.stopPropagation(); wishlist.removeItem(product.id); showToast(`${product.name} removed from wishlist`); }}
-                        className="px-3 py-2 rounded-lg bg-rose-500/20 text-rose-400 text-[10px] font-bold hover:bg-rose-500/30 transition-all shadow-lg">
-                        <Heart className="w-3 h-3 fill-current" />
-                      </motion.button>
-                    ) : (
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleAddToWishlist(product, firstPlan); }}
-                        className="px-3 py-2 rounded-lg bg-white/10 text-white/70 text-[10px] font-bold hover:bg-white/20 transition-all shadow-lg">
-                        <Heart className="w-3 h-3" />
-                      </motion.button>
-                    )}
-                  </div>
-
-                  <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 1px rgba(99,102,241,0.15)' }} />
-                </motion.div>
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  cheapestPrice={cheapestPrice}
+                  planCount={planCount}
+                  hasTrial={hasTrial}
+                  inCart={inCart}
+                  onOpen={() => openDetail(product)}
+                  onAddToCart={() => {
+                    const firstPlan = product.plans?.find(p => p.is_active);
+                    handleAddToCart(product, firstPlan);
+                  }}
+                />
               );
             })}
           </motion.div>
@@ -1602,96 +1790,90 @@ export default function SoftwareStorePage() {
               const hasTrial = product.has_trial || product.plans?.some(p => p.is_trial_plan);
               const cheapestPrice = product.plans && product.plans.length > 0
                 ? Math.min(...product.plans.filter(p => p.is_active).map(p => p.price)) : null;
-              const inWishlist = wishlist.isInWishlist(product.id);
+              const planCount = product.plans?.filter(p => p.is_active).length || 0;
+              const inCart = cart.items.some(i => i.product.id === product.id);
               return (
                 <motion.div key={product.id}
                   variants={staggerItem(idx)}
-                  whileHover={{ scale: 1.01, x: 2 }}
-                  className="group relative flex items-center gap-5 p-5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm cursor-pointer hover:border-indigo-500/30 hover:shadow-[0_4px_24px_-4px_rgba(99,102,241,0.1)] transition-all duration-300"
-                  onClick={() => openDetail(product)}>
+                  whileHover={{ x: 4 }}
+                  onClick={() => openDetail(product)}
+                  role="button" tabIndex={0}
+                  aria-label={`View details of ${product.name}`}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(product); } }}
+                  className="group relative flex items-center gap-5 p-5 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl cursor-pointer hover:border-indigo-400/30 hover:shadow-[0_0_0_1px_rgba(129,140,248,0.15),0_16px_50px_-16px_rgba(99,102,241,0.35)] transition-all duration-300">
                   {product.featured && (
-                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/30 backdrop-blur-sm">
+                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 text-[10px] font-bold border border-amber-400/25 backdrop-blur-sm">
                       <Star className="w-2.5 h-2.5 fill-current" /> Featured
                     </div>
                   )}
 
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center text-2xl shadow-lg border border-white/10 shrink-0">
-                    {product.logo_url ? (
-                      <img src={product.logo_url} alt={product.name} className="w-11 h-11 rounded-xl object-contain" />
-                    ) : (
-                      <span className="text-[var(--text-primary)] font-bold">{product.name.charAt(0).toUpperCase()}</span>
-                    )}
+                  <div className="relative w-16 h-16 rounded-2xl bg-[#0B1220]/85 backdrop-blur-md flex items-center justify-center text-2xl border border-white/10 shadow-[0_8px_24px_-6px_rgba(99,102,241,0.4)] shrink-0">
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/25 to-cyan-400/15" />
+                    <span className="relative font-bold text-white">
+                      {product.logo_url ? (
+                        <img src={product.logo_url} alt={product.name} className="w-11 h-11 rounded-xl object-contain" />
+                      ) : (
+                        product.name.charAt(0).toUpperCase()
+                      )}
+                    </span>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 mb-1">
-                      <h3 className="font-bold text-base text-[var(--text-primary)] truncate">{product.name}</h3>
+                      <h3 className="font-bold text-base text-white truncate">{product.name}</h3>
                       {product.version && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)] font-medium shrink-0">v{product.version}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300 font-medium border border-white/10 shrink-0">v{product.version}</span>
                       )}
                       {hasTrial && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 font-medium shrink-0">Free Trial</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/25 font-medium shrink-0">Free Trial</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
+                    <div className="flex items-center gap-3 text-xs text-slate-400">
                       {product.company_name && <span>{product.company_name}</span>}
                       {product.platform && <span className="flex items-center gap-1"><Monitor className="w-3 h-3" />{product.platform}</span>}
                       {product.product_type && <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{product.product_type}</span>}
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1.5 line-clamp-1">
+                    <p className="text-xs text-slate-500 mt-1.5 line-clamp-1">
                       {product.short_description || product.description || 'No description available.'}
                     </p>
                     <div className="flex items-center gap-3 mt-2">
                       <StarRating />
-                      <span className="text-[10px] text-[var(--text-secondary)]">
+                      <span className="text-[10px] text-slate-500">
                         <Clock className="w-2.5 h-2.5 inline mr-0.5" />
                         {formatDate((product as any).updated_at) || formatDate((product as any).created_at) || "Recently"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                    {cheapestPrice !== null && (
-                      <div className="text-2xl font-bold text-[var(--text-primary)]">
-                        {cheapestPrice === 0 ? 'Free' : `${formatPrice(cheapestPrice)}`}
-                      </div>
-                    )}
-                    {product.plans && product.plans.length > 0 && (
-                      <div className="text-[10px] text-[var(--text-secondary)]">{product.plans.filter(p => p.is_active).length} plan{product.plans.filter(p => p.is_active).length !== 1 ? 's' : ''}</div>
-                    )}
-                    <div className="flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleBuyNow(product, firstPlan); }}
-                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg">
-                        Buy Now
-                      </motion.button>
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleAddToCart(product, firstPlan); }}
-                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg">
-                        <ShoppingCart className="w-3 h-3 inline mr-1" /> Add to Cart
-                      </motion.button>
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={(e) => { e.stopPropagation(); handleToggleCompare(product); }}
-                        className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
-                          compare.isInCompare(product.id)
-                            ? "border-indigo-500/40 bg-indigo-500/15 text-indigo-400"
-                            : "border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
-                        }`}>
-                        <Scale className="w-3.5 h-3.5" />
-                      </motion.button>
-                      {inWishlist ? (
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                          onClick={(e) => { e.stopPropagation(); wishlist.removeItem(product.id); showToast(`${product.name} removed from wishlist`); }}
-                          className="px-3 py-2 rounded-xl border border-rose-400/30 text-rose-400 text-xs font-bold hover:bg-rose-500/10 transition-all">
-                          <Heart className="w-3.5 h-3.5 fill-current" />
-                        </motion.button>
-                      ) : (
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                          onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleAddToWishlist(product, firstPlan); }}
-                          className="px-3 py-2 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)] text-xs font-bold hover:bg-[var(--bg-secondary)] transition-all">
-                          <Heart className="w-3.5 h-3.5" />
-                        </motion.button>
+                  <div className="text-right shrink-0 flex flex-col items-end gap-2.5">
+                    <div>
+                      {cheapestPrice !== null && (
+                        <div className="text-2xl font-extrabold text-white">
+                          {cheapestPrice === 0 ? 'Free' : `${formatPrice(cheapestPrice)}`}
+                        </div>
                       )}
+                      {planCount > 0 && (
+                        <div className="text-[10px] text-slate-500">{planCount} plan{planCount !== 1 ? 's' : ''}</div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <motion.button whileTap={{ scale: 0.97 }}
+                        onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find(p => p.is_active); handleAddToCart(product, firstPlan); }}
+                        aria-label={`Add ${product.name} to cart`}
+                        className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                          inCart
+                            ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/25"
+                            : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)] hover:brightness-110"
+                        }`}>
+                        {inCart ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+                        {inCart ? "In Cart" : "Add to Cart"}
+                      </motion.button>
+                      <motion.button whileTap={{ scale: 0.97 }}
+                        onClick={(e) => { e.stopPropagation(); openDetail(product); }}
+                        className="group/btn flex items-center justify-center gap-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-slate-200 text-xs font-semibold hover:border-indigo-400/40 hover:text-white transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50">
+                        Details
+                        <ChevronRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5" />
+                      </motion.button>
                     </div>
                   </div>
                 </motion.div>
@@ -1713,7 +1895,7 @@ export default function SoftwareStorePage() {
             onAddToCart={handleAddToCart}
             onAddToWishlist={handleAddToWishlist}
             onRemoveFromWishlist={(productId, planId) => wishlist.removeItem(productId, planId)}
-            onBuyNow={handleBuyNow}
+            onProceedToCheckout={handleProceedToCheckout}
             inCompare={compare.isInCompare(selectedProduct.id)}
             onToggleCompare={handleToggleCompare}
           />
@@ -1725,13 +1907,11 @@ export default function SoftwareStorePage() {
           <CartPanel
             key="cart-panel"
             cart={cart}
-            wishlist={wishlist}
             onClose={() => setShowCart(false)}
             onRemoveFromCart={(productId, planId) => cart.removeItem(productId, planId)}
             onUpdateQty={(productId, planId, delta) => cart.updateQuantity(productId, planId, delta)}
             onClearCart={() => cart.clearCart()}
             onCheckout={handleCheckout}
-            onBuyNow={(item) => handleBuyNow(item.product, item.plan)}
             showGst={showGst}
             onToggleGst={() => setShowGst(v => !v)}
           />
@@ -1774,18 +1954,19 @@ export default function SoftwareStorePage() {
           <motion.div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40"
             initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
             transition={{ type: "spring" as const, stiffness: 300, damping: 26 }}>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-[var(--bg-secondary)]/95 backdrop-blur-xl border border-indigo-500/30 shadow-2xl shadow-black/40">
-              <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 pl-1.5 pr-1">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-[#0B1220]/95 backdrop-blur-2xl border border-indigo-400/30 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-300 pl-1.5 pr-1">
                 <Scale className="w-3.5 h-3.5" /> {compare.items.length}/{MAX_COMPARE}
               </span>
               {compare.items.map(p => (
                 <div key={p.id} className="relative group">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-sm border border-white/10 cursor-pointer"
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/25 to-violet-500/25 flex items-center justify-center text-sm border border-white/10 cursor-pointer"
                     title={p.name}>
-                    {p.logo_url ? <img src={p.logo_url} alt={p.name} className="w-6 h-6 rounded-lg object-contain" /> : p.name.charAt(0)}
+                    {p.logo_url ? <img src={p.logo_url} alt={p.name} className="w-6 h-6 rounded-lg object-contain" /> : <span className="font-bold text-white">{p.name.charAt(0)}</span>}
                   </div>
                   <button onClick={() => compare.remove(p.id)}
-                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    aria-label={`Remove ${p.name} from compare`}
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-[0_0_10px_rgba(244,63,94,0.6)]">
                     <X className="w-2.5 h-2.5" />
                   </button>
                 </div>
@@ -1793,10 +1974,10 @@ export default function SoftwareStorePage() {
               <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                 onClick={() => compare.items.length >= 2 && setShowCompare(true)}
                 disabled={compare.items.length < 2}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold hover:from-indigo-500 hover:to-purple-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/25 ml-1">
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-xs font-bold shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed ml-1">
                 Compare {compare.items.length >= 2 ? `(${compare.items.length})` : '(min 2)'}
               </motion.button>
-              <button onClick={compare.clear} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Clear compare">
+              <button onClick={compare.clear} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors" title="Clear compare">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>

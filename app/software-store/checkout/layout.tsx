@@ -16,9 +16,23 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+// Matches the Software Store's premium dark theme so the checkout flow feels
+// continuous with the storefront (presentation only — no layout changes).
+const CHECKOUT_DARK_STYLE = {
+  "--bg-primary": "#070B14",
+  "--bg-secondary": "#0B1220",
+  "--bg-tertiary": "#111827",
+  "--text-primary": "#F1F5F9",
+  "--text-secondary": "#94A3B8",
+  "--text-muted": "#64748B",
+  "--border-color": "rgba(148, 163, 184, 0.16)",
+  "--card-shadow": "0 20px 60px -15px rgba(0, 0, 0, 0.6)",
+  colorScheme: "dark",
+} as React.CSSProperties;
+
 export default function CheckoutLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--bg-primary)]">
+    <div className="flex min-h-screen flex-col bg-[var(--bg-primary)]" style={CHECKOUT_DARK_STYLE}>
       {/* Checkout header — logo + back to store only */}
       <header className="sticky top-0 z-40 border-b border-[var(--border-color)] bg-[var(--bg-primary)]/95 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
