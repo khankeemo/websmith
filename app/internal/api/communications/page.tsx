@@ -835,7 +835,7 @@ export default function CommunicationsPage() {
 
   const refreshCurrent = useCallback(() => {
     const row = folders.find(x => x.id === activeFolder);
-    const f = row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]);
+    const f = activeFolder === 'settings' ? SETTINGS_DEF : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]));
     if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter);
     else if (f.kind === 'queue') loadQueue();
     else if (f.kind === 'logs') loadLogs();
