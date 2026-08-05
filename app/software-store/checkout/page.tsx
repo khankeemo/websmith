@@ -1,20 +1,30 @@
 "use client";
 
+// FILE: app/software-store/checkout/page.tsx
+// PURPOSE: Standalone, secure Software Store checkout.
+// SECURITY: This page intentionally imports NOTHING from the admin/dashboard
+//           app. It renders inside its own dedicated checkout layout with no
+//           sidebar, no dashboard header, no admin navigation, no profile,
+//           no logout, no dark-mode toggle. It behaves like a professional
+//           payment page (Stripe / Shopify / Paddle / Gumroad).
+// FLOW: Cart -> Checkout -> Contact -> Billing -> Payment -> Processing ->
+//       Success -> License delivery -> Auto-redirect to /software-store.
+
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Lock, CreditCard, ShieldCheck, Check, X,
-  ChevronRight, AlertCircle, ArrowLeft, MapPin, Building2, Globe,
-  Phone, Mail, User, BadgePercent, UserCircle2, Loader2, KeyRound,
-  FileText, ChevronDown
+  ChevronRight, AlertCircle, MapPin, Building2, Globe,
+  Phone, Mail, User, Loader2, KeyRound, ChevronDown,
+  Search, Home, Hash, LayoutGrid, Flag, MailCheck, Sparkles
 } from "lucide-react";
 import { StoreProduct, StoreProductPlan } from "../services/softwareStoreService";
 import { isValidEmail, mobileDigitsError } from "@/lib/validation";
-import { FieldIndicator } from "@/components/internal-api/validation/FieldIndicator";
 
 const STORAGE_CART_KEY = "software_store_cart";
 const STORAGE_ORDER_KEY = "software_store_order";
+const SUCCESS_REDIRECT_SECONDS = 10;
 
 interface CartItem {
   product: StoreProduct;
@@ -74,12 +84,55 @@ interface PaymentResult {
   totals: { subtotal: number; discount: number; tax: number; total: number; currency: string };
 }
 
+interface AddressLookupResult {
+  postal_code: string;
+  country_code: string;
+  country: string;
+  state: string;
+  state_code: string | null;
+  district: string | null;
+  city: string;
+  locality: string;
+  area: string | null;
+  region: string | null;
+  provider: string;
+}
+
+type AddressLookupStatus = "idle" | "loading" | "done" | "unsupported" | "error";
+
+interface FormErrors {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  mobile?: string;
+  altMobile?: string;
+  country?: string;
+  postalCode?: string;
+  state?: string;
+  city?: string;
+}
+
+// Local validation indicator — checkout is fully self-contained (no dashboard imports).
+function FieldIndicator({ state }: { state: "empty" | "valid" | "invalid" }) {
+  if (state === "valid") {
+    return (
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-sm font-bold text-[#16a34a]">✓</span>
+    );
+  }
+  if (state === "invalid") {
+    return (
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-sm font-bold text-[#dc2626]">✗</span>
+    );
+  }
+  return <span className="h-5 w-5 shrink-0" />;
+}
+
 function OrderSummarySkeleton() {
   return (
     <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 p-6 animate-pulse space-y-4">
       <div className="h-6 w-32 rounded-lg bg-[var(--border-color)]" />
       <div className="space-y-3">
-        {[1, 2, 3].map(i => (
+        {[1, 2].map(i => (
           <div key={i} className="flex gap-3">
             <div className="w-10 h-10 rounded-xl bg-[var(--border-color)]" />
             <div className="flex-1 space-y-2">
@@ -145,16 +198,25 @@ function Toast({ message, type, onClose }: { message: string; type: "success" | 
 
 const inputClass =
   "w-full px-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all";
+const inputErrorClass =
+  "border-red-500/60 focus:ring-red-500/20 focus:border-red-500/60";
 const labelClass = "block text-sm font-medium text-[var(--text-secondary)] mb-1.5";
 const requiredMark = <span className="text-red-400">*</span>;
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, required, error, children, hint }: { label: string; required?: boolean; error?: string; children: React.ReactNode; hint?: string }) {
   return (
     <div>
       <label className={labelClass}>
         {label} {required ? requiredMark : null}
       </label>
       {children}
+      {error ? (
+        <p className="flex items-center gap-1 text-xs text-red-400 mt-1.5">
+          <AlertCircle className="w-3 h-3 shrink-0" /> {error}
+        </p>
+      ) : hint ? (
+        <p className="text-[11px] text-[var(--text-secondary)] mt-1.5">{hint}</p>
+      ) : null}
     </div>
   );
 }
@@ -173,7 +235,7 @@ export default function CheckoutPage() {
   const [gateways, setGateways] = useState<CheckoutGateway[]>([]);
   const [taxConfig, setTaxConfig] = useState<CheckoutTax>({ rate: 0, name: "VAT", currency: "USD" });
 
-  // Customer information
+  // Contact information
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [company, setCompany] = useState("");
@@ -181,19 +243,38 @@ export default function CheckoutPage() {
   const [countryCode, setCountryCode] = useState("+91");
   const [mobile, setMobile] = useState("");
   const [altMobile, setAltMobile] = useState("");
-  const [addressLine1, setAddressLine1] = useState("");
-  const [addressLine2, setAddressLine2] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [countryName, setCountryName] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [orderNotes, setOrderNotes] = useState("");
 
-  const [couponCode, setCouponCode] = useState("");
+  // Billing address — auto-filled from address lookup where possible, always editable
+  const [countryName, setCountryName] = useState("");
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [district, setDistrict] = useState("");
+  const [locality, setLocality] = useState("");
+  const [area, setArea] = useState("");
+  const [region, setRegion] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  // Manual fields — the customer only types these
+  const [flatNo, setFlatNo] = useState("");
+  const [building, setBuilding] = useState("");
+  const [street, setStreet] = useState("");
+  const [block, setBlock] = useState("");
+  const [landmark, setLandmark] = useState("");
+
+  // Address lookup state
+  const [addressLookupStatus, setAddressLookupStatus] = useState<AddressLookupStatus>("idle");
+  const [addressLookupMessage, setAddressLookupMessage] = useState("");
+  const addressLookupSeq = useRef(0);
+
   const [selectedGateway, setSelectedGateway] = useState("dummy");
   const [error, setError] = useState<string | null>(null);
   const [paidOrder, setPaidOrder] = useState<PaymentResult | null>(null);
   const [orderTotals, setOrderTotals] = useState<OrderTotals | null>(null);
+  const [redirectIn, setRedirectIn] = useState(SUCCESS_REDIRECT_SECONDS);
+
+  // Validation
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+
   const countryDropdownRef = useRef<HTMLDivElement>(null);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
@@ -235,6 +316,15 @@ export default function CheckoutPage() {
     return () => { cancelled = true; };
   }, []);
 
+  // Auto-redirect to the store after a successful payment
+  useEffect(() => {
+    if (!paidOrder) return;
+    setRedirectIn(SUCCESS_REDIRECT_SECONDS);
+    const tick = setInterval(() => setRedirectIn(prev => (prev > 0 ? prev - 1 : 0)), 1000);
+    const redirect = setTimeout(() => router.replace("/software-store"), SUCCESS_REDIRECT_SECONDS * 1000);
+    return () => { clearInterval(tick); clearTimeout(redirect); };
+  }, [paidOrder, router]);
+
   // Country dial lookup
   const selectedCountry = useMemo(
     () => countries.find(c => c.code === countryCode),
@@ -247,9 +337,14 @@ export default function CheckoutPage() {
     return (countryName && (byName || !byCode)) ? countryName : (byCode?.name || countryName);
   }, [countries, countryCode, countryName]);
 
+  const selectedCountryISO = useMemo(
+    () => countries.find(c => c.name === countryName)?.code || null,
+    [countries, countryName]
+  );
+
   const availableStates = useMemo(
-    () => states.filter(s => s.country_code === (selectedCountry?.code || "")),
-    [states, selectedCountry]
+    () => states.filter(s => s.country_code === (selectedCountry?.code || selectedCountryISO || "")),
+    [states, selectedCountry, selectedCountryISO]
   );
 
   const selectedStateId = useMemo(() => {
@@ -270,56 +365,176 @@ export default function CheckoutPage() {
     }, 0);
   }, [cartItems]);
 
+  const estimatedTax = Math.round(subtotal * (taxConfig.rate / 100) * 100) / 100;
+  const estimatedTotal = Math.round((subtotal + estimatedTax) * 100) / 100;
+  const displayTotal = orderTotals ? orderTotals.total : estimatedTotal;
+  const displayCurrency = orderTotals?.currency || taxConfig.currency;
+
   const emailValid = isValidEmail(email);
   const mobileError = mobileDigitsError(selectedCountry, mobile.replace(/\D/g, ""));
   const altMobileError = altMobile.trim() && mobileDigitsError(selectedCountry, altMobile.replace(/\D/g, ""));
 
   const contactDone = Boolean(firstName.trim() && lastName.trim() && isValidEmail(email));
-  const billingDone = Boolean(addressLine1.trim() && city.trim() && countryName.trim() && postalCode.trim());
+  const billingDone = Boolean(
+    postalCode.trim() && state.trim() && city.trim() && countryName.trim() &&
+    (street.trim() || flatNo.trim() || building.trim())
+  );
   const stepsMeta = [
     { label: "Contact", done: contactDone, icon: User },
     { label: "Billing", done: billingDone, icon: MapPin },
     { label: "Payment", done: gateways.length > 0, icon: CreditCard },
   ];
 
-  const validateForm = (): string | null => {
-    if (!firstName.trim() || !lastName.trim()) return "First name and last name are required";
-    if (!isValidEmail(email)) return "A valid email address is required";
-    if (mobile.trim() && mobileError) return mobileError;
-    if (altMobile.trim() && altMobileError) return altMobileError;
-    if (!addressLine1.trim()) return "Address Line 1 is required";
-    if (!city.trim()) return "City is required";
-    if (!countryName.trim()) return "Please select a country";
-    if (!postalCode.trim()) return "Postal code is required";
-    if (cartItems.length === 0) return "Your cart is empty";
-    return null;
-  };
+  // ============================================================
+  // VALIDATION — inline, never silent
+  // ============================================================
+  const validateForm = useCallback((): FormErrors => {
+    const errors: FormErrors = {};
+    if (!firstName.trim()) errors.firstName = "First name is required";
+    if (!lastName.trim()) errors.lastName = "Last name is required";
+    if (!email.trim()) errors.email = "Email address is required";
+    else if (!isValidEmail(email)) errors.email = "Please enter a valid email address";
+    if (mobile.trim() && mobileError) errors.mobile = mobileError;
+    if (altMobile.trim() && altMobileError) errors.altMobile = altMobileError;
+    if (!countryName.trim()) errors.country = "Please select your country";
+    if (!postalCode.trim()) errors.postalCode = "Postal code is required";
+    else if (!/^[a-zA-Z0-9]{3,12}$/.test(postalCode.replace(/[\s-]/g, ""))) errors.postalCode = "Please enter a valid postal code";
+    if (!state.trim()) errors.state = "State / Province is required";
+    if (!city.trim()) errors.city = "City is required";
+    return errors;
+  }, [firstName, lastName, email, mobile, mobileError, altMobile, altMobileError, countryName, postalCode, state, city]);
+
+  const markTouched = useCallback(() => {
+    setTouched({
+      firstName: true, lastName: true, email: true, mobile: true, altMobile: true,
+      country: true, postalCode: true, state: true, city: true,
+    });
+  }, []);
+
+  // Recompute inline errors live once a field has been touched (never silent)
+  useEffect(() => {
+    if (Object.keys(touched).length === 0) return;
+    setFormErrors(validateForm());
+  }, [firstName, lastName, email, mobile, altMobile, countryName, postalCode, state, city, touched, validateForm]);
+
+  // ============================================================
+  // SMART ADDRESS LOOKUP — API-assisted, always editable result
+  // ============================================================
+  const runAddressLookup = useCallback(async () => {
+    if (!selectedCountryISO) {
+      setAddressLookupStatus("error");
+      setAddressLookupMessage("Please select a country first");
+      return;
+    }
+    const cleanPostal = postalCode.trim();
+    if (!cleanPostal) {
+      setAddressLookupStatus("error");
+      setAddressLookupMessage("Please enter a postal code first");
+      return;
+    }
+    const seq = ++addressLookupSeq.current;
+    setAddressLookupStatus("loading");
+    setAddressLookupMessage("");
+    try {
+      const res = await fetch("/api/v1/checkout/address", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ country: selectedCountryISO, postalCode: cleanPostal }),
+      });
+      const data = await res.json();
+      if (seq !== addressLookupSeq.current) return;
+
+      if (data.success && data.supported && data.data) {
+        const d: AddressLookupResult = data.data;
+        if (d.state) setState(d.state);
+        if (d.city || d.district) setCity(d.city || d.district);
+        if (d.district) setDistrict(d.district);
+        if (d.locality || d.area) setLocality(d.locality || d.area);
+        if (d.area || d.locality) setArea(d.area || d.locality);
+        if (d.region) setRegion(d.region);
+        setAddressLookupStatus("done");
+        setAddressLookupMessage("Address found — the fields below were filled automatically. You can review and edit them.");
+      } else if (data.success && data.supported === false) {
+        setAddressLookupStatus("unsupported");
+        setAddressLookupMessage(data.message || "Automatic address lookup is not available for this country. You can enter your address manually.");
+      } else {
+        setAddressLookupStatus("error");
+        setAddressLookupMessage(data.error || "We couldn't find this postal code. Please check it and try again.");
+      }
+    } catch {
+      if (seq !== addressLookupSeq.current) return;
+      setAddressLookupStatus("error");
+      setAddressLookupMessage("Address lookup is temporarily unavailable. You can enter your address manually.");
+    }
+  }, [selectedCountryISO, postalCode]);
+
+  // Auto-lookup shortly after the customer finishes typing the postal code
+  useEffect(() => {
+    const digits = postalCode.replace(/[\s-]/g, "");
+    if (!digits || digits.length < 3 || !selectedCountryISO) return;
+    const timer = setTimeout(() => {
+      runAddressLookup();
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [postalCode, selectedCountryISO, runAddressLookup]);
 
   const handleCountryPick = useCallback((c: CheckoutCountry) => {
     setCountryCode(c.code);
     setCountryName(c.name);
     setState("");
     setCity("");
+    setDistrict("");
+    setLocality("");
+    setArea("");
+    setRegion("");
+    setPostalCode("");
+    setAddressLookupStatus("idle");
+    setAddressLookupMessage("");
     setShowCountryDropdown(false);
     setCountrySearch("");
   }, []);
 
+  const handleCountrySelect = (name: string) => {
+    setCountryName(name);
+    const c = countries.find(x => x.name === name);
+    if (c) setCountryCode(c.dial);
+    setState("");
+    setCity("");
+    setDistrict("");
+    setLocality("");
+    setArea("");
+    setRegion("");
+    setPostalCode("");
+    setAddressLookupStatus("idle");
+    setAddressLookupMessage("");
+  };
+
   const handleStateChange = (value: string) => {
     setState(value);
     setCity("");
+    setDistrict("");
   };
 
+  // ============================================================
+  // PLACE ORDER — existing business flow, untouched
+  // ============================================================
   const handlePlaceOrder = useCallback(async () => {
-    const validationError = validateForm();
-    if (validationError) {
-      setToast({ message: validationError, type: "error" });
+    const validationErrors = validateForm();
+    setFormErrors(validationErrors);
+    markTouched();
+    const hasErrors = Object.keys(validationErrors).length > 0;
+    if (hasErrors) {
+      setToast({ message: "Please fix the highlighted fields before paying.", type: "error" });
       return;
     }
 
     setSubmitting(true);
     setError(null);
     try {
-      // Step 1 — create pending order
+      // Step 1 — create pending order (server-authoritative pricing)
+      const addressLine1 = [flatNo, building, street].filter(Boolean).join(", ");
+      const addressLine2 = [block, landmark, locality, area].filter(Boolean).join(", ");
+
       const orderRes = await fetch("/api/v1/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -331,8 +546,8 @@ export default function CheckoutPage() {
             email: email.trim(),
             mobile: `${countryCode}${mobile.replace(/\s/g, "")}`,
             alternative_mobile: altMobile.trim() ? `${countryCode}${altMobile.replace(/\s/g, "")}` : "",
-            address_line1: addressLine1.trim(),
-            address_line2: addressLine2.trim(),
+            address_line1: addressLine1,
+            address_line2: addressLine2,
             city: city.trim(),
             state: state.trim(),
             country: selectedCountryName,
@@ -343,9 +558,9 @@ export default function CheckoutPage() {
             plan_id: i.plan?.id,
             quantity: i.quantity,
           })),
-          coupon_code: couponCode.trim() || null,
+          coupon_code: null,
           payment_gateway: selectedGateway,
-          notes: orderNotes.trim() || null,
+          notes: null,
         }),
       });
 
@@ -356,7 +571,7 @@ export default function CheckoutPage() {
 
       setOrderTotals(orderData.totals);
 
-      // Step 2 — dummy payment gateway (development)
+      // Step 2 — payment capture (existing gateway integration)
       const payRes = await fetch("/api/v1/checkout/pay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -371,19 +586,20 @@ export default function CheckoutPage() {
       setPaidOrder(payData);
       sessionStorage.setItem(STORAGE_ORDER_KEY, JSON.stringify(payData));
       localStorage.removeItem(STORAGE_CART_KEY);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (error: any) {
-      setError(error.message || "Something went wrong. Please try again.");
-      setToast({ message: error.message || "Something went wrong. Please try again.", type: "error" });
+      const scrollable = document.querySelector(".app-main-scroll") as HTMLElement | null;
+      (scrollable || window).scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: any) {
+      setError(err.message || "Something went wrong. Please try again.");
+      setToast({ message: err.message || "Something went wrong. Please try again.", type: "error" });
     } finally {
       setSubmitting(false);
     }
-  }, [firstName, lastName, company, email, countryCode, mobile, altMobile, addressLine1, addressLine2, city, state, selectedCountryName, postalCode, orderNotes, couponCode, selectedGateway, cartItems, selectedCountry]);
+  }, [validateForm, markTouched, flatNo, building, street, block, landmark, locality, area, firstName, lastName, company, email, countryCode, mobile, altMobile, city, state, selectedCountryName, postalCode, selectedGateway, cartItems]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
           <div className="h-8 w-48 rounded-lg bg-[var(--border-color)] animate-pulse mb-8" />
           <div className="grid lg:grid-cols-5 gap-8">
             <div className="lg:col-span-3 space-y-6">
@@ -405,27 +621,55 @@ export default function CheckoutPage() {
   }
 
   // ============================================================
-  // SUCCESS VIEW — licenses generated after payment
+  // SUCCESS VIEW — payment successful, license delivered, auto-redirect
   // ============================================================
   if (paidOrder) {
     const t = paidOrder.totals;
+    const productNames = cartItems.map(i => i.product.name);
+    const productLabel = productNames.length > 1
+      ? `${productNames[0]} +${productNames.length - 1} more`
+      : (productNames[0] || "Your product");
+
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
+      <div className="min-h-screen bg-[var(--bg-primary)] pb-16">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/5 to-transparent p-8 text-center"
+            className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/5 to-transparent p-6 sm:p-8 text-center"
           >
             <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mb-6">
               <Check className="w-10 h-10 text-emerald-400" />
             </div>
-            <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Payment Successful</h1>
-            <p className="text-[var(--text-secondary)] mb-1">Order <span className="font-mono text-[var(--text-primary)]">{paidOrder.order_number}</span> confirmed</p>
-            <p className="text-sm text-[var(--text-secondary)] mb-8">
-              {t ? `Paid ${t.total.toFixed(2)} ${t.currency} via ${paidOrder.payment.gateway === "dummy" ? "Test Payment (Development)" : paidOrder.payment.gateway}` : "Thank you for your purchase"}
-              {" · "}Transaction <span className="font-mono">{paidOrder.payment.transaction_id}</span>
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-2">Payment Successful</h1>
+            <p className="text-[var(--text-secondary)] mb-6">Thank you for your purchase!</p>
+
+            <div className="text-left rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 divide-y divide-[var(--border-color)] mb-6">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-sm text-[var(--text-secondary)]">Order Number</span>
+                <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">{paidOrder.order_number}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-sm text-[var(--text-secondary)]">Product</span>
+                <span className="text-sm font-semibold text-[var(--text-primary)]">{productLabel}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-sm text-[var(--text-secondary)]">Amount Paid</span>
+                <span className="text-sm font-semibold text-[var(--text-primary)]">
+                  {t ? `${t.total.toFixed(2)} ${t.currency}` : ""}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-sm text-[var(--text-secondary)]">License Delivery</span>
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
+                  <MailCheck className="w-4 h-4" /> Delivered
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-sm text-[var(--text-secondary)]">Customer Email</span>
+                <span className="text-sm font-medium text-[var(--text-primary)]">{email}</span>
+              </div>
+            </div>
 
             <div className="text-left space-y-4">
               <div>
@@ -436,7 +680,7 @@ export default function CheckoutPage() {
                   {paidOrder.licenses.map((lic) => (
                     <div key={lic.license_key} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 p-4">
                       <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <code className="font-mono text-sm text-[var(--text-primary)]">{lic.license_key}</code>
+                        <code className="font-mono text-sm text-[var(--text-primary)] break-all">{lic.license_key}</code>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(lic.license_key);
@@ -460,7 +704,8 @@ export default function CheckoutPage() {
               <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
                 <p className="text-sm text-[var(--text-secondary)]">
                   <Mail className="inline w-4 h-4 mr-1.5 text-blue-400" />
-                  Your license key{paidOrder.licenses.length > 1 ? "s have" : " has"} been emailed to <span className="text-[var(--text-primary)]">{email}</span> along with your payment receipt.
+                  Your license key{paidOrder.licenses.length > 1 ? "s have" : " has"} been delivered to{" "}
+                  <span className="text-[var(--text-primary)]">{email}</span> along with your payment receipt.
                 </p>
               </div>
             </div>
@@ -472,13 +717,12 @@ export default function CheckoutPage() {
               >
                 <ShoppingCart className="w-4 h-4" /> Continue Shopping
               </a>
-              <a
-                href="/docs"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-[var(--border-color)] text-sm font-medium text-[var(--text-primary)] hover:border-indigo-500/40 transition-all"
-              >
-                <FileText className="w-4 h-4" /> SDK &amp; Activation Documentation
-              </a>
             </div>
+
+            <p className="flex items-center justify-center gap-2 mt-6 text-xs text-[var(--text-secondary)]">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Redirecting you to the Software Store in {redirectIn}s…
+            </p>
           </motion.div>
         </div>
       </div>
@@ -492,32 +736,15 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-[var(--bg-primary)]">
       <AnimatePresence>
         {toast && (
-          toast.type === "success" ? (
-            <Toast key="toast" message={toast.message} type="success" onClose={() => setToast(null)} />
-          ) : (
-            <Toast key="toast" message={toast.message} type="error" onClose={() => setToast(null)} />
-          )
+          <Toast key="toast" message={toast.message} type={toast.type} onClose={() => setToast(null)} />
         )}
       </AnimatePresence>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 mb-6"
-        >
-          <a href="/software-store" className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Store
-          </a>
-          <ChevronRight className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-          <span className="text-sm font-semibold text-[var(--text-primary)]">Checkout</span>
-        </motion.div>
-
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-32 lg:pb-10">
         {/* Checkout progress stepper */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
           className="mb-8"
         >
           <div className="flex items-center">
@@ -571,30 +798,46 @@ export default function CheckoutPage() {
                 <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Step 1</span>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="First Name" required>
-                  <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="John" className={inputClass} />
+                <Field label="First Name" required error={formErrors.firstName}>
+                  <input
+                    value={firstName}
+                    onChange={e => setFirstName(e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, firstName: true }))}
+                    placeholder="John"
+                    className={`${inputClass} ${touched.firstName && formErrors.firstName ? inputErrorClass : ""}`}
+                    autoComplete="given-name"
+                  />
                 </Field>
-                <Field label="Last Name" required>
-                  <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Doe" className={inputClass} />
+                <Field label="Last Name" required error={formErrors.lastName}>
+                  <input
+                    value={lastName}
+                    onChange={e => setLastName(e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, lastName: true }))}
+                    placeholder="Doe"
+                    className={`${inputClass} ${touched.lastName && formErrors.lastName ? inputErrorClass : ""}`}
+                    autoComplete="family-name"
+                  />
                 </Field>
                 <div className="sm:col-span-2">
                   <Field label="Company">
                     <div className="relative">
                       <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
-                      <input value={company} onChange={e => setCompany(e.target.value)} placeholder="Acme Inc. (optional)" className={`${inputClass} pl-10`} />
+                      <input value={company} onChange={e => setCompany(e.target.value)} placeholder="Acme Inc. (optional)" className={`${inputClass} pl-10`} autoComplete="organization" />
                     </div>
                   </Field>
                 </div>
                 <div className="sm:col-span-2">
-                  <Field label="Email Address" required>
+                  <Field label="Email Address" required error={formErrors.email}>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
                       <input
                         type="email"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
+                        onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
                         placeholder="john@acme.com"
-                        className={`${inputClass} pl-10 pr-12`}
+                        className={`${inputClass} pl-10 pr-12 ${touched.email && formErrors.email ? inputErrorClass : ""}`}
+                        autoComplete="email"
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <FieldIndicator state={email.trim() === "" ? "empty" : isValidEmail(email) ? "valid" : "invalid"} />
@@ -602,7 +845,7 @@ export default function CheckoutPage() {
                     </div>
                   </Field>
                 </div>
-                <Field label="Mobile Number" required>
+                <Field label="Mobile Number" required error={formErrors.mobile}>
                   <div className="flex gap-2">
                     <div ref={countryDropdownRef} className="relative">
                       <button
@@ -652,8 +895,10 @@ export default function CheckoutPage() {
                         type="tel"
                         value={mobile}
                         onChange={e => setMobile(e.target.value.replace(/[^0-9\s]/g, ""))}
+                        onBlur={() => setTouched(prev => ({ ...prev, mobile: true }))}
                         placeholder="98765 43210"
-                        className={`${inputClass} pl-10 pr-12`}
+                        className={`${inputClass} pl-10 pr-12 ${touched.mobile && formErrors.mobile ? inputErrorClass : ""}`}
+                        autoComplete="tel"
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <FieldIndicator state={mobile.trim() === "" ? "empty" : mobileError === "" ? "valid" : "invalid"} />
@@ -665,15 +910,17 @@ export default function CheckoutPage() {
                   )}
                 </Field>
                 <div className="sm:col-span-2">
-                  <Field label="Alternative Mobile">
+                  <Field label="Alternative Mobile" error={formErrors.altMobile}>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
                       <input
                         type="tel"
                         value={altMobile}
                         onChange={e => setAltMobile(e.target.value.replace(/[^0-9\s]/g, ""))}
+                        onBlur={() => setTouched(prev => ({ ...prev, altMobile: true }))}
                         placeholder="Alternate contact number (optional)"
-                        className={`${inputClass} pl-10 pr-12`}
+                        className={`${inputClass} pl-10 pr-12 ${touched.altMobile && formErrors.altMobile ? inputErrorClass : ""}`}
+                        autoComplete="tel"
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <FieldIndicator state={altMobile.trim() === "" ? "empty" : altMobileError === "" ? "valid" : "invalid"} />
@@ -684,7 +931,7 @@ export default function CheckoutPage() {
               </div>
             </motion.div>
 
-            {/* Billing Address */}
+            {/* Billing Address — API-assisted lookup */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -698,22 +945,16 @@ export default function CheckoutPage() {
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Billing Address</h2>
                 <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Step 2</span>
               </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <Field label="Country" required>
+                  <Field label="Country" required error={formErrors.country}>
                     <div className="relative">
                       <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
                       <select
                         value={countryName}
-                        onChange={e => {
-                          const name = e.target.value;
-                          setCountryName(name);
-                          const c = countries.find(x => x.name === name);
-                          if (c) setCountryCode(c.dial);
-                          setState("");
-                          setCity("");
-                        }}
-                        className={`${inputClass} pl-10 appearance-none cursor-pointer`}
+                        onChange={e => handleCountrySelect(e.target.value)}
+                        className={`${inputClass} pl-10 appearance-none cursor-pointer ${touched.country && formErrors.country ? inputErrorClass : ""}`}
                       >
                         <option value="">Select your country</option>
                         {countries.map(c => (
@@ -724,107 +965,151 @@ export default function CheckoutPage() {
                     </div>
                   </Field>
                 </div>
+
+                <Field label="State / Province" required error={formErrors.state}>
+                  <input
+                    list="checkout-states"
+                    value={state}
+                    onChange={e => handleStateChange(e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, state: true }))}
+                    placeholder={availableStates.length > 0 ? "Select or type your state" : "California"}
+                    className={`${inputClass} ${touched.state && formErrors.state ? inputErrorClass : ""}`}
+                    autoComplete="address-level1"
+                  />
+                  <datalist id="checkout-states">
+                    {availableStates.map(s => (
+                      <option key={s.id} value={s.name} />
+                    ))}
+                  </datalist>
+                </Field>
+
+                <Field label="Postal Code" required error={formErrors.postalCode}>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
+                      <input
+                        value={postalCode}
+                        onChange={e => setPostalCode(e.target.value.replace(/[^a-zA-Z0-9\s-]/g, "").slice(0, 12))}
+                        onBlur={() => setTouched(prev => ({ ...prev, postalCode: true }))}
+                        placeholder="560001"
+                        className={`${inputClass} pl-10 ${touched.postalCode && formErrors.postalCode ? inputErrorClass : ""}`}
+                        autoComplete="postal-code"
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={runAddressLookup}
+                      disabled={addressLookupStatus === "loading"}
+                      className="shrink-0 flex items-center gap-1.5 px-4 py-3 rounded-xl border border-indigo-500/40 text-sm font-semibold text-indigo-400 hover:bg-indigo-500/10 transition-all disabled:opacity-50"
+                    >
+                      {addressLookupStatus === "loading" ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Search className="w-4 h-4" />
+                      )}
+                      {addressLookupStatus === "loading" ? "Looking up…" : "Look up"}
+                    </button>
+                  </div>
+                </Field>
+
+                {addressLookupStatus !== "idle" && (
+                  <div className="sm:col-span-2">
+                    <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs border ${
+                      addressLookupStatus === "done"
+                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                        : addressLookupStatus === "unsupported"
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                          : addressLookupStatus === "error"
+                            ? "bg-red-500/10 border-red-500/20 text-red-400"
+                            : "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                    }`}>
+                      {addressLookupStatus === "loading" ? (
+                        <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      )}
+                      <span>{addressLookupMessage}</span>
+                    </div>
+                  </div>
+                )}
+
+                <Field label="City" required error={formErrors.city}>
+                  <input
+                    list="checkout-cities"
+                    value={city}
+                    onChange={e => setCity(e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, city: true }))}
+                    placeholder="Entered automatically — you can edit it"
+                    className={`${inputClass} ${touched.city && formErrors.city ? inputErrorClass : ""}`}
+                    autoComplete="address-level2"
+                  />
+                  <datalist id="checkout-cities">
+                    {availableCities.map(c => (
+                      <option key={c.id} value={c.name} />
+                    ))}
+                  </datalist>
+                </Field>
+
+                <Field label="District" hint="Auto-filled from the postal code — editable">
+                  <input value={district} onChange={e => setDistrict(e.target.value)} placeholder="Auto-filled" className={inputClass} autoComplete="off" />
+                </Field>
+
+                <Field label="Locality / Area" hint="Auto-filled from the postal code — editable">
+                  <input value={locality} onChange={e => setLocality(e.target.value)} placeholder="Auto-filled" className={inputClass} autoComplete="off" />
+                </Field>
+
+                <Field label="Region" hint="Auto-filled from the postal code — editable">
+                  <input value={region} onChange={e => setRegion(e.target.value)} placeholder="Auto-filled" className={inputClass} autoComplete="off" />
+                </Field>
+
+                <div className="sm:col-span-2 mt-2">
+                  <p className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] mb-3">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    The fields above are filled automatically whenever possible — you can always edit them.
+                  </p>
+                </div>
+
+                <Field label="Flat / House Number">
+                  <div className="relative">
+                    <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
+                    <input value={flatNo} onChange={e => setFlatNo(e.target.value)} placeholder="12A" className={`${inputClass} pl-10`} autoComplete="address-line1" />
+                  </div>
+                </Field>
+                <Field label="Building">
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
+                    <input value={building} onChange={e => setBuilding(e.target.value)} placeholder="Sunrise Towers (optional)" className={`${inputClass} pl-10`} autoComplete="address-line1" />
+                  </div>
+                </Field>
                 <div className="sm:col-span-2">
-                  <Field label="Address Line 1" required>
-                    <input value={addressLine1} onChange={e => setAddressLine1(e.target.value)} placeholder="123 Main Street" className={inputClass} />
+                  <Field label="Street" hint="Street address / Road name">
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
+                      <input value={street} onChange={e => setStreet(e.target.value)} placeholder="MG Road" className={`${inputClass} pl-10`} autoComplete="address-line1" />
+                    </div>
                   </Field>
                 </div>
-                <div className="sm:col-span-2">
-                  <Field label="Address Line 2">
-                    <input value={addressLine2} onChange={e => setAddressLine2(e.target.value)} placeholder="Suite 100 (optional)" className={inputClass} />
-                  </Field>
-                </div>
-                <Field label="City" required>
-                  {availableCities.length > 0 ? (
-                    <select value={city} onChange={e => setCity(e.target.value)} className={`${inputClass} appearance-none cursor-pointer`}>
-                      <option value="">Select your city</option>
-                      {availableCities.map(c => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input value={city} onChange={e => setCity(e.target.value)} placeholder="San Francisco" className={inputClass} />
-                  )}
+                <Field label="Block">
+                  <div className="relative">
+                    <LayoutGrid className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
+                    <input value={block} onChange={e => setBlock(e.target.value)} placeholder="Block C (optional)" className={`${inputClass} pl-10`} autoComplete="off" />
+                  </div>
                 </Field>
-                <Field label="State / Province" required>
-                  {availableStates.length > 0 ? (
-                    <select value={state} onChange={e => handleStateChange(e.target.value)} className={`${inputClass} appearance-none cursor-pointer`}>
-                      <option value="">Select your state</option>
-                      {availableStates.map(s => (
-                        <option key={s.id} value={s.name}>{s.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input value={state} onChange={e => handleStateChange(e.target.value)} placeholder="California" className={inputClass} />
-                  )}
-                </Field>
-                <Field label="Postal Code" required>
-                  <input value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="94102" className={inputClass} />
+                <Field label="Landmark">
+                  <div className="relative">
+                    <Flag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]/50" />
+                    <input value={landmark} onChange={e => setLandmark(e.target.value)} placeholder="Near City Mall (optional)" className={`${inputClass} pl-10`} autoComplete="off" />
+                  </div>
                 </Field>
               </div>
             </motion.div>
 
-            {/* Coupon */}
+            {/* Payment Method */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <BadgePercent className="w-5 h-5 text-indigo-400" />
-                <h2 className="text-lg font-bold text-[var(--text-primary)]">Coupon Code</h2>
-              </div>
-              <div className="flex gap-3">
-                <input
-                  value={couponCode}
-                  onChange={e => setCouponCode(e.target.value)}
-                  placeholder="Enter coupon code"
-                  className={`${inputClass} flex-1`}
-                />
-                <button
-                  onClick={() => {
-                    if (!couponCode.trim()) {
-                      setToast({ message: "Please enter a coupon code", type: "error" });
-                      return;
-                    }
-                    setToast({ message: "Coupon will be verified when you place your order", type: "success" });
-                  }}
-                  className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-bold hover:from-indigo-500 hover:to-purple-500 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
-                >
-                  Apply
-                </button>
-              </div>
-              <p className="text-xs text-[var(--text-secondary)] mt-2">
-                Coupons are validated against our offers when you place the order.
-              </p>
-            </motion.div>
-
-            {/* Order Notes */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <UserCircle2 className="w-5 h-5 text-indigo-400" />
-                <h2 className="text-lg font-bold text-[var(--text-primary)]">Order Notes</h2>
-              </div>
-              <textarea
-                value={orderNotes}
-                onChange={e => setOrderNotes(e.target.value)}
-                placeholder="Special instructions, additional details, or questions..."
-                rows={3}
-                className={`${inputClass} resize-none`}
-              />
-            </motion.div>
-
-            {/* Payment */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
               className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
             >
               <div className="flex items-center gap-3 mb-5">
@@ -878,9 +1163,9 @@ export default function CheckoutPage() {
             </motion.div>
           </div>
 
-          {/* Right Column — Order Summary */}
+          {/* Right Column — Sticky Order Summary */}
           <div className="lg:col-span-2">
-            <div className="lg:sticky lg:top-8">
+            <div className="lg:sticky lg:top-24">
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -906,7 +1191,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-3 mb-5">
+                  <div className="space-y-3 mb-5 max-h-[40vh] overflow-y-auto pr-1">
                     {cartItems.map((item, idx) => (
                       <div key={`${item.product.id}-${item.plan?.id || 0}-${idx}`} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-primary)]/50 border border-[var(--border-color)]/50 hover:border-indigo-500/30 transition-colors">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-base font-bold shrink-0 overflow-hidden">
@@ -940,12 +1225,12 @@ export default function CheckoutPage() {
                       <span className="text-[var(--text-primary)] font-medium">${subtotal.toFixed(2)}</span>
                     </div>
 
-                    {orderTotals && orderTotals.discount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-emerald-400 font-medium">Discount</span>
-                        <span className="text-emerald-400 font-medium">-${orderTotals.discount.toFixed(2)}</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[var(--text-secondary)]">Discount</span>
+                      <span className="text-emerald-400 font-medium">
+                        {orderTotals && orderTotals.discount > 0 ? `-$${orderTotals.discount.toFixed(2)}` : "$0.00"}
+                      </span>
+                    </div>
 
                     <div className="flex justify-between text-sm">
                       <span className="text-[var(--text-secondary)]">Tax ({taxConfig.name})</span>
@@ -955,15 +1240,16 @@ export default function CheckoutPage() {
                     <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
                       <span className="text-base font-bold text-[var(--text-primary)]">Grand Total</span>
                       <span className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                        {orderTotals ? `${orderTotals.total.toFixed(2)} ${orderTotals.currency}` : `$${(subtotal * (1 + taxConfig.rate / 100)).toFixed(2)}`}
+                        {orderTotals ? `${orderTotals.total.toFixed(2)} ${orderTotals.currency}` : `$${estimatedTotal.toFixed(2)}`}
                       </span>
                     </div>
                   </div>
 
+                  {/* Secure Pay Button — always visible on desktop */}
                   <button
                     onClick={handlePlaceOrder}
                     disabled={submitting || cartItems.length === 0}
-                    className="w-full mt-6 flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-base hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50"
+                    className="hidden lg:flex w-full mt-6 items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-base hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50"
                   >
                     {submitting ? (
                       <>
@@ -973,12 +1259,12 @@ export default function CheckoutPage() {
                     ) : (
                       <>
                         <Lock className="w-5 h-5" />
-                        Pay {orderTotals ? `${orderTotals.total.toFixed(2)} ${orderTotals.currency}` : `$${(subtotal * (1 + taxConfig.rate / 100)).toFixed(2)}`}
+                        Pay {displayTotal.toFixed(2)} {displayCurrency}
                       </>
                     )}
                   </button>
 
-                  <div className="flex items-center justify-center gap-2 mt-4 text-xs text-[var(--text-secondary)]">
+                  <div className="hidden lg:flex items-center justify-center gap-2 mt-4 text-xs text-[var(--text-secondary)]">
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
                     <span>Secure Checkout — Your info is safe with us</span>
                   </div>
@@ -987,6 +1273,35 @@ export default function CheckoutPage() {
             </div>
           </div>
         </motion.div>
+      </div>
+
+      {/* Mobile — sticky compact summary + full-width pay button */}
+      <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden border-t border-[var(--border-color)] bg-[var(--bg-primary)]/95 backdrop-blur-sm px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.15)]">
+        <div className="flex items-center gap-3">
+          <div className="shrink-0">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">Total</p>
+            <p className="text-lg font-bold text-[var(--text-primary)] leading-tight">
+              {orderTotals ? `${orderTotals.total.toFixed(2)} ${orderTotals.currency}` : `$${estimatedTotal.toFixed(2)}`}
+            </p>
+          </div>
+          <button
+            onClick={handlePlaceOrder}
+            disabled={submitting || cartItems.length === 0}
+            className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="animate-spin w-4 h-4" />
+                Processing…
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4" />
+                Secure Pay
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

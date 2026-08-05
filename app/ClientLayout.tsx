@@ -42,7 +42,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Load chat widget only on public-facing pages.
   useEffect(() => {
-    const isPublicFacingPage = Boolean(pathname && isPublicRoute(pathname) && !pathname.startsWith("/internal"));
+    const isPublicFacingPage = Boolean(pathname && isPublicRoute(pathname) && !pathname.startsWith("/internal") && !isStandaloneCheckoutRoute(pathname));
 
     if (isPublicFacingPage) {
       import("../components/ui/leadconnectorchat").then((mod) => {
@@ -132,6 +132,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isInternalRoute = pathname?.startsWith("/internal");
+  const isCheckoutRoute = Boolean(pathname && isStandaloneCheckoutRoute(pathname));
   const shouldShowSidebar = !isPublicRoute(pathname) && !isInternalRoute;
 
   const user = getStoredUser();
@@ -177,11 +178,11 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
         )}
         <main className="app-main-shell" style={styles.main} data-shell={shouldShowSidebar ? "panel" : "public"}>
           <div className="app-main-scroll">
-            {!shouldShowSidebar && !isInternalRoute && (
+            {!shouldShowSidebar && !isInternalRoute && !isCheckoutRoute && (
               <PublicSiteNav variant={(pathname === "/login" || pathname === "/register" || pathname === "/forgot-password") ? "auth" : "full"} />
             )}
             {children}
-            {!shouldShowSidebar && !isInternalRoute && pathname !== "/login" && pathname !== "/register" && pathname !== "/forgot-password" && (
+            {!shouldShowSidebar && !isInternalRoute && !isCheckoutRoute && pathname !== "/login" && pathname !== "/register" && pathname !== "/forgot-password" && (
               <PublicFooter />
             )}
           </div>
@@ -249,6 +250,12 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
       `}</style>
     </LeadFunnelProvider>
   );
+}
+
+const CHECKOUT_ROUTE_PREFIX = "/software-store/checkout";
+
+function isStandaloneCheckoutRoute(pathname: string): boolean {
+  return pathname === CHECKOUT_ROUTE_PREFIX || pathname.startsWith(`${CHECKOUT_ROUTE_PREFIX}/`);
 }
 
 const styles: any = {
