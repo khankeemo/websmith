@@ -8,6 +8,18 @@ const getAuthHeaders = (request: NextRequest) => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+const logAudit = async (eventType: string, message: string) => {
+  try {
+    const auditClient = await (await getDb()).connect();
+    await auditClient.query(
+      `INSERT INTO audit_logs (event_type, message, timestamp)
+       VALUES ($1, $2, $3)`,
+      [eventType, message, new Date().toISOString()]
+    );
+    auditClient.release();
+  } catch {}
+};
+
 export async function GET(request: NextRequest) {
   let client = null;
   try {
@@ -59,6 +71,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!provider || !email_address || !imap_host || !imap_username || !imap_password || !smtp_host || !smtp_username || !smtp_password) {
+      await logAudit('mailbox_create_failed', `Mailbox creation failed for ${email_address || '(no email)'}: missing required fields.`);
       return NextResponse.json({
         success: false,
         error: { code: 'MISSING_FIELDS', message: 'Required fields: provider, email_address, imap_host, imap_username, imap_password, smtp_host, smtp_username, smtp_password' }
@@ -75,6 +88,7 @@ export async function POST(request: NextRequest) {
     if (existing.rows.length > 0) {
       client.release();
       client = null;
+      await logAudit('mailbox_create_failed', `Mailbox creation failed for ${normalizedEmail}: duplicate email address.`);
       return NextResponse.json({
         success: false,
         error: { code: 'DUPLICATE_EMAIL', message: 'A mailbox with this email address already exists.' }
@@ -122,6 +136,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Mailbox create error:', error);
     if (client) { client.release(); }
+    await logAudit('mailbox_create_failed', `Mailbox creation failed: ${error?.message || 'internal error'}.`);
     return NextResponse.json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to create mailbox.' }

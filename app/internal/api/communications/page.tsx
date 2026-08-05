@@ -430,6 +430,7 @@ export default function CommunicationsPage() {
   const [showMailboxForm, setShowMailboxForm] = useState(false);
   const [editingMailbox, setEditingMailbox] = useState<Mailbox | null>(null);
   const [mailboxForm, setMailboxForm] = useState<any>({});
+  const [mailboxFormError, setMailboxFormError] = useState<string | null>(null);
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
   const [showDeleteMailboxConfirm, setShowDeleteMailboxConfirm] = useState<string | null>(null);
   const [testEmailTo, setTestEmailTo] = useState('');
@@ -1071,6 +1072,32 @@ export default function CommunicationsPage() {
   };
 
   const saveMailbox = async () => {
+    setMailboxFormError(null);
+
+    // Client-side validation — mirror the backend's required fields so the
+    // administrator sees exactly what is missing before any request is sent.
+    const missing: string[] = [];
+    const requiredLabels: [string, string][] = [
+      ['email_address', 'Mail address'],
+      ['imap_host', 'Incoming mail server'],
+      ['imap_username', 'Incoming username'],
+      ['smtp_host', 'Outgoing mail server'],
+      ['smtp_username', 'Outgoing username'],
+    ];
+    for (const [key, label] of requiredLabels) {
+      if (!mailboxForm[key]?.toString().trim()) missing.push(label);
+    }
+    if (!editingMailbox) {
+      if (!mailboxForm.imap_password?.toString()) missing.push('Incoming password');
+      if (!mailboxForm.smtp_password?.toString()) missing.push('Outgoing password');
+    }
+    if (missing.length > 0) {
+      const msg = `Please complete the required fields: ${missing.join(', ')}.`;
+      setMailboxFormError(msg);
+      showToast('err', msg);
+      return;
+    }
+
     setBusy('save-mailbox');
     try {
       const payload = { ...mailboxForm };
@@ -1081,6 +1108,46 @@ export default function CommunicationsPage() {
           if (payload[key] === '' || payload[key] === '********') delete payload[key];
         }
       }
+
+      // Connection verification — verify SMTP + IMAP credentials before saving.
+      // New mailboxes must pass; on failure the specific reason is shown and
+      // nothing is saved.
+      if (!editingMailbox) {
+        try {
+          const vRes = await fetch(`${MB_BASE}/test-connection`, {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const v = await vRes.json();
+          if (v.success) {
+            const reasons: string[] = [];
+            if (v.data?.imap && !v.data.imap.connected) {
+              reasons.push(`IMAP: ${v.data.imap.error || 'connection failed'}`);
+            }
+            if (v.data?.smtp && !v.data.smtp.connected) {
+              reasons.push(`SMTP: ${v.data.smtp.error || 'connection failed'}`);
+            }
+            if (reasons.length > 0) {
+              const msg = `Connection verification failed — ${reasons.join('; ')}.`;
+              setMailboxFormError(msg);
+              showToast('err', msg);
+              return;
+            }
+          } else {
+            const msg = v.error?.message || 'Connection verification failed.';
+            setMailboxFormError(msg);
+            showToast('err', msg);
+            return;
+          }
+        } catch {
+          const msg = 'Connection verification could not be completed.';
+          setMailboxFormError(msg);
+          showToast('err', msg);
+          return;
+        }
+      }
+
       const res = await fetch(editingMailbox ? `${MB_BASE}/${editingMailbox.id}` : `${MB_BASE}`, {
         method: editingMailbox ? 'PATCH' : 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
@@ -1088,16 +1155,21 @@ export default function CommunicationsPage() {
       });
       const json = await res.json();
       if (json.success) {
-        showToast('ok', json.message || (editingMailbox ? 'Mailbox updated' : 'Mailbox created'));
+        showToast('ok', json.message || (editingMailbox ? 'Mailbox updated.' : 'Mailbox created successfully.'));
         setShowMailboxForm(false);
         setEditingMailbox(null);
         setMailboxForm({});
+        setMailboxFormError(null);
         await loadMailboxes();
       } else {
-        showToast('err', json.error?.message || json.message || 'Failed to save mailbox');
+        const msg = json.error?.message || json.message || 'Failed to save mailbox.';
+        setMailboxFormError(msg);
+        showToast('err', msg);
       }
     } catch {
-      showToast('err', 'Failed to save mailbox');
+      const msg = 'Failed to save mailbox.';
+      setMailboxFormError(msg);
+      showToast('err', msg);
     } finally {
       setBusy(null);
     }
@@ -1512,7 +1584,7 @@ export default function CommunicationsPage() {
       <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] gap-3">
         <AtSign size={32} className="opacity-30" />
         <p className="text-xs">No mailboxes configured</p>
-        <button onClick={() => { setEditingMailbox(null); setMailboxForm({ provider: 'custom', imap_port: 993, smtp_port: 465, imap_secure: true, smtp_secure: true }); setShowMailboxForm(true); }}
+        <button onClick={() => { setEditingMailbox(null); setMailboxForm({ provider: 'custom', imap_port: 993, smtp_port: 465, imap_secure: true, smtp_secure: true }); setMailboxFormError(null); setShowMailboxForm(true); }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
           <Plus size={13} /> Add Mailbox
         </button>
@@ -1551,7 +1623,7 @@ export default function CommunicationsPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
               {busy === 'sync-all' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
             </button>
-            <button onClick={() => { setEditingMailbox(null); setMailboxForm({ provider: 'custom', imap_port: 993, smtp_port: 465, imap_secure: true, smtp_secure: true }); setShowMailboxForm(true); }}
+            <button onClick={() => { setEditingMailbox(null); setMailboxForm({ provider: 'custom', imap_port: 993, smtp_port: 465, imap_secure: true, smtp_secure: true }); setMailboxFormError(null); setShowMailboxForm(true); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
               <Plus size={13} /> Add Mailbox
             </button>
@@ -1604,7 +1676,7 @@ export default function CommunicationsPage() {
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
                     {busyKey('sync') ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Sync
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, imap_password: '', smtp_password: '' }); setShowMailboxForm(true); }}
+                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, imap_password: '', smtp_password: '' }); setMailboxFormError(null); setShowMailboxForm(true); }}
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30">
                     <Pencil size={10} /> Edit
                   </button>
@@ -2246,7 +2318,7 @@ export default function CommunicationsPage() {
             smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username,
             signature: mb.signature, is_enabled: mb.is_enabled, is_default_sender: mb.is_default_sender,
             auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message,
-          }); setShowMailboxForm(true); }}
+          }); setMailboxFormError(null); setShowMailboxForm(true); }}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 text-[11px] font-medium transition-colors">
             <Pencil size={11} /> Edit
           </button>
@@ -2326,7 +2398,7 @@ export default function CommunicationsPage() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm shadow-2xl shadow-black/40 ${
+        <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm shadow-2xl shadow-black/40 ${
           toast.type === 'ok' ? 'border-green-500/30 bg-[var(--bg-secondary)] text-green-400' : 'border-red-500/30 bg-[var(--bg-secondary)] text-red-400'
         }`}>
           {toast.type === 'ok' ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
@@ -2468,7 +2540,7 @@ export default function CommunicationsPage() {
           <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] w-[560px] max-w-full mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)] sticky top-0 bg-[var(--bg-secondary)] z-10">
               <h2 className="text-base font-semibold text-[var(--text-primary)]">{editingMailbox ? 'Edit Mailbox' : 'Add Mailbox'}</h2>
-              <button onClick={() => { setShowMailboxForm(false); setEditingMailbox(null); }} className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-muted)] transition-colors"><X size={15} /></button>
+              <button onClick={() => { setShowMailboxForm(false); setEditingMailbox(null); setMailboxFormError(null); }} className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-muted)] transition-colors"><X size={15} /></button>
             </div>
             <div className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -2587,14 +2659,16 @@ export default function CommunicationsPage() {
                   placeholder="Auto-reply message sent to new incoming conversations (e.g. Thanks for your message — we will get back to you within 24 hours.)"
                   className={`${inputCls} resize-none`} />
               </div>
-              {error && <p className="text-xs text-red-400">{error}</p>}
+              {mailboxFormError && (
+                <p className="text-xs text-red-400 break-words rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2">{mailboxFormError}</p>
+              )}
             </div>
             <div className="flex gap-2 px-5 py-4 border-t border-[var(--border-color)] sticky bottom-0 bg-[var(--bg-secondary)]">
               <button onClick={saveMailbox} disabled={busy === 'save-mailbox'}
                 className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                {busy === 'save-mailbox' ? <><Loader2 size={13} className="animate-spin" /> Saving...</> : <><Save size={13} /> {editingMailbox ? 'Save Changes' : 'Create Mailbox'}</>}
+                {busy === 'save-mailbox' ? <><Loader2 size={13} className="animate-spin" /> {editingMailbox ? 'Saving changes...' : 'Creating mailbox...'}</> : <><Save size={13} /> {editingMailbox ? 'Save Changes' : 'Create Mailbox'}</>}
               </button>
-              <button onClick={() => { setShowMailboxForm(false); setEditingMailbox(null); }}
+              <button onClick={() => { setShowMailboxForm(false); setEditingMailbox(null); setMailboxFormError(null); }}
                 className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">Cancel</button>
             </div>
           </div>
