@@ -82,7 +82,7 @@ export class SDKValidator {
 
     // Stage 5: README validation (always runs)
     if (result.errors.length === 0) {
-      await this.checkReadme(packageDir, result);
+      await this.checkReadme(packageDir, runtime, result);
     }
 
     // Stage 6: Syntax validation (environment-aware — only if interpreter available)
@@ -105,7 +105,7 @@ export class SDKValidator {
       zip_valid: result.checks.files > 0,
       manifest_valid: !result.errors.some(e => e.includes('manifest')),
       config_valid: !result.errors.some(e => e.includes('api-config')),
-      readme_valid: !result.errors.some(e => e.includes('README')),
+      readme_valid: !result.errors.some(e => e.includes('README')) && !result.errors.some(e => e.includes('Integrations')),
       syntax_validation: syntaxInfo,
       errors: result.errors,
       warnings: result.warnings,
@@ -142,11 +142,11 @@ export class SDKValidator {
 
     const hasConfig = files.some(f => f.endsWith('api-config.json'));
     const hasManifest = files.some(f => f.endsWith('manifest.json'));
-    const hasReadme = files.some(f => f.toLowerCase().endsWith('readme.md'));
+    const hasReadme = files.some(f => f.toLowerCase().endsWith(runtime === 'python' ? 'integrations.md' : 'readme.md'));
 
     if (!hasConfig) result.errors.push('Missing api-config.json in generated package');
     if (!hasManifest) result.errors.push('Missing manifest.json in generated package');
-    if (!hasReadme) result.warnings.push('Missing README.md in generated package');
+    if (!hasReadme) result.warnings.push(runtime === 'python' ? 'Missing Integrations.md in generated package' : 'Missing README.md in generated package');
 
     // Check for runtime entry file
     const entryFiles: Record<string, string[]> = {
@@ -467,12 +467,14 @@ export class SDKValidator {
 
   private async checkReadme(
     packageDir: string,
+    runtime: string,
     result: ValidationResult
   ): Promise<void> {
-    const readmePaths = [
-      path.join(packageDir, 'README.md'),
-      path.join(packageDir, 'readme.md'),
-    ];
+    const docCandidates = runtime === 'python'
+      ? ['Integrations.md', 'integrations.md']
+      : ['README.md', 'readme.md'];
+    const docName = runtime === 'python' ? 'Integrations.md' : 'README.md';
+    const readmePaths = docCandidates.map(name => path.join(packageDir, name));
     let readmePath = '';
     for (const rp of readmePaths) {
       try {
@@ -483,32 +485,45 @@ export class SDKValidator {
     }
 
     if (!readmePath) {
-      result.warnings.push('README.md not found in generated package');
+      result.warnings.push(`${docName} not found in generated package`);
       return;
     }
 
     try {
       const content = await fs.readFile(readmePath, 'utf-8');
       if (!content.trim()) {
-        result.warnings.push('README.md is empty');
+        result.warnings.push(`${docName} is empty`);
         return;
       }
 
-      // Check for all lifecycle sections
-      const lifecycleSections = [
-        'Installation',
-        'Quick Start',
-        'Configuration',
-        'API Endpoints',
-        'Initialize & Validate',
-        'Start Trial',
-        'Activate License',
-        'Renew License',
-        'View Hardware Status',
-        'Deactivate License',
-        'Bind Device',
-        'HMAC',
-      ];
+      // Check for all lifecycle sections relevant to the runtime's documentation file
+      const lifecycleSections = runtime === 'python'
+        ? [
+            '1. Introduction',
+            '2. Install',
+            '3. Configuration',
+            '4. Quick start',
+            '5. Core components',
+            '6. Workflows',
+            '7. API reference',
+            '8. Error handling',
+            '9. Best practices',
+            '10. Troubleshooting',
+          ]
+        : [
+            'Installation',
+            'Quick Start',
+            'Configuration',
+            'API Endpoints',
+            'Initialize & Validate',
+            'Start Trial',
+            'Activate License',
+            'Renew License',
+            'View Hardware Status',
+            'Deactivate License',
+            'Bind Device',
+            'HMAC',
+          ];
       const missing: string[] = [];
       for (const section of lifecycleSections) {
         if (!content.includes(`## ${section}`) && !content.includes(`## ${section}`.toLowerCase())) {
@@ -516,12 +531,12 @@ export class SDKValidator {
         }
       }
       if (missing.length > 0) {
-        result.warnings.push(`README.md missing lifecycle sections: ${missing.join(', ')}`);
+        result.warnings.push(`${docName} missing lifecycle sections: ${missing.join(', ')}`);
       }
 
       result.checks.passed++;
     } catch {
-      result.warnings.push('README.md not found in generated package');
+      result.warnings.push(`${docName} not found in generated package`);
     }
   }
 

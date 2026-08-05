@@ -773,7 +773,10 @@ export class RuntimeBuilder {
       await this.writeConfig(packageDir, apiConfig);
       await this.generateDocs(packageDir);
       await this.generateAssets(packageDir, runtime.name);
-      await this.generateReadme(packageDir, context, runtime.name);
+
+      if (runtime.name !== 'python') {
+        await this.generateReadme(packageDir, context, runtime.name);
+      }
 
       return packageDir;
 

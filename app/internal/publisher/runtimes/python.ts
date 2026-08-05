@@ -34,7 +34,7 @@ const MANDATORY_FILES = [
   'sales.py',
   'config.py',
   'manifest.json',
-  'README.md',
+  'Integrations.md',
 ];
 
 const RUNTIME_ONLY_EXTENSIONS = ['.py', '.md'];

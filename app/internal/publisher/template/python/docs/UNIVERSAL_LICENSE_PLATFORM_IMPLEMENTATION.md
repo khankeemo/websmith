@@ -860,7 +860,7 @@ Placeholder Injection
 SDK Assembly
 ├── Copy all processed template files to output directory
 ├── Generate package.json / manifest.json
-├── Generate README.md from template
+├── Generate Integrations.md from template (Python) or README.md from template (other runtimes)
 └── Generate tsconfig.json / pyproject.toml
 Post-Generation Verification (sdk-validator.ts)
 ├── Verify all expected files exist
@@ -939,7 +939,7 @@ Every runtime template MUST contain all of the following modules:
 | `universal_license_center` | Main customer-facing UI / CLI |
 | `welcome` | Onboarding workflow |
 | `live_log` | Shared event logging (used by ULC, RestartDialog, and all modules) |
-| `README` | Documentation for the SDK user |
+| `Integrations.md` (Python) / `README.md` (other runtimes) | Documentation for the SDK user |
 
 **Validation:** If any module is missing from a template directory, SDK generation MUST fail.
 
