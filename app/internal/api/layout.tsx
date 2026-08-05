@@ -104,6 +104,9 @@ export default function InternalApiLayout({
   const pathname = usePathname();
   const router = useRouter();
   const isAuthPage = pathname?.startsWith("/internal/api/auth") ?? false;
+  // Dedicated communications workspace: the dashboard Sidebar is hidden and the
+  // Communications page renders its own email-client navigation full-width.
+  const isCommsPage = pathname?.startsWith("/internal/api/communications") ?? false;
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
@@ -167,14 +170,16 @@ export default function InternalApiLayout({
         // ✅ Dashboard pages: WITH NotificationProvider
         <NotificationProvider>
           <div className="flex h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
-            <div className="w-[280px] flex-shrink-0">
-              <Sidebar />
-            </div>
+            {!isCommsPage && (
+              <div className="w-[280px] flex-shrink-0">
+                <Sidebar />
+              </div>
+            )}
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-shrink-0">
                 <Topbar />
               </div>
-              <main className="flex-1 overflow-y-auto p-6 bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
+              <main className={`flex-1 overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300 ${isCommsPage ? 'p-0' : 'p-6'}`}>
                 {children}
               </main>
             </div>

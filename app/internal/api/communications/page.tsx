@@ -140,7 +140,7 @@ interface DetailData {
   audit: any[];
 }
 
-type ViewKind = 'list' | 'queue' | 'logs' | 'history' | 'mailboxes' | 'empty';
+type ViewKind = 'list' | 'queue' | 'logs' | 'history' | 'mailboxes' | 'settings' | 'empty';
 
 interface FolderDef {
   key: string;
@@ -191,6 +191,27 @@ const FOLDERS: FolderDef[] = [
   { key: 'ext-trash', label: 'Trash', icon: Trash2, section: 'external', kind: 'list', params: { show_deleted: 'true' } },
   { key: 'mailboxes', label: 'Mailboxes', icon: AtSign, section: 'external', kind: 'mailboxes' },
 ];
+
+const SETTINGS_DEF: FolderDef = {
+  key: 'settings',
+  label: 'Communication Settings',
+  icon: Settings,
+  section: 'internal',
+  kind: 'settings',
+};
+
+const NAV_GROUPS: { key: string; label: string; icon: any }[] = [
+  { key: 'internal', label: 'Internal Communications', icon: MessageSquare },
+  { key: 'universal', label: 'Universal Email', icon: MailOpen },
+  { key: 'external', label: 'External Mailboxes', icon: AtSign },
+  { key: 'mailboxes', label: 'Mailboxes', icon: Mail },
+];
+
+const groupFor = (def: FolderDef): string => {
+  if (def.key === 'email-history') return 'universal';
+  if (def.key === 'mailboxes') return 'mailboxes';
+  return def.section;
+};
 
 const CATEGORY_LABELS: Record<string, string> = {
   support: 'Support', sales: 'Sales', activation: 'Activation',
@@ -309,6 +330,9 @@ export default function CommunicationsPage() {
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
   const [showDeleteMailboxConfirm, setShowDeleteMailboxConfirm] = useState<string | null>(null);
   const [testEmailTo, setTestEmailTo] = useState('');
+  const [commSettings, setCommSettings] = useState<any>(null);
+  const [commSettingsLoading, setCommSettingsLoading] = useState(false);
+  const [commSettingsDirty, setCommSettingsDirty] = useState(false);
 
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [showFolderManager, setShowFolderManager] = useState(false);
@@ -352,6 +376,7 @@ export default function CommunicationsPage() {
   }, []);
 
   const activeFolderDef = useMemo(() => {
+    if (activeFolder === 'settings') return SETTINGS_DEF;
     const row = folders.find(f => f.id === activeFolder);
     if (row) return folderDefFor(row);
     return FOLDERS.find(f => f.key === activeFolder) || FOLDERS[0];
@@ -546,6 +571,53 @@ export default function CommunicationsPage() {
     }
   }, []);
 
+  const loadCommsSettings = useCallback(async () => {
+    setCommSettingsLoading(true);
+    try {
+      const res = await fetch('/internal/backend/communications/settings', { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setCommSettings(json.settings);
+    } catch {} finally {
+      setCommSettingsLoading(false);
+    }
+  }, []);
+
+  const saveCommsSettings = useCallback(async () => {
+    if (!commSettings) return;
+    setBusy('save-comm-settings');
+    try {
+      const res = await fetch('/internal/backend/communications/settings', {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(commSettings),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', 'Communication settings saved');
+        setCommSettingsDirty(false);
+      } else {
+        showToast('err', json.error?.message || 'Failed to save settings');
+      }
+    } catch {
+      showToast('err', 'Failed to save settings');
+    } finally {
+      setBusy(null);
+    }
+  }, [commSettings, showToast]);
+
+  const setCommGeneral = useCallback((key: string, value: any) => {
+    setCommSettings((prev: any) => prev ? { ...prev, general: { ...prev.general, [key]: value } } : prev);
+    setCommSettingsDirty(true);
+  }, []);
+
+  const setCommAccount = useCallback((id: string, key: string, value: any) => {
+    setCommSettings((prev: any) => prev ? {
+      ...prev,
+      mail_accounts: (prev.mail_accounts || []).map((a: any) => a.id === id ? { ...a, [key]: value } : a),
+    } : prev);
+    setCommSettingsDirty(true);
+  }, []);
+
   // Client-driven auto-sync (no cron on serverless): process queue + pull IMAP
   // for every enabled mailbox once per minute while the page is visible.
   useEffect(() => {
@@ -595,8 +667,9 @@ export default function CommunicationsPage() {
     else if (f.kind === 'logs') loadLogs();
     else if (f.kind === 'history') loadHistory();
     else if (f.kind === 'mailboxes') loadMailboxes();
+    else if (f.kind === 'settings') loadCommsSettings();
     fetchStats();
-  }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, fetchStats]);
+  }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, loadCommsSettings, fetchStats]);
 
   // Phase 5: deliver queued emails via the default sender mailbox SMTP
   const processQueue = useCallback(async () => {
@@ -1003,19 +1076,30 @@ export default function CommunicationsPage() {
     { key: 'unread', label: 'Unread', icon: MailOpen, color: 'bg-cyan-500/10 text-cyan-400' },
   ];
 
-  // ---- Sidebar (database-driven folders) ----
+  // ---- Sidebar (email-client navigation, database-driven folders) ----
   const renderSidebar = () => (
-    <aside className="w-52 flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)]">
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 scrollbar-thin">
-        {(['internal', 'external'] as const).map(section => {
-          const sectionFolders = folders.filter(f => f.section === section);
+    <aside className="w-60 flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)] bg-[var(--bg-tertiary)]/10">
+      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-5 scrollbar-thin">
+        <div className="px-2 flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
+            <Mail className="h-3.5 w-3.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-[var(--text-primary)] leading-tight truncate">Mail</p>
+            <p className="text-[9px] text-[var(--text-muted)]">Websmith Communications</p>
+          </div>
+        </div>
+        {NAV_GROUPS.map(group => {
+          const groupFolders = folders.filter(f => groupFor(folderDefFor(f)) === group.key);
+          if (groupFolders.length === 0) return null;
+          const GroupIcon = group.icon;
           return (
-            <div key={section}>
-              <p className="px-2 mb-1.5 text-[10px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
-                {section === 'internal' ? 'Internal Communications' : 'External Mailboxes'}
+            <div key={group.key}>
+              <p className="px-2 mb-1.5 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
+                <GroupIcon size={10} /> {group.label}
               </p>
               <div className="space-y-0.5">
-                {sectionFolders.map(row => {
+                {groupFolders.map(row => {
                   const def = folderDefFor(row);
                   const Icon = def.icon;
                   const active = activeFolder === row.id;
@@ -1024,10 +1108,11 @@ export default function CommunicationsPage() {
                     <button
                       key={row.id}
                       onClick={() => handleFolderChange(row.id)}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
                         active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
                       }`}
                     >
+                      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
                       <Icon size={14} className="flex-shrink-0" />
                       <span className="flex-1 text-left truncate">{def.label}</span>
                       {!row.is_system && <FolderOpen size={10} className="flex-shrink-0 opacity-40" />}
@@ -1041,10 +1126,22 @@ export default function CommunicationsPage() {
             </div>
           );
         })}
-        <button onClick={() => setShowFolderManager(true)}
-          className="w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
-          <FolderPlus size={13} /> New Folder
-        </button>
+        <div className="pt-2 border-t border-[var(--border-color)] space-y-0.5">
+          <button
+            onClick={() => handleFolderChange('settings')}
+            className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+              activeFolder === 'settings' ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+            }`}
+          >
+            {activeFolder === 'settings' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+            <Settings size={14} className="flex-shrink-0" />
+            <span className="flex-1 text-left truncate">Communication Settings</span>
+          </button>
+          <button onClick={() => setShowFolderManager(true)}
+            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
+            <FolderPlus size={13} /> New Folder
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -1061,61 +1158,56 @@ export default function CommunicationsPage() {
     );
     return (
       <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 bg-[var(--bg-primary)]">
-            <tr className="border-b border-[var(--border-color)] text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-              <th className="px-2 py-2 w-8">
-                <input type="checkbox" checked={selectedIds.size === conversations.length && conversations.length > 0} onChange={toggleSelectAll} className="accent-blue-500" />
-              </th>
-              <th className="text-left px-2 py-2 w-16">Status</th>
-              <th className="text-left px-2 py-2 w-32">Sender</th>
-              <th className="text-left px-2 py-2 min-w-[140px]">Subject</th>
-              <th className="text-left px-2 py-2 w-24">Category</th>
-              <th className="text-left px-2 py-2 w-28">Customer</th>
-              <th className="text-left px-2 py-2 w-24">Product</th>
-              <th className="text-left px-2 py-2 w-20">Date</th>
-              <th className="text-center px-2 py-2 w-10">Att</th>
-              <th className="text-left px-2 py-2 w-20">Priority</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-color)]">
-            {conversations.map(conv => {
-              const sel = selectedIds.has(conv.id);
-              const prio = priorityOf(conv.status);
-              return (
-                <tr
-                  key={conv.id}
-                  onClick={() => openDetail(conv.id)}
-                  className={`cursor-pointer transition-colors ${sel ? 'bg-blue-500/10' : 'hover:bg-[var(--bg-tertiary)]/20'} ${conv.unread_replies > 0 ? 'font-medium' : ''}`}
-                >
-                  <td className="px-2 py-2.5" onClick={e => e.stopPropagation()}>
-                    <input type="checkbox" checked={sel} onChange={() => toggleSelect(conv.id)} className="accent-blue-500" />
-                  </td>
-                  <td className="px-2 py-2.5"><StatusBadge status={conv.status} /></td>
-                  <td className="px-2 py-2.5 text-[var(--text-primary)] truncate max-w-[120px]">{conv.customer_name || 'Unknown'}</td>
-                  <td className="px-2 py-2.5 text-[var(--text-secondary)] truncate max-w-[220px]">
-                    <span className="inline-flex items-center gap-1.5">
-                      {conv.unread_replies > 0 && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
-                      {conv.subject || '(No subject)'}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2.5"><CategoryBadge category={conv.category} /></td>
-                  <td className="px-2 py-2.5 text-[var(--text-secondary)] truncate max-w-[130px]">{conv.customer_email}</td>
-                  <td className="px-2 py-2.5 text-[var(--text-muted)] truncate max-w-[100px]">{conv.product_id || '-'}</td>
-                  <td className="px-2 py-2.5 text-[var(--text-muted)] whitespace-nowrap">{new Date(conv.updated_at).toLocaleDateString()}</td>
-                  <td className="px-2 py-2.5 text-center">
-                    {conv.attachment_count > 0 ? <Paperclip size={12} className="inline text-[var(--text-secondary)]" /> : <span className="text-[var(--text-muted)]/40">-</span>}
-                  </td>
-                  <td className="px-2 py-2.5">
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${prio.color}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`} /> {prio.label}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-color)] sticky top-0 z-10 bg-[var(--bg-primary)]">
+          <input type="checkbox" checked={selectedIds.size === conversations.length && conversations.length > 0} onChange={toggleSelectAll} className="accent-blue-500" />
+          <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{conversations.length} conversation(s)</span>
+          {selectedIds.size > 0 && <span className="text-[10px] text-blue-400 ml-auto">{selectedIds.size} selected</span>}
+        </div>
+        <div className="divide-y divide-[var(--border-color)]">
+          {conversations.map(conv => {
+            const sel = selectedIds.has(conv.id);
+            const prio = priorityOf(conv.status);
+            const unread = (conv.unread_replies || 0) > 0;
+            const sender = conv.customer_name || conv.customer_email || 'Unknown';
+            const initial = (sender.trim()[0] || '?').toUpperCase();
+            return (
+              <div
+                key={conv.id}
+                onClick={() => openDetail(conv.id)}
+                className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${sel ? 'bg-blue-500/10' : unread ? 'hover:bg-[var(--bg-tertiary)]/20 bg-[var(--bg-tertiary)]/5' : 'hover:bg-[var(--bg-tertiary)]/20'}`}
+              >
+                <div className="w-5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" checked={sel} onChange={() => toggleSelect(conv.id)} className="accent-blue-500" />
+                </div>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${unread ? 'bg-blue-500/20 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
+                  {initial}
+                </div>
+                <div className="w-40 flex-shrink-0 min-w-0">
+                  <p className={`text-xs truncate ${unread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-secondary)]'}`}>{sender}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate">{conv.customer_email}</p>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {unread && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
+                    <p className={`text-xs truncate ${unread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-secondary)]'}`}>{conv.subject || '(No subject)'}</p>
+                    <CategoryBadge category={conv.category} />
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">
+                    {conv.product_id ? `Product ${conv.product_id}` : ''}{conv.product_id && conv.license_key ? ' · ' : ''}{conv.license_key || ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {conv.attachment_count > 0 && <Paperclip size={12} className="text-[var(--text-muted)]" />}
+                  <StatusBadge status={conv.status} />
+                  <span className={`text-[10px] font-medium flex items-center gap-1 ${prio.color}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`} /> {prio.label}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap w-16 text-right">{new Date(conv.updated_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -1274,6 +1366,120 @@ export default function CommunicationsPage() {
     );
   };
 
+  const renderSettings = () => {
+    if (commSettingsLoading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
+    if (!commSettings) return (
+      <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] px-6 text-center">
+        <Settings size={32} className="mb-2 opacity-30" />
+        <p className="text-xs">No communication settings available.</p>
+      </div>
+    );
+    const g = commSettings.general || {};
+    const num = (key: string) =>
+      <input type="number" min={0} value={g[key] ?? ''} onChange={e => setCommGeneral(key, parseInt(e.target.value) || 0)}
+        className={inputCls} />;
+    return (
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+          <div className="px-3 py-2 border-b border-[var(--border-color)]">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">General</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Queue retry, attachment and auto-resolve behaviour.</p>
+          </div>
+          <div className="p-3 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Max retry attempts">{num('retry_max_attempts')}</Field>
+              <Field label="Retry base delay (minutes)">{num('retry_base_delay_minutes')}</Field>
+              <Field label="Attachment max size (MB)">{num('attachment_max_size_mb')}</Field>
+              <Field label="Attachments per message">{num('attachment_max_per_message')}</Field>
+              <Field label="Auto-resolve after (days)">{num('auto_resolve_days')}</Field>
+              <Field label="Default template language">
+                <input type="text" value={g.default_template_language || ''} onChange={e => setCommGeneral('default_template_language', e.target.value)} className={inputCls} />
+              </Field>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <input type="checkbox" checked={g.bcc_admin_on_all === true} onChange={e => setCommGeneral('bcc_admin_on_all', e.target.checked)} className="accent-blue-500" />
+              BCC admin on all outgoing emails
+            </label>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+          <div className="px-3 py-2 border-b border-[var(--border-color)]">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Routing</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Which categories are handled by support vs sales accounts.</p>
+          </div>
+          <div className="p-3 space-y-2">
+            <div>
+              <p className="text-[10px] text-[var(--text-muted)] mb-1">Support categories</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(commSettings.routing?.support_categories || []).map((c: string) => <span key={c} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400">{CATEGORY_LABELS[c] || c}</span>)}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] text-[var(--text-muted)] mb-1">Sales categories</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(commSettings.routing?.sales_categories || []).map((c: string) => <span key={c} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400">{CATEGORY_LABELS[c] || c}</span>)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+          <div className="px-3 py-2 border-b border-[var(--border-color)]">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Mail Accounts ({commSettings.mail_accounts?.length || 0})</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">System sender identities used for transactional and inbound routing.</p>
+          </div>
+          <div className="p-3 space-y-2">
+            {(commSettings.mail_accounts || []).map((a: any) => (
+              <div key={a.id} className="rounded-lg border border-[var(--border-color)] p-2.5">
+                <div className="flex items-center gap-2">
+                  <AtSign size={11} className="text-[var(--text-muted)] flex-shrink-0" />
+                  <span className="text-xs text-[var(--text-primary)] font-medium truncate">{a.display_name || a.name}</span>
+                  <Badge className={a.is_active ? 'text-green-400 bg-green-500/10' : 'text-gray-400 bg-gray-500/10'}>{a.is_active ? 'Active' : 'Inactive'}</Badge>
+                  <span className="ml-auto text-[10px] text-[var(--text-muted)]">{a.type}</span>
+                </div>
+                <p className="text-[10px] text-[var(--text-secondary)] truncate mt-1">{a.email}</p>
+                {a.reply_to && <p className="text-[10px] text-[var(--text-muted)]">Reply-To: {a.reply_to}</p>}
+                {a.signature && <p className="text-[10px] text-[var(--text-muted)] whitespace-pre-wrap break-words mt-0.5">{a.signature}</p>}
+                <p className="text-[10px] text-[var(--text-muted)] mt-1">Templates: {(a.templates || []).join(', ') || '-'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 bg-[var(--bg-primary)]/95 backdrop-blur-sm pt-2 pb-1">
+          <button onClick={saveCommsSettings} disabled={!commSettingsDirty || busy === 'save-comm-settings'}
+            className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50">
+            {busy === 'save-comm-settings' ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            {commSettingsDirty ? 'Save Changes' : 'Saved'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSettingsAccounts = () => {
+    if (!commSettings) return <div className="flex-1 flex items-center justify-center text-[var(--text-muted)] text-center px-6 text-xs">Communication settings load here.</div>;
+    const accounts = commSettings.mail_accounts || [];
+    return (
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] px-1">Sender Identities</p>
+        {accounts.length === 0 && <p className="text-xs text-[var(--text-muted)] px-1">No mail accounts configured.</p>}
+        {accounts.map((a: any) => (
+          <label key={a.id} className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3 cursor-pointer transition-colors hover:bg-[var(--bg-tertiary)]/20">
+            <input type="checkbox" checked={a.is_active === true} onChange={e => setCommAccount(a.id, 'is_active', e.target.checked)} className="accent-blue-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-[var(--text-primary)] font-medium truncate">{a.display_name || a.name}</p>
+              <p className="text-[10px] text-[var(--text-muted)] truncate">{a.email}</p>
+            </div>
+            <Badge className="text-gray-400 bg-gray-500/10">{a.type}</Badge>
+          </label>
+        ))}
+        <p className="text-[10px] text-[var(--text-muted)] px-1 pt-1 leading-relaxed">Toggle sender identities on or off. Saved together with the general settings.</p>
+      </div>
+    );
+  };
+
   const renderEmptyFolder = () => (
     <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] px-6 text-center">
       <ShieldAlert size={28} className="mb-2 opacity-30" />
@@ -1287,6 +1493,7 @@ export default function CommunicationsPage() {
       case 'logs': return renderLogsList();
       case 'history': return renderHistoryList();
       case 'mailboxes': return renderMailboxGrid();
+      case 'settings': return renderSettings();
       case 'empty': return renderEmptyFolder();
       default: return renderListTable();
     }
@@ -1668,13 +1875,14 @@ export default function CommunicationsPage() {
       case 'logs': return renderLogDetail();
       case 'history': return renderHistoryDetail();
       case 'mailboxes': return renderMailboxDetail();
+      case 'settings': return renderSettingsAccounts();
       case 'empty': return <div className="flex-1" />;
       default: return renderConversationDetail();
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] gap-2">
+    <div className="flex flex-col h-full gap-2">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">

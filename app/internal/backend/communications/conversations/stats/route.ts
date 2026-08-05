@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   let client = null;
   try {
@@ -33,9 +35,26 @@ export async function GET() {
       console.warn('message_queue table not available, skipping queue stats:', queueError.message);
     }
 
+    // Unread = conversations with at least one customer message newer than both
+    // the last admin reply and admin_read_at (same definition as the list view's
+    // unread_replies). This stays in sync with mark_read / mark_unread, which set
+    // admin_read_at on communication_conversations.
     const unreadCount = await client.query(`
-      SELECT COUNT(*) as count FROM conversation_messages 
-      WHERE sender_type = 'customer' AND email_sent = false
+      SELECT COUNT(*) as count FROM communication_conversations cc
+      WHERE cc.deleted_at IS NULL
+        AND EXISTS (
+          SELECT 1 FROM conversation_messages cm
+          WHERE cm.conversation_id = cc.id
+            AND cm.sender_type = 'customer'
+            AND (cm.is_internal IS NULL OR cm.is_internal = false)
+            AND cm.created_at > GREATEST(
+              COALESCE((
+                SELECT MAX(cm2.created_at) FROM conversation_messages cm2
+                WHERE cm2.conversation_id = cc.id AND cm2.sender_type = 'admin'
+              ), '1970-01-01T00:00:00Z'),
+              COALESCE(cc.admin_read_at, '1970-01-01T00:00:00Z')
+            )
+        )
     `);
 
     client.release();
