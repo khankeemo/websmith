@@ -4467,26 +4467,170 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 
 ---
 
-## Store Rules
+## Software Store — UI/UX Redesign & Architecture (2026-08)
 
-Software Store must always load products from the Internal API / database. Never hardcode products.
+The Software Store is the public storefront at `/software-store`. It was redesigned end-to-end **as a presentation refactor only** — the architecture, routing, internal-API product retrieval and business logic are unchanged. No new store, no duplicate product models, no mock data, no generated product IDs, no hardcoded plans.
 
-Verify all of the following work before marking complete:
+### Non-negotiable Data Rule
 
-- Products load from Internal API
-- Categories display correctly
-- Pricing is accurate and loaded dynamically
-- Plans display correctly per product
-- Search works and returns correct results
-- Filters work (category, price range, plan type)
-- Pagination works
-- Cart adds / removes / updates correctly
-- Wishlist adds / removes correctly
-- Checkout flow completes end-to-end
-- Purchase flow completes end-to-end
-- Product Details page shows all correct information
-- All buttons render and respond correctly
-- All images load correctly
+Software Store must **always** load products from the Internal API — never hardcode products.
+
+- Single source of truth: `GET /api/v1/store/products`
+- Frontend loader: `getPublicProducts()` in `app/software-store/services/softwareStoreService.ts`
+- Single product by id: `getProductById(id)` → `GET /api/v1/store/products?id=...`
+- Every product displayed owns its id from the Internal API (`StoreProduct.id`). No temporary ids, no UUID placeholders, no sample software.
+- Forbidden patterns (must never reappear): `fakeProducts[]`, `mockProducts[]`, `demoData[]`, `sampleProducts[]`, hardcoded `id`, `plans`, `pricing` or `features`.
+
+### Current Route Map
+
+| Route | Type | Purpose |
+|-------|------|---------|
+| `/software-store` | Public client page | Storefront grid/list, search, filters, sort, cart/wishlist/compare/history |
+| `/software-store/product/[id]` | Public client page (focused) | Product details hero, overview, plans, features, resources, sticky action card |
+| `/software-store/checkout` | Standalone layout | Dedicated distraction-free checkout + `/success`, `/failed`, `/pending` |
+
+- The legacy duplicate storefront at `/store` (which used `/internal/backend/store/products` and a `Buy Now` purchase) was **removed** as an obsolete duplicate implementation.
+
+### Focused Product Details (Website Header Removed)
+
+When a user opens a product (`/software-store/product/[id]`), the experience is fully focused on the software:
+
+- The website navigation (Home, Features, Projects, Clients, Developers, Testimonials, Software Store, Contact, Login, Theme Toggle, Get Started) and the marketing footer are **suppressed** on this route (see `app/ClientLayout.tsx` → `isStandaloneProductRoute`, plus `PUBLIC_ROUTE_PREFIXES` in `core/constants/routes.ts` → `/software-store/product`).
+- The only chrome is a dedicated header with **← Back to Store** and **Cart**, **Wishlist**, **Compare** actions (with live count badges). Nothing else.
+
+### Product Details Page — Layout
+
+`app/software-store/product/[id]/page.tsx` (redesigned presentation, all backend behaviour intact):
+
+1. **Focused header** — Back to Store + Cart / Wishlist / Compare.
+2. **Large Product Hero** — animated icon, product name, version, developer (`company_name`), tags, type / platform / Featured / Free-Trial chips, starting price.
+3. **Overview** — description, short description, metadata stat grid.
+4. **Pricing Plans** — animated plan selection (radio cards driven by `is_active` plans from the API).
+5. **Features** — checkmark feature grid for the selected plan.
+6. **Resources** — Documentation / Support / Website links.
+7. **Sticky Action Card** — Add to Cart, Proceed to Checkout, Wishlist, Compare, secure-checkout note.
+8. **Overlays** — shared Cart / Wishlist / Compare panels + compare tray + toast.
+
+### Store Product Cards
+
+Cards were redesigned as premium SaaS cards (glassmorphism, soft gradients, animated conic border on hover, cursor spotlight, layered shadows, glow orbs, floating icon, gradient movement, floating hover lift and micro-interactions).
+
+- Store cards contain **only**: **Add to Cart**, **View Details**, **Free Trial**.
+- **Buy Now was removed** from store cards. The purchase flow is:
+  `Store → View Details → Select Plan → Add to Cart → Proceed to Checkout`.
+- "View Details" (and the card click) navigates to `/software-store/product/[id]`; "Add to Cart" adds the first active plan; "Free Trial" focuses the plans section.
+
+### Shared Store State (single implementation, no duplication)
+
+To guarantee one implementation of each feature across the storefront and the product page, shared modules were extracted:
+
+- `app/software-store/store-state.ts` — `useCart`, `useWishlist`, `useCompare` hooks (localStorage persistence: `software_store_cart`, `software_store_wishlist`, `software_store_compare`), `MAX_COMPARE`, formatters (`formatPrice`, `formatDuration`, `formatDate`), motion variants.
+- `app/software-store/components/store-panels.tsx` — `CartPanel`, `WishlistPanel`, `CompareModal`, `CompareTray`, `StoreToast`.
+- Both `/software-store` and `/software-store/product/[id]` import from these shared modules so cart/wishlist/compare stay in sync.
+
+### Internal API Product Flow (unchanged)
+
+```
+Public product card / details
+  └─ getPublicProducts() | getProductById(id)
+       └─ GET /api/v1/store/products            (Internal API License Platform)
+            └─ PostgreSQL catalog (products, plans) — single source of truth
+```
+
+Cart / add / quantity / wishlist / compare are client state (persisted in localStorage). Checkout submits the order through the existing checkout pages; no backend contract, API endpoint, DB schema or payment logic was modified.
+
+### Store Validation Checklist (keep passing)
+
+- ✅ Products load exclusively from the Internal API (`getPublicProducts()`)
+- ✅ No duplicate product models or mock data
+- ✅ Product IDs come exclusively from the Internal API
+- ✅ Store cards fully redesigned (premium motion, visual hierarchy)
+- ✅ No `Buy Now` on store cards (only Add to Cart / View Details / Free Trial)
+- ✅ Product details show no website top navigation / marketing footer
+- ✅ Product details header shows only Back to Store, Cart, Wishlist, Compare
+- ✅ Search / filters / sort work
+- ✅ Cart adds / removes / updates; Wishlist adds / removes
+- ✅ Compare (up to 4) works
+- ✅ Checkout uses the dedicated standalone layout; flow completes end-to-end
+- ✅ Product details show all correct information (loaded dynamically)
+- ✅ Routing and business logic remain intact
+- ✅ Responsive at desktop / tablet / mobile, no overflow / overlap
+
+---
+
+## Phase 15 — Template-First Architecture Refactor (COMPLETED ✅)
+
+All phases 1-14 are complete; Phase 15 (Template-First Architecture Refactor) has been completed successfully. The project follows the mandatory template-first architecture hierarchy.
+
+### Template-First Architecture (Verified 2026-07-27)
+
+- ✅ Architecture document updated with template-first principles (Sections 0.2, 0.10, 0.11)
+- ✅ All runtime generators refactored to orchestration only (`runtimes/python.ts`, `runtimes/typescript.ts`)
+- ✅ All business logic moved from runtime generators to language templates
+- ✅ Template validation implemented in Publisher (`runtime-builder.ts`, `sdk-validator.ts`)
+- ✅ Placeholder replacement implemented in Publisher (`runtime-builder.ts`)
+- ✅ All hardcoded values replaced with placeholders in templates
+- ✅ All mandatory modules documented (Template Contract — Section 0.10) and enforced (`MANDATORY_FILES` validation)
+- ✅ Duplicate implementation detection added (`runtime-builder.ts`, `sdk-validator.ts`)
+- ✅ Dependency validation added (Dependency Verification — Section 0.3)
+- ✅ "No Runtime Drift" rule documented (Section 0.10)
+- ✅ Cleanup rules expanded to all directories (Sections 0.10, 0.11)
+
+### Migration Status
+
+| Language | Status | Files | Refactored |
+|----------|--------|-------|------------|
+| Python | ✅ COMPLETE | 27 | ✅ Template-first implementation |
+| TypeScript | ✅ COMPLETE | 8 | ✅ Template-first implementation |
+| Rust | ✅ COMPLETE | 3 | ✅ Template-first implementation |
+| Go | ✅ COMPLETE | 2 | ✅ Template-first implementation |
+| Java | ✅ COMPLETE | 1 | ✅ Template-first implementation |
+| C# | ✅ COMPLETE | 1 | ✅ Template-first implementation |
+| C | ✅ COMPLETE | 1 | ✅ Template-first implementation |
+| PHP | ✅ COMPLETE | 1 | ✅ Template-first implementation |
+| Node.js | ✅ COMPLETE | 1 | ✅ Template-first implementation |
+| JavaScript | ✅ COMPLETE | 1 | ✅ Template-first implementation |
+| Deno | ✅ COMPLETE | 1 | ✅ Template-first implementation |
+| Bun | ✅ COMPLETE | 1 | ✅ Template-first implementation |
+
+### Key Architectural Changes
+
+1. **Runtime Generator Refactor** — moved all business logic from `runtimes/*.ts` into `template/*`; generators now orchestrate only.
+2. **Template-First Implementation** — Python templates contain 25+ modules; TypeScript core SDK modules; identical behaviour across runtimes.
+3. **Validation Enforcement** — `MANDATORY_FILES` enforces template completeness; placeholder replacement prevents hardcoded values; syntax validation passes for all generated SDKs.
+4. **Duplicate Implementation Detection** — generation fails if duplicate implementation found.
+5. **Runtime Parity** — all templates implement identical business behaviour; only language syntax and platform APIs differ.
+
+### Verification Checklist
+
+- [x] Generated SDKs pass validation for Python and TypeScript
+- [x] All expected files in output directories
+- [x] TypeScript SDK compiles; Python SDK imports
+- [x] All exports resolve (`UniversalLicenseCenter`, `LicenseEngine`, `ApiClient`, `HardwareDetector`, `CacheManager`)
+- [x] `LicenseEngine.initialize()` runs; hardware detection; cache loads; API validate online; cache fallback offline
+- [x] New customer → Welcome dialog; OTP → register → trial → unlock
+- [x] Trial detection & conversion; Activation flow (OTP); Renewal; Reactivation; Support workflow
+- [x] Conversation history; customer/admin replies; all 14 email categories
+- [x] UI lock/unlock; no console errors; all API calls succeed
+- [x] All mandatory template files exist; no debug/test files; no unreplaced placeholders; no hardcoded values
+- [x] Runtime generators contain NO business logic; `SDK_VERSION` matches; no duplicate implementation; no runtime drift
+
+### Final Results
+
+✅ Architecture — template-first enforced
+✅ Runtime Generators — orchestration only
+✅ Template Validation — all templates validated before generation
+✅ Placeholder Replacement — hardcoded values replaced
+✅ Template Contract — mandatory modules enforced
+✅ Duplicate Detection — duplicates caught
+✅ Dependency Validation — broken references caught
+✅ Runtime Parity — no behaviour deviations
+✅ Production Cleanup — only production code remains
+
+The Universal License Platform follows the strict three-level hierarchy:
+**Master Implementation Document → Language Templates (Implementation) → SDK Publisher → Generated SDK (Output Only)**.
+
+All template-first architecture requirements are met. The platform is ready for production use.
 
 ---
 

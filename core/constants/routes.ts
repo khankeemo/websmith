@@ -82,6 +82,10 @@ export const PUBLIC_ROUTE_PREFIXES = [
   // Standalone checkout — must never render inside the dashboard shell.
   // This covers /software-store/checkout and its /success|/failed|/pending subpages.
   "/software-store/checkout",
+  // Focused product details — must never render inside the dashboard shell
+  // and must never show the website marketing header. Covers
+  // /software-store/product/[id].
+  "/software-store/product",
 ] as const;
 
 /**
