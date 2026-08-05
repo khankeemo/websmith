@@ -34,21 +34,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'First name and last name are required' }, { status: 400 });
     }
 
-    // Universal mobile validation against the selected country's rules
+    // Universal mobile validation against the selected country's rules.
+    // The country dial is stored/transmitted alongside the local number but is
+    // NOT part of the local digit count — strip it before validating.
     if (customer.mobile) {
       let country = null;
       if (customer.country) {
         try {
           const cRes = await pool.query(
-            `SELECT min_digits, max_digits FROM countries WHERE name = $1 OR code = $2`,
+            `SELECT dial, min_digits, max_digits FROM countries WHERE name = $1 OR code = $2`,
             [customer.country, customer.country]
           );
           if (cRes.rows.length > 0) {
-            country = { minDigits: cRes.rows[0].min_digits, maxDigits: cRes.rows[0].max_digits };
+            const row = cRes.rows[0];
+            country = { dial: row.dial, minDigits: row.min_digits, maxDigits: row.max_digits };
           }
         } catch { /* countries table may not exist */ }
       }
-      const digits = customer.mobile.replace(/\D/g, '').replace(/^0+/, '');
+      let digits = String(customer.mobile || '').replace(/\D/g, '').replace(/^0+/, '');
+      const dialDigits = country?.dial ? String(country.dial).replace(/\D/g, '') : '';
+      if (dialDigits && digits.startsWith(dialDigits)) {
+        digits = digits.slice(dialDigits.length).replace(/^0+/, '');
+      }
       if (!isValidMobile(country, digits)) {
         const ruleError = country
           ? `Mobile number must contain ${country.minDigits}${country.minDigits !== country.maxDigits ? `–${country.maxDigits}` : ''} digits for the selected country`

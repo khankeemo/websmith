@@ -325,14 +325,15 @@ export default function CheckoutPage() {
     return () => { clearInterval(tick); clearTimeout(redirect); };
   }, [paidOrder, router]);
 
-  // Country dial lookup
+  // Country dial lookup. countryCode holds the dial (e.g. "+91"); resolve the
+  // matching country so phone validation follows the selected country's rules.
   const selectedCountry = useMemo(
-    () => countries.find(c => c.code === countryCode),
+    () => countries.find(c => c.dial === countryCode || c.code === countryCode),
     [countries, countryCode]
   );
 
   const selectedCountryName = useMemo(() => {
-    const byCode = countries.find(c => c.code === countryCode);
+    const byCode = countries.find(c => c.dial === countryCode || c.code === countryCode);
     const byName = countries.find(c => c.name.toLowerCase() === countryName.toLowerCase());
     return (countryName && (byName || !byCode)) ? countryName : (byCode?.name || countryName);
   }, [countries, countryCode, countryName]);
@@ -479,7 +480,7 @@ export default function CheckoutPage() {
   }, [postalCode, selectedCountryISO, runAddressLookup]);
 
   const handleCountryPick = useCallback((c: CheckoutCountry) => {
-    setCountryCode(c.code);
+    setCountryCode(c.dial);
     setCountryName(c.name);
     setState("");
     setCity("");
@@ -879,7 +880,7 @@ export default function CheckoutPage() {
                               key={c.code}
                               type="button"
                               onClick={() => handleCountryPick(c)}
-                              className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-[var(--bg-tertiary)]/40 transition-colors ${c.code === countryCode ? "bg-indigo-500/10 text-indigo-300" : "text-[var(--text-primary)]"}`}
+                              className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-[var(--bg-tertiary)]/40 transition-colors ${c.dial === countryCode ? "bg-indigo-500/10 text-indigo-300" : "text-[var(--text-primary)]"}`}
                             >
                               <span className="w-7">{c.flag}</span>
                               <span className="flex-1">{c.name}</span>
