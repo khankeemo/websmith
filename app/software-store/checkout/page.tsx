@@ -26,6 +26,14 @@ const STORAGE_CART_KEY = "software_store_cart";
 const STORAGE_ORDER_KEY = "software_store_order";
 const SUCCESS_REDIRECT_SECONDS = 10;
 
+// Safe money normalization. Server values may arrive as a number, a numeric
+// string ("49", "0.00"), null, undefined or a DB numeric — never call
+// .toFixed() directly on an unknown value.
+function toMoney(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 interface CartItem {
   product: StoreProduct;
   plan?: StoreProductPlan;
@@ -657,7 +665,7 @@ export default function CheckoutPage() {
               <div className="flex items-center justify-between gap-3 px-4 py-3">
                 <span className="text-sm text-[var(--text-secondary)]">Amount Paid</span>
                 <span className="text-sm font-semibold text-[var(--text-primary)]">
-                  {t ? `${t.total.toFixed(2)} ${t.currency}` : ""}
+                  {t ? `${toMoney(t.total).toFixed(2)} ${t.currency}` : ""}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -1210,11 +1218,11 @@ export default function CheckoutPage() {
                             )}
                           </div>
                           <p className="text-xs text-[var(--text-secondary)]">
-                            {item.plan?.name || "Standard"} &times; {item.quantity} · ${(item.plan?.price || item.product.price || 0).toFixed(2)} each
+                            {item.plan?.name || "Standard"} &times; {item.quantity} · ${toMoney(item.plan?.price || item.product.price).toFixed(2)} each
                           </p>
                         </div>
                         <p className="text-sm font-bold text-[var(--text-primary)] shrink-0">
-                          ${((item.plan?.price || item.product.price || 0) * item.quantity).toFixed(2)}
+                          ${(toMoney(item.plan?.price || item.product.price) * item.quantity).toFixed(2)}
                         </p>
                       </div>
                     ))}
@@ -1223,25 +1231,25 @@ export default function CheckoutPage() {
                   <div className="border-t border-[var(--border-color)] pt-4 space-y-2.5">
                     <div className="flex justify-between text-sm">
                       <span className="text-[var(--text-secondary)]">Subtotal</span>
-                      <span className="text-[var(--text-primary)] font-medium">${subtotal.toFixed(2)}</span>
+                      <span className="text-[var(--text-primary)] font-medium">${toMoney(subtotal).toFixed(2)}</span>
                     </div>
 
                     <div className="flex justify-between text-sm">
                       <span className="text-[var(--text-secondary)]">Discount</span>
                       <span className="text-emerald-400 font-medium">
-                        {orderTotals && orderTotals.discount > 0 ? `-$${orderTotals.discount.toFixed(2)}` : "$0.00"}
+                        {orderTotals && toMoney(orderTotals.discount) > 0 ? `-$${toMoney(orderTotals.discount).toFixed(2)}` : "$0.00"}
                       </span>
                     </div>
 
                     <div className="flex justify-between text-sm">
                       <span className="text-[var(--text-secondary)]">Tax ({taxConfig.name})</span>
-                      <span className="text-[var(--text-secondary)]">{orderTotals ? orderTotals.tax.toFixed(2) : `${taxConfig.rate}%`}</span>
+                      <span className="text-[var(--text-secondary)]">{orderTotals ? toMoney(orderTotals.tax).toFixed(2) : `${taxConfig.rate}%`}</span>
                     </div>
 
                     <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
                       <span className="text-base font-bold text-[var(--text-primary)]">Grand Total</span>
                       <span className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                        {orderTotals ? `${orderTotals.total.toFixed(2)} ${orderTotals.currency}` : `$${estimatedTotal.toFixed(2)}`}
+                        {orderTotals ? `${toMoney(orderTotals.total).toFixed(2)} ${orderTotals.currency}` : `$${toMoney(estimatedTotal).toFixed(2)}`}
                       </span>
                     </div>
                   </div>
@@ -1260,7 +1268,7 @@ export default function CheckoutPage() {
                     ) : (
                       <>
                         <Lock className="w-5 h-5" />
-                        Pay {displayTotal.toFixed(2)} {displayCurrency}
+                        Pay {toMoney(displayTotal).toFixed(2)} {displayCurrency}
                       </>
                     )}
                   </button>
@@ -1282,7 +1290,7 @@ export default function CheckoutPage() {
           <div className="shrink-0">
             <p className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">Total</p>
             <p className="text-lg font-bold text-[var(--text-primary)] leading-tight">
-              {orderTotals ? `${orderTotals.total.toFixed(2)} ${orderTotals.currency}` : `$${estimatedTotal.toFixed(2)}`}
+              {orderTotals ? `${toMoney(orderTotals.total).toFixed(2)} ${orderTotals.currency}` : `$${toMoney(estimatedTotal).toFixed(2)}`}
             </p>
           </div>
           <button
