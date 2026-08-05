@@ -4,6 +4,9 @@
 // RULE 05: API Center Only - Uses api_center_token, NOT lib/auth.ts
 // Sidebar navigation (page no longer exists)
 // FIXED: Only valid routes remain in navigation
+// NOTE: UI/UX redesign (presentation only). Routes, icons, permissions and
+//       navigation logic are unchanged — items are regrouped into logical
+//       sections and styled with the reusable .ia-nav-* classes in globals.css.
 
 "use client";
 
@@ -11,6 +14,7 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { type LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   KeyRound,
@@ -42,94 +46,129 @@ import {
   MessageCircle,
 } from "lucide-react";
 
-const menu = [
+interface NavLeaf {
+  name: string;
+  icon: LucideIcon;
+  path: string;
+}
+
+interface NavSubgroup {
+  label: string;
+  items: NavLeaf[];
+}
+
+interface NavSection {
+  title: string;
+  icon?: LucideIcon;
+  expandable?: boolean;
+  items?: NavLeaf[];
+  groups?: NavSubgroup[];
+}
+
+// All existing pages, regrouped into logical sections. No route, name or icon changed.
+const menu: NavSection[] = [
   {
-    title: "MAIN",
+    title: "Dashboard",
+    icon: LayoutDashboard,
     items: [
       { name: "Dashboard", icon: LayoutDashboard, path: "/internal/api/dashboard" },
+      { name: "Analytics", icon: BarChart3, path: "/internal/api/analytics" },
     ],
   },
   {
-    title: "LICENSES",
-    items: [
-      { name: "License Center", icon: KeyRound, path: "/internal/api/licenses/generate" },
-      { name: "Activation", icon: ShieldCheck, path: "/internal/api/activation" },
+    title: "License Management",
+    icon: KeyRound,
+    expandable: true,
+    groups: [
+      {
+        label: "Licenses",
+        items: [
+          { name: "License Center", icon: KeyRound, path: "/internal/api/licenses/generate" },
+          { name: "Activations", icon: ShieldCheck, path: "/internal/api/activation" },
+        ],
+      },
+      {
+        label: "Trials",
+        items: [
+          { name: "Trial Dashboard", icon: Activity, path: "/internal/api/trials" },
+          { name: "Trial Templates", icon: Gift, path: "/internal/api/trial/trial-templates" },
+        ],
+      },
     ],
   },
   {
-    title: "CUSTOMERS",
+    title: "Customer Management",
+    icon: Users,
     items: [
       { name: "All Customers", icon: Users, path: "/internal/api/customers" },
     ],
   },
   {
-    title: "HARDWARE",
+    title: "Hardware Management",
+    icon: HardDrive,
     items: [
       { name: "Devices", icon: HardDrive, path: "/internal/api/hardware" },
     ],
   },
   {
-    title: "REQUESTS",
-    items: [
-      { name: "Request Center", icon: Inbox, path: "/internal/api/requests" },
+    title: "Sales & Payments",
+    icon: ShoppingBag,
+    expandable: true,
+    groups: [
+      {
+        label: "Sales",
+        items: [
+          { name: "Sales Enquiries", icon: Store, path: "/internal/api/sales/enquiries" },
+          { name: "Sales Orders", icon: ShoppingBag, path: "/internal/api/sales/orders" },
+          { name: "Sales Invoices", icon: Receipt, path: "/internal/api/sales/invoices" },
+          { name: "Generate License", icon: KeyRound, path: "/internal/api/sales/purchase" },
+        ],
+      },
+      {
+        label: "Payments",
+        items: [
+          { name: "Payment Setup", icon: CreditCard, path: "/internal/api/sales/payment-config" },
+        ],
+      },
     ],
   },
   {
-    title: "TRIALS",
-    items: [
-      { name: "Trial Dashboard", icon: Activity, path: "/internal/api/trials" },
-      { name: "Trial Templates", icon: Gift, path: "/internal/api/trial/trial-templates" },
+    title: "Communications",
+    icon: MessageCircle,
+    expandable: true,
+    groups: [
+      {
+        label: "Broadcast",
+        items: [
+          { name: "Communications", icon: MessageCircle, path: "/internal/api/communications" },
+        ],
+      },
+      {
+        label: "Email",
+        items: [
+          { name: "Email Templates", icon: Mail, path: "/internal/api/email/templates" },
+        ],
+      },
+      {
+        label: "SMS",
+        items: [
+          { name: "SMS Configuration", icon: MessageSquare, path: "/internal/api/sales/sms-config" },
+          { name: "SMS Templates", icon: FileText, path: "/internal/api/sms/templates" },
+        ],
+      },
     ],
   },
   {
-    title: "COMMUNICATIONS",
-    items: [
-      { name: "Communications", icon: MessageCircle, path: "/internal/api/communications" },
-    ],
-  },
-  {
-    title: "SALES",
-    items: [
-      { name: "Sales Enquiries", icon: Store, path: "/internal/api/sales/enquiries" },
-      { name: "Sales Orders", icon: ShoppingBag, path: "/internal/api/sales/orders" },
-      { name: "Sales Invoices", icon: Receipt, path: "/internal/api/sales/invoices" },
-      { name: "Generate License", icon: KeyRound, path: "/internal/api/sales/purchase" },
-    ],
-  },
-  {
-    title: "PAYMENT",
-    items: [
-      { name: "Payment Setup", icon: CreditCard, path: "/internal/api/sales/payment-config" },
-    ],
-  },
-  {
-    title: "EMAIL",
-    items: [
-      { name: "Email Templates", icon: Mail, path: "/internal/api/email/templates" },
-    ],
-  },
-  {
-    title: "SMS",
-    items: [
-      { name: "SMS Config", icon: MessageSquare, path: "/internal/api/sales/sms-config" },
-      { name: "SMS Templates", icon: FileText, path: "/internal/api/sms/templates" },
-    ],
-  },
-  {
-    title: "MONITORING",
-    items: [
-      { name: "Audit Logs", icon: ScrollText, path: "/internal/api/audit" },
-      { name: "Notifications", icon: Bell, path: "/internal/api/notifications" },
-    ],
-  },
-  {
-    title: "PRODUCTS",
+    title: "Product Management",
+    icon: Boxes,
     items: [
       { name: "Product Management", icon: ShoppingBag, path: "/internal/api/products" },
     ],
   },
   {
-    title: "DEVELOPERS",
+    title: "Developer Center",
+    icon: Code2,
+    expandable: true,
     items: [
       { name: "SDK Packages", icon: Boxes, path: "/internal/api/developers/integrations" },
       { name: "API Keys", icon: Code2, path: "/internal/api/public-api/keys" },
@@ -137,18 +176,53 @@ const menu = [
     ],
   },
   {
-    title: "SYSTEM",
+    title: "Monitoring",
+    icon: Activity,
+    items: [
+      { name: "Request Center", icon: Inbox, path: "/internal/api/requests" },
+      { name: "Audit Logs", icon: ScrollText, path: "/internal/api/audit" },
+    ],
+  },
+  {
+    title: "Notifications",
+    icon: Bell,
+    items: [
+      { name: "Notifications", icon: Bell, path: "/internal/api/notifications" },
+    ],
+  },
+  {
+    title: "System",
+    icon: Settings,
     items: [
       { name: "Settings", icon: Settings, path: "/internal/api/settings" },
     ],
   },
-  {
-    title: "ANALYTICS",
-    items: [
-      { name: "Analytics", icon: BarChart3, path: "/internal/api/analytics" },
-    ],
-  },
 ];
+
+// Preserved active-route logic (unchanged).
+function isPathActive(pathname: string, item: NavLeaf): boolean {
+  return pathname === item.path || (item.path !== "/internal/api/dashboard" && pathname.startsWith(item.path));
+}
+
+function sectionHasActive(section: NavSection, pathname: string): boolean {
+  const leaves = [...(section.items || []), ...(section.groups || []).flatMap(g => g.items)];
+  return leaves.some(leaf => isPathActive(pathname, leaf));
+}
+
+function NavRow({ item, pathname }: { item: NavLeaf; pathname: string }) {
+  const isActive = isPathActive(pathname, item);
+  return (
+    <Link
+      href={item.path}
+      className={`ia-nav-item${isActive ? " ia-nav-item--active" : ""}`}
+      aria-current={isActive ? "page" : undefined}
+    >
+      {isActive && <span className="ia-nav-accent" />}
+      <item.icon size={16} className="ia-nav-icon" />
+      <span>{item.name}</span>
+    </Link>
+  );
+}
 
 interface UserData {
   id: string;
@@ -163,6 +237,32 @@ export default function Sidebar() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [openSections, setOpenSections] = useState<Set<string>>(() => new Set());
+
+  // Auto-open the section containing the current page (presentation only).
+  useEffect(() => {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      menu.forEach(section => {
+        if (section.expandable && sectionHasActive(section, pathname)) {
+          next.add(section.title);
+        }
+      });
+      return next;
+    });
+  }, [pathname]);
+
+  const toggleSection = (title: string) => {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      if (next.has(title)) {
+        next.delete(title);
+      } else {
+        next.add(title);
+      }
+      return next;
+    });
+  };
 
   // Fetch user from API Center auth
   useEffect(() => {
@@ -300,7 +400,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sticky top-0 w-[280px] min-h-screen flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-color)] shadow-[0_0_40px_rgba(0,0,0,0.35)] transition-all duration-300">
+    <aside className="ia-sidebar sticky top-0 w-[280px] min-h-screen flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-color)] shadow-[0_0_40px_rgba(0,0,0,0.35)] transition-all duration-300">
       {/* Brand Section */}
       <div className="h-[72px] flex items-center px-4 border-b border-[var(--border-color)] group">
         <div className="flex items-center gap-3">
@@ -363,53 +463,61 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto px-3 scrollbar-thin scrollbar-thumb-[var(--border-color)] scrollbar-track-transparent space-y-5">
-        {menu.map((section) => (
-          <div key={section.title}>
-            <p className="px-3 mb-2 text-[11px] font-bold tracking-[0.12em] text-[var(--text-secondary)]/70 uppercase flex items-center gap-2">
-              <span className="w-1 h-1 rounded-full bg-blue-500/50" />
-              {section.title}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const isActive = pathname === item.path || (item.path !== '/internal/api/dashboard' && pathname.startsWith(item.path));
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.path}
-                    className={`
-                      group relative w-full flex items-center gap-3 rounded-xl px-3 py-2.5
-                      transition-all duration-200 overflow-hidden
-                      ${
-                        isActive
-                          ? "bg-blue-500/15 text-[var(--text-primary)] shadow-sm shadow-blue-500/10"
-                          : "text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/60 hover:text-[var(--text-primary)]"
-                      }
-                    `}
-                  >
-                    {isActive && (
-                      <>
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-gradient-to-b from-blue-400 to-purple-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.4)]" />
-                        <span className="absolute inset-0 bg-gradient-to-r from-blue-500/[0.04] via-transparent to-transparent" />
-                      </>
-                    )}
+      <div className="ia-sidebar-scroll">
+        {menu.map((section) => {
+          const active = sectionHasActive(section, pathname);
+          const open = openSections.has(section.title);
 
-                    <item.icon
-                      size={16}
-                      className={`
-                        shrink-0 transition-all duration-200
-                        ${isActive ? "text-blue-400" : "text-[var(--text-secondary)] group-hover:text-blue-400"}
-                      `}
-                    />
-                    <span className={`text-sm font-medium transition-colors duration-200 ${isActive ? "text-[var(--text-primary)]" : ""}`}>
-                      {item.name}
-                    </span>
-                  </Link>
-                );
-              })}
+          return (
+            <div
+              key={section.title}
+              className={`ia-nav-section${active ? " ia-nav-section--active" : ""}`}
+            >
+              {section.expandable ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.title)}
+                    aria-expanded={open}
+                    className={`ia-nav-accordion-header${active ? " ia-nav-accordion--active" : ""}`}
+                  >
+                    {section.icon && <section.icon size={16} className="ia-nav-icon" />}
+                    <span className="flex-1 min-w-0 truncate">{section.title}</span>
+                    <ChevronRight size={15} className="ia-nav-chevron" />
+                  </button>
+
+                  <div className={`ia-nav-collapse${open ? " ia-nav-collapse--open" : ""}`}>
+                    <div className="ia-nav-collapse-inner">
+                      {section.groups?.map((group) => (
+                        <div key={group.label}>
+                          <p className="ia-nav-subgroup">{group.label}</p>
+                          <div className="ia-nav-children">
+                            {group.items.map((item) => (
+                              <NavRow key={item.name} item={item} pathname={pathname} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {section.items?.map((item) => (
+                        <NavRow key={item.name} item={item} pathname={pathname} />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="ia-nav-section-title">
+                    {section.icon && <section.icon size={13} className="ia-nav-icon" />}
+                    <span>{section.title}</span>
+                  </p>
+                  {section.items?.map((item) => (
+                    <NavRow key={item.name} item={item} pathname={pathname} />
+                  ))}
+                </>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* System Status */}

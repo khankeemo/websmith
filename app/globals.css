@@ -484,3 +484,258 @@ main.app-main-shell[data-shell="panel"] .app-main-scroll {
 .animation-delay-400 {
   animation-delay: 0.4s;
 }
+
+/* ============================================================
+   INTERNAL API SIDEBAR — premium navigation cards (reusable)
+   Builds on the API Center brand variables (--api-*, --bg-*,
+   --text-*) so it adapts automatically to light/dark themes.
+   Transitions follow the 260–300ms easing used across the UI.
+   ============================================================ */
+
+.ia-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.ia-sidebar-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 8px 12px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+.ia-sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.ia-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 9999px;
+}
+.ia-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- Main navigation card ---------- */
+.ia-nav-section {
+  position: relative;
+  margin-bottom: 10px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-secondary) 62%, transparent),
+    color-mix(in srgb, var(--bg-secondary) 16%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 5%, transparent),
+    0 10px 26px -18px rgba(0, 0, 0, 0.4);
+  transition:
+    transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 260ms ease,
+    box-shadow 260ms ease;
+}
+.ia-nav-section:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--api-indigo-500) 30%, var(--border-color));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent),
+    0 16px 34px -20px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--api-indigo-500-10);
+}
+.ia-nav-section--active {
+  border-color: color-mix(in srgb, var(--api-indigo-500) 24%, var(--border-color));
+}
+
+/* ---------- Section header (static) ---------- */
+.ia-nav-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ia-nav-section-title .ia-nav-icon {
+  color: var(--text-muted);
+}
+
+/* ---------- Accordion header (expandable parent) ---------- */
+.ia-nav-accordion-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: left;
+  transition:
+    transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 260ms ease,
+    color 260ms ease,
+    box-shadow 260ms ease;
+}
+.ia-nav-accordion-header:hover {
+  transform: translateY(-1px);
+  background-color: color-mix(in srgb, var(--bg-tertiary) 45%, transparent);
+}
+.ia-nav-accordion--active .ia-nav-accordion-header {
+  background: linear-gradient(135deg, var(--api-indigo-500-20), var(--api-purple-500-10));
+  box-shadow: 0 8px 18px -12px var(--api-indigo-500-20);
+}
+.ia-nav-accordion--active .ia-nav-accordion-header .ia-nav-icon {
+  color: var(--api-indigo-400);
+}
+
+/* ---------- Accordion body (smooth 0fr → 1fr height animation) ---------- */
+.ia-nav-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ia-nav-collapse--open {
+  grid-template-rows: 1fr;
+}
+.ia-nav-collapse-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ---------- Nav item row ---------- */
+.ia-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--text-secondary);
+  text-align: left;
+  transition:
+    transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 260ms ease,
+    color 260ms ease,
+    box-shadow 260ms ease;
+}
+.ia-nav-item:hover {
+  transform: translateY(-1px);
+  color: var(--text-primary);
+  background-color: color-mix(in srgb, var(--bg-tertiary) 45%, transparent);
+  box-shadow: 0 4px 12px -8px rgba(0, 0, 0, 0.3);
+}
+.ia-nav-item:hover .ia-nav-icon {
+  color: var(--api-blue-400);
+}
+
+.ia-nav-item--active,
+.ia-nav-item--active:hover {
+  transform: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--api-indigo-500-20), var(--api-purple-500-10));
+  box-shadow: 0 8px 18px -12px var(--api-indigo-500-20);
+}
+.ia-nav-item--active .ia-nav-icon {
+  color: var(--api-indigo-400);
+}
+
+/* Active left accent bar (animated on appear) */
+.ia-nav-accent {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 62%;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--api-blue-400), var(--api-purple-500));
+  box-shadow: 0 0 10px var(--api-blue-500-30);
+  transform: translateY(-50%);
+  transform-origin: center;
+  animation: iaNavAccentIn 320ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes iaNavAccentIn {
+  from {
+    transform: translateY(-50%) scaleY(0);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(-50%) scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* ---------- Nested subgroups ---------- */
+.ia-nav-subgroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 8px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ia-nav-subgroup::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  margin-left: 4px;
+  background: linear-gradient(90deg, var(--border-color), transparent);
+}
+
+.ia-nav-children {
+  position: relative;
+  margin: 2px 0 2px 4px;
+  padding: 2px 0 2px 14px;
+}
+.ia-nav-children::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: linear-gradient(180deg, var(--border-color), transparent);
+}
+.ia-nav-children .ia-nav-item {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+/* ---------- Expand / collapse chevron ---------- */
+.ia-nav-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), color 260ms ease;
+}
+.ia-nav-accordion--open .ia-nav-chevron {
+  transform: rotate(90deg);
+  color: var(--api-blue-400);
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .ia-nav-section,
+  .ia-nav-section-title,
+  .ia-nav-accordion-header,
+  .ia-nav-item,
+  .ia-nav-collapse,
+  .ia-nav-chevron,
+  .ia-nav-accent {
+    transition: none;
+    animation: none;
+  }
+}
