@@ -37,6 +37,8 @@ import {
   Bell,
   ScrollText,
   MessageSquare,
+  RefreshCw,
+  Repeat,
   Store,
   CreditCard,
   Receipt,
@@ -84,7 +86,16 @@ const menu: NavSection[] = [
         label: "Licenses",
         items: [
           { name: "License Center", icon: KeyRound, path: "/internal/api/licenses/generate" },
+          { name: "Generate License", icon: KeyRound, path: "/internal/api/sales/purchase" },
+        ],
+      },
+      {
+        label: "Device & Lifecycle",
+        items: [
+          { name: "Hardware", icon: HardDrive, path: "/internal/api/hardware" },
           { name: "Activations", icon: ShieldCheck, path: "/internal/api/activation" },
+          { name: "Renewals", icon: Repeat, path: "/internal/api/licenses/renewals" },
+          { name: "Reactivations", icon: RefreshCw, path: "/internal/api/reactivation-requests" },
         ],
       },
       {
@@ -104,13 +115,6 @@ const menu: NavSection[] = [
     ],
   },
   {
-    title: "Hardware Management",
-    icon: HardDrive,
-    items: [
-      { name: "Devices", icon: HardDrive, path: "/internal/api/hardware" },
-    ],
-  },
-  {
     title: "Sales & Payments",
     icon: ShoppingBag,
     expandable: true,
@@ -121,7 +125,6 @@ const menu: NavSection[] = [
           { name: "Sales Enquiries", icon: Store, path: "/internal/api/sales/enquiries" },
           { name: "Sales Orders", icon: ShoppingBag, path: "/internal/api/sales/orders" },
           { name: "Sales Invoices", icon: Receipt, path: "/internal/api/sales/invoices" },
-          { name: "Generate License", icon: KeyRound, path: "/internal/api/sales/purchase" },
         ],
       },
       {

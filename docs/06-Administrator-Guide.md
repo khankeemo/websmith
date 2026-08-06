@@ -22,10 +22,8 @@ protected by the API Center JWT (see `proxy.ts`); log in at
 | Products | `/internal/api/products`, `/internal/api/store` | Product + plan catalog, API-key counts. |
 | Sales | `/internal/api/sales/orders` | Orders with items/payments and license counts. |
 | Invoices | `/internal/api/sales/invoices` (+ `/new`, `/[id]`, `/print`, `/thermal`) | Invoice list/create/detail/print; PATCH actions send-email, mark-paid, generate-license, cancel, archive. |
-| Generate License | `/internal/api/sales/purchase` | Manually create a license (`/internal/backend/admin/create-license`). |
 | Payment Setup | `/internal/api/sales/payment-config` | Enable/disable payment, provider, environment, keys, currency, tax, invoice prefix, test mode. |
-| Licenses | `/internal/api/licenses` | License management. |
-| Trials | `/internal/api/trials` | Trials + trial templates. |
+| License Management | `/internal/api/licenses/generate`, `/internal/api/sales/purchase`, `/internal/api/hardware`, `/internal/api/activation`, `/internal/api/licenses/renewals`, `/internal/api/reactivation-requests`, `/internal/api/trials`, `/internal/api/trial/trial-templates` | License Center (Generate/Manager/Validation/Bulk), Generate License (`/internal/backend/admin/create-license`), Hardware, Activations, Renewals (dedicated page reusing the Renewals tab component), Reactivations, Trials. |
 | Communications | `/internal/api/communications` | Full communications center (see below). |
 | API Center | `/internal/api/public-api/keys`, `/internal/api/notifications`, `/internal/api/notifications/events` | Public API keys, inbox, event notification config. |
 | Settings | `/internal/api/settings` | System settings. |

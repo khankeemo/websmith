@@ -171,3 +171,22 @@ Keep in sync with the master doc **SECTION 0.15**:
   together. Do not redesign the admin UI.
 - **Backward compatibility**: `headquarters`/`phone` fall back to previous
   defaults only when the saved value is empty.
+
+## Internal API Side Nav — License Management (Sidebar Restructure)
+
+Keep `components/internal-api/Sidebar.tsx` aligned (presentation only):
+
+- **License Management** section owns **Licenses** (License Center
+  `/internal/api/licenses/generate`, Generate License
+  `/internal/api/sales/purchase`), **Device & Lifecycle** (Hardware
+  `/internal/api/hardware`, Activations `/internal/api/activation`, Renewals
+  `/internal/api/licenses/renewals`, Reactivations
+  `/internal/api/reactivation-requests`), **Trials** (Trial Dashboard, Trial Templates).
+- **No standalone "Hardware Management" section** and **no "Generate License" under
+  Sales & Payments** — both live only under License Management.
+- **Renewals page** (`/internal/api/licenses/renewals`) mounts the existing UI-only
+  `RenewalsTab` component from `app/internal/api/licenses/generate/tabs/` — no new
+  business logic, no duplicated logic there. Reactivations points to the admin request
+  list, never the customer-facing activation center.
+- Do not add dedicated per-page routes/icons/names beyond this regroup; nav routes,
+  icons, permissions and active-route semantics are fixed/unchanged.
