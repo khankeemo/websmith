@@ -1,13 +1,39 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { FaFacebook, FaTwitter, FaInstagram, FaGithub } from "react-icons/fa";
 import { publicFooterConfig } from "../../core/config/publicSite";
+import { SOCIAL_PLATFORM_META, type SocialPlatformMeta } from "../../lib/social-platforms";
+import API from "../../core/services/apiService";
+
+type SocialItem = SocialPlatformMeta & { href: string };
 
 export default function PublicFooter() {
   const year = new Date().getFullYear();
+  const [socials, setSocials] = useState<SocialItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    API.get("/settings/public/contact_info")
+      .then((res) => {
+        if (cancelled || !res.data?.success || !res.data?.data) return;
+        const data = res.data.data;
+        setSocials(
+          SOCIAL_PLATFORM_META.map((platform) => ({
+            ...platform,
+            href: data[platform.key] || "",
+          })).filter((item) => Boolean(item.href))
+        );
+      })
+      .catch(() => {
+        // Footer keeps brand/sections; socials stay hidden when settings cannot load.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <footer style={styles.footer}>
@@ -23,32 +49,27 @@ export default function PublicFooter() {
           <p style={styles.aboutSummary}>
             We design smart solutions and build powerful digital ecosystems that help businesses grow and automate through innovation and practicality.
           </p>
-          <div style={styles.socialRow}>
-            {publicFooterConfig.socials.map((social) => {
-              const Icon =
-                social.label === "Twitter"
-                  ? FaTwitter
-                  : social.label === "Instagram"
-                    ? FaInstagram
-                    : social.label === "GitHub"
-                      ? FaGithub
-                      : FaFacebook;
-
-              return (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={social.label}
-                  style={styles.socialLink}
-                  className="public-footer-social"
-                >
-                  <Icon size={18} />
-                </a>
-              );
-            })}
-          </div>
+          {socials.length > 0 && (
+            <div style={styles.socialRow}>
+              {socials.map((social) => {
+                const Icon = social.icon;
+                return (
+                  <a
+                    key={social.key}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.label}
+                    title={social.label}
+                    style={styles.socialLink}
+                    className="public-footer-social"
+                  >
+                    <Icon size={18} />
+                  </a>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {publicFooterConfig.sections.map((section) => (

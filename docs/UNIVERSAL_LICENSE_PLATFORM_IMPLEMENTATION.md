@@ -1,10 +1,10 @@
-﻿# Universal License Platform — Master Implementation Plan
+# Universal License Platform — Master Implementation Plan
 
 > **Single Source of Truth** for architecture, workflow, SDK Publisher changes,
 > Internal API changes, startup sequence, verification, and progress tracking.
 >
 > Generated: 2026-07-28
-> Status: Phases 1-14 Complete ΓÇö Phase 15 Complete ΓÇö Section 0A Complete ΓÇö Locked Menu Redesign Complete ΓÇö Activation API HTTP 500 Fix Applied ΓÇö ULC Final Corrections Complete (Tasks 1-4) ΓÇö AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) ΓÇö No License Business State Fix Applied (Session 7) ΓÇö ULC Panel Redesign Applied (Session 8) ΓÇö AWS-01 Startup Decision Routing Applied ΓÇö AWS-01 Final Startup Routing Applied ΓÇö AWS-01 Python Runtime Hardware-Status Propagation Fix Applied ΓÇö AWS-01 Universal Restart Workflow Added ΓÇö AWS-01 Final Internal API Compliance Audit Applied ΓÇö AWS-01 Sessions 10-15 Applied ΓÇö AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) ΓÇö AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template ΓÇö Issues 1-7 Fixed) ΓÇö AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated ΓÇö AWS-01 Cache Hardware-Consistency Deletion Fix Applied ΓÇö AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied ΓÇö AWS-01 Audit ΓÇö Live Trial Detection Fixed (has_trial / status=active) ΓÇö Status Panel Mapped (Customer, Email, Product, Plan) ΓÇö Startup Engine Same Bug Fixed ΓÇö Complete Template Verification Done ΓÇö ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added ΓÇö AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied ΓÇö **Normalized License Status API Response Format Applied (Shared Serializer Architecture)** ΓÇö **AWS-01 ULC Admin Center Implementation Applied** ΓÇö **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status** ΓÇö **ULC Live License Status Fix: Backend status normalization bugs fixed (expiredΓåÆexpired, trial expiredΓåÆno_license, full status passthrough), client.py base_url fix, license_engine.py trial expiry validation, ULC handles ALL statuses from live API, debug logging removed, sys.exit only when unlocked, route.ts unused serializer imports removed** ΓÇö Section 0A Complete ΓÇö Locked Menu Redesign Complete ΓÇö Activation API HTTP 500 Fix Applied ΓÇö ULC Final Corrections Complete (Tasks 1-4) ΓÇö AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) ΓÇö No License Business State Fix Applied (Session 7) ΓÇö ULC Panel Redesign Applied (Session 8) ΓÇö AWS-01 Startup Decision Routing Applied ΓÇö AWS-01 Final Startup Routing Applied ΓÇö AWS-01 Python Runtime Hardware-Status Propagation Fix Applied ΓÇö AWS-01 Universal Restart Workflow Added ΓÇö AWS-01 Final Internal API Compliance Audit Applied ΓÇö AWS-01 Sessions 10-15 Applied ΓÇö AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) ΓÇö AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template ΓÇö Issues 1-7 Fixed) ΓÇö AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated ΓÇö AWS-01 Cache Hardware-Consistency Deletion Fix Applied ΓÇö AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied ΓÇö AWS-01 Audit ΓÇö Live Trial Detection Fixed (has_trial / status=active) ΓÇö Status Panel Mapped (Customer, Email, Product, Plan) ΓÇö Startup Engine Same Bug Fixed ΓÇö Complete Template Verification Done ΓÇö ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added ΓÇö AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied ΓÇö **Normalized License Status API Response Format Applied (Session ΓÇö Shared Serializer Architecture)** ΓÇö **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored** ΓÇö **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status; _is_valid_for_unlock bug fixed; _refresh_display licensed status mapping added; TypeScript client getLicenseStatus method added** ΓÇö **AWS-01 Communications Center Module Applied** — **AWS-01 Local SDK Validation Applied: Server-First License Sync (backend is single source of truth), Cached License Data Removed on No-Active Status, Remaining Days Always From Backend (days_remaining), Hardcoded Plan Fallback Removed, License Revocation Locks UI + Message, Peek-First Decision Flags Fix** — **AWS-01 Final Validation Root-Cause Fix Applied: serializer computeNormalizedStatus no longer returns 'inactive' for active-but-unbound licenses — active + !isHardwareActivated now returns 'licensed' (hardware.is_activated: false), verified live (ACTIVE license → licensed); main.py logs 'Activation completed' only on licensed; template sync + docs synced** — **AWS-01 Final ULC Event Messaging & Activation Rules Applied (SECTION 0B, Phase 5): Rules 1-10 documented; fresh-activation cache reset (CacheManager.reset_on_fresh_activation + engine.activate), engine diagnostics migrated print→LiveLog.log, structured events (license.*/activation.success/renewal.success/trial.started/refresh.*/operation.error), server-message passthrough + actionable error phrasing (Rule 8), progress/refresh events, SuccessDialog on all success paths, permanent hardware binding verified; py_compile + tsc + build (274 pages) pass — 2026-08** — **Documentation Library Created (docs/ + SDK Integration Guide) - 2026-08**
+> Status: Phases 1-14 Complete ΓÇö Phase 15 Complete ΓÇö Section 0A Complete ΓÇö Locked Menu Redesign Complete ΓÇö Activation API HTTP 500 Fix Applied ΓÇö ULC Final Corrections Complete (Tasks 1-4) ΓÇö AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) ΓÇö No License Business State Fix Applied (Session 7) ΓÇö ULC Panel Redesign Applied (Session 8) ΓÇö AWS-01 Startup Decision Routing Applied ΓÇö AWS-01 Final Startup Routing Applied ΓÇö AWS-01 Python Runtime Hardware-Status Propagation Fix Applied ΓÇö AWS-01 Universal Restart Workflow Added ΓÇö AWS-01 Final Internal API Compliance Audit Applied ΓÇö AWS-01 Sessions 10-15 Applied ΓÇö AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) ΓÇö AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template ΓÇö Issues 1-7 Fixed) ΓÇö AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated ΓÇö AWS-01 Cache Hardware-Consistency Deletion Fix Applied ΓÇö AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied ΓÇö AWS-01 Audit ΓÇö Live Trial Detection Fixed (has_trial / status=active) ΓÇö Status Panel Mapped (Customer, Email, Product, Plan) ΓÇö Startup Engine Same Bug Fixed ΓÇö Complete Template Verification Done ΓÇö ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added ΓÇö AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied ΓÇö **Normalized License Status API Response Format Applied (Shared Serializer Architecture)** ΓÇö **AWS-01 ULC Admin Center Implementation Applied** ΓÇö **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status** ΓÇö **ULC Live License Status Fix: Backend status normalization bugs fixed (expiredΓåÆexpired, trial expiredΓåÆno_license, full status passthrough), client.py base_url fix, license_engine.py trial expiry validation, ULC handles ALL statuses from live API, debug logging removed, sys.exit only when unlocked, route.ts unused serializer imports removed** ΓÇö Section 0A Complete ΓÇö Locked Menu Redesign Complete ΓÇö Activation API HTTP 500 Fix Applied ΓÇö ULC Final Corrections Complete (Tasks 1-4) ΓÇö AWS-01 Documentation Fix Applied (Hardware-Only Scope Clarified) ΓÇö No License Business State Fix Applied (Session 7) ΓÇö ULC Panel Redesign Applied (Session 8) ΓÇö AWS-01 Startup Decision Routing Applied ΓÇö AWS-01 Final Startup Routing Applied ΓÇö AWS-01 Python Runtime Hardware-Status Propagation Fix Applied ΓÇö AWS-01 Universal Restart Workflow Added ΓÇö AWS-01 Final Internal API Compliance Audit Applied ΓÇö AWS-01 Sessions 10-15 Applied ΓÇö AWS-01 Remaining Root Cause Fixes Applied (OTP Validation, Restart Workflow, Startup Restore, Single Process Rule) ΓÇö AWS-01 Startup Decision Engine Cache-Only Refactor Applied (Python Template ΓÇö Issues 1-7 Fixed) ΓÇö AWS-01 Phase 1 Completion: Success+Restart Dialog Merged, ULC No Longer Runs Decision Engine, OTP Fix Applied, UI Polish Applied, SDK Validator Updated ΓÇö AWS-01 Cache Hardware-Consistency Deletion Fix Applied ΓÇö AWS-01 Remaining SDK Issues (Template Level): ULC Live Licence Status Fetch, Welcome Dialog Height/Padding, OTP Error Font Size Applied ΓÇö AWS-01 Audit ΓÇö Live Trial Detection Fixed (has_trial / status=active) ΓÇö Status Panel Mapped (Customer, Email, Product, Plan) ΓÇö Startup Engine Same Bug Fixed ΓÇö Complete Template Verification Done ΓÇö ULC trial_consumed Passthrough Bug Fixed & Stage-by-Stage Live Logging Added ΓÇö AWS-01 Internal Backend Trial Routes Product Isolation Fix Applied ΓÇö **Normalized License Status API Response Format Applied (Session ΓÇö Shared Serializer Architecture)** ΓÇö **AWS-01 ULC Admin Center Implementation Applied: /internal/backend/license/status endpoint created, UniversalLicenseCenter pure display component built, LicenseDialog refactored** ΓÇö **AWS-01 SDK Unified License Status Endpoint Applied: Python SDK dual API calls replaced with single GET /internal/backend/license/status; _is_valid_for_unlock bug fixed; _refresh_display licensed status mapping added; TypeScript client getLicenseStatus method added** ΓÇö **AWS-01 Communications Center Module Applied** — **AWS-01 Local SDK Validation Applied: Server-First License Sync (backend is single source of truth), Cached License Data Removed on No-Active Status, Remaining Days Always From Backend (days_remaining), Hardcoded Plan Fallback Removed, License Revocation Locks UI + Message, Peek-First Decision Flags Fix** — **AWS-01 Final Validation Root-Cause Fix Applied: serializer computeNormalizedStatus no longer returns 'inactive' for active-but-unbound licenses — active + !isHardwareActivated now returns 'licensed' (hardware.is_activated: false), verified live (ACTIVE license → licensed); main.py logs 'Activation completed' only on licensed; template sync + docs synced** — **AWS-01 Final ULC Event Messaging & Activation Rules Applied (SECTION 0B, Phase 5): Rules 1-10 documented; fresh-activation cache reset (CacheManager.reset_on_fresh_activation + engine.activate), engine diagnostics migrated print→LiveLog.log, structured events (license.*/activation.success/renewal.success/trial.started/refresh.*/operation.error), server-message passthrough + actionable error phrasing (Rule 8), progress/refresh events, SuccessDialog on all success paths, permanent hardware binding verified; py_compile + tsc + build (274 pages) pass — 2026-08** — **Documentation Library Created (docs/ + SDK Integration Guide) - 2026-08** - **Public Website Contact & Social Media Settings Applied (SECTION 0.15): Manage Page enhanced with Mobile Number, Fixed/Landline Number, and Social Media Links (WhatsApp/Facebook/Instagram/LinkedIn/X/YouTube) managed in one place; existing /api/settings/public/contact_info endpoint extended (GET returns new fields, PUT/PATCH validates + normalizes, WhatsApp numbers auto-normalized to https://wa.me/<number>); footer + contact + landing pages consume saved values with empty links hidden; hardcoded social URLs removed from core/config/publicSite.ts; no new tables, no new endpoints - 2026-08**
 
 ---
 
@@ -1392,6 +1392,93 @@ Every `/api/v1/*` endpoint must follow the documented request/response contract 
 | `hardware_id` | string | Yes | Hardware fingerprint |
 
 **Success (200):** `{ "success": true, "data": { "plans": [{ "id": 1, "name": "Premium", "description": "...", "duration": "1 year", "is_current_plan": false }] } }`
+
+---
+
+## SECTION 0.15 — Public Website Contact & Social Media Settings (Manage Page)
+
+Single record for all public-facing contact and social media data, managed from
+the Admin **Manage Page** (`/admin/manage-page`, sidebar "Manage Page").
+
+### Storage
+
+- **Store:** MongoDB database `WSD`, collection `settings`.
+- **Document:** single record with `key: "contact_info"` — one reusable record,
+  no new collection/table is created for these fields.
+- **Value object fields** (existing + added):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `headquarters` | string | Headquarters Address (existing) |
+| `email` | string | Contact Email (existing) |
+| `phone` | string | Primary Contact Number (existing) |
+| `mobile_number` | string | Mobile Number (added) |
+| `landline_number` | string | Fixed/Landline Number (added) |
+| `whatsapp_url` | string | WhatsApp link (added) |
+| `facebook_url` | string | Facebook link (added) |
+| `instagram_url` | string | Instagram link (added) |
+| `linkedin_url` | string | LinkedIn link (added) |
+| `x_url` | string | X (Twitter) link (added) |
+| `youtube_url` | string | YouTube link (added) |
+
+Empty URL fields mean the platform is **hidden** on the public website — no
+empty icons, no placeholders.
+
+### API — `/api/settings/public/contact_info` (existing endpoint, extended)
+
+| Method | Auth | Behavior |
+|--------|------|----------|
+| `GET` | public | Returns the full value object merged over `DEFAULT_SITE_SETTINGS` (`lib/site-settings.ts`). |
+| `PUT` | admin | Saves the value object; validates/normalizes social URLs (see rules). |
+| `PATCH` | admin | Same handler as `PUT`. |
+
+No new endpoints are created.
+
+### Validation & normalization rules (shared `lib/site-settings.ts`)
+
+- Empty input → stored as `""` (hidden on public site).
+- **WhatsApp special handling:** admin may enter `https://wa.me/919876543210`
+  **or** a plain number (`919876543210`). Any raw number is automatically
+  normalized and saved as `https://wa.me/<digits>`. Visitors always open
+  `https://wa.me/<number>`.
+- Non-WhatsApp platforms: `https://` required (a missing protocol is auto-
+  prefixed when the rest looks like a domain). Allowed hosts:
+  - Facebook → `facebook.com`
+  - Instagram → `instagram.com`
+  - LinkedIn → `linkedin.com`
+  - X (Twitter) → `x.com`, `twitter.com`
+  - YouTube → `youtube.com`
+- Invalid URLs: the API rejects the save with HTTP 400 and a per-platform
+  message; the admin UI additionally validates before submit and highlights the
+  invalid field.
+
+### Public rendering rules
+
+- **Footer** (`components/layout/PublicFooter.tsx`): renders a circular icon
+  button per platform **only when its URL is non-empty**; links open in a new
+  tab with `target="_blank" rel="noopener noreferrer"`. Hardcoded socials were
+  removed from `core/config/publicSite.ts` — no hardcoded social URLs remain.
+- **Contact Page** (`app/(public)/contact/page.tsx`): social section renders
+  real links (icon + name + URL) from saved values; Mobile and Landline cards
+  render only when non-empty.
+- **Landing Page** (`app/page.tsx`): contact section shows Mobile and Landline
+  items from saved values (only when non-empty).
+- **Backward compatibility:** `headquarters`/`phone` fall back to the previous
+  default values only when the saved value is empty; admin-saved values take
+  precedence on all public surfaces. No hardcoded links anywhere — everything
+  comes from the database record.
+
+### Admin Manage Page
+
+- **Contact Information card** (field order): Headquarters Address → Contact
+  Email → Mobile Number → Fixed/Landline Number → Primary Contact Number.
+- **Social Media Links card** (below Contact Information): one row per platform
+  (WhatsApp, Facebook, Instagram, LinkedIn, X (Twitter), YouTube) with a brand
+  icon chip, platform name, and URL input; WhatsApp shows a helper hint about
+  number normalization.
+- Single existing **Save Changes** button persists all fields together.
+- Admin dashboard UI was not redesigned; only the Manage Page content was
+  extended.
 
 ---
 
@@ -4525,7 +4612,8 @@ Every future phase must follow this reporting format.
 | **ULC Live License Status Fix (Full Root Cause Resolution)** | ✅ Complete (Backend route.ts status normalization fixed: expired→expired, trial expired→no_license, all non-licensed states passthrough; client.py base_url→app_url fixed; license_engine.py trial expiry validation; ULC handles ALL statuses from live API; debug logging removed; sys.exit only when locked; unused serializer imports removed) | 100% |
 | **AWS-01 Communications Center Module** | ✅ Complete (Phase 1: Backend routes, tabbed frontend, sidebar, zero build errors. **Phase 2 Amendments**: Bug fix — removed query against nonexistent `conversation_attachments` table (root cause of "Failed to load conversation" error); added `conversation_attachments` table creation to DB schema; added DELETE & POST (retry) handlers to conversations/[id] route; full mailbox-grade UI on conversation detail page with FROM/TO/Date/Delivery Status headers, linked Customer/License/Product profile buttons, Delete/Retry/Delivery Log actions; inbox rows now show product+license inline; Build: 229 pages, zero errors.) | 100% |
 | **Python Mandatory Doc File — README.md replaced with Integrations.md** | ✅ Complete (Python template validator `MANDATORY_FILES` now requires `Integrations.md`; `runtime-builder.ts` no longer generates a duplicate generic `README.md` for Python — the template's `Integrations.md` is packaged directly as the single documentation source; `sdk-validator.ts` doc validation is runtime-aware (`Integrations.md` for Python, `README.md` for all other runtimes) including package-integrity + lifecycle-section checks; `Integrations.md` "this file" self-reference corrected; master doc + template doc copy updated) | 100% |
-| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module** | **100%** |
+| **Public Website Contact & Social Media Settings (SECTION 0.15)** | ✅ Complete (Manage Page: Mobile Number + Fixed/Landline Number added to Contact Information, new Social Media Links card with WhatsApp/Facebook/Instagram/LinkedIn/X/YouTube rows; `/api/settings/public/contact_info` GET/PUT/PATCH extended with `mobile_number`, `landline_number`, `whatsapp_url`, `facebook_url`, `instagram_url`, `linkedin_url`, `x_url`, `youtube_url`; URL validation + WhatsApp auto-normalization to `https://wa.me/<number>` in shared `lib/site-settings.ts`; footer/contact/landing render saved values with empty platforms hidden; hardcoded socials removed from `core/config/publicSite.ts`; no new tables/endpoints) | 100% |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module + Public Website Contact & Social Media Settings (SECTION 0.15)** | **100%** |
 
 ### How much is completed?
 

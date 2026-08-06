@@ -33,6 +33,8 @@ const defaultContactInfo = {
   headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
   email: "sales@websmithdigital.com",
   phone: "+1 815-426-9572",
+  mobile_number: "",
+  landline_number: "",
 };
 
 type HorizontalCardStripProps<T> = {
@@ -260,11 +262,12 @@ export default function LandingPage() {
       if (results[2].status === "fulfilled") setPublishedDevelopers(results[2].value);
       if (results[3].status === "fulfilled") setPublishedTestimonials(results[3].value);
       if (results[4].status === "fulfilled" && results[4].value?.data?.success) {
+        const data = results[4].value.data.data;
         setContactInfo({
           ...defaultContactInfo,
-          ...results[4].value.data.data,
-          headquarters: defaultContactInfo.headquarters,
-          phone: defaultContactInfo.phone,
+          ...data,
+          headquarters: data.headquarters || defaultContactInfo.headquarters,
+          phone: data.phone || defaultContactInfo.phone,
         });
       }
     });
@@ -634,6 +637,32 @@ export default function LandingPage() {
                     </p>
                   </div>
                 </div>
+                {contactInfo.mobile_number && (
+                  <div style={styles.infoItem}>
+                    <div style={styles.infoIcon}>📱</div>
+                    <div>
+                      <h4 style={styles.infoLabel}>Mobile</h4>
+                      <p style={styles.infoValue}>
+                        <a href={`tel:${contactInfo.mobile_number}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                          {contactInfo.mobile_number}
+                        </a>
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {contactInfo.landline_number && (
+                  <div style={styles.infoItem}>
+                    <div style={styles.infoIcon}>☎️</div>
+                    <div>
+                      <h4 style={styles.infoLabel}>Landline</h4>
+                      <p style={styles.infoValue}>
+                        <a href={`tel:${contactInfo.landline_number}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                          {contactInfo.landline_number}
+                        </a>
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             

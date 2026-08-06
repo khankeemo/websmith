@@ -23,11 +23,6 @@ export type FooterSection = {
   links: FooterLink[];
 };
 
-export type SocialLink = {
-  label: string;
-  href: string;
-};
-
 export type BlogPost = {
   slug: string;
   title: string;
@@ -72,12 +67,6 @@ export const publicFooterConfig = {
     name: "WebSmith Digital",
     tagline: "Building powerful digital ecosystems and smart solutions that work for your business.",
   },
-  socials: [
-    { label: "Twitter", href: "https://twitter.com/" },
-    { label: "Instagram", href: "https://instagram.com/" },
-    { label: "GitHub", href: "https://github.com/" },
-    { label: "Facebook", href: "https://facebook.com/" },
-  ] satisfies SocialLink[],
   sections: [
     {
       title: "Company",

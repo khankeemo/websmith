@@ -6,11 +6,14 @@ import { SimplePublicBody } from "../_components/SimplePublicContent";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import API from "../../../core/services/apiService";
+import { SOCIAL_PLATFORM_META } from "../../../lib/social-platforms";
 
 const defaultContactInfo = {
   headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
   email: "sales@websmithdigital.com",
   phone: "+1 815-426-9572",
+  mobile_number: "",
+  landline_number: "",
 };
 
 function PurchaseEnquiryForm() {
@@ -161,17 +164,22 @@ function PurchaseEnquiryForm() {
 
 export default function ContactPage() {
   const [contactInfo, setContactInfo] = useState(defaultContactInfo);
+  const socials = SOCIAL_PLATFORM_META.map((platform) => ({
+    ...platform,
+    href: contactInfo[platform.key] || "",
+  })).filter((social) => Boolean(social.href));
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         const res = await API.get('/settings/public/contact_info');
         if (res.data && res.data.success && res.data.data) {
+          const data = res.data.data;
           setContactInfo({
             ...defaultContactInfo,
-            ...res.data.data,
-            headquarters: defaultContactInfo.headquarters,
-            phone: defaultContactInfo.phone,
+            ...data,
+            headquarters: data.headquarters || defaultContactInfo.headquarters,
+            phone: data.phone || defaultContactInfo.phone,
           });
         }
       } catch (error) {
@@ -231,6 +239,28 @@ export default function ContactPage() {
             <h3 style={styles.cardTitle}>Address</h3>
             <span style={styles.cardText} className="whitespace-pre-wrap">{contactInfo.headquarters}</span>
           </div>
+          {contactInfo.mobile_number ? (
+            <div style={styles.infoCard}>
+              <span style={styles.cardLabel}>Mobile</span>
+              <h3 style={styles.cardTitle}>Mobile Number</h3>
+              <span style={styles.cardText}>
+                <a href={`tel:${contactInfo.mobile_number}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {contactInfo.mobile_number}
+                </a>
+              </span>
+            </div>
+          ) : null}
+          {contactInfo.landline_number ? (
+            <div style={styles.infoCard}>
+              <span style={styles.cardLabel}>Landline</span>
+              <h3 style={styles.cardTitle}>Fixed/Landline Number</h3>
+              <span style={styles.cardText}>
+                <a href={`tel:${contactInfo.landline_number}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {contactInfo.landline_number}
+                </a>
+              </span>
+            </div>
+          ) : null}
         </section>
 
         {/* Embedded contact form */}
@@ -244,25 +274,33 @@ export default function ContactPage() {
         </section>
 
         {/* Social channels */}
-        <section style={styles.section}>
-          <h2 style={styles.subHeading}>Social Media</h2>
-          <p style={styles.narrative}>Stay connected with WebSmith Digital through our social platforms:</p>
-          <div style={styles.socialGrid}>
-            {[
-              { label: "Facebook", value: "____________________" },
-              { label: "Instagram", value: "____________________" },
-              { label: "LinkedIn", value: "____________________" },
-              { label: "X / Twitter", value: "____________________" },
-              { label: "YouTube", value: "____________________" },
-              { label: "WhatsApp", value: "____________________" }
-            ].map(social => (
-              <div key={social.label} style={styles.socialItem}>
-                <span style={styles.socialLabel}>{social.label}:</span>
-                <span style={styles.socialValue}>{social.value}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+        {socials.length > 0 && (
+          <section style={styles.section}>
+            <h2 style={styles.subHeading}>Social Media</h2>
+            <p style={styles.narrative}>Stay connected with WebSmith Digital through our social platforms:</p>
+            <div style={styles.socialGrid}>
+              {socials.map((social) => {
+                const Icon = social.icon;
+                return (
+                  <a
+                    key={social.key}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.socialItem}
+                    className="contact-social-link"
+                  >
+                    <span style={{ ...styles.socialIcon, backgroundColor: social.color }}>
+                      <Icon size={16} color="#FFFFFF" />
+                    </span>
+                    <span style={styles.socialLabel}>{social.label}</span>
+                    <span style={styles.socialValue}>{social.href}</span>
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Why contact us */}
         <section style={styles.section}>
@@ -300,6 +338,14 @@ export default function ContactPage() {
         .public-page-hero-inner h1 {
           font-size: clamp(30px, 5vw, 42px) !important;
           letter-spacing: -0.03em !important;
+        }
+        .contact-social-link {
+          transition: all 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .contact-social-link:hover {
+          border-color: rgba(0, 122, 255, 0.35) !important;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(0, 122, 255, 0.1);
         }
       `}</style>
     </PublicPage>
@@ -397,17 +443,36 @@ const styles: Record<string, CSSProperties> = {
   },
   socialItem: {
     display: "flex",
+    alignItems: "center",
     gap: "10px",
     fontSize: "14px",
     color: "var(--text-secondary)",
+    textDecoration: "none",
+    padding: "12px 16px",
+    borderRadius: "12px",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+  },
+  socialIcon: {
+    width: "28px",
+    height: "28px",
+    borderRadius: "8px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   socialLabel: {
     fontWeight: 700,
     color: "var(--text-primary)",
-    minWidth: "80px",
+    whiteSpace: "nowrap",
   },
   socialValue: {
     color: "var(--text-secondary)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    wordBreak: "break-all",
   },
   listGrid: {
     display: "grid",

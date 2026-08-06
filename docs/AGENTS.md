@@ -81,3 +81,34 @@ See master doc **SECTION 0B** (Event Messaging & Activation Rules). Always honou
 - **Rule 7** — successful trial/activation/renewal always shows the `SuccessDialog` summary.
 - **Rule 8** — errors explain what / why / next; avoid bare "Error"/"Failed"/"Unknown".
 - **Rule 10** — run the 14 end-to-end validation scenarios before delivery.
+
+## Public Website Contact & Social Media Settings (Manage Page)
+
+Keep in sync with the master doc **SECTION 0.15**:
+
+- **Single record, no new tables/endpoints**: all contact + social data lives in
+  the MongoDB `settings` collection document `key: "contact_info"`, served by the
+  existing `/api/settings/public/contact_info` endpoint (`GET` public; `PUT`/
+  `PATCH` admin-only).
+- **Fields**: `headquarters`, `email`, `phone` (existing) + `mobile_number`,
+  `landline_number`, `whatsapp_url`, `facebook_url`, `instagram_url`,
+  `linkedin_url`, `x_url`, `youtube_url` (added). Never create another
+  table/collection or a new endpoint for these.
+- **Validation lives in shared `lib/site-settings.ts`**: URL hosts are strictly
+  validated (facebook.com, instagram.com, linkedin.com, x.com/twitter.com,
+  youtube.com, wa.me); the API rejects invalid links with 400, and the admin UI
+  validates before submit. Never bypass these checks.
+- **WhatsApp special handling**: admins may enter `https://wa.me/<number>` or a
+  plain number — plain numbers are always normalized to
+  `https://wa.me/<digits>` before saving; visitors always open that URL.
+- **Empty = hidden**: public footer/contact/landing render a platform icon only
+  when its URL is non-empty (`target="_blank" rel="noopener noreferrer"`); never
+  render placeholder/empty icons. Mobile/Landline items render only when set.
+- **No hardcoded social URLs**: never re-add socials to `core/config/publicSite.ts`
+  or any public component; everything must come from the database record.
+- **Admin Manage Page** (`/admin/manage-page`): Contact Information card order is
+  Headquarters Address → Contact Email → Mobile Number → Fixed/Landline Number →
+  Primary Contact Number; Social Media Links card sits below it; the single Save
+  Changes button persists all fields together. Do not redesign the admin UI.
+- **Backward compatibility**: `headquarters`/`phone` fall back to previous
+  defaults only when the saved value is empty.
