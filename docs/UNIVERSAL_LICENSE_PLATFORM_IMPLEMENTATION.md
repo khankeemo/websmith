@@ -2881,52 +2881,51 @@ POST /api/v1/license?action=validate
                 └── Days Remaining
                 │
                 ▼
-        Load Available Paid Plans
+        Automatic OTP (validation success immediately triggers OTP send)
+                │   (No manual "Send OTP" button; a "Resend OTP" fallback is
+                │    shown after the code expires or a resend is needed.)
+                ▼
+        Verify OTP
                 │
-                ├── Call GET /api/v1/license/available-plans (or equivalent)
+                ▼
+        Load Available Paid Plans (GET /api/v1/license/available-plans)
                 ├── Show only active paid plans from the plans table
                 ├── Never display Trial plans
-                ├── Allow customer to select a different paid plan:
-                │   ├── Upgrade (higher tier)
-                │   ├── Downgrade (lower tier)
-                │   └── Same plan renewal
+                └── Allow same plan renewal (upgrade/downgrade via admin)
                 │
                 ▼
-        Customer selects plan
+        Payment Confirmation (dummy payment step in SDK)
+                │   ├── Shows the selected renewal plan
+                │   ├── "Pay & Renew" confirms; "Cancel" aborts
+                │   └── No real payment provider is contacted in this build
                 │
                 ▼
-        Generate Renewal Request via Universal Communication System
-                │
-                ├── Open Universal Email Dialog (pre-filled)
-                │   ├── Auto-filled: Customer Name, Email, Product,
-                │   │   Current Plan, Hardware ID, License Key,
-                │   │   Selected Plan, SDK Version, Runtime
-                │   ├── Customer enters: Subject, Message (optional)
-                │   └── Category: renewal
-                │
-                ├── POST /api/v1/communication/create
-                │   ├── category: "renewal"
-                │   ├── Routes to MAIL_SUPPORT_ADDRESS
-                │   └── Creates conversation in communication_conversations
-                │
-                ├── Success:
-                │   ├── Show: "Renewal request submitted. Our team will contact you."
-                │   ├── Show conversation_id for reference
-                │   └── Return to ULC menu
-                │
-                └── Failure (offline):
-                        ├── Queue message locally via message_queue
-                        ├── Show: "Request queued. Will be sent when connection is restored."
-                        └── Return to ULC menu
+        POST /api/v1/license?action=renew
+                │   ├── EXTENDS the EXISTING license in place (UPDATE licenses
+                │   │   SET expiry_date ...) — never creates a replacement license
+                │   ├── Appends a renewal_history row
+                │   └── audit_logs event 'license_renewed'
+                ▼
+        LicenseEngine._apply_fresh_state('renewal')
+                ├── _sync_status_from_server()  (authoritative refresh)
+                ├── cache.set_license_status()  (Saving Cache)
+                ├── WorkflowProgress: Refreshing SDK
+                └── _publish_status() → LicenseStatusChanged (fired once)
+                ▼
+        Entire SDK refresh from the event (Dashboard, Settings, Welcome,
+        License Center, Notifications, Main UI) — no UI refreshes itself
+                ▼
+        Success dialog shows the new expiry from the server status
 ```
 
 **Renewal Plan Selection Rules:**
 - Only active paid plans for the product are shown
 - Plans are loaded dynamically from the `plans` table (not hardcoded)
 - Trial plans are never shown in the renewal flow
-- Customer may select the same plan (simple renewal), upgrade, or downgrade
-- The selected plan is included in the renewal communication request
-- The Websmith Sales/Support Team reviews and processes the renewal request via email conversation
+- Renewal always **extends the existing license** via `action=renew` (same plan or
+  admin-processed plan change); the SDK never creates a new/replacement license
+- Plan upgrade/downgrade is handled by the Websmith Sales/Support Team through the
+  renewal request / conversation system, not by the SDK renewal call
 
 ### Sales Enquiry Workflow
 
@@ -5001,7 +5000,8 @@ Every future phase must follow this reporting format.
 | **SDK V2 Universal State (SESSION — Global State Machine + Automatic OTP + UED + Hardware Relational)** | ✅ Applied (Python template: `GlobalStateMachine` in `workflow_progress.py` (`IDLE/VALIDATING/OTP_SENT/OTP_VERIFIED/PROCESSING/REFRESHING/COMPLETED/FAILED`), engine-driven transitions in `_WorkflowGuard`/validate/send_otp/verify_otp/refresh/`_apply_fresh_state`, exported from `__init__.py`; Automatic OTP: ULC calls `engine.send_otp()` immediately after validation success — no manual Send OTP step, countdown + Resend; Backend UED: `licenses/activate` `sendOTPEmail()` now routes through `sendEmail()` in `lib/email/brevo.ts` (otp_verification) instead of a direct Brevo fetch; Hardware relational: `GET /internal/backend/hardware` now returns nested `customer`/`plan`/`product`/`license` (status, expiry, days_remaining, device_count) via `licenses`+`products`+`plans`+`customers` joins, and `app/internal/api/hardware/page.tsx` displays the relational data with no "Unknown" placeholders) | 100% |
 | **SDK Enterprise Enhancement Suite (SECTION 0D — 20 Areas)** | ✅ Applied (SessionManager, PermissionEngine, ConfigManager, FeatureFlags, OfflineMode, IdempotencyManager, TimeoutRules, CommunicationQueue, NotificationCenter, ErrorCatalog, SecurityRules, hardware fingerprint versioning, MigrationRunner, HealthCheck, MetricsCollector, VersionCompatibility, SupportRequestTracker, RollbackCoordinator — all in the Python template and wired into `LicenseEngine`; new public `GET /api/v1/health` endpoint for §15/§17; idempotency keys + rollback in activation/renewal/trial/bind; session seeding in `initialize()`/`_apply_fresh_state`; fingerprint stamped `v1:<hash>`; cache migration v1→v2 on startup; all modules in `MANDATORY_FILES` + exported from `__init__.py`; `python -m py_compile` clean on all 44 template files; `npm run test:generation` 6/6 passed) | 100% |
 | **FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure)** | ✅ Applied (Fix 4: License Management now groups License Center, Generate License (`/internal/api/sales/purchase`), Hardware (`/internal/api/hardware`), Activations (`/internal/api/activation`), Renewals, Reactivations (`/internal/api/reactivation-requests`), Trial Dashboard + Trial Templates. New dedicated Renewals page at `/internal/api/licenses/renewals` mounts the existing UI-only `RenewalsTab` component (`app/internal/api/licenses/generate/tabs/RenewalsTab.tsx`) — no duplicate logic, no new business logic. Removed the standalone "Hardware Management" sidebar section and the duplicate "Generate License" entry under Sales & Payments. Routes, icons, permissions and active-route logic unchanged. `next build` passes with the new route.) | 100% |
-| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure)** | **100%** |
+| **FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup)** | ✅ Applied (ULC key-flow dialog: resend-only "Resend OTP" button (auto-OTP on validation success, no manual Send OTP step), renewal is now payment-first `Validate → Auto OTP → Verify OTP → Payment Confirmation → engine.renew() → refresh → LicenseStatusChanged → success dialog`, explicit progress strings "Activating…/Renewing…/Processing payment…/Updating License…"; new `_confirm_payment_dialog` (plan dropdown from `verify_license_for_renewal`'s `available_plans`, "Pay & Renew"/"Cancel", dummy payment — no provider contacted); `state` carries `renewal_info` + `renewal_paid`; deleted dead duplicate `renew_license_dialog.py` (869 lines, not in `MANDATORY_FILES`, `renewal.py` is the canonical module); backend UED consolidation — `licenses/renewal-request` + `licenses/reactivation/submit` now use `sendEmail()` (`admin_notification` custom payload) with `client.release()` moved below the email send, `reactivation-requests/[id]/reject` uses `reactivation_rejected`, `reactivation-requests/[id]/approve` raw-Brevo fallback removed (UED primary only); `python -m py_compile` clean; `npm run test:generation` 6/6 passed; master doc + template docs copy Renew License Workflow updated to payment-first; repo-wide `api.brevo.com/v3/smtp/email` grep confirms only auth (password-reset) + ticket-resolution routes remain — intentionally untouched per AWS-01 auth/notification invariant) | 100% |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup)** | **100%** |
 
 ### How much is completed?
 

@@ -2280,52 +2280,51 @@ POST /api/v1/license?action=validate
                 └── Days Remaining
                 │
                 ▼
-        Load Available Paid Plans
+        Automatic OTP (validation success immediately triggers OTP send)
+                │   (No manual "Send OTP" button; a "Resend OTP" fallback is
+                │    shown after the code expires or a resend is needed.)
+                ▼
+        Verify OTP
                 │
-                ├── Call GET /api/v1/license/available-plans (or equivalent)
+                ▼
+        Load Available Paid Plans (GET /api/v1/license/available-plans)
                 ├── Show only active paid plans from the plans table
                 ├── Never display Trial plans
-                ├── Allow customer to select a different paid plan:
-                │   ├── Upgrade (higher tier)
-                │   ├── Downgrade (lower tier)
-                │   └── Same plan renewal
+                └── Allow same plan renewal (upgrade/downgrade via admin)
                 │
                 ▼
-        Customer selects plan
+        Payment Confirmation (dummy payment step in SDK)
+                │   ├── Shows the selected renewal plan
+                │   ├── "Pay & Renew" confirms; "Cancel" aborts
+                │   └── No real payment provider is contacted in this build
                 │
                 ▼
-        Generate Renewal Request via Universal Communication System
-                │
-                ├── Open Universal Email Dialog (pre-filled)
-                │   ├── Auto-filled: Customer Name, Email, Product,
-                │   │   Current Plan, Hardware ID, License Key,
-                │   │   Selected Plan, SDK Version, Runtime
-                │   ├── Customer enters: Subject, Message (optional)
-                │   └── Category: renewal
-                │
-                ├── POST /api/v1/communication/create
-                │   ├── category: "renewal"
-                │   ├── Routes to MAIL_SUPPORT_ADDRESS
-                │   └── Creates conversation in communication_conversations
-                │
-                ├── Success:
-                │   ├── Show: "Renewal request submitted. Our team will contact you."
-                │   ├── Show conversation_id for reference
-                │   └── Return to ULC menu
-                │
-                └── Failure (offline):
-                        ├── Queue message locally via message_queue
-                        ├── Show: "Request queued. Will be sent when connection is restored."
-                        └── Return to ULC menu
+        POST /api/v1/license?action=renew
+                │   ├── EXTENDS the EXISTING license in place (UPDATE licenses
+                │   │   SET expiry_date ...) — never creates a replacement license
+                │   ├── Appends a renewal_history row
+                │   └── audit_logs event 'license_renewed'
+                ▼
+        LicenseEngine._apply_fresh_state('renewal')
+                ├── _sync_status_from_server()  (authoritative refresh)
+                ├── cache.set_license_status()  (Saving Cache)
+                ├── WorkflowProgress: Refreshing SDK
+                └── _publish_status() → LicenseStatusChanged (fired once)
+                ▼
+        Entire SDK refresh from the event (Dashboard, Settings, Welcome,
+        License Center, Notifications, Main UI) — no UI refreshes itself
+                ▼
+        Success dialog shows the new expiry from the server status
 ```
 
 **Renewal Plan Selection Rules:**
 - Only active paid plans for the product are shown
 - Plans are loaded dynamically from the `plans` table (not hardcoded)
 - Trial plans are never shown in the renewal flow
-- Customer may select the same plan (simple renewal), upgrade, or downgrade
-- The selected plan is included in the renewal communication request
-- The Websmith Sales/Support Team reviews and processes the renewal request via email conversation
+- Renewal always **extends the existing license** via `action=renew` (same plan or
+  admin-processed plan change); the SDK never creates a new/replacement license
+- Plan upgrade/downgrade is handled by the Websmith Sales/Support Team through the
+  renewal request / conversation system, not by the SDK renewal call
 
 ### Sales Enquiry Workflow
 

@@ -165,62 +165,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (!emailSent && recipientEmail && BREVO_API_KEY) {
-        try {
-          const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: {
-              'api-key': BREVO_API_KEY,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              sender: { name: 'Websmith Digital', email: process.env.SENDER_EMAIL || 'support@websmithdigital.com' },
-              to: [{ email: recipientEmail, name: newName || '' }],
-              subject: 'License Reactivation Approved',
-              htmlContent: `
-                <!DOCTYPE html>
-                <html><head><style>
-                  body{font-family:Arial,sans-serif;background:#f4f6f9;margin:0;padding:24px}
-                  .container{max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06)}
-                  .header{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:28px 32px;text-align:center}
-                  .header h1{margin:0;color:#fff;font-size:20px}
-                  .header p{margin:4px 0 0;color:#8899bb;font-size:13px}
-                  .body{padding:32px}
-                  .body h2{margin:0 0 16px;color:#1a1a2e;font-size:18px}
-                  .body p{margin:0 0 12px;font-size:14px;color:#555;line-height:1.6}
-                  .key-box{background:#f0f4ff;border:1px solid #d0d9ff;border-radius:8px;padding:16px;text-align:center;margin:16px 0}
-                  .key-box .label{font-size:12px;color:#666;margin-bottom:4px}
-                  .key-box .key{font-size:18px;font-weight:700;color:#1a1a2e;letter-spacing:1px;word-break:break-all}
-                  .btn{display:inline-block;background:#4a90d9;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-size:14px;font-weight:600;margin:16px 0}
-                  .footer{background:#f8f9fb;padding:24px 32px;text-align:center;font-size:13px;color:#8899aa;border-top:1px solid #e8ecf1}
-                </style></head><body>
-                <div class="container">
-                  <div class="header"><h1>WebSmith</h1><p>License Management Platform</p></div>
-                  <div class="body">
-                    <h2>License Reactivation Approved</h2>
-                    <p>Hello ${newName || req.customer_name || 'there'},</p>
-                    <p>Your license reactivation request has been <strong style="color:#16a34a">approved</strong>.</p>
-                    <p>Please use the following license key to activate your software:</p>
-                    <div class="key-box">
-                      <div class="label">License Key</div>
-                      <div class="key">${req.license_key}</div>
-                    </div>
-                    <p style="text-align:center;font-size:13px;color:#666">Open your application and activate using the license key above.</p>
-                  </div>
-                  <div class="footer">
-                    <p>WebSmith License Management<br>Need help? Contact support</p>
-                  </div>
-                </div>
-                </body></html>
-              `,
-            }),
-          });
-          emailSent = response.ok;
-        } catch (fallbackError) {
-          console.error('Fallback email error:', fallbackError);
-        }
-      }
-
       return NextResponse.json({
         success: true,
         message: 'Reactivation request approved. License reactivated successfully.',

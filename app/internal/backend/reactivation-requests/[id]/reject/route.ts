@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
+import { sendEmail } from '@/lib/email/brevo';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
 
@@ -68,71 +69,19 @@ export async function POST(request: NextRequest) {
 
       if (recipientEmail && BREVO_API_KEY) {
         try {
-          const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: {
-              'api-key': BREVO_API_KEY,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              sender: {
-                name: 'Websmith Digital',
-                email: process.env.SENDER_EMAIL || 'support@websmithdigital.com',
-              },
-              to: [{ email: recipientEmail, name: recipientName }],
-              subject: 'License Reactivation Rejected',
-              htmlContent: `
-                <!DOCTYPE html>
-                <html><head><style>
-                  body{font-family:Arial,sans-serif;background:#f4f6f9;margin:0;padding:24px}
-                  .container{max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06)}
-                  .header{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:28px 32px;text-align:center}
-                  .header h1{margin:0;color:#fff;font-size:20px}
-                  .header p{margin:4px 0 0;color:#8899bb;font-size:13px}
-                  .body{padding:32px}
-                  .body h2{margin:0 0 16px;color:#1a1a2e;font-size:18px}
-                  .body p{margin:0 0 12px;font-size:14px;color:#555;line-height:1.6}
-                  .rejection-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0}
-                  .rejection-box p{margin:0;font-size:14px;color:#991b1b}
-                  .footer{background:#f8f9fb;padding:24px 32px;text-align:center;font-size:13px;color:#8899aa;border-top:1px solid #e8ecf1}
-                </style></head><body>
-                <div class="container">
-                  <div class="header"><h1>WebSmith</h1><p>License Management Platform</p></div>
-                  <div class="body">
-                    <h2>License Reactivation Rejected</h2>
-                    <p>Hello ${recipientName || 'there'},</p>
-                    <p>Your license reactivation request for <strong>${req.product_name || 'your software'}</strong> could not be approved at this time.</p>
-                    ${adminNotes || reason ? `
-                    <div class="rejection-box">
-                      <p><strong>Reason:</strong> ${adminNotes || reason}</p>
-                    </div>` : ''}
-                    <p>If you believe this is an error or would like further assistance, please contact our support team.</p>
-                    <p>We apologize for the inconvenience.</p>
-                  </div>
-                  <div class="footer">
-                    <p>WebSmith License Management<br>Need help? Contact support</p>
-                  </div>
-                </div>
-                </body></html>
-              `,
-              textContent: [
-                `License Reactivation Rejected`,
-                ``,
-                `Hello ${recipientName || 'there'},`,
-                ``,
-                `Your license reactivation request for ${req.product_name || 'your software'} could not be approved at this time.`,
-                adminNotes || reason ? `\nReason: ${adminNotes || reason}\n` : '',
-                `If you believe this is an error or would like further assistance, please contact our support team.`,
-                ``,
-                `Best regards,`,
-                `Websmith Digital`,
-              ].join('\n'),
-            }),
+          const emailResult = await sendEmail(client, 'reactivation_rejected', {
+            email: recipientEmail,
+            name: recipientName,
+          }, {
+            customer_name: recipientName,
+            customer_email: recipientEmail,
+            license_key: req.license_key,
+            product_name: req.product_name || 'Software',
+            reason: adminNotes || reason || '',
           });
-          emailSent = response.ok;
-          if (!response.ok) {
-            const errText = await response.text();
-            console.error(`Brevo send failed [reactivation_rejected]: ${errText}`);
+          emailSent = emailResult.success;
+          if (!emailResult.success) {
+            console.error('Rejection email error:', emailResult.error);
           }
         } catch (emailError) {
           console.error('Rejection email error:', emailError);

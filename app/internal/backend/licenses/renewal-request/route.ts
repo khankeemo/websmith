@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
+import { sendEmail } from '@/lib/email/brevo';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'support@websmithdigital.com';
@@ -109,10 +110,7 @@ export async function POST(request: NextRequest) {
         ]
       );
 
-      client.release();
-
-      const emailSubject = `[Renewal Request] ${lic.product_name || 'Product'} - ${customerName}`;
-      const emailBody = `
+      const emailSubject = `[Renewal Request] ${lic.product_name || 'Product'} - ${customerName}`;      const emailBody = `
 License Key:
 ${normalizedLicenseKey}
 
@@ -141,30 +139,26 @@ ${todayDate}
       let emailSent = false;
       if (BREVO_API_KEY) {
         try {
-          const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: {
-              'api-key': BREVO_API_KEY,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              sender: { name: SENDER_NAME, email: SENDER_EMAIL },
-              to: [{ email: SUPPORT_EMAIL, name: 'Websmith Support' }],
+          const emailResult = await sendEmail(client, 'admin_notification', {
+            email: SUPPORT_EMAIL,
+            name: 'Websmith Support',
+          }, {}, {
+            custom: {
               subject: emailSubject,
-              textContent: emailBody,
-              htmlContent: `<pre style="font-family: monospace; white-space: pre-wrap;">${emailBody}</pre>`,
-            }),
+              html: `<pre style="font-family: monospace; white-space: pre-wrap;">${emailBody}</pre>`,
+              plainText: emailBody,
+            },
           });
-
-          emailSent = response.ok;
-          if (!response.ok) {
-            const errText = await response.text();
-            console.error(`Brevo send failed [renewal_request -> ${SUPPORT_EMAIL}]: ${errText}`);
+          emailSent = emailResult.success;
+          if (!emailResult.success) {
+            console.error(`Brevo send failed [renewal_request -> ${SUPPORT_EMAIL}]: ${emailResult.error}`);
           }
         } catch (emailError) {
           console.error('Email send error:', emailError);
         }
       }
+
+      client.release();
 
       return NextResponse.json({
         success: true,

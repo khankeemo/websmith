@@ -103,6 +103,19 @@ See master doc **SECTION 0C**. Never regress:
   `EventBus` and logs `WORKFLOW_STATE`. Exported via package `__init__.py`.
 - **Automatic OTP (LOCKED §10)**: validation success immediately triggers
   `engine.send_otp()` — no manual Send OTP step; countdown timer + Resend OTP on expiry.
+- **Renewal is payment-first**: ULC renewal path is Validate → Auto OTP → Verify OTP →
+  Payment Confirmation (`_confirm_payment_dialog`, dummy payment — no provider contacted) →
+  `engine.renew()` (extends the EXISTING license; never creates a replacement) → engine
+  refresh → LicenseStatusChanged → success dialog. Renewal must NOT show the legacy
+  "Renewal request submitted, our team will contact you" communication step.
+- **UED is the sole email path for license/reactivation flows**: backend routes under
+  `licenses/renewal-request`, `licenses/reactivation/submit`,
+  `reactivation-requests/[id]/reject`, `reactivation-requests/[id]/approve` must use
+  `sendEmail()` from `@/lib/email/brevo` (never a raw Brevo fetch). Auth (password-reset)
+  and ticket-resolution routes keep their own senders and are intentionally NOT part of
+  the Communications Center UED scope (AWS-01 auth/notification invariant).
+- **No dead duplicate template code**: `renew_license_dialog.py` was deleted; `renewal.py`
+  is the single renewal module. Never re-add duplicate renewal/communication dialog logic.
 - **New foundation modules** (`event_bus.py`, `workflow_progress.py`, `dialog_manager.py`)
   are registered in `runtimes/python.ts` `MANDATORY_FILES` — never delete them.
 - Engine `_workflow(...)` guard: every workflow logs `WORKFLOW_START`/`COMPLETE`/`ERROR`

@@ -833,7 +833,7 @@ class UniversalLicenseCenter:
                              bd=1, justify="center", width=10)
         otp_entry.pack(side="left", fill="x", expand=True)
         otp_entry.config(state='disabled')
-        send_otp_btn = tk.Button(otp_row, text="Send OTP",
+        send_otp_btn = tk.Button(otp_row, text="Resend OTP",
                                  font=("Segoe UI", 10, "bold"),
                                  bg=self._text_secondary, fg="white",
                                  relief="flat", state='disabled',
@@ -857,7 +857,8 @@ class UniversalLicenseCenter:
                   padx=12, pady=4).pack(fill="x")
 
         state = {"validated": False, "otp_verified": False, "email": "",
-                 "timer_id": None, "otp_expires_at": 0.0}
+                 "timer_id": None, "otp_expires_at": 0.0, "renewal_info": None,
+                 "renewal_paid": False}
 
         def _set_status(text, fg):
             status_label.config(text=text, fg=fg)
@@ -876,7 +877,7 @@ class UniversalLicenseCenter:
                 _set_status("OTP expired. Request a new OTP.", self._error)
                 otp_entry.config(state='disabled')
                 verify_btn.config(state='disabled')
-                send_otp_btn.config(state='normal', text='Send OTP')
+                send_otp_btn.config(state='normal', text='Resend OTP')
                 return
             _set_status(f"OTP sent — expires in {format_timer(remaining)}",
                         self._success)
@@ -917,7 +918,7 @@ class UniversalLicenseCenter:
                 _set_status("You're a new customer. Please activate your license first.", self._warning)
                 validate_btn.config(state='normal', text='Validate License')
                 otp_entry.config(state='disabled')
-                send_otp_btn.config(state='disabled')
+                send_otp_btn.config(state='disabled', text='Resend OTP')
                 verify_btn.config(state='disabled')
                 final_btn.config(state='normal', text='Activate License',
                                  command=lambda: (dialog.destroy(), self._activate_license()))
@@ -966,6 +967,7 @@ class UniversalLicenseCenter:
             if not is_activate:
                 try:
                     renewal_info = self.engine.verify_license_for_renewal(key)
+                    state["renewal_info"] = renewal_info
                     if renewal_info.get('success') and renewal_info.get('valid'):
                         lines.append("")
                         lines.append("RENEWAL DETAILS")
@@ -980,6 +982,7 @@ class UniversalLicenseCenter:
                                 mark = " (current)" if p.get('is_current_plan') else ""
                                 lines.append(f"  - {p.get('name', '')} — {p.get('duration', '')}{mark}")
                 except Exception:
+                    state["renewal_info"] = None
                     pass
             if not lines:
                 lines.append("License validated successfully.")
@@ -1002,7 +1005,7 @@ class UniversalLicenseCenter:
                 result = self.engine.send_otp(email)
             except Exception as e:
                 _set_status(str(e), self._error)
-                send_otp_btn.config(state='normal', text='Send OTP')
+                send_otp_btn.config(state='normal', text='Resend OTP')
                 return
             if result.get('success'):
                 import time as _time
@@ -1014,7 +1017,7 @@ class UniversalLicenseCenter:
             else:
                 msg = result.get('message') or result.get('error') or 'Failed to send OTP'
                 _set_status(str(msg), self._error)
-                send_otp_btn.config(state='normal', text='Send OTP')
+                send_otp_btn.config(state='normal', text='Resend OTP')
 
         def do_verify_otp():
             if not state["validated"]:
@@ -1042,23 +1045,71 @@ class UniversalLicenseCenter:
                 verify_btn.config(state='normal', text='Verify OTP')
                 otp_entry.focus()
 
-        def do_final():
-            if not state["validated"] or not state["otp_verified"]:
-                return
+        def do_renew_with_payment():
+            """Renewal (payment-first): Confirm payment, then extend the existing
+            license via engine.renew(). The engine refreshes status, cache and
+            fires LicenseStatusChanged — no UI refreshes itself."""
             key = key_entry.get().strip()
-            final_btn.config(state='disabled', text='Processing...')
+            final_btn.config(state='disabled', text='Renewing...')
+            _set_status("Processing payment...", self._text_secondary)
+            dialog.update_idletasks()
+            paid, _chosen_plan = self._confirm_payment_dialog(dialog, state, key)
+            if not paid:
+                _set_status("Payment cancelled.", self._warning)
+                final_btn.config(state='normal', text=final_label)
+                return
+            state["renewal_paid"] = True
             try:
-                if is_activate:
-                    result = self.engine.activate(key)
-                    operation = "activation"
-                else:
-                    result = self.engine.renew(license_key=key)
-                    operation = "renewal"
+                _set_status("Renewing...", self._text_secondary)
+                dialog.update_idletasks()
+                result = self.engine.renew(license_key=key)
+                operation = "renewal"
             except Exception as e:
                 _set_status(str(e), self._error)
                 final_btn.config(state='normal', text=final_label)
                 return
             if result.get('success') or result.get('already_activated'):
+                _set_status("Updating License...", self._text_secondary)
+                dialog.update_idletasks()
+                status = self.engine.get_status()
+                if status:
+                    self._status = status
+                    self._initialized = True
+                self._app_unlocked = True
+                LiveLog.log("general.unlocked", f"{operation} completed — application unlocked")
+                dialog.destroy()
+                self._show_success_dialog(operation)
+            else:
+                err = result.get('error') or result.get('data') or result
+                msg = err.get('message') if isinstance(err, dict) else str(err)
+                if not msg:
+                    msg = ("Renewal could not be completed. "
+                           f"The server did not return a reason. Please contact support "
+                           f"at {self._support_email or 'your provider'} for assistance.")
+                LiveLog.log("operation.error", msg)
+                _set_status(str(msg), self._error)
+                final_btn.config(state='normal', text=final_label)
+
+        def do_final():
+            if not state["validated"] or not state["otp_verified"]:
+                return
+            if not is_activate:
+                do_renew_with_payment()
+                return
+            key = key_entry.get().strip()
+            final_btn.config(state='disabled', text='Activating...')
+            _set_status("Activating...", self._text_secondary)
+            dialog.update_idletasks()
+            try:
+                result = self.engine.activate(key)
+                operation = "activation"
+            except Exception as e:
+                _set_status(str(e), self._error)
+                final_btn.config(state='normal', text=final_label)
+                return
+            if result.get('success') or result.get('already_activated'):
+                _set_status("Updating License...", self._text_secondary)
+                dialog.update_idletasks()
                 status = self.engine.get_status()
                 if status:
                     self._status = status
@@ -1089,6 +1140,98 @@ class UniversalLicenseCenter:
         key_entry.bind('<Return>', lambda e: do_validate())
         otp_entry.bind('<Return>', lambda e: do_verify_otp())
         dialog.wait_window()
+
+    def _confirm_payment_dialog(self, parent, state, license_key: str):
+        """Payment-first renewal step — a payment confirmation dialog.
+
+        Displays the selected renewal plan/amount and a 'Pay' action. Returns
+        ``(paid, chosen_plan)``. This is a UI confirmation of the documented
+        renewal pipeline (Validate → OTP → Verify OTP → Payment → Extend); the
+        actual license extension is performed by ``engine.renew()`` afterwards.
+        No real payment provider is contacted (dummy payment, matching the
+        existing payment-config architecture in the internal API).
+        """
+        import time as _time
+        renewal_info = state.get("renewal_info") or {}
+        plans = renewal_info.get('available_plans') or []
+        current_plan = renewal_info.get('current_plan') or ''
+        result_holder = {"paid": False, "plan": None}
+
+        dialog = tk.Toplevel(parent)
+        dialog.title("Renewal Payment")
+        dialog.geometry("460x340")
+        dialog.configure(bg=self._bg)
+        dialog.transient(parent)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+
+        header = tk.Frame(dialog, bg=self._primary, height=52)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        tk.Label(header, text="Renewal Payment",
+                 font=("Segoe UI", 14, "bold"),
+                 fg="white", bg=self._primary).pack(expand=True)
+
+        body = tk.Frame(dialog, bg=self._card_bg, padx=24, pady=16)
+        body.pack(fill="both", expand=True)
+
+        tk.Label(body, text="Confirm payment to renew your license.",
+                 font=("Segoe UI", 10), bg=self._card_bg,
+                 fg=self._text_primary, anchor="w").pack(fill="x", pady=(0, 10))
+
+        plan_var = tk.StringVar(value=current_plan or "Current Plan")
+        if plans:
+            row = tk.Frame(body, bg=self._card_bg)
+            row.pack(fill="x", pady=3)
+            tk.Label(row, text="Renewal Plan", font=("Segoe UI", 9),
+                     fg=self._text_secondary, bg=self._card_bg,
+                     width=12, anchor="w").pack(side="left")
+            plan_menu = tk.OptionMenu(row, plan_var, *([current_plan] + [p.get('name', '') for p in plans]))
+            plan_menu.config(bg=self._card_bg, fg=self._text_primary,
+                             font=("Segoe UI", 10), relief="flat", bd=1)
+            plan_menu.pack(side="left", fill="x", expand=True)
+
+        amount_row = tk.Frame(body, bg=self._card_bg)
+        amount_row.pack(fill="x", pady=3)
+        tk.Label(amount_row, text="Amount", font=("Segoe UI", 9),
+                 fg=self._text_secondary, bg=self._card_bg,
+                 width=12, anchor="w").pack(side="left")
+        tk.Label(amount_row, text="Per configured plan (see software store)",
+                 font=("Segoe UI", 10), fg=self._text_primary,
+                 bg=self._card_bg).pack(side="left")
+
+        tk.Label(body, text="This is a payment confirmation step. No real payment is "
+                            "processed in this build and no payment provider is contacted.",
+                 font=("Segoe UI", 8), fg=self._text_secondary, bg=self._card_bg,
+                 justify="left", anchor="w").pack(fill="x", pady=(14, 4))
+
+        status = tk.Label(body, text="", font=("Segoe UI", 10),
+                          bg=self._card_bg, fg=self._success)
+        status.pack(fill="x", pady=(6, 0))
+
+        def do_pay():
+            plan_var_name = plan_var.get()
+            result_holder["paid"] = True
+            result_holder["plan"] = plan_var_name
+            LiveLog.log("renewal.payment", f"Payment confirmed — plan: {plan_var_name}")
+            dialog.destroy()
+
+        def do_cancel():
+            result_holder["paid"] = False
+            dialog.destroy()
+
+        btn_row = tk.Frame(body, bg=self._card_bg)
+        btn_row.pack(fill="x", pady=(12, 0))
+        tk.Button(btn_row, text="Cancel", font=("Segoe UI", 11),
+                  bg="#e5e7eb", fg=self._text_primary, relief="flat",
+                  command=do_cancel, cursor="hand2", padx=12, pady=6).pack(side="left")
+        tk.Button(btn_row, text="Pay & Renew", font=("Segoe UI", 11, "bold"),
+                  bg=self._success, fg="white", relief="flat",
+                  command=do_pay, cursor="hand2", padx=16, pady=6).pack(side="right")
+
+        dialog.wait_window()
+        return result_holder["paid"], result_holder["plan"]
 
     def _start_trial(self):
         LiveLog.log("Trial started", "Opening Welcome Dialog")
