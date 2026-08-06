@@ -11,6 +11,9 @@ import { SOCIAL_PLATFORM_META } from "../../../lib/social-platforms";
 const defaultContactInfo = {
   headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
   email: "sales@websmithdigital.com",
+  sales_email: "",
+  no_reply_email: "",
+  hr_email: "",
   phone: "+1 815-426-9572",
   mobile_number: "",
   landline_number: "",
@@ -217,14 +220,28 @@ export default function ContactPage() {
         <section style={styles.gridSection}>
           <div style={styles.infoCard}>
             <span style={styles.cardLabel}>General Inquiries</span>
-            <h3 style={styles.cardTitle}>Support & Support</h3>
+            <h3 style={styles.cardTitle}>Support</h3>
             <a href={`mailto:${contactInfo.email}`} style={styles.cardLink}>{contactInfo.email}</a>
           </div>
           <div style={styles.infoCard}>
             <span style={styles.cardLabel}>Sales & Business</span>
             <h3 style={styles.cardTitle}>Consultation</h3>
-            <a href={`mailto:${contactInfo.email}`} style={styles.cardLink}>{contactInfo.email}</a>
+            <a href={`mailto:${contactInfo.sales_email || contactInfo.email}`} style={styles.cardLink}>{contactInfo.sales_email || contactInfo.email}</a>
           </div>
+          {contactInfo.no_reply_email ? (
+            <div style={styles.infoCard}>
+              <span style={styles.cardLabel}>Automated Notifications</span>
+              <h3 style={styles.cardTitle}>No-Reply</h3>
+              <a href={`mailto:${contactInfo.no_reply_email}`} style={styles.cardLink}>{contactInfo.no_reply_email}</a>
+            </div>
+          ) : null}
+          {contactInfo.hr_email ? (
+            <div style={styles.infoCard}>
+              <span style={styles.cardLabel}>Careers & HR</span>
+              <h3 style={styles.cardTitle}>Careers</h3>
+              <a href={`mailto:${contactInfo.hr_email}`} style={styles.cardLink}>{contactInfo.hr_email}</a>
+            </div>
+          ) : null}
           <div style={styles.infoCard}>
             <span style={styles.cardLabel}>Call Us</span>
             <h3 style={styles.cardTitle}>Phone Number</h3>

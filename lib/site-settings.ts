@@ -14,6 +14,9 @@ export type SocialUrlKey =
 export const CONTACT_FIELDS = {
   headquarters: "",
   email: "",
+  sales_email: "",
+  no_reply_email: "",
+  hr_email: "",
   phone: "",
   mobile_number: "",
   landline_number: "",

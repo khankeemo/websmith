@@ -90,10 +90,10 @@ Keep in sync with the master doc **SECTION 0.15**:
   the MongoDB `settings` collection document `key: "contact_info"`, served by the
   existing `/api/settings/public/contact_info` endpoint (`GET` public; `PUT`/
   `PATCH` admin-only).
-- **Fields**: `headquarters`, `email`, `phone` (existing) + `mobile_number`,
-  `landline_number`, `whatsapp_url`, `facebook_url`, `instagram_url`,
-  `linkedin_url`, `x_url`, `youtube_url` (added). Never create another
-  table/collection or a new endpoint for these.
+- **Fields**: `headquarters`, `email` (Contact/Support), `sales_email`, `no_reply_email`,
+  `hr_email`, `phone` (existing) + `mobile_number`, `landline_number`, `whatsapp_url`,
+  `facebook_url`, `instagram_url`, `linkedin_url`, `x_url`, `youtube_url` (added).
+  Never create another table/collection or a new endpoint for these.
 - **Validation lives in shared `lib/site-settings.ts`**: URL hosts are strictly
   validated (facebook.com, instagram.com, linkedin.com, x.com/twitter.com,
   youtube.com, wa.me); the API rejects invalid links with 400, and the admin UI
@@ -107,8 +107,9 @@ Keep in sync with the master doc **SECTION 0.15**:
 - **No hardcoded social URLs**: never re-add socials to `core/config/publicSite.ts`
   or any public component; everything must come from the database record.
 - **Admin Manage Page** (`/admin/manage-page`): Contact Information card order is
-  Headquarters Address → Contact Email → Mobile Number → Fixed/Landline Number →
-  Primary Contact Number; Social Media Links card sits below it; the single Save
-  Changes button persists all fields together. Do not redesign the admin UI.
+  Headquarters Address → Contact Email → Sales Email → No-Reply Email → HR Email →
+  Mobile Number → Fixed/Landline Number → Primary Contact Number; Social Media
+  Links card sits below it; the single Save Changes button persists all fields
+  together. Do not redesign the admin UI.
 - **Backward compatibility**: `headquarters`/`phone` fall back to previous
   defaults only when the saved value is empty.

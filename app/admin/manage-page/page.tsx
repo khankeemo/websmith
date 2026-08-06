@@ -125,7 +125,40 @@ export default function ManagePage() {
                 style={styles.input}
                 value={contactInfo.email}
                 onChange={(e) => setField('email', e.target.value)}
+                placeholder="e.g. support@websmithdigital.com"
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Sales Email</label>
+              <input 
+                type="email"
+                style={styles.input}
+                value={contactInfo.sales_email}
+                onChange={(e) => setField('sales_email', e.target.value)}
                 placeholder="e.g. sales@websmithdigital.com"
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>No-Reply Email</label>
+              <input 
+                type="email"
+                style={styles.input}
+                value={contactInfo.no_reply_email}
+                onChange={(e) => setField('no_reply_email', e.target.value)}
+                placeholder="e.g. no-reply@websmithdigital.com"
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>HR Email</label>
+              <input 
+                type="email"
+                style={styles.input}
+                value={contactInfo.hr_email}
+                onChange={(e) => setField('hr_email', e.target.value)}
+                placeholder="e.g. hr@websmithdigital.com"
               />
             </div>
 
