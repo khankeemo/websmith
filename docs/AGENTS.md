@@ -82,6 +82,26 @@ See master doc **SECTION 0B** (Event Messaging & Activation Rules). Always honou
 - **Rule 8** — errors explain what / why / next; avoid bare "Error"/"Failed"/"Unknown".
 - **Rule 10** — run the 14 end-to-end validation scenarios before delivery.
 
+## SDK V2 Single-State Architecture (Python Template)
+
+See master doc **SECTION 0C**. Never regress:
+
+- **One controller**: `LicenseEngine` (`license_engine.py`) is the **only** module that
+  talks to the API, owns cache state, runs workflows, and mutates license state.
+- **client.py is transport-only** — no `CacheManager`, no decision logic. UI modules
+  (`universal_license_center.py`, `welcome.py`, `trial.py`, `activation.py`, `renewal.py`,
+  `reactivation.py`, `communication.py`, dialogs) must never access `client`/`cache`/`_client`
+  directly — they use engine methods (`validate_license_key`, `send_otp`, `verify_otp`,
+  `mark_onboarding_complete`, `persist_runtime_state`, `flush_cache`, …).
+- **Event-driven UI**: the ULC re-renders only from `LicenseStatusChanged` /
+  `workflow.progress` events; success paths never call `_refresh_ui()` manually. Use the
+  canonical 16-stage list from `WorkflowProgress` — never invent new stage strings.
+- **New foundation modules** (`event_bus.py`, `workflow_progress.py`, `dialog_manager.py`)
+  are registered in `runtimes/python.ts` `MANDATORY_FILES` — never delete them.
+- Engine `_workflow(...)` guard: every workflow logs `WORKFLOW_START`/`COMPLETE`/`ERROR`
+  exactly once per stage and serializes under one RLock.
+- Keep SECTION 0C in sync here and in the master doc (Rule ALWAYS-UPDATE).
+
 ## Public Website Contact & Social Media Settings (Manage Page)
 
 Keep in sync with the master doc **SECTION 0.15**:
