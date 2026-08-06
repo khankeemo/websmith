@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getRustTemplates(context: PublisherContext): Record<string, string> {
   const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';

@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getCppTemplates(context: PublisherContext): Record<string, string> {
   const productId = context.productId;
@@ -185,6 +185,14 @@ public:
         json body = {{"action", "bind_device"}, {"license_key", licenseKey},
                      {"hardware_id", deviceId}, {"device_name", deviceName}};
         return request("POST", "/api/v1/license", body);
+    }
+
+    json getTrialStatus(const std::string& hardwareId) {
+        return request("POST", "/api/v1/trial", {{"action", "status"}, {"hardware_id", hardwareId}});
+    }
+
+    json getProducts() {
+        return request("POST", "/api/v1/store/products", {{"action", "list"}});
     }
 
 private:

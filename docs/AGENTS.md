@@ -153,6 +153,33 @@ See master doc **SECTION 0D** (20 enterprise areas). Never regress:
 - All new modules registered in `runtimes/python.ts` `MANDATORY_FILES` and exported
   from `__init__.py`. Keep SECTION 0D in sync here and in the master doc.
 
+## SDK Multi-Runtime Parity (All 13 Runtimes)
+
+Both docs are in sync. Never regress:
+
+- **Every generated client must expose `getProducts` + `getTrialStatus`** (per-runtime
+  casing: camelCase for node/typescript/javascript/bun/php/java; `GetProducts`/
+  `GetTrialStatus` for go/dotnet; `get_products`/`get_trial_status` for python,
+  rust and the `websmith_*`-prefixed C client) — these are the method names the
+  production `SDKValidator` (`app/internal/publisher/sdk-validator.ts:323-376`)
+  requires in the `validate-sdk` stage (`app/internal/publisher/index.ts:754`), which
+  fails generation if missing. Implement against the real endpoints: `POST
+  /api/v1/store/products` `{action:"list"}` and `POST /api/v1/trial`
+  `{action:"status", hardware_id}` (POST works for every runtime's request helper;
+  the store route also supports GET).
+- **Runtime generators import `PublisherContext` as `import type`** from `../index`
+  (type-only, elided at runtime) so `tests/sdk-generation/multi-runtime.test.mjs`
+  can import them under `--experimental-strip-types` without resolving the heavy
+  `../index` graph. Never change it to a value import.
+- **`tests/sdk-generation/multi-runtime.test.mjs` is the parity guard**: it generates
+  all 13 runtimes through the real generators, writes a minimal `api-config.json` +
+  `manifest.json` (`kit_version` required), and runs `SDKValidator.validate()` against
+  each package. Run via `npm run test:multi-runtime`; it is part of `npm test`.
+  When editing any runtime generator, re-run it — all 13 must stay `valid: true`.
+- **Full fidelity over string-presence**: the validator checks `content.includes(method)`,
+  but new methods must be real working calls, not placeholder strings.
+- Keep this rule in sync with the master doc progress table (OPERATIONAL QA row).
+
 ## Public Website Contact & Social Media Settings (Manage Page)
 
 Keep in sync with the master doc **SECTION 0.15**:

@@ -453,6 +453,13 @@ export async function POST(request: NextRequest) {
           [nowISO, normalizedLicenseKey]
         );
 
+        // Audit log device reset (parity with the device_bound audit write)
+        await client.query(
+          `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key)
+           VALUES ($1, $2, $3, $4, $5)`,
+          ['device_reset', `Device ${hardware_id} reset from license ${normalizedLicenseKey}`, nowISO, ipAddress, normalizedLicenseKey]
+        );
+
         client.release();
         client = null;
 

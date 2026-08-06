@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getJavaScriptTemplates(context: PublisherContext): Record<string, string> {
   return {
@@ -306,6 +306,16 @@ export function getJavaScriptTemplates(context: PublisherContext): Record<string
             action: 'convert', hardware_id: hardwareId,
             plan: plan, customer_name: name, customer_email: email
         });
+    };
+
+    WebsmithClient.prototype.getTrialStatus = function(hardwareId) {
+        return this._request('trial', { action: 'status', hardware_id: hardwareId });
+    };
+
+    WebsmithClient.prototype.getProducts = function() {
+        var payload = { action: 'list' };
+        if (this.productId) payload.product_id = this.productId;
+        return this._request('store/products', payload);
     };
 
     // ─── LicenseEngine ──────────────────────────────────────────

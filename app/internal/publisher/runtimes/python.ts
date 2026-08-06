@@ -8,7 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 const TEMPLATE_DIR = path.resolve(process.cwd(), 'app', 'internal', 'publisher', 'template', 'python');
 

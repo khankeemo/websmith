@@ -441,4 +441,12 @@ export class ApiClient {
       hardware_id: this._getHardwareId(),
     });
   }
+
+  // ====================================================================
+  // Store Products
+  // ====================================================================
+
+  async getProducts(): Promise<Record<string, any>> {
+    return this._request('store/products', { action: 'list' });
+  }
 }

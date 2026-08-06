@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getCTemplates(context: PublisherContext): Record<string, string> {
   const productName = context.productName;
@@ -107,6 +107,8 @@ websmith_result_t websmith_deactivate_license(websmith_client_t* client, const c
 websmith_result_t websmith_renew_license(websmith_client_t* client, const char* license_key);
 websmith_result_t websmith_start_trial(websmith_client_t* client, const char* email, const char* customer_name, const char* plan);
 websmith_result_t websmith_check_trial(websmith_client_t* client, const char* hardware_id);
+websmith_result_t websmith_get_trial_status(websmith_client_t* client, const char* hardware_id);
+websmith_result_t websmith_get_products(websmith_client_t* client);
 websmith_result_t websmith_convert_trial(websmith_client_t* client, const char* hardware_id, const char* plan, const char* name, const char* email);
 websmith_result_t websmith_bind_device(websmith_client_t* client, const char* license_key, const char* device_id, const char* device_name);
 
@@ -405,6 +407,16 @@ websmith_result_t websmith_bind_device(websmith_client_t* client, const char* li
     char body[2048];
     snprintf(body, sizeof(body), "{\\"action\\":\\"bind\\",\\"license_key\\":\\"%s\\",\\"hardware_id\\":\\"%s\\",\\"device_name\\":\\"%s\\"}", license_key ? license_key : "", device_id ? device_id : "", device_name ? device_name : "");
     return websmith_api_request(client, "/api/v1/license", body);
+}
+
+websmith_result_t websmith_get_trial_status(websmith_client_t* client, const char* hardware_id) {
+    char body[1024];
+    snprintf(body, sizeof(body), "{\\"action\\":\\"status\\",\\"hardware_id\\":\\"%s\\"}", hardware_id ? hardware_id : "");
+    return websmith_api_request(client, "/api/v1/trial", body);
+}
+
+websmith_result_t websmith_get_products(websmith_client_t* client) {
+    return websmith_api_request(client, "/api/v1/store/products", "{\\"action\\":\\"list\\"}");
 }
 
 static char* websmith_read_file(const char* path) {

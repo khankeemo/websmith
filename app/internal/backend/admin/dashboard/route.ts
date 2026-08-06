@@ -6,6 +6,10 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
 
+// Force dynamic so the dashboard always reflects fresh license/trial/activation
+// stats after activations/renewals — never serve a cached response snapshot.
+export const dynamic = "force-dynamic";
+
 // ============================================================
 // DATABASE CONNECTION - WITH BETTER SSL CONFIG
 // ============================================================

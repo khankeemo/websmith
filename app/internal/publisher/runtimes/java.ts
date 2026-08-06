@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getJavaTemplates(context: PublisherContext): Record<string, string> {
   const safeProductName = context.productName.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -307,6 +307,19 @@ public class Client {
             data.addProperty("device_name", deviceName);
         }
         return request("device", data);
+    }
+
+    public JsonObject getTrialStatus(String hardwareId) throws ApiException {
+        JsonObject data = new JsonObject();
+        data.addProperty("action", "status");
+        data.addProperty("hardware_id", hardwareId);
+        return request("trial", data);
+    }
+
+    public JsonObject getProducts() throws ApiException {
+        JsonObject data = new JsonObject();
+        data.addProperty("action", "list");
+        return request("store/products", data);
     }
 }
 `,

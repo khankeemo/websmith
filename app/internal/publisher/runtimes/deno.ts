@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getDenoTemplates(context: PublisherContext): Record<string, string> {
   const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';
@@ -530,6 +530,15 @@ class Client {
     };
     if (deviceName) payload.device_name = deviceName;
     return await this.request('device', payload);
+  }
+
+  async getTrialStatus(hardwareId?: string): Promise<Record<string, unknown>> {
+    if (!hardwareId) hardwareId = await this._hardware.getFingerprint();
+    return await this.request('trial', { action: 'status', hardware_id: hardwareId });
+  }
+
+  async getProducts(): Promise<Record<string, unknown>> {
+    return await this.request('store/products', { action: 'list' });
   }
 }
 

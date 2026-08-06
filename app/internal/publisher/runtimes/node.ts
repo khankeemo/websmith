@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getNodeTemplates(context: PublisherContext): Record<string, string> {
   const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';
@@ -359,6 +359,14 @@ class Client {
     if (deviceName) p.device_name = deviceName;
     return this._request('device', p)
       .then((r) => { this._cache.invalidateLicenseStatus(); return r; });
+  }
+
+  getTrialStatus(hardwareId) {
+    return this._request('trial', { action: 'status', hardware_id: hardwareId || this._hwId() });
+  }
+
+  getProducts() {
+    return this._request('store/products', { action: 'list', product_id: this.productId });
   }
 }
 

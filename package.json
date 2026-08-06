@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --experimental-strip-types tests/sdk-generation/validator.test.mjs",
-    "test:generation": "node --experimental-strip-types tests/sdk-generation/validator.test.mjs"
+    "test": "node --experimental-strip-types tests/sdk-generation/validator.test.mjs && node --experimental-strip-types tests/sdk-generation/multi-runtime.test.mjs",
+    "test:generation": "node --experimental-strip-types tests/sdk-generation/validator.test.mjs",
+    "test:multi-runtime": "node --experimental-strip-types tests/sdk-generation/multi-runtime.test.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

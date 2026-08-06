@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getPhpTemplates(context: PublisherContext): Record<string, string> {
   const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';
@@ -221,6 +221,19 @@ class Client
             $payload['device_name'] = $deviceName;
         }
         return $this->request('POST', '/api/v1/device', $payload);
+    }
+
+    public function getTrialStatus(string $hardwareId): array
+    {
+        return $this->request('POST', '/api/v1/trial', [
+            'action' => 'status',
+            'hardware_id' => $hardwareId,
+        ]);
+    }
+
+    public function getProducts(): array
+    {
+        return $this->request('POST', '/api/v1/store/products', ['action' => 'list']);
     }
 }
 

@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getGoTemplates(context: PublisherContext): Record<string, string> {
   const sanitized = context.productName.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -269,6 +269,19 @@ func (c *Client) ConvertTrial(hardwareID, plan, name, email string) (map[string]
 func (c *Client) BindDevice(licenseKey, hardwareID, deviceName string) (map[string]interface{}, error) {
 	return c.doRequest("POST", "license", c.buildPayload(map[string]interface{}{
 		"action": "bind_device", "license_key": licenseKey, "hardware_id": hardwareID, "device_name": deviceName,
+	}))
+}
+
+func (c *Client) GetTrialStatus(hardwareID string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "trial", c.buildPayload(map[string]interface{}{
+		"action": "status", "hardware_id": hardwareID,
+	}))
+}
+
+func (c *Client) GetProducts() (map[string]interface{}, error) {
+	productID, _ := c.config.Product["id"].(string)
+	return c.doRequest("POST", "store/products", c.buildPayload(map[string]interface{}{
+		"action": "list", "product_id": productID,
 	}))
 }
 `,

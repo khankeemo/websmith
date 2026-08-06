@@ -5001,7 +5001,7 @@ Every future phase must follow this reporting format.
 | **SDK Enterprise Enhancement Suite (SECTION 0D — 20 Areas)** | ✅ Applied (SessionManager, PermissionEngine, ConfigManager, FeatureFlags, OfflineMode, IdempotencyManager, TimeoutRules, CommunicationQueue, NotificationCenter, ErrorCatalog, SecurityRules, hardware fingerprint versioning, MigrationRunner, HealthCheck, MetricsCollector, VersionCompatibility, SupportRequestTracker, RollbackCoordinator — all in the Python template and wired into `LicenseEngine`; new public `GET /api/v1/health` endpoint for §15/§17; idempotency keys + rollback in activation/renewal/trial/bind; session seeding in `initialize()`/`_apply_fresh_state`; fingerprint stamped `v1:<hash>`; cache migration v1→v2 on startup; all modules in `MANDATORY_FILES` + exported from `__init__.py`; `python -m py_compile` clean on all 44 template files; `npm run test:generation` 6/6 passed) | 100% |
 | **FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure)** | ✅ Applied (Fix 4: License Management now groups License Center, Generate License (`/internal/api/sales/purchase`), Hardware (`/internal/api/hardware`), Activations (`/internal/api/activation`), Renewals, Reactivations (`/internal/api/reactivation-requests`), Trial Dashboard + Trial Templates. New dedicated Renewals page at `/internal/api/licenses/renewals` mounts the existing UI-only `RenewalsTab` component (`app/internal/api/licenses/generate/tabs/RenewalsTab.tsx`) — no duplicate logic, no new business logic. Removed the standalone "Hardware Management" sidebar section and the duplicate "Generate License" entry under Sales & Payments. Routes, icons, permissions and active-route logic unchanged. `next build` passes with the new route.) | 100% |
 | **FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup)** | ✅ Applied (ULC key-flow dialog: resend-only "Resend OTP" button (auto-OTP on validation success, no manual Send OTP step), renewal is now payment-first `Validate → Auto OTP → Verify OTP → Payment Confirmation → engine.renew() → refresh → LicenseStatusChanged → success dialog`, explicit progress strings "Activating…/Renewing…/Processing payment…/Updating License…"; new `_confirm_payment_dialog` (plan dropdown from `verify_license_for_renewal`'s `available_plans`, "Pay & Renew"/"Cancel", dummy payment — no provider contacted); `state` carries `renewal_info` + `renewal_paid`; deleted dead duplicate `renew_license_dialog.py` (869 lines, not in `MANDATORY_FILES`, `renewal.py` is the canonical module); backend UED consolidation — `licenses/renewal-request` + `licenses/reactivation/submit` now use `sendEmail()` (`admin_notification` custom payload) with `client.release()` moved below the email send, `reactivation-requests/[id]/reject` uses `reactivation_rejected`, `reactivation-requests/[id]/approve` raw-Brevo fallback removed (UED primary only); `python -m py_compile` clean; `npm run test:generation` 6/6 passed; master doc + template docs copy Renew License Workflow updated to payment-first; repo-wide `api.brevo.com/v3/smtp/email` grep confirms only auth (password-reset) + ticket-resolution routes remain — intentionally untouched per AWS-01 auth/notification invariant) | 100% |
-| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup)** | **100%** |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup) + OPERATIONAL QA (2026-08) — backend expiry auto-recompute, dashboard force-dynamic, device_reset audit parity, multi-runtime SDK parity (getProducts/getTrialStatus in all 13 runtimes) + 13/13 SDK validation** | **100%** |
 
 ### How much is completed?
 
@@ -5037,9 +5037,9 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 
 **Remaining (Phase 15 multi-runtime):**
 - ✅ TypeScript template refactored — generator now loads from template/typescript/ files (orchestration-only, no inline code)
-- Other language templates refactored (12 runtimes remaining: node, php, java, dotnet, go, rust, cpp, c, javascript, bun, deno)
-- Fresh multi-runtime SDK generation and full verification
-- Runtime drift audit for all languages
+- ✅ Multi-runtime SDK parity fix (2026-08) — all 13 runtime generators (node, php, java, dotnet, go, rust, cpp, c, javascript, typescript, bun, deno) now emit the SDKValidator-required `getProducts`/`getTrialStatus` client methods (per-runtime casing: camelCase/PascalCase/snake_case/`websmith_*` C prefix) against the real `POST /api/v1/store/products` (`action: list`) and `POST /api/v1/trial` (`action: status`) endpoints. Runtime generators import `PublisherContext` as `import type` so they load under strip-types without pulling the heavy `../index` dependency graph.
+- ✅ Fresh multi-runtime SDK generation and full verification — `tests/sdk-generation/multi-runtime.test.mjs` generates every runtime through the real generator + runs the production `SDKValidator.validate()` against each package. 13/13 runtimes pass (`npm run test:multi-runtime`). Wired into `npm test`.
+- ✅ Runtime drift audit for all languages — the method-name audit confirmed python + rust already passed; all 13 now conform to `sdk-validator.ts:323-376`.
 
 ### What exactly remains?
 
@@ -7832,3 +7832,27 @@ Missing mandatory files:
 **Blockers:** None.
 **How much is completed:** ~100% of the requested documentation-pipeline fix.
 **Next immediate task:** Run the complete Python SDK generation flow (template validation → runtime build → manifest → zip → SDK validation) and confirm success.
+
+## Session Summary — OPERATIONAL QA 2026-08-06 (Backend Expiry Auto-Recompute, Dashboard Freshness, Device Reset Audit, Multi-Runtime SDK Parity)
+
+**Scope:** Production verification + operational QA fix pass. All 14 end-to-end validation scenarios (AWS-01 Rule 10) passed on the previously-deployed build; this round fixes the functional gaps found by the fresh multi-area audit and closes the SDK multi-runtime parity hole.
+
+**Fixes applied:**
+
+| File | Change |
+|------|--------|
+| `app/internal/backend/licenses/[key]/route.ts` | PUT license handler now SELECTs `activated_at, created_at` and auto-recomputes `expiry_date = (activated_at ?? created_at) + duration_days` whenever `duration_days` is supplied without an explicit `expiry_date` (backend is the source of truth; previously only the client recomputed expiry on duration edit and plan-only edits left expiry stale). Pushes a `changes` entry `expiry_date: … (auto from duration)`. |
+| `app/internal/backend/admin/dashboard/route.ts` | Added `export const dynamic = "force-dynamic"` so license/trial/activation stats never serve a stale cached snapshot. |
+| `app/api/v1/device/route.ts` | Device reset path now writes a `device_reset` audit row (parity with the existing `device_bound` audit write) before `client.release()`. |
+| `app/internal/publisher/runtimes/*.ts` (11 files) + `app/internal/publisher/template/typescript/client.ts` | **Multi-runtime SDK parity fix:** every generated client now exposes `getProducts` + `getTrialStatus` (per-runtime casing: camelCase for node/typescript/javascript/bun/php/java, `GetProducts`/`GetTrialStatus` for go/dotnet, `get_products`/`get_trial_status` for python/rust and `websmith_get_*` C prefix). Implemented against the real endpoints `POST /api/v1/store/products` `{action:"list"}` and `POST /api/v1/trial` `{action:"status", hardware_id}`. Runtime generators import `PublisherContext` as `import type` (elided at runtime) so the parity test can load them under strip-types. |
+| `tests/sdk-generation/multi-runtime.test.mjs` (new) | Parity guard: generates all 13 runtimes through the real generators, writes minimal `api-config.json` + `manifest.json` (`kit_version` required), runs the production `SDKValidator.validate()` per package. 13/13 `valid: true`. |
+| `package.json` | `test` now runs both `validator.test.mjs` (6/6) and `multi-runtime.test.mjs` (13/13); added `test:multi-runtime`. |
+
+**Verify:**
+- `npx tsc --noEmit` clean.
+- `npm test` → 6/6 + 13/13 passed, exit 0.
+- `npm run build` → BUILD OK.
+- Production endpoint probes (previous build): all public/internal endpoints responded as expected; `/internal/backend/license/status?hardware_id=E2E-PROBE-NONEXISTENT` returned the normalized `{success, status:"no_license"}` shape.
+- Live DB-seeding E2E (`tests/e2e/license-api.e2e.mjs`) remains blocked: no `.env*` files and no `DATABASE_URL` in the shell env.
+
+**Remaining:** Fresh multi-runtime SDK generation verification on the platform is now covered by the committed parity test. **Blockers:** None (live DB E2E needs production credentials). **How much is completed:** ~100% of this QA round. **Next immediate task:** Commit, push to `origin main`, deploy to Vercel (`vercel --prod`), and re-run production endpoint verification on the new build.

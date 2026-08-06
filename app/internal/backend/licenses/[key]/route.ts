@@ -366,7 +366,7 @@ export async function PUT(
 
     // Check if license exists and is not deleted
     const licenseCheck = await client.query(
-      `SELECT 
+      `      SELECT 
         license_key,
         customer_name,
         customer_email,
@@ -377,7 +377,9 @@ export async function PUT(
         max_devices,
         notes,
         duration_days,
-        product_id
+        product_id,
+        activated_at,
+        created_at
       FROM licenses 
       WHERE license_key = $1 AND deleted_at IS NULL`,
       [normalizedKey]
@@ -574,6 +576,25 @@ export async function PUT(
       values.push(days);
       if (days !== oldLicense.duration_days) {
         changes.push(`duration_days: ${oldLicense.duration_days} → ${days}`);
+      }
+    }
+
+    // Auto-recompute expiry_date when the duration changes but no explicit
+    // expiry was supplied: new expiry = (activated_at ?? created_at) + duration_days.
+    // Matches the client-side recompute in LicenseManagerTab and keeps the
+    // backend authoritative (AWS-01 Rule 1 — backend is the source of truth).
+    if (expiry_date === undefined && duration_days !== undefined) {
+      const days = parseInt(duration_days);
+      const anchorStr = oldLicense.activated_at ?? oldLicense.created_at;
+      let anchor = anchorStr ? new Date(anchorStr) : new Date();
+      if (isNaN(anchor.getTime())) anchor = new Date();
+      const newExpiry = new Date(anchor);
+      newExpiry.setDate(newExpiry.getDate() + days);
+      const newExpiryIso = newExpiry.toISOString();
+      updates.push(`expiry_date = $${paramIndex++}`);
+      values.push(newExpiryIso);
+      if (newExpiryIso !== oldLicense.expiry_date) {
+        changes.push(`expiry_date: ${oldLicense.expiry_date} → ${newExpiryIso.split('T')[0]} (auto from duration)`);
       }
     }
 

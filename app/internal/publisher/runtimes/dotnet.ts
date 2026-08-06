@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getDotNetTemplates(context: PublisherContext): Record<string, string> {
   const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';
@@ -101,6 +101,18 @@ namespace WebsmithSDK
         {
             var data = new Dictionary<string, object> { ["action"] = "bind_device", ["license_key"] = licenseKey, ["hardware_id"] = hardwareId, ["device_name"] = deviceName };
             return await PostAsync("/api/v1/license", data);
+        }
+
+        public async Task<JsonDocument> GetTrialStatus(string hardwareId)
+        {
+            var data = new Dictionary<string, object> { ["action"] = "status", ["hardware_id"] = hardwareId };
+            return await PostAsync("/api/v1/trial", data);
+        }
+
+        public async Task<JsonDocument> GetProducts()
+        {
+            var data = new Dictionary<string, object> { ["action"] = "list" };
+            return await PostAsync("/api/v1/store/products", data);
         }
 
         private async Task<JsonDocument> PostAsync(string endpoint, Dictionary<string, object> data)

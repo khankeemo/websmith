@@ -1,4 +1,4 @@
-import { PublisherContext } from '../index';
+import type { PublisherContext } from '../index';
 
 export function getBunTemplates(context: PublisherContext): Record<string, string> {
   const apiUrl = process.env.WEBSMITH_API_URL || process.env.NEXT_PUBLIC_API_URL || '';
@@ -111,6 +111,14 @@ class Client {
 
   convertTrial(hardwareId, plan, name, email) {
     return this.request('POST', '/api/v1/trial', { action: 'convert', hardware_id: hardwareId, plan, customer_name: name, customer_email: email });
+  }
+
+  getTrialStatus(hardwareId) {
+    return this.request('POST', '/api/v1/trial', { action: 'status', hardware_id: hardwareId });
+  }
+
+  getProducts() {
+    return this.request('POST', '/api/v1/store/products', { action: 'list' });
   }
 
   static async loadConfig(configPath = 'config/api-config.json') {
