@@ -35,6 +35,7 @@ import {
   Calendar,
   User,
   Mail,
+  Tag,
   Building,
 } from "lucide-react";
 
@@ -56,6 +57,26 @@ interface HardwareDevice {
   online_status: "online" | "offline";
   // Used internally for admin API calls (not displayed in UI)
   license_key?: string;
+  customer?: {
+    name?: string;
+    email?: string;
+    mobile?: string;
+  };
+  plan?: {
+    name?: string;
+    max_devices?: number;
+  };
+  product?: {
+    name?: string;
+    product_id?: string;
+  };
+  license?: {
+    status?: string;
+    expiry_date?: string | null;
+    days_remaining?: number | null;
+    is_trial?: boolean;
+    device_count?: number;
+  };
 }
 
 interface HardwareResponse {
@@ -181,7 +202,7 @@ function DeviceCard({ device, onBind, onReplace, onReset, onUnbind }: DeviceCard
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h4 className="font-semibold text-[var(--text-primary)] truncate">
-              {device.device_name || "Unknown Device"}
+              {device.device_name || "Unnamed Device"}
             </h4>
             <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(device.online_status)}`}>
               {device.online_status}
@@ -215,7 +236,7 @@ function DeviceCard({ device, onBind, onReplace, onReset, onUnbind }: DeviceCard
               <div className="flex items-center gap-2 text-sm">
                 <Globe size={14} className="text-[var(--text-muted)]" />
                 <span className="text-[var(--text-muted)]">IP:</span>
-                <span className="text-[var(--text-primary)]">{device.ip_address || "Unknown"}</span>
+                <span className="text-[var(--text-primary)]">{device.ip_address || ""}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Calendar size={14} className="text-[var(--text-muted)]" />
@@ -225,24 +246,34 @@ function DeviceCard({ device, onBind, onReplace, onReset, onUnbind }: DeviceCard
               <div className="flex items-center gap-2 text-sm">
                 <HardDrive size={14} className="text-[var(--text-muted)]" />
                 <span className="text-[var(--text-muted)]">OS:</span>
-                <span className="text-[var(--text-primary)]">{device.os_version || "Unknown"}</span>
+                <span className="text-[var(--text-primary)]">{device.os_version || ""}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Calendar size={14} className="text-[var(--text-muted)]" />
                 <span className="text-[var(--text-muted)]">Last Seen:</span>
                 <span className="text-[var(--text-primary)]">{formatDate(device.last_seen)}</span>
               </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Mail size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Customer:</span>
+                <span className="text-[var(--text-primary)]">{device.customer?.name || device.customer?.email || ""}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Tag size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Plan:</span>
+                <span className="text-[var(--text-primary)]">{device.plan?.name || ""}</span>
+              </div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Cpu size={14} className="text-[var(--text-muted)]" />
                 <span className="text-[var(--text-muted)]">Product Version:</span>
-                <span className="text-[var(--text-primary)]">{device.product_version || "Unknown"}</span>
+                <span className="text-[var(--text-primary)]">{device.product_version || ""}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Building size={14} className="text-[var(--text-muted)]" />
                 <span className="text-[var(--text-muted)]">Company:</span>
-                <span className="text-[var(--text-primary)]">{device.company_name || "Unknown"}</span>
+                <span className="text-[var(--text-primary)]">{device.company_name || ""}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <AlertCircle size={14} className="text-[var(--text-muted)]" />
@@ -250,6 +281,21 @@ function DeviceCard({ device, onBind, onReplace, onReset, onUnbind }: DeviceCard
                 <span className={`text-[var(--text-primary)] capitalize ${getStatusColor(device.hardware_status)} px-2 py-0.5 rounded-full border text-xs`}>
                   {device.hardware_status}
                 </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">License Status:</span>
+                <span className="text-[var(--text-primary)] capitalize">{device.license?.status || ""}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Expires:</span>
+                <span className="text-[var(--text-primary)]">{device.license?.expiry_date ? formatDate(device.license.expiry_date) : ""}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <HardDrive size={14} className="text-[var(--text-muted)]" />
+                <span className="text-[var(--text-muted)]">Devices:</span>
+                <span className="text-[var(--text-primary)]">{device.license?.device_count ?? 0}{device.plan?.max_devices ? `/${device.plan.max_devices}` : ""}</span>
               </div>
             </div>
           </div>

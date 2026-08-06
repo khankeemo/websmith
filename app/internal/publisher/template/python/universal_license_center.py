@@ -943,7 +943,7 @@ class UniversalLicenseCenter:
             state["otp_verified"] = False
             state["email"] = cust.get('email', '')
             validate_btn.config(state='normal', text='Validate License')
-            send_otp_btn.config(state='normal')
+            send_otp_btn.config(state='normal', text='Sending...')
             verify_btn.config(state='disabled')
             otp_entry.config(state='disabled')
             otp_entry.delete(0, 'end')
@@ -984,7 +984,10 @@ class UniversalLicenseCenter:
             if not lines:
                 lines.append("License validated successfully.")
             details_label.config(text="\n".join(lines))
-            _set_status("License validated. Send the OTP to continue.", self._success)
+            _set_status("License validated. Sending OTP automatically...", self._success)
+            # Automatic OTP (LOCKED spec §10): validation success immediately
+            # triggers the OTP send. No manual "Send OTP" step.
+            do_send_otp()
 
         def do_send_otp():
             if not state["validated"]:

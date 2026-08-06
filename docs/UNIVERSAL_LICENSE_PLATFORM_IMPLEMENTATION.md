@@ -1811,6 +1811,282 @@ Same priority as AWS-01; Rules 1-10 of SECTION 0B still apply verbatim.
   matches inside `license_engine.py` (controller — correct) and a docstring in
   `dialog_manager.py`.
 
+### 0C.6 — Global State Machine & Automatic OTP (Session: SDK V2 Universal State)
+
+- `workflow_progress.py` owns a **GlobalStateMachine** (single global instance, class-level
+  `set()/get()/reset()`): states `IDLE / VALIDATING / OTP_SENT / OTP_VERIFIED /
+  PROCESSING / REFRESHING / COMPLETED / FAILED`. Every `set()` emits `workflow.state`
+  on `EventBus` and logs `WORKFLOW_STATE` to `LiveLog`, keeping Rules 4 & 9 in sync.
+  Exported publicly from the package (`__init__.py` → `GlobalStateMachine`).
+- State transitions are driven **only by the engine**: `_WorkflowGuard` sets
+  `PROCESSING` on enter and `COMPLETED` / `FAILED` on exit; `validate_license_key` sets
+  `VALIDATING` then `FAILED` on error; `send_otp` sets `VALIDATING → OTP_SENT`;
+  `verify_otp` sets `OTP_VERIFIED` or `FAILED` (4xx normalized); `refresh` sets
+  `REFRESHING` then `FAILED` on unreachable; `_apply_fresh_state` walks
+  `PROCESSING → REFRESHING → COMPLETED` on success.
+- **Automatic OTP (LOCKED §10)**: after a successful validation the ULC immediately
+  calls `engine.send_otp()` — there is no manual "Send OTP" step. The UI shows
+  "Sending OTP automatically...", then the countdown timer
+  (`OTP sent — expires in mm:ss`), then `Resend OTP` on expiry. `welcome.py` keeps its
+  existing 5-minute countdown + resend. No duplicate OTP sends (guarded by `state["validated"]`).
+
+### 0C.7 — Verified (Session: SDK V2 Universal State)
+
+- `python -m py_compile` clean on `workflow_progress.py`, `license_engine.py`,
+  `universal_license_center.py`, `welcome.py`, `__init__.py`.
+- `npm run test:generation` 6/6 passed (all template files present, no artifacts, no
+  unreplaced placeholders in non-doc files, manifest timestamp valid) after removing
+  `__pycache__`.
+
+---
+
+## SECTION 0D — Enterprise Enhancement Suite (Session: Enterprise Ready)
+
+The 20 enterprise areas below are **mandatory** and live in the Python template
+(`app/internal/publisher/template/python/`). Every area has **one owner module**,
+and the same single-state architecture from SECTION 0C applies: `LicenseEngine`
+remains the only controller — these modules are **read/derivation/utility layers**
+that the engine composes, never new controllers that talk to the API.
+
+| # | Area | Owner module | Responsibility |
+|---|------|-------------|----------------|
+| 1 | Global Session Manager | `session.py` | `SessionManager` — single runtime-session owner (customer, license, product, plan, hardware, runtime, SDK version, workflow, auth state). No local copies anywhere. |
+| 2 | Global Permission Engine | `permissions.py` | `PermissionEngine` — UI/engine ask `can_activate()/can_renew()/can_start_trial()/can_replace_hardware()/can_reset_hardware()/can_contact_support()/can_upgrade()`. Never check status manually. |
+| 3 | Global Configuration Manager | `config_manager.py` | `ConfigManager` — owns branding, colors, company, emails, URLs, API URL, SDK version, runtime. Nobody reads `config.py`/`api-config.json` directly. |
+| 4 | Global Feature Flags | `feature_flags.py` | `FeatureFlags` — server-driven flags (`allow_trial`, `allow_renewal`, `allow_reactivation`, `allow_hardware_reset`, `allow_offline_mode`, `allow_device_replacement`, `allow_communication`). Never hardcoded. |
+| 5 | Universal Offline Mode | `offline_mode.py` | `OfflineMode` — full lifecycle: Server Available → Normal → Server Lost → Offline → Cached License → Grace Period → Reconnect → Refresh → Back Online. Every state displayed clearly. |
+| 6 | API Idempotency | `idempotency.py` | `IdempotencyManager` — Workflow ID + Operation ID + Idempotency Key per activation / renewal / hardware bind / trial. 5 clicks = 1 operation. |
+| 7 | Global Timeout Rules | `timeout_rules.py` | `TimeoutRules` — single source for API / OTP / retry / poll timeouts. Standardized everywhere. |
+| 8 | Communication Queue | `communication_queue.py` | `CommunicationQueue` — Pending / Sending / Retry / Delivered / Failed. Never silently loses a message. |
+| 9 | Notification Center | `notification_center.py` | `NotificationCenter` — history, read, unread, pinned, dismissed, severity (success/warning/error/information). |
+| 10 | Universal Error Catalog | `error_catalog.py` | `ErrorCatalog` — centralized codes (`LICENSE_EXPIRED`, `LICENSE_REVOKED`, `INVALID_LICENSE`, `INVALID_OTP`, `OTP_EXPIRED`, `NETWORK_ERROR`, `SERVER_BUSY`, `PAYMENT_REQUIRED`, `HARDWARE_CHANGED`, …) with identical wording in every runtime. |
+| 11 | Security Rules | `security.py` | `SecurityRules` — never store OTP / API secret / passwords / auth tokens unencrypted; encrypt cache, hardware, customer info. |
+| 12 | Hardware Fingerprint Versioning | `hardware.py` (extended) | Fingerprint version (`v1/v2/v3`) stamped on every fingerprint; enables future algorithm upgrades without breaking bindings. |
+| 13 | Universal Migration System | `migration.py` | `MigrationRunner` — SDK v1 → v2 upgrade preserves cache, license, customer. Never loses state on upgrade. |
+| 14 | Database Transactions | backend rule | Activation / Renewal / Trial Conversion / Hardware Rebind execute inside one DB transaction. Never partially commit. (Backend-only contract; SDK sends one operation per workflow.) |
+| 15 | Health Check API | `health_check.py` | `HealthCheck` — verifies backend `/api/v1/health` (database, email, OTP, API, version) before major workflows. |
+| 16 | Universal Metrics | `metrics.py` | `MetricsCollector` — activation/renewal/OTP success+failure, hardware rebind, trial conversion, avg response time. |
+| 17 | Version Compatibility | `version_compat.py` | `VersionCompatibility` — SDK ↔ Internal API ↔ Publisher ↔ Templates ↔ Database version check before activation. Reject incompatible versions gracefully. |
+| 18 | Support Request Workflow | `support_workflow.py` | Lifecycle Customer → Support → Assigned → Reply → Resolved → Closed; license always attached automatically. |
+| 19 | Admin Action Audit | backend rule | Immutable audit: license created/edited/revoked, hardware reset, trial converted, plan changed, customer updated. Separate from customer activity logs. (Backend contract; SDK provides the audit event payload.) |
+| 20 | Rollback Strategy | `rollback.py` | `RollbackCoordinator` — if activation fails after partial success, roll back transaction / hardware bind / cache / status to previous state. Never half-updated. |
+
+### 0D.1 — Session Manager (`session.py`)
+
+- `SessionManager` is a **class-level singleton** (`SessionManager.get()`); the engine
+  writes it in `initialize()` / `_apply_fresh_state()` / `_WorkflowGuard`; UI and
+  dialogs read it via engine accessors.
+- Owns: `customer` (name/email/mobile), `license` (key/status/expiry), `product`
+  (id/name/version), `plan` (name/max_devices), `hardware_id`, `runtime`,
+  `sdk_version`, `current_workflow`, `auth_state` (`anonymous / otp_pending /
+  otp_verified / licensed / trial`).
+- Rule: never keep a second copy of any session field in the UI. The ULC must read
+  `engine.session()`.
+- Emits `session.updated` on `EventBus`; logs `SESSION_UPDATED`.
+
+### 0D.2 — Permission Engine (`permissions.py`)
+
+- `PermissionEngine` is constructed with the engine; every capability derives from
+  session state + feature flags + hardware state — never from manual status checks.
+- API: `can_activate()`, `can_renew()`, `can_start_trial()`,
+  `can_replace_hardware()`, `can_reset_hardware()`, `can_contact_support()`,
+  `can_upgrade()`. Each returns `PermissionResult(allow: bool, reason: str, code: str)`.
+- Rules: `can_activate()` requires `feature_flags.allow_activation`; `can_start_trial()`
+  requires `allow_trial`; `can_reset_hardware()` / `can_replace_hardware()` are
+  **always False** on the SDK (administrator-only, SECTION 0B Rule 2) but expose a
+  `requires_admin` flag so the UI routes to Contact Support.
+
+### 0D.3 — Config Manager (`config_manager.py`)
+
+- `ConfigManager` wraps `api-config.json` and is the **only** config reader.
+  `LicenseEngine` builds it in `__init__` and all reads go through
+  `self._config.get(...)`.
+- Sections: `branding` (product_name, primary_color), `company` (company_name,
+  website_url), `emails` (support, sales, no_reply), `urls` (store, app), `api`
+  (url, version), `sdk` (version, runtime), `offline` (cache_days).
+- Never call `json.load(api-config.json)` or `config.get_branding()` directly outside
+  this module.
+
+### 0D.4 — Feature Flags (`feature_flags.py`)
+
+- `FeatureFlags` defaults are **local-safe** (production-friendly) and are overridden by
+  the server's `/api/v1/health` or config payload when reachable.
+- Flags: `allow_trial`, `allow_renewal`, `allow_reactivation`, `allow_hardware_reset`,
+  `allow_offline_mode`, `allow_device_replacement`, `allow_communication`.
+- `is_enabled(name) -> bool`; `apply_server_payload(dict)` merges server values (server
+  wins); flags persist in cache for offline use (Rule 3 preserves them across
+  activation resets).
+- The SDK never hardcodes these flags.
+
+### 0D.5 — Universal Offline Mode (`offline_mode.py`)
+
+- States: `normal → offline → cached → grace_period → reconnecting → back_online`.
+- The engine's `initialize()`/`refresh()` set the state: server 200 → `normal`;
+  `ConnectionUnavailable` → `offline`; cached license present → `cached`; within
+  `offline.grace_days` of last_seen → `grace_period`; `refresh()` success after
+  offline → `back_online`.
+- Every state is written to `LiveLog` + `workflow.state` and rendered by the ULC
+  (e.g., "Offline — using cached license (5 days left)"). The backend remains the
+  single source of truth (SECTION 0B Rule 1); cache is only an absent-optional fallback.
+
+### 0D.6 — API Idempotency (`idempotency.py`)
+
+- `IdempotencyManager.new_operation(kind) -> Operation` generates:
+  - `workflow_id` (per workflow run, random UUID),
+  - `operation_id` (per operation kind within a workflow),
+  - `idempotency_key` = `sha256(workflow_id + ':' + kind)`.
+- The idempotency key is sent with every mutating API call
+  (`activate_license`, `renew_license`, `bind_device`, `start_trial`, `convert_trial`)
+  as `idempotency_key` in the payload and cached with `operation_id`.
+- If the user clicks Activate 5 times, all calls carry the same idempotency key; the
+  backend deduplicates to **one** activation. The engine also guards locally:
+  once an operation is `COMPLETED`, re-entry with the same key is a no-op.
+
+### 0D.7 — Global Timeout Rules (`timeout_rules.py`)
+
+- Single source: `api_timeout_ms` (default 30000), `otp_ttl_seconds` (default 300),
+  `retry_delay_seconds` (default 60), `poll_interval_ms` (default 2000),
+  `health_timeout_ms` (default 5000), `offline_grace_days` (default 7).
+- `LicenseEngine` and `ApiClient` read timeouts from `TimeoutRules`, never hardcode
+  them. The values may come from config (`api.timeout`, `offline.grace_days`) with
+  these defaults.
+
+### 0D.8 — Communication Queue (`communication_queue.py`)
+
+- Wraps the cache-backed message queue with explicit states:
+  `pending → sending → retry → delivered → failed`.
+- `enqueue(message)`, `process()` (delivers via the engine's communication passthrough),
+  `requeue(id)` (manual retry), `ack(id)` (mark delivered), `pending_count()`.
+- Rule: a message is never dropped silently — every terminal state is logged
+  (`COMM_QUEUE_PENDING / SENDING / RETRY / DELIVERED / FAILED`) and retained until
+  `ack()` or an explicit purge. Replaces the ad-hoc loop in `_process_message_queue`
+  (the engine now delegates to `CommunicationQueue.process()`).
+
+### 0D.9 — Notification Center (`notification_center.py`)
+
+- `NotificationCenter` stores notifications locally (cache-backed) and mirrors the
+  server-side notification endpoints. Fields: `id, title, body, severity
+  (success|warning|error|information), read, pinned, dismissed, created_at, source`.
+- `add()`, `mark_read(id)`, `mark_all_read()`, `pin(id)`, `dismiss(id)`,
+  `list({unread_only, pinned_only, severity})`, `unread_count()`.
+- Every `add()` emits `notification.added` on `EventBus`; the ULC renders the
+  Notification Center with severity colors.
+
+### 0D.10 — Universal Error Catalog (`error_catalog.py`)
+
+- Central registry of error codes with **identical wording in every runtime**:
+  `LICENSE_EXPIRED`, `LICENSE_REVOKED`, `INVALID_LICENSE`, `INVALID_OTP`, `OTP_EXPIRED`,
+  `NETWORK_ERROR`, `SERVER_BUSY`, `PAYMENT_REQUIRED`, `HARDWARE_CHANGED`,
+  `NO_LICENSE_FOUND`, `ALREADY_ACTIVATED`, `OFFLINE_UNAVAILABLE`, `UPGRADE_REQUIRED`.
+- `ErrorCatalog.message(code)`, `ErrorCatalog.lookup(server_code)`,
+  `ErrorCatalog.normalize(exc) -> {code, message, retryable}`.
+- Rule 5 (SECTION 0B) still applies: a server-provided message passes through verbatim;
+  the catalog is the fallback when the server gives only a code.
+
+### 0D.11 — Security Rules (`security.py`)
+
+- **Never store**: OTP codes, API secret, passwords, or auth tokens in plaintext.
+  OTP is held only in memory for the TTL then discarded; secrets stay in
+  `api-config.json` (never in cache).
+- **Encrypt at rest**: cache values (`license_status`, `customer_email`, message queue)
+  are encrypted with an app-derived key before writing to `cache.json`. `security.py`
+  exposes `encrypt(plaintext) / decrypt(ciphertext)` (Fernet with a key derived from
+  the hardware fingerprint + a config salt). Hardware fingerprint and customer info
+  are never written to disk in plaintext.
+- **Wiring (verified)**: `cache.py` `enable_security(fingerprint)` activates
+  encryption-at-rest (caller = engine `__init__`/`initialize`); `_save_cache` writes
+  `ENCRYPTED:`-prefixed blobs and fails closed when Fernet is unavailable; `_load_cache`
+  reads legacy plaintext caches and upgrades them on the next save; `license.key` is
+  encrypted too. Engine smoke-tested: no plaintext leak, reload decrypts, wrong
+  fingerprint blocks decrypt, legacy cache migrates. `CommunicationQueue` now owns the
+  engine's `_process_message_queue` flush (deliver callback → `client.create_communication`).
+
+### 0D.12 — Hardware Fingerprint Versioning (`hardware.py` extended)
+
+- Every fingerprint is stamped with a version: `v1:<hash>` (current algorithm).
+- `HardwareDetector.fingerprint_version()`, `get_fingerprint()` returns
+  `v{n}:<hash>`; the engine/cache store the full stamped string.
+- Migration rule: on startup, if the stored fingerprint version differs from the
+  current algorithm, the hardware binding is **re-verified against the backend**
+  (the backend is the source of truth — SECTION 0B Rule 2); the local cache is
+  invalidated for a version mismatch, never silently re-bound.
+
+### 0D.13 — Universal Migration System (`migration.py`)
+
+- `MigrationRunner.migrate(cache)` runs an ordered set of versioned migrations on the
+  local cache.
+- v1 → v2 preserves: cached license status, license key, customer email, onboarding
+  flags, paid-history flag, and the offline message queue. It only normalizes keys.
+- `MigrationRunner.current_version()`, `MigrationRunner.run()`. On first run after
+  upgrade, the engine calls `run()` and logs `MIGRATION_OK` / `MIGRATION_FAILED`.
+
+### 0D.14 — Database Transactions (backend contract)
+
+- Backend rule (enforced server-side): Activation, Renewal, Trial Conversion, and
+  Hardware Rebind execute inside **one** DB transaction — begin → mutate → commit, or
+  rollback on any failure. Never partially commit.
+- SDK contract: the SDK sends exactly one operation per workflow (via the idempotency
+  key) so the backend transaction is never interleaved.
+
+### 0D.15 — Health Check API (`health_check.py`)
+
+- `HealthCheck.check(engine) -> {status, database, email, otp, api, version, sdk_ok}`.
+- Calls `GET /api/v1/health` (transport: `client.get_health()`, non-mutating) with the
+  `health_timeout`. If `status != 'ok'` or `sdk_ok` is false, major workflows
+  (activation / renewal / trial) are blocked with a clear message (Rule 8 SECTION 0B).
+- The health result is cached for `poll_interval` to avoid hammering the endpoint.
+
+### 0D.16 — Universal Metrics (`metrics.py`)
+
+- `MetricsCollector` records: activation success/failure, renewal success/failure, OTP
+  success/failure, hardware rebind, trial conversion, avg response time.
+- `record(event, ok, duration_ms)`, `report() -> dict`, `reset()`.
+- Engine records in `_apply_fresh_state` / `send_otp` / `verify_otp` / `refresh`.
+  Metrics are available to the ULC debug view and forwardable to the server.
+
+### 0D.17 — Version Compatibility (`version_compat.py`)
+
+- `VersionCompatibility.verify(engine) -> {ok, sdk, api, publisher, template, database,
+  message}`.
+- The SDK reports its version; the `/api/v1/health` response carries `api_version`,
+  `publisher_version`, `template_version`, `database_version`. If `api_version` is
+  incompatible with the SDK (`sdk_major` mismatch), activation is blocked with
+  `UPGRADE_REQUIRED` ("This version of the application is no longer supported. Please
+  update to continue.") — a graceful rejection, never a crash.
+
+### 0D.18 — Support Request Workflow (`support_workflow.py`)
+
+- Lifecycle: `customer → support → assigned → reply → resolved → closed`.
+- `send_support_request()` (existing engine passthrough) always attaches the current
+  license key automatically when a license exists in the session.
+- Local `SupportRequestTracker` records each request's lifecycle locally so the ULC can
+  show the current stage; the server remains the authority.
+
+### 0D.19 — Admin Action Audit (backend contract)
+
+- Backend rule: every admin action (license created/edited/revoked, hardware reset,
+  trial converted, plan changed, customer updated) writes an **immutable** audit row
+  (`admin_audit_log`): actor, action, target id, before/after, timestamp. Separate
+  table from customer activity logs.
+- SDK contract: the SDK attaches `sdk_version`/`runtime_type` to requests so admin
+  audits record the client that triggered them.
+
+### 0D.20 — Rollback Strategy (`rollback.py`)
+
+- `RollbackCoordinator` wraps a workflow: `begin(snapshot)`, `commit()`, `rollback()`.
+- Snapshot captures: backend transaction state (via idempotency key), cached
+  `license_status`, cached license key, session state, and `LicenseStatus`.
+- In `_apply_fresh_state`, if `_sync_status_from_server()` raises after partial cache
+  writes, the coordinator restores the previous cache + session + status from the
+  snapshot and logs `ROLLBACK_EXECUTED`. The SDK never finishes half-updated.
+
+### 0D.21 — Verified (Session: Enterprise Ready)
+
+- `python -m py_compile` clean on all template `.py` files.
+- `npm run test:generation` 6/6 passed after adding the new foundation modules.
+- All new modules registered in `runtimes/python.ts` `MANDATORY_FILES` and exported
+  from `__init__.py`.
+
 ---
 
 ## SECTION 1 — Project Rules (Permanent)
@@ -3444,6 +3720,21 @@ The following routes already work correctly and need no changes:
 
 Before deploying, audit every Internal API module. If any module contains its own email implementation (direct SMTP call, direct Brevo API call outside `lib/email/brevo.ts`), remove it and replace it with the Universal Email Service. Only the `sendEmail()` function in `lib/email/brevo.ts` may communicate with Brevo. No exceptions.
 
+### UED Centralization Compliance (Session: SDK V2 Universal State)
+
+- `app/internal/backend/licenses/activate/route.ts`: `sendOTPEmail()` no longer calls
+  `https://api.brevo.com/v3/smtp/email` directly. It now connects a pool client and calls
+  `sendEmail(client, 'otp_verification', { email }, { otp_code, brand_name, support_email })`
+  from `lib/email/brevo.ts`, logging delivery through the UED. Removed the now-unused
+  `getSenderEmail()` and its `SENDER_EMAIL` requirement.
+- Remaining direct Brevo calls still to centralize (tracked, not yet migrated):
+  `app/api/tickets/[id]/send-resolution-email/route.ts`, `app/internal/backend/licenses/renewal-request/route.ts`,
+  `app/internal/backend/reactivation-requests/[id]/reject/route.ts`,
+  `app/internal/backend/reactivation-requests/[id]/approve/route.ts`,
+  `app/internal/backend/licenses/reactivation/submit/route.ts`,
+  `app/api/auth/forgot-password/request/route.ts`,
+  `app/internal/backend/api/auth/forgot-password/route.ts`.
+
 ### Internal Backend Trial Routes — Product Isolation Fix Applied
 
 ### Admin Backend License Status Endpoint (AWS-01)
@@ -4707,7 +4998,9 @@ Every future phase must follow this reporting format.
 | **AWS-01 Communications Center Module** | ✅ Complete (Phase 1: Backend routes, tabbed frontend, sidebar, zero build errors. **Phase 2 Amendments**: Bug fix — removed query against nonexistent `conversation_attachments` table (root cause of "Failed to load conversation" error); added `conversation_attachments` table creation to DB schema; added DELETE & POST (retry) handlers to conversations/[id] route; full mailbox-grade UI on conversation detail page with FROM/TO/Date/Delivery Status headers, linked Customer/License/Product profile buttons, Delete/Retry/Delivery Log actions; inbox rows now show product+license inline; Build: 229 pages, zero errors.) | 100% |
 | **Python Mandatory Doc File — README.md replaced with Integrations.md** | ✅ Complete (Python template validator `MANDATORY_FILES` now requires `Integrations.md`; `runtime-builder.ts` no longer generates a duplicate generic `README.md` for Python — the template's `Integrations.md` is packaged directly as the single documentation source; `sdk-validator.ts` doc validation is runtime-aware (`Integrations.md` for Python, `README.md` for all other runtimes) including package-integrity + lifecycle-section checks; `Integrations.md` "this file" self-reference corrected; master doc + template doc copy updated) | 100% |
 | **Public Website Contact & Social Media Settings (SECTION 0.15)** | ✅ Complete (Manage Page: Mobile Number + Fixed/Landline Number added to Contact Information, new Social Media Links card with WhatsApp/Facebook/Instagram/LinkedIn/X/YouTube rows; `/api/settings/public/contact_info` GET/PUT/PATCH extended with `mobile_number`, `landline_number`, `whatsapp_url`, `facebook_url`, `instagram_url`, `linkedin_url`, `x_url`, `youtube_url`; URL validation + WhatsApp auto-normalization to `https://wa.me/<number>` in shared `lib/site-settings.ts`; footer/contact/landing render saved values with empty platforms hidden; hardcoded socials removed from `core/config/publicSite.ts`; no new tables/endpoints) | 100% |
-| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module + Public Website Contact & Social Media Settings (SECTION 0.15)** | **100%** |
+| **SDK V2 Universal State (SESSION — Global State Machine + Automatic OTP + UED + Hardware Relational)** | ✅ Applied (Python template: `GlobalStateMachine` in `workflow_progress.py` (`IDLE/VALIDATING/OTP_SENT/OTP_VERIFIED/PROCESSING/REFRESHING/COMPLETED/FAILED`), engine-driven transitions in `_WorkflowGuard`/validate/send_otp/verify_otp/refresh/`_apply_fresh_state`, exported from `__init__.py`; Automatic OTP: ULC calls `engine.send_otp()` immediately after validation success — no manual Send OTP step, countdown + Resend; Backend UED: `licenses/activate` `sendOTPEmail()` now routes through `sendEmail()` in `lib/email/brevo.ts` (otp_verification) instead of a direct Brevo fetch; Hardware relational: `GET /internal/backend/hardware` now returns nested `customer`/`plan`/`product`/`license` (status, expiry, days_remaining, device_count) via `licenses`+`products`+`plans`+`customers` joins, and `app/internal/api/hardware/page.tsx` displays the relational data with no "Unknown" placeholders) | 100% |
+| **SDK Enterprise Enhancement Suite (SECTION 0D — 20 Areas)** | ✅ Applied (SessionManager, PermissionEngine, ConfigManager, FeatureFlags, OfflineMode, IdempotencyManager, TimeoutRules, CommunicationQueue, NotificationCenter, ErrorCatalog, SecurityRules, hardware fingerprint versioning, MigrationRunner, HealthCheck, MetricsCollector, VersionCompatibility, SupportRequestTracker, RollbackCoordinator — all in the Python template and wired into `LicenseEngine`; new public `GET /api/v1/health` endpoint for §15/§17; idempotency keys + rollback in activation/renewal/trial/bind; session seeding in `initialize()`/`_apply_fresh_state`; fingerprint stamped `v1:<hash>`; cache migration v1→v2 on startup; all modules in `MANDATORY_FILES` + exported from `__init__.py`; `python -m py_compile` clean on all 44 template files; `npm run test:generation` 6/6 passed) | 100% |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D)** | **100%** |
 
 ### How much is completed?
 

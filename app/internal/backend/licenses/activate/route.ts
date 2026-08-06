@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
 import { triggerNotification } from '@/lib/notification/notification-service';
+import { sendEmail } from '@/lib/email/brevo';
 
 // Database connection pool
 const pool = new Pool({
@@ -22,12 +23,6 @@ const pool = new Pool({
 // ============================================================
 
 // Generate random 6-digit OTP
-function getSenderEmail(): string {
-  const email = process.env.SENDER_EMAIL;
-  if (!email) throw new Error('SENDER_EMAIL environment variable is required');
-  return email;
-}
-
 function getBrandName(): string {
   return process.env.BRAND_NAME || 'License Management';
 }
@@ -36,71 +31,21 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Send OTP via email using Brevo API
+// Send OTP via the unified email dispatcher (UED) — never a direct Brevo call.
 async function sendOTPEmail(email: string, otp: string): Promise<boolean> {
   try {
-    const apiKey = process.env.BREVO_API_KEY;
-    
-    if (!apiKey) {
-      console.error('BREVO_API_KEY not configured');
-      return false;
+    const client = await pool.connect();
+    try {
+      const result = await sendEmail(
+        client,
+        'otp_verification',
+        { email },
+        { otp_code: otp, brand_name: getBrandName(), support_email: process.env.SUPPORT_EMAIL || 'support@websmithdigital.com' }
+      );
+      return result.success;
+    } finally {
+      client.release();
     }
-    
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey
-      },
-      body: JSON.stringify({
-        sender: {
-          name: getBrandName(),
-          email: getSenderEmail()
-        },
-        to: [{ email: email }],
-        subject: 'Your OTP Verification Code',
-        htmlContent: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-              .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-              .header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 20px; }
-              .logo { font-size: 24px; font-weight: bold; color: #3b82f6; }
-              .otp-code { font-size: 36px; font-weight: bold; text-align: center; color: #3b82f6; background: #eff6ff; padding: 20px; border-radius: 8px; letter-spacing: 5px; margin: 20px 0; }
-              .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
-              .warning { color: #ef4444; font-size: 12px; text-align: center; margin-top: 10px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <div class="logo">${getBrandName()}</div>
-              </div>
-              <h2 style="text-align: center; color: #333;">Your Verification Code</h2>
-              <div class="otp-code">${otp}</div>
-              <p style="text-align: center; color: #555;">This code is valid for <strong>5 minutes</strong>.</p>
-              <p style="text-align: center; color: #555;">If you didn't request this code, please ignore this email.</p>
-              <div class="footer">
-                <p>${getBrandName()} - License Management System</p>
-                <p>Need help? Contact support</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
-        textContent: `Your OTP verification code is: ${otp}. Valid for 5 minutes.`
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Brevo API error:', errorText);
-      return false;
-    }
-    
-    return true;
   } catch (error) {
     console.error('Failed to send OTP email:', error);
     return false;

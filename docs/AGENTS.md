@@ -96,11 +96,49 @@ See master doc **SECTION 0C**. Never regress:
 - **Event-driven UI**: the ULC re-renders only from `LicenseStatusChanged` /
   `workflow.progress` events; success paths never call `_refresh_ui()` manually. Use the
   canonical 16-stage list from `WorkflowProgress` — never invent new stage strings.
+- **GlobalStateMachine**: `workflow_progress.py` owns the single global state machine
+  (`IDLE/VALIDATING/OTP_SENT/OTP_VERIFIED/PROCESSING/REFRESHING/COMPLETED/FAILED`);
+  transitions are driven only by `LicenseEngine` (workflow guard + validate/send_otp/
+  verify_otp/refresh/`_apply_fresh_state`), every `set()` emits `workflow.state` on
+  `EventBus` and logs `WORKFLOW_STATE`. Exported via package `__init__.py`.
+- **Automatic OTP (LOCKED §10)**: validation success immediately triggers
+  `engine.send_otp()` — no manual Send OTP step; countdown timer + Resend OTP on expiry.
 - **New foundation modules** (`event_bus.py`, `workflow_progress.py`, `dialog_manager.py`)
   are registered in `runtimes/python.ts` `MANDATORY_FILES` — never delete them.
 - Engine `_workflow(...)` guard: every workflow logs `WORKFLOW_START`/`COMPLETE`/`ERROR`
   exactly once per stage and serializes under one RLock.
 - Keep SECTION 0C in sync here and in the master doc (Rule ALWAYS-UPDATE).
+
+## SDK Enterprise Enhancement Suite (Python Template)
+
+See master doc **SECTION 0D** (20 enterprise areas). Never regress:
+
+- **One owner per concern**: `session.py` (SessionManager), `permissions.py`
+  (PermissionEngine), `config_manager.py` (ConfigManager), `feature_flags.py`
+  (FeatureFlags), `offline_mode.py` (OfflineMode), `idempotency.py` (IdempotencyManager),
+  `timeout_rules.py` (TimeoutRules), `communication_queue.py` (CommunicationQueue),
+  `notification_center.py` (NotificationCenter), `error_catalog.py` (ErrorCatalog),
+  `security.py` (SecurityRules), `migration.py` (MigrationRunner), `health_check.py`
+  (HealthCheck), `metrics.py` (MetricsCollector), `version_compat.py`
+  (VersionCompatibility), `support_workflow.py`, `rollback.py` (RollbackCoordinator).
+- **These are utility/derivation layers, NOT controllers** — only `LicenseEngine`
+  talks to the API / owns cache / mutates state. UI reads via engine accessors
+  (`engine.session()`, `engine.permissions()`, `engine.can_activate()`, …).
+- **Config reads** go through `ConfigManager` only; nobody calls
+  `json.load(api-config.json)` directly. **Timeouts** come from `TimeoutRules`.
+- **Idempotency**: every mutating workflow carries an idempotency key; repeated clicks
+  produce ONE operation. **Security**: never store OTP/secret/password/token in
+  plaintext; cache/hardware/customer encrypted at rest.
+- **Encryption-at-rest is wired**: `cache.py` `enable_security(fingerprint)` is called
+  from the engine `__init__`/`initialize`; writes are `ENCRYPTED:`-prefixed and fail
+  closed when Fernet is unavailable; legacy plaintext cache files still load and upgrade
+  on the next save; `license.key` is encrypted too. `CommunicationQueue` owns the
+  engine's `_process_message_queue` flush (deliver callback → `client.create_communication`).
+- **Fingerprint is versioned** (`v{n}:<hash>`); version mismatch re-verifies against
+  the backend, never local re-bind. **Migration** v1→v2 preserves cache/license/
+  customer/queue.
+- All new modules registered in `runtimes/python.ts` `MANDATORY_FILES` and exported
+  from `__init__.py`. Keep SECTION 0D in sync here and in the master doc.
 
 ## Public Website Contact & Social Media Settings (Manage Page)
 
