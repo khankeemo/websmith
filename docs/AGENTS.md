@@ -66,6 +66,11 @@ See master doc **SECTION 0B** (Event Messaging & Activation Rules). Always honou
 
 - **Rule 1** — the backend `/internal/backend/license/status` API is the single source of
   truth; never compute license/plan/days/validity locally except absent-optional fallbacks.
+  All Activation / Renewal / Validate entry routes (internal AND `/api/v1/*`) must call the
+  shared `resolveGlobalLicenseStatus()` service in `lib/license/serializer.ts` — routes MUST
+  NOT query the database or make business decisions on their own. The universal response
+  (status/reason/actions/message + proper HTTP code) is returned to the SDK, which only
+  renders it. Activation requires `ACTIVE`/`TRIAL_ACTIVE`; renewal requires `ACTIVE`/`EXPIRED`.
 - **Rule 2** — hardware binding is permanent; never unbind/re-bind/clear it locally; a
   hardware mismatch only invalidates the cached `license_status` key. Message: "Hardware
   replacement requires administrator approval."

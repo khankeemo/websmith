@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
 import { triggerNotification } from '@/lib/notification/notification-service';
 import { sendEmail } from '@/lib/email/brevo';
+import { resolveGlobalLicenseStatus } from '@/lib/license/serializer';
 
 // Database connection pool
 const pool = new Pool({
@@ -161,37 +162,32 @@ export async function POST(request: NextRequest) {
     const normalizedLicenseKey = license_key.toUpperCase();
     const normalizedEmail = email.toLowerCase();
     
-    // Step 1: Find the license
-    const licenseResult = await client.query(
-      `SELECT 
-        license_key,
-        customer_name,
-        customer_email,
-        customer_mobile,
-        customer_phone,
-        plan,
-        plan_id,
-        status,
-        expiry_date,
-        max_devices,
-        device_count,
-        product_id,
-        duration_days,
-        is_activated,
-        activated_at,
-        updated_at
-      FROM licenses 
-      WHERE license_key = $1`,
-      [normalizedLicenseKey]
-    );
-    
-    if (licenseResult.rows.length === 0) {
+    // Step 1: Global License Status — single source of truth.
+    const { verdict, ctx } = await resolveGlobalLicenseStatus(pool, {
+      licenseKey: normalizedLicenseKey,
+      hardwareId: hardware_id,
+    });
+
+    const license = ctx?.license || null;
+
+    if (verdict.status !== 'ACTIVE' && verdict.status !== 'TRIAL_ACTIVE') {
+      triggerNotification(pool, 'activation_failed', {
+        license_key: normalizedLicenseKey,
+        customer_name: name,
+        customer_email: normalizedEmail,
+        device_name: body.device_name || 'Unknown',
+      }).catch(() => {});
       client.release();
-      return NextResponse.json({ success: false, error: "License key not found" }, { status: 404 });
+      return NextResponse.json({
+        success: false,
+        status: verdict.status,
+        code: verdict.code,
+        reason: verdict.reason,
+        message: verdict.message,
+        actions: verdict.actions,
+      }, { status: verdict.httpStatus });
     }
-    
-    const license = licenseResult.rows[0];
-    
+
     // Step 2: Verify name matches
     if (license.customer_name !== name) {
       triggerNotification(pool, 'activation_failed', {
@@ -214,18 +210,6 @@ export async function POST(request: NextRequest) {
       }).catch(() => {});
       client.release();
       return NextResponse.json({ success: false, error: "Email does not match this license" }, { status: 403 });
-    }
-    
-    // Step 4: Check if license is expired
-    if (license.expiry_date && new Date(license.expiry_date) < new Date()) {
-      triggerNotification(pool, 'activation_failed', {
-        license_key: normalizedLicenseKey,
-        customer_name: name,
-        customer_email: normalizedEmail,
-        device_name: body.device_name || 'Unknown',
-      }).catch(() => {});
-      client.release();
-      return NextResponse.json({ success: false, error: "License has expired" }, { status: 403 });
     }
     
     // Step 5: OTP Verification

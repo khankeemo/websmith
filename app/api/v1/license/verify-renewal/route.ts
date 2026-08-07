@@ -1,8 +1,13 @@
 // ============================================================
 // FILE: app/api/v1/license/verify-renewal/route.ts
-// PURPOSE: Verify a license key for renewal eligibility
-// DATABASE: licenses, customers, plans, products
+// PURPOSE: Verify a license key for renewal eligibility.
+// DATABASE: Neon PostgreSQL only (via shared Global License Status service)
 // SECURITY: API Key + HMAC + Rate Limit + Audit
+//
+// NOTE: Business decisions live ONLY in the shared service
+// (resolveGlobalLicenseStatus). This route is a thin proxy:
+// it fetches available plans for display, but eligibility status
+// comes from the service — no independent license-state logic.
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,6 +16,7 @@ import { validateApiKey, validateProductMatch } from '@/lib/public-api/auth';
 import { verifySignature } from '@/lib/public-api/signature';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest, logSecurityViolation } from '@/lib/public-api/audit';
+import { resolveGlobalLicenseStatus } from '@/lib/license/serializer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -24,7 +30,6 @@ const pool = new Pool({
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  let client = null;
   let apiKeyId = '';
   let productId = '';
 
@@ -99,137 +104,66 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedLicenseKey = license_key.toUpperCase();
-    const now = new Date();
 
-    client = await pool.connect();
+    // Delegate ALL status derivation to the shared service.
+    const { verdict, ctx, daysLeft, expiredAt } = await resolveGlobalLicenseStatus(pool, {
+      licenseKey: normalizedLicenseKey,
+    });
 
-    const licenseResult = await client.query(
-      `SELECT
-        l.license_key,
-        l.customer_name,
-        l.customer_email,
-        l.customer_phone,
-        l.customer_mobile,
-        l.plan,
-        l.plan_id,
-        l.status,
-        l.expiry_date,
-        l.product_id,
-        l.is_trial,
-        l.inactive_reason,
-        l.deleted_at,
-        p.name as product_name,
-        p.is_active as product_is_active,
-        p.is_deleted as product_is_deleted
-      FROM licenses l
-      LEFT JOIN products p ON l.product_id = p.product_id
-      WHERE l.license_key = $1`,
-      [normalizedLicenseKey]
-    );
-
-    if (licenseResult.rows.length === 0) {
-      client.release();
-      client = null;
-
-      await logRequest({
-        apiKeyId,
-        endpoint: '/api/v1/license/verify-renewal',
-        method: 'POST',
-        statusCode: 404,
-        ipAddress,
-        userAgent,
-        latencyMs: Date.now() - startTime,
-        requestRedacted: { license_key: '[REDACTED]' }
-      });
-
-      return NextResponse.json({
-        success: false,
-        valid: false,
-        message: 'License key not found'
-      }, { status: 404 });
-    }
-
-    const lic = licenseResult.rows[0];
+    const lic = ctx?.license || null;
 
     // Product isolation
-    try {
-      await validateProductMatch(productId, lic.product_id);
-    } catch (productError: any) {
-      client.release();
-      client = null;
-
-      await logSecurityViolation(apiKeyId, request.url, 'POST', ipAddress, userAgent, productError);
-
-      return NextResponse.json({
-        success: false,
-        valid: false,
-        message: productError.message || 'Product mismatch'
-      }, { status: 403 });
+    if (lic && productId) {
+      try {
+        await validateProductMatch(productId, lic.product_id);
+      } catch (productError: any) {
+        await logSecurityViolation(apiKeyId, request.url, 'POST', ipAddress, userAgent, productError);
+        return NextResponse.json({
+          success: false,
+          valid: false,
+          status: verdict.status,
+          code: verdict.code,
+          error: { code: productError.code || 'PRODUCT_MISMATCH', message: productError.message || 'Product mismatch' },
+          message: productError.message || 'Product mismatch',
+        }, { status: 403 });
+      }
     }
 
-    // Check product active
-    if (!lic.product_is_active || lic.product_is_active === null) {
-      client.release();
-      client = null;
+    // Renewal eligibility = ACTIVE or EXPIRED (renewable). Everything else
+    // (revoked/inactive/no_customer) is non-renewable.
+    const eligible = verdict.status === 'ACTIVE' || verdict.status === 'EXPIRED';
 
-      return NextResponse.json({
-        success: false,
-        valid: false,
-        message: 'Product is currently inactive'
-      }, { status: 403 });
-    }
-
-    // Check product deleted
-    if (lic.product_is_deleted) {
-      client.release();
-      client = null;
-
-      return NextResponse.json({
-        success: false,
-        valid: false,
-        message: 'Product has been deleted'
-      }, { status: 403 });
-    }
-
-    // Compute expiry
-    const expiryDate = lic.expiry_date ? new Date(lic.expiry_date) : null;
-    const nowTime = now.getTime();
-    const isExpired = expiryDate ? expiryDate.getTime() < nowTime : false;
-    const daysLeft = expiryDate
-      ? Math.max(0, Math.ceil((expiryDate.getTime() - nowTime) / (1000 * 60 * 60 * 24)))
-      : 0;
-
-    // Valid for renewal = exists (any status except revoked or deleted can request renewal info)
-    const valid = lic.status !== 'revoked' && lic.status !== 'deleted' && !lic.deleted_at;
-
-    // Fetch available plans for this product
+    // Fetch available plans for the product (display only).
     let availablePlans: Array<{id: string; name: string; duration: string; is_current_plan: boolean}> = [];
-    try {
-      const plansResult = await client.query(
-        `SELECT id, name, default_expiry_days
-         FROM plans
-         WHERE product_id = $1 AND is_active = TRUE AND is_trial_plan = FALSE
-         ORDER BY name ASC`,
-        [lic.product_id]
-      );
-      const currentPlanId = lic.plan_id ? Number(lic.plan_id) : null;
-      availablePlans = plansResult.rows.map((p: any) => ({
-        id: String(p.id),
-        name: p.name || '',
-        duration: p.default_expiry_days
-          ? `${p.default_expiry_days} Days`
-          : 'Lifetime',
-        is_current_plan: currentPlanId !== null && Number(p.id) === currentPlanId,
-      }));
-    } catch (e) {
-      // Non-fatal: available plans won't be included
-      console.warn('Failed to fetch available plans for renewal:', e);
+    if (eligible && lic?.product_id) {
+      try {
+        const client = await pool.connect();
+        try {
+          const plansResult = await client.query(
+            `SELECT id, name, default_expiry_days
+             FROM plans
+             WHERE product_id = $1 AND is_active = TRUE AND is_trial_plan = FALSE
+             ORDER BY name ASC`,
+            [lic.product_id]
+          );
+          const currentPlanId = lic.plan_id ? Number(lic.plan_id) : null;
+          availablePlans = plansResult.rows.map((p: any) => ({
+            id: String(p.id),
+            name: p.name || '',
+            duration: p.default_expiry_days
+              ? `${p.default_expiry_days} Days`
+              : 'Lifetime',
+            is_current_plan: currentPlanId !== null && Number(p.id) === currentPlanId,
+          }));
+        } finally {
+          client.release();
+        }
+      } catch (e) {
+        console.warn('Failed to fetch available plans for renewal:', e);
+      }
     }
 
-    client.release();
-    client = null;
-
-    // Log success
+    // Log
     await logRequest({
       apiKeyId,
       endpoint: '/api/v1/license/verify-renewal',
@@ -241,25 +175,30 @@ export async function POST(request: NextRequest) {
       requestRedacted: { license_key: '[REDACTED]' }
     });
 
+    const expiredAtDate = expiredAt ? new Date(expiredAt).getTime() : null;
+    const isExpired = expiredAtDate !== null && expiredAtDate < Date.now();
+
     return NextResponse.json({
       success: true,
-      valid,
-      message: valid
-        ? (isExpired ? 'License is expired but eligible for renewal' : 'License verified for renewal')
-        : 'License has been revoked and cannot be renewed',
-      customer_name: lic.customer_name || '',
-      email: lic.customer_email || '',
-      mobile: lic.customer_mobile || lic.customer_phone || '',
-      plan: lic.plan || '',
-      plan_id: lic.plan_id || '',
-      status: lic.status || '',
-      expiry_date: lic.expiry_date ? lic.expiry_date.split('T')[0] : '',
+      valid: eligible,
+      status: verdict.status,
+      code: verdict.code,
+      message: eligible
+        ? (verdict.status === 'EXPIRED' ? 'License is expired but eligible for renewal' : 'License verified for renewal')
+        : verdict.message,
+      actions: verdict.actions,
+      customer_name: lic?.customer_name || '',
+      email: lic?.customer_email || '',
+      mobile: lic?.customer_mobile || lic?.customer_phone || '',
+      plan: lic?.plan || '',
+      plan_id: lic?.plan_id || '',
+      expiry_date: lic?.expiry_date ? new Date(lic.expiry_date).toISOString().split('T')[0] : '',
       days_left: daysLeft,
       is_expired: isExpired,
-      is_trial: lic.is_trial || false,
-      license_key: lic.license_key,
-      product_id: lic.product_id || '',
-      product_name: lic.product_name || '',
+      is_trial: lic?.is_trial || false,
+      license_key: lic?.license_key || normalizedLicenseKey,
+      product_id: lic?.product_id || '',
+      product_name: lic?.product_name || '',
       available_plans: availablePlans,
     }, {
       headers: {
@@ -271,10 +210,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Verify renewal error:', error);
-
-    if (client) {
-      client.release();
-    }
 
     await logRequest({
       apiKeyId: apiKeyId || 'unknown',

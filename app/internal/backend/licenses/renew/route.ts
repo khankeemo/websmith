@@ -1,11 +1,16 @@
 // FILE: app/internal/backend/licenses/renew/route.ts
 // Handles: POST /internal/backend/licenses/renew
 // Supports: Renew with plan change, auto-fetch plan details
+//
+// IMPORTANT: Status is derived by the shared resolveGlobalLicenseStatus()
+// service (single source of truth). This route only performs the renewal
+// write once the shared verdict allows it (ACTIVE / EXPIRED). It does NOT
+// run its own status derivation or independent license-state business logic.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
 import { triggerNotification } from '@/lib/notification/notification-service';
-import { validateLicenseBeforeAction, revokeLicense } from '@/core/utils/validation-system';
+import { resolveGlobalLicenseStatus } from '@/lib/license/serializer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,12 +30,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get database connection
+    // 1. Global License Status — single source of truth for eligibility.
     const pool = await getDb();
+    const { verdict, ctx } = await resolveGlobalLicenseStatus(pool, {
+      licenseKey: license_key.trim(),
+    });
+
+    const license = ctx?.license || null;
+
+    const renewable = verdict.status === 'ACTIVE' || verdict.status === 'EXPIRED';
+    if (!renewable) {
+      return NextResponse.json({
+        success: false,
+        status: verdict.status,
+        code: verdict.code,
+        reason: verdict.reason,
+        message: verdict.message,
+        actions: verdict.actions,
+      }, { status: verdict.httpStatus });
+    }
+
     const client = await pool.connect();
 
     try {
-      // 1. Fetch current license with product and plan info
+      // Re-read latest license within this transaction for the write path.
       const licenseResult = await client.query(
         `SELECT 
           l.license_key,
@@ -58,8 +81,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const license = licenseResult.rows[0];
-
       // Validate extra_days
       if (extra_days !== undefined && extra_days !== null) {
         const days = Number(extra_days);
@@ -71,26 +92,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Check if license can be renewed
-      if (license.status === 'revoked') {
-        return NextResponse.json(
-          { success: false, error: 'Cannot renew a revoked license' },
-          { status: 400 }
-        );
-      }
-      if (license.status === 'disabled') {
-        return NextResponse.json(
-          { success: false, error: 'Cannot renew a disabled license' },
-          { status: 400 }
-        );
-      }
-      if (license.status === 'suspended') {
-        return NextResponse.json(
-          { success: false, error: 'Cannot renew a suspended license' },
-          { status: 400 }
-        );
-      }
-
       // 2. Determine plan details
       let targetPlanId = license.current_plan_id;
       let targetPlanName = license.current_plan_name;
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
       let planPrice = 0;
 
       // If new_plan is provided, fetch the plan details
-      if (new_plan && new_plan !== license.current_plan_name) {
+      if (new_plan && new_plan !== license.plan) {
         const planResult = await client.query(
           `SELECT 
             id,
@@ -188,9 +189,9 @@ export async function POST(request: NextRequest) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           license_key,
-          license.current_plan_name,
+          license.plan,
           targetPlanName,
-          license.current_plan_id,
+          license.plan_id,
           targetPlanId,
           license.expiry_date,
           newExpiry.toISOString(),
@@ -232,7 +233,7 @@ export async function POST(request: NextRequest) {
           customer_name: license.customer_name,
           customer_email: license.customer_email,
           product_name: license.product_name,
-          old_plan: license.current_plan_name,
+          old_plan: license.plan,
           new_plan: targetPlanName,
           old_expiry: license.expiry_date,
           new_expiry: newExpiry.toISOString(),

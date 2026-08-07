@@ -11,8 +11,7 @@ import { validateApiKey, validateProductMatch } from '@/lib/public-api/auth';
 import { verifySignature } from '@/lib/public-api/signature';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest, logSecurityViolation, redactSensitiveData } from '@/lib/public-api/audit';
-import { validateLicenseBeforeAction, computeLicenseStatus, computeInactiveReason } from '@/core/utils/validation-system';
-import { buildLicenseResponse, buildNoLicenseResponse, buildErrorResponse } from '@/lib/license/serializer';
+import { buildLicenseResponse, resolveGlobalLicenseStatus } from '@/lib/license/serializer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -175,77 +174,43 @@ export async function POST(request: NextRequest) {
       case 'validate':
         // ============================================================
         // 6a. VALIDATE LICENSE
+        // Delegates all status derivation to the shared Global License
+        // Status service. No business decision happens in this route.
         // ============================================================
-        
-        let licenseLookupKey = '';
-        let validateByHardware = false;
 
-        if (!license_key && hardware_id) {
-          // Hardware-only validation — look up by activation
-          validateByHardware = true;
-          const activationLookup = await client.query(
-            `SELECT a.license_key FROM activations a
-             WHERE a.hardware_id = $1 AND a.is_active = true
-             LIMIT 1`,
-            [hardware_id]
-          );
-          if (activationLookup.rows.length > 0) {
-            licenseLookupKey = activationLookup.rows[0].license_key;
-          } else {
-            // No activation found for this hardware — normal business state
-            client.release();
-            client = null;
-            return NextResponse.json(buildNoLicenseResponse(hardware_id, 'No license found for this hardware. Please enter a license key to activate.'));
-          }
-        } else {
-          licenseLookupKey = normalizedLicenseKey;
-        }
-        
-        const validateResult = await client.query(
-          `SELECT 
-            l.license_key,
-            l.customer_name,
-            l.customer_email,
-            l.customer_phone,
-            l.customer_mobile,
-            l.plan,
-            l.status,
-            l.expiry_date,
-            l.max_devices,
-            l.device_count,
-            l.product_id,
-            l.is_trial,
-            l.inactive_reason,
-            l.deleted_at,
-            l.status as license_status,
-            p.name as product_name,
-            p.is_active as product_is_active,
-            p.is_deleted as product_is_deleted
-          FROM licenses l
-          LEFT JOIN products p ON l.product_id = p.product_id
-          WHERE l.license_key = $1`,
-          [licenseLookupKey]
-        );
+        const validateVerdict = await resolveGlobalLicenseStatus(pool, {
+          licenseKey: normalizedLicenseKey || undefined,
+          hardwareId: hardware_id,
+        });
 
-        if (validateResult.rows.length === 0) {
+        const validateLicense = validateVerdict.ctx?.license || null;
+
+        if (!validateLicense) {
           client.release();
           client = null;
-          
+
           await logRequest({
             apiKeyId,
             endpoint: '/api/v1/license',
             method: 'POST',
-            statusCode: 404,
+            statusCode: validateVerdict.verdict.httpStatus,
             ipAddress,
             userAgent,
             latencyMs: Date.now() - startTime,
-            requestRedacted: { action, license_key: validateByHardware ? '[HARDWARE_LOOKUP]' : '[REDACTED]' }
+            requestRedacted: { action, license_key: hardware_id ? '[HARDWARE_LOOKUP]' : '[REDACTED]' }
           });
-          
-          return NextResponse.json(buildNoLicenseResponse(undefined, validateByHardware ? 'No license found for this hardware.' : 'License key not found'));
+
+          return NextResponse.json({
+            success: false,
+            status: validateVerdict.verdict.status,
+            code: validateVerdict.verdict.code,
+            reason: validateVerdict.verdict.reason,
+            message: validateVerdict.verdict.message,
+            actions: validateVerdict.verdict.actions,
+          }, { status: validateVerdict.verdict.httpStatus });
         }
 
-        const licenseData = validateResult.rows[0];
+        const licenseData = validateLicense;
 
         // Product isolation
         try {
@@ -253,9 +218,9 @@ export async function POST(request: NextRequest) {
         } catch (productError: any) {
           client.release();
           client = null;
-          
+
           await logSecurityViolation(apiKeyId, request.url, 'POST', ipAddress, userAgent, productError);
-          
+
           return NextResponse.json({
             success: false,
             error: {
@@ -265,97 +230,19 @@ export async function POST(request: NextRequest) {
           }, { status: 403 });
         }
 
-        // Check product active
-        if (!licenseData.product_is_active || licenseData.product_is_active === null) {
+        // Only ACTIVE / TRIAL_ACTIVE licenses are valid for validation.
+        if (validateVerdict.verdict.status !== 'ACTIVE' && validateVerdict.verdict.status !== 'TRIAL_ACTIVE') {
           client.release();
           client = null;
-          
+
           return NextResponse.json({
             success: false,
-            error: {
-              code: 'PRODUCT_INACTIVE',
-              message: 'Product is currently inactive'
-            }
-          }, { status: 403 });
-        }
-
-        // Check product deleted
-        if (licenseData.product_is_deleted) {
-          client.release();
-          client = null;
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'PRODUCT_DELETED',
-              message: 'Product has been deleted'
-            }
-          }, { status: 403 });
-        }
-
-        // Compute business status
-        const computedStatus = computeLicenseStatus(
-          licenseData.status,
-          licenseData.expiry_date,
-          !!licenseData.deleted_at,
-          true,
-          licenseData.is_trial || false,
-          licenseData.inactive_reason
-        );
-
-        const inactiveReason = computeInactiveReason(licenseData);
-
-        // Check status
-        if (computedStatus === 'Expired') {
-          await client.query(
-            `UPDATE licenses SET status = 'expired', inactive_reason = $1 WHERE license_key = $2`,
-            [inactiveReason || 'Subscription Expired', normalizedLicenseKey]
-          );
-          client.release();
-          client = null;
-          return NextResponse.json(buildErrorResponse('expired', 'LICENSE_EXPIRED', inactiveReason ? `License ${inactiveReason.toLowerCase()}` : 'License has expired', inactiveReason), { status: 403 });
-        }
-
-        if (computedStatus === 'Revoked') {
-          client.release();
-          client = null;
-          return NextResponse.json(buildErrorResponse('revoked', 'LICENSE_REVOKED', 'License has been revoked', 'License Revoked'), { status: 403 });
-        }
-
-        if (computedStatus === 'Suspended') {
-          client.release();
-          client = null;
-          return NextResponse.json(buildErrorResponse('suspended', 'LICENSE_SUSPENDED', 'License is suspended', licenseData.inactive_reason || 'Suspended'), { status: 403 });
-        }
-
-        if (computedStatus === 'Disabled') {
-          client.release();
-          client = null;
-          return NextResponse.json(buildErrorResponse('disabled', 'LICENSE_DISABLED', 'License is disabled', licenseData.inactive_reason || 'Manual Deactivation'), { status: 403 });
-        }
-
-        if (computedStatus === 'Inactive') {
-          client.release();
-          client = null;
-          return NextResponse.json(buildErrorResponse('inactive', 'LICENSE_INACTIVE', 'Your license is inactive. Please contact support.', licenseData.inactive_reason || 'License Deactivated'), { status: 403 });
-        }
-
-        if (computedStatus === 'Deleted') {
-          client.release();
-          client = null;
-          return NextResponse.json(buildErrorResponse('deleted', 'LICENSE_DELETED', 'Your license is inactive. Please contact support.', 'License Deleted'), { status: 403 });
-        }
-
-        // Check raw expiry
-        const expiryDate = new Date(licenseData.expiry_date);
-        if (expiryDate < now) {
-          await client.query(
-            `UPDATE licenses SET status = 'expired', inactive_reason = 'Subscription Expired' WHERE license_key = $1`,
-            [normalizedLicenseKey]
-          );
-          client.release();
-          client = null;
-          
-          return NextResponse.json(buildErrorResponse('expired', 'LICENSE_EXPIRED', 'License has expired', 'Subscription Expired'), { status: 403 });
+            status: validateVerdict.verdict.status,
+            code: validateVerdict.verdict.code,
+            reason: validateVerdict.verdict.reason,
+            message: validateVerdict.verdict.message,
+            actions: validateVerdict.verdict.actions,
+          }, { status: validateVerdict.verdict.httpStatus });
         }
 
         // Update last_validated
@@ -364,14 +251,13 @@ export async function POST(request: NextRequest) {
           [nowISO, normalizedLicenseKey]
         );
 
-        // Get total active device count
+        // Enrichment reads (device state for the response) — not status decisions.
         const deviceCountResult = await client.query(
           `SELECT COUNT(*) as count FROM activations WHERE license_key = $1 AND is_active = true`,
           [normalizedLicenseKey]
         );
         const totalActiveDevices = parseInt(deviceCountResult.rows[0]?.count || '0');
 
-        // Check if current hardware is already activated for this license
         let thisDeviceActivated = false;
         if (hardware_id) {
           const thisDeviceResult = await client.query(
@@ -379,19 +265,18 @@ export async function POST(request: NextRequest) {
             [normalizedLicenseKey, hardware_id]
           );
           thisDeviceActivated = thisDeviceResult.rows.length > 0;
-          console.log(`[VALIDATE] license=${normalizedLicenseKey} hardware_id=${hardware_id} this_device_activated=${thisDeviceActivated} total_active=${totalActiveDevices} max_devices=${licenseData.max_devices}`);
         }
 
-        // If this device is already activated, exclude it from the count
-        // so the SDK client-side pre-check does not falsely block activation
         const effectiveDeviceCount = thisDeviceActivated ? totalActiveDevices - 1 : totalActiveDevices;
 
         client.release();
         client = null;
 
-        const daysLeft = Math.max(0, Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+        const expiryDate = licenseData.expiry_date ? new Date(licenseData.expiry_date) : null;
+        const daysLeft = expiryDate
+          ? Math.max(0, Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+          : 0;
 
-        // Log success
         await logRequest({
           apiKeyId,
           endpoint: '/api/v1/license',
@@ -432,7 +317,6 @@ export async function POST(request: NextRequest) {
                 device_name: device_name || '',
               }
             : undefined,
-          message: inactiveReason ? `License status: ${inactiveReason}` : serializedResponse.message,
         }, {
           headers: {
             'X-RateLimit-Limit': String(rateLimitResult.limit),
@@ -459,41 +343,27 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
 
-        // Get license with product check
-        const licenseResult = await client.query(
-          `SELECT 
-            l.license_key,
-            l.customer_name,
-            l.customer_email,
-            l.customer_phone,
-            l.customer_mobile,
-            l.plan,
-            l.status,
-            l.expiry_date,
-            l.max_devices,
-            l.device_count,
-            l.product_id,
-            p.is_active as product_is_active
-          FROM licenses l
-          LEFT JOIN products p ON l.product_id = p.product_id
-          WHERE l.license_key = $1`,
-          [normalizedLicenseKey]
-        );
+        // Global License Status — single source of truth.
+        const activateVerdict = await resolveGlobalLicenseStatus(pool, {
+          licenseKey: normalizedLicenseKey,
+          hardwareId: hardware_id,
+        });
 
-        if (licenseResult.rows.length === 0) {
+        const license = activateVerdict.ctx?.license || null;
+
+        if (!license) {
           client.release();
           client = null;
-          
+
           return NextResponse.json({
             success: false,
-            error: {
-              code: 'LICENSE_NOT_FOUND',
-              message: 'License key not found'
-            }
-          }, { status: 404 });
+            status: activateVerdict.verdict.status,
+            code: activateVerdict.verdict.code,
+            reason: activateVerdict.verdict.reason,
+            message: activateVerdict.verdict.message,
+            actions: activateVerdict.verdict.actions,
+          }, { status: activateVerdict.verdict.httpStatus });
         }
-
-        const license = licenseResult.rows[0];
 
         // Product isolation
         try {
@@ -513,95 +383,19 @@ export async function POST(request: NextRequest) {
           }, { status: 403 });
         }
 
-        // Check product active
-        if (!license.product_is_active || license.product_is_active === null) {
-          client.release();
-          client = null;
-          
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'PRODUCT_INACTIVE',
-              message: 'Product is currently inactive'
-            }
-          }, { status: 403 });
-        }
-
-        // Check all invalid license states
-        if (license.status === 'inactive') {
+        // Activation only allowed for ACTIVE / TRIAL_ACTIVE licenses.
+        if (activateVerdict.verdict.status !== 'ACTIVE' && activateVerdict.verdict.status !== 'TRIAL_ACTIVE') {
           client.release();
           client = null;
 
           return NextResponse.json({
             success: false,
-            error: {
-              code: 'LICENSE_INACTIVE',
-              message: 'License is inactive and cannot be activated'
-            }
-          }, { status: 403 });
-        }
-
-        if (license.status === 'deleted') {
-          client.release();
-          client = null;
-
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_DELETED',
-              message: 'License has been deleted and cannot be activated'
-            }
-          }, { status: 403 });
-        }
-
-        if (license.status === 'revoked') {
-          client.release();
-          client = null;
-
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_REVOKED',
-              message: 'License has been revoked'
-            }
-          }, { status: 403 });
-        }
-
-        if (license.status === 'expired') {
-          client.release();
-          client = null;
-
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_EXPIRED',
-              message: 'License has expired'
-            }
-          }, { status: 403 });
-        }
-
-        // Check expiry
-        const licExpiry = new Date(license.expiry_date);
-        if (licExpiry < now) {
-          await client.query(
-            `UPDATE licenses SET status = 'expired', inactive_reason = 'License Expired' WHERE license_key = $1`,
-            [normalizedLicenseKey]
-          );
-          await client.query(
-            `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key)
-             VALUES ($1, $2, $3, $4, $5)`,
-            ['license_expired', `License expired during activation check`, nowISO, ipAddress, normalizedLicenseKey]
-          );
-          client.release();
-          client = null;
-          
-          return NextResponse.json({
-            success: false,
-            error: {
-              code: 'LICENSE_EXPIRED',
-              message: 'License has expired'
-            }
-          }, { status: 403 });
+            status: activateVerdict.verdict.status,
+            code: activateVerdict.verdict.code,
+            reason: activateVerdict.verdict.reason,
+            message: activateVerdict.verdict.message,
+            actions: activateVerdict.verdict.actions,
+          }, { status: activateVerdict.verdict.httpStatus });
         }
 
         // Check if hardware already activated
@@ -707,7 +501,8 @@ export async function POST(request: NextRequest) {
           requestRedacted: { action, license_key: '[REDACTED]', hardware_id: '[REDACTED]' }
         });
 
-        const daysLeftAct = Math.max(0, Math.ceil((licExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+        const licExpiry = license.expiry_date ? new Date(license.expiry_date) : null;
+        const daysLeftAct = licExpiry ? Math.max(0, Math.ceil((licExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0;
 
         return NextResponse.json({
           success: true,
@@ -866,13 +661,14 @@ export async function POST(request: NextRequest) {
         // 6d. RENEW LICENSE
         // ============================================================
         
-        // Verify license exists
-        const renewLicenseData = await client.query(
-          `SELECT product_id, expiry_date, plan, plan_id FROM licenses WHERE license_key = $1`,
-          [normalizedLicenseKey]
-        );
+        // Global License Status — single source of truth.
+        const renewVerdict = await resolveGlobalLicenseStatus(pool, {
+          licenseKey: normalizedLicenseKey,
+        });
 
-        if (renewLicenseData.rows.length === 0) {
+        const renewLicenseData = renewVerdict.ctx?.license || null;
+
+        if (!renewLicenseData) {
           client.release();
           client = null;
           
@@ -880,7 +676,7 @@ export async function POST(request: NextRequest) {
             apiKeyId,
             endpoint: '/api/v1/license',
             method: 'POST',
-            statusCode: 404,
+            statusCode: renewVerdict.verdict.httpStatus,
             ipAddress,
             userAgent,
             latencyMs: Date.now() - startTime,
@@ -889,16 +685,32 @@ export async function POST(request: NextRequest) {
           
           return NextResponse.json({
             success: false,
-            error: {
-              code: 'LICENSE_NOT_FOUND',
-              message: 'License key not found'
-            }
-          }, { status: 404 });
+            status: renewVerdict.verdict.status,
+            code: renewVerdict.verdict.code,
+            reason: renewVerdict.verdict.reason,
+            message: renewVerdict.verdict.message,
+            actions: renewVerdict.verdict.actions,
+          }, { status: renewVerdict.verdict.httpStatus });
+        }
+
+        // Renewal only allowed for ACTIVE / EXPIRED licenses.
+        if (renewVerdict.verdict.status !== 'ACTIVE' && renewVerdict.verdict.status !== 'EXPIRED') {
+          client.release();
+          client = null;
+
+          return NextResponse.json({
+            success: false,
+            status: renewVerdict.verdict.status,
+            code: renewVerdict.verdict.code,
+            reason: renewVerdict.verdict.reason,
+            message: renewVerdict.verdict.message,
+            actions: renewVerdict.verdict.actions,
+          }, { status: renewVerdict.verdict.httpStatus });
         }
 
         // Product isolation
         try {
-          await validateProductMatch(productId, renewLicenseData.rows[0].product_id);
+          await validateProductMatch(productId, renewLicenseData.product_id);
         } catch (productError: any) {
           client.release();
           client = null;
@@ -916,7 +728,7 @@ export async function POST(request: NextRequest) {
 
         // Calculate new expiry
         const daysToAdd = extra_days && typeof extra_days === 'number' ? extra_days : 365;
-        const oldExpiry = renewLicenseData.rows[0].expiry_date;
+        const oldExpiry = renewLicenseData.expiry_date;
         const baseDate = new Date(oldExpiry) > now ? new Date(oldExpiry) : now;
         const newExpiry = new Date(baseDate);
         newExpiry.setDate(newExpiry.getDate() + daysToAdd);
@@ -932,7 +744,7 @@ export async function POST(request: NextRequest) {
         await client.query(
           `INSERT INTO renewal_history (license_key, old_plan, new_plan, old_expiry_date, new_expiry_date, extra_days, renewed_by, notes)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [normalizedLicenseKey, renewLicenseData.rows[0].plan, renewLicenseData.rows[0].plan,
+          [normalizedLicenseKey, renewLicenseData.plan, renewLicenseData.plan,
            oldExpiry, newExpiryISO, daysToAdd, apiKeyId, 'SDK renew']
         );
 

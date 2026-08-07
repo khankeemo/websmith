@@ -36,13 +36,44 @@ Every protected public route follows the same pattern:
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/v1/license` | Actions: `validate`, `activate`, `deactivate`, `renew`. Product isolation enforced (`validateProductMatch`). |
+| POST | `/api/v1/license` | Actions: `validate`, `activate`, `deactivate`, `renew`. Product isolation enforced (`validateProductMatch`). Status comes from the shared Global License Status service — no business logic here. |
 | GET | `/api/v1/license` | API info/health. |
 | POST | `/api/v1/license/deactivate` | Customer device deactivation. |
 | GET | `/api/v1/license/details/[licenseKey]` | License details for the renewal dialog. |
-| POST | `/api/v1/license/verify-renewal` | Renewal eligibility check. |
+| POST | `/api/v1/license/verify-renewal` | Renewal eligibility check (status via shared service). |
 | POST | `/api/v1/license/available-plans` | List plans for renewal (HMAC-signed). |
 | POST | `/api/v1/license/send-renewal-request` | Send renewal-request email (HMAC-signed). |
+
+#### Universal status contract (Activation / Renewal / Validate entry)
+
+Every activation, renewal, validation, and renewal-eligibility request resolves
+status through the **single** Global License Status service
+(`lib/license/serializer.ts` → `resolveGlobalLicenseStatus`). Routes never query
+the database or decide status themselves. The response always includes:
+
+- `status` — canonical universal status: `NO_CUSTOMER`, `TRIAL_ACTIVE`,
+  `TRIAL_EXPIRED`, `ACTIVE`, `INACTIVE`, `REVOKED`, `EXPIRED`.
+- `code` — machine code (`CUSTOMER_NOT_FOUND`, `TRIAL_ACTIVE`, `TRIAL_EXPIRED`,
+  `LICENSE_ACTIVE`, `LICENSE_INACTIVE`, `LICENSE_REVOKED`, `LICENSE_EXPIRED`).
+- `reason` — why the state exists.
+- `message` — user-facing message for the SDK to render verbatim.
+- `actions` — allowed next actions (`activate`, `use`, `renew`, `purchase`,
+  `contact_support`, `register`).
+
+HTTP codes are meaningful — never `200` for an invalid state:
+
+| State | HTTP | actions |
+|---|---|---|
+| `NO_CUSTOMER` | 404 | `register` |
+| `TRIAL_ACTIVE` | 200 | `use`, `activate` |
+| `TRIAL_EXPIRED` | 409 | `purchase`, `contact_support` |
+| `ACTIVE` | 200 | `activate`, `use`, `renew` |
+| `INACTIVE` | 403 | `contact_support` |
+| `REVOKED` | 403 | `contact_support` |
+| `EXPIRED` | 409 | `renew` |
+
+The SDK only renders this response; it never decides eligibility. Activation
+requires `ACTIVE`/`TRIAL_ACTIVE`; renewal requires `ACTIVE`/`EXPIRED`.
 
 ### Trial / device
 
@@ -190,9 +221,9 @@ activation endpoints, test-sms, admin trials/trial-templates/cleanup).
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `.../license/status` | **Single source of truth** license status by `hardware_id`. |
-| GET/POST | `.../licenses/validate`, `activate`, `deactivate`, `reactivation`(+`/submit`) | License operations (public allow-list). |
-| POST | `.../licenses/renew`, `.../licenses/[key]` ops | Renewal + per-key operations (`license_renewed`, `license_expired`, `license_revoked`, `product_restored`). |
+| GET | `.../license/status` | **Single source of truth** license status by `hardware_id` — delegates to shared `resolveGlobalLicenseStatus()`. |
+| GET/POST | `.../licenses/validate`, `activate`, `deactivate`, `reactivation`(+`/submit`) | License operations (public allow-list). `validate`/`activate` resolve status via the shared service; `activate` rejects unless `ACTIVE`/`TRIAL_ACTIVE`. |
+| POST | `.../licenses/renew`, `.../licenses/[key]` ops | Renewal + per-key operations. `renew` resolves status via the shared service and rejects unless `ACTIVE`/`EXPIRED`. |
 | POST | `.../trials/start`, `status`, `convert`, `register`, `analyze`, `journey`, `suspicious` | Trial operations (public allow-list). |
 
 ### Health
