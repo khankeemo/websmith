@@ -17,7 +17,8 @@ from .hardware import HardwareDetector
 from .welcome import WelcomeDialog
 from .universal_success_dialog import SuccessDialog
 from .live_log import LiveLog
-from .single_instance import SingleInstance
+from .single_instance import acquire_global_lock, release_global_lock
+from .global_message import GlobalMessage, CAT_STARTUP
 from .validation import OTP_INVALID_MESSAGE
 from .universal_email_dialog import UniversalEmailDialog
 from .dialog_manager import DialogManager
@@ -64,6 +65,8 @@ class UniversalLicenseCenter:
         self._trial_consumed = False
         self._reentry = reentry
         self._events_bound = False
+        self._shown = False
+        self._lock_owned = False
 
         branding = self.config.get("branding", {})
         self._primary = branding.get("primary_color", "#6366f1")
@@ -118,9 +121,18 @@ class UniversalLicenseCenter:
             self.on_license_ready(False)
 
     def show(self) -> Dict[str, Any]:
-        self._instance_lock = SingleInstance('UniversalLicenseCenter')
-        self._log("SDK", "INFO", "License Center started", "Application lock engaged")
-        LiveLog.log("License Center started", "Application lock engaged")
+        # EXACTLY ONCE: a second call to show() on any ULC instance must never
+        # open a second license center. The single application lock is owned by
+        # the startup flow (LicenseEngine.initialize()); this ULC only reuses it
+        # (idempotent acquire) so it never opens "another instance" of itself.
+        if getattr(self, '_shown', False):
+            GlobalMessage.log(CAT_STARTUP, 'ulc.already_open',
+                              'ulc_already_open')
+            return {'status': self._status.to_dict() if self._status else None,
+                    'unlocked': self._app_unlocked}
+        self._shown = True
+        self._lock_owned = acquire_global_lock('UniversalLicenseCenter')
+        GlobalMessage.log(CAT_STARTUP, 'ulc.opened', 'ulc_opened')
         if not self._reentry:
             self._lock_application()
 
@@ -129,10 +141,11 @@ class UniversalLicenseCenter:
         if not self._status:
             self._log("SDK", "WARNING", "ULC shown without pre-initialised status",
                       "Defaulting to no_license. Decision Engine must be called before ULC.")
+            GlobalMessage.log(CAT_STARTUP, 'ulc.no_status', 'ulc_no_status')
             self._status = LicenseStatus(
                 valid=False, status='no_license',
                 hardware_id=self.hardware.get_fingerprint(),
-                message='Welcome! No license or trial was found. Please choose one of the options below to continue.'
+                message=GlobalMessage.get('no_license_welcome')
             )
         self._initialized = True
 
@@ -143,7 +156,7 @@ class UniversalLicenseCenter:
         if self._status and self._status.valid and not self._reentry:
             self._unlock_application()
             self._log("SDK", "INFO", "Valid license detected — launching application directly")
-            LiveLog.log("License valid", "Launching application directly")
+            GlobalMessage.log(CAT_STARTUP, 'startup.launch', 'license_launch')
             return {'action': 'launch', 'status': self._status.to_dict(), 'unlocked': True}
 
         # trial_consumed is a DISPLAY state derived from the backend's universal
@@ -223,8 +236,7 @@ class UniversalLicenseCenter:
         main.pack(fill="both", expand=True)
 
         tk.Label(main,
-                 text="This license is inactive or no longer exists.\n"
-                      "Please contact your administrator or activate using a valid license.",
+                 text=GlobalMessage.get('license_inactive'),
                  font=("Segoe UI", 11), fg=self._text_primary,
                  bg=self._card_bg, justify="center", wraplength=400).pack(pady=(4, 18))
 
@@ -574,11 +586,13 @@ class UniversalLicenseCenter:
             self._root.destroy()
         except Exception:
             pass
-        if hasattr(self, '_instance_lock'):
-            try:
-                self._instance_lock._release()
-            except Exception:
-                pass
+        # Release the one application lock only if this ULC acquired it (i.e.
+        # opened without a prior engine initialize). Otherwise the lock belongs
+        # to the startup flow and is released at process exit — never released
+        # twice.
+        if getattr(self, '_lock_owned', False):
+            release_global_lock('UniversalLicenseCenter')
+            self._lock_owned = False
         # Exit behaviour decided dynamically at close time based on actual license validity
         if self._status and self._status.valid:
             return

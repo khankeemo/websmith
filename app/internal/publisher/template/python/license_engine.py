@@ -52,6 +52,9 @@ from .rollback import RollbackCoordinator
 from .support_workflow import SupportRequestTracker
 from .version_compat import VersionCompatibility
 from .security import SecurityRules, SecurityUnavailableError
+from .global_message import (GlobalMessage, CAT_STARTUP, CAT_ACTIVATION,
+                             CAT_RENEWAL, CAT_TRIAL, CAT_HARDWARE)
+from .single_instance import acquire_global_lock
 
 logger = logging.getLogger(__name__)
 
@@ -219,11 +222,12 @@ class LicenseEngine:
         self.support_tracker = SupportRequestTracker(self._cache)
         self.version = VersionCompatibility()
 
-        # Run cache migrations on startup (SECTION 0D §13).
-        try:
-            self.migrator.run()
-        except Exception as e:
-            LiveLog.log("MIGRATION_ERROR", str(e))
+        # NOTE: migration deliberately does NOT run here. It must run exactly
+        # once, before the state engine initializes, from `initialize()` (see
+        # MIGRATION_OK must precede the workflow log lines). Running it in the
+        # constructor would re-run it whenever a second LicenseEngine is built
+        # (e.g. by UniversalLicenseCenter), producing MIGRATION_OK AFTER a
+        # completed initialize — the startup-flow bug this fixes.
 
         # Seed the global session with config-derived values.
         SessionManager.set_runtime(self.config.runtime)
@@ -510,7 +514,7 @@ class LicenseEngine:
         return LicenseStatus(
             valid=False, status='error',
             hardware_id=hardware_id,
-            message='The license server could not be reached. Please check your connection and retry.'
+            message=GlobalMessage.get('license_unreachable')
         )
 
     def _sync_status_from_server(self) -> Optional[LicenseStatus]:
@@ -616,16 +620,18 @@ class LicenseEngine:
         self._seed_session()
 
         if kind == 'activation':
-            LiveLog.log(LOG_ACTIVATION_SUCCESS, "License activated successfully")
+            GlobalMessage.log(CAT_ACTIVATION, LOG_ACTIVATION_SUCCESS,
+                              'activation_success')
             self.metrics.record_success('activation')
         elif kind == 'renewal':
-            LiveLog.log("RENEWAL_SUCCESS", "License renewed successfully")
+            GlobalMessage.log(CAT_RENEWAL, 'RENEWAL_SUCCESS', 'renewal_success')
             self.metrics.record_success('renewal')
         elif kind == 'trial':
-            LiveLog.log("trial.success", "Trial activated")
+            GlobalMessage.log(CAT_TRIAL, 'trial.success', 'trial_success')
             self.metrics.record_success('trial')
         elif kind in ('bind', 'hardware_binding'):
-            LiveLog.log("hardware.bound", "Device bound")
+            GlobalMessage.log(CAT_HARDWARE, 'hardware.bound', None,
+                              message='Device bound')
             self.metrics.record_success('hardware_rebind')
 
         WorkflowProgress.stage(WorkflowProgress.REFRESHING_SDK, operation_label)
@@ -661,6 +667,31 @@ class LicenseEngine:
     def initialize(self) -> LicenseStatus:
         with self._workflow('initialize'):
             hardware_id = self._hardware.get_fingerprint()
+
+            # SINGLE-INSTANCE (AWS-01): acquire the one application lock exactly
+            # once, at the very start of startup — BEFORE the Global License
+            # Status API is called and before the ULC is ever opened. This is
+            # the single lock acquisition in the whole process; the ULC never
+            # re-acquires it. If another OS process already holds it, refuse to
+            # start rather than trying to open a second license center.
+            if not acquire_global_lock('UniversalLicenseCenter'):
+                msg = GlobalMessage.log(CAT_STARTUP, 'instance.already_running',
+                                        'instance_already_running')
+                return LicenseStatus(
+                    valid=False, status='error', hardware_id=hardware_id,
+                    message=msg)
+
+            # MIGRATION FIRST (exactly once, before the state engine
+            # initializes). Guarantees the MIGRATION_OK line always precedes any
+            # workflow-complete line from the state engine.
+            try:
+                if self.migrator.run():
+                    GlobalMessage.log(CAT_STARTUP, 'migration.ok', 'migration_ok')
+            except Exception as e:
+                GlobalMessage.log(CAT_STARTUP, 'migration.failed',
+                                  'migration_failed', detail=str(e))
+                LiveLog.log("MIGRATION_ERROR", str(e))
+
             # Enable encryption-at-rest with the hardware-bonded key (SECTION 0D §11).
             try:
                 self._cache.enable_security(hardware_id)
@@ -684,10 +715,13 @@ class LicenseEngine:
                 self.feature_flags.apply_server_payload(health.get("flags"))
             compat = self.version.verify(self, health)
             if not compat.get("ok"):
+                upgr_msg = GlobalMessage.get('version_compat_failed')
+                GlobalMessage.log(CAT_STARTUP, 'version.compat_failed',
+                                  message=compat.get("message") or upgr_msg)
                 self._status = LicenseStatus(
                     valid=False, status='upgrade_required',
                     hardware_id=hardware_id,
-                    message=compat.get("message") or 'This version of the application is no longer supported. Please update to continue.',
+                    message=compat.get("message") or upgr_msg,
                 )
                 self._publish_status()
                 self._notify_ready(False)
