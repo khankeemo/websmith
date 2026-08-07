@@ -103,7 +103,9 @@ class UniversalLicenseCenter:
     def _is_valid_for_unlock(self) -> bool:
         if not self._status:
             return False
-        return self._status.status in ('licensed', 'trial')
+        # Trust the backend-derived verdict set by the engine at initialize()
+        # time. The ULC never recomputes validity from status strings.
+        return bool(self._status.valid)
 
     def _unlock_application(self):
         self._app_unlocked = True
@@ -144,7 +146,9 @@ class UniversalLicenseCenter:
             LiveLog.log("License valid", "Launching application directly")
             return {'action': 'launch', 'status': self._status.to_dict(), 'unlocked': True}
 
-        self._trial_consumed = self.engine.is_onboarding_complete()
+        # trial_consumed is a DISPLAY state derived from the backend's universal
+        # status (TRIAL_EXPIRED). The ULC never decides it from local cache.
+        self._trial_consumed = bool(self._status and self._status.status == 'trial_consumed')
 
         self._log("SDK", "INFO", "Opening Universal License Center",
                   f"Status: {status}, trial_consumed={self._trial_consumed}")

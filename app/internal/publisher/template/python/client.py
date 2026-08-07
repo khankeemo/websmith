@@ -247,15 +247,24 @@ class ApiClient:
         headers['Content-Type'] = 'application/json'
         try:
             resp = requests.get(url, headers=headers, timeout=self.timeout)
-            if resp.status_code == 200:
-                return resp.json()
-            return {'success': False, 'status': 'no_license', 'error': f'HTTP {resp.status_code}'}
+            data = {}
+            try:
+                data = resp.json()
+            except Exception:
+                if resp.text:
+                    data = {'message': resp.text}
+            # Return the backend response exactly as-is, including its
+            # universal status on 4xx/5xx. The SDK renders the backend verdict;
+            # it never substitutes a locally-inferred status.
+            data['http_status'] = resp.status_code
+            data['success'] = bool(data.get('success', 200 <= resp.status_code < 300))
+            return data
         except requests.exceptions.Timeout:
             raise ConnectionUnavailable(f'Request timeout after {self.timeout}s')
         except requests.exceptions.ConnectionError as e:
             raise ConnectionUnavailable(f'Connection error: {str(e)}')
         except Exception as e:
-            return {'success': False, 'status': 'no_license', 'error': str(e)}
+            raise ConnectionUnavailable(f'License status request failed: {str(e)}')
 
     def get_health(self) -> Dict[str, Any]:
         """Non-mutating health/version probe (SECTION 0D §15/§17)."""

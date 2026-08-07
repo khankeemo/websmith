@@ -131,6 +131,27 @@ class LicenseStatus:
         )
 
 
+def _map_universal_status(api_status: str):
+    """Map the backend's universal status to the SDK display status + validity.
+
+    Pure render mapping — the backend (database) already decides the license
+    state. The SDK only converts the universal status to a display-friendly
+    status string and reflects the backend's validity (ACTIVE / TRIAL_ACTIVE
+    are the only valid states). No business reasoning happens here.
+    """
+    valid = api_status in ('ACTIVE', 'TRIAL_ACTIVE')
+    display = {
+        'ACTIVE': 'licensed',
+        'TRIAL_ACTIVE': 'trial',
+        'TRIAL_EXPIRED': 'trial_consumed',
+        'NO_CUSTOMER': 'no_license',
+        'INACTIVE': 'inactive',
+        'REVOKED': 'revoked',
+        'EXPIRED': 'expired',
+    }.get(api_status, 'no_license')
+    return display, valid
+
+
 class _WorkflowGuard:
     """Workflow Lock (Phase 2) + exactly-once stage logging (Phase 13).
 
@@ -234,11 +255,6 @@ class LicenseEngine:
 
     def mark_onboarding_complete(self) -> None:
         self._cache.set_onboarding_complete()
-
-    def is_onboarding_complete(self) -> bool:
-        if self._cache.peek_onboarding_complete():
-            return True
-        return self._cache.is_onboarding_complete()
 
     def set_customer_email(self, email: str) -> None:
         self._cache.set('customer_email', email)
@@ -390,34 +406,38 @@ class LicenseEngine:
 
     @staticmethod
     def _is_valid_status(status: Optional[LicenseStatus]) -> bool:
+        """Offline display helper — trust the cached backend verdict only.
+
+        The 'valid' flag stored on a cached LicenseStatus originates from the
+        backend's universal verdict. Offline, the SDK only displays that last
+        server-returned verdict; it never recomputes validity from local data
+        (days_left / expiry are not reasoned over by the SDK).
+        """
         if not status:
             return False
-        if status.status == 'trial':
-            if status.days_left is not None and status.days_left <= 0:
-                return False
-            if status.expiry_date:
-                try:
-                    expiry = datetime.fromisoformat(status.expiry_date.replace('Z', '+00:00'))
-                    if expiry.timestamp() < datetime.now().timestamp():
-                        return False
-                except Exception:
-                    pass
-        return status.status in ('licensed', 'trial')
+        return bool(status.valid)
 
     def _build_status_from_unified(self, status_response: Dict[str, Any],
                                    hardware_id: str) -> LicenseStatus:
-        """Build a LicenseStatus from the backend's normalized status response.
-        All license values come from the backend — nothing is calculated or
-        defaulted locally except absent-optional fallbacks."""
+        """Build a LicenseStatus from the backend's unified status response.
+
+        The backend verdict is authoritative: the SDK maps the universal status
+        to a display status and valid flag, and never decides business state
+        locally. All values (customer / license / plan / product / devices /
+        message) come from the backend response.
+        """
         cust = status_response.get('customer', {}) or {}
         lic = status_response.get('license', {}) or {}
         plan = status_response.get('plan', {}) or {}
         product = status_response.get('product', {}) or {}
         devices = status_response.get('devices', {}) or {}
-        api_status = status_response.get('status', 'no_license')
+        api_status = status_response.get('status', 'NO_CUSTOMER')
+        message = status_response.get('message') or status_response.get('reason') or ''
+
+        display_status, valid = _map_universal_status(api_status)
         return LicenseStatus(
-            valid=True,
-            status=api_status,
+            valid=valid,
+            status=display_status,
             expiry_date=lic.get('expiry_date'),
             days_left=lic.get('days_remaining', lic.get('days_left', 0)),
             plan=plan.get('name') or lic.get('plan'),
@@ -429,7 +449,8 @@ class LicenseEngine:
             customer_mobile=cust.get('mobile'),
             max_devices=devices.get('maximum', 999),
             device_count=devices.get('current', 0),
-            trial_active=(api_status == 'trial'),
+            trial_active=(api_status == 'TRIAL_ACTIVE'),
+            message=message,
         )
 
     def _build_offline_status(self, result: Dict[str, Any],
@@ -476,33 +497,20 @@ class LicenseEngine:
             device_count=lic.get('device_count', 0),
         )
 
-    def _build_no_license_decision(self, hardware_id: str) -> LicenseStatus:
-        """Local customer-state decision used only when the backend is
-        unreachable or has confirmed there is no active license."""
-        onboarding_complete = self.is_onboarding_complete()
-        has_paid = self._cache.peek_has_ever_activated_paid_license()
-        if not has_paid:
-            has_paid = self._cache.has_ever_activated_paid_license()
+    def _render_offline_status(self, hardware_id: str) -> LicenseStatus:
+        """Offline (backend unreachable) display status — never a business decision.
 
-        if onboarding_complete:
-            if has_paid:
-                LiveLog.log("license.invalid", "Decision — inactive (existing customer with paid history)")
-                return LicenseStatus(
-                    valid=False, status='inactive',
-                    hardware_id=hardware_id,
-                    message='License not found or inactive. Please contact your administrator or activate a valid license.'
-                )
-            LiveLog.log("license.invalid", "Decision — trial_consumed (onboarding complete, no paid license)")
-            return LicenseStatus(
-                valid=False, status='trial_consumed',
-                hardware_id=hardware_id,
-                message='Your trial has ended. Please activate a paid license or renew an existing license.'
-            )
-        LiveLog.log("license.invalid", "Decision — no_license (new customer)")
+        The Global License Status API (database) is the only source of truth for
+        license state. When the backend cannot be reached the SDK cannot know the
+        customer state, so it renders a neutral offline placeholder for display
+        only. It never infers inactive / trial_consumed / no_license from local
+        cache or onboarding / paid-history flags.
+        """
+        self.offline.server_lost(has_valid_cache=False)
         return LicenseStatus(
-            valid=False, status='no_license',
+            valid=False, status='error',
             hardware_id=hardware_id,
-            message='No license or trial was found. Start a Free Trial or activate your license.'
+            message='The license server could not be reached. Please check your connection and retry.'
         )
 
     def _sync_status_from_server(self) -> Optional[LicenseStatus]:
@@ -524,30 +532,28 @@ class LicenseEngine:
         except ConnectionUnavailable as e:
             LiveLog.log("license.offline", f"Backend unreachable: {e}")
             return None
-        if not status_response.get('success'):
+        if not isinstance(status_response, dict) or not status_response.get('status'):
             LiveLog.log("license.offline", "License status endpoint error, using local state")
             return None
 
-        api_status = status_response.get('status', 'no_license')
-        if api_status in ('licensed', 'trial'):
+        api_status = status_response.get('status', 'NO_CUSTOMER')
+        if api_status in ('ACTIVE', 'TRIAL_ACTIVE'):
             status = self._build_status_from_unified(status_response, hardware_id)
             self._status = status
             self._cache.set_license_status(status.to_dict())
             if not self._license_key and status.license_key:
                 self._license_key = status.license_key
-            if api_status == 'licensed':
-                self._cache.mark_has_ever_activated_paid_license()
             LiveLog.log("license.valid", f"Decision — {api_status} on server (unified API)")
             LiveLog.log(LOG_CACHE_REFRESH, f"Cache refreshed from backend (status: {api_status})")
             return status
 
-        # Server confirmed no active license — never fall back to cached business values.
-        self._cache.invalidate_license_status()
-        self._cache.clear_license_key()
-        self._license_key = None
-        LiveLog.log("license.invalid", f"Decision — no active state on server (status={api_status})")
-        decision = self._build_no_license_decision(hardware_id)
+        # Server confirmed the customer/license state (universal status). The
+        # backend verdict is authoritative — the SDK renders it as-is and never
+        # infers inactive / trial_consumed / no_license from local cache.
+        LiveLog.log("license.invalid", f"Decision — server state on server (status={api_status})")
+        decision = self._build_status_from_unified(status_response, hardware_id)
         self._status = decision
+        self._cache.set_license_status(decision.to_dict())
         return decision
 
     def _apply_fresh_state(self, license_key: str, result: Dict[str, Any],
@@ -691,7 +697,7 @@ class LicenseEngine:
                 LiveLog.log("license.invalid", f"Decision — cached state found but not valid ({self._status.status})")
 
             self.offline.server_lost(has_valid_cache=False)
-            self._status = self._build_no_license_decision(hardware_id)
+            self._status = self._render_offline_status(hardware_id)
             self._publish_status()
             self._notify_ready(False)
             return self._status

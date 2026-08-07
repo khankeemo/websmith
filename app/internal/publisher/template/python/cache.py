@@ -185,12 +185,10 @@ class CacheManager:
         """Rule 3 (AWS-01): clear the old cached license state before a fresh
         license activation is applied.
 
-        Removes stale license / customer values so a previous customer's license
-        can never resurface after a new license is activated. The hardware ID is
-        computed live (no stored key to clear) and the offline message queue is
-        preserved, so only the business-license keys are removed here. Onboarding
-        and paid-history flags are re-applied by the engine after the backend
-        reload, so they are intentionally left untouched.
+        Storage-only cleanup — removes stale license/customer values so a
+        previous customer's license can never resurface after a new license is
+        activated. The hardware ID is computed live (no stored key to clear) and
+        the offline message queue is preserved. The cache never decides status.
         """
         cache = self._load_cache()
         changed = False
@@ -250,35 +248,23 @@ class CacheManager:
             except Exception:
                 pass
 
+    # ====================================================================
+    # Storage-only onboarding / history persistence.
+    #
+    # These methods persist state for offline display only. The cache NEVER
+    # derives business status from them — the Global License Status API
+    # (database) is the only source of truth for every license decision.
+    # ====================================================================
+
     def set_onboarding_complete(self) -> None:
         cache = self._load_cache()
         cache['onboarding_complete'] = {'value': True, 'cached_at': time.time()}
         self._save_cache()
 
-    def is_onboarding_complete(self) -> bool:
-        return self.get('onboarding_complete') is True
-
-    def peek_onboarding_complete(self) -> bool:
-        cache = self._load_cache()
-        entry = cache.get('onboarding_complete')
-        if entry is None:
-            return False
-        return entry.get('value') is True
-
     def mark_has_ever_activated_paid_license(self) -> None:
         cache = self._load_cache()
         cache['has_ever_activated_paid_license'] = {'value': True, 'cached_at': time.time()}
         self._save_cache()
-
-    def has_ever_activated_paid_license(self) -> bool:
-        return self.get('has_ever_activated_paid_license') is True
-
-    def peek_has_ever_activated_paid_license(self) -> bool:
-        cache = self._load_cache()
-        entry = cache.get('has_ever_activated_paid_license')
-        if entry is None:
-            return False
-        return entry.get('value') is True
 
     # ====================================================================
     # Message Queue (Offline Retry)
