@@ -107,13 +107,20 @@ export default function InternalApiLayout({
   // Dedicated communications workspace: the dashboard Sidebar is hidden and the
   // Communications page renders its own email-client navigation full-width.
   const isCommsPage = pathname?.startsWith("/internal/api/communications") ?? false;
+  // Universal Buy & Renew Portal — standalone customer pages that MUST NOT show
+  // the admin sidebar, admin navigation, or require an admin login. They are
+  // customer-facing (like the Software Store checkout) and stay fully outside
+  // the admin dashboard chrome, exactly like the auth pages.
+  const isPortalPage =
+    pathname?.startsWith("/internal/api/buy") ||
+    pathname?.startsWith("/internal/api/renew");
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     const verifySession = async () => {
-      if (isAuthPage) {
+      if (isAuthPage || isPortalPage) {
         setAuthChecked(true);
         return;
       }
@@ -153,7 +160,7 @@ export default function InternalApiLayout({
     return () => {
       mounted = false;
     };
-  }, [pathname, isAuthPage, router]);
+  }, [pathname, isAuthPage, isPortalPage, router]);
 
   return (
     <ThemeProvider>
@@ -162,6 +169,13 @@ export default function InternalApiLayout({
       {isAuthPage ? (
         // ✅ Auth pages: NO NotificationProvider
         <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
+          {children}
+        </div>
+      ) : isPortalPage ? (
+        // ✅ Universal Buy & Renew Portal: standalone full-screen customer
+        // pages — no sidebar, no topbar, no admin auth gate. Each portal page
+        // renders its own chrome (like the Software Store checkout).
+        <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
           {children}
         </div>
       ) : !authChecked ? (

@@ -5132,6 +5132,66 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 
 ---
 
+## SECTION 0.16 — Universal Buy & Renew Portal (Internal API Only)
+
+Customer-facing standalone pages **/internal/api/buy** (Buy License) and
+**/internal/api/renew** (Renew License) live under the Internal API but are
+rendered as full-screen standalone pages (like the Software Store checkout) —
+**no admin sidebar, no admin navigation, no admin login gate**. They are NOT
+admin pages; changing them never changes the admin dashboard.
+
+### Routes & Backend
+- Pages: `app/internal/api/buy/page.tsx`, `app/internal/api/renew/page.tsx`,
+  shared UI `app/internal/api/portal/_ui.tsx` + `portalClient.ts`.
+- `app/internal/api/layout.tsx` renders them via the `isPortalPage` branch (like
+  auth pages) — no sidebar / topbar / admin auth gate.
+- Public backend (browser-facing, DB-authoritative):
+  - `GET/POST /api/portal/products` — active products + plans (safe public fields).
+  - `POST /api/portal/otp` (`send`/`verify`) — reuses email service +
+    `otp_verifications` (purpose `purchase`), rate-limited per IP.
+  - `POST /api/portal/license/info` — validates license via
+    `resolveGlobalLicenseStatus()` (Rule 1); returns only customer-owned fields.
+  - `POST /api/portal/order/create` — server OTP gate + `createPendingOrder()`.
+  - `POST /api/portal/order/pay` — BUY: `fulfillOrder()` (new license);
+    RENEW: `fulfillPortalRenewal()` (extends existing license).
+
+### Non-Negotiable Security Invariants
+- **Never trust the browser/localStorage/UI.** Every step is re-validated
+  server-side: Product+Plan (+License for renew) are re-resolved from the DB
+  (`createPendingOrder` server prices); OTP is enforced via
+  `hasVerifiedPortalOtp()` BEFORE any order is created; renewal eligibility
+  comes from `resolveGlobalLicenseStatus()`.
+- **No public/private data exposure**: the pages never call the admin products
+  API, customer APIs, license-management APIs; the browser never receives
+  internal IDs or DB info.
+- **One payment workflow**: BUY reuses `createPendingOrder()` + the store's
+  `fulfillOrder()`; RENEW reuses `createPendingOrder()` + `lib/store/renewal.ts`
+  (shared order → payment → invoice architecture). No second payment
+  implementation.
+- **BUY generates a NEW license**; **RENEW EXTENDS the existing license**
+  (plan / `duration_days` / `expiry_date` / `last_renewed_at` /
+  `renewal_history`) — never a replacement. The renewal license key is bound to
+  the order **server-side** in `orders.notes` and re-read at pay time (never
+  trusted from the client).
+- **Public storefront untouchable**: `/api/v1/store/*` and `/api/v1/checkout/*`
+  are re-used read-only (catalog + checkout config). `lib/store/checkout.ts` is
+  imported/called, never edited.
+
+### SDK Integration
+- `Buy License` → opens `store.buy_url`; `Renew License` → opens
+  `store.renew_url` (`config/api-config.json`). Python template: `config.py`
+  `get_buy_url/get_renew_url`, `config_manager.py` accessors, `ULC._open_store`
+  (buy) and `ULC._open_renew_portal` (renew). No placeholder URLs.
+
+### Verification
+- `tsc --noEmit` clean for new files; all 13 SDK runtimes generate + validate
+  (`npm test`); Python template compiles and buy/renew URLs resolve.
+- NOTE: backend E2E (order create/pay against a live Neon DB) and the browser
+  page render must be exercised in the deployed environment — no local DB here.
+  Pre-existing repo issue “You cannot use different slug names for the same
+  dynamic path ('id' !== 'projectId')” prevents local `next dev` (unrelated to
+  the portal files, which are static routes).
+
 ## Software Store — UI/UX Redesign & Architecture (2026-08)
 
 The Software Store is the public storefront at `/software-store`. It was redesigned end-to-end **as a presentation refactor only** — the architecture, routing, internal-API product retrieval and business logic are unchanged. No new store, no duplicate product models, no mock data, no generated product IDs, no hardcoded plans.

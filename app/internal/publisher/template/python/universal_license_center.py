@@ -714,8 +714,11 @@ class UniversalLicenseCenter:
         self._show_pre_activation_dialog("activate")
 
     def _renew_license_flow(self):
-        LiveLog.log("Renewal started", "Opening pre-renewal dialog")
-        self._show_pre_activation_dialog("renew")
+        """Renew License button → opens the Universal Renew portal in the
+        default browser (/internal/api/renew). The portal validates the
+        existing license, collects OTP + payment, and EXTENDS the existing
+        license (never creates a new one)."""
+        self._open_renew_portal()
 
     def _show_pre_activation_dialog(self, mode: str):
         """Pre-activation / pre-renewal choice dialog (commercial standard):
@@ -774,20 +777,34 @@ class UniversalLicenseCenter:
         dialog.wait_window()
 
     def _open_store(self):
-        """Open the software store in the default browser.
+        """Open the Universal Buy License portal (/internal/api/buy) in the
+        default browser.
 
-        The store URL comes from one central configuration location
-        (config/api-config.json → store.url)."""
-        from .config import get_store_url
-        url = get_store_url(self.config)
+        The URL comes from one central configuration location
+        (config/api-config.json → store.buy_url, falling back to store.url)."""
+        from .config import get_buy_url
+        url = get_buy_url(self.config)
         if not url:
-            LiveLog.log("Software store URL not configured", "store.url is empty in api-config.json")
+            LiveLog.log("Buy portal URL not configured", "store.buy_url is empty in api-config.json")
             return
-        LiveLog.log("Opening software store", url)
+        LiveLog.log("Opening buy portal", url)
         try:
             webbrowser.open(url)
         except Exception as e:
-            LiveLog.log("Failed to open store", str(e))
+            LiveLog.log("Failed to open buy portal", str(e))
+
+    def _open_renew_portal(self):
+        """Open the Universal Renew License portal (/internal/api/renew)."""
+        from .config import get_renew_url
+        url = get_renew_url(self.config)
+        if not url:
+            LiveLog.log("Renew portal URL not configured", "store.renew_url is empty in api-config.json")
+            return
+        LiveLog.log("Opening renew portal", url)
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            LiveLog.log("Failed to open renew portal", str(e))
 
     def _show_key_flow_dialog(self, mode: str):
         """Mandatory activation/renewal workflow (Rule 0A-4):
