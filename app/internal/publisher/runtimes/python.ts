@@ -23,6 +23,7 @@ const MANDATORY_FILES = [
   'event_bus.py',
   'workflow_progress.py',
   'dialog_manager.py',
+  'ui_styles.py',
   'config_manager.py',
   'session.py',
   'permissions.py',

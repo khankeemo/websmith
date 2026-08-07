@@ -2087,9 +2087,37 @@ that the engine composes, never new controllers that talk to the API.
 - All new modules registered in `runtimes/python.ts` `MANDATORY_FILES` and exported
   from `__init__.py`.
 
----
+## SECTION 0E — Universal Activation UI Redesign + Shared UI Kit (Python Template)
 
-## SECTION 1 — Project Rules (Permanent)
+Never regress the redesigned Activation dialog and the shared styling module.
+
+- **One shared Tkinter UI kit**: `ui_styles.py` owns all theming tokens and reusable
+  widgets (`COL`/`FONT` maps, `_rrect` rounded-rect helper, `GradientHeader`,
+  `StyledButton`, `RoundedEntry`, `Card`, `SectionLabel`, `Subtitle`, `StatusPill`,
+  `ProgressBar`, `GlobalMessage`). It is registered in `runtimes/python.ts`
+  `MANDATORY_FILES` and exported from `__init__.py`, in sync with the Foundation
+  Modules / Enterprise suite sections. All screen builders draw only from this kit.
+- **Activation dialog** (`Universal License Center` `_show_key_flow_dialog`, formerly
+  `activation.py`) is rebuilt as a contained step machine (`_set_phase`) inside a
+  `GradientHeader` card. States: `key` (validate) → `otp` (auto-send + verify) →
+  `final` (activate). Removal of a full Gauge widget: the OTP cross-check (Last-4 +
+  animation round) is retained as a validation step; the visual "safety" ring was
+  replaced by a lightweight custom gauge drawn on the canvas. Dynamic stage
+  descriptions/messages run through the shared `format_timer` countdown, `StatusPill`
+  + `ProgressBar` progress mirrors, and the global `GlobalMessage`.
+- **`activation.py` reduced to a thin re-export** so the old module path still works;
+  `renewal.py` and `reactivation.py` remain separate (single owner per flow). No
+  dead duplicate dialog logic.
+- **Engine surface unchanged**: the dialog calls `_active_*` engine methods
+  (`validate_license_key`, `send_otp`, `verify_otp`, `activate`) and drives
+  cancellation via `_license_activated`/`_license_validation`, all per SECTION 0C.
+- **Runtime guarded**: internal APIs/vars never clobber tk.Canvas internals
+  (e.g. `ProgressBar` uses `_pw`, not `_w`, so the Tcl widget pathname stays intact).
+- **Verified**: `ui_styles.py` + dialog build clean under `python -m py_compile`
+  and a headless `Tk` construction smoke test; `npm run test:generation` 6/6 and
+  `npm run test:multi-runtime` 13/13 still pass; `tsc --noEmit` clean.
+
+---
 
 | Rule | Description |
 |------|-------------|

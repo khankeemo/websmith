@@ -158,6 +158,26 @@ See master doc **SECTION 0D** (20 enterprise areas). Never regress:
 - All new modules registered in `runtimes/python.ts` `MANDATORY_FILES` and exported
   from `__init__.py`. Keep SECTION 0D in sync here and in the master doc.
 
+## SDK Universal Activation UI + Shared UI Kit (Python Template)
+
+See master doc **SECTION 0E**. Never regress:
+
+- **One shared Tkinter UI kit**: `ui_styles.py` owns all theme tokens and reusable
+  widgets (`COL`/`FONT`, `_rrect`, `GradientHeader`, `StyledButton`, `RoundedEntry`,
+  `Card`, `SectionLabel`, `Subtitle`, `StatusPill`, `ProgressBar`, `GlobalMessage`);
+  registered in `runtimes/python.ts` `MANDATORY_FILES` + exported from `__init__.py`.
+  All screen builders draw only from this kit.
+- **Activation dialog** (`_show_key_flow_dialog` in `universal_license_center.py`,
+  formerly `activation.py`) is a contained step machine (`key` → `otp` → `final`)
+  using `_set_phase`, `GradientHeader` card, shared `format_timer` countdown,
+  `StatusPill` + `ProgressBar` progress, and `GlobalMessage`. `activation.py` is a
+  thin re-export only.
+- Internal APIs/vars must never clobber tk.Canvas internals (use `_pw`, never
+  overwrite `_w`); keep the engine surface (`_active_*`) unchanged per SECTION 0C.
+- Runtime-guarded via `python -m py_compile` + headless Tk construction smoke test;
+  keep `test:generation` 6/6 and `test:multi-runtime` 13/13 green. Keep SECTION 0E
+  in sync here and in the master doc.
+
 ## SDK Multi-Runtime Parity (All 13 Runtimes)
 
 Both docs are in sync. Never regress:
