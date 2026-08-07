@@ -37,7 +37,7 @@ from .live_log import LiveLog
 from .event_bus import EventBus
 from .workflow_progress import WorkflowProgress, GlobalStateMachine
 from .config_manager import ConfigManager
-from .session import SessionManager
+from .session import AUTH_ANONYMOUS, SessionManager
 from .feature_flags import FeatureFlags
 from .idempotency import IdempotencyManager
 from .timeout_rules import TimeoutRules
@@ -537,6 +537,25 @@ class LicenseEngine:
             return None
 
         api_status = status_response.get('status', 'NO_CUSTOMER')
+
+        # Customer Not Found (fresh install / never activated): the backend is
+        # the only source of truth. Immediately clear EVERY piece of previous
+        # local state — cache, session, license key, trial, customer — so no
+        # stale data can ever survive for a brand-new user. The SDK never layers
+        # a derived local status on top of this and never writes cache.
+        if api_status == 'NO_CUSTOMER':
+            self._cache.reset_all()
+            self._license_key = None
+            SessionManager.set_customer({})
+            SessionManager.set_license({})
+            SessionManager.set_plan({})
+            SessionManager.set_auth_state(AUTH_ANONYMOUS)
+            SessionManager.end_workflow()
+            LiveLog.log("license.fresh",
+                        "Customer not found on server — cleared local cache, session and license state")
+            self._status = self._build_status_from_unified(status_response, hardware_id)
+            return self._status
+
         if api_status in ('ACTIVE', 'TRIAL_ACTIVE'):
             status = self._build_status_from_unified(status_response, hardware_id)
             self._status = status

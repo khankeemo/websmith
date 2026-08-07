@@ -132,7 +132,7 @@ class UniversalLicenseCenter:
             self._status = LicenseStatus(
                 valid=False, status='no_license',
                 hardware_id=self.hardware.get_fingerprint(),
-                message='No license or trial was found. Start a Free Trial or activate your license.'
+                message='Welcome! No license or trial was found. Please choose one of the options below to continue.'
             )
         self._initialized = True
 
@@ -597,12 +597,14 @@ class UniversalLicenseCenter:
 
         if self._status.status in ('no_license', 'force_activation', 'unlicensed'):
             if self._trial_consumed:
+                lines.append("Status: Trial Consumed")
                 lines.append("This email has already used its free trial.")
                 lines.append("Please Activate a License or Contact Sales.")
             else:
-                lines.append("Status: NO LICENSE FOUND")
-                lines.append("No active license or trial was found.")
-                lines.append("Start a Free Trial or activate your license.")
+                lines.append("Status: Welcome")
+                lines.append("Welcome!")
+                lines.append("No license or trial was found.")
+                lines.append("Please choose one of the options below to continue.")
             fg = self._warning
         elif self._status.status == 'inactive':
             lines.append("Status: INACTIVE")
