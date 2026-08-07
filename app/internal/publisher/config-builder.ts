@@ -59,7 +59,7 @@
  * ---------------------------------------------------------
  */
 
-import { PublisherContext, ProductData, PlanData } from './index';
+import type { PublisherContext, ProductData, PlanData } from './index';
 
 /**
  * Configuration defaults - explicitly documented
@@ -240,6 +240,12 @@ export interface ApiSettings {
   retry_count: number;
 }
 
+export interface StoreConfig {
+  url: string;
+  buy_url: string;
+  renew_url: string;
+}
+
 export interface TrialConfig {
   enabled: boolean;
   days: number;
@@ -330,6 +336,7 @@ export interface FeaturesConfig {
 export interface ApiConfig {
   product: ProductConfig;
   api: ApiSettings;
+  store: StoreConfig;
   trial: TrialConfig;
   license: LicenseConfig;
   hardware: HardwareConfig;
@@ -373,6 +380,9 @@ export class ConfigBuilder {
     // Get company name from product or environment or defaults
     const companyName = this.getCompanyName(product);
 
+    // API base URL is the single source of truth for the app origin
+    const apiUrl = this.getApiUrl();
+
     return {
       product: {
         id: product.id,
@@ -381,11 +391,16 @@ export class ConfigBuilder {
         description: product.description
       },
 api: {
-        url: this.getApiUrl(),
+        url: apiUrl,
         version: DEFAULTS.api.version,
         public_key: apiKey,
         timeout: this.getEnvNumber('WEBSMITH_API_TIMEOUT', DEFAULTS.api.timeout),
         retry_count: this.getEnvNumber('WEBSMITH_API_RETRY_COUNT', DEFAULTS.api.retry_count)
+      },
+      store: {
+        url: this.getAppRoute(apiUrl, '/software-store'),
+        buy_url: this.getAppRoute(apiUrl, '/internal/api/buy'),
+        renew_url: this.getAppRoute(apiUrl, '/internal/api/renew')
       },
       trial: {
         enabled: hasTrial,
@@ -490,6 +505,16 @@ api: {
       );
     }
     return url;
+  }
+
+  /**
+   * Derive an application route on the same origin as the configured API base
+   * URL, so portal/store URLs are never hardcoded or left empty. The SDK
+   * storefront, Buy portal and Renew portal are served by the same Next.js app.
+   */
+  private getAppRoute(baseUrl: string, routePath: string): string {
+    const origin = baseUrl.replace(/\/+$/, '');
+    return `${origin}/${routePath.replace(/^\/+/, '')}`;
   }
 
   /**

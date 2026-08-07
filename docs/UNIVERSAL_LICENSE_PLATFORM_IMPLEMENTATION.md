@@ -5183,6 +5183,23 @@ admin pages; changing them never changes the admin dashboard.
   `get_buy_url/get_renew_url`, `config_manager.py` accessors, `ULC._open_store`
   (buy) and `ULC._open_renew_portal` (renew). No placeholder URLs.
 
+### Publisher Config Generation (SDK Config Fix 2026-08)
+- **Root cause fixed**: `ConfigBuilder` (`app/internal/publisher/config-builder.ts`)
+  was emitting `api-config.json` with NO `store` section, so generated SDKs had
+  empty `store.buy_url`/`store.renew_url` even though the SDK runtime read the
+  keys correctly.
+- `ConfigBuilder.build()` now always writes a `store` section:
+  - `url` → `<base>/software-store`
+  - `buy_url` → `<base>/internal/api/buy`
+  - `renew_url` → `<base>/internal/api/renew`
+  where `<base>` = `WEBSMITH_API_URL` || `NEXT_PUBLIC_API_URL` (trailing `/`
+  stripped). Never hardcoded, never placeholders, never empty strings. The
+  Python SDK reads the SAME JSON path (`config["store"]["buy_url"]` /
+  `config["store"]["renew_url"]`) — Publisher schema and SDK reader are in sync.
+- `sdk-validator.ts` now fails generation when `store.buy_url`/`store.renew_url`
+  are missing/empty, and `tests/sdk-generation/multi-runtime.test.mjs` covers the
+  `store` section in its minimal config (13/13 parity guard stays green).
+
 ### Verification
 - `tsc --noEmit` clean for new files; all 13 SDK runtimes generate + validate
   (`npm test`); Python template compiles and buy/renew URLs resolve.

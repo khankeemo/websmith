@@ -129,6 +129,7 @@ const context = {
 const apiConfig = {
   product: { id: 'prod_smoketest', name: 'Smoke Test Product', version: '1.0.0', description: 'smoke' },
   api: { url: apiUrl, version: 'v1', public_key: 'pk_smoke_test_key', timeout: 30000, retry_count: 3 },
+  store: { url: apiUrl + '/software-store', buy_url: apiUrl + '/internal/api/buy', renew_url: apiUrl + '/internal/api/renew' },
   trial: { enabled: true, days: 7, require_email: true, require_company: false, auto_convert: true, message: 'trial' },
   license: { enabled: true, hardware_binding: true, max_devices: 2, offline_days: 7, renewal_reminder_days: 7 },
   hardware: { fingerprint: { include_cpu: true, include_motherboard: true, include_mac: true, include_os: true, hash_algorithm: 'sha256' }, replacement: { enabled: true, require_approval: true, max_replacements_per_year: 2 } },

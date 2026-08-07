@@ -228,6 +228,11 @@ export class SDKValidator {
         if (config.license.offline_days === undefined) result.warnings.push('api-config.json license missing offline_days');
       }
 
+      if (config.store) {
+        if (!config.store.buy_url) result.errors.push('api-config.json store missing buy_url (no empty strings)');
+        if (!config.store.renew_url) result.errors.push('api-config.json store missing renew_url (no empty strings)');
+      }
+
       if (result.errors.length === 0) result.checks.passed++;
     } catch (err: any) {
       result.errors.push(`api-config.json validation failed: ${err.message}`);
