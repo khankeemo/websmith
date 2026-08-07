@@ -79,6 +79,10 @@ class _Messages:
     # Trial
     trial_started = "Your free trial has started."
     trial_success = "Trial started successfully."
+    trial_starting = "Starting the free trial..."
+    trial_creating = "Creating your trial..."
+    trial_created = "Trial created."
+    trial_refreshing = "Refreshing the trial licence..."
     trial_consumed = "This email has already used its free trial. Please activate a license or contact sales."
     trial_failed = "The trial could not be started. Please try again or contact support."
     trial_no_email = "A valid email is required to start a trial."
@@ -109,6 +113,13 @@ class _Messages:
     license_revoked = "Your license has been revoked. Please contact support."
     license_success = "Your licence has been updated successfully. Please restart the application to apply the latest licence information."
     no_license_welcome = "Welcome! No license or trial was found. Please choose one of the options below to continue."
+
+    # Workflow progress (every step resolves through the manager)
+    checking_customer = "Checking Customer"
+    starting_operation = "Starting..."
+    updating_license = "Updating License..."
+    refreshing_license = "Refreshing License..."
+    saving_cache = "Saving local license data..."
 
     # Restart
     restarting = "Restarting the application to apply the latest licence information..."

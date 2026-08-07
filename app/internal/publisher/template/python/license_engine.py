@@ -53,7 +53,7 @@ from .support_workflow import SupportRequestTracker
 from .version_compat import VersionCompatibility
 from .security import SecurityRules, SecurityUnavailableError
 from .global_message import (GlobalMessage, CAT_STARTUP, CAT_ACTIVATION,
-                             CAT_RENEWAL, CAT_TRIAL, CAT_HARDWARE)
+                             CAT_RENEWAL, CAT_TRIAL, CAT_HARDWARE, CAT_LICENSE)
 from .single_instance import acquire_global_lock
 
 logger = logging.getLogger(__name__)
@@ -355,7 +355,7 @@ class LicenseEngine:
         try:
             status = self._status
             if status:
-                self._cache.set_license_status(status.to_dict())
+                self._cache.set('license_status',status.to_dict())
                 key = self._license_key
                 if key:
                     self._cache.save_license_key(key)
@@ -563,7 +563,7 @@ class LicenseEngine:
         if api_status in ('ACTIVE', 'TRIAL_ACTIVE'):
             status = self._build_status_from_unified(status_response, hardware_id)
             self._status = status
-            self._cache.set_license_status(status.to_dict())
+            self._cache.set('license_status',status.to_dict())
             if not self._license_key and status.license_key:
                 self._license_key = status.license_key
             LiveLog.log("license.valid", f"Decision — {api_status} on server (unified API)")
@@ -576,7 +576,7 @@ class LicenseEngine:
         LiveLog.log("license.invalid", f"Decision — server state on server (status={api_status})")
         decision = self._build_status_from_unified(status_response, hardware_id)
         self._status = decision
-        self._cache.set_license_status(decision.to_dict())
+        self._cache.set('license_status',decision.to_dict())
         return decision
 
     def _apply_fresh_state(self, license_key: str, result: Dict[str, Any],
@@ -599,18 +599,25 @@ class LicenseEngine:
         if self._license_key:
             self._cache.save_license_key(self._license_key)
 
+        _kind_category = {
+            'activation': CAT_ACTIVATION,
+            'renewal': CAT_RENEWAL,
+            'trial': CAT_TRIAL,
+        }.get(kind, CAT_LICENSE)
+        GlobalMessage.log(_kind_category, 'workflow.updating', 'updating_license')
         WorkflowProgress.stage(WorkflowProgress.UPDATING_LICENSE, operation_label)
         server_status = self._sync_status_from_server()
         if server_status is None:
             # Backend unreachable — keep raw response values only.
             status_key = 'trial' if kind == 'trial' else 'licensed'
             self._status = self._build_offline_status(result, status_key, license_key)
-            self._cache.set_license_status(self._status.to_dict())
+            self._cache.set('license_status', self._status.to_dict())
 
         GlobalStateMachine.set(GlobalStateMachine.REFRESHING, operation_label)
+        GlobalMessage.log(_kind_category, 'workflow.saving', 'saving_cache')
         WorkflowProgress.stage(WorkflowProgress.SAVING_CACHE, operation_label)
         if self._status and self._status.valid:
-            self._cache.set_license_status(self._status.to_dict())
+            self._cache.set('license_status', self._status.to_dict())
             if mark_paid:
                 self._cache.mark_has_ever_activated_paid_license()
             if mark_onboarding:
@@ -634,6 +641,7 @@ class LicenseEngine:
                               message='Device bound')
             self.metrics.record_success('hardware_rebind')
 
+        GlobalMessage.log(_kind_category, 'workflow.refreshing', 'refreshing_license')
         WorkflowProgress.stage(WorkflowProgress.REFRESHING_SDK, operation_label)
         self._publish_status()
         self._notify_ready(bool(self._status and self._status.valid))
@@ -938,7 +946,7 @@ class LicenseEngine:
                     {'license': lic, 'customer': result.get('customer', {}) or {}},
                     'licensed', self._license_key)
             if self._status and self._status.valid:
-                self._cache.set_license_status(self._status.to_dict())
+                self._cache.set('license_status',self._status.to_dict())
         return result
 
     def validate_hardware(self) -> Dict[str, Any]:
@@ -954,7 +962,7 @@ class LicenseEngine:
                 self._status = self._build_offline_status(
                     {'license': lic, 'customer': cust}, 'licensed', lic.get('license_key'))
             if self._status and self._status.status == 'licensed':
-                self._cache.set_license_status(self._status.to_dict())
+                self._cache.set('license_status',self._status.to_dict())
                 self._cache.mark_has_ever_activated_paid_license()
                 self._publish_status()
                 self._notify_ready(True)
@@ -1024,21 +1032,25 @@ class LicenseEngine:
         Customer Created → Trial Created → Download Trial → Cache → Event →
         Refresh."""
         if not email:
-            raise ValueError("A valid email is required to start a trial.")
+            raise ValueError(GlobalMessage.get('trial_no_email'))
         op = self.idempotency.begin('trial')
         with self._workflow('trial'):
+            GlobalMessage.log(CAT_TRIAL, 'trial.starting', 'trial_starting',
+                              detail=email)
             WorkflowProgress.stage(WorkflowProgress.CHECKING_CUSTOMER, email)
             result = self._client.start_trial(email, customer_name=customer_name,
                                               customer_data=customer_data,
                                               idempotency=op.payload() if op else None)
             if result.get('success'):
-                LiveLog.log("trial.started", "Trial started on server — applying fresh state")
+                GlobalMessage.log(CAT_TRIAL, 'trial.creating', 'trial_creating')
                 self._apply_fresh_state(self._license_key or '', result, 'trial',
                                         'Trial', mark_paid=False, mark_onboarding=False)
                 if op:
                     self.idempotency.complete(op)
             else:
                 self.metrics.record_failure('trial')
+                msg = result.get('message') or GlobalMessage.get('trial_failed')
+                GlobalMessage.log(CAT_ERROR, 'trial.failed', message=msg)
             return result
 
     def convert_trial(self, plan: Optional[str] = None, customer_name: str = '',

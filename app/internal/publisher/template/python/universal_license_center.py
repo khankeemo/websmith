@@ -18,7 +18,8 @@ from .welcome import WelcomeDialog
 from .universal_success_dialog import SuccessDialog
 from .live_log import LiveLog
 from .single_instance import acquire_global_lock, release_global_lock
-from .global_message import GlobalMessage, CAT_STARTUP
+from .global_message import (GlobalMessage, CAT_STARTUP, CAT_TRIAL,
+                             CAT_ERROR, CAT_WARNING)
 from .validation import OTP_INVALID_MESSAGE
 from .universal_email_dialog import UniversalEmailDialog
 from .dialog_manager import DialogManager
@@ -1254,39 +1255,47 @@ class UniversalLicenseCenter:
         return result_holder["paid"], result_holder["plan"]
 
     def _start_trial(self):
-        LiveLog.log("Trial started", "Opening Welcome Dialog")
-        self._log("TRIAL", "INFO", "Starting trial flow")
+        GlobalMessage.log(CAT_TRIAL, 'trial.flow.start', 'trial_starting')
         result = self._show_welcome()
         if result.get('trial_started'):
             email = result.get('email', '')
             name = result.get('name', '')
             customer_data = result.get('customer_data', {})
-            LiveLog.log("Trial activating via engine", f"email={email}, name={name}")
-            eng_result = self.engine.start_trial(email, name, customer_data)
+            GlobalMessage.log(CAT_TRIAL, 'trial.flow.activate',
+                              message=f"Creating the trial for {email}...")
+            try:
+                eng_result = self.engine.start_trial(email, name, customer_data)
+            except Exception as e:
+                GlobalMessage.log(CAT_ERROR, 'trial.error', 'trial_failed',
+                                  detail=str(e))
+                self._show_error_dialog("Trial Error", GlobalMessage.get('trial_failed'))
+                return
             if eng_result.get('success'):
-                LiveLog.log("Trial started on server", "Engine state updated")
                 status = self.engine.get_status()
                 if status:
                     self._status = status
                     self._initialized = True
-                    LiveLog.log("Engine status updated", f"status={status.status}, valid={status.valid}")
                 self.engine.mark_onboarding_complete()
                 self._app_unlocked = True
-                LiveLog.log("Trial activated", "Showing success dialog")
+                # Universal Success Dialog (single combined Success + Restart Now
+                # dialog). No trial workflow ever ends silently.
+                GlobalMessage.log(CAT_TRIAL, 'trial.success',
+                                  'trial_success')
                 self._show_success_dialog("trial")
             else:
-                err_msg = eng_result.get('message', 'Trial activation failed')
-                LiveLog.log("Trial server response", err_msg)
+                err_msg = eng_result.get('message') or GlobalMessage.get('trial_failed')
+                GlobalMessage.log(CAT_ERROR, 'trial.failed', message=err_msg)
                 self._show_error_dialog("Trial Error", err_msg)
         elif result.get('customer_exists'):
             self._trial_consumed = True
-            LiveLog.log("Customer exists", "Trial already consumed, showing ULC")
+            GlobalMessage.log(CAT_TRIAL, 'trial.consumed', 'trial_consumed')
             self._status_detail.config(
-                text="This email has already used its free trial. Please Activate a License or Contact Sales.",
+                text=GlobalMessage.get('trial_consumed'),
                 fg=self._warning
             )
         elif result.get('closed'):
-            LiveLog.log("Welcome dialog closed", "User closed the welcome dialog")
+            GlobalMessage.log(CAT_WARNING, 'trial.flow.closed',
+                              message="Welcome dialog closed")
             self._on_ulc_close()
 
     def _contact_support(self):
