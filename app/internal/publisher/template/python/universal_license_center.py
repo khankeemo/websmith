@@ -49,105 +49,98 @@ def _load_api_config() -> Dict[str, Any]:
 
 
 # ====================================================================
-# Activation form widgets — SIMPLE CLASSIC TKINTER (custom, no Uiverse FX)
+# Activation form widgets — SIMPLE RECTANGULAR (classic tkinter)
 #
-# docs/UI.MD is used for structure only. No decorative effects are applied:
-# no gradients, no glow, no shadows, no rounded/pill shapes, no double
-# borders, no animation. Everything is a plain flat rectangular control:
-#   * Input  — classic rectangular textbox: white fill, thin 1px border,
-#              small highlight color change on focus
-#   * Button — flat tk.Button: subtle color-only hover, no shadow/glow
-#   * Phase  — a plain text label (the old oval badge is gone)
-#   * Bar    — thin flat progress feedback, no animated cover, no ovals
+# A simple, compact, flat rectangular look with none of the old FX:
+# no Canvas, no shadows, no glow, no gradients, no animations, no
+# oval/pill shapes and no decorative borders. Only clean block colours,
+# a plain rectangular card/frame, a slight focus border and a colour-only
+# hover on the buttons. Compact spacing so all content fits the window.
+#   * Input  — a plain rectangular tk.Entry textbox
+#   * Button — a plain flat rectangular tk.Button (colour-only hover)
+#   * Phase  — a plain text status line, no badge
+#   * Bar    — a thin flat static progress indicator (no animation)
 # API mirrors the previous widgets so the activation workflow code is
 # untouched: `.get`/`.insert`/`.delete`/`.state`/`.entry` for inputs,
 # `.set_state`/`.set_text`/`._command` for buttons.
 # ====================================================================
 
-_UV_INPUT_H = 36
-_UV_BUTTON_H = 34
+_UV_INPUT_H = 30
+_UV_RADIUS = 0
 _UV_FIELD = "#ffffff"
-_UV_FIELD_BORDER = "#b9c1cd"
+_UV_FIELD_TEXT = "#1e2430"
 
 
-class _UVInput(tk.Frame):
-    """Simple classic rectangular textbox. White fill, thin 1px border."""
+class _UVInput(tk.Entry):
+    """A normal rectangular textbox. Slight focus border, no shadow, no glow."""
 
     def __init__(self, parent, *, width: int = 320, justify: str = "center"):
-        self._width = width
-        tk.Frame.__init__(self, parent, width=width, bg=_UV_FIELD,
-                          bd=1, relief="solid", highlightthickness=1,
-                          highlightbackground=_UV_FIELD_BORDER,
-                          highlightcolor=COL["primary"])
-        self.entry = tk.Entry(
-            self, font=(COL["font"], 11), justify=justify,
-            relief="flat", bd=0, highlightthickness=0,
-            bg=_UV_FIELD, fg=COL["text"], insertbackground=COL["primary"])
-        self.entry.pack(fill="both", expand=True, padx=8, pady=4)
-
-    def get(self) -> str:
-        return self.entry.get()
-
-    def delete(self, first, last=None) -> None:
-        self.entry.delete(first, last)
-
-    def insert(self, index, string) -> None:
-        self.entry.insert(index, string)
-
-    def focus_set(self):
-        self.entry.focus_set()
+        tk.Entry.__init__(
+            self, parent, font=(COL["font"], 11), justify=justify,
+            relief="flat", bd=0, highlightthickness=1,
+            highlightbackground="#cbd4e1", highlightcolor=COL["primary"],
+            bg=_UV_FIELD, fg=_UV_FIELD_TEXT,
+            insertbackground=COL["primary"])
+        self.entry = self
+        chars = max(12, min(width // 10, 44))
+        try:
+            self.configure(width=chars)
+        except Exception:
+            pass
 
     def state(self, mode: str) -> None:
-        self.entry.config(state=mode)
+        self.config(state=mode)
 
 
 class _UVButton(tk.Button):
-    """Simple flat tk.Button. Hover = subtle colour change, nothing else."""
+    """A simple flat rectangular button. Colour-only hover, no animation."""
 
     _FILL = {
-        "primary": "#149CEA",
+        "primary": "#6366f1",
         "success": "#16a34a",
     }
     _FILL_HOVER = {
-        "primary": "#3aa9f2",
-        "success": "#2fbf6d",
+        "primary": "#818cf8",
+        "success": "#22c55e",
     }
-    _GHOST_FILL = "#eef1f6"
-    _GHOST_FILL_HOVER = "#e3e8f1"
+    _GHOST_FILL = "#f1f4f9"
+    _GHOST_FILL_HOVER = "#e4e9f3"
 
     def __init__(self, parent, text: str, *, kind: str = "primary",
-                 command=None, width: int = 200, height: int = _UV_BUTTON_H,
+                 command=None, width: int = 200, height: int = 34,
                  ghost: bool = False):
         self._kind = kind
         self._text = text
         self._command = command
-        self._width = width
-        self._height = height
         self._ghost = ghost or kind == "ghost"
         self._disabled = False
-        tk.Button.__init__(self, parent, text=text,
-                           font=(COL["font"], 11, "bold"),
-                           relief="flat", bd=0, cursor="hand2",
-                           command=self._press)
-        self._paint(False)
-        self.bind("<Enter>", lambda e: self._paint(True))
-        self.bind("<Leave>", lambda e: self._paint(False))
+        self._over = False
+        tk.Button.__init__(
+            self, parent, text=text, command=self._on_press,
+            relief="flat", bd=0, highlightthickness=0,
+            cursor="hand2", padx=12, pady=6,
+            font=(COL["font"], 11, "bold"))
+        self.bind("<Enter>", lambda e: self._set_over(True))
+        self.bind("<Leave>", lambda e: self._set_over(False))
+        self._draw()
 
-    def _paint(self, over: bool) -> None:
-        if self._disabled:
-            return
+    def _fill_pair(self):
         if self._ghost:
-            bg = self._GHOST_FILL_HOVER if over else self._GHOST_FILL
-            self.config(bg=bg, fg=COL["text"],
-                        activebackground=self._GHOST_FILL_HOVER,
-                        activeforeground=COL["text"])
-            return
+            return self._GHOST_FILL, self._GHOST_FILL_HOVER, COL["text"]
         base = self._FILL.get(self._kind, self._FILL["primary"])
         hover = self._FILL_HOVER.get(self._kind, self._FILL_HOVER["primary"])
-        self.config(bg=hover if over else base, fg="#ffffff",
-                    activebackground=hover, activeforeground="#ffffff")
+        return base, hover, "#ffffff"
 
-    def _press(self) -> None:
+    def _draw(self) -> None:
+        base, hover, fg = self._fill_pair()
+        fill = hover if (self._over and not self._disabled) else base
+        if self._disabled:
+            fill = COL["border"]
+            fg = COL["text_faint"]
+        self.configure(bg=fill, activebackground=hover,
+                       fg=fg, activeforeground=fg)
+
+    def _on_press(self) -> None:
         if self._disabled or not self._command:
             return
         try:
@@ -157,25 +150,27 @@ class _UVButton(tk.Button):
 
     def set_state(self, state: str) -> None:
         self._disabled = state == "disabled"
-        if self._disabled:
-            self.config(state="disabled")
-        else:
-            self.config(state="normal")
-            self._paint(False)
+        self.configure(state=state)
+        self._draw()
 
     def set_text(self, text: str) -> None:
         self._text = text
-        self.config(text=text)
+        self.configure(text=text)
+
+    def _set_over(self, over: bool) -> None:
+        self._over = over
+        if not self._disabled:
+            self._draw()
 
 
 class _UVPhase(tk.Label):
-    """Plain status line — replaces the old decorative badge."""
+    """Plain text status line (no badge, no pill)."""
 
     def __init__(self, parent, text: str = ""):
         tk.Label.__init__(self, parent, text=text,
                           font=(COL["font"], 9), anchor="w",
                           bg=COL["surface"], fg=COL["text_muted"])
-        self._repaint(text, "neutral")
+        self.set_text(text, "neutral")
 
     def set_text(self, text: str, kind: str = "neutral") -> None:
         colors = {"success": COL["success"], "error": COL["error"],
@@ -184,51 +179,27 @@ class _UVPhase(tk.Label):
         self.config(text=text, fg=colors.get(kind, COL["text"]))
 
 
-class _UVBar(tk.Canvas):
-    """Thin flat classic progress bar. No shadow/glow, rectangular caps."""
+class _UVBar(tk.Frame):
+    """Thin flat static progress strip. Static fill, no animation."""
 
     def __init__(self, parent, *, width: int = 430, height: int = 8):
-        self._w = width
-        self._h = height
-        self._pos = 0
+        self._pw = width
+        self._ph = height
         self._running = False
-        self._anim = None
-        tk.Canvas.__init__(self, parent, width=width, height=height,
-                           bg=COL["surface"], highlightthickness=0, bd=0)
-        self._redraw()
-
-    def _redraw(self) -> None:
-        self.delete("all")
-        self.create_rectangle(0, 0, self._w, self._h, fill=COL["border"],
-                              outline="")
-        if self._running:
-            span = 60
-            x = self._pos % (self._w + span)
-            self.create_rectangle(max(0, x - span), 0, min(self._w, x),
-                                  self._h, fill=COL["primary"], outline="")
+        tk.Frame.__init__(self, parent, width=width, height=height,
+                          bg=COL["border"])
+        self.pack_propagate(False)
+        self._fill = tk.Frame(self, bg=COL["primary"])
 
     def start(self) -> None:
         if self._running:
             return
         self._running = True
-        self._loop()
+        self._fill.place(x=0, y=0, width=self._pw // 2, height=self._ph)
 
     def stop(self) -> None:
         self._running = False
-        if self._anim is not None:
-            try:
-                self.after_cancel(self._anim)
-            except Exception:
-                pass
-            self._anim = None
-        self._redraw()
-
-    def _loop(self) -> None:
-        if not self._running:
-            return
-        self._pos = (self._pos + 2) % (self._w + 60)
-        self._redraw()
-        self._anim = self.after(26, self._loop)
+        self._fill.place_forget()
 
 
 class UniversalLicenseCenter:
@@ -1016,26 +987,30 @@ class UniversalLicenseCenter:
         dialog.transient(self._root)
         dialog.grab_set()
 
-        # Simple centered form (no card effects, no shadows, no giant band)
-        main = tk.Frame(dialog, bg=COL["surface"])
-        main.pack(fill="both", expand=True, padx=24, pady=18)
+        # Simple compact rectangular card — no shadow, no layered accent
+        card = tk.Frame(dialog, bg=COL["surface"], bd=0,
+                        highlightthickness=1, highlightbackground=COL["border"])
+        card.pack(fill="both", expand=True, padx=14, pady=12)
+        main = tk.Frame(card, bg=COL["surface"])
+        main.pack(fill="both", expand=True, padx=22, pady=14)
 
-        # ---- Compact heading -------------------------------------------------
+        # ---- Compact heading (coloured accent title) --------------------------
         head = tk.Frame(main, bg=COL["surface"])
         head.pack(fill="x", pady=(0, 2))
         tk.Label(head, text=title,
                  font=(COL["font"], 15, "bold"),
-                 bg=COL["surface"], fg=COL["text"]).pack(anchor="w")
+                 bg=COL["surface"], fg=COL["primary"]).pack(anchor="w")
         tk.Label(head, text="Universal License Engine",
                  font=(COL["font"], 9),
-                 bg=COL["surface"], fg=COL["text_muted"]).pack(anchor="w", pady=(0, 10))
+                 bg=COL["surface"], fg=COL["text_muted"]).pack(anchor="w", pady=(0, 12))
 
         phase = _UVPhase(main)
         phase.pack(anchor="w", pady=(0, 10))
         phase.set_text("Ready", "neutral")
 
         # ---- License key -----------------------------------------------------
-        SectionLabel(main, GlobalMessage.get("ui_enter_license_key")).pack(pady=(0, 6))
+        SectionLabel(main, GlobalMessage.get("ui_enter_license_key"),
+                     color=COL["primary"]).pack(pady=(0, 6))
         key_entry = _UVInput(main, width=440, justify="center")
         key_entry.pack(fill="x", pady=(0, 2))
         if self.engine and self.engine.get_license_key():
@@ -1060,7 +1035,8 @@ class UniversalLicenseCenter:
         tk.Frame(main, bg=COL["border"], height=1).pack(fill="x", pady=(10, 14))
 
         # ---- OTP ---------------------------------------------------------------
-        SectionLabel(main, GlobalMessage.get("ui_otp_label")).pack(anchor="w", pady=(0, 6))
+        SectionLabel(main, GlobalMessage.get("ui_otp_label"),
+                     color=COL["success"]).pack(anchor="w", pady=(0, 6))
         otp_row = tk.Frame(main, bg=COL["surface"])
         otp_row.pack(fill="x", pady=(0, 6))
         otp_entry = _UVInput(otp_row, width=200, justify="center")
@@ -1124,6 +1100,15 @@ class UniversalLicenseCenter:
             lic = result.get('license') or {}
             cust = result.get('customer') or {}
             err = result.get('error') or {}
+            # Rule 5: pass through the server-provided message verbatim when the
+            # backend supplied one (it is the source of truth for the failure).
+            server_msg = result.get('message')
+            if not server_msg and isinstance(err, dict):
+                server_msg = err.get('message')
+            if isinstance(server_msg, dict):
+                server_msg = server_msg.get('message')
+            if server_msg:
+                return str(server_msg)
             if result.get('new_customer') or not lic:
                 if not cust.get('email'):
                     return GlobalMessage.get("ui_customer_not_found")

@@ -171,18 +171,20 @@ See master doc **SECTION 0E**. Never regress:
   formerly `activation.py`) is a contained step machine (`key` → `otp` → `final`)
   using `_set_phase`, `GradientHeader` card, shared `format_timer` countdown,
   `StatusPill` + `ProgressBar` progress, and `GlobalMessage`.
-- **ULC activation form visual (SIMPLE CLASSIC TK, no Uiverse FX)**: the visible
-  activation UI is built with the file-local `_UVInput`/`_UVButton` widgets in
-  `universal_license_center.py` as plain classic tkinter — white 1px-bordered
-  text input, flat `tk.Button` with subtle colour-only hover, `_UVPhase` text
-  label (no oval badge), `_UVBar` thin 8px progress, and a plain `tk.Frame` form
-  (no `Card`/gradients/shadows/rounded corners). `docs/UI.MD` is used for
-  structure only. Visual layer only: the activation/renewal workflow, auto-OTP,
-  5-minute OTP timer, GlobalMessage, success dialog + SDK restart and engine
-  delegation stay unchanged. Their API mirrors `RoundedEntry`/`StyledButton`
+- **ULC activation form visual (compact colorful modern):** the visible activation
+  UI in `universal_license_center.py` is a custom compact layer over classic
+  tkinter — small centered card/container (subtle 1px border + primary 3px top
+  accent), `_UVInput` rectangular textbox with slightly rounded corners and an
+  accent focus ring (NO oval/pill shapes), `_UVButton` flat colourful buttons
+  (primary/success/ghost) with a simple colour-only hover, `_UVPhase` plain text
+  status line (no oval/Stupid badge), `_UVBar` thin 8px progress. No gradients,
+  glow, shadows or animation. `docs/UI.MD` is used for structure/visual reference
+  only. Visual layer only: the activation/renewal workflow, auto-OTP, 5-minute
+  OTP timer, GlobalMessage, success dialog + SDK restart and engine delegation
+  stay unchanged. Their API mirrors `RoundedEntry`/`StyledButton`
   (`.get`/`.state`/`.entry`, `.set_state`/`.set_text`/`._command`, `.start`/
-  `.stop`) so handlers never change. Never re-introduce card/glow/shadow/pill
-  effects into the activation form.
+  `.stop`) so handlers never change. Never remove fields, merge/hide controls,
+  rename callbacks, or change button behaviour.
 - **`activation.py` is the full standalone Activation UI again (ROLLBACK)**: it was
   rolled back from a thin re-export to the standalone `ActivationDialog` window
   (Hardware / Customer / Trial / License cards, Refresh + Activate actions, OTP
