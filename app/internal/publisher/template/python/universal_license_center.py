@@ -852,9 +852,8 @@ class UniversalLicenseCenter:
         if self.engine and self.engine.get_license_key():
             key_entry.insert(0, self.engine.get_license_key())
         hw_id = self.hardware.get_fingerprint()
-        hw = Subtitle(main, size=8)
+        hw = Subtitle(main, GlobalMessage.get("ui_hardware_hint", hw_id[:16] + "…"), size=8)
         hw.pack(anchor="w", pady=(0, 10))
-        hw.config(text=GlobalMessage.get("ui_hardware_hint", hw_id[:16] + "…"))
 
         validate_btn = StyledButton(main, "Validate License", kind="primary", width=440)
         validate_btn.pack(fill="x", pady=(4, 8))

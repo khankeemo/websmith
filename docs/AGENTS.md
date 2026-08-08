@@ -170,8 +170,15 @@ See master doc **SECTION 0E**. Never regress:
 - **Activation dialog** (`_show_key_flow_dialog` in `universal_license_center.py`,
   formerly `activation.py`) is a contained step machine (`key` → `otp` → `final`)
   using `_set_phase`, `GradientHeader` card, shared `format_timer` countdown,
-  `StatusPill` + `ProgressBar` progress, and `GlobalMessage`. `activation.py` is a
-  thin re-export only.
+  `StatusPill` + `ProgressBar` progress, and `GlobalMessage`.
+- **`activation.py` is the full standalone Activation UI again (ROLLBACK)**: it was
+  rolled back from a thin re-export to the standalone `ActivationDialog` window
+  (Hardware / Customer / Trial / License cards, Refresh + Activate actions, OTP
+  step, GlobalMessage-driven status, restart confirmation). It still delegates to
+  `LicenseEngine` (`validate_license_key`, `send_otp`, `verify_otp`, `activate`,
+  `refresh`) and resolves every message through `GlobalMessage` — no raw
+  `client`/`cache` decision logic. `open_activation_dialog(center)` opens it.
+  Keep it a UI-layer module (SECTION 0C engine-first, no duplicate backend logic).
 - Internal APIs/vars must never clobber tk.Canvas internals (use `_pw`, never
   overwrite `_w`); keep the engine surface (`_active_*`) unchanged per SECTION 0C.
 - Runtime-guarded via `python -m py_compile` + headless Tk construction smoke test;
