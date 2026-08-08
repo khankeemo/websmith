@@ -1028,7 +1028,7 @@ class UniversalLicenseCenter:
         progress.pack(fill="x", pady=(6, 0))
 
         details = Label(main, text="", justify="left", wraplength=430, size=9,
-                        color=COL["text_muted"])
+                        color=COL["text_muted"], height=6)
         details.pack(fill="x", pady=(6, 2))
 
         # ---- divider -----------------------------------------------------------
@@ -1055,7 +1055,7 @@ class UniversalLicenseCenter:
         final_btn.set_state("disabled")
 
         cancel_btn = _UVButton(main, "Cancel", kind="ghost", width=440)
-        cancel_btn.pack(fill="x", pady=(0, 0))
+        cancel_btn.pack(fill="x", pady=(0, 10))
 
         # ---- Shared state & controls ------------------------------------------
         state = {"validated": False, "otp_verified": False, "email": "",
