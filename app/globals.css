@@ -739,3 +739,211 @@ main.app-main-shell[data-shell="panel"] .app-main-scroll {
     animation: none;
   }
 }
+
+/* ============================================================
+   UIVERSE REFERENCE DESIGN SYSTEM (docs/UI.MD)
+   Visual references from https://uiverse.io — re-published under
+   the uv- prefix so they never clash with the existing design
+   system. Keep in sync with docs/UI.md.
+   ============================================================ */
+
+/* ---------- 1. Button design (reference: Navarog21) ---------- */
+.uv-button {
+  width: 10em;
+  position: relative;
+  height: 3.5em;
+  border: 3px ridge #149CEA;
+  outline: none;
+  background-color: transparent;
+  color: white;
+  transition: 1s;
+  border-radius: 0.3em;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.uv-button::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 3%;
+  width: 95%;
+  height: 40%;
+  background-color: #212121;
+  transition: 0.5s;
+  transform-origin: center;
+}
+
+.uv-button::before {
+  content: "";
+  transform-origin: center;
+  position: absolute;
+  top: 80%;
+  left: 3%;
+  width: 95%;
+  height: 40%;
+  background-color: #212121;
+  transition: 0.5s;
+}
+
+.uv-button:hover::before,
+.uv-button:hover::after {
+  transform: scale(0);
+}
+
+.uv-button:hover {
+  box-shadow: inset 0px 0px 25px #1479EA;
+}
+
+/* ---------- 2 · Textbox / input design (alexruix) ---------- */
+.uv-input {
+  max-width: 190px;
+  height: 44px;
+  background-color: #05060f0a;
+  border-radius: 0.5rem;
+  padding: 0 1rem;
+  border: 2px solid transparent;
+  font-size: 1rem;
+  transition:
+    border-color 0.3s cubic-bezier(0.25, 0.01, 0.25, 1) 0s,
+    color 0.3s cubic-bezier(0.25, 0.01, 0.25, 1) 0s,
+    background 0.2s cubic-bezier(0.25, 0.01, 0.25, 1) 0s;
+}
+
+.uv-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #05060f99;
+  transition: color 0.3s cubic-bezier(0.25, 0.01, 0.25, 1) 0s;
+}
+
+.uv-input:hover,
+.uv-input:focus,
+.uv-input-group:hover .uv-input {
+  outline: none;
+  border-color: #05060f;
+}
+
+.uv-input-group:hover .uv-label,
+.uv-input:focus {
+  color: #05060fc2;
+}
+
+/* ---------- 3 · Card design (05akalan57) ---------- */
+.uv-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background-color: #3d3c3d;
+  box-shadow: 0 15px 35px -15px rgba(0, 0, 0, 0.55);
+}
+
+.uv-card-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  opacity: 0.9;
+  border-radius: 0.75rem;
+  background-color: #323132;
+  color: #ffffff;
+}
+
+.uv-card-glow {
+  position: absolute;
+  left: -50%;
+  top: -50%;
+  width: 60%;
+  height: 40%;
+  background: rgba(255, 255, 255, 0.35);
+  filter: blur(50px);
+  pointer-events: none;
+}
+
+/* ---------- 4 · Form design (Smit-Prajapati) ---------- */
+.uv-form-container {
+  max-width: 350px;
+  background: #f8f9fd;
+  background: linear-gradient(
+    0deg,
+    rgb(255, 255, 255) 0%,
+    rgb(244, 247, 251) 100%
+  );
+  border-radius: 40px;
+  padding: 25px 35px;
+  border: 5px solid rgb(255, 255, 255);
+  box-shadow:
+    rgba(133, 189, 215, 0.8784313725) 0px 30px 30px -20px;
+  margin: 20px;
+}
+
+.uv-heading {
+  text-align: center;
+  font-weight: 900;
+  font-size: 30px;
+  color: rgb(16, 137, 211);
+}
+
+.uv-form {
+  margin-top: 20px;
+}
+
+.uv-form .uv-input {
+  width: 100%;
+  max-width: none;
+  background: white;
+  border: none;
+  padding: 15px 20px;
+  border-radius: 20px;
+  margin-top: 15px;
+  box-shadow: #cff0ff 0px 10px 10px -5px;
+  border-inline: 2px solid transparent;
+}
+
+.uv-form .uv-input:hover {
+  border-color: transparent;
+}
+
+.uv-form .uv-input:focus {
+  outline: none;
+  border-inline: 2px solid #12b1d1;
+  border-color: #12b1d1;
+}
+
+.uv-login-button {
+  display: block;
+  width: 100%;
+  font-weight: bold;
+  background: linear-gradient(
+    45deg,
+    rgb(16, 137, 211) 0%,
+    rgb(18, 177, 209) 100%
+  );
+  color: white;
+  padding-block: 15px;
+  margin: 20px auto;
+  border-radius: 20px;
+  border: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.uv-login-button:hover {
+  transform: scale(1.03);
+}
+
+.uv-login-button:active {
+  transform: scale(0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uv-button,
+  .uv-input,
+  .uv-label,
+  .uv-login-button {
+    transition: none;
+  }
+}

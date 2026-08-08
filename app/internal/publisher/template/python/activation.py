@@ -15,6 +15,8 @@ Required workflow (SECTION 0B/0C, LOCKED §10):
 """
 from typing import Any, Dict, Optional
 
+import tkinter as tk
+
 from .license_engine import LicenseEngine, LicenseStatus
 from .hardware import HardwareDetector
 from .global_message import GlobalMessage
@@ -28,6 +30,101 @@ __all__ = [
     "open_activation_dialog",
     "ActivationDialog",
 ]
+
+
+# ---------------------------------------------------------------------------
+# UI.MD visual layer (docs/UI.MD) — cosmetic only, no behaviour changes.
+#
+# Thin subclasses of ui_styles that re-skin the window with the Uiverse.io
+# reference palette: #149CEA / #1479EA ridge-glow buttons (Navarog21),
+# #12B1D1 focus-ring inputs (alexruix), and the soft form card
+# (Smit-Prajapati / 05akalan57). Dimensions stay compact and token-driven so
+# the dialog remains high-DPI friendly and never clipped or oversized.
+# ---------------------------------------------------------------------------
+from .ui_styles import (
+    COL, RADIUS, INPUT_H,
+    GradientHeader, Card, Button,
+    RoundedEntry, Label, SectionLabel, Subtitle, StatusPill, ProgressBar,
+    hex_lerp, _rrect,
+)
+
+_UV_PRIMARY = "#149CEA"
+_UV_PRIMARY_HOVER = "#0ec4ea"
+_UV_ACCENT = "#12B1D1"
+_UV_GLOW = "#35ccff"
+
+
+class _UvButton(Button):
+    """Ridge-outlined glow button in the spirit of the UI.MD button pattern.
+
+    Same compact geometry + hover tween as the shared kit Button; the hover
+    state also paints a luminous inner ring instead of a flat fill change.
+    Discrete states (primary / success / ghost) are preserved.
+    """
+
+    _UV_FILLS = {
+        "primary": (_UV_PRIMARY, _UV_PRIMARY_HOVER),
+        "success": ("#16a34a", "#2bbf64"),
+        "ghost":   ("#eef1f6", "#e6ebf5"),
+    }
+
+    def _fill_now(self) -> str:
+        if self._disabled:
+            return COL["border"]
+        base, hover = self._UV_FILLS.get(self._kind, self._UV_FILLS["primary"])
+        return hover if self._over else base
+
+    def _fg(self) -> str:
+        if self._disabled:
+            return COL["text_faint"]
+        return COL["text"] if self._kind == "ghost" else "#ffffff"
+
+    def _ring(self) -> None:
+        self.delete("ring")
+        if self._over and not self._disabled:
+            _rrect(self, 2, 2, self._width - 2, self._height - 2, RADIUS - 1,
+                   outline=hex_lerp("#ffffff", _UV_GLOW, 0.25), width=2, tags="ring")
+
+    def _draw(self) -> None:
+        self.delete("all")
+        self._current = self._fill_now()
+        _rrect(self, 1, 1, self._width - 1, self._height - 1, RADIUS,
+               fill=self._current, outline="", tags="face")
+        self.create_text(self._width // 2, self._height // 2 + 1, text=self._text,
+                         fill=self._fg(), font=(COL["font"], 11, "bold"), tags="label")
+        self._ring()
+
+    def _body_only(self, fill: str) -> None:
+        self.delete("face")
+        _rrect(self, 1, 1, self._width - 1, self._height - 1, RADIUS,
+               fill=fill, outline="", tags="face")
+        self._ring()
+
+
+class _UvEntry(RoundedEntry):
+    """Input in the spirit of the alexruix input reference: a soft neutral
+    edge that lights up with a cyan focus ring when the field is active."""
+
+    def _paint(self, focused: bool) -> None:
+        tk.Canvas.delete(self, "frame")
+        _rrect(self, 1, 1, self._width - 1, INPUT_H - 1, RADIUS,
+               fill=COL["surface"],
+               outline=_UV_ACCENT if focused else "#d3d9e6",
+               width=2 if focused else 1,
+               tags="frame")
+
+
+class _UvFormCard(Card):
+    """Soft form card from the kimi (form reference); white surface on a
+    faint cyan shadow so the dialog content reads as one contained unit."""
+
+    def __init__(self, parent, *, padx: int = 24, pady: int = 18):
+        tk.Frame.__init__(self, parent, bg="#d7ecf4")
+        inner = tk.Frame(self, bg="#ffffff",
+                         highlightthickness=1, highlightbackground="#cfe6f2")
+        inner.pack(fill="both", expand=True, padx=2, pady=2)
+        self.body = tk.Frame(inner, bg="#ffffff")
+        self.body.pack(fill="both", expand=True, padx=padx, pady=pady)
 
 
 def activate_license(engine: LicenseEngine, license_key: str) -> Dict[str, Any]:
@@ -80,10 +177,9 @@ class ActivationDialog:
 
     # -- window lifespan --------------------------------------------------
     def show(self) -> Dict[str, Any]:
-        import tkinter as tk
         from .ui_styles import (
-            COL, GradientHeader, Card, Button as StyledButton,
-            RoundedEntry, Label, SectionLabel, Subtitle, StatusPill, ProgressBar,
+            COL, GradientHeader,
+            Label, SectionLabel, Subtitle, StatusPill, ProgressBar,
         )
 
         self._root = tk.Toplevel()
@@ -101,7 +197,7 @@ class ActivationDialog:
         GradientHeader(self._root, title="Activate License",
                        subtitle=self.product_name or "Universal License Engine",
                        height=64).pack(fill="x")
-        card = Card(self._root, padx=24, pady=18)
+        card = _UvFormCard(self._root, padx=24, pady=18)
         card.pack(fill="both", expand=True, padx=2, pady=2)
         main = card.body
 
@@ -110,7 +206,7 @@ class ActivationDialog:
         phase.set_text("Ready", "neutral")
 
         SectionLabel(main, GlobalMessage.get("ui_enter_license_key")).pack(pady=(0, 6))
-        key_entry = RoundedEntry(main, width=460, justify="center")
+        key_entry = _UvEntry(main, width=460, justify="center")
         key_entry.pack(fill="x", pady=(0, 4))
         if self.engine.get_license_key():
             key_entry.insert(0, self.engine.get_license_key())
@@ -118,7 +214,7 @@ class ActivationDialog:
         hw = Subtitle(main, GlobalMessage.get("ui_hardware_hint", (self._hardware_id or "")[:16] + "…"), size=8)
         hw.pack(anchor="w", pady=(0, 10))
 
-        validate_btn = StyledButton(main, "Validate License", kind="primary", width=460)
+        validate_btn = _UvButton(main, "Validate License", kind="primary", width=460)
         validate_btn.pack(fill="x", pady=(4, 8))
 
         status = Label(main, text="", justify="center", wraplength=430)
@@ -133,18 +229,18 @@ class ActivationDialog:
         SectionLabel(main, GlobalMessage.get("ui_otp_label")).pack(pady=(14, 6))
         otp_row = tk.Frame(main, bg=COL["surface"])
         otp_row.pack(fill="x", pady=(0, 4))
-        otp_entry = RoundedEntry(otp_row, width=200, justify="center")
+        otp_entry = _UvEntry(otp_row, width=200, justify="center")
         otp_entry.pack(side="left", expand=True, fill="x")
-        verify_btn = StyledButton(otp_row, "Verify", kind="success", width=122)
+        verify_btn = _UvButton(otp_row, "Verify", kind="success", width=122)
         verify_btn.pack(side="left", padx=(8, 0))
 
-        resend_btn = StyledButton(main, "Resend OTP", kind="ghost", width=150)
+        resend_btn = _UvButton(main, "Resend OTP", kind="ghost", width=150)
         resend_btn.pack(anchor="w", pady=(6, 2))
 
         # Final action
-        activate_btn = StyledButton(main, "Activate License", kind="primary", width=460)
+        activate_btn = _UvButton(main, "Activate License", kind="primary", width=460)
         activate_btn.pack(fill="x", pady=(14, 6))
-        cancel_btn = StyledButton(main, "Cancel", kind="ghost", width=460)
+        cancel_btn = _UvButton(main, "Cancel", kind="ghost", width=460)
         cancel_btn.pack(fill="x", pady=(0, 0))
 
         # Initial disabled states
