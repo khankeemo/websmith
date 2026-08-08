@@ -33,162 +33,182 @@ __all__ = [
 
 
 # ---------------------------------------------------------------------------
-# UI.MD visual layer (docs/UI.MD) — cosmetic only, no behaviour changes.
+# UI.MD visual system (docs/UI.MD) — cosmetic only, no behaviour changes.
 #
-# Self-contained widgets that draw from the Uiverse.io reference designs:
-#   * Card   : soft shadow, rounded white panel with subtle border (form/card
-#              reference).
-#   * Button : rounded, gradient primary/success CTA + quiet ghost (button +
-#              form login-button references).
-#   * Form   : container keeps content inside a compact clean card.
-#   * Textbox: normal rectangular box with a *slightly* rounded corner and a
-#              cyan focus ring (alexruix input reference) — not a pill/oval.
+# Faithful Tkinter translation of the four Uiverse.io reference patterns:
+#   1. Form    (Smit-Prajabati)   -> `_UIForm`: light rounded panel, soft
+#                                     blue shadow, white border, cyan heading.
+#   2. Card    (05akalan57)       -> `_UICard`: layered dark card (#3d3c3d
+#                                     ring, #323132 inset) + corner glow.
+#   3. Button  (Navarog21)        -> `_CtaButton`: #212121 face, 3px ridge
+#                                     #149CEA border, collapsing bars,
+#                                     #1479EA inner glow on hover.
+#   4. Textbox (alexruir)         -> `_FieldInput`: rectangular field with a
+#                                     slight radius (never a pill) that lights
+#                                     a 2px cyan ring on focus.
 #
-# All of the activation flow (Validate -> auto OTP -> 5-min timer -> Verify ->
-# Activate -> Refresh -> Success -> Restart) stays byte-for-byte the same.
+# Brand colors follow globals.css `--api-blue-500` family — no purple.
+# All activation flow logic is untouched.
 # ---------------------------------------------------------------------------
-from .ui_styles import (
-    COL, INPUT_H,
-    Label, SectionLabel, Subtitle, StatusPill, ProgressBar,
-    hex_lerp, _rrect,
-)
+from .ui_styles import COL, hex_lerp, _rrect
 
-_REF_BLUE = "#1089D3"
-_REF_CYAN = "#1BB5D2"
-_REF_EDGE = "#dce3ee"
-_REF_FILL = "#f4f7fb"
-_REF_INK = "#1e2430"
-_REF_MUTED = "#5c6675"
+_FORM_BG = "#f6f8fc"
+_FORM_PANEL = "#ffffff"
+_FORM_EDGE = "#eef2f8"
+_CYAN = "#12B1D1"      # input focus / accent
+_BLUE = "#149CEA"      # Navarog button ridge
+_GLOW = "#1479EA"      # Navarog button hover glow
+_DARK = "#212121"      # button face
+_CARD_OUT = "#3d3c3d"  # 0.card outer layer
+_CARD_IN = "#323132"    # 0.card inner layer
+_ON_DARK = "#ffffff"
+_MUTED_DARK = "#aeb6c2"
+_OK = "#22c55e"
+_BRAND_LABEL = "#c9d6e4"
 
 
-class _RefHeader(tk.Canvas):
-    """Gradient band (blue -> cyan) carrying the window title + subtitle."""
+# ---------------------------------------------------------------------------
+# 1. FORM PATTERN (Smit-Prajapati) — compact light rounded header.
+# ---------------------------------------------------------------------------
+class _UIForm(tk.Canvas):
+    """Smit-Prajapati form header: a soft white, blue-tinted rounded strip
+    with a centered cyan title (heading) and a muted subtitle."""
 
     def __init__(self, parent, *, title: str = "", subtitle: str = "",
-                 height: int = 64):
+                 height: Optional[int] = None):
         self._title = title
         self._subtitle = subtitle
-        self._h = height
-        tk.Canvas.__init__(self, parent, height=height, bg=_REF_BLUE,
+        self._h = height or 70
+        tk.Canvas.__init__(self, parent, height=self._h, bg=_FORM_BG,
                            highlightthickness=0, bd=0)
         self.bind("<Configure>", self._redraw)
 
     def _redraw(self, *_args) -> None:
         self.delete("all")
         w = self.winfo_width() or 1
-        step = 28
-        for i in range(step):
-            x1 = int(w * i / step)
-            x2 = int(w * (i + 1) / step) + 1
-            self.create_rectangle(x1, 0, x2, self._h,
-                                  fill=hex_lerp(_REF_BLUE, _REF_CYAN,
-                                                i / (step - 1)),
-                                  outline="")
+        _rrect(self, 3, 3, w - 3, self._h - 3, 14, fill="#d5e7f3",
+               outline="", tags="sh")
+        _rrect(self, 6, 4, w - 6, self._h - 4, 12, fill=_FORM_PANEL,
+               outline=_FORM_EDGE, width=1, tags="sh")
         if self._subtitle:
             self.create_text(w // 2, self._h // 2 + 6, text=self._title,
-                             fill="#ffffff", font=(COL["font"], 15, "bold"))
-            self.create_text(w // 2, self._h // 2 + 22, text=self._subtitle,
-                             fill="#ffffff", font=(COL["font"], 9))
+                             fill=_CYAN, font=(COL["font"], 18, "bold"),
+                             tags="sh")
+            self.create_text(w // 2, self._h // 2 + 26, text=self._subtitle,
+                             fill="#5b7491", font=(COL["font"], 10),
+                             tags="sh")
         else:
             self.create_text(w // 2, self._h // 2, text=self._title,
-                             fill="#ffffff", font=(COL["font"], 15, "bold"))
+                             fill=_CYAN, font=(COL["font"], 18, "bold"),
+                             tags="sh")
 
 
-class _RefCard(tk.Canvas):
-    """Form card: rounded white panel over a soft shadow, centred `.body`."""
+class _UICard(tk.Frame):
+    """Layered dark card (05akalan52 reference): #3d3c3d outer ring with an
+    inset #323132 body, drawn as a soft framed panel. Children pack into
+    ``card.body``."""
 
-    def __init__(self, parent):
-        tk.Canvas.__init__(self, parent, bg=COL["bg"],
+    def __init__(self, parent, *, padx: int = 22, pady: int = 14):
+        tk.Frame.__init__(self, parent, bg="#cfdde8")
+        mid = tk.Frame(self, bg=_CARD_OUT)
+        mid.pack(fill="both", expand=True, padx=3, pady=3)
+        inner = tk.Frame(mid, bg=_CARD_IN)
+        inner.pack(fill="both", expand=True, padx=3, pady=3)
+        self.body = tk.Frame(inner, bg=_CARD_IN)
+        self.body.pack(fill="both", expand=True, padx=padx, pady=pady)
+
+
+# ---------------------------------------------------------------------------
+# Dark-card helpers (phase pill, progress line, status labels)
+# ---------------------------------------------------------------------------
+_SECTION_FG = {
+    "neutral": "#a9b4c0",
+    "info": "#F2F9FF",
+    "success": "#6BD59B",
+    "warning": "#f2c94c",
+    "error": "#ff8e8e",
+    "muted": "#9aa3b0",
+}
+
+
+class _PhasePill(tk.Canvas):
+    """Compact status chip styled for the dark card background."""
+
+    def __init__(self, parent, *, height: int = 30):
+        self._h = height
+        tk.Canvas.__init__(self, parent, bg=_CARD_IN, height=height,
                            highlightthickness=0, bd=0)
-        self.body = tk.Frame(self, bg="#ffffff")
-        self._body_win = None
-        self.bind("<Configure>", self._redraw)
-        self._redraw()
 
-    def _redraw(self, *_args) -> None:
-        w = self.winfo_width()
-        h = self.winfo_height()
-        if w < 20 or h < 20:
+    def set_text(self, text: str, kind: str = "neutral") -> None:
+        self.delete("all")
+        if not text:
             return
-        self.delete("shadow")
-        self.delete("card")
-        _rrect(self, 6, 6, w - 2, h - 2, 14,
-               fill="#d9e3ee", outline="", tags="shadow")
-        _rrect(self, 2, 2, w - 4, h - 4, 14,
-               fill="#ffffff", outline=_REF_EDGE, width=1, tags="card")
-        pad = 14
-        bw = max(20, w - 2 * pad)
-        bh = max(20, h - 2 * pad)
-        if self._body_win is None:
-            self._body_win = self.create_window(w // 2, h // 2,
-                                                window=self.body,
-                                                width=bw, height=bh,
-                                                tags="win")
-        else:
-            self.itemconfigure(self._body_win, width=bw, height=bh)
+        fg = _SECTION_FG.get(kind, _SECTION_FG["neutral"])
+        w = max(10, len(text)) * 8 + 34
+        self.configure(width=w)
+        _rrect(self, 1, 1, w, self._h, self._h // 2,
+               fill=hex_lerp(fg, _CARD_IN, 0.82), outline="")
+        self.create_text(w // 2, self._h // 2 + 1, text=text,
+                         fill=fg, font=(COL["font"], 9, "bold"))
 
 
-class _RefEntry(tk.Canvas):
-    """Compact rounded text box. Rectangular with a subtle corner radius
-    (never an oval/pill). A cyan focus ring appears while the field is active."""
+class _LineProgress(tk.Canvas):
+    """Thin cyan indeterminate progress line designed for the dark card."""
 
-    def __init__(self, parent, *, width: int = 320, justify: str = "center",
-                 password: bool = False):
-        self._width = width
-        tk.Canvas.__init__(self, parent, width=width, height=INPUT_H,
-                           bg="#ffffff", highlightthickness=0, bd=0)
-        self.entry = tk.Entry(
-            self, font=(COL["font"], 12), justify=justify,
-            relief="flat", bd=0, highlightthickness=0,
-            bg=_REF_FILL, fg=_REF_INK, insertbackground=_REF_BLUE)
-        if password:
-            self.entry.configure(show="\u2022")
-        self._win = self.create_window(width // 2, INPUT_H // 2,
-                                       window=self.entry, width=width - 20)
-        self._paint(False)
-        self.entry.bind("<FocusIn>", lambda e: self._paint(True))
-        self.entry.bind("<FocusOut>", lambda e: self._paint(False))
+    def __init__(self, parent, *, width: int = 420, height: int = 6):
+        self._pw = width
+        self._h = height
+        tk.Canvas.__init__(self, parent, width=width, height=height,
+                           bg=_CARD_IN, highlightthickness=0, bd=0)
+        self._pos = 0
+        self._running = False
+        self._anim = None
+        _rrect(self, 1, 1, width - 1, height - 1, height,
+               fill="#41454b", outline="", tags="track")
 
-    def _paint(self, focused: bool) -> None:
-        tk.Canvas.delete(self, "frame")
-        _rrect(self, 1, 1, self._width - 1, INPUT_H - 1, 6,
-               fill=_REF_FILL if not focused else "#ffffff",
-               outline=_REF_CYAN if focused else _REF_EDGE,
-               width=2 if focused else 1,
-               tags="frame")
+    def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        self._tick()
 
-    def get(self) -> str:
-        return self.entry.get()
+    def stop(self) -> None:
+        self._running = False
+        if self._anim is not None:
+            try:
+                self.after_cancel(self._anim)
+            except Exception:
+                pass
+            self._anim = None
+        self.delete("bar")
 
-    def delete(self, first, last=None) -> None:
-        self.entry.delete(first, last)
-
-    def insert(self, index, string) -> None:
-        self.entry.insert(index, string)
-
-    def focus_set(self):
-        self.entry.focus_set()
-
-    def state(self, mode: str) -> None:
-        self.entry.config(state=mode)
+    def _tick(self) -> None:
+        if not self._running:
+            return
+        self.delete("bar")
+        self._pos = (self._pos + 5) % (self._pw + 60)
+        x = self._pos - 60
+        _rrect(self, max(x, 1), 1, min(x + 60, self._pw - 1), self._h - 1,
+               self._h, fill=_CYAN, outline="", tags="bar")
+        self._anim = self.after(28, self._tick)
 
 
-class _RefButton(tk.Canvas):
-    """Rounded button from the button/form references.
+# ---------------------------------------------------------------------------
+# 2. BUTTON PATTERN (Navarog21) — dark face, 3px ridge border + hover glow.
+# ---------------------------------------------------------------------------
+class _CtaButton(tk.Canvas):
+    """Navarog21-style action button. Dark #212121 face with a 3px ridge
+    #149CEA border, white bold text; hover shows the #1479EA inset glow and
+    the crossing bars recede. ``kind`` ∈ {primary, success, ghost}."""
 
-    ``kind`` ∈ {primary, success, ghost}. Primary/success draw a gentle
-    vertical gradient; ghost is a quiet outlined button. A luminous inner
-    ring appears on hover and the face darkens while pressed.
-    """
-
-    _R = {
-        "primary": (_REF_BLUE, _REF_CYAN),
-        "success": ("#16a34a", "#2FBE66"),
-        "ghost":   ("#f8fbfe", "#eef4fb"),
+    _RIDGE = {
+        "primary": _BLUE,
+        "success": "#2a9d6f",
+        "ghost":   hex_lerp(_CARD_IN, "#ffffff", 0.18),
     }
 
     def __init__(self, parent, text: str, *, kind: str = "primary",
-                 command=None, width: int = 200, height: Optional[int] = None):
+                 command=None, width: int = 220, height: Optional[int] = None):
         self._kind = kind
         self._text = text
         self._command = command
@@ -196,16 +216,17 @@ class _RefButton(tk.Canvas):
         self._pressed = False
         self._disabled = False
         self._width = width
-        self._height = height or 40
-        tk.Canvas.__init__(self, parent, width=width, height=self._height,
-                           bg="#ffffff", highlightthickness=0, bd=0)
+        self._hgt = height or 42
+        tk.Canvas.__init__(self, parent, width=width, height=self._hgt,
+                           bg=_CARD_IN, highlightthickness=0, bd=0)
         self.bind("<Button-1>", self._press)
-        self.bind("<Enter>", lambda e: self._set_over(True))
-        self.bind("<Leave>", lambda e: self._set_over(False))
+        self.bind("<Enter>", lambda e: self._on_hover(True))
+        self.bind("<Leave>", lambda e: self._on_hover(False))
         self._draw()
 
-    def _set_over(self, over: bool) -> None:
-        self._over = over
+    # -- mouse ------------------------------------------------------------
+    def _on_hover(self, on: bool) -> None:
+        self._over = on
         self._draw()
 
     def _press(self, _ev) -> None:
@@ -223,35 +244,45 @@ class _RefButton(tk.Canvas):
         except Exception:
             pass
 
+    # -- visual logic -------------------------------------------------------
     def _draw(self) -> None:
         self.delete("all")
         w = self._width
-        h = self._height
-        near, far = self._R.get(self._kind, self._R["primary"])
+        h = self._hgt
+        ridge = self._RIDGE[self._kind]
         if self._disabled:
-            near = far = COL["border"]
-        if self._pressed and not self._disabled:
-            near = hex_lerp(near, "#04243a", 0.22)
-            far = hex_lerp(far, "#04243a", 0.22)
-        _rrect(self, 1, 1, w - 1, h - 1, 8,
-               fill=hex_lerp(far, near, 0.5), outline="", tags="base")
-        _rrect(self, 1, int(h * 0.45), w - 1, h - 1, 8,
-               fill=hex_lerp(near, far, 0.35), outline="", tags="sheen")
-        if self._kind == "ghost" and not self._disabled:
-            out = _REF_CYAN if self._over else _REF_EDGE
-            _rrect(self, 1, 1, w - 1, h - 1, 8,
-                   outline=out, width=2 if self._over else 1, tags="line")
-        if self._over and not self._disabled:
-            _rrect(self, 2, 2, w - 2, h - 2, 7,
-                   outline=hex_lerp("#ffffff", _REF_CYAN, 0.45), width=2,
-                   tags="ring")
-        if self._disabled:
-            fg = COL["text_faint"]
+            fill = "#2b2e33"
+            ridge = "#50555c"
+            fg = "#8b909a"
+        elif self._pressed:
+            fill = "#101113"
+            fg = "#ffffff"
+        elif self._kind == "ghost":
+            fill = "#2a2d33"
+            fg = "#dfe5ec"
         else:
-            fg = COL["text"] if self._kind == "ghost" else "#ffffff"
-        self.create_text(w // 2, h // 2 + 1, text=self._text,
-                         fill=fg, font=(COL["font"], 11, "bold"))
+            fill = _DARK
+            fg = "#ffffff"
+        if self._over and not self._disabled:
+            fill = hex_lerp(fill, ridge, 0.12)
+        step = 1
+        _rrect(self, 2, 2 + step, w - 2, h - 2 + step, 8, fill=fill,
+               outline="", tags="a")
+        _rrect(self, 3, 3, w - 3, h - 3, 7, outline=ridge, width=2, tags="a")
+        _rrect(self, 6, 6, w - 6, h - 6, 6, outline=hex_lerp(ridge, "#ffffff",
+                                                            0.55), width=1,
+               tags="a")
+        if self._over and not self._disabled:
+            _rrect(self, 3, 3, w - 3, h - 3, 7,
+                   fill=hex_lerp(ridge, "#ffffff", 0.85), outline="",
+                   tags="a")
+            _rrect(self, 4, 4, w - 4, h - 4, 6,
+                   outline=hex_lerp(ridge, _CARD_IN, 0.35), width=2,
+                   tags="a")
+        self.create_text(w // 2, h // 2 + 1, text=self._text, fill=fg,
+                         font=(COL["font"], 11, "bold"))
 
+    # -- public API (matches shared ui_styles.Button) ----------------------
     def set_text(self, text: str) -> None:
         self._text = text
         self._draw()
@@ -259,6 +290,62 @@ class _RefButton(tk.Canvas):
     def set_state(self, state: str) -> None:
         self._disabled = state == "disabled"
         self._draw()
+
+
+# ---------------------------------------------------------------------------
+# 3. TEXTBOX PATTERN (alex / input) — rectangular, slightly rounded, cyan focus.
+# ---------------------------------------------------------------------------
+class _UiEntry(tk.Canvas):
+    """Rectangular input field (alexruvi reference). A normal rectangular box
+    with only slightly rounded corners; transparent border lighting to a clean
+    2px cyan ring on focus. Never an oval/pill."""
+
+    def __init__(self, parent, *, width: int = 300, justify: str = "center",
+                 placeholder: str = "", password: bool = False):
+        self._width = width
+        self._ph = placeholder
+        self._password = password
+        tk.Canvas.__init__(self, parent, width=width, height=40,
+                           bg=_CARD_IN, highlightthickness=0, bd=0)
+        self.entry = tk.Entry(
+            self, font=(COL["font"], 11), justify=justify,
+            relief="flat", bd=0, highlightthickness=0,
+            bg="#fafcff", fg="#223047", insertbackground=_BLUE)
+        if password:
+            self.entry.configure(show="\u2022")
+        self._win = self.create_window(width // 2, 20, window=self.entry,
+                                       width=width - 10)
+        self._draw(False)
+        self.entry.bind("<FocusIn>", lambda e: self._draw(True))
+        self.entry.bind("<FocusOut>", lambda e: self._draw(False))
+
+    def _draw(self, focused: bool) -> None:
+        tk.Canvas.delete(self, "frame")
+        if focused:
+            _rrect(self, 1, 1, self._width - 1, 39, 7, fill="#ffffff",
+                   outline=_CYAN, width=2, tags="frame")
+            _rrect(self, 3, 3, self._width - 3, 37, 6,
+                   outline=hex_lerp("#ffffff", _CYAN, 0.28), width=1,
+                   tags="frame")
+        else:
+            _rrect(self, 1, 1, self._width - 1, 39, 7, fill="#1d2022",
+                   outline=hex_lerp(_CARD_IN, "#ffffff", 0.12), width=1,
+                   tags="frame")
+
+    def get(self) -> str:
+        return self.entry.get()
+
+    def delete(self, first, last=None) -> None:
+        self.entry.delete(first, last)
+
+    def insert(self, index, string) -> None:
+        self.entry.insert(index, string)
+
+    def focus_set(self):
+        self.entry.focus_set()
+
+    def state(self, mode: str) -> None:
+        self.entry.config(state=mode)
 
 
 def activate_license(engine: LicenseEngine, license_key: str) -> Dict[str, Any]:
@@ -311,15 +398,14 @@ class ActivationDialog:
 
     # -- window lifespan --------------------------------------------------
     def show(self) -> Dict[str, Any]:
-        from .ui_styles import (
-            COL,
-            Label, SectionLabel, Subtitle, StatusPill, ProgressBar,
-        )
+        def field_label(parent, text: str) -> tk.Label:
+            return tk.Label(parent, text=text, font=(COL["font"], 9, "bold"),
+                            fg=_MUTED_DARK, bg=_CARD_IN, anchor="w")
 
         self._root = tk.Toplevel()
         self._root.title("UNIVERSAL LICENSE ACTIVATION")
         self._root.geometry("520x640")
-        self._root.configure(bg=COL["bg"])
+        self._root.configure(bg=_FORM_BG)
         self._root.resizable(False, False)
         self._root.protocol("WM_DELETE_WINDOW", self._on_closing)
         try:
@@ -328,54 +414,54 @@ class ActivationDialog:
         except Exception:
             pass
 
-        _RefHeader(self._root, title="Activate License",
-                   subtitle=self.product_name or "Universal License Engine",
-                   height=64).pack(fill="x")
-        card = _RefCard(self._root)
-        card.pack(fill="both", expand=True, padx=2, pady=2)
+        _UIForm(self._root, title="Activate License",
+                subtitle=self.product_name or "Universal License Engine").pack(fill="x")
+        card = _UICard(self._root)
+        card.pack(fill="both", expand=True)
         main = card.body
 
-        phase = StatusPill(main, height=26)
-        phase.pack(anchor="w", pady=(0, 12))
+        phase = _PhasePill(main)
+        phase.pack(anchor="w", pady=(0, 8))
         phase.set_text("Ready", "neutral")
 
-        SectionLabel(main, GlobalMessage.get("ui_enter_license_key")).pack(pady=(0, 6))
-        key_entry = _RefEntry(main, width=460, justify="center")
-        key_entry.pack(fill="x", pady=(0, 4))
+        field_label(main, GlobalMessage.get("ui_enter_license_key")).pack(anchor="w", pady=(2, 4))
+        key_entry = _UiEntry(main, width=460, justify="left")
+        key_entry.pack(fill="x")
         if self.engine.get_license_key():
             key_entry.insert(0, self.engine.get_license_key())
         self._hardware_id = self.hardware.get_fingerprint()
-        hw = Subtitle(main, GlobalMessage.get("ui_hardware_hint", (self._hardware_id or "")[:16] + "…"), size=8)
-        hw.pack(anchor="w", pady=(0, 10))
+        hw = tk.Label(main, text=GlobalMessage.get("ui_hardware_hint", (self._hardware_id or "")[:16] + "…"),
+                      font=(COL["font"], 8), fg=_MUTED_DARK, bg=_CARD_IN, anchor="w")
+        hw.pack(fill="x", pady=(4, 10))
 
-        validate_btn = _RefButton(main, "Validate License", kind="primary", width=460)
-        validate_btn.pack(fill="x", pady=(4, 8))
+        validate_btn = _CtaButton(main, "Validate License", kind="primary", width=200)
+        validate_btn.pack(pady=(2, 6))
 
-        status = Label(main, text="", justify="center", wraplength=430)
+        status = tk.Label(main, text="", justify="center", wraplength=430,
+                         font=(COL["font"], 10, "bold"), bg=_CARD_IN, fg=_ON_DARK)
         status.pack(fill="x", pady=(2, 2))
-        progress = ProgressBar(main, width=430, height=8)
-        progress.pack(fill="x", pady=(6, 0))
-        details = Label(main, text="", justify="left", wraplength=430, size=9,
-                        color=COL["text_muted"])
-        details.pack(fill="x", pady=(6, 2))
+        progress = _LineProgress(main, width=430)
+        progress.pack(fill="x", pady=(6, 2))
+        details = tk.Label(main, text="", justify="left",
+                          wraplength=430, font=(COL["font"], 9), bg=_CARD_IN, fg=_MUTED_DARK)
+        details.pack(fill="x", pady=(2, 2))
 
-        # OTP
-        SectionLabel(main, GlobalMessage.get("ui_otp_label")).pack(pady=(14, 6))
-        otp_row = tk.Frame(main, bg=COL["surface"])
+        field_label(main, GlobalMessage.get("ui_otp_label")).pack(anchor="w", pady=(10, 4))
+        otp_row = tk.Frame(main, bg=_CARD_IN)
         otp_row.pack(fill="x", pady=(0, 4))
-        otp_entry = _RefEntry(otp_row, width=200, justify="center")
+        otp_entry = _UiEntry(otp_row, width=300, justify="center")
         otp_entry.pack(side="left", expand=True, fill="x")
-        verify_btn = _RefButton(otp_row, "Verify", kind="success", width=122)
+        verify_btn = _CtaButton(otp_row, "Verify", kind="primary", width=128)
         verify_btn.pack(side="left", padx=(8, 0))
 
-        resend_btn = _RefButton(main, "Resend OTP", kind="ghost", width=150)
+        resend_btn = _CtaButton(main, "Resend OTP", kind="ghost", width=150)
         resend_btn.pack(anchor="w", pady=(6, 2))
 
         # Final action
-        activate_btn = _RefButton(main, "Activate License", kind="primary", width=460)
-        activate_btn.pack(fill="x", pady=(14, 6))
-        cancel_btn = _RefButton(main, "Cancel", kind="ghost", width=460)
-        cancel_btn.pack(fill="x", pady=(0, 0))
+        activate_btn = _CtaButton(main, "Activate License", kind="primary", width=200)
+        activate_btn.pack(pady=(12, 4))
+        cancel_btn = _CtaButton(main, "Cancel", kind="ghost", width=150)
+        cancel_btn.pack(pady=(0, 0))
 
         # Initial disabled states
         otp_entry.state("disabled")
@@ -384,9 +470,9 @@ class ActivationDialog:
         activate_btn.set_state("disabled")
 
         STATUS_FG = {
-            "success": COL["success"], "error": COL["error"],
-            "warning": COL["warning"], "info": COL["primary"],
-            "muted": COL["text_muted"], "neutral": COL["text"],
+            "success": "#69d494", "error": "#ff9b9b",
+            "warning": "#f2c94c", "info": "#9cd2ff",
+            "muted": _MUTED_DARK, "neutral": _ON_DARK,
         }
 
         def _set_status(text: str, kind: str = "muted") -> None:
