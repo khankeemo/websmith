@@ -981,7 +981,7 @@ class UniversalLicenseCenter:
 
         dialog = tk.Toplevel(self._root)
         dialog.title(title)
-        dialog.geometry("500x600")
+        dialog.geometry("520x660")
         dialog.configure(bg=COL["bg"])
         dialog.resizable(False, False)
         dialog.transient(self._root)
