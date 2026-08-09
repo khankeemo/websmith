@@ -1333,6 +1333,8 @@ export async function getDb(): Promise<Pool> {
         signature TEXT DEFAULT '',
         auto_reply_enabled BOOLEAN NOT NULL DEFAULT FALSE,
         auto_reply_message TEXT DEFAULT '',
+        auto_reply_template_key TEXT DEFAULT '',
+        auto_reply_signature TEXT DEFAULT '',
         queue_size INTEGER NOT NULL DEFAULT 0,
         last_sync TIMESTAMP,
         last_success TIMESTAMP,

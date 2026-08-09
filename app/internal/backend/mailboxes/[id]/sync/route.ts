@@ -115,6 +115,79 @@ export async function POST(
                     [conversationId, from, from, subject, date.toISOString()]
                   );
                   messagesNew++;
+
+                  // ---- Auto-reply (new feature, UI/UX-scoped): if the mailbox
+                  // has auto-reply enabled, answer the FIRST message of a NEW
+                  // conversation using the configured template + signature
+                  // (falls back to the legacy free-text auto_reply_message).
+                  // Reuses the same nodemailer transporter options as the
+                  // existing [id]/send route — no SMTP engine changes.
+                  if (mailbox.auto_reply_enabled) {
+                    try {
+                      let replyBody = '';
+                      if (mailbox.auto_reply_template_key) {
+                        const tpl = await client?.query(
+                          `SELECT body, plain_text FROM email_templates WHERE email_type = $1`,
+                          [mailbox.auto_reply_template_key]
+                        );
+                        const t = tpl?.rows?.[0];
+                        if (t) replyBody = t.plain_text || t.body || '';
+                      }
+                      if (!replyBody) replyBody = mailbox.auto_reply_message || '';
+                      const replySignature = mailbox.auto_reply_signature || mailbox.signature || '';
+                      const fullReply = replyBody + (replySignature ? `\n\n${replySignature}` : '');
+                      if (fullReply.trim()) {
+                        const fromName = parsed.from?.value?.[0]?.name || '';
+                        const fromAddress = parsed.from?.value?.[0]?.address || (from.includes('<') ? (from.match(/<([^>]+)>/)?.[1] || '') : from);
+                        const fromLabel = mailbox.display_name ? `"${mailbox.display_name}" <${mailbox.email_address}>` : mailbox.email_address;
+                        const nodemailer = (await import('nodemailer')).default;
+                        const transporter = nodemailer.createTransport({
+                          host: mailbox.smtp_host,
+                          port: mailbox.smtp_port,
+                          secure: mailbox.smtp_secure,
+                          auth: { user: mailbox.smtp_username, pass: mailbox.smtp_password },
+                          tls: { rejectUnauthorized: false },
+                          connectionTimeout: 30000,
+                        });
+                        let autoReplyOk = false;
+                        let autoReplyError = '';
+                        try {
+                          await transporter.sendMail({
+                            from: fromLabel,
+                            to: fromAddress ? (fromName ? `"${fromName}" <${fromAddress}>` : fromAddress) : from,
+                            subject: `Re: ${subject}`,
+                            text: fullReply,
+                            html: `<p>${fullReply.replace(/\n/g, '<br/>')}</p>`,
+                          });
+                          autoReplyOk = true;
+                        } catch (sendErr: any) {
+                          autoReplyError = sendErr?.message || 'SMTP send failed';
+                        }
+
+                        await client?.query(
+                          `INSERT INTO conversation_messages (conversation_id, sender_type, sender_name, sender_email, message, is_internal, email_sent, created_at)
+                           VALUES ($1, 'admin', $2, $3, $4, FALSE, TRUE, $5)`,
+                          [conversationId, mailbox.display_name || mailbox.email_address, mailbox.email_address, replyBody, new Date().toISOString()]
+                        );
+                        await client?.query(
+                          `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, error, created_at)
+                           VALUES ($1, 'smtp', $2, $3, $4, NULL, $5, $6)`,
+                          ['auto_reply', fromAddress || from, `Re: ${subject}`, autoReplyOk ? 'sent' : 'failed', autoReplyOk ? null : autoReplyError, new Date().toISOString()]
+                        );
+                        await client?.query(
+                          `UPDATE communication_conversations SET status = 'waiting_customer', updated_at = $1 WHERE id = $2`,
+                          [new Date().toISOString(), conversationId]
+                        );
+                        await client?.query(
+                          `INSERT INTO audit_logs (event_type, message, timestamp)
+                           VALUES ($1, $2, $3)`,
+                          ['auto_reply_sent', `Auto-reply sent for ${fromAddress || from} via ${mailbox.email_address}${autoReplyOk ? '' : ` (SMTP error: ${autoReplyError})`}`, new Date().toISOString()]
+                        );
+                      }
+                    } catch (autoReplyErr: any) {
+                      console.error('Mailbox auto-reply error:', autoReplyErr?.message || autoReplyErr);
+                    }
+                  }
                 }
 
                 await client?.query(

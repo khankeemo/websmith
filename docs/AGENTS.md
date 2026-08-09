@@ -56,6 +56,27 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   (`mailbox_created`, `mailbox_create_failed`, `mailbox_connection_test`), readable
   via `GET /internal/backend/logs`. The error/success toast must always stay above
   open modals (`z-[100]`).
+- **Phase 7 Redesign — Mailboxes nav + Auto Reply + one-sided connection tests**
+  (see master doc Phase 7 entry): the sidebar's **Mailboxes** section (top) owns
+  the mailbox rows (health dots) + folder list + Add Mailbox; Settings / Templates
+  / Signatures / Auto Reply are nav items under Communication Settings
+  (`SETTINGS_DEF` / `TEMPLATES_DEF` / `SIGNATURES_DEF` / `AUTO_REPLY_DEF`, each with
+  its own `kind`; `refreshCurrent` resolves all four). `test-connection` supports
+  **one-sided tests**: a side (IMAP/SMTP) runs only when all its required fields
+  are present — Test Incoming / Test Outgoing send the other side blanked;
+  `data.imap`/`data.smtp`/`overall` appear only for tested sides. **Auto-reply**
+  lives on the mailbox row: the IMAP sync answers the FIRST message of a NEW
+  conversation when `auto_reply_enabled` using `auto_reply_template_key` +
+  `auto_reply_signature` (fallback `auto_reply_message`, then `signature`), sends
+  via the same nodemailer pattern as `[id]/send`, records the admin reply in
+  `conversation_messages`, `notification_logs` (`event_type: 'auto_reply'`) and
+  `audit_logs` (`auto_reply_sent`), and sets the conversation to
+  `waiting_customer`. The Auto Reply panel edits drafts locally and saves via
+  `PATCH /mailboxes/[id]` (fields `auto_reply_template_key`/`auto_reply_signature`
+  added to schema via `ALTER TABLE IF NOT EXISTS`). Signatures are stored in the
+  `settings` collection document (`signatures` array, `GET/POST
+  /internal/backend/communications/settings`) — no new table. Never bypass the
+  save-time connection gate; never render stored passwords.
 - **Architecture hierarchy**: Master Doc → Language Templates → SDK Publisher →
   Generated SDK. Never edit Generated SDKs directly; never embed business logic
   in runtime generators.

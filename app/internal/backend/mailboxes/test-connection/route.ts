@@ -23,7 +23,14 @@ export async function POST(request: NextRequest) {
   const smtp_username = String(body.smtp_username || '');
   const smtp_password = String(body.smtp_password || '');
 
-  if (!imap_host || !imap_username || !imap_password || !smtp_host || !smtp_username || !smtp_password) {
+  // One or both sides may be tested. A side is tested when all of its
+  // required fields are present (Test Incoming / Test Outgoing from the UI),
+  // and both sides are tested together when the full payload is supplied
+  // (Test Connection + save-time verification).
+  const testImapSide = !!(imap_host && imap_username && imap_password);
+  const testSmtpSide = !!(smtp_host && smtp_username && smtp_password);
+
+  if (!testImapSide && !testSmtpSide) {
     return NextResponse.json({
       success: false,
       error: { code: 'MISSING_FIELDS', message: 'Connection verification requires imap_host, imap_username, imap_password, smtp_host, smtp_username and smtp_password.' }
@@ -74,27 +81,34 @@ export async function POST(request: NextRequest) {
 
   let client = null;
   try {
-    const [imap, smtp] = await Promise.all([testImap(), testSmtp()]);
-    const overall = (imap.connected && smtp.connected) ? 'connected' : 'failed';
+    const [imap, smtp] = await Promise.all([
+      testImapSide ? testImap() : Promise.resolve(null),
+      testSmtpSide ? testSmtp() : Promise.resolve(null),
+    ]);
+
+    const auditParts: string[] = [];
+    if (imap) auditParts.push(`IMAP=${imap.connected ? 'ok' : 'fail'}`);
+    if (smtp) auditParts.push(`SMTP=${smtp.connected ? 'ok' : 'fail'}`);
 
     try {
       client = await (await getDb()).connect();
       await client.query(
         `INSERT INTO audit_logs (event_type, message, timestamp)
          VALUES ($1, $2, $3)`,
-        ['mailbox_connection_test', `Connection verification for ${imap_username}: IMAP=${imap.connected ? 'ok' : 'fail'}, SMTP=${smtp.connected ? 'ok' : 'fail'}`, new Date().toISOString()]
+        ['mailbox_connection_test', `Connection verification for ${imap_username}: ${auditParts.join(', ')}`, new Date().toISOString()]
       );
     } catch {}
 
     if (client) { client.release(); }
 
+    const data: any = {};
+    if (imap) data.imap = { connected: imap.connected, error: imap.error };
+    if (smtp) data.smtp = { connected: smtp.connected, error: smtp.error };
+    if (imap && smtp) data.overall = (imap.connected && smtp.connected) ? 'connected' : 'failed';
+
     return NextResponse.json({
       success: true,
-      data: {
-        imap: { connected: imap.connected, error: imap.error },
-        smtp: { connected: smtp.connected, error: smtp.error },
-        overall,
-      }
+      data,
     });
 
   } catch (error: any) {

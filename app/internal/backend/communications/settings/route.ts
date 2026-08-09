@@ -52,6 +52,7 @@ const DEFAULT_COMM_SETTINGS = {
     support_categories: ['support', 'activation', 'renewal', 'reactivation', 'hardware_replacement', 'general'],
     sales_categories: ['sales'],
   },
+  signatures: [],
 };
 
 export async function GET() {
@@ -86,6 +87,9 @@ export async function GET() {
       mail_accounts: commSettings.mail_accounts || DEFAULT_COMM_SETTINGS.mail_accounts,
       general: { ...DEFAULT_COMM_SETTINGS.general, ...(commSettings.general || {}) },
       routing: { ...DEFAULT_COMM_SETTINGS.routing, ...(commSettings.routing || {}) },
+      // Reusable email signatures managed from the Communication Center
+      // (stored in the same system_settings record — no new table).
+      signatures: commSettings.signatures || [],
     };
 
     return NextResponse.json({ success: true, settings: merged });

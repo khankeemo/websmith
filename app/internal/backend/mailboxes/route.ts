@@ -25,6 +25,11 @@ export async function GET(request: NextRequest) {
   try {
     client = await (await getDb()).connect();
 
+    // Auto-reply template/signature references (new mailbox fields —
+    // ADD COLUMN IF NOT EXISTS keeps existing databases in sync).
+    await client.query(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS auto_reply_template_key TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS auto_reply_signature TEXT DEFAULT ''`);
+
     const result = await client.query(
       `SELECT * FROM mailboxes ORDER BY is_default_sender DESC, created_at DESC`
     );
@@ -68,6 +73,8 @@ export async function POST(request: NextRequest) {
       signature,
       auto_reply_enabled,
       auto_reply_message,
+      auto_reply_template_key,
+      auto_reply_signature,
     } = body;
 
     if (!provider || !email_address || !imap_host || !imap_username || !imap_password || !smtp_host || !smtp_username || !smtp_password) {
@@ -106,14 +113,16 @@ export async function POST(request: NextRequest) {
         smtp_host, smtp_port, smtp_secure, smtp_username, smtp_password,
         connection_status, sync_status, is_default_sender, is_enabled,
         signature, auto_reply_enabled, auto_reply_message,
+        auto_reply_template_key, auto_reply_signature,
         queue_size, created_at, updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'unknown','never',$15,$16,$17,$18,$19,0,$20,$20)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'unknown','never',$15,$16,$17,$18,$19,$20,$21,$22,$22)`,
       [
         mailboxId, provider, normalizedEmail, display_name || '',
         imap_host, imap_port || 993, imap_secure !== false, imap_username, imap_password,
         smtp_host, smtp_port || 465, smtp_secure !== false, smtp_username, smtp_password,
         body.is_default_sender === true, true,
         signature || '', auto_reply_enabled === true, auto_reply_message || '',
+        auto_reply_template_key || '', auto_reply_signature || '',
         now
       ]
     );

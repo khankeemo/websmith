@@ -83,11 +83,18 @@ export async function PATCH(
       signature,
       auto_reply_enabled,
       auto_reply_message,
+      auto_reply_template_key,
+      auto_reply_signature,
       is_enabled,
       is_default_sender,
     } = body;
 
     client = await (await getDb()).connect();
+
+    // Auto-reply template/signature references (new mailbox fields —
+    // ADD COLUMN IF NOT EXISTS keeps existing databases in sync).
+    await client.query(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS auto_reply_template_key TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS auto_reply_signature TEXT DEFAULT ''`);
 
     const existing = await client.query('SELECT * FROM mailboxes WHERE id = $1', [id]);
     if (existing.rows.length === 0) {
@@ -125,6 +132,7 @@ export async function PATCH(
       'imap_host', 'imap_port', 'imap_secure', 'imap_username', 'imap_password',
       'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_username', 'smtp_password',
       'signature', 'auto_reply_enabled', 'auto_reply_message',
+      'auto_reply_template_key', 'auto_reply_signature',
       'is_enabled', 'is_default_sender'
     ];
 

@@ -5,23 +5,26 @@ import {
   Mail, Send, Inbox, AlertTriangle, MessageSquare, FileText,
   Settings, Clock, RefreshCw, Loader2, Search, Filter,
   CheckCircle2, XCircle, Clock3, AlertCircle,
-  Trash2, Users, Tag, CreditCard, KeyRound, Activity,
+  Trash2, Users, CreditCard, KeyRound, Activity,
   HelpCircle, ShoppingBag, RotateCcw, Delete,
   Plus, Pencil, Paperclip, Flag, Archive, Reply, ReplyAll,
   Forward, CheckCheck, MailOpen, AtSign, LifeBuoy, FlaskConical,
   Package, BellRing, ShieldAlert, FilePen, Server, Plug,
   Database, Wrench, History as HistoryIcon, Download, X,
-  ChevronDown, ArchiveRestore, MailX, Eye, ChevronLeft,
-  UserPlus, BookOpen, Ban, Smartphone, Save,
+  ChevronDown, ArchiveRestore, MailX, Eye,
+  BookOpen, Ban, Smartphone, Save,
   Folder, FolderPlus, FolderOpen, FolderCog,
-  Sparkles, ShieldCheck, Upload, Wifi, WifiOff, KeySquare,
+  Sparkles, ShieldCheck, Wifi, KeySquare,
   FileImage, FileArchive, FileSpreadsheet, Presentation, FileJson,
   FileCode, FileAudio, FileVideo, FileType,
+  Signature, ExternalLink, EyeOff, StickyNote, PenLine, BookMarked, Zap,
 } from "lucide-react";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
 const API_BASE = "/internal/backend/communications";
 const MB_BASE = "/internal/backend/mailboxes";
+const TEMPLATES_BASE = "/internal/backend/admin/email/templates";
+const REPLY_BASE = "/internal/backend/admin/communication/reply";
 
 interface Conversation {
   id: string;
@@ -62,6 +65,8 @@ interface Mailbox {
   is_enabled: boolean;
   auto_reply_enabled: boolean;
   auto_reply_message: string;
+  auto_reply_template_key: string;
+  auto_reply_signature: string;
   queue_size: number;
   last_sync?: string | null;
   last_success?: string | null;
@@ -146,7 +151,23 @@ interface DetailData {
   audit: any[];
 }
 
-type ViewKind = 'list' | 'queue' | 'logs' | 'history' | 'mailboxes' | 'settings' | 'empty';
+interface EmailTemplate {
+  email_type: string;
+  subject: string;
+  body: string;
+  plain_text: string;
+  is_active: boolean;
+  updated_at: string;
+}
+
+interface SignatureItem {
+  id: string;
+  name: string;
+  content: string;
+  is_default: boolean;
+}
+
+type ViewKind = 'list' | 'queue' | 'logs' | 'history' | 'mailboxes' | 'settings' | 'templates' | 'signatures' | 'auto-reply' | 'empty';
 
 interface FolderDef {
   key: string;
@@ -189,14 +210,35 @@ const FOLDERS: FolderDef[] = [
   // External Mailboxes
   { key: 'ext-inbox', label: 'Inbox', icon: Inbox, section: 'external', kind: 'list', params: { status: 'open,waiting_customer' }, badgeKey: 'inbox' },
   { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { status: 'resolved,closed' }, badgeKey: 'sent' },
-  { key: 'ext-draft', label: 'Draft', icon: FilePen, section: 'external', kind: 'empty', emptyNote: 'Draft support is not wired to the backend yet — outbound emails are sent immediately and tracked in Sent / Universal Email.' },
+  { key: 'ext-draft', label: 'Draft', icon: FilePen, section: 'external', kind: 'list', params: { status: 'draft' }, emptyNote: 'Draft support is not wired to the backend yet — outbound emails are sent immediately and tracked in Sent / Universal Email.' },
   { key: 'ext-waiting', label: 'Waiting', icon: Clock3, section: 'external', kind: 'list', params: { status: 'waiting_customer' }, badgeKey: 'waiting' },
   { key: 'ext-failed', label: 'Failed', icon: AlertTriangle, section: 'external', kind: 'list', params: { status: 'waiting_support,waiting_sales' }, badgeKey: 'failed' },
   { key: 'ext-queued', label: 'Queued', icon: Clock, section: 'external', kind: 'queue', badgeKey: 'queued' },
-  { key: 'ext-spam', label: 'Spam', icon: ShieldAlert, section: 'external', kind: 'empty', emptyNote: 'Spam detection is not wired to the backend yet — no spam folders are collected by the IMAP sync.' },
+  { key: 'ext-spam', label: 'Spam', icon: ShieldAlert, section: 'external', kind: 'list', params: { status: 'spam' }, emptyNote: 'Spam detection is not wired to the backend yet — no spam folders are collected by the IMAP sync.' },
   { key: 'ext-trash', label: 'Trash', icon: Trash2, section: 'external', kind: 'list', params: { show_deleted: 'true' } },
   { key: 'mailboxes', label: 'Mailboxes', icon: AtSign, section: 'external', kind: 'mailboxes' },
 ];
+
+// Fresh mailbox form — provider presets auto-populate the server config
+const newMailboxForm = () => ({
+  provider: 'gmail',
+  imap_host: 'imap.gmail.com',
+  imap_port: 993,
+  imap_secure: true,
+  imap_username: '',
+  imap_password: '',
+  smtp_host: 'smtp.gmail.com',
+  smtp_port: 465,
+  smtp_secure: true,
+  smtp_username: '',
+  smtp_password: '',
+  signature: '',
+  auto_reply_enabled: false,
+  auto_reply_message: '',
+  auto_reply_template_key: '',
+  auto_reply_signature: '',
+  is_enabled: true,
+});
 
 const SETTINGS_DEF: FolderDef = {
   key: 'settings',
@@ -206,12 +248,9 @@ const SETTINGS_DEF: FolderDef = {
   kind: 'settings',
 };
 
-const NAV_GROUPS: { key: string; label: string; icon: any }[] = [
-  { key: 'internal', label: 'Internal Communications', icon: MessageSquare },
-  { key: 'universal', label: 'Universal Email', icon: MailOpen },
-  { key: 'external', label: 'External Mailboxes', icon: AtSign },
-  { key: 'mailboxes', label: 'Mailboxes', icon: Mail },
-];
+const TEMPLATES_DEF: FolderDef = { key: 'templates', label: 'Templates', icon: BookMarked, section: 'internal', kind: 'templates' };
+const SIGNATURES_DEF: FolderDef = { key: 'signatures', label: 'Signatures', icon: Signature, section: 'internal', kind: 'signatures' };
+const AUTO_REPLY_DEF: FolderDef = { key: 'auto-reply', label: 'Auto Reply', icon: Zap, section: 'internal', kind: 'auto-reply' };
 
 const groupFor = (def: FolderDef): string => {
   if (def.key === 'email-history') return 'universal';
@@ -219,24 +258,100 @@ const groupFor = (def: FolderDef): string => {
   return def.section;
 };
 
-// ---- Provider auto-configuration (UI-only; backend stores a free string) ----
+// ---- Folder chips shown above the email list (middle pane) ----
+const FOLDER_CHIPS: { key: string; label: string; badgeKey?: keyof Stats }[] = [
+  { key: 'ext-inbox', label: 'Inbox', badgeKey: 'inbox' },
+  { key: 'ext-waiting', label: 'Waiting', badgeKey: 'waiting' },
+  { key: 'ext-sent', label: 'Sent', badgeKey: 'sent' },
+  { key: 'ext-failed', label: 'Failed', badgeKey: 'failed' },
+  { key: 'ext-queued', label: 'Queued', badgeKey: 'queued' },
+  { key: 'all', label: 'Unread', badgeKey: 'unread' },
+  { key: 'ext-draft', label: 'Drafts' },
+  { key: 'ext-spam', label: 'Spam' },
+  { key: 'ext-trash', label: 'Trash' },
+];
+
+// ---- Provider auto-configuration (single shared provider config —
+// server settings + official authentication help links). UI-only; the
+// backend stores a free provider string. ----
 interface ProviderPreset {
   key: string;
   label: string;
   match: RegExp;
   imap: { host: string; port: number; secure: boolean };
   smtp: { host: string; port: number; secure: boolean };
+  help: {
+    note: string;
+    appPassword?: { label: string; url: string };
+    instructions?: { label: string; url: string };
+  };
 }
 
 const PROVIDER_PRESETS: ProviderPreset[] = [
-  { key: 'gmail', label: 'Gmail / Google Workspace', match: /gmail\.com|googlemail\.com$/i, imap: { host: 'imap.gmail.com', port: 993, secure: true }, smtp: { host: 'smtp.gmail.com', port: 465, secure: true } },
-  { key: 'outlook', label: 'Outlook / Microsoft 365', match: /outlook\.com|hotmail\.com|live\.com|msn\.com|office365\.com|outlook\.co$/i, imap: { host: 'outlook.office365.com', port: 993, secure: true }, smtp: { host: 'smtp.office365.com', port: 587, secure: false } },
-  { key: 'yahoo', label: 'Yahoo Mail', match: /yahoo\.com|ymail\.com$/i, imap: { host: 'imap.mail.yahoo.com', port: 993, secure: true }, smtp: { host: 'smtp.mail.yahoo.com', port: 465, secure: true } },
-  { key: 'zoho', label: 'Zoho Mail', match: /zohomail\.|zoho\.com$/i, imap: { host: 'imap.zoho.com', port: 993, secure: true }, smtp: { host: 'smtp.zoho.com', port: 465, secure: true } },
-  { key: 'icloud', label: 'iCloud Mail', match: /icloud\.com|me\.com$/i, imap: { host: 'imap.mail.me.com', port: 993, secure: true }, smtp: { host: 'smtp.mail.me.com', port: 587, secure: false } },
-  { key: 'fastmail', label: 'Fastmail', match: /fastmail\.(com|fm)|fastmailbox\.net$/i, imap: { host: 'imap.fastmail.com', port: 993, secure: true }, smtp: { host: 'smtp.fastmail.com', port: 465, secure: true } },
-  { key: 'proton', label: 'Proton Mail (via Bridge)', match: /proton\.(me|mail|ch)$/i, imap: { host: '127.0.0.1', port: 1143, secure: false }, smtp: { host: '127.0.0.1', port: 1025, secure: false } },
-  { key: 'custom', label: 'Custom / Other', match: /.*/, imap: { host: '', port: 993, secure: true }, smtp: { host: '', port: 465, secure: true } },
+  {
+    key: 'gmail', label: 'Gmail / Google Workspace', match: /gmail\.com|googlemail\.com$/i,
+    imap: { host: 'imap.gmail.com', port: 993, secure: true }, smtp: { host: 'smtp.gmail.com', port: 465, secure: true },
+    help: {
+      note: 'Gmail requires an App Password when 2-Step Verification is enabled. Use your full Gmail address as the username.',
+      appPassword: { label: 'Generate Google App Password', url: 'https://support.google.com/accounts/answer/185833' },
+      instructions: { label: 'Google instructions', url: 'https://support.google.com/mail/answer/7126229' },
+    },
+  },
+  {
+    key: 'outlook', label: 'Outlook / Microsoft 365', match: /outlook\.com|hotmail\.com|live\.com|msn\.com|office365\.com|outlook\.co$/i,
+    imap: { host: 'outlook.office365.com', port: 993, secure: true }, smtp: { host: 'smtp.office365.com', port: 587, secure: false },
+    help: {
+      note: 'Microsoft may require an App Password when multi-factor authentication (MFA) is enabled on the account.',
+      appPassword: { label: 'Microsoft App Password instructions', url: 'https://support.microsoft.com/en-us/accounts-billing/manage/how-to-get-and-use-app-passwords' },
+    },
+  },
+  {
+    key: 'yahoo', label: 'Yahoo Mail', match: /yahoo\.com|ymail\.com$/i,
+    imap: { host: 'imap.mail.yahoo.com', port: 993, secure: true }, smtp: { host: 'smtp.mail.yahoo.com', port: 465, secure: true },
+    help: {
+      note: 'Yahoo requires an App Password when two-step verification is enabled on the account.',
+      appPassword: { label: 'Generate Yahoo App Password', url: 'https://help.yahoo.com/kb/create-party-passwords-sln15241.html' },
+      instructions: { label: 'Yahoo instructions', url: 'https://help.yahoo.com/kb/new-mail-for-desktop/SLN27791.html' },
+    },
+  },
+  {
+    key: 'zoho', label: 'Zoho Mail', match: /zohomail\.|zoho\.com$/i,
+    imap: { host: 'imap.zoho.com', port: 993, secure: true }, smtp: { host: 'smtp.zoho.com', port: 465, secure: true },
+    help: {
+      note: 'Zoho requires an App-Specific Password when Two-Factor Authentication (2FA) is enabled for the account.',
+      appPassword: { label: 'Generate Zoho App-Specific Password', url: 'https://www.zoho.com/mail/help/adminconsole/two-factor-authentication.html' },
+      instructions: { label: 'Zoho IMAP/SMTP instructions', url: 'https://www.zoho.com/mail/help/imap-access.html' },
+    },
+  },
+  {
+    key: 'icloud', label: 'iCloud Mail', match: /icloud\.com|me\.com$/i,
+    imap: { host: 'imap.mail.me.com', port: 993, secure: true }, smtp: { host: 'smtp.mail.me.com', port: 587, secure: false },
+    help: {
+      note: 'iCloud requires an App-Specific Password (generated from your Apple Account) to sign in to third-party apps.',
+      appPassword: { label: 'Generate Apple App-Specific Password', url: 'https://support.apple.com/en-us/102654' },
+    },
+  },
+  {
+    key: 'fastmail', label: 'Fastmail', match: /fastmail\.(com|fm)|fastmailbox\.net$/i,
+    imap: { host: 'imap.fastmail.com', port: 993, secure: true }, smtp: { host: 'smtp.fastmail.com', port: 465, secure: true },
+    help: {
+      note: 'Fastmail requires an App Password for every third-party mail client.',
+      appPassword: { label: 'Create Fastmail App Password', url: 'https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords' },
+    },
+  },
+  {
+    key: 'proton', label: 'Proton Mail (via Bridge)', match: /proton\.(me|mail|ch)$/i,
+    imap: { host: '127.0.0.1', port: 1143, secure: false }, smtp: { host: '127.0.0.1', port: 1025, secure: false },
+    help: {
+      note: 'Proton Mail works through the Proton Mail Bridge — use the Bridge-generated IMAP/SMTP host, port and credentials shown in the Bridge app.',
+      instructions: { label: 'Proton Mail Bridge setup', url: 'https://proton.me/support/mail-bridge' },
+    },
+  },
+  {
+    key: 'custom', label: 'Custom / Other', match: /.*/,
+    imap: { host: '', port: 993, secure: true }, smtp: { host: '', port: 465, secure: true },
+    help: { note: 'Enter the server settings provided by your email provider.' },
+  },
 ];
 
 const presetForEmail = (email: string): ProviderPreset => {
@@ -274,22 +389,24 @@ const MB_FIELD_LABELS: Record<string, string> = {
   is_default_sender: 'Default Sender',
 };
 
-const mailboxHealth = (mb: Mailbox): { status: 'online' | 'offline' | 'auth_failed' | 'syncing' | 'unknown'; label: string; color: string } => {
-  if (!mb.is_enabled) return { status: 'unknown', label: 'Disabled', color: 'text-gray-400 bg-gray-500/10' };
+// Status badges (spec): Connected / Syncing / Authentication Required /
+// Connection Failed / Disabled.
+const mailboxHealth = (mb: Mailbox): { status: 'connected' | 'failed' | 'auth_required' | 'syncing' | 'disabled' | 'unknown'; label: string; color: string } => {
+  if (!mb.is_enabled) return { status: 'disabled', label: 'Disabled', color: 'text-gray-400 bg-gray-500/10' };
   if (mb.sync_status === 'syncing') return { status: 'syncing', label: 'Syncing', color: 'text-blue-400 bg-blue-500/10' };
-  if (mb.connection_status === 'connected') return { status: 'online', label: 'Online', color: 'text-green-400 bg-green-500/10' };
+  if (mb.connection_status === 'connected') return { status: 'connected', label: 'Connected', color: 'text-green-400 bg-green-500/10' };
   if (mb.connection_status === 'failed') {
     const err = (mb.last_error || '').toLowerCase();
     if (err.includes('auth') || err.includes('credential') || err.includes('invalid') || err.includes('password') || err.includes('login')) {
-      return { status: 'auth_failed', label: 'Auth Failed', color: 'text-rose-400 bg-rose-500/10' };
+      return { status: 'auth_required', label: 'Authentication Required', color: 'text-rose-400 bg-rose-500/10' };
     }
-    return { status: 'offline', label: 'Offline', color: 'text-red-400 bg-red-500/10' };
+    return { status: 'failed', label: 'Connection Failed', color: 'text-red-400 bg-red-500/10' };
   }
   return { status: 'unknown', label: 'Unknown', color: 'text-gray-400 bg-gray-500/10' };
 };
 
 const HEALTH_ICONS: Record<string, any> = {
-  online: Wifi, offline: AlertTriangle, auth_failed: KeySquare, syncing: RefreshCw, unknown: Ban,
+  connected: Wifi, failed: AlertTriangle, auth_required: KeySquare, syncing: RefreshCw, disabled: Ban, unknown: Ban,
 };
 
 function HealthBadge({ h }: { h: { status: string; label: string; color: string } }) {
@@ -352,6 +469,22 @@ const attachmentUrl = (p: string) => {
   const idx = p.indexOf('public');
   if (idx >= 0) return p.slice(idx + 6).replace(/\\/g, '/');
   return p.replace(/\\/g, '/');
+};
+
+// ---- Template helpers ----
+const templateTextOf = (t: EmailTemplate | undefined | null): string => {
+  if (!t) return '';
+  if (t.plain_text) return t.plain_text;
+  return (t.body || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 };
 
 // ---- Attachment preview support (image / PDF / text) ----
@@ -506,6 +639,7 @@ export default function CommunicationsPage() {
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<DetailData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -519,6 +653,7 @@ export default function CommunicationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [showFilter, setShowFilter] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const displayConversations = useMemo(() => {
     if (readFilter === 'all') return conversations;
@@ -538,6 +673,10 @@ export default function CommunicationsPage() {
   const [editingMailbox, setEditingMailbox] = useState<Mailbox | null>(null);
   const [mailboxForm, setMailboxForm] = useState<any>({});
   const [mailboxFormError, setMailboxFormError] = useState<string | null>(null);
+  const [mailboxTest, setMailboxTest] = useState<{ running: boolean; results: { imap?: { connected: boolean; error?: string }; smtp?: { connected: boolean; error?: string } } | null }>({ running: false, results: null });
+  const [autoReplyDrafts, setAutoReplyDrafts] = useState<Record<string, { auto_reply_enabled: boolean; auto_reply_template_key: string; auto_reply_signature: string; auto_reply_message: string }>>({});
+  const [showImapPass, setShowImapPass] = useState(false);
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
   const [showDeleteMailboxConfirm, setShowDeleteMailboxConfirm] = useState<string | null>(null);
   const [testEmailTo, setTestEmailTo] = useState('');
@@ -555,6 +694,18 @@ export default function CommunicationsPage() {
   const [folderForm, setFolderForm] = useState<{ name: string; section: 'internal' | 'external'; status: string; category: string; search: string }>({
     name: '', section: 'internal', status: '', category: '', search: '',
   });
+
+  // ---- Reply composer (right pane) ----
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerText, setComposerText] = useState('');
+  const [composerInternal, setComposerInternal] = useState(false);
+  const [composerError, setComposerError] = useState<string | null>(null);
+
+  // ---- Templates / Signatures panels ----
+  const [templateSearch, setTemplateSearch] = useState('');
+  const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [templateDraft, setTemplateDraft] = useState<EmailTemplate | null>(null);
+  const [signatureForm, setSignatureForm] = useState<{ open: boolean; id: string | null; name: string; content: string }>({ open: false, id: null, name: '', content: '' });
 
   const folderDefFor = useCallback((row: FolderRow): FolderDef => {
     const sys = FOLDERS.find(f => f.key === row.id);
@@ -589,8 +740,11 @@ export default function CommunicationsPage() {
     } catch {}
   }, []);
 
-  const activeFolderDef = useMemo(() => {
+  const activeFolderDef = useMemo((): FolderDef => {
     if (activeFolder === 'settings') return SETTINGS_DEF;
+    if (activeFolder === 'templates') return TEMPLATES_DEF;
+    if (activeFolder === 'signatures') return SIGNATURES_DEF;
+    if (activeFolder === 'auto-reply') return AUTO_REPLY_DEF;
     const row = folders.find(f => f.id === activeFolder);
     if (row) return folderDefFor(row);
     return FOLDERS.find(f => f.key === activeFolder) || FOLDERS[0];
@@ -785,6 +939,14 @@ export default function CommunicationsPage() {
     }
   }, []);
 
+  const loadTemplates = useCallback(async () => {
+    try {
+      const res = await fetch(`${TEMPLATES_BASE}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setTemplates(json.templates || []);
+    } catch {}
+  }, []);
+
   const loadCommsSettings = useCallback(async () => {
     setCommSettingsLoading(true);
     try {
@@ -837,8 +999,9 @@ export default function CommunicationsPage() {
     setCommSettingsDirty(true);
   }, []);
 
-  // Persist a settings payload immediately (used by the system-account toggles
-  // and inline edits so they take effect without a separate Save click).
+  // Persist a settings payload immediately (used by the system-account toggles,
+  // inline edits and signature management so they take effect without a
+  // separate Save click).
   const persistCommSettings = useCallback(async (payload: any) => {
     setBusy('save-comm-settings');
     try {
@@ -863,8 +1026,6 @@ export default function CommunicationsPage() {
   }, [showToast, loadCommsSettings]);
 
   // Toggle a built-in system mail account (support / sales / no-reply).
-  // Backed by the real `settings.communications.mail_accounts[].is_active`
-  // flag — never a hardcoded/fake state. Saves immediately.
   const toggleSystemAccount = useCallback((id: string) => {
     setCommSettings((prev: any) => {
       if (!prev) return prev;
@@ -895,10 +1056,180 @@ export default function CommunicationsPage() {
     });
   }, [persistCommSettings]);
 
+  // ---- Signatures (stored in communication settings) ----
+  const signatures: SignatureItem[] = commSettings?.signatures || [];
+
+  const addSignature = useCallback((name: string, content: string) => {
+    if (!commSettings) return;
+    const sig: SignatureItem = {
+      id: `SIG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
+      name: name.trim() || 'Untitled signature',
+      content: content.trim(),
+      is_default: signatures.length === 0,
+    };
+    setCommSettings((prev: any) => {
+      if (!prev) return prev;
+      const next: any = { ...prev, signatures: [...(prev.signatures || []), sig] };
+      setCommSettingsDirty(true);
+      persistCommSettings(next);
+      return next;
+    });
+  }, [commSettings, signatures.length, persistCommSettings]);
+
+  const updateSignature = useCallback((id: string, name: string, content: string) => {
+    setCommSettings((prev: any) => {
+      if (!prev) return prev;
+      const next: any = {
+        ...prev,
+        signatures: (prev.signatures || []).map((s: SignatureItem) =>
+          s.id === id ? { ...s, name: name.trim() || s.name, content: content.trim() } : s
+        ),
+      };
+      setCommSettingsDirty(true);
+      persistCommSettings(next);
+      return next;
+    });
+  }, [persistCommSettings]);
+
+  const deleteSignature = useCallback((id: string) => {
+    setCommSettings((prev: any) => {
+      if (!prev) return prev;
+      const list = (prev.signatures || []).filter((s: SignatureItem) => s.id !== id);
+      const next: any = {
+        ...prev,
+        signatures: list.length > 0 && !list.some((s: SignatureItem) => s.is_default)
+          ? list.map((s: SignatureItem, i: number) => i === 0 ? { ...s, is_default: true } : s)
+          : list,
+      };
+      setCommSettingsDirty(true);
+      persistCommSettings(next);
+      return next;
+    });
+  }, [persistCommSettings]);
+
+  const setDefaultSignature = useCallback((id: string) => {
+    setCommSettings((prev: any) => {
+      if (!prev) return prev;
+      const next: any = {
+        ...prev,
+        signatures: (prev.signatures || []).map((s: SignatureItem) => ({ ...s, is_default: s.id === id })),
+      };
+      setCommSettingsDirty(true);
+      persistCommSettings(next);
+      return next;
+    });
+  }, [persistCommSettings]);
+
+  const assignSignatureToMailbox = useCallback(async (mailboxId: string, sig: SignatureItem) => {
+    setBusy(`assign-sig:${mailboxId}`);
+    try {
+      const res = await fetch(`${MB_BASE}/${mailboxId}`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature: sig.content }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', `Signature "${sig.name}" assigned to mailbox`);
+        await loadMailboxes();
+      } else {
+        showToast('err', json.error?.message || 'Failed to assign signature');
+      }
+    } catch {
+      showToast('err', 'Failed to assign signature');
+    } finally {
+      setBusy(null);
+    }
+  }, [loadMailboxes, showToast]);
+
+  // ---- Templates ----
+  const updateTemplate = useCallback(async (draft: EmailTemplate) => {
+    setBusy('save-template');
+    try {
+      const res = await fetch(`${TEMPLATES_BASE}`, {
+        method: 'PUT',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_type: draft.email_type, subject: draft.subject, body: draft.body, plain_text: draft.plain_text, is_active: draft.is_active }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', `Template "${draft.email_type}" saved`);
+        setEditingTemplate(null);
+        setTemplateDraft(null);
+        await loadTemplates();
+      } else {
+        showToast('err', json.error || 'Failed to save template');
+      }
+    } catch {
+      showToast('err', 'Failed to save template');
+    } finally {
+      setBusy(null);
+    }
+  }, [loadTemplates, showToast]);
+
+  // Insert a template into the reply composer (does NOT send).
+  const insertTemplateIntoComposer = useCallback((key: string) => {
+    const t = templates.find(x => x.email_type === key);
+    const text = templateTextOf(t);
+    if (!text) { showToast('err', 'Template is empty — edit it first.'); return; }
+    setComposerText(prev => prev.trim() ? `${prev.trim()}\n\n${text}` : text);
+    setComposerOpen(true);
+    showToast('ok', `Template "${t?.email_type || key}" inserted — edit before sending.`);
+  }, [templates, showToast]);
+
+  // Insert a signature into the reply composer (does NOT send).
+  const insertSignatureIntoComposer = useCallback((id: string) => {
+    const s = signatures.find(x => x.id === id);
+    if (!s || !s.content) { showToast('err', 'Signature is empty — edit it first.'); return; }
+    setComposerText(prev => prev.trim() ? `${prev.trim()}\n\n${s.content}` : s.content);
+    setComposerOpen(true);
+    showToast('ok', `Signature "${s.name}" inserted — edit before sending.`);
+  }, [signatures, showToast]);
+
+  // ---- Composer send (existing admin/communication/reply pipeline) ----
+  const sendReply = useCallback(async () => {
+    const convId = detail?.conversation.id;
+    if (!convId || !composerText.trim()) return;
+    setBusy('composer-send');
+    setComposerError(null);
+    try {
+      const adminName = commSettings?.mail_accounts?.find((a: any) => a.type === 'support')?.display_name || 'Admin';
+      const res = await fetch(`${REPLY_BASE}`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: convId,
+          message: composerText.trim(),
+          sender_name: adminName,
+          is_internal: composerInternal,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', composerInternal ? 'Internal note added' : 'Reply sent');
+        setComposerText('');
+        setComposerOpen(false);
+        setComposerInternal(false);
+        await openDetail(convId);
+        refreshCurrent();
+        fetchStats();
+      } else {
+        const msg = json.error?.message || json.error || 'Failed to send reply.';
+        setComposerError(msg);
+        showToast('err', msg);
+      }
+    } catch {
+      const msg = 'Failed to send reply.';
+      setComposerError(msg);
+      showToast('err', msg);
+    } finally {
+      setBusy(null);
+    }
+  }, [detail, composerText, composerInternal, commSettings, showToast]);
+
   // Live auto-sync (no cron on serverless): process queue + pull IMAP for every
   // enabled mailbox on a timer, and refresh immediately whenever the tab regains
-  // focus so counts never appear stale. No cached/hardcoded unread values — every
-  // value is refetched from the backend (which is the single source of truth).
+  // focus so counts never appear stale.
   useEffect(() => {
     const runAutoSync = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -943,15 +1274,21 @@ export default function CommunicationsPage() {
 
   const refreshCurrent = useCallback(() => {
     const row = folders.find(x => x.id === activeFolder);
-    const f = activeFolder === 'settings' ? SETTINGS_DEF : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]));
+    const f = activeFolder === 'settings' ? SETTINGS_DEF
+      : activeFolder === 'templates' ? TEMPLATES_DEF
+      : activeFolder === 'signatures' ? SIGNATURES_DEF
+      : activeFolder === 'auto-reply' ? AUTO_REPLY_DEF
+      : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]));
     if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter);
     else if (f.kind === 'queue') loadQueue();
     else if (f.kind === 'logs') loadLogs();
     else if (f.kind === 'history') loadHistory();
     else if (f.kind === 'mailboxes') loadMailboxes();
     else if (f.kind === 'settings') loadCommsSettings();
+    else if (f.kind === 'templates') loadTemplates();
+    else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes();
     fetchStats();
-  }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, loadCommsSettings, fetchStats]);
+  }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, loadCommsSettings, loadTemplates, fetchStats]);
 
   // Phase 5: deliver queued emails via the default sender mailbox SMTP
   const processQueue = useCallback(async () => {
@@ -974,6 +1311,12 @@ export default function CommunicationsPage() {
 
   useEffect(() => { loadFolders(); }, [loadFolders]);
 
+  useEffect(() => { loadTemplates(); }, [loadTemplates]);
+
+  // Load settings + signatures + mailboxes on mount so the composer's Signature
+  // dropdown and mailbox form options are populated from the start
+  useEffect(() => { loadCommsSettings(); }, [loadCommsSettings]);
+
   useEffect(() => {
     const iv = setInterval(fetchStats, 15000);
     return () => clearInterval(iv);
@@ -989,6 +1332,7 @@ export default function CommunicationsPage() {
     setSelectedLog(null);
     setSelectedHistoryItem(null);
     setError(null);
+    setComposerOpen(false);
   };
 
   const toggleSelect = (id: string) => {
@@ -1118,6 +1462,12 @@ export default function CommunicationsPage() {
   };
 
   const openReply = (to?: string, action?: 'support' | 'general') => {
+    // In-panel composer: opens the reply composer on the right pane.
+    if (detail) {
+      setComposerOpen(true);
+      setComposerError(null);
+      return;
+    }
     const d = detail;
     const target = to || d?.conversation.customer_email || (d?.customer?.email as string) || '';
     const act = action || (d?.conversation.category === 'support' ? 'support' : 'general');
@@ -1214,11 +1564,6 @@ export default function CommunicationsPage() {
     }
   };
 
-  const selectedConversation = useMemo(
-    () => conversations.find(c => c.id === (Array.from(selectedIds)[0] || '')) || null,
-    [conversations, selectedIds]
-  );
-
   // ---- Mailbox actions ----
   const loadMailboxDetail = async (id: string) => {
     setSelectedMailbox(mailboxes.find(m => m.id === id) || null);
@@ -1252,11 +1597,75 @@ export default function CommunicationsPage() {
     }
   };
 
+  // Test the CURRENT form values (Test Incoming / Test Outgoing / Test
+  // Connection) — reuses the existing test-connection endpoint.
+  const testMailboxForm = async (mode: 'imap' | 'smtp' | 'both') => {
+    const missing: string[] = [];
+    if (mode !== 'smtp') {
+      if (!mailboxForm.imap_host) missing.push('Incoming server');
+      if (!mailboxForm.imap_username) missing.push('Incoming username');
+      if (!editingMailbox && !mailboxForm.imap_password) missing.push('Incoming password');
+    }
+    if (mode !== 'imap') {
+      if (!mailboxForm.smtp_host) missing.push('Outgoing server');
+      if (!mailboxForm.smtp_username) missing.push('Outgoing username');
+      if (!editingMailbox && !mailboxForm.smtp_password) missing.push('Outgoing password');
+    }
+    if (missing.length > 0) {
+      setMailboxTest({ running: false, results: null });
+      setMailboxFormError(`Please complete the required fields: ${missing.join(', ')}.`);
+      return;
+    }
+    setMailboxTest({ running: true, results: null });
+    setMailboxFormError(null);
+    try {
+      const payload: any = {
+        imap_host: mailboxForm.imap_host,
+        imap_port: mailboxForm.imap_port,
+        imap_secure: mailboxForm.imap_secure,
+        imap_username: mailboxForm.imap_username,
+        smtp_host: mailboxForm.smtp_host,
+        smtp_port: mailboxForm.smtp_port,
+        smtp_secure: mailboxForm.smtp_secure,
+        smtp_username: mailboxForm.smtp_username,
+      };
+      if (mailboxForm.imap_password) payload.imap_password = mailboxForm.imap_password;
+      if (mailboxForm.smtp_password) payload.smtp_password = mailboxForm.smtp_password;
+      if (mode === 'imap' || mode === 'smtp') {
+        // One-sided test: run the shared endpoint with only one side filled —
+        // blank the other side's credentials so only the requested test runs.
+        if (mode === 'imap') {
+          payload.smtp_host = '';
+          payload.smtp_username = '';
+          payload.smtp_password = '';
+        } else {
+          payload.imap_host = '';
+          payload.imap_username = '';
+          payload.imap_password = '';
+        }
+      }
+      const res = await fetch(`${MB_BASE}/test-connection`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setMailboxTest({ running: false, results: json.data });
+      } else {
+        setMailboxTest({ running: false, results: null });
+        setMailboxFormError(json.error?.message || 'Connection test could not be completed.');
+      }
+    } catch {
+      setMailboxTest({ running: false, results: null });
+      setMailboxFormError('Connection test could not be completed.');
+    }
+  };
+
   const saveMailbox = async () => {
     setMailboxFormError(null);
 
-    // Client-side validation — mirror the backend's required fields so the
-    // administrator sees exactly what is missing before any request is sent.
+    // Client-side validation — mirror the backend's required fields.
     const missing: string[] = [];
     const requiredLabels: [string, string][] = [
       ['email_address', 'Mail address'],
@@ -1339,8 +1748,9 @@ export default function CommunicationsPage() {
         showToast('ok', json.message || (editingMailbox ? 'Mailbox updated.' : 'Mailbox created successfully.'));
         setShowMailboxForm(false);
         setEditingMailbox(null);
-        setMailboxForm({});
+        setMailboxForm(newMailboxForm());
         setMailboxFormError(null);
+        setMailboxTest({ running: false, results: null });
         await loadMailboxes();
       } else {
         const msg = json.error?.message || json.message || 'Failed to save mailbox.';
@@ -1396,6 +1806,52 @@ export default function CommunicationsPage() {
     }
   };
 
+  // ---- Auto-reply save (mailbox PATCH — new template/signature fields) ----
+  const saveAutoReply = useCallback(async (mb: Mailbox) => {
+    setBusy(`auto-reply:${mb.id}`);
+    try {
+      const res = await fetch(`${MB_BASE}/${mb.id}`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auto_reply_enabled: mb.auto_reply_enabled,
+          auto_reply_template_key: mb.auto_reply_template_key || '',
+          auto_reply_signature: mb.auto_reply_signature || '',
+          auto_reply_message: mb.auto_reply_message || '',
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', `Auto-reply saved for ${mb.email_address}`);
+        await loadMailboxes();
+      } else {
+        showToast('err', json.error?.message || 'Failed to save auto-reply');
+      }
+    } catch {
+      showToast('err', 'Failed to save auto-reply');
+    } finally {
+      setBusy(null);
+    }
+  }, [loadMailboxes, showToast]);
+
+  // Seed auto-reply drafts from the mailboxes (keeps in-progress edits on reload)
+  useEffect(() => {
+    setAutoReplyDrafts(prev => {
+      const next = { ...prev };
+      mailboxes.forEach(mb => {
+        if (!next[mb.id]) {
+          next[mb.id] = {
+            auto_reply_enabled: !!mb.auto_reply_enabled,
+            auto_reply_template_key: mb.auto_reply_template_key || '',
+            auto_reply_signature: mb.auto_reply_signature || '',
+            auto_reply_message: mb.auto_reply_message || '',
+          };
+        }
+      });
+      return next;
+    });
+  }, [mailboxes]);
+
   // ---- Toolbar rendering ----
   const renderToolbar = () => {
     const hasSelection = selectedIds.size > 0;
@@ -1408,7 +1864,7 @@ export default function CommunicationsPage() {
         <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
         <button
           onClick={() => openReply()}
-          disabled={!hasSelection}
+          disabled={!hasSelection && !detail}
           title="Reply"
           className={btn}
         >
@@ -1416,7 +1872,7 @@ export default function CommunicationsPage() {
         </button>
         <button
           onClick={() => openReply()}
-          disabled={!hasSelection}
+          disabled={!hasSelection && !detail}
           title="Reply All"
           className={btn}
         >
@@ -1424,7 +1880,7 @@ export default function CommunicationsPage() {
         </button>
         <button
           onClick={openForward}
-          disabled={!hasSelection}
+          disabled={!hasSelection && !detail}
           title="Forward"
           className={btn}
         >
@@ -1513,82 +1969,233 @@ export default function CommunicationsPage() {
     { key: 'unread', label: 'Unread', icon: MailOpen, color: 'bg-cyan-500/10 text-cyan-400' },
   ];
 
-  // ---- Sidebar (email-client navigation, database-driven folders) ----
+  // ---- Sidebar (mailbox navigation — Websmith Default Mail stays fixed left) ----
   const renderSidebar = () => (
-    <aside className="w-64 flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)] bg-[var(--bg-tertiary)]/10">
-      <div className="shrink-0 max-h-[46%] overflow-y-auto px-2 py-3 space-y-5 scrollbar-thin">
+    <aside className="w-[240px] flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)] bg-[var(--bg-tertiary)]/10">
+      <div className="shrink-0 px-2 py-3 overflow-y-auto scrollbar-thin space-y-4">
         <div className="px-2 flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
             <Mail className="h-3.5 w-3.5" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-[var(--text-primary)] leading-tight truncate">Mail</p>
-            <p className="text-[9px] text-[var(--text-muted)]">Websmith Communications</p>
+            <p className="text-xs font-bold text-[var(--text-primary)] leading-tight truncate">Websmith Communications</p>
+            <p className="text-[9px] text-[var(--text-muted)]">Communication Center</p>
           </div>
         </div>
-        {NAV_GROUPS.map(group => {
-          const groupFolders = folders.filter(f => groupFor(folderDefFor(f)) === group.key);
-          if (groupFolders.length === 0) return null;
-          const GroupIcon = group.icon;
-          return (
-            <div key={group.key}>
-              <p className="px-2 mb-1.5 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
-                <GroupIcon size={10} /> {group.label}
-              </p>
-              <div className="space-y-0.5">
-                {groupFolders.map(row => {
-                  const def = folderDefFor(row);
-                  const Icon = def.icon;
-                  const active = activeFolder === row.id;
-                  const badge = def.badgeKey ? stats[def.badgeKey] : 0;
-                  return (
-                    <button
-                      key={row.id}
-                      onClick={() => handleFolderChange(row.id)}
-                      className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                        active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                      <Icon size={14} className="flex-shrink-0" />
-                      <span className="flex-1 text-left truncate">{def.label}</span>
-                      {!row.is_system && <FolderOpen size={10} className="flex-shrink-0 opacity-40" />}
-                      {badge > 0 && (
-                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${row.id === 'all' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-blue-500/20 text-blue-400'}`}>{badge}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-        <div className="pt-2 border-t border-[var(--border-color)] space-y-0.5">
+
+        {/* Websmith Default Mail — fixed on the left */}
+        <div>
           <button
-            onClick={() => handleFolderChange('settings')}
-            className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-              activeFolder === 'settings' ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-            }`}
+            onClick={() => setSidebarOpen(o => !o)}
+            className="w-full px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase hover:text-[var(--text-primary)] transition-colors"
           >
-            {activeFolder === 'settings' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-            <Settings size={14} className="flex-shrink-0" />
-            <span className="flex-1 text-left truncate">Communication Settings</span>
+            <Mail size={10} /> Websmith Default Mail
+            <ChevronDown size={11} className={`ml-auto transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
           </button>
+          {sidebarOpen && (
+            <div className="space-y-0.5">
+              {folders.filter(f => groupFor(folderDefFor(f)) === 'internal').map(row => {
+                const def = folderDefFor(row);
+                const Icon = def.icon;
+                const active = activeFolder === row.id;
+                const badge = def.badgeKey ? stats[def.badgeKey] : 0;
+                return (
+                  <button
+                    key={row.id}
+                    onClick={() => handleFolderChange(row.id)}
+                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+                    <Icon size={14} className="flex-shrink-0" />
+                    <span className="flex-1 text-left truncate">{def.label}</span>
+                    {badge > 0 && (
+                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${row.id === 'all' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-blue-500/20 text-blue-400'}`}>{badge}</span>
+                    )}
+                  </button>
+                );
+              })}
+              {folders.filter(f => groupFor(folderDefFor(f)) === 'universal').map(row => {
+                const def = folderDefFor(row);
+                const Icon = def.icon;
+                const active = activeFolder === row.id;
+                return (
+                  <button
+                    key={row.id}
+                    onClick={() => handleFolderChange(row.id)}
+                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+                    <Icon size={14} className="flex-shrink-0" />
+                    <span className="flex-1 text-left truncate">{def.label}</span>
+                  </button>
+                );
+              })}
+              {/* System Mail Accounts (native routing, not external mailboxes) */}
+              {(commSettings?.mail_accounts || []).length > 0 && (
+                <div className="pt-1.5 mt-1.5 border-t border-[var(--border-color)] space-y-0.5">
+                  <p className="px-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">System Mail Accounts</p>
+                  {(commSettings.mail_accounts || []).map((a: any) => (
+                    <div key={a.id} className="flex items-center gap-2 px-2.5 py-1 rounded-lg">
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${a.is_active ? 'bg-green-400' : 'bg-gray-500/40'}`} />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[10px] text-[var(--text-secondary)] truncate">{a.display_name || a.name}</span>
+                        <span className="block text-[9px] text-[var(--text-muted)] truncate">{a.email}</span>
+                      </span>
+                      <Badge className="text-purple-400 bg-purple-500/10">System</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Mailboxes */}
+        <div>
+          <p className="px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
+            <AtSign size={10} /> Mailboxes
+          </p>
+          <div className="space-y-0.5">
+            {mailboxes.map(mb => {
+              const h = mailboxHealth(mb);
+              const active = activeFolder === 'mailboxes' && selectedMailbox?.id === mb.id;
+              const dotColor = h.status === 'connected' ? 'bg-green-400' : h.status === 'syncing' ? 'bg-blue-400' : h.status === 'auth_required' || h.status === 'failed' ? 'bg-red-400' : h.status === 'disabled' ? 'bg-gray-500/40' : 'bg-gray-500/30';
+              return (
+                <button
+                  key={mb.id}
+                  onClick={() => { handleFolderChange('mailboxes'); loadMailboxDetail(mb.id); }}
+                  className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                    active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                  }`}
+                  title={`${mb.email_address} — ${h.label}`}
+                >
+                  {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
+                  <span className="flex-1 min-w-0 text-left">
+                    <span className="block truncate">{mb.display_name || mb.email_address}</span>
+                    <span className="block text-[9px] text-[var(--text-muted)] truncate">{mb.email_address}</span>
+                  </span>
+                  {mb.is_default_sender && <Flag size={10} className="flex-shrink-0 text-amber-400" />}
+                </button>
+              );
+            })}
+            {mailboxes.length === 0 && (
+              <p className="px-2.5 py-1 text-[10px] text-[var(--text-muted)]">No external mailboxes configured.</p>
+            )}
+          </div>
+          <div className="pt-1.5 space-y-0.5">
+            {folders.filter(f => groupFor(folderDefFor(f)) === 'external' || groupFor(folderDefFor(f)) === 'mailboxes').map(row => {
+              const def = folderDefFor(row);
+              const Icon = def.icon;
+              const active = activeFolder === row.id;
+              const badge = def.badgeKey ? stats[def.badgeKey] : 0;
+              return (
+                <button
+                  key={row.id}
+                  onClick={() => handleFolderChange(row.id)}
+                  className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                    active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+                  <Icon size={14} className="flex-shrink-0" />
+                  <span className="flex-1 text-left truncate">{def.label}</span>
+                  {badge > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/20 text-blue-400">{badge}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={() => { setEditingMailbox(null); setMailboxForm(newMailboxForm()); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
+            className="mt-1.5 w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
+            <Plus size={13} /> Add Mailbox
+          </button>
+        </div>
+
+        {/* Utility sections */}
+        <div className="pt-1 space-y-0.5">
+          {[
+            { key: 'templates', label: 'Templates', icon: BookMarked },
+            { key: 'signatures', label: 'Signatures', icon: Signature },
+            { key: 'auto-reply', label: 'Auto Reply', icon: Zap },
+            { key: 'settings', label: 'Communication Settings', icon: Settings },
+            { key: 'notifications', label: 'Email Logs', icon: Activity },
+          ].map(item => {
+            const Icon = item.icon;
+            const active = activeFolder === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => handleFolderChange(item.key)}
+                className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                  active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                }`}
+              >
+                {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+                <Icon size={14} className="flex-shrink-0" />
+                <span className="flex-1 text-left truncate">{item.label}</span>
+              </button>
+            );
+          })}
           <button onClick={() => setShowFolderManager(true)}
             className="w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
-            <FolderPlus size={13} /> New Folder
+            <FolderPlus size={13} /> Manage Folders
           </button>
         </div>
       </div>
-      {activeFolderDef.kind === 'list' && (
-        <div className="flex-1 min-h-0 flex flex-col border-t border-[var(--border-color)]">
-          {renderListTable()}
-        </div>
-      )}
     </aside>
   );
 
-  // ---- Conversation list (left column, email-client style) ----
+  // ---- Middle pane: folder chips + email list ----
+  const renderFolderChips = () => (
+    <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 shrink-0 overflow-x-auto scrollbar-thin">
+      {FOLDER_CHIPS.map(chip => {
+        const active = activeFolder === chip.key;
+        const badge = chip.badgeKey ? stats[chip.badgeKey] : 0;
+        return (
+          <button key={chip.key} onClick={() => handleFolderChange(chip.key)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${active ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}>
+            {chip.label}
+            {badge > 0 && <span className="px-1 rounded-full bg-blue-500/20 text-blue-400 text-[9px] font-bold">{badge}</span>}
+          </button>
+        );
+      })}
+      <button onClick={() => setShowFilter(!showFilter)} title="Filter"
+        className={`p-1 rounded-lg transition-colors ${showFilter ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/40'}`}>
+        <Filter size={11} />
+      </button>
+    </div>
+  );
+
+  const renderMiddle = () => {
+    if (activeFolderDef.kind === 'list') {
+      return (
+        <div className="flex flex-col min-h-0 h-full">
+          {renderFolderChips()}
+          {renderListTable()}
+        </div>
+      );
+    }
+    switch (activeFolderDef.kind) {
+      case 'queue': return renderQueueList();
+      case 'logs': return renderLogsList();
+      case 'history': return renderHistoryList();
+      case 'mailboxes': return renderMailboxGrid();
+      case 'settings': return renderSettings();
+      case 'templates': return renderTemplatesList();
+      case 'signatures': return renderSignaturesList();
+      case 'auto-reply': return renderAutoReplyList();
+      case 'empty': return renderEmptyFolder();
+      default: return renderListTable();
+    }
+  };
+
+  // ---- Conversation list (middle pane, email-client style) ----
   const renderListTable = () => {
     if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
     if (error) return <div className="flex-1 flex flex-col items-center justify-center gap-2 text-[var(--text-muted)]"><AlertCircle className="h-6 w-6 text-red-400" /><p className="text-xs">{error}</p></div>;
@@ -1648,7 +2255,6 @@ export default function CommunicationsPage() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {conv.attachment_count > 0 && <Paperclip size={12} className="text-[var(--text-muted)]" />}
-                  <StatusBadge status={conv.status} />
                   <span className={`text-[10px] font-medium flex items-center gap-1 ${prio.color}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`} /> {prio.label}
                   </span>
@@ -1770,14 +2376,14 @@ export default function CommunicationsPage() {
       <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] gap-3">
         <AtSign size={32} className="opacity-30" />
         <p className="text-xs">No mailboxes configured</p>
-        <button onClick={() => { setEditingMailbox(null); setMailboxForm({ provider: 'custom', imap_port: 993, smtp_port: 465, imap_secure: true, smtp_secure: true }); setMailboxFormError(null); setShowMailboxForm(true); }}
+        <button onClick={() => { setEditingMailbox(null); setMailboxForm(newMailboxForm()); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
           <Plus size={13} /> Add Mailbox
         </button>
       </div>
     );
-    const online = mailboxes.filter(m => m.is_enabled && mailboxHealth(m).status === 'online').length;
-    const authFailed = mailboxes.filter(m => mailboxHealth(m).status === 'auth_failed').length;
+    const online = mailboxes.filter(m => m.is_enabled && mailboxHealth(m).status === 'connected').length;
+    const authFailed = mailboxes.filter(m => mailboxHealth(m).status === 'auth_required' || mailboxHealth(m).status === 'failed').length;
     const syncing = mailboxes.filter(m => m.sync_status === 'syncing').length;
     const failed = mailboxes.filter(m => m.last_failure && (!m.last_success || m.last_failure > m.last_success)).length;
     const lastSync = mailboxes
@@ -1795,27 +2401,27 @@ export default function CommunicationsPage() {
     };
     const overview = [
       { label: 'Mailboxes', value: mailboxes.length, icon: AtSign, cls: 'text-blue-400' },
-      { label: 'Online', value: online, icon: Wifi, cls: 'text-green-400' },
-      { label: 'Auth Failed', value: authFailed, icon: KeySquare, cls: 'text-red-400' },
+      { label: 'Connected', value: online, icon: Wifi, cls: 'text-green-400' },
+      { label: 'Auth / Failed', value: authFailed, icon: KeySquare, cls: 'text-red-400' },
       { label: 'Syncing', value: syncing, icon: RefreshCw, cls: 'text-amber-400' },
       { label: 'Last Sync', value: fmtAgo(lastSync), icon: Clock, cls: 'text-[var(--text-muted)]' },
     ];
     return (
       <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-[var(--text-muted)]">{mailboxes.length} mailbox(es) — IMAP receive + SMTP send</p>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button onClick={syncAllMailboxes} disabled={busy === 'sync-all'}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
               {busy === 'sync-all' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
             </button>
-            <button onClick={() => { setEditingMailbox(null); setMailboxForm({ provider: 'custom', imap_port: 993, smtp_port: 465, imap_secure: true, smtp_secure: true }); setMailboxFormError(null); setShowMailboxForm(true); }}
+            <button onClick={() => { setEditingMailbox(null); setMailboxForm(newMailboxForm()); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
               <Plus size={13} /> Add Mailbox
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {overview.map(card => (
             <div key={card.label} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-3 py-2.5">
               <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
@@ -1862,7 +2468,7 @@ export default function CommunicationsPage() {
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
                     {busyKey('sync') ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Sync
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, imap_password: '', smtp_password: '' }); setMailboxFormError(null); setShowMailboxForm(true); }}
+                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, auto_reply_template_key: mb.auto_reply_template_key, auto_reply_signature: mb.auto_reply_signature, imap_password: '', smtp_password: '' }); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30">
                     <Pencil size={10} /> Edit
                   </button>
@@ -1966,14 +2572,13 @@ export default function CommunicationsPage() {
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Per-mailbox IMAP/SMTP connection, sync and queue status.</p>
           </div>
           <div className="p-3 space-y-2">
-            {commMailboxes.length === 0 && <p className="text-xs text-[var(--text-muted)]">No mailboxes configured yet — add them under the Mailboxes folder.</p>}
+            {commMailboxes.length === 0 && <p className="text-xs text-[var(--text-muted)]">No mailboxes configured yet — add them under Mailboxes.</p>}
             {commMailboxes.map((mb: Mailbox) => (
               <div key={mb.id} className="rounded-lg border border-[var(--border-color)] p-2.5">
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${mb.is_enabled ? 'bg-green-400' : 'bg-gray-400'}`} />
+                  <HealthBadge h={mailboxHealth(mb)} />
                   <span className="text-xs text-[var(--text-primary)] font-medium truncate">{mb.display_name || mb.email_address}</span>
                   {mb.is_default_sender && <Badge className="text-blue-400 bg-blue-500/10">Default Sender</Badge>}
-                  {!mb.is_enabled && <Badge className="text-gray-400 bg-gray-500/10">Disabled</Badge>}
                 </div>
                 <p className="text-[10px] text-[var(--text-secondary)] truncate mt-1">{mb.email_address}</p>
                 <div className="grid grid-cols-2 gap-1.5 text-[10px] text-[var(--text-muted)] mt-1.5">
@@ -2026,7 +2631,7 @@ export default function CommunicationsPage() {
             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">System Mail Accounts</p>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Built-in sender routing accounts. Toggles persist via the real backend configuration.</p>
           </div>
-          <button onClick={() => { setEditAccountId(null); setAccountDraft(null); }}
+          <button onClick={() => loadCommsSettings()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
             <RefreshCw size={12} /> Refresh
           </button>
@@ -2123,7 +2728,310 @@ export default function CommunicationsPage() {
           );
         })}
 
-        <p className="text-[10px] text-[var(--text-muted)] px-1 pt-1 leading-relaxed">System accounts are routing identities controlled by the backend ({commMailboxes.length} external mailbox(es) configured). External IMAP/SMTP mailboxes are managed under the Mailboxes folder.</p>
+        <p className="text-[10px] text-[var(--text-muted)] px-1 pt-1 leading-relaxed">System accounts are routing identities controlled by the backend ({commMailboxes.length} external mailbox(es) configured). External IMAP/SMTP mailboxes are managed under the Mailboxes section.</p>
+      </div>
+    );
+  };
+
+  // ---- Templates panel ----
+  const renderTemplatesList = () => {
+    if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
+    const filtered = templates.filter(t =>
+      !templateSearch.trim() ||
+      t.email_type.toLowerCase().includes(templateSearch.toLowerCase()) ||
+      (t.subject || '').toLowerCase().includes(templateSearch.toLowerCase())
+    );
+    return (
+      <div className="flex flex-col min-h-0 h-full">
+        <div className="px-3 py-2 border-b border-[var(--border-color)] shrink-0 space-y-2">
+          <p className="text-xs text-[var(--text-muted)]">{templates.length} templates — insert into the reply composer or use for auto-reply.</p>
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input type="text" placeholder="Search templates..." value={templateSearch} onChange={e => setTemplateSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-xs placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-thin divide-y divide-[var(--border-color)]">
+          {filtered.length === 0 && (
+            <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] py-10">
+              <BookMarked size={28} className="mb-2 opacity-30" />
+              <p className="text-xs">No templates found</p>
+            </div>
+          )}
+          {filtered.map(t => (
+            <button
+              key={t.email_type}
+              onClick={() => { setEditingTemplate(t); setTemplateDraft({ ...t }); }}
+              className={`w-full text-left px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors ${editingTemplate?.email_type === t.email_type ? 'bg-blue-500/10' : ''}`}
+            >
+              <div className="flex items-center gap-2">
+                <FileText size={12} className="text-[var(--text-muted)] flex-shrink-0" />
+                <span className="text-xs text-[var(--text-primary)] font-medium truncate flex-1">{t.email_type}</span>
+                {!t.is_active && <Badge className="text-gray-400 bg-gray-500/10">Inactive</Badge>}
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">{t.subject || '(no subject)'}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTemplateEditor = () => {
+    if (!editingTemplate || !templateDraft) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] text-center px-6 text-xs">
+          <BookMarked size={28} className="mb-2 opacity-30" />
+          <p>Select a template to view or edit it. Templates are also available in the reply composer (Template ▼) and the Auto Reply panel.</p>
+        </div>
+      );
+    }
+    const t = templateDraft;
+    return (
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+          <div className="flex items-center gap-2">
+            <FileText size={14} className="text-blue-400" />
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t.email_type}</h3>
+            {detail && (
+              <button onClick={() => insertTemplateIntoComposer(t.email_type)}
+                className="ml-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
+                <PenLine size={11} /> Insert into Reply
+              </button>
+            )}
+          </div>
+          <div className="mt-3 space-y-2">
+            <Field label="Subject">
+              <input type="text" value={t.subject || ''} onChange={e => setTemplateDraft({ ...t, subject: e.target.value })} className={inputCls} />
+            </Field>
+            <Field label="Plain text body (used by the composer)">
+              <textarea rows={6} value={t.plain_text || ''} onChange={e => setTemplateDraft({ ...t, plain_text: e.target.value })} className={`${inputCls} resize-y`} />
+            </Field>
+            <Field label="HTML body">
+              <textarea rows={5} value={t.body || ''} onChange={e => setTemplateDraft({ ...t, body: e.target.value })} className={`${inputCls} resize-y font-mono text-[10px]`} />
+            </Field>
+            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <input type="checkbox" checked={t.is_active !== false} onChange={e => setTemplateDraft({ ...t, is_active: e.target.checked })} className="accent-blue-500" />
+              Active
+            </label>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => updateTemplate(t)} disabled={busy === 'save-template'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
+              {busy === 'save-template' ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save Template
+            </button>
+            <button onClick={() => { setEditingTemplate(null); setTemplateDraft(null); }}
+              className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">Close</button>
+          </div>
+        </div>
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Preview</p>
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-primary)]/50 p-3">
+            <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap break-words">{templateTextOf(t) || '(empty template)'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ---- Signatures panel ----
+  const renderSignaturesList = () => {
+    return (
+      <div className="flex flex-col min-h-0 h-full">
+        <div className="px-3 py-2 border-b border-[var(--border-color)] shrink-0">
+          <p className="text-xs text-[var(--text-muted)]">{signatures.length} signature(s) — select a signature to edit, or create a new one.</p>
+          <button onClick={() => setSignatureForm({ open: true, id: null, name: '', content: '' })}
+            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
+            <Plus size={13} /> Add Signature
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-thin divide-y divide-[var(--border-color)]">
+          {signatures.length === 0 && (
+            <div className="flex flex-col items-center justify-center text-[var(--text-muted)] py-10">
+              <Signature size={28} className="mb-2 opacity-30" />
+              <p className="text-xs">No signatures yet — create one to attach to replies and auto-replies.</p>
+            </div>
+          )}
+          {signatures.map(s => (
+            <div key={s.id} className="px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors cursor-pointer"
+              onClick={() => setSignatureForm({ open: true, id: s.id, name: s.name, content: s.content })}>
+              <div className="flex items-center gap-2">
+                <Signature size={12} className="text-[var(--text-muted)] flex-shrink-0" />
+                <span className="text-xs text-[var(--text-primary)] font-medium truncate flex-1">{s.name}</span>
+                {s.is_default && <Badge className="text-blue-400 bg-blue-500/10">Default</Badge>}
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)] whitespace-pre-wrap break-words mt-1 line-clamp-2">{s.content || '(empty)'}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSignatureEditor = () => {
+    if (!signatureForm.open) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] text-center px-6 text-xs">
+          <Signature size={28} className="mb-2 opacity-30" />
+          <p>Create, edit and delete reusable signatures. Signatures are inserted into the reply composer (Signature ▼), assigned to mailboxes, and used by Auto Reply.</p>
+        </div>
+      );
+    }
+    const isNew = !signatureForm.id;
+    const existing = isNew ? null : signatures.find(s => s.id === signatureForm.id);
+    return (
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+          <div className="flex items-center gap-2">
+            <Signature size={14} className="text-blue-400" />
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{isNew ? 'Add Signature' : 'Edit Signature'}</h3>
+          </div>
+          <div className="mt-3 space-y-2">
+            <Field label="Name">
+              <input type="text" value={signatureForm.name} onChange={e => setSignatureForm({ ...signatureForm, name: e.target.value })} className={inputCls} placeholder="e.g. Websmith Support" />
+            </Field>
+            <Field label="Content">
+              <textarea rows={5} value={signatureForm.content} onChange={e => setSignatureForm({ ...signatureForm, content: e.target.value })}
+                className={`${inputCls} resize-y`} placeholder={"Best regards,\nThe Support Team\nsupport@websmithdigital.com"} />
+            </Field>
+          </div>
+          <div className="flex items-center gap-1.5 mt-3">
+            {isNew ? (
+              <button onClick={() => { if (!signatureForm.name.trim() && !signatureForm.content.trim()) { showToast('err', 'Signature name or content is required'); return; } addSignature(signatureForm.name, signatureForm.content); setSignatureForm({ open: false, id: null, name: '', content: '' }); }}
+                disabled={busy === 'save-comm-settings'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
+                <Plus size={11} /> Create Signature
+              </button>
+            ) : (
+              <>
+                <button onClick={() => { updateSignature(signatureForm.id!, signatureForm.name, signatureForm.content); setSignatureForm({ open: false, id: null, name: '', content: '' }); }}
+                  disabled={busy === 'save-comm-settings'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
+                  <Save size={11} /> Save Signature
+                </button>
+                <button onClick={() => { setDefaultSignature(signatureForm.id!); }}
+                  disabled={busy === 'save-comm-settings' || existing?.is_default}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
+                  <CheckCheck size={11} /> Set Default
+                </button>
+                <button onClick={() => { if (confirm(`Delete signature "${signatureForm.name}"? This cannot be undone.`)) { deleteSignature(signatureForm.id!); setSignatureForm({ open: false, id: null, name: '', content: '' }); } }}
+                  disabled={busy === 'save-comm-settings'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 text-[11px] font-medium transition-colors disabled:opacity-50">
+                  <Trash2 size={11} /> Delete
+                </button>
+              </>
+            )}
+            <button onClick={() => setSignatureForm({ open: false, id: null, name: '', content: '' })}
+              className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">Close</button>
+          </div>
+        </div>
+        {!isNew && mailboxes.length > 0 && (
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Assign to Mailbox</p>
+            <p className="text-[10px] text-[var(--text-muted)] mb-2">Copy this signature into a mailbox so every email sent through it includes the signature.</p>
+            <div className="space-y-1">
+              {mailboxes.map(mb => (
+                <button key={mb.id} onClick={() => assignSignatureToMailbox(mb.id, existing || { id: signatureForm.id!, name: signatureForm.name, content: signatureForm.content, is_default: false })}
+                  disabled={busy === `assign-sig:${mb.id}`}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
+                  {busy === `assign-sig:${mb.id}` ? <Loader2 size={11} className="animate-spin" /> : <AtSign size={11} />}
+                  <span className="flex-1 text-left truncate">{mb.display_name || mb.email_address}</span>
+                  <span className="text-[9px] text-[var(--text-muted)] truncate">{mb.email_address}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Preview</p>
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-primary)]/50 p-3">
+            <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap break-words">{signatureForm.content || '(empty signature)'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ---- Auto Reply panel ----
+  const renderAutoReplyList = () => {
+    if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
+    if (mailboxes.length === 0) return (
+      <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] gap-3 px-6 text-center">
+        <Zap size={28} className="opacity-30" />
+        <p className="text-xs">No external mailboxes configured yet. Add a mailbox first, then configure its auto-reply.</p>
+      </div>
+    );
+    return (
+      <div className="flex flex-col min-h-0 h-full">
+        <div className="px-3 py-2 border-b border-[var(--border-color)] shrink-0">
+          <p className="text-xs text-[var(--text-muted)]">{mailboxes.length} mailbox(es) — auto-replies use the selected Template + Signature for NEW incoming conversations. Edit a card and press Save.</p>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
+          {mailboxes.map(mb => {
+            const base = {
+              auto_reply_enabled: !!mb.auto_reply_enabled,
+              auto_reply_template_key: mb.auto_reply_template_key || '',
+              auto_reply_signature: mb.auto_reply_signature || '',
+              auto_reply_message: mb.auto_reply_message || '',
+            };
+            const draft = autoReplyDrafts[mb.id] || base;
+            const setDraft = (patch: any) => setAutoReplyDrafts(prev => ({ ...prev, [mb.id]: { ...(prev[mb.id] || base), ...patch } }));
+            const unsaved = JSON.stringify(draft) !== JSON.stringify(base);
+            const tpl = templates.find(t => t.email_type === draft.auto_reply_template_key);
+            const sig = signatures.find(s => s.id === draft.auto_reply_signature) || (draft.auto_reply_signature ? null : signatures.find(s => s.is_default));
+            const preview = (draft.auto_reply_enabled ? (templateTextOf(tpl) || draft.auto_reply_message || '(no template selected)') + (sig?.content ? `\n\n${sig.content}` : (mb.signature ? `\n\n${mb.signature}` : '')) : 'Auto-reply is disabled for this mailbox.');
+            const h = mailboxHealth(mb);
+            const saving = busy === `auto-reply:${mb.id}`;
+            return (
+              <div key={mb.id} className={`rounded-xl border p-3 transition-colors ${draft.auto_reply_enabled ? 'border-blue-500/30 bg-blue-500/5' : 'border-[var(--border-color)] bg-[var(--bg-tertiary)]/5'}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-[var(--text-primary)] truncate">{mb.display_name || mb.email_address}</span>
+                  <HealthBadge h={h} />
+                  <div className="ml-auto flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
+                    Auto Reply <Toggle checked={draft.auto_reply_enabled} onChange={() => setDraft({ auto_reply_enabled: !draft.auto_reply_enabled })} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-[var(--text-secondary)] truncate mt-1">{mb.email_address}</p>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <Field label="Reply Template">
+                    <select value={draft.auto_reply_template_key} onChange={e => setDraft({ auto_reply_template_key: e.target.value })}
+                      className={inputCls} disabled={saving}>
+                      <option value="">— Legacy message —</option>
+                      {templates.map(t => <option key={t.email_type} value={t.email_type}>{t.email_type}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Signature">
+                    <select value={draft.auto_reply_signature} onChange={e => setDraft({ auto_reply_signature: e.target.value })}
+                      className={inputCls} disabled={saving}>
+                      <option value="">— None —</option>
+                      {signatures.map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                {draft.auto_reply_template_key === '' && (
+                  <Field label="Legacy auto-reply message">
+                    <textarea rows={2} value={draft.auto_reply_message} onChange={e => setDraft({ auto_reply_message: e.target.value })}
+                      className={`${inputCls} resize-none mt-2`} placeholder="Thanks for your message — we will get back to you within 24 hours." />
+                  </Field>
+                )}
+                <div className="mt-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">Preview</p>
+                  <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-primary)]/50 p-3">
+                    <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap break-words">{preview}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <button onClick={() => saveAutoReply({ ...mb, ...draft })}
+                    disabled={saving || !unsaved}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/15 text-blue-400 text-[11px] font-medium hover:bg-blue-500/25 transition-colors disabled:opacity-40">
+                    {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save Auto Reply
+                  </button>
+                  {unsaved && !saving && <span className="text-[10px] text-amber-400">Unsaved changes</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -2141,21 +3049,23 @@ export default function CommunicationsPage() {
       return (
         <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] px-6 text-center">
           <Inbox size={32} className="mb-2 opacity-30" />
-          <p className="text-xs">Select a conversation from the list to read it here.</p>
+          <p className="text-xs">Select a conversation from the list to read and reply to it here.</p>
         </div>
       );
     }
     switch (activeFolderDef.kind) {
-      case 'queue': return renderQueueList();
-      case 'logs': return renderLogsList();
-      case 'history': return renderHistoryList();
-      case 'mailboxes': return renderMailboxGrid();
-      case 'settings': return renderSettings();
+      case 'queue': return renderQueueDetail();
+      case 'logs': return renderLogDetail();
+      case 'history': return renderHistoryDetail();
+      case 'mailboxes': return renderMailboxDetail();
+      case 'settings': return renderSettingsAccounts();
+      case 'templates': return renderTemplateEditor();
+      case 'signatures': return renderSignatureEditor();
+      case 'auto-reply': return renderAutoReplyList();
       case 'empty': return renderEmptyFolder();
-      default: return renderListTable();
+      default: return <div className="flex-1" />;
     }
   };
-
 
   const renderQueueDetail = () => {
     if (!selectedQueueItem) return <div className="flex-1 flex items-center justify-center text-[var(--text-muted)] text-center px-6 text-xs">Select a queued message to see details, errors and retry progress.</div>;
@@ -2271,7 +3181,7 @@ export default function CommunicationsPage() {
           <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{mb.email_address}</p>
           <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px] text-[var(--text-muted)]">
             <span className="flex items-center gap-1"><Server size={10} /> {mb.provider || '-'}</span>
-            <span className={`flex items-center gap-1 ${mb.connection_status === 'connected' ? 'text-green-400' : mb.connection_status === 'failed' ? 'text-red-400' : ''}`}><Database size={10} /> {mb.connection_status || 'unknown'}</span>
+            <span className="flex items-center gap-1"><HealthBadge h={mailboxHealth(mb)} /></span>
             <span className="flex items-center gap-1"><Plug size={10} /> {mb.is_enabled ? 'Enabled' : 'Disabled'}</span>
             <span className="flex items-center gap-1"><Wrench size={10} /> sync: {mb.sync_status || 'never'}</span>
           </div>
@@ -2330,7 +3240,8 @@ export default function CommunicationsPage() {
             smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username,
             signature: mb.signature, is_enabled: mb.is_enabled, is_default_sender: mb.is_default_sender,
             auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message,
-          }); setMailboxFormError(null); setShowMailboxForm(true); }}
+            auto_reply_template_key: mb.auto_reply_template_key, auto_reply_signature: mb.auto_reply_signature,
+          }); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 text-[11px] font-medium transition-colors">
             <Pencil size={11} /> Edit
           </button>
@@ -2343,7 +3254,7 @@ export default function CommunicationsPage() {
     );
   };
 
-    // ---- Email reader (center panel; Gmail/Outlook-style) ----
+  // ---- Email reader (right pane; conversation + reply composer) ----
   const renderEmailReader = () => {
     if (detailLoading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
     if (!detail) return (
@@ -2362,6 +3273,10 @@ export default function CommunicationsPage() {
           <button onClick={() => openReply()} title="Reply"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
             <Reply size={12} /> Reply
+          </button>
+          <button onClick={() => openReply()} title="Reply All"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg-tertiary)]/50 hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] text-[11px] font-medium transition-colors">
+            <ReplyAll size={12} /> Reply All
           </button>
           <button onClick={openForward} title="Forward"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg-tertiary)]/50 hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] text-[11px] font-medium transition-colors">
@@ -2389,12 +3304,11 @@ export default function CommunicationsPage() {
             className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-secondary)] transition-colors">
             <RefreshCw size={13} />
           </button>
-          {busy === 'reader:mark_read' && <span className="ml-auto flex items-center gap-1 text-[10px] text-[var(--text-muted)]"><Loader2 size={11} className="animate-spin" /> Marking read…</span>}
         </div>
 
         {/* Reader body */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="max-w-4xl mx-auto p-4 space-y-4">
+          <div className="max-w-5xl mx-auto p-4 space-y-4">
             {/* Header card */}
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-4">
               <div className="flex items-start gap-2">
@@ -2416,13 +3330,13 @@ export default function CommunicationsPage() {
                     {conv.customer_name || 'Unknown'} <span className="text-[var(--text-muted)] font-normal">&lt;{conv.customer_email}&gt;</span>
                     {unread && <span className="ml-2 text-[9px] font-medium text-blue-400">{conv.unread_replies} unread</span>}
                   </p>
-                  <p className="text-[10px] text-[var(--text-muted)] truncate">To: support</p>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate">To: {conv.category === 'sales' ? 'sales@websmithdigital.com' : 'support@websmithdigital.com'}</p>
                 </div>
                 <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">{new Date(conv.created_at).toLocaleString()}</span>
               </div>
               <div className="text-[11px] text-[var(--text-muted)] mt-2 space-y-0.5">
                 <p>From: <span className="text-[var(--text-secondary)]">{conv.customer_name || 'Unknown'} &lt;{conv.customer_email}&gt;</span></p>
-                <p>To: <span className="text-[var(--text-secondary)]">support</span> · CC: <span className="text-[var(--text-secondary)]">—</span> · BCC: <span className="text-[var(--text-secondary)]">—</span></p>
+                <p>To: <span className="text-[var(--text-secondary)]">{conv.category === 'sales' ? 'sales@websmithdigital.com' : 'support@websmithdigital.com'}</span> · CC: <span className="text-[var(--text-secondary)]">—</span> · BCC: <span className="text-[var(--text-secondary)]">—</span></p>
                 <p>Date &amp; Time: <span className="text-[var(--text-secondary)]">{new Date(conv.created_at).toLocaleString()}</span> · Updated: {new Date(conv.updated_at).toLocaleString()}</p>
                 <p>Status: <span className="text-[var(--text-secondary)]">{STATUS_LABELS[conv.status]?.label || conv.status}</span> · Priority: <span className={prio.color}>{prio.label}</span></p>
               </div>
@@ -2581,16 +3495,65 @@ export default function CommunicationsPage() {
               </div>
             )}
 
-            {/* Compose affordance */}
-            <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3 flex items-center gap-2">
-              <AtSign size={13} className="text-[var(--text-muted)] flex-shrink-0" />
-              <span className="flex-1 min-w-0 text-[11px] text-[var(--text-muted)] truncate">
-                Reply to <span className="text-[var(--text-secondary)]">{conv.customer_email}</span>
-              </span>
-              <button onClick={() => openReply()}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
-                Reply
-              </button>
+            {/* Reply composer (Template ▼ / Signature ▼ + Send) */}
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <button onClick={() => { setComposerInternal(false); setComposerOpen(true); }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${!composerInternal && composerOpen ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30'}`}>
+                  <Reply size={11} /> Reply
+                </button>
+                <button onClick={() => { setComposerInternal(true); setComposerOpen(true); }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${composerInternal && composerOpen ? 'bg-amber-500/20 text-amber-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30'}`}>
+                  <StickyNote size={11} /> Internal Note
+                </button>
+                <span className="ml-auto text-[10px] text-[var(--text-muted)]">Replying to {conv.customer_email}</span>
+              </div>
+              {composerOpen && (
+                <>
+                  <textarea
+                    value={composerText}
+                    onChange={e => setComposerText(e.target.value)}
+                    placeholder={composerInternal ? "Add an internal note (not visible to customer)..." : "Type your reply... Use Template ▼ / Signature ▼ to insert content."}
+                    rows={4}
+                    className="w-full px-3 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)]/60 text-[var(--text-primary)] text-xs placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-y scrollbar-thin"
+                  />
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <select
+                      value=""
+                      onChange={e => { if (e.target.value) insertTemplateIntoComposer(e.target.value); }}
+                      className="px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="">Template ▼</option>
+                      {templates.map(t => <option key={t.email_type} value={t.email_type}>{t.email_type}</option>)}
+                    </select>
+                    <select
+                      value=""
+                      onChange={e => { if (e.target.value) insertSignatureIntoComposer(e.target.value); }}
+                      className="px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="">Signature ▼</option>
+                      {signatures.map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
+                    </select>
+                    {composerError && <span className="text-[10px] text-red-400 flex-1 min-w-[120px]">{composerError}</span>}
+                    <button onClick={sendReply} disabled={!composerText.trim() || busy === 'composer-send'}
+                      className="ml-auto flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
+                      {busy === 'composer-send' ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} Send
+                    </button>
+                  </div>
+                </>
+              )}
+              {!composerOpen && (
+                <div className="flex items-center gap-2">
+                  <AtSign size={13} className="text-[var(--text-muted)] flex-shrink-0" />
+                  <span className="flex-1 min-w-0 text-[11px] text-[var(--text-muted)] truncate">
+                    Reply to <span className="text-[var(--text-secondary)]">{conv.customer_email}</span>
+                  </span>
+                  <button onClick={() => { setComposerOpen(true); setComposerInternal(false); }}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
+                    Reply
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2598,44 +3561,38 @@ export default function CommunicationsPage() {
     );
   };
 
-  const renderRightPanel = () => {
-    switch (activeFolderDef.kind) {
-      case 'queue': return renderQueueDetail();
-      case 'logs': return renderLogDetail();
-      case 'history': return renderHistoryDetail();
-      case 'mailboxes': return renderMailboxDetail();
-      case 'settings': return renderSettingsAccounts();
-      case 'empty': return <div className="flex-1" />;
-      default: return <div className="flex-1" />;
-    }
-  };
-
   return (
-    <div className="flex flex-col h-full gap-2">
+    <div className="flex flex-col h-full gap-2 p-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 flex-shrink-0">
             <Mail className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)] leading-tight">Communication Center</h1>
-            <p className="text-xs text-[var(--text-secondary)]">{activeFolderDef.label}</p>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-[var(--text-primary)] leading-tight truncate">Communication Center</h1>
+            <p className="text-xs text-[var(--text-secondary)] truncate">{activeFolderDef.label}</p>
           </div>
         </div>
-        {isTrash && conversations.length > 0 && (
-          <button onClick={() => setShowTrashConfirm(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-[11px] text-red-400 hover:bg-red-500/10 transition-colors">
-            <Trash2 size={12} /> Empty Trash
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={syncAllMailboxes} disabled={busy === 'sync-all'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
+            {busy === 'sync-all' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
           </button>
-        )}
+          {isTrash && conversations.length > 0 && (
+            <button onClick={() => setShowTrashConfirm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-[11px] text-red-400 hover:bg-red-500/10 transition-colors">
+              <Trash2 size={12} /> Empty Trash
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Toolbar */}
-      <div className="relative">{renderToolbar()}</div>
+      <div className="relative shrink-0">{renderToolbar()}</div>
 
       {/* Pinned status cards — always visible */}
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 shrink-0">
         {statusCards.map(card => {
           const Icon = card.icon;
           const cardFolderMap: Record<string, string> = { inbox: 'ext-inbox', waiting: 'ext-waiting', sent: 'ext-sent', failed: 'ext-failed', queued: 'ext-queued', unread: 'all' };
@@ -2652,17 +3609,17 @@ export default function CommunicationsPage() {
         })}
       </div>
 
-      {/* 3-panel body */}
+      {/* 3-pane body: Mailboxes | Folders + Email List | Conversation */}
       <div className="flex-1 min-h-0 flex rounded-xl border border-[var(--border-color)] overflow-hidden">
         {renderSidebar()}
-        <div className="flex-1 min-w-0 flex flex-col">
-          {renderCenter()}
-        </div>
-        {activeFolderDef.kind !== 'list' && (
-          <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
-            {renderRightPanel()}
+        {activeFolderDef.kind !== 'auto-reply' && (
+          <div className="w-[340px] min-w-[280px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
+            {renderMiddle()}
           </div>
         )}
+        <div className="flex-1 min-w-0 flex flex-col border-l border-[var(--border-color)]">
+          {renderCenter()}
+        </div>
       </div>
 
       {/* Toast */}
@@ -2803,141 +3760,286 @@ export default function CommunicationsPage() {
         </div>
       )}
 
-      {/* Mailbox form modal */}
+      {/* Mailbox form modal (card-based configuration UI) */}
       {showMailboxForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] w-[560px] max-w-full mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] w-[860px] max-w-[94vw] mx-4 max-h-[92vh] overflow-y-auto scrollbar-thin">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)] sticky top-0 bg-[var(--bg-secondary)] z-10">
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">{editingMailbox ? 'Edit Mailbox' : 'Add Mailbox'}</h2>
-              <button onClick={() => { setShowMailboxForm(false); setEditingMailbox(null); setMailboxFormError(null); }} className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-muted)] transition-colors"><X size={15} /></button>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-[var(--text-primary)]">Mailbox Settings</h2>
+                  <p className="text-[10px] text-[var(--text-muted)]">Configure incoming and outgoing email</p>
+                </div>
+                {editingMailbox && (
+                  <Badge className={mailboxHealth(editingMailbox).status === 'connected' ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${mailboxHealth(editingMailbox).status === 'connected' ? 'bg-green-400' : 'bg-red-400'}`} />
+                    {mailboxHealth(editingMailbox).status === 'connected' ? 'Connected' : mailboxHealth(editingMailbox).label}
+                  </Badge>
+                )}
+              </div>
+              <button onClick={() => { setShowMailboxForm(false); setEditingMailbox(null); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); }} className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-muted)] transition-colors"><X size={15} /></button>
             </div>
-            <div className="p-5 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Provider">
-                  <select value={mailboxForm.provider || 'custom'} onChange={e => {
-                    const p = presetForKey(e.target.value);
-                    setMailboxForm((prev: any) => ({
-                      ...prev,
-                      provider: p.key,
-                      imap_host: p.imap.host || prev.imap_host,
-                      imap_port: p.imap.port,
-                      imap_secure: p.imap.secure,
-                      smtp_host: p.smtp.host || prev.smtp_host,
-                      smtp_port: p.smtp.port,
-                      smtp_secure: p.smtp.secure,
-                    }));
-                  }} className={inputCls}>
-                    {PROVIDER_PRESETS.filter(p => p.key !== 'custom').map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
-                    <option value="custom">Custom / Other (manual)</option>
-                  </select>
-                </Field>
-                <Field label="Mail Address *">
-                  <input type="email" value={mailboxForm.email_address || ''} onChange={e => {
-                    const email = e.target.value;
-                    const detected = presetForEmail(email);
-                    setMailboxForm((prev: any) => {
-                      const next: any = { ...prev, email_address: email };
-                      if (detected.key !== 'custom' && prev.provider !== 'custom') {
-                        next.provider = detected.key;
-                        next.imap_host = detected.imap.host;
-                        next.imap_port = detected.imap.port;
-                        next.imap_secure = detected.imap.secure;
-                        next.smtp_host = detected.smtp.host;
-                        next.smtp_port = detected.smtp.port;
-                        next.smtp_secure = detected.smtp.secure;
-                      }
-                      return next;
-                    });
-                  }} className={inputCls} placeholder="admin@gmail.com" />
-                </Field>
+            <div className="p-5 space-y-4">
+              {/* Provider card */}
+              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Provider</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Provider">
+                    <select value={mailboxForm.provider || 'gmail'} onChange={e => {
+                      const p = presetForKey(e.target.value);
+                      setMailboxForm((prev: any) => ({
+                        ...prev,
+                        provider: p.key,
+                        imap_host: p.imap.host,
+                        imap_port: p.imap.port,
+                        imap_secure: p.imap.secure,
+                        smtp_host: p.smtp.host,
+                        smtp_port: p.smtp.port,
+                        smtp_secure: p.smtp.secure,
+                      }));
+                    }} className={inputCls}>
+                      {PROVIDER_PRESETS.filter(p => p.key !== 'custom').map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                      <option value="custom">Custom / Other (manual)</option>
+                    </select>
+                  </Field>
+                  <Field label="Mail Address *">
+                    <input type="email" value={mailboxForm.email_address || ''} onChange={e => {
+                      const email = e.target.value;
+                      const detected = presetForEmail(email);
+                      setMailboxForm((prev: any) => {
+                        const next: any = { ...prev, email_address: email };
+                        if (detected.key !== 'custom' && prev.provider !== 'custom') {
+                          next.provider = detected.key;
+                          next.imap_host = detected.imap.host;
+                          next.imap_port = detected.imap.port;
+                          next.imap_secure = detected.imap.secure;
+                          next.smtp_host = detected.smtp.host;
+                          next.smtp_port = detected.smtp.port;
+                          next.smtp_secure = detected.smtp.secure;
+                        }
+                        return next;
+                      });
+                    }} className={inputCls} placeholder="support@yourcompany.com" disabled={false} />
+                  </Field>
+                  <Field label="Display Name">
+                    <input type="text" value={mailboxForm.display_name || ''} onChange={e => setMailboxForm({ ...mailboxForm, display_name: e.target.value })}
+                      className={inputCls} placeholder="Support Team" />
+                  </Field>
+                  <div className="flex items-end">
+                    <button type="button" onClick={() => {
+                      const detected = presetForEmail(mailboxForm.email_address || '');
+                      if (detected.key === 'custom') { showToast('err', 'Unknown provider — enter server settings manually.'); return; }
+                      setMailboxForm((prev: any) => ({
+                        ...prev,
+                        provider: detected.key,
+                        imap_host: detected.imap.host,
+                        imap_port: detected.imap.port,
+                        imap_secure: detected.imap.secure,
+                        smtp_host: detected.smtp.host,
+                        smtp_port: detected.smtp.port,
+                        smtp_secure: detected.smtp.secure,
+                      }));
+                      showToast('ok', `Auto-detected ${detected.label} server settings.`);
+                    }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-500/30 text-[11px] text-blue-400 hover:bg-blue-500/10 transition-colors">
+                      <Sparkles size={12} /> Detect Server Settings
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => {
-                  const detected = presetForEmail(mailboxForm.email_address || '');
-                  if (detected.key === 'custom') { showToast('err', 'Unknown provider — enter server settings manually.'); return; }
-                  setMailboxForm((prev: any) => ({
-                    ...prev,
-                    provider: detected.key,
-                    imap_host: detected.imap.host,
-                    imap_port: detected.imap.port,
-                    imap_secure: detected.imap.secure,
-                    smtp_host: detected.smtp.host,
-                    smtp_port: detected.smtp.port,
-                    smtp_secure: detected.smtp.secure,
-                  }));
-                  showToast('ok', `Auto-detected ${detected.label} settings.`);
-                }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-500/30 text-[11px] text-blue-400 hover:bg-blue-500/10 transition-colors">
-                  <Sparkles size={12} /> Detect Server Settings
-                </button>
-                <span className="text-[10px] text-[var(--text-muted)]">Auto-fills IMAP/SMTP for Gmail, Outlook / Microsoft 365, Yahoo, Zoho, Proton, iCloud, Fastmail.</span>
+
+              {/* IMAP / SMTP cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400 mb-2">Incoming — IMAP</p>
+                  <div className="space-y-2.5">
+                    <Field label="Server *"><input type="text" value={mailboxForm.imap_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_host: e.target.value })} className={inputCls} placeholder="imap.example.com" /></Field>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Port">
+                        <input type="number" value={mailboxForm.imap_port ?? 993} onChange={e => setMailboxForm({ ...mailboxForm, imap_port: parseInt(e.target.value) || 993 })} className={inputCls} />
+                      </Field>
+                      <Field label="Encryption">
+                        <select value={mailboxForm.imap_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, imap_secure: e.target.value === 'true' })} className={inputCls}>
+                          <option value="true">SSL / TLS</option>
+                          <option value="false">None</option>
+                        </select>
+                      </Field>
+                    </div>
+                    <Field label="Username *"><input type="text" value={mailboxForm.imap_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_username: e.target.value })} className={inputCls} placeholder="user@example.com" /></Field>
+                    <Field label="Password / App Password *">
+                      <div className="relative">
+                        <input type={showImapPass ? 'text' : 'password'} value={mailboxForm.imap_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_password: e.target.value })} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} />
+                        <button type="button" onClick={() => setShowImapPass(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
+                          {showImapPass ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                      </div>
+                    </Field>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-2">Outgoing — SMTP</p>
+                  <div className="space-y-2.5">
+                    <Field label="Server *"><input type="text" value={mailboxForm.smtp_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_host: e.target.value })} className={inputCls} placeholder="smtp.example.com" /></Field>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Port">
+                        <input type="number" value={mailboxForm.smtp_port ?? 465} onChange={e => setMailboxForm({ ...mailboxForm, smtp_port: parseInt(e.target.value) || 465 })} className={inputCls} />
+                      </Field>
+                      <Field label="Encryption">
+                        <select value={mailboxForm.smtp_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, smtp_secure: e.target.value === 'true' })} className={inputCls}>
+                          <option value="true">SSL / TLS</option>
+                          <option value="false">None</option>
+                        </select>
+                      </Field>
+                    </div>
+                    <Field label="Username *"><input type="text" value={mailboxForm.smtp_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_username: e.target.value })} className={inputCls} placeholder="user@example.com" /></Field>
+                    <Field label="Password / App Password *">
+                      <div className="relative">
+                        <input type={showSmtpPass ? 'text' : 'password'} value={mailboxForm.smtp_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_password: e.target.value })} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} />
+                        <button type="button" onClick={() => setShowSmtpPass(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
+                          {showSmtpPass ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                      </div>
+                    </Field>
+                  </div>
+                </div>
               </div>
-              <Field label="Display Name">
-                <input type="text" value={mailboxForm.display_name || ''} onChange={e => setMailboxForm({ ...mailboxForm, display_name: e.target.value })}
-                  className={inputCls} placeholder="Support Team" />
-              </Field>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] pt-1">Incoming Mail (IMAP)</p>
-              <div className="grid grid-cols-3 gap-3">
-                <Field label="Incoming Mail Server *"><input type="text" value={mailboxForm.imap_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_host: e.target.value })} className={inputCls} placeholder="imap.example.com" /></Field>
-                <Field label="Incoming Mail Port">
-                  <input type="number" value={mailboxForm.imap_port ?? 993} onChange={e => setMailboxForm({ ...mailboxForm, imap_port: parseInt(e.target.value) || 993 })} className={inputCls} />
-                </Field>
-                <Field label="Encryption">
-                  <select value={mailboxForm.imap_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, imap_secure: e.target.value === 'true' })} className={inputCls}>
-                    <option value="true">SSL / TLS</option>
-                    <option value="false">None</option>
-                  </select>
-                </Field>
-                <Field label="Incoming Username *"><input type="text" value={mailboxForm.imap_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_username: e.target.value })} className={inputCls} placeholder="user@example.com" /></Field>
-                <Field label="Incoming Password *"><input type="password" value={mailboxForm.imap_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_password: e.target.value })} className={inputCls} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} /></Field>
+
+              {/* Provider authentication help */}
+              {(() => {
+                const preset = presetForKey(mailboxForm.provider || 'gmail');
+                const h = preset.help;
+                if (!h) return null;
+                return (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1.5">{preset.label} Authentication</p>
+                    <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">{h.note}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {h.appPassword && (
+                        <a href={h.appPassword.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-500/30 text-[11px] text-blue-400 hover:bg-blue-500/10 transition-colors">
+                          <KeyRound size={11} /> {h.appPassword.label} <ExternalLink size={10} />
+                        </a>
+                      )}
+                      {h.instructions && (
+                        <a href={h.instructions.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
+                          <HelpCircle size={11} /> {h.instructions.label} <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Sender & Reply settings */}
+              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Sender &amp; Reply Settings</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                    <input type="checkbox" checked={mailboxForm.is_default_sender === true} onChange={e => setMailboxForm({ ...mailboxForm, is_default_sender: e.target.checked })} className="accent-blue-500" />
+                    Default sender
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                    <input type="checkbox" checked={mailboxForm.is_enabled !== false} onChange={e => setMailboxForm({ ...mailboxForm, is_enabled: e.target.checked })} className="accent-blue-500" />
+                    Enabled
+                  </label>
+                  <Field label="Email Signature">
+                    <div className="flex gap-1.5">
+                      <select value="" onChange={e => {
+                        const sig = signatures.find(s => s.id === e.target.value);
+                        if (sig) setMailboxForm((prev: any) => ({ ...prev, signature: sig.content }));
+                      }} className={inputCls}>
+                        <option value="">Select Signature ▼</option>
+                        {signatures.map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
+                      </select>
+                      <button type="button" onClick={() => { setSignatureForm({ open: true, id: null, name: '', content: '' }); showToast('ok', 'Create the signature in the Signatures section — it becomes available here.'); }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-blue-500/30 text-[11px] text-blue-400 hover:bg-blue-500/10 transition-colors shrink-0">
+                        <Plus size={11} /> Add Signature
+                      </button>
+                    </div>
+                  </Field>
+                  <Field label="Auto Reply">
+                    <div className="flex items-center gap-2">
+                      <Toggle checked={mailboxForm.auto_reply_enabled === true} onChange={() => setMailboxForm((prev: any) => ({ ...prev, auto_reply_enabled: !(prev.auto_reply_enabled === true) }))} />
+                      <span className="text-[10px] text-[var(--text-muted)]">{mailboxForm.auto_reply_enabled ? 'ON' : 'OFF'}</span>
+                    </div>
+                  </Field>
+                  {mailboxForm.auto_reply_enabled && (
+                    <>
+                      <Field label="Auto Reply Template">
+                        <select value={mailboxForm.auto_reply_template_key || ''} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_template_key: e.target.value })} className={inputCls}>
+                          <option value="">— Legacy message —</option>
+                          {templates.map(t => <option key={t.email_type} value={t.email_type}>{t.email_type}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Auto Reply Signature">
+                        <select value={mailboxForm.auto_reply_signature || ''} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_signature: e.target.value })} className={inputCls}>
+                          <option value="">— None —</option>
+                          {signatures.map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
+                        </select>
+                      </Field>
+                      {!mailboxForm.auto_reply_template_key && (
+                        <div className="col-span-2">
+                          <Field label="Legacy auto-reply message">
+                            <textarea rows={2} value={mailboxForm.auto_reply_message || ''} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_message: e.target.value })}
+                              className={`${inputCls} resize-none`} placeholder="Thanks for your message — we will get back to you within 24 hours." />
+                          </Field>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] pt-1">Outgoing Mail (SMTP)</p>
-              <div className="grid grid-cols-3 gap-3">
-                <Field label="Outgoing Mail Server *"><input type="text" value={mailboxForm.smtp_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_host: e.target.value })} className={inputCls} placeholder="smtp.example.com" /></Field>
-                <Field label="Outgoing Mail Port">
-                  <input type="number" value={mailboxForm.smtp_port ?? 465} onChange={e => setMailboxForm({ ...mailboxForm, smtp_port: parseInt(e.target.value) || 465 })} className={inputCls} />
-                </Field>
-                <Field label="Encryption">
-                  <select value={mailboxForm.smtp_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, smtp_secure: e.target.value === 'true' })} className={inputCls}>
-                    <option value="true">SSL / TLS</option>
-                    <option value="false">None</option>
-                  </select>
-                </Field>
-                <Field label="Outgoing Username *"><input type="text" value={mailboxForm.smtp_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_username: e.target.value })} className={inputCls} /></Field>
-                <Field label="Outgoing Password *"><input type="password" value={mailboxForm.smtp_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_password: e.target.value })} className={inputCls} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} /></Field>
+
+              {/* Connection test */}
+              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Test Connection</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <button type="button" onClick={() => testMailboxForm('imap')} disabled={mailboxTest.running}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-500/30 text-[11px] text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50">
+                    {mailboxTest.running ? <Loader2 size={11} className="animate-spin" /> : <Database size={11} />} Test Incoming
+                  </button>
+                  <button type="button" onClick={() => testMailboxForm('smtp')} disabled={mailboxTest.running}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 text-[11px] text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50">
+                    {mailboxTest.running ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} Test Outgoing
+                  </button>
+                  <button type="button" onClick={() => testMailboxForm('both')} disabled={mailboxTest.running}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
+                    {mailboxTest.running ? <Loader2 size={11} className="animate-spin" /> : <ShieldCheck size={11} />} Test Connection
+                  </button>
+                </div>
+                {mailboxTest.results && (
+                  <div className="mt-2 space-y-1">
+                    {mailboxTest.results.imap && (
+                      <p className={`text-[11px] flex items-center gap-1.5 ${mailboxTest.results.imap.connected ? 'text-green-400' : 'text-red-400'}`}>
+                        {mailboxTest.results.imap.connected ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                        Incoming IMAP connection {mailboxTest.results.imap.connected ? 'successful' : 'failed'}
+                        {mailboxTest.results.imap.error && !mailboxTest.results.imap.connected && <span className="text-[var(--text-muted)] truncate">— {mailboxTest.results.imap.error}</span>}
+                      </p>
+                    )}
+                    {mailboxTest.results.smtp && (
+                      <p className={`text-[11px] flex items-center gap-1.5 ${mailboxTest.results.smtp.connected ? 'text-green-400' : 'text-red-400'}`}>
+                        {mailboxTest.results.smtp.connected ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                        Outgoing SMTP connection {mailboxTest.results.smtp.connected ? 'successful' : 'failed'}
+                        {mailboxTest.results.smtp.error && !mailboxTest.results.smtp.connected && <span className="text-[var(--text-muted)] truncate">— {mailboxTest.results.smtp.error}</span>}
+                      </p>
+                    )}
+                    {mailboxTest.results.imap?.connected && mailboxTest.results.smtp?.connected && (
+                      <p className="text-[11px] text-green-400 flex items-center gap-1.5"><CheckCircle2 size={12} /> Mailbox is ready.</p>
+                    )}
+                  </div>
+                )}
+                {mailboxFormError && (
+                  <p className="mt-2 text-xs text-red-400 break-words rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2">{mailboxFormError}</p>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <input type="checkbox" checked={mailboxForm.is_default_sender === true} onChange={e => setMailboxForm({ ...mailboxForm, is_default_sender: e.target.checked })} className="accent-blue-500" />
-                  Default sender
-                </label>
-                <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <input type="checkbox" checked={mailboxForm.is_enabled !== false} onChange={e => setMailboxForm({ ...mailboxForm, is_enabled: e.target.checked })} className="accent-blue-500" />
-                  Enabled
-                </label>
-              </div>
-              <Field label="Email Signature">
-                <textarea rows={2} value={mailboxForm.signature || ''} onChange={e => setMailboxForm({ ...mailboxForm, signature: e.target.value })} className={`${inputCls} resize-none`} />
-              </Field>
-              <div className="space-y-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
-                <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <input type="checkbox" checked={mailboxForm.auto_reply_enabled === true} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_enabled: e.target.checked })} className="accent-blue-500" />
-                  Enable auto-reply for incoming mail
-                </label>
-                <textarea rows={3} value={mailboxForm.auto_reply_message || ''} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_message: e.target.value })}
-                  placeholder="Auto-reply message sent to new incoming conversations (e.g. Thanks for your message — we will get back to you within 24 hours.)"
-                  className={`${inputCls} resize-none`} />
-              </div>
-              {mailboxFormError && (
-                <p className="text-xs text-red-400 break-words rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2">{mailboxFormError}</p>
-              )}
             </div>
             <div className="flex gap-2 px-5 py-4 border-t border-[var(--border-color)] sticky bottom-0 bg-[var(--bg-secondary)]">
               <button onClick={saveMailbox} disabled={busy === 'save-mailbox'}
                 className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                {busy === 'save-mailbox' ? <><Loader2 size={13} className="animate-spin" /> {editingMailbox ? 'Saving changes...' : 'Creating mailbox...'}</> : <><Save size={13} /> {editingMailbox ? 'Save Changes' : 'Create Mailbox'}</>}
+                {busy === 'save-mailbox' ? <><Loader2 size={13} className="animate-spin" /> {editingMailbox ? 'Saving changes...' : 'Creating mailbox...'}</> : <><Save size={13} /> {editingMailbox ? 'Save Mailbox' : 'Create Mailbox'}</>}
               </button>
-              <button onClick={() => { setShowMailboxForm(false); setEditingMailbox(null); setMailboxFormError(null); }}
+              <button onClick={() => { setShowMailboxForm(false); setEditingMailbox(null); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); }}
                 className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">Cancel</button>
             </div>
           </div>
