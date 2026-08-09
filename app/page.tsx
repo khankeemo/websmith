@@ -19,7 +19,6 @@ import {
   Mail,
   Building2,
 } from "lucide-react";
-import LeadCapturePopup from "../components/lead-funnel/LeadCapturePopup";
 import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
 import { getPublishedProjects, getPublishedTestimonials } from "./projects/services/projectService";
@@ -373,8 +372,6 @@ export default function LandingPage() {
 
   return (
     <div style={styles.container}>
-      <LeadCapturePopup />
-
       {/* Hero Section */}
       <section style={styles.hero} className="landing-hero">
         <video
