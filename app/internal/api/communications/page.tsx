@@ -15,6 +15,8 @@ import {
   UserPlus, BookOpen, Ban, Smartphone, Save,
   Folder, FolderPlus, FolderOpen, FolderCog,
   Sparkles, ShieldCheck, Upload, Wifi, WifiOff, KeySquare,
+  FileImage, FileArchive, FileSpreadsheet, Presentation, FileJson,
+  FileCode, FileAudio, FileVideo, FileType,
 } from "lucide-react";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
@@ -355,14 +357,41 @@ const attachmentUrl = (p: string) => {
 // ---- Attachment preview support (image / PDF / text) ----
 type PreviewKind = 'image' | 'pdf' | 'text' | 'none';
 
-const previewKindOf = (mime: string): PreviewKind => {
+const fileExtOf = (name: string): string => {
+  const i = (name || '').lastIndexOf('.');
+  return i >= 0 ? name.slice(i + 1) : '';
+};
+
+const typeLabelOf = (name: string, mime: string): string => {
+  const ext = fileExtOf(name).toUpperCase();
+  if (ext && ext.length <= 5) return ext;
+  const m = (mime || '').split(';')[0].split('/');
+  return m.length === 2 ? m[1].toUpperCase() || 'FILE' : 'FILE';
+};
+
+const typeIconOf = (name: string, mime: string) => {
+  const ext = fileExtOf(name).toLowerCase();
   const m = (mime || '').toLowerCase();
+  if (m.startsWith('image/')) return FileImage;
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext) || m.includes('zip') || m.includes('compressed') || m.includes('tar')) return FileArchive;
+  if (['xls', 'xlsx', 'ods'].includes(ext) || m.includes('spreadsheet') || m.includes('excel') || m.includes('csv')) return FileSpreadsheet;
+  if (['ppt', 'pptx', 'odp'].includes(ext) || m.includes('presentation') || m.includes('powerpoint')) return Presentation;
+  if (ext === 'json' || m.includes('json')) return FileJson;
+  if (['xml', 'html', 'htm', 'css', 'js', 'ts', 'py', 'sh', 'md', 'yaml', 'yml', 'sql', 'log'].includes(ext) || m.includes('xml')) return FileCode;
+  if (['doc', 'docx', 'rtf', 'odt', 'txt', 'log', 'md'].includes(ext) || m.includes('word') || m.includes('document') || m.startsWith('text/')) return FileText;
+  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma'].includes(ext) || m.startsWith('audio/')) return FileAudio;
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm', 'wmv', 'flv'].includes(ext) || m.startsWith('video/')) return FileVideo;
+  if (ext === 'pdf' || m.includes('pdf')) return FileText;
+  return FileType;
+};
+
+const previewKindOf = (name: string, mime: string): PreviewKind => {
+  const m = (mime || '').toLowerCase();
+  const ext = fileExtOf(name).toLowerCase();
   if (m.startsWith('image/')) return 'image';
-  if (m === 'application/pdf' || m === 'application/x-pdf' || m.endsWith('/pdf')) return 'pdf';
-  if (m.startsWith('text/') || m.includes('json') || m.includes('xml') || m.includes('csv') || m === 'application/octet-stream') {
-    if (m === 'application/octet-stream') return 'none';
-    return 'text';
-  }
+  if (m === 'application/pdf' || m === 'application/x-pdf' || m.endsWith('/pdf') || ext === 'pdf') return 'pdf';
+  if (m.startsWith('text/') || m.includes('json') || m.includes('xml') || m.includes('csv')) return 'text';
+  if (['txt', 'json', 'xml', 'csv', 'log', 'md', 'html', 'htm', 'yaml', 'yml', 'ini', 'conf', 'env', 'rtf'].includes(ext)) return 'text';
   return 'none';
 };
 
@@ -397,19 +426,21 @@ function AttachmentPreview({ a, href, kind }: { a: AttachmentRow; href: string; 
 function AttachmentCard({ a }: { a: AttachmentRow }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const href = attachmentUrl(a.storage_path || '');
-  const kind = previewKindOf(a.mime_type);
-  const canPreview = kind !== 'none';
+  const kind = previewKindOf(a.file_name, a.mime_type);
+  const Icon = typeIconOf(a.file_name, a.mime_type);
+  const label = typeLabelOf(a.file_name, a.mime_type);
+  const toggleable = kind === 'pdf' || kind === 'text';
   return (
     <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/10 p-2.5">
       <div className="flex items-center gap-2 min-w-0">
-        <div className="p-1.5 rounded-lg bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)] flex-shrink-0">
-          <FileText size={13} />
+        <div className={`p-1.5 rounded-lg flex-shrink-0 ${kind === 'image' ? 'bg-blue-500/10 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
+          <Icon size={13} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-medium text-[var(--text-primary)] truncate">{a.file_name}</p>
-          <p className="text-[9px] text-[var(--text-muted)] truncate">{formatSize(a.file_size)} · {a.mime_type || 'application/octet-stream'}</p>
+          <p className="text-[9px] text-[var(--text-muted)] truncate">{label} · {formatSize(a.file_size)}</p>
         </div>
-        {canPreview && (
+        {toggleable && (
           <button onClick={() => setPreviewOpen(p => !p)}
             className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)] transition-colors"
             title={previewOpen ? 'Hide preview' : 'Preview'}>
@@ -421,7 +452,9 @@ function AttachmentCard({ a }: { a: AttachmentRow }) {
           <Download size={12} />
         </a>
       </div>
-      {previewOpen && <AttachmentPreview a={a} href={href} kind={kind} />}
+      {kind === 'image' && <AttachmentPreview a={a} href={href} kind="image" />}
+      {toggleable && previewOpen && <AttachmentPreview a={a} href={href} kind={kind} />}
+      {kind === 'none' && <p className="text-[9px] text-[var(--text-muted)] mt-1.5">Preview not available for this format — use Download.</p>}
     </div>
   );
 }
@@ -2123,189 +2156,6 @@ export default function CommunicationsPage() {
     }
   };
 
-  // ---- Right panel ----
-  const renderConversationDetail = () => {
-    if (detailLoading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
-    if (!detail) return (
-      <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] px-6 text-center">
-        <MessageSquare size={28} className="mb-2 opacity-30" />
-        <p className="text-xs">Select a conversation to view the thread, customer, license, payments and audit history.</p>
-      </div>
-    );
-    const conv = detail.conversation;
-    return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
-        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
-          <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-[var(--text-primary)] leading-snug">{conv.subject || '(No subject)'}</h3>
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <CategoryBadge category={conv.category} />
-                <StatusBadge status={conv.status} />
-                {conv.unread_replies > 0 && <Badge className="bg-blue-500/20 text-blue-400">{conv.unread_replies} unread</Badge>}
-              </div>
-            </div>
-            <div className="flex gap-1 shrink-0">
-              <button onClick={() => openReply()} title="Reply" className="p-1.5 rounded-lg hover:bg-blue-500/10 text-blue-400 transition-colors"><Reply size={13} /></button>
-              <button onClick={openForward} title="Forward" className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-secondary)] transition-colors"><Forward size={13} /></button>
-            </div>
-          </div>
-          <div className="text-[11px] text-[var(--text-muted)] mt-2 space-y-0.5">
-            <p>From: <span className="text-[var(--text-secondary)]">{conv.customer_name || 'Unknown'} &lt;{conv.customer_email}&gt;</span></p>
-            {conv.product_id && <p>Product: <span className="text-[var(--text-secondary)]">{conv.product_id}</span></p>}
-            {conv.license_key && <p>License: <code className="text-[10px] text-[var(--text-secondary)]">{conv.license_key}</code></p>}
-            {conv.hardware_id && <p>Hardware: <code className="text-[10px] text-[var(--text-secondary)]">{conv.hardware_id}</code></p>}
-            <p>Created: {new Date(conv.created_at).toLocaleString()} · Updated: {new Date(conv.updated_at).toLocaleString()}</p>
-          </div>
-        </div>
-
-        {/* Thread */}
-        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
-          <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Thread ({detail.messages.length})</p>
-          <div className="p-3 space-y-2">
-            {detail.messages.length === 0 && <p className="text-xs text-[var(--text-muted)] text-center py-3">No messages</p>}
-            {detail.messages.map((m: any) => (
-              <div key={m.id} className={`rounded-lg p-2.5 text-xs ${m.sender_type === 'customer' ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-[var(--bg-tertiary)]/30 border border-[var(--border-color)]'}`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-medium text-[var(--text-primary)]">{m.sender_name || (m.sender_type === 'customer' ? 'Customer' : 'Support')}</span>
-                  <span className="text-[10px] text-[var(--text-muted)]">{new Date(m.created_at).toLocaleString()}</span>
-                  {m.email_sent && <span className="text-[9px] text-green-400 ml-auto">sent</span>}
-                </div>
-                <p className="text-[var(--text-secondary)] whitespace-pre-wrap break-words">{m.message}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Attachments */}
-        {detail.attachments.length > 0 && (
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
-            <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Attachments ({detail.attachments.length})</p>
-            <div className="p-3 space-y-1.5">
-              {detail.attachments.map(a => (
-                <a key={a.id} href={attachmentUrl(a.storage_path)} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/30 transition-colors group">
-                  <Paperclip size={12} className="text-[var(--text-muted)] flex-shrink-0" />
-                  <span className="text-xs text-[var(--text-secondary)] truncate flex-1">{a.file_name}</span>
-                  <span className="text-[10px] text-[var(--text-muted)]">{formatSize(a.file_size)}</span>
-                  <Download size={11} className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Customer */}
-        {detail.customer && (
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
-            <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Customer</p>
-            <div className="p-3 text-xs text-[var(--text-secondary)] space-y-1">
-              <p><span className="text-[var(--text-muted)]">Name:</span> {detail.customer.name || '-'}</p>
-              <p><span className="text-[var(--text-muted)]">Email:</span> {detail.customer.email || '-'}</p>
-              <p><span className="text-[var(--text-muted)]">Company:</span> {detail.customer.company || '-'}</p>
-              <p><span className="text-[var(--text-muted)]">Phone:</span> {detail.customer.phone || detail.customer.mobile || '-'}</p>
-              <p><span className="text-[var(--text-muted)]">Location:</span> {[detail.customer.city, detail.customer.state, detail.customer.country].filter(Boolean).join(', ') || '-'}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Licenses */}
-        {detail.licenses.length > 0 && (
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
-            <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Licenses ({detail.licenses.length})</p>
-            <div className="p-3 space-y-2">
-              {detail.licenses.map((l: any) => (
-                <div key={l.license_key} className="rounded-lg border border-[var(--border-color)] p-2">
-                  <div className="flex items-center gap-2">
-                    <KeyRound size={11} className="text-[var(--text-muted)] flex-shrink-0" />
-                    <code className="text-[10px] text-[var(--text-secondary)] truncate">{l.license_key}</code>
-                    <span className="ml-auto"><Badge className={l.status === 'active' ? 'text-green-400 bg-green-500/10' : l.status === 'trial' ? 'text-amber-400 bg-amber-500/10' : 'text-gray-400 bg-gray-500/10'}>{l.status || '-'}</Badge></span>
-                  </div>
-                  <p className="text-[10px] text-[var(--text-muted)] mt-1">{l.product_name || l.product_id || ''}{l.plan_name ? ` · ${l.plan_name}` : ''}</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Expires: {l.expiry_date ? new Date(l.expiry_date).toLocaleDateString() : '-'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Orders + Payments */}
-        {detail.orders.length > 0 && (
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
-            <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Orders & Payments ({detail.orders.length})</p>
-            <div className="p-3 space-y-2">
-              {detail.orders.map((o: any) => {
-                const pays = detail.payments.filter((p: any) => p.order_id === o.id);
-                return (
-                  <div key={o.id} className="rounded-lg border border-[var(--border-color)] p-2">
-                    <div className="flex items-center gap-2">
-                      <ShoppingBag size={11} className="text-[var(--text-muted)] flex-shrink-0" />
-                      <span className="text-xs text-[var(--text-primary)]">{o.order_number || o.id}</span>
-                      <span className="ml-auto"><Badge className="text-emerald-400 bg-emerald-500/10">{o.status || '-'}</Badge></span>
-                    </div>
-                    <p className="text-[10px] text-[var(--text-muted)] mt-1">{o.payment_gateway || ''} · {new Date(o.created_at).toLocaleDateString()} · Total {o.total ?? o.subtotal ?? 0} {o.currency || 'USD'}</p>
-                    {pays.map((p: any) => (
-                      <p key={p.id} className="text-[10px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1">
-                        <CreditCard size={10} className="text-[var(--text-muted)]" /> Payment {p.status || '-'} · {p.amount || 0} {p.currency || ''} · {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : '-'}
-                      </p>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Delivery logs */}
-        {detail.delivery_logs.length > 0 && (
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
-            <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Delivery Logs ({detail.delivery_logs.length})</p>
-            <div className="p-3 space-y-1.5">
-              {detail.delivery_logs.map((q: any) => (
-                <div key={q.id} className="text-[10px] text-[var(--text-secondary)] flex items-center gap-2">
-                  <span className={`font-medium ${QUEUE_STATUS_LABELS[q.status]?.color || 'text-gray-400'}`}>{QUEUE_STATUS_LABELS[q.status]?.label || q.status}</span>
-                  <span className="text-[var(--text-muted)] truncate">{q.last_error || (q.subject || '') || new Date(q.created_at).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Audit history */}
-        {detail.audit.length > 0 && (
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
-            <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Audit History ({detail.audit.length})</p>
-            <div className="p-3 space-y-1.5">
-              {detail.audit.map((a: any, i: number) => (
-                <div key={i} className="flex items-start gap-2 text-[10px]">
-                  <HistoryIcon size={11} className="text-[var(--text-muted)] mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[var(--text-secondary)] break-words">{a.message}</p>
-                    <p className="text-[var(--text-muted)]">{new Date(a.timestamp).toLocaleString()} · {a.event_type}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Internal notes */}
-        {detail.internal_notes.length > 0 && (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5">
-            <p className="px-3 py-2 border-b border-amber-500/20 text-[10px] font-bold uppercase tracking-wider text-amber-400">Internal Notes ({detail.internal_notes.length})</p>
-            <div className="p-3 space-y-2">
-              {detail.internal_notes.map((m: any) => (
-                <div key={m.id} className="text-xs">
-                  <p className="text-[var(--text-secondary)] whitespace-pre-wrap break-words">{m.message}</p>
-                  <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{m.sender_name} · {new Date(m.created_at).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const renderQueueDetail = () => {
     if (!selectedQueueItem) return <div className="flex-1 flex items-center justify-center text-[var(--text-muted)] text-center px-6 text-xs">Select a queued message to see details, errors and retry progress.</div>;
@@ -2504,6 +2354,7 @@ export default function CommunicationsPage() {
     );
     const conv = detail.conversation;
     const unread = (conv.unread_replies || 0) > 0;
+    const prio = priorityOf(conv.status);
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         {/* Reader toolbar */}
@@ -2543,14 +2394,17 @@ export default function CommunicationsPage() {
 
         {/* Reader body */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="max-w-3xl mx-auto p-4 space-y-4">
+          <div className="max-w-4xl mx-auto p-4 space-y-4">
             {/* Header card */}
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-4">
               <div className="flex items-start gap-2">
                 <h2 className="flex-1 min-w-0 text-base font-semibold text-[var(--text-primary)] leading-snug">{conv.subject || '(No subject)'}</h2>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                   <CategoryBadge category={conv.category} />
                   <StatusBadge status={conv.status} />
+                  <span className={`text-[10px] font-medium flex items-center gap-1 ${prio.color}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`} /> {prio.label} priority
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -2562,11 +2416,15 @@ export default function CommunicationsPage() {
                     {conv.customer_name || 'Unknown'} <span className="text-[var(--text-muted)] font-normal">&lt;{conv.customer_email}&gt;</span>
                     {unread && <span className="ml-2 text-[9px] font-medium text-blue-400">{conv.unread_replies} unread</span>}
                   </p>
-                  <p className="text-[10px] text-[var(--text-muted)]">
-                    To: support · {new Date(conv.created_at).toLocaleString()}
-                  </p>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate">To: support</p>
                 </div>
-                <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">{new Date(conv.updated_at).toLocaleString()}</span>
+                <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">{new Date(conv.created_at).toLocaleString()}</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-2 space-y-0.5">
+                <p>From: <span className="text-[var(--text-secondary)]">{conv.customer_name || 'Unknown'} &lt;{conv.customer_email}&gt;</span></p>
+                <p>To: <span className="text-[var(--text-secondary)]">support</span> · CC: <span className="text-[var(--text-secondary)]">—</span> · BCC: <span className="text-[var(--text-secondary)]">—</span></p>
+                <p>Date &amp; Time: <span className="text-[var(--text-secondary)]">{new Date(conv.created_at).toLocaleString()}</span> · Updated: {new Date(conv.updated_at).toLocaleString()}</p>
+                <p>Status: <span className="text-[var(--text-secondary)]">{STATUS_LABELS[conv.status]?.label || conv.status}</span> · Priority: <span className={prio.color}>{prio.label}</span></p>
               </div>
             </div>
 
@@ -2600,6 +2458,129 @@ export default function CommunicationsPage() {
               </div>
             </div>
 
+            {/* Customer + Device & Product */}
+            <div className="grid gap-4 md:grid-cols-2">
+              {detail.customer && (
+                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+                  <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Customer</p>
+                  <div className="p-3 text-xs text-[var(--text-secondary)] space-y-1">
+                    <p><span className="text-[var(--text-muted)]">Name:</span> {detail.customer.name || '-'}</p>
+                    <p><span className="text-[var(--text-muted)]">Email:</span> {detail.customer.email || '-'}</p>
+                    <p><span className="text-[var(--text-muted)]">Company:</span> {detail.customer.company || '-'}</p>
+                    <p><span className="text-[var(--text-muted)]">Phone:</span> {detail.customer.phone || detail.customer.mobile || '-'}</p>
+                    <p><span className="text-[var(--text-muted)]">Location:</span> {[detail.customer.city, detail.customer.state, detail.customer.country].filter(Boolean).join(', ') || '-'}</p>
+                  </div>
+                </div>
+              )}
+              {(conv.hardware_id || conv.sdk_version || conv.runtime_type || conv.product_id || conv.license_key) && (
+                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+                  <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Device & Product</p>
+                  <div className="p-3 text-xs text-[var(--text-secondary)] space-y-1">
+                    {conv.product_id && <p><span className="text-[var(--text-muted)]">Product:</span> {conv.product_id}</p>}
+                    {conv.license_key && <p><span className="text-[var(--text-muted)]">License:</span> <code className="text-[10px]">{conv.license_key}</code></p>}
+                    {conv.hardware_id && <p><span className="text-[var(--text-muted)]">Hardware:</span> <code className="text-[10px]">{conv.hardware_id}</code></p>}
+                    {conv.sdk_version && <p><span className="text-[var(--text-muted)]">SDK version:</span> {conv.sdk_version}</p>}
+                    {conv.runtime_type && <p><span className="text-[var(--text-muted)]">Runtime:</span> {conv.runtime_type}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Licenses */}
+            {detail.licenses.length > 0 && (
+              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+                <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Licenses ({detail.licenses.length})</p>
+                <div className="p-3 space-y-2">
+                  {detail.licenses.map((l: any) => (
+                    <div key={l.license_key} className="rounded-lg border border-[var(--border-color)] p-2">
+                      <div className="flex items-center gap-2">
+                        <KeyRound size={11} className="text-[var(--text-muted)] flex-shrink-0" />
+                        <code className="text-[10px] text-[var(--text-secondary)] truncate">{l.license_key}</code>
+                        <span className="ml-auto"><Badge className={l.status === 'active' ? 'text-green-400 bg-green-500/10' : l.status === 'trial' ? 'text-amber-400 bg-amber-500/10' : 'text-gray-400 bg-gray-500/10'}>{l.status || '-'}</Badge></span>
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] mt-1">{l.product_name || l.product_id || ''}{l.plan_name ? ` · ${l.plan_name}` : ''}</p>
+                      <p className="text-[10px] text-[var(--text-muted)]">Expires: {l.expiry_date ? new Date(l.expiry_date).toLocaleDateString() : '-'}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Orders + Payments */}
+            {detail.orders.length > 0 && (
+              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+                <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Orders & Payments ({detail.orders.length})</p>
+                <div className="p-3 space-y-2">
+                  {detail.orders.map((o: any) => {
+                    const pays = detail.payments.filter((p: any) => p.order_id === o.id);
+                    return (
+                      <div key={o.id} className="rounded-lg border border-[var(--border-color)] p-2">
+                        <div className="flex items-center gap-2">
+                          <ShoppingBag size={11} className="text-[var(--text-muted)] flex-shrink-0" />
+                          <span className="text-xs text-[var(--text-primary)]">{o.order_number || o.id}</span>
+                          <span className="ml-auto"><Badge className="text-emerald-400 bg-emerald-500/10">{o.status || '-'}</Badge></span>
+                        </div>
+                        <p className="text-[10px] text-[var(--text-muted)] mt-1">{o.payment_gateway || ''} · {new Date(o.created_at).toLocaleDateString()} · Total {o.total ?? o.subtotal ?? 0} {o.currency || 'USD'}</p>
+                        {pays.map((p: any) => (
+                          <p key={p.id} className="text-[10px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1">
+                            <CreditCard size={10} className="text-[var(--text-muted)]" /> Payment {p.status || '-'} · {p.amount || 0} {p.currency || ''} · {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : '-'}
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Delivery logs */}
+            {detail.delivery_logs.length > 0 && (
+              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+                <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Delivery Logs ({detail.delivery_logs.length})</p>
+                <div className="p-3 space-y-1.5">
+                  {detail.delivery_logs.map((q: any) => (
+                    <div key={q.id} className="text-[10px] text-[var(--text-secondary)] flex items-center gap-2">
+                      <span className={`font-medium ${QUEUE_STATUS_LABELS[q.status]?.color || 'text-gray-400'}`}>{QUEUE_STATUS_LABELS[q.status]?.label || q.status}</span>
+                      <span className="text-[var(--text-muted)] truncate">{q.last_error || (q.subject || '') || new Date(q.created_at).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Audit history */}
+            {detail.audit.length > 0 && (
+              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+                <p className="px-3 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Audit History ({detail.audit.length})</p>
+                <div className="p-3 space-y-1.5">
+                  {detail.audit.map((a: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-[10px]">
+                      <HistoryIcon size={11} className="text-[var(--text-muted)] mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[var(--text-secondary)] break-words">{a.message}</p>
+                        <p className="text-[var(--text-muted)]">{new Date(a.timestamp).toLocaleString()} · {a.event_type}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Internal notes */}
+            {detail.internal_notes.length > 0 && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5">
+                <p className="px-3 py-2 border-b border-amber-500/20 text-[10px] font-bold uppercase tracking-wider text-amber-400">Internal Notes ({detail.internal_notes.length})</p>
+                <div className="p-3 space-y-2">
+                  {detail.internal_notes.map((m: any) => (
+                    <div key={m.id} className="text-xs">
+                      <p className="text-[var(--text-secondary)] whitespace-pre-wrap break-words">{m.message}</p>
+                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{m.sender_name} · {new Date(m.created_at).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Compose affordance */}
             <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3 flex items-center gap-2">
               <AtSign size={13} className="text-[var(--text-muted)] flex-shrink-0" />
@@ -2625,7 +2606,7 @@ export default function CommunicationsPage() {
       case 'mailboxes': return renderMailboxDetail();
       case 'settings': return renderSettingsAccounts();
       case 'empty': return <div className="flex-1" />;
-      default: return renderConversationDetail();
+      default: return <div className="flex-1" />;
     }
   };
 
@@ -2677,13 +2658,7 @@ export default function CommunicationsPage() {
         <div className="flex-1 min-w-0 flex flex-col">
           {renderCenter()}
         </div>
-        {activeFolderDef.kind === 'list' ? (
-          detail && (
-            <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
-              {renderConversationDetail()}
-            </div>
-          )
-        ) : (
+        {activeFolderDef.kind !== 'list' && (
           <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
             {renderRightPanel()}
           </div>
