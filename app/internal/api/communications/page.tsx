@@ -352,6 +352,80 @@ const attachmentUrl = (p: string) => {
   return p.replace(/\\/g, '/');
 };
 
+// ---- Attachment preview support (image / PDF / text) ----
+type PreviewKind = 'image' | 'pdf' | 'text' | 'none';
+
+const previewKindOf = (mime: string): PreviewKind => {
+  const m = (mime || '').toLowerCase();
+  if (m.startsWith('image/')) return 'image';
+  if (m === 'application/pdf' || m === 'application/x-pdf' || m.endsWith('/pdf')) return 'pdf';
+  if (m.startsWith('text/') || m.includes('json') || m.includes('xml') || m.includes('csv') || m === 'application/octet-stream') {
+    if (m === 'application/octet-stream') return 'none';
+    return 'text';
+  }
+  return 'none';
+};
+
+function AttachmentPreview({ a, href, kind }: { a: AttachmentRow; href: string; kind: PreviewKind }) {
+  const [text, setText] = useState<string | null>(null);
+  const [textError, setTextError] = useState<string | null>(null);
+  useEffect(() => {
+    if (kind !== 'text') return;
+    let cancelled = false;
+    setText(null);
+    setTextError(null);
+    fetch(href)
+      .then(r => { if (!r.ok) throw new Error('Failed to load'); return r.text(); })
+      .then(t => { if (!cancelled) setText(t); })
+      .catch(() => { if (!cancelled) setTextError('Preview could not be loaded. Use Download instead.'); });
+    return () => { cancelled = true; };
+  }, [href, kind]);
+  return (
+    <div className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] overflow-hidden">
+      {kind === 'image' && <img src={href} alt={a.file_name} className="max-h-72 w-auto mx-auto object-contain" />}
+      {kind === 'pdf' && <iframe src={href} title={a.file_name} className="w-full h-72" />}
+      {kind === 'text' && (
+        textError ? <p className="text-[10px] text-red-400 p-3">{textError}</p>
+        : text === null ? <div className="p-4 flex justify-center"><Loader2 className="h-4 w-4 text-blue-400 animate-spin" /></div>
+        : <pre className="max-h-72 overflow-auto p-3 text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap break-words">{text}</pre>
+      )}
+      {kind === 'none' && <p className="text-[10px] text-[var(--text-muted)] p-3">No inline preview available for this file type.</p>}
+    </div>
+  );
+}
+
+function AttachmentCard({ a }: { a: AttachmentRow }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const href = attachmentUrl(a.storage_path || '');
+  const kind = previewKindOf(a.mime_type);
+  const canPreview = kind !== 'none';
+  return (
+    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/10 p-2.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="p-1.5 rounded-lg bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)] flex-shrink-0">
+          <FileText size={13} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-medium text-[var(--text-primary)] truncate">{a.file_name}</p>
+          <p className="text-[9px] text-[var(--text-muted)] truncate">{formatSize(a.file_size)} · {a.mime_type || 'application/octet-stream'}</p>
+        </div>
+        {canPreview && (
+          <button onClick={() => setPreviewOpen(p => !p)}
+            className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)] transition-colors"
+            title={previewOpen ? 'Hide preview' : 'Preview'}>
+            {previewOpen ? <Eye size={12} /> : <BookOpen size={12} />}
+          </button>
+        )}
+        <a href={href} download={a.file_name} title="Download"
+          className="p-1.5 rounded-lg hover:bg-blue-500/10 text-blue-400 transition-colors">
+          <Download size={12} />
+        </a>
+      </div>
+      {previewOpen && <AttachmentPreview a={a} href={href} kind={kind} />}
+    </div>
+  );
+}
+
 const priorityOf = (status: string) => {
   if (status === 'waiting_support' || status === 'waiting_sales') return { label: 'High', color: 'text-red-400', dot: 'bg-red-400' };
   if (status === 'open' || status === 'waiting_customer') return { label: 'Medium', color: 'text-amber-400', dot: 'bg-amber-400' };
@@ -1033,6 +1107,80 @@ export default function CommunicationsPage() {
     });
   };
 
+  // ---- Email-reader quick actions (UI-only; reuse the existing PATCH/DELETE/POST endpoints) ----
+  const readerAction = async (action: string, okMsg: string) => {
+    const id = detail?.conversation.id;
+    if (!id) return;
+    setBusy(`reader:${action}`);
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', okMsg);
+        if (action === 'mark_unread') {
+          setDetail((prev: DetailData | null) => prev ? { ...prev, conversation: { ...prev.conversation, unread_replies: 1 } } : prev);
+          setConversations(prev => prev.map(c => c.id === id ? { ...c, unread_replies: 1 } : c));
+        } else if (action === 'archive') {
+          setDetail(null);
+        }
+        fetchStats();
+        refreshCurrent();
+      } else {
+        showToast('err', json.error?.message || 'Action failed');
+      }
+    } catch {
+      showToast('err', 'Action failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const trashConversation = async () => {
+    const id = detail?.conversation.id;
+    if (!id) return;
+    setBusy('reader:trash');
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', 'Conversation moved to Trash');
+        setDetail(null);
+        refreshCurrent();
+        fetchStats();
+      } else {
+        showToast('err', json.error?.message || 'Delete failed');
+      }
+    } catch {
+      showToast('err', 'Delete failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const retryConversation = async () => {
+    const id = detail?.conversation.id;
+    if (!id) return;
+    setBusy('reader:retry');
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'retry' }),
+      });
+      const json = await res.json();
+      if (json.success) showToast('ok', json.data?.message || 'Failed messages queued for retry');
+      else showToast('err', json.error?.message || 'Retry failed');
+    } catch {
+      showToast('err', 'Retry failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const selectedConversation = useMemo(
     () => conversations.find(c => c.id === (Array.from(selectedIds)[0] || '')) || null,
     [conversations, selectedIds]
@@ -1334,8 +1482,8 @@ export default function CommunicationsPage() {
 
   // ---- Sidebar (email-client navigation, database-driven folders) ----
   const renderSidebar = () => (
-    <aside className="w-60 flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)] bg-[var(--bg-tertiary)]/10">
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-5 scrollbar-thin">
+    <aside className="w-64 flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)] bg-[var(--bg-tertiary)]/10">
+      <div className="shrink-0 max-h-[46%] overflow-y-auto px-2 py-3 space-y-5 scrollbar-thin">
         <div className="px-2 flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
             <Mail className="h-3.5 w-3.5" />
@@ -1399,10 +1547,15 @@ export default function CommunicationsPage() {
           </button>
         </div>
       </div>
+      {activeFolderDef.kind === 'list' && (
+        <div className="flex-1 min-h-0 flex flex-col border-t border-[var(--border-color)]">
+          {renderListTable()}
+        </div>
+      )}
     </aside>
   );
 
-  // ---- Center panel ----
+  // ---- Conversation list (left column, email-client style) ----
   const renderListTable = () => {
     if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
     if (error) return <div className="flex-1 flex flex-col items-center justify-center gap-2 text-[var(--text-muted)]"><AlertCircle className="h-6 w-6 text-red-400" /><p className="text-xs">{error}</p></div>;
@@ -1413,13 +1566,13 @@ export default function CommunicationsPage() {
       </div>
     );
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-color)] sticky top-0 z-10 bg-[var(--bg-primary)]">
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-color)] shrink-0">
           <input type="checkbox" checked={selectedIds.size === conversations.length && conversations.length > 0} onChange={toggleSelectAll} className="accent-blue-500" />
           <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{displayConversations.length} conversation(s)</span>
           {selectedIds.size > 0 && <span className="text-[10px] text-blue-400 ml-auto">{selectedIds.size} selected</span>}
         </div>
-        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20">
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 shrink-0">
           {(['all', 'unread', 'read'] as const).map(f => (
             <button key={f} onClick={() => setReadFilter(f)}
               className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${readFilter === f ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/40'}`}>
@@ -1427,7 +1580,7 @@ export default function CommunicationsPage() {
             </button>
           ))}
         </div>
-        <div className="divide-y divide-[var(--border-color)]">
+        <div className="flex-1 overflow-y-auto scrollbar-thin divide-y divide-[var(--border-color)]">
           {displayConversations.map(conv => {
             const sel = selectedIds.has(conv.id);
             const prio = priorityOf(conv.status);
@@ -1950,6 +2103,15 @@ export default function CommunicationsPage() {
   );
 
   const renderCenter = () => {
+    if (activeFolderDef.kind === 'list') {
+      if (detail) return renderEmailReader();
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] px-6 text-center">
+          <Inbox size={32} className="mb-2 opacity-30" />
+          <p className="text-xs">Select a conversation from the list to read it here.</p>
+        </div>
+      );
+    }
     switch (activeFolderDef.kind) {
       case 'queue': return renderQueueList();
       case 'logs': return renderLogsList();
@@ -2331,6 +2493,130 @@ export default function CommunicationsPage() {
     );
   };
 
+    // ---- Email reader (center panel; Gmail/Outlook-style) ----
+  const renderEmailReader = () => {
+    if (detailLoading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
+    if (!detail) return (
+      <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] px-6 text-center">
+        <Inbox size={28} className="mb-2 opacity-30" />
+        <p className="text-xs">Select a conversation to read it here.</p>
+      </div>
+    );
+    const conv = detail.conversation;
+    const unread = (conv.unread_replies || 0) > 0;
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        {/* Reader toolbar */}
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/10 shrink-0">
+          <button onClick={() => openReply()} title="Reply"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
+            <Reply size={12} /> Reply
+          </button>
+          <button onClick={openForward} title="Forward"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg-tertiary)]/50 hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] text-[11px] font-medium transition-colors">
+            <Forward size={12} /> Forward
+          </button>
+          <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
+          <button onClick={() => readerAction('mark_unread', 'Marked as unread')} disabled={busy === 'reader:mark_unread'}
+            title="Mark as unread" className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-secondary)] transition-colors">
+            {busy === 'reader:mark_unread' ? <Loader2 size={13} className="animate-spin" /> : <MailOpen size={13} />}
+          </button>
+          <button onClick={() => readerAction('archive', 'Conversation archived')} disabled={busy === 'reader:archive'}
+            title="Archive" className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-secondary)] transition-colors">
+            {busy === 'reader:archive' ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
+          </button>
+          <button onClick={trashConversation} disabled={busy === 'reader:trash'}
+            title="Move to Trash" className="p-1.5 rounded-lg hover:bg-red-500/10 text-[var(--text-secondary)] hover:text-red-400 transition-colors">
+            {busy === 'reader:trash' ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+          </button>
+          <button onClick={retryConversation} disabled={busy === 'reader:retry'}
+            title="Retry failed messages" className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-secondary)] transition-colors">
+            {busy === 'reader:retry' ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+          </button>
+          <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
+          <button onClick={() => { const id = detail?.conversation.id; if (id) openDetail(id); }} title="Refresh"
+            className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-secondary)] transition-colors">
+            <RefreshCw size={13} />
+          </button>
+          {busy === 'reader:mark_read' && <span className="ml-auto flex items-center gap-1 text-[10px] text-[var(--text-muted)]"><Loader2 size={11} className="animate-spin" /> Marking read…</span>}
+        </div>
+
+        {/* Reader body */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          <div className="max-w-3xl mx-auto p-4 space-y-4">
+            {/* Header card */}
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-4">
+              <div className="flex items-start gap-2">
+                <h2 className="flex-1 min-w-0 text-base font-semibold text-[var(--text-primary)] leading-snug">{conv.subject || '(No subject)'}</h2>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <CategoryBadge category={conv.category} />
+                  <StatusBadge status={conv.status} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${unread ? 'bg-blue-500/20 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
+                  {(conv.customer_name || conv.customer_email || '?').trim()[0]?.toUpperCase() || '?'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-[var(--text-primary)] truncate font-medium">
+                    {conv.customer_name || 'Unknown'} <span className="text-[var(--text-muted)] font-normal">&lt;{conv.customer_email}&gt;</span>
+                    {unread && <span className="ml-2 text-[9px] font-medium text-blue-400">{conv.unread_replies} unread</span>}
+                  </p>
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    To: support · {new Date(conv.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">{new Date(conv.updated_at).toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Thread */}
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
+              <p className="px-4 py-2 border-b border-[var(--border-color)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Conversation · {detail.messages.length} message(s)</p>
+              <div className="divide-y divide-[var(--border-color)]">
+                {detail.messages.length === 0 && <p className="text-xs text-[var(--text-muted)] text-center py-6">No messages yet in this conversation.</p>}
+                {detail.messages.map((m: any) => {
+                  const msgAttachments = detail.attachments.filter(a => String(a.message_id) === String(m.id));
+                  const isCustomer = m.sender_type === 'customer';
+                  return (
+                    <div key={m.id} className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${isCustomer ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                          {(m.sender_name || (isCustomer ? 'C' : 'S')).trim()[0]?.toUpperCase() || '?'}
+                        </div>
+                        <span className="text-[11px] font-medium text-[var(--text-primary)]">{m.sender_name || (isCustomer ? 'Customer' : 'Support')}</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">{new Date(m.created_at).toLocaleString()}</span>
+                        {m.email_sent && <span className="text-[9px] text-green-400 ml-auto">sent via email</span>}
+                      </div>
+                      <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap break-words">{m.message}</p>
+                      {msgAttachments.length > 0 && (
+                        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                          {msgAttachments.map(a => <AttachmentCard key={a.id} a={a} />)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Compose affordance */}
+            <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3 flex items-center gap-2">
+              <AtSign size={13} className="text-[var(--text-muted)] flex-shrink-0" />
+              <span className="flex-1 min-w-0 text-[11px] text-[var(--text-muted)] truncate">
+                Reply to <span className="text-[var(--text-secondary)]">{conv.customer_email}</span>
+              </span>
+              <button onClick={() => openReply()}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
+                Reply
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderRightPanel = () => {
     switch (activeFolderDef.kind) {
       case 'queue': return renderQueueDetail();
@@ -2391,9 +2677,17 @@ export default function CommunicationsPage() {
         <div className="flex-1 min-w-0 flex flex-col">
           {renderCenter()}
         </div>
-        <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
-          {renderRightPanel()}
-        </div>
+        {activeFolderDef.kind === 'list' ? (
+          detail && (
+            <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
+              {renderConversationDetail()}
+            </div>
+          )
+        ) : (
+          <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
+            {renderRightPanel()}
+          </div>
+        )}
       </div>
 
       {/* Toast */}

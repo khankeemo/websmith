@@ -72,7 +72,8 @@ export async function GET(
     let attachmentsResult = { rows: [] };
     try {
       attachmentsResult = await client.query(
-        `SELECT ca.id, ca.message_id, ca.file_name, ca.file_size, ca.mime_type, ca.uploaded_at,
+        `SELECT ca.id, ca.message_id, ca.file_name, ca.file_size, ca.mime_type,
+                ca.storage_path, ca.uploaded_at,
                 cm.sender_name, cm.created_at AS message_created_at
          FROM conversation_attachments ca
          JOIN conversation_messages cm ON cm.id = ca.message_id
