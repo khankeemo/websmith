@@ -221,13 +221,15 @@ const FOLDERS: FolderDef[] = [
 
 // Fresh mailbox form — provider presets auto-populate the server config
 const newMailboxForm = () => ({
-  provider: 'gmail',
-  imap_host: 'imap.gmail.com',
+  provider: '',
+  email_address: '',
+  display_name: '',
+  imap_host: '',
   imap_port: 993,
   imap_secure: true,
   imap_username: '',
   imap_password: '',
-  smtp_host: 'smtp.gmail.com',
+  smtp_host: '',
   smtp_port: 465,
   smtp_secure: true,
   smtp_username: '',
@@ -238,6 +240,7 @@ const newMailboxForm = () => ({
   auto_reply_template_key: '',
   auto_reply_signature: '',
   is_enabled: true,
+  is_default_sender: false,
 });
 
 const SETTINGS_DEF: FolderDef = {
@@ -3864,7 +3867,7 @@ export default function CommunicationsPage() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Provider</p>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Provider">
-                    <select value={mailboxForm.provider || 'gmail'} onChange={e => {
+                    <select value={mailboxForm.provider || ''} onChange={e => {
                       const p = presetForKey(e.target.value);
                       setMailboxForm((prev: any) => ({
                         ...prev,
@@ -3877,6 +3880,7 @@ export default function CommunicationsPage() {
                         smtp_secure: p.smtp.secure,
                       }));
                     }} className={inputCls}>
+                      <option value="">Auto-detect from email</option>
                       {PROVIDER_PRESETS.filter(p => p.key !== 'custom').map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                       <option value="custom">Custom / Other (manual)</option>
                     </select>
@@ -3887,14 +3891,25 @@ export default function CommunicationsPage() {
                       const detected = presetForEmail(email);
                       setMailboxForm((prev: any) => {
                         const next: any = { ...prev, email_address: email };
-                        if (detected.key !== 'custom' && prev.provider !== 'custom') {
-                          next.provider = detected.key;
-                          next.imap_host = detected.imap.host;
-                          next.imap_port = detected.imap.port;
-                          next.imap_secure = detected.imap.secure;
-                          next.smtp_host = detected.smtp.host;
-                          next.smtp_port = detected.smtp.port;
-                          next.smtp_secure = detected.smtp.secure;
+                        // Outgoing mail uses the same address by default
+                        // (editable afterwards for providers that need a
+                        // different sender).
+                        if (!next.imap_username) next.imap_username = email;
+                        if (!next.smtp_username) next.smtp_username = email;
+                        if (detected.key !== 'custom') {
+                          if (prev.provider === '' || prev.provider === 'custom') {
+                            next.provider = detected.key;
+                            next.imap_host = detected.imap.host;
+                            next.imap_port = detected.imap.port;
+                            next.imap_secure = detected.imap.secure;
+                            next.smtp_host = detected.smtp.host;
+                            next.smtp_port = detected.smtp.port;
+                            next.smtp_secure = detected.smtp.secure;
+                          }
+                        } else if (prev.provider === '') {
+                          // Unknown domain: stay in manual mode rather than
+                          // inventing server values.
+                          next.provider = 'custom';
                         }
                         return next;
                       });
@@ -3947,7 +3962,17 @@ export default function CommunicationsPage() {
                     <Field label="Username *"><input type="text" value={mailboxForm.imap_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_username: e.target.value })} className={inputCls} placeholder="user@example.com" /></Field>
                     <Field label="Password / App Password *">
                       <div className="relative">
-                        <input type={showImapPass ? 'text' : 'password'} value={mailboxForm.imap_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_password: e.target.value })} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} />
+                        <input type={showImapPass ? 'text' : 'password'} value={mailboxForm.imap_password || ''} onChange={e => {
+                          const pw = e.target.value;
+                          setMailboxForm((prev: any) => ({
+                            ...prev,
+                            imap_password: pw,
+                            // Providers using the same credentials for IMAP
+                            // and SMTP get the outgoing password automatically
+                            // (editable afterwards when they differ).
+                            smtp_password: prev.smtp_password || pw,
+                          }));
+                        }} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} />
                         <button type="button" onClick={() => setShowImapPass(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
                           {showImapPass ? <EyeOff size={13} /> : <Eye size={13} />}
                         </button>
@@ -3985,7 +4010,7 @@ export default function CommunicationsPage() {
 
               {/* Provider authentication help */}
               {(() => {
-                const preset = presetForKey(mailboxForm.provider || 'gmail');
+                const preset = presetForKey(mailboxForm.provider || '');
                 const h = preset.help;
                 if (!h) return null;
                 return (
@@ -4161,7 +4186,7 @@ export default function CommunicationsPage() {
       {/* Delete mailbox confirm */}
       {showDeleteMailboxConfirm && (
         <Modal title="Delete Mailbox" onClose={() => setShowDeleteMailboxConfirm(null)}>
-          <p className="text-sm text-[var(--text-secondary)]">Permanently delete this mailbox and its sync logs? IMAP/SMTP credentials cannot be recovered.</p>
+          <p className="text-sm text-[var(--text-secondary)]">This permanently removes the mailbox integration, all conversations synced from it (messages, attachments, drafts, sync history) and its IMAP/SMTP credentials. This action cannot be undone.</p>
           <div className="flex gap-2 pt-4">
             <button onClick={() => deleteMailbox(showDeleteMailboxConfirm)} disabled={busy === `delete:${showDeleteMailboxConfirm}`}
               className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">

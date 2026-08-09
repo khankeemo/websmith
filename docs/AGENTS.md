@@ -98,6 +98,50 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   disabled), confirmation `Modal` in the existing style, immediate
   list/detail refresh via `refreshCurrent()` + `fetchStats()`, toasts at
   `z-[100]`. Soft-delete/Trash flow is unchanged.
+- **Mailbox integration removal is integration-level** (see master doc Phase 9
+  entry): `DELETE /internal/backend/mailboxes/[id]` no longer deletes only the
+  row — it calls `removeMailboxIntegration()` in `lib/communications/remove-mailbox.ts`
+  (one BEGIN→COMMIT: delete conversations WHERE `mailbox_id` = integration id
+  via the shared `deleteConversationRowsTx()` rows cascade [messages →
+  attachments, queue, conversation], delete `mailbox_sync_logs`, delete the
+  `mailboxes` row, audit   `mailbox_removed`; ROLLBACK on failure; attachment
+  FILES unlinked after commit only when unreferenced). Ownership comes from
+  the new nullable `communication_conversations.mailbox_id` column
+  (FK→mailboxes ON DELETE SET NULL, ADD COLUMN IF NOT EXISTS migration AFTER
+  the mailboxes DDL), stamped by the IMAP sync INSERT + COALESCE UPDATE — the
+  ONLY schema change; SMTP/IMAP/sync/reply logic is untouched. **Protected**:
+  `SYSTEM_MAILBOX_EMAILS` (support@/sales@/no-reply@websmithdigital.com) → 403
+  `SYSTEM_MAILBOX_PROTECTED`, never removable. **Legacy unowned mail**
+  (pre-column conversations, mailbox_id IS NULL) is swept ONLY via the
+  explicit opt-in `?cleanup_legacy_email=true` (or
+  `removeLegacyMailboxConversations()`), matching by address but NEVER touching
+  conversations owned by a remaining mailbox. **Real-world data profile of the
+  IMAP sync**: it always creates `category='general'` conversations (no
+  license key, no messages) — this profile identified the 234 old
+  `keeogamer@gmail.com` inbox leftovers (real-DB cleanup 2026-08-09: 238 → 4
+  preserved real conversations; 15/15 verification checks passed). No
+  cron/background sync exists (manual `[id]/sync` + client-triggered queue),
+  so a removed integration cannot resurrect. Real-DB verification lives in
+  `tests/communications/remove-mailbox-legacy.verify.mjs` (real schema only,
+  no mock tables; read-only report by default, `--apply` cleans + re-verifies
+  + rollback-proof + protected-mailbox snapshot comparison).
+- **Mailbox form is blank + auto-detected (no defaults)**: `newMailboxForm()`
+  starts with NO provider, NO server hosts, NO email — the Add Mailbox form is
+  completely empty. Typing the **Incoming Email** auto-detects the provider
+  (Gmail/Outlook/Yahoo/Zoho/Apple/Fastmail/Proton/custom via `PROVIDER_PRESETS`
+  + `presetForEmail`), fills IMAP/SMTP hosts/ports/encryption, mirrors the
+  address into both usernames, and the Incoming Password mirrors into Outgoing
+  when SMTP is still empty (all values stay editable). Unknown domains switch
+  to `custom` manual mode (never invented server values). Provider select has
+  an "Auto-detect from email" option. The Gmail/other App-Password help card
+  renders only after a provider is detected. **Never** any default mailbox
+  email anywhere in app/lib code (audited: `keeogamer@gmail.com` exists only
+  in the cleanup-test script + docs). Signatures are a Mail → Signatures
+  section (settings-document `signatures` array): create/edit/delete/set
+  default/preview + assign-to-mailbox; used by the reply composer and auto-
+  reply. Mailbox enable/disable is enforced server-side: sync returns 403
+  `MAILBOX_DISABLED` when off (send + queue-process already filtered by
+  `is_enabled`).
 - **Architecture hierarchy**: Master Doc → Language Templates → SDK Publisher →
   Generated SDK. Never edit Generated SDKs directly; never embed business logic
   in runtime generators.

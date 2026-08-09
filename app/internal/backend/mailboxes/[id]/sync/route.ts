@@ -22,6 +22,18 @@ export async function POST(
     }
 
     const mailbox = result.rows[0];
+
+    // Disabled mailboxes must not process incoming mail (enable/disable
+    // toggle is honored on the sync path too).
+    if (!mailbox.is_enabled) {
+      client.release();
+      client = null;
+      return NextResponse.json({
+        success: false,
+        error: { code: 'MAILBOX_DISABLED', message: 'This mailbox is disabled. Enable it before synchronizing.' }
+      }, { status: 403 });
+    }
+
     const now = new Date().toISOString();
 
     await client.query(
@@ -103,16 +115,16 @@ export async function POST(
                 if (existing?.rows.length > 0) {
                   conversationId = existing.rows[0].id;
                   await client?.query(
-                    `UPDATE communication_conversations SET updated_at = $1 WHERE id = $2`,
-                    [new Date().toISOString(), conversationId]
+                    `UPDATE communication_conversations SET updated_at = $1, mailbox_id = COALESCE(mailbox_id, $2) WHERE id = $3`,
+                    [new Date().toISOString(), id, conversationId]
                   );
                   messagesUpdated++;
                 } else {
                   conversationId = `CONV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
                   await client?.query(
-                    `INSERT INTO communication_conversations (id, category, status, customer_email, customer_name, subject, created_at, updated_at)
-                     VALUES ($1, 'general', 'open', $2, $3, $4, $5, $5)`,
-                    [conversationId, from, from, subject, date.toISOString()]
+                    `INSERT INTO communication_conversations (id, category, status, customer_email, customer_name, subject, mailbox_id, created_at, updated_at)
+                     VALUES ($1, 'general', 'open', $2, $3, $4, $5, $6, $6)`,
+                    [conversationId, from, from, subject, id, date.toISOString()]
                   );
                   messagesNew++;
 

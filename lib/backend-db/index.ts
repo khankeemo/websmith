@@ -1347,6 +1347,12 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_mailboxes_email ON mailboxes(email_address)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_mailboxes_enabled ON mailboxes(is_enabled)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_mailboxes_default ON mailboxes(is_default_sender)`);
+    // Migration: mailbox_id — ownership link from a conversation to the mailbox
+    // integration that synced it (used by mailbox integration removal). Nullable:
+    // conversations created by other paths (replies, queues) stay unowned.
+    // Placed AFTER the mailboxes table DDL so the FK reference is valid.
+    try { await client.query(`ALTER TABLE communication_conversations ADD COLUMN IF NOT EXISTS mailbox_id TEXT REFERENCES mailboxes(id) ON DELETE SET NULL`); } catch (e) {}
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_communication_conversations_mailbox_id ON communication_conversations(mailbox_id)`);
 
     // 27h. Create mailbox_sync_logs table for tracking sync history
     await client.query(`

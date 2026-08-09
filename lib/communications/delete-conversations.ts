@@ -44,6 +44,52 @@ export async function isEmailDeletionEnabled(client: any): Promise<boolean> {
 }
 
 /**
+ * Delete the rows of the given conversations WITHOUT opening a transaction.
+ * Must be called inside an already-open transaction (BEGIN/COMMIT owned by
+ * the caller). Removes conversation_messages (FK-cascades
+ * conversation_attachments), message_queue rows and the conversation rows
+ * themselves, and returns the storage paths of their attachment files so the
+ * caller can clean files AFTER the transaction commits.
+ */
+export async function deleteConversationRowsTx(
+  client: any,
+  ids: string[]
+): Promise<string[]> {
+  if (!ids || ids.length === 0) return [];
+
+  const filesResult = await client.query(
+    `SELECT ca.storage_path
+     FROM conversation_attachments ca
+     JOIN conversation_messages cm ON cm.id = ca.message_id
+     WHERE cm.conversation_id = ANY($1)
+       AND ca.storage_path IS NOT NULL
+       AND ca.storage_path <> ''`,
+    [ids]
+  );
+
+  await client.query(
+    `DELETE FROM conversation_messages WHERE conversation_id = ANY($1)`,
+    [ids]
+  );
+
+  try {
+    await client.query(
+      `DELETE FROM message_queue WHERE conversation_id = ANY($1)`,
+      [ids]
+    );
+  } catch (queueDeleteError: any) {
+    console.warn('message_queue cleanup skipped:', queueDeleteError.message);
+  }
+
+  await client.query(
+    `DELETE FROM communication_conversations WHERE id = ANY($1)`,
+    [ids]
+  );
+
+  return filesResult.rows.map((r: any) => r.storage_path);
+}
+
+/**
  * Permanently delete conversations in ONE transaction. On any failure the
  * whole operation rolls back and the existing data is left unchanged.
  *
@@ -59,34 +105,7 @@ export async function permanentlyDeleteConversations(
   const now = new Date().toISOString();
   await client.query('BEGIN');
   try {
-    const filesResult = await client.query(
-      `SELECT ca.storage_path
-       FROM conversation_attachments ca
-       JOIN conversation_messages cm ON cm.id = ca.message_id
-       WHERE cm.conversation_id = ANY($1)
-         AND ca.storage_path IS NOT NULL
-         AND ca.storage_path <> ''`,
-      [ids]
-    );
-
-    await client.query(
-      `DELETE FROM conversation_messages WHERE conversation_id = ANY($1)`,
-      [ids]
-    );
-
-    try {
-      await client.query(
-        `DELETE FROM message_queue WHERE conversation_id = ANY($1)`,
-        [ids]
-      );
-    } catch (queueDeleteError: any) {
-      console.warn('message_queue cleanup skipped:', queueDeleteError.message);
-    }
-
-    await client.query(
-      `DELETE FROM communication_conversations WHERE id = ANY($1)`,
-      [ids]
-    );
+    const attachmentPaths = await deleteConversationRowsTx(client, ids);
 
     await client.query(
       `INSERT INTO audit_logs (event_type, message, timestamp)
@@ -100,10 +119,7 @@ export async function permanentlyDeleteConversations(
 
     await client.query('COMMIT');
 
-    return {
-      deleted: ids,
-      attachmentPaths: filesResult.rows.map((r: any) => r.storage_path),
-    };
+    return { deleted: ids, attachmentPaths };
   } catch (error: any) {
     try {
       await client.query('ROLLBACK');

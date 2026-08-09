@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
+import {
+  MailboxRemovalError,
+  removeMailboxIntegration,
+  cleanupOrphanedAttachmentFiles,
+} from '@/lib/communications/remove-mailbox';
 
 export const dynamic = 'force-dynamic';
 
@@ -179,7 +184,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   let client = null;
@@ -187,38 +192,39 @@ export async function DELETE(
     const { id } = await params;
     client = await (await getDb()).connect();
 
-    const existing = await client.query('SELECT * FROM mailboxes WHERE id = $1', [id]);
-    if (existing.rows.length === 0) {
-      client.release();
-      client = null;
-      return NextResponse.json({
-        success: false,
-        error: { code: 'MAILBOX_NOT_FOUND', message: 'Mailbox not found.' }
-      }, { status: 404 });
-    }
+    // Integration-level removal: deletes every conversation synced from this
+    // mailbox (messages, attachments via FK cascade, queue records), its sync
+    // history, and the mailbox row itself — all in ONE transaction. A
+    // protected system mailbox (support/sales/no-reply) is rejected.
+    // `cleanupLegacyEmail=true` also sweeps legacy unowned conversations whose
+    // customer_email matches the mailbox address (one-time migration helper).
+    const searchParams = new URL(request.url).searchParams;
+    const cleanupLegacyEmail = searchParams.get('cleanup_legacy_email') === 'true';
 
-    const email = existing.rows[0].email_address;
-
-    await client.query('DELETE FROM mailbox_sync_logs WHERE mailbox_id = $1', [id]);
-    await client.query('DELETE FROM mailboxes WHERE id = $1', [id]);
-
-    await client.query(
-      `INSERT INTO audit_logs (event_type, message, timestamp)
-       VALUES ($1, $2, $3)`,
-      ['mailbox_deleted', `Mailbox ${email} permanently deleted`, new Date().toISOString()]
-    );
+    const result = await removeMailboxIntegration(client, id, { cleanupLegacyEmail });
+    // Attachment files are unlinked only after commit and only when no
+    // remaining record (conversation_attachments / email_attachments) still
+    // references them — shared files are never deleted.
+    await cleanupOrphanedAttachmentFiles(client, result.attachmentPaths);
 
     client.release();
     client = null;
 
     return NextResponse.json({
       success: true,
-      message: 'Mailbox permanently deleted.'
+      message: `Mailbox ${result.email} removed. ${result.conversationsDeleted} conversation(s) deleted${result.legacyDeleted ? `, ${result.legacyDeleted} legacy conversation(s) cleaned` : ''}.`,
+      data: result,
     });
 
   } catch (error: any) {
     console.error('Mailbox delete error:', error);
     if (client) { client.release(); }
+    if (error instanceof MailboxRemovalError) {
+      return NextResponse.json({
+        success: false,
+        error: { code: error.code, message: error.message }
+      }, { status: error.status });
+    }
     return NextResponse.json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to delete mailbox.' }
