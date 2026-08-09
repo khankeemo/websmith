@@ -77,6 +77,27 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `settings` collection document (`signatures` array, `GET/POST
   /internal/backend/communications/settings`) — no new table. Never bypass the
   save-time connection gate; never render stored passwords.
+- **Mail Delete feature + Allow Email Deletion toggle** (see master doc Phase 8
+  entry): permanent conversation deletion is a **real data deletion**, one
+  atomic transaction per request — `permanentlyDeleteConversations()` in
+  `lib/communications/delete-conversations.ts` (BEGIN → delete
+  `conversation_messages` [FK-cascades `conversation_attachments`] +
+  `message_queue` + `communication_conversations` + `conversation_deleted`
+  audit row → COMMIT; any failure ROLLBACKs and leaves data unchanged). Only
+  conversation-exclusive data is removed — `requests` (shared Universal
+  Request Center), `notification_logs`/`audit_logs` (system ledger) and
+  `email_attachments` are intentionally left intact. Attachment FILES are
+  unlinked only AFTER commit and only when no remaining row in
+  `conversation_attachments` OR `email_attachments` references the same
+  `storage_path` (shared files are never deleted). **Backend-enforced
+  toggle**: `allow_email_deletion` lives in the `settings` document
+  (default `true`; merge `!== false`) and the DELETE handlers
+  (`conversations/[id]?permanent=true`, `conversations?ids=`, `?action=empty_trash`)
+  return 403 `EMAIL_DELETION_DISABLED` when off — never rely on UI hiding.
+  UI: "Delete Forever" buttons (reader toolbar + bulk selection, hidden when
+  disabled), confirmation `Modal` in the existing style, immediate
+  list/detail refresh via `refreshCurrent()` + `fetchStats()`, toasts at
+  `z-[100]`. Soft-delete/Trash flow is unchanged.
 - **Architecture hierarchy**: Master Doc → Language Templates → SDK Publisher →
   Generated SDK. Never edit Generated SDKs directly; never embed business logic
   in runtime generators.

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
+import {
+  isEmailDeletionEnabled,
+  permanentlyDeleteConversations,
+  cleanupOrphanedAttachmentFiles,
+} from '@/lib/communications/delete-conversations';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,50 +127,58 @@ export async function DELETE(request: NextRequest) {
 
     client = await (await getDb()).connect();
 
+    // Backend-enforced setting: Allow Email Deletion must be enabled for ANY
+    // permanent delete path (bulk ids + empty_trash). Direct API calls are
+    // rejected even if the UI hides the buttons.
+    if (!(await isEmailDeletionEnabled(client))) {
+      client.release();
+      client = null;
+      return NextResponse.json({
+        success: false,
+        error: { code: 'EMAIL_DELETION_DISABLED', message: 'Email deletion is disabled by the admin. Enable "Allow Email Deletion" in Communication Settings to delete conversations.' }
+      }, { status: 403 });
+    }
+
     if (action === 'empty_trash') {
-      // Permanently delete ALL soft-deleted conversations
-      const result = await client.query(
-        `DELETE FROM communication_conversations
-         WHERE deleted_at IS NOT NULL
-         RETURNING id`,
+      // Permanently delete ALL soft-deleted conversations (one transaction)
+      const target = await client.query(
+        `SELECT id FROM communication_conversations WHERE deleted_at IS NOT NULL`,
         []
       );
-      const deletedCount = result.rows.length;
+      const trashIds = target.rows.map((r: any) => r.id);
+
+      if (trashIds.length === 0) {
+        client.release();
+        client = null;
+        return NextResponse.json({
+          success: true,
+          data: { message: 'Trash is already empty.', deleted: 0 }
+        });
+      }
+
+      const { deleted, attachmentPaths } = await permanentlyDeleteConversations(client, trashIds);
+      await cleanupOrphanedAttachmentFiles(client, attachmentPaths);
 
       client.release();
       client = null;
 
       return NextResponse.json({
         success: true,
-        data: { message: `${deletedCount} conversation(s) permanently deleted.`, deleted: deletedCount }
+        data: { message: `${deleted.length} conversation(s) permanently deleted.`, deleted: deleted.length }
       });
     }
 
     if (ids.length > 0) {
-      // Permanently delete selected conversations (admin only)
-      await client.query(
-        `DELETE FROM conversation_messages WHERE conversation_id = ANY($1)`,
-        [ids]
-      );
-      try {
-        await client.query(
-          `DELETE FROM message_queue WHERE conversation_id = ANY($1)`,
-          [ids]
-        );
-      } catch (queueDeleteError) {
-        console.warn('message_queue cleanup skipped:', queueDeleteError.message);
-      }
-      await client.query(
-        `DELETE FROM communication_conversations WHERE id = ANY($1)`,
-        [ids]
-      );
+      // Permanently delete selected conversations (admin only, one transaction)
+      const { deleted, attachmentPaths } = await permanentlyDeleteConversations(client, ids);
+      await cleanupOrphanedAttachmentFiles(client, attachmentPaths);
 
       client.release();
       client = null;
 
       return NextResponse.json({
         success: true,
-        data: { message: `${ids.length} conversation(s) permanently deleted.`, deleted: ids.length }
+        data: { message: `${deleted.length} conversation(s) permanently deleted.`, deleted: deleted.length }
       });
     }
 

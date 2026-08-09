@@ -53,6 +53,9 @@ const DEFAULT_COMM_SETTINGS = {
     sales_categories: ['sales'],
   },
   signatures: [],
+  // Admin toggle for the Mail Delete feature. When false, the backend rejects
+  // every permanent conversation-delete request (UI hiding is never enough).
+  allow_email_deletion: true,
 };
 
 export async function GET() {
@@ -90,6 +93,9 @@ export async function GET() {
       // Reusable email signatures managed from the Communication Center
       // (stored in the same system_settings record — no new table).
       signatures: commSettings.signatures || [],
+      // Default ENABLED so existing installs keep current behaviour; the merge
+      // only flips to disabled when an admin explicitly saved it as false.
+      allow_email_deletion: commSettings.allow_email_deletion !== false,
     };
 
     return NextResponse.json({ success: true, settings: merged });

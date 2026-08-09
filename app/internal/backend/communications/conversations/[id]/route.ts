@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
+import {
+  isEmailDeletionEnabled,
+  permanentlyDeleteConversations,
+  cleanupOrphanedAttachmentFiles,
+} from '@/lib/communications/delete-conversations';
 
 export const dynamic = 'force-dynamic';
 
@@ -226,19 +231,28 @@ export async function DELETE(
     const permanent = searchParams.get('permanent') === 'true';
 
     if (permanent) {
-      // Permanent delete - remove all related data
-      await client.query('DELETE FROM conversation_messages WHERE conversation_id = $1', [id]);
-      try {
-        await client.query('DELETE FROM message_queue WHERE conversation_id = $1', [id]);
-      } catch (queueDeleteError) {
-        console.warn('message_queue cleanup skipped:', queueDeleteError.message);
+      // Backend-enforced setting: Allow Email Deletion must be enabled.
+      // Never rely on the UI to hide this — direct API calls are rejected too.
+      if (!(await isEmailDeletionEnabled(client))) {
+        client.release();
+        client = null;
+        return NextResponse.json({
+          success: false,
+          error: { code: 'EMAIL_DELETION_DISABLED', message: 'Email deletion is disabled by the admin. Enable "Allow Email Deletion" in Communication Settings to delete conversations.' }
+        }, { status: 403 });
       }
-      await client.query('DELETE FROM communication_conversations WHERE id = $1', [id]);
+
+      // Permanent delete — one atomic transaction (messages + attachments via
+      // FK cascade, queue records, the conversation row). Attachment files are
+      // removed after commit and only when no other record still references
+      // them (shared files are never deleted).
+      const { deleted, attachmentPaths } = await permanentlyDeleteConversations(client, [id]);
+      await cleanupOrphanedAttachmentFiles(client, attachmentPaths);
 
       client.release();
       client = null;
 
-      return NextResponse.json({ success: true, data: { message: 'Conversation permanently deleted.' } });
+      return NextResponse.json({ success: true, data: { message: `${deleted.length} conversation permanently deleted.` } });
     }
 
     // Soft delete - set deleted_at timestamp

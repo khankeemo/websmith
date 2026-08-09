@@ -678,6 +678,7 @@ export default function CommunicationsPage() {
   const [showImapPass, setShowImapPass] = useState(false);
   const [showSmtpPass, setShowSmtpPass] = useState(false);
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ ids: string[]; count: number; subject?: string } | null>(null);
   const [showDeleteMailboxConfirm, setShowDeleteMailboxConfirm] = useState<string | null>(null);
   const [testEmailTo, setTestEmailTo] = useState('');
   const [commSettings, setCommSettings] = useState<any>(null);
@@ -1058,6 +1059,20 @@ export default function CommunicationsPage() {
 
   // ---- Signatures (stored in communication settings) ----
   const signatures: SignatureItem[] = commSettings?.signatures || [];
+
+  // Admin toggle for the Mail Delete feature — the backend enforces this
+  // independently, the UI only mirrors it (buttons hidden while disabled).
+  const allowEmailDeletion = commSettings?.allow_email_deletion !== false;
+
+  const toggleAllowEmailDeletion = useCallback(() => {
+    setCommSettings((prev: any) => {
+      if (!prev) return prev;
+      const next: any = { ...prev, allow_email_deletion: !(prev.allow_email_deletion !== false) };
+      setCommSettingsDirty(true);
+      persistCommSettings(next);
+      return next;
+    });
+  }, [persistCommSettings]);
 
   const addSignature = useCallback((name: string, content: string) => {
     if (!commSettings) return;
@@ -1452,6 +1467,34 @@ export default function CommunicationsPage() {
       else showToast('err', json.error?.message || 'Failed to empty trash');
     } catch {
       showToast('err', 'Failed to empty trash');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Permanent deletion (Mail Delete feature). The backend checks the
+  // "Allow Email Deletion" setting itself — a 403 here means the admin toggle
+  // is off, even if the button was somehow still reachable.
+  const permanentlyDeleteConversations = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    setBusy('permanent-delete');
+    try {
+      const url = ids.length === 1
+        ? `${API_BASE}/conversations/${encodeURIComponent(ids[0])}?permanent=true`
+        : `${API_BASE}/conversations?ids=${encodeURIComponent(ids.join(','))}`;
+      const res = await fetch(url, { method: 'DELETE', headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) {
+        showToast('ok', json.data?.message || `${ids.length} conversation(s) permanently deleted`);
+        setShowDeleteConfirm(null);
+        setDetail(null);
+        refreshCurrent();
+        fetchStats();
+      } else {
+        showToast('err', json.error?.message || 'Failed to delete conversation');
+      }
+    } catch {
+      showToast('err', 'Failed to delete conversation');
     } finally {
       setBusy(null);
     }
@@ -1903,6 +1946,16 @@ export default function CommunicationsPage() {
         >
           {isTrash ? <ArchiveRestore size={14} /> : <Trash2 size={14} />}
         </button>
+        {hasSelection && allowEmailDeletion && (
+          <button
+            onClick={() => setShowDeleteConfirm({ ids: Array.from(selectedIds), count: selectedIds.size })}
+            disabled={busy === 'permanent-delete'}
+            title="Delete Forever"
+            className={`${btn} hover:bg-red-500/15 hover:text-red-400`}
+          >
+            {busy === 'permanent-delete' ? <Loader2 size={14} className="animate-spin" /> : <Delete size={14} />}
+          </button>
+        )}
         <button
           onClick={() => patchConversation('mark_read', Array.from(selectedIds), 'Marked as read')}
           disabled={!hasSelection || isTrash}
@@ -2519,6 +2572,23 @@ export default function CommunicationsPage() {
               <input type="checkbox" checked={g.bcc_admin_on_all === true} onChange={e => setCommGeneral('bcc_admin_on_all', e.target.checked)} className="accent-blue-500" />
               BCC admin on all outgoing emails
             </label>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5">
+          <div className="px-3 py-2 border-b border-[var(--border-color)]">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-400">Email Deletion</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Controls permanent conversation/email deletion across the Communication Center.</p>
+          </div>
+          <div className="p-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-[var(--text-primary)] font-medium">Allow Email Deletion</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 leading-relaxed">
+                When enabled, admins can permanently delete conversations (messages, metadata, drafts and unused attachments).
+                When disabled, Delete Forever controls are hidden <span className="text-[var(--text-muted)]">and the backend rejects every delete request</span>.
+              </p>
+            </div>
+            <Toggle checked={allowEmailDeletion} onChange={toggleAllowEmailDeletion} />
           </div>
         </div>
 
@@ -3295,6 +3365,14 @@ export default function CommunicationsPage() {
             title="Move to Trash" className="p-1.5 rounded-lg hover:bg-red-500/10 text-[var(--text-secondary)] hover:text-red-400 transition-colors">
             {busy === 'reader:trash' ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
           </button>
+          {allowEmailDeletion && (
+            <button onClick={() => setShowDeleteConfirm({ ids: [conv.id], count: 1, subject: conv.subject || undefined })}
+              disabled={busy === 'permanent-delete'}
+              title="Delete Forever"
+              className="p-1.5 rounded-lg hover:bg-red-500/15 text-[var(--text-muted)] hover:text-red-400 transition-colors">
+              {busy === 'permanent-delete' ? <Loader2 size={13} className="animate-spin" /> : <Delete size={13} />}
+            </button>
+          )}
           <button onClick={retryConversation} disabled={busy === 'reader:retry'}
             title="Retry failed messages" className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]/50 text-[var(--text-secondary)] transition-colors">
             {busy === 'reader:retry' ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
@@ -3579,8 +3657,9 @@ export default function CommunicationsPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
             {busy === 'sync-all' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
           </button>
-          {isTrash && conversations.length > 0 && (
+          {isTrash && conversations.length > 0 && allowEmailDeletion && (
             <button onClick={() => setShowTrashConfirm(true)}
+              title="Empty Trash requires the Allow Email Deletion setting"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-[11px] text-red-400 hover:bg-red-500/10 transition-colors">
               <Trash2 size={12} /> Empty Trash
             </button>
@@ -4056,6 +4135,25 @@ export default function CommunicationsPage() {
               {busy === 'empty-trash' ? <><Loader2 size={13} className="animate-spin" /> Emptying...</> : <><Delete size={13} /> Empty Trash</>}
             </button>
             <button onClick={() => setShowTrashConfirm(false)} className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Permanent delete confirm (Mail Delete feature) */}
+      {showDeleteConfirm && (
+        <Modal title={showDeleteConfirm.count === 1 ? 'Delete Conversation?' : `Delete ${showDeleteConfirm.count} Conversations?`} onClose={() => setShowDeleteConfirm(null)}>
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+            {showDeleteConfirm.count === 1
+              ? <>This will permanently delete <span className="text-[var(--text-primary)] font-medium">&ldquo;{showDeleteConfirm.subject || 'this conversation'}&rdquo;</span> and all related email data — messages, metadata, drafts/replies and unused attachments. This action cannot be undone.</>
+              : <>This will permanently delete <span className="text-[var(--text-primary)] font-medium">{showDeleteConfirm.count} conversations</span> and all related email data — messages, metadata, drafts/replies and unused attachments. This action cannot be undone.</>}
+          </p>
+          <div className="flex gap-2 pt-4">
+            <button onClick={() => permanentlyDeleteConversations(showDeleteConfirm.ids)} disabled={busy === 'permanent-delete'}
+              className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              {busy === 'permanent-delete' ? <><Loader2 size={13} className="animate-spin" /> Deleting...</> : <><Delete size={13} /> Delete Forever</>}
+            </button>
+            <button onClick={() => setShowDeleteConfirm(null)} disabled={busy === 'permanent-delete'}
+              className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">Cancel</button>
           </div>
         </Modal>
       )}
