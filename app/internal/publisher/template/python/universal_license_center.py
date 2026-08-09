@@ -1126,6 +1126,8 @@ class UniversalLicenseCenter:
                 return str(msg)  # server message verbatim (Rule 5)
             return GlobalMessage.get("validation_failed")
 
+        _resized = [False]
+
         def do_validate():
             key = key_entry.get().strip()
             if not key:
@@ -1223,6 +1225,15 @@ class UniversalLicenseCenter:
             if not lines:
                 lines.append(GlobalMessage.get("ui_license_active"))
             details.config(text="\n".join(lines))
+
+            if not _resized[0]:
+                _resized[0] = True
+                try:
+                    _x = dialog.winfo_x()
+                    _y = dialog.winfo_y()
+                    dialog.geometry("520x680+%d+%d" % (_x, _y))
+                except Exception:
+                    dialog.geometry("520x680")
 
             _set_status(GlobalMessage.get("ui_sending_otp"), "info")
             _set_phase("Validated", "success")
