@@ -4,6 +4,8 @@ import {
   CONTACT_FIELDS,
   SOCIAL_URL_FIELDS,
   normalizeSocialUrls,
+  validateContactEmails,
+  validateContactPhones,
   type SocialUrlKey,
 } from "@/lib/site-settings";
 
@@ -37,6 +39,20 @@ const saveHandler = async ({ db, request, user }: any) => {
   }
   for (const key of Object.keys(socials) as SocialUrlKey[]) {
     saved[key] = socials[key] ?? "";
+  }
+
+  const emailErrors = validateContactEmails(value);
+  const emailErrorFields = Object.keys(emailErrors);
+  if (emailErrorFields.length > 0) {
+    const details = emailErrorFields.map((key) => emailErrors[key as keyof typeof emailErrors]).join("; ");
+    throw badRequest(`Invalid contact email address(es). ${details}`);
+  }
+
+  const phoneErrors = validateContactPhones(value);
+  const phoneErrorFields = Object.keys(phoneErrors);
+  if (phoneErrorFields.length > 0) {
+    const details = phoneErrorFields.map((key) => phoneErrors[key as keyof typeof phoneErrors]).join("; ");
+    throw badRequest(`Invalid phone number(s). ${details}`);
   }
 
   await db.collection("settings").updateOne(

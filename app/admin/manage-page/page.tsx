@@ -2,16 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import API from '../../../core/services/apiService';
-import { Save } from 'lucide-react';
+import { Save, Mail, Phone, Smartphone, PhoneCall, MapPin } from 'lucide-react';
 import {
   DEFAULT_SITE_SETTINGS,
   SOCIAL_URL_FIELDS,
   PLACEHOLDER_URLS,
   normalizeSocialUrl,
+  validateContactEmails,
+  validateContactPhones,
   type SocialUrlKey,
   type SiteSettings,
 } from '../../../lib/site-settings';
 import { SOCIAL_PLATFORM_META } from '../../../lib/social-platforms';
+
+const EMAIL_FIELDS: Array<{ key: 'email' | 'sales_email' | 'no_reply_email' | 'hr_email'; label: string; placeholder: string }> = [
+  { key: 'email', label: 'Contact Email', placeholder: 'e.g. support@websmithdigital.com' },
+  { key: 'sales_email', label: 'Sales Email', placeholder: 'e.g. sales@websmithdigital.com' },
+  { key: 'no_reply_email', label: 'No-Reply Email', placeholder: 'e.g. no-reply@websmithdigital.com' },
+  { key: 'hr_email', label: 'HR Email', placeholder: 'e.g. hr@websmithdigital.com' },
+];
+
+const PHONE_FIELDS: Array<{ key: 'mobile_number' | 'landline_number' | 'phone'; label: string; placeholder: string; icon: any }> = [
+  { key: 'mobile_number', label: 'Mobile Number', placeholder: 'e.g. +91 98765 43210', icon: Smartphone },
+  { key: 'landline_number', label: 'Fixed/Landline Number', placeholder: 'e.g. +1 (555) 123-4567', icon: PhoneCall },
+  { key: 'phone', label: 'Primary Contact Number', placeholder: 'e.g. +1 (555) 123-4567', icon: Phone },
+];
 
 export default function ManagePage() {
   const [contactInfo, setContactInfo] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
@@ -58,17 +73,24 @@ export default function ManagePage() {
 
     const nextErrors: Record<string, string> = {};
     const normalized = { ...contactInfo };
+
     for (const key of Object.keys(SOCIAL_URL_FIELDS) as SocialUrlKey[]) {
       const result = normalizeSocialUrl(key, contactInfo[key]);
       if (result.error) nextErrors[key] = result.error;
       else normalized[key] = result.value;
     }
 
+    const emailErrors = validateContactEmails(contactInfo);
+    Object.assign(nextErrors, emailErrors);
+
+    const phoneErrors = validateContactPhones(contactInfo);
+    Object.assign(nextErrors, phoneErrors);
+
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       setSaveMessage({
         type: 'error',
-        text: 'Please fix the invalid social media link(s) highlighted below before saving.',
+        text: 'Please fix the invalid value(s) highlighted below before saving.',
       });
       return;
     }
@@ -89,6 +111,87 @@ export default function ManagePage() {
     }
   };
 
+  const renderEmailFields = () => (
+    <div style={styles.fieldRow}>
+      {EMAIL_FIELDS.map((field) => {
+        const error = errors[field.key];
+        return (
+          <div key={field.key} style={styles.fieldCell}>
+            <div style={styles.fieldLabelRow}>
+              <Mail size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+              <label style={styles.label}>{field.label}</label>
+            </div>
+            <input
+              type="email"
+              style={{ ...styles.input, ...(error ? styles.inputError : {}) }}
+              value={contactInfo[field.key]}
+              onChange={(e) => setField(field.key, e.target.value)}
+              placeholder={field.placeholder}
+            />
+            {error && <span style={styles.fieldError}>{error}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderPhoneFields = () => (
+    <div style={styles.fieldRow}>
+      {PHONE_FIELDS.map((field) => {
+        const Icon = field.icon;
+        const error = errors[field.key];
+        return (
+          <div key={field.key} style={styles.fieldCell}>
+            <div style={styles.fieldLabelRow}>
+              <Icon size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+              <label style={styles.label}>{field.label}</label>
+            </div>
+            <input
+              type="text"
+              style={{ ...styles.input, ...(error ? styles.inputError : {}) }}
+              value={contactInfo[field.key]}
+              onChange={(e) => setField(field.key, e.target.value)}
+              placeholder={field.placeholder}
+            />
+            {error && <span style={styles.fieldError}>{error}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderSocialFields = () => (
+    <div style={styles.socialRow}>
+      {SOCIAL_PLATFORM_META.map((platform) => {
+        const Icon = platform.icon;
+        const error = errors[platform.key];
+        return (
+          <div key={platform.key} style={styles.socialCell}>
+            <div style={styles.fieldLabelRow}>
+              <span style={{ ...styles.socialIconChip, backgroundColor: platform.color }}>
+                <Icon size={13} color="#FFFFFF" />
+              </span>
+              <label style={styles.label}>{platform.label}</label>
+            </div>
+            <input
+              type="text"
+              style={{ ...styles.input, ...(error ? styles.inputError : {}) }}
+              value={contactInfo[platform.key]}
+              onChange={(e) => setField(platform.key, e.target.value)}
+              placeholder={platform.key === 'whatsapp_url'
+                ? 'https://wa.me/919876543210 or just 919876543210'
+                : PLACEHOLDER_URLS[platform.key]}
+            />
+            {platform.key === 'whatsapp_url' && !error && (
+              <span style={styles.fieldHint}>Enter https://wa.me/&lt;number&gt; or just the number — it will be saved as https://wa.me/&lt;number&gt; automatically.</span>
+            )}
+            {error && <span style={styles.fieldError}>{error}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="wsd-page">
       <header style={styles.header}>
@@ -97,7 +200,7 @@ export default function ManagePage() {
           <p style={styles.subtitle}>Configure and manage global website information</p>
         </div>
       </header>
-      
+
       {isLoading ? (
         <div style={styles.loading}>Loading...</div>
       ) : (
@@ -109,8 +212,11 @@ export default function ManagePage() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Headquarters Address</label>
-              <textarea 
+              <div style={styles.fieldLabelRow}>
+                <MapPin size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                <label style={styles.label}>Headquarters Address</label>
+              </div>
+              <textarea
                 style={styles.textarea}
                 value={contactInfo.headquarters}
                 onChange={(e) => setField('headquarters', e.target.value)}
@@ -119,80 +225,19 @@ export default function ManagePage() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Contact Email</label>
-              <input 
-                type="email"
-                style={styles.input}
-                value={contactInfo.email}
-                onChange={(e) => setField('email', e.target.value)}
-                placeholder="e.g. support@websmithdigital.com"
-              />
+              <div style={styles.fieldLabelRow}>
+                <Mail size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                <label style={styles.label}>Email Addresses</label>
+              </div>
+              {renderEmailFields()}
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Sales Email</label>
-              <input 
-                type="email"
-                style={styles.input}
-                value={contactInfo.sales_email}
-                onChange={(e) => setField('sales_email', e.target.value)}
-                placeholder="e.g. sales@websmithdigital.com"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>No-Reply Email</label>
-              <input 
-                type="email"
-                style={styles.input}
-                value={contactInfo.no_reply_email}
-                onChange={(e) => setField('no_reply_email', e.target.value)}
-                placeholder="e.g. no-reply@websmithdigital.com"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>HR Email</label>
-              <input 
-                type="email"
-                style={styles.input}
-                value={contactInfo.hr_email}
-                onChange={(e) => setField('hr_email', e.target.value)}
-                placeholder="e.g. hr@websmithdigital.com"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Mobile Number</label>
-              <input 
-                type="text"
-                style={styles.input}
-                value={contactInfo.mobile_number}
-                onChange={(e) => setField('mobile_number', e.target.value)}
-                placeholder="e.g. +91 98765 43210"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Fixed/Landline Number</label>
-              <input 
-                type="text"
-                style={styles.input}
-                value={contactInfo.landline_number}
-                onChange={(e) => setField('landline_number', e.target.value)}
-                placeholder="e.g. +1 (555) 123-4567"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Primary Contact Number</label>
-              <input 
-                type="text"
-                style={styles.input}
-                value={contactInfo.phone}
-                onChange={(e) => setField('phone', e.target.value)}
-                placeholder="e.g. +1 (555) 123-4567"
-              />
+              <div style={styles.fieldLabelRow}>
+                <Phone size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                <label style={styles.label}>Phone Numbers</label>
+              </div>
+              {renderPhoneFields()}
             </div>
           </div>
 
@@ -201,42 +246,15 @@ export default function ManagePage() {
               <h2 style={styles.cardTitle}>Social Media Links</h2>
               <p style={styles.cardSubtitle}>Manage official social media profiles displayed on the website. Leave a link empty to hide that platform.</p>
             </div>
-
-            {SOCIAL_PLATFORM_META.map((platform) => {
-              const Icon = platform.icon;
-              const error = errors[platform.key];
-              return (
-                <div key={platform.key} style={styles.socialRow}>
-                  <div style={{ ...styles.socialIconChip, backgroundColor: platform.color }}>
-                    <Icon size={18} color="#FFFFFF" />
-                  </div>
-                  <div style={styles.socialInputWrap}>
-                    <label style={styles.label}>{platform.label}</label>
-                    <input 
-                      type="text"
-                      style={{ ...styles.input, ...(error ? styles.inputError : {}) }}
-                      value={contactInfo[platform.key]}
-                      onChange={(e) => setField(platform.key, e.target.value)}
-                      placeholder={platform.key === 'whatsapp_url'
-                        ? 'https://wa.me/919876543210 or just 919876543210'
-                        : PLACEHOLDER_URLS[platform.key]}
-                    />
-                    {platform.key === 'whatsapp_url' && !error && (
-                      <span style={styles.fieldHint}>Enter https://wa.me/&lt;number&gt; or just the number — it will be saved as https://wa.me/&lt;number&gt; automatically.</span>
-                    )}
-                    {error && <span style={styles.fieldError}>{error}</span>}
-                  </div>
-                </div>
-              );
-            })}
+            {renderSocialFields()}
           </div>
 
           <div style={styles.formActions}>
             {saveMessage && (
-              <span style={{ 
-                color: saveMessage.type === 'success' ? '#34C759' : '#FF3B30', 
-                fontSize: '14px', 
-                fontWeight: 500 
+              <span style={{
+                color: saveMessage.type === 'success' ? '#34C759' : '#FF3B30',
+                fontSize: '14px',
+                fontWeight: 500
               }}>
                 {saveMessage.text}
               </span>
@@ -299,8 +317,24 @@ const styles: any = {
   formGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: '12px',
     marginBottom: '20px',
+  },
+  fieldRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+    gap: '14px',
+  },
+  fieldCell: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    minWidth: 0,
+  },
+  fieldLabelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
   },
   label: {
     fontSize: '14px',
@@ -334,26 +368,24 @@ const styles: any = {
     fontFamily: 'inherit',
   },
   socialRow: {
-    display: 'flex',
-    alignItems: 'flex-start',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
     gap: '14px',
-    marginBottom: '20px',
+  },
+  socialCell: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    minWidth: 0,
   },
   socialIconChip: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '10px',
+    width: '26px',
+    height: '26px',
+    borderRadius: '8px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    marginTop: '2px',
-  },
-  socialInputWrap: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
   },
   fieldError: {
     fontSize: '13px',

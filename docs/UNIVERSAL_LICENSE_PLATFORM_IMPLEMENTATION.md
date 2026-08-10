@@ -1440,6 +1440,13 @@ No new endpoints are created.
 ### Validation & normalization rules (shared `lib/site-settings.ts`)
 
 - Empty input → stored as `""` (hidden on public site).
+- **Email validation:** the shared helpers `normalizeEmails`/`validateEmails`
+  (reused by the API route and the admin UI) strip whitespace, lowercase, and
+  reject non-email values with HTTP 400 (`EMAIL_INVALID`) — never save bad
+  addresses.
+- **Phone validation:** the shared `validatePhones` helper accepts digits,
+  spaces, `+`, `-`, `(` and `)` only, and rejects anything else with HTTP 400
+  (`PHONE_INVALID`) — never save bad numbers.
 - **WhatsApp special handling:** admin may enter `https://wa.me/919876543210`
   **or** a plain number (`919876543210`). Any raw number is automatically
   normalized and saved as `https://wa.me/<digits>`. Visitors always open
@@ -1467,7 +1474,24 @@ No new endpoints are created.
   Sales & Business → `sales_email` (falls back to `email` when empty), No-Reply
   and Careers & HR cards render only when their value is non-empty.
 - **Landing Page** (`app/page.tsx`): contact section shows Mobile and Landline
-  items from saved values (only when non-empty).
+  items from saved values (only when non-empty); the default Contact Email is
+  `support@websmithdigital.com` (never `sales@`) until a DB value is loaded.
+- **Careers Page** (`app/(public)/careers/page.tsx`), **Support Page**
+  (`app/(public)/support/page.tsx`) and **Documentation Page**
+  (`app/(public)/documentation/page.tsx`): all contact cards/links
+  (General Support → `email`, Sales → `sales_email`, Mobile →
+  `mobile_number`) now fetch `/api/settings/public/contact_info` client-side
+  and render DB values with fallbacks — no hardcoded contact info anywhere.
+- **Email service** (`lib/email/brevo.ts` `sendEmail`): the sender address is
+  resolved from the contact_info record per email type — support-typed emails
+  (`admin_notification`, `support_reply`, `conversation_created`) send from
+  `email` (fallback env `MAIL_SUPPORT_ADDRESS`), sales-typed
+  (`new_sales_enquiry`, `sales_reply`) from `sales_email` (fallback
+  `MAIL_SALES_ADDRESS`), all other automated mail from `no_reply_email`
+  (fallback `MAIL_FROM_ADDRESS`); the automated-email disclaimer applies only
+  when sending from the no-reply address; `data.support_email` is auto-filled
+  for `{{support_email}}` template placeholders. Non-Mongo clients (e.g. PG in
+  notification-service) fall back to env vars gracefully.
 - **Backward compatibility:** `headquarters`/`phone` fall back to the previous
   default values only when the saved value is empty; admin-saved values take
   precedence on all public surfaces. No hardcoded links anywhere — everything
@@ -1477,14 +1501,21 @@ No new endpoints are created.
 
 - **Contact Information card** (field order): Headquarters Address → Contact
   Email → Sales Email → No-Reply Email → HR Email → Mobile Number → Fixed/
-  Landline Number → Primary Contact Number.
+  Landline Number → Primary Contact Number. Fields are arranged in a
+  responsive two-column grid (`auto-fit`, `minmax(210px, 1fr)`) with left-
+  aligned labels above each input; phone fields carry `pattern`/`maxLength`
+  input constraints and the Save button runs the same shared email/phone
+  validators as the API (errors shown inline as red border + message, clear
+  on typing).
 - **Social Media Links card** (below Contact Information): one row per platform
   (WhatsApp, Facebook, Instagram, LinkedIn, X (Twitter), YouTube) with a brand
   icon chip, platform name, and URL input; WhatsApp shows a helper hint about
-  number normalization.
+  number normalization. Social rows use a two-column grid (`auto-fit`,
+  `minmax(160px, 1fr)`); empty rows get a 400px placeholder card labeled "Add
+  link" so the grid keeps its shape.
 - Single existing **Save Changes** button persists all fields together.
 - Admin dashboard UI was not redesigned; only the Manage Page content was
-  extended.
+  extended and reformatted.
 
 ---
 
@@ -5047,7 +5078,7 @@ Every future phase must follow this reporting format.
 | **ULC Live License Status Fix (Full Root Cause Resolution)** | ✅ Complete (Backend route.ts status normalization fixed: expired→expired, trial expired→no_license, all non-licensed states passthrough; client.py base_url→app_url fixed; license_engine.py trial expiry validation; ULC handles ALL statuses from live API; debug logging removed; sys.exit only when locked; unused serializer imports removed) | 100% |
 | **AWS-01 Communications Center Module** | ✅ Complete (Phase 1: Backend routes, tabbed frontend, sidebar, zero build errors. **Phase 2 Amendments**: Bug fix — removed query against nonexistent `conversation_attachments` table (root cause of "Failed to load conversation" error); added `conversation_attachments` table creation to DB schema; added DELETE & POST (retry) handlers to conversations/[id] route; full mailbox-grade UI on conversation detail page with FROM/TO/Date/Delivery Status headers, linked Customer/License/Product profile buttons, Delete/Retry/Delivery Log actions; inbox rows now show product+license inline; Build: 229 pages, zero errors. **Phase 7 Redesign**: sidebar Mailboxes nav (top) + Settings/Templates/Signatures/Auto Reply nav; mailbox form provider presets + email auto-detection + Detect button; one-sided connection tests (Test Incoming / Test Outgoing via per-side test-connection); save-time verification gate; Auto Reply panel with drafts + Save; auto-reply engine in IMAP sync   (template + signature + legacy fallback, conversation_messages/notification_logs/audit_logs, waiting_customer); `auto_reply_template_key`/`auto_reply_signature` columns; signature library in settings document; mount-time settings load; tsc 0 errors, build green, tests 6/6 + 13/13. **Phase 8 — Mail Delete Feature**: transactional permanent deletion via `lib/communications/delete-conversations.ts` (messages + attachments cascade + queue + conversation in one BEGIN/COMMIT, ROLLBACK on failure, post-commit orphan-file cleanup only for unreferenced `storage_path`s), backend-enforced `allow_email_deletion` toggle (403 EMAIL_DELETION_DISABLED on all three permanent-delete endpoints), Delete Forever UI in reader toolbar + bulk toolbar + settings toggle card, confirmation modal, immediate list/detail refresh; soft-delete/Trash flow unchanged. **Phase 9 — Integration-level Mailbox Removal**: `communication_conversations.mailbox_id` ownership column (stamped by IMAP sync; only schema change), `lib/communications/remove-mailbox.ts` shared service (removeMailboxIntegration + removeLegacyMailboxConversations: transactional conversation cascade, sync logs, integration row, audit, ROLLBACK, shared-safe post-commit file cleanup, SYSTEM_MAILBOX_EMAILS protected), `DELETE /mailboxes/[id]` wired to it with opt-in `?cleanup_legacy_email=true`; no cron sync exists so removed integrations cannot resurrect; real-DB verification script (no mock tables, read-only report + `--apply` with rollback proof and protected snapshot); tsc 0 errors, build green, tests 6/6 + 13/13) | 100% |
 | **Python Mandatory Doc File — README.md replaced with Integrations.md** | ✅ Complete (Python template validator `MANDATORY_FILES` now requires `Integrations.md`; `runtime-builder.ts` no longer generates a duplicate generic `README.md` for Python — the template's `Integrations.md` is packaged directly as the single documentation source; `sdk-validator.ts` doc validation is runtime-aware (`Integrations.md` for Python, `README.md` for all other runtimes) including package-integrity + lifecycle-section checks; `Integrations.md` "this file" self-reference corrected; master doc + template doc copy updated) | 100% |
-| **Public Website Contact & Social Media Settings (SECTION 0.15)** | ✅ Complete (Manage Page: Mobile Number + Fixed/Landline Number added to Contact Information, new Social Media Links card with WhatsApp/Facebook/Instagram/LinkedIn/X/YouTube rows; `/api/settings/public/contact_info` GET/PUT/PATCH extended with `mobile_number`, `landline_number`, `whatsapp_url`, `facebook_url`, `instagram_url`, `linkedin_url`, `x_url`, `youtube_url`; URL validation + WhatsApp auto-normalization to `https://wa.me/<number>` in shared `lib/site-settings.ts`; footer/contact/landing render saved values with empty platforms hidden; hardcoded socials removed from `core/config/publicSite.ts`; no new tables/endpoints) | 100% |
+| **Public Website Contact & Social Media Settings (SECTION 0.15)** | ✅ Complete (Manage Page: Mobile Number + Fixed/Landline Number added to Contact Information, new Social Media Links card with WhatsApp/Facebook/Instagram/LinkedIn/X/YouTube rows; `/api/settings/public/contact_info` GET/PUT/PATCH extended with `mobile_number`, `landline_number`, `whatsapp_url`, `facebook_url`, `instagram_url`, `linkedin_url`, `x_url`, `youtube_url`; URL validation + WhatsApp auto-normalization to `https://wa.me/<number>` in shared `lib/site-settings.ts`; footer/contact/landing render saved values with empty platforms hidden; hardcoded socials removed from `core/config/publicSite.ts`; no new tables/endpoints) **+ Contact Info Deep Integration (2026-08-10): shared email/phone validators in `lib/site-settings.ts` + server-side 400 rejection (never save invalid emails/phones) + Manage Page reformatted into responsive two-column grids (labels above inputs, inline validation errors, "Add link" placeholders for empty social rows) + Careers/Support/Documentation pages now DB-driven (General Support → email, Sales → sales_email, Mobile → mobile_number, with fallbacks) + landing page default Contact Email fixed to support@ + brevo.ts `sendEmail` sender resolved per email type from contact_info (support-typed → email, sales-typed → sales_email, automated → no_reply_email; disclaimer only on no-reply sends; `{{support_email}}` auto-filled; PG/non-Mongo clients fall back to env vars)** | 100% |
 | **SDK V2 Universal State (SESSION — Global State Machine + Automatic OTP + UED + Hardware Relational)** | ✅ Applied (Python template: `GlobalStateMachine` in `workflow_progress.py` (`IDLE/VALIDATING/OTP_SENT/OTP_VERIFIED/PROCESSING/REFRESHING/COMPLETED/FAILED`), engine-driven transitions in `_WorkflowGuard`/validate/send_otp/verify_otp/refresh/`_apply_fresh_state`, exported from `__init__.py`; Automatic OTP: ULC calls `engine.send_otp()` immediately after validation success — no manual Send OTP step, countdown + Resend; Backend UED: `licenses/activate` `sendOTPEmail()` now routes through `sendEmail()` in `lib/email/brevo.ts` (otp_verification) instead of a direct Brevo fetch; Hardware relational: `GET /internal/backend/hardware` now returns nested `customer`/`plan`/`product`/`license` (status, expiry, days_remaining, device_count) via `licenses`+`products`+`plans`+`customers` joins, and `app/internal/api/hardware/page.tsx` displays the relational data with no "Unknown" placeholders) | 100% |
 | **SDK Enterprise Enhancement Suite (SECTION 0D — 20 Areas)** | ✅ Applied (SessionManager, PermissionEngine, ConfigManager, FeatureFlags, OfflineMode, IdempotencyManager, TimeoutRules, CommunicationQueue, NotificationCenter, ErrorCatalog, SecurityRules, hardware fingerprint versioning, MigrationRunner, HealthCheck, MetricsCollector, VersionCompatibility, SupportRequestTracker, RollbackCoordinator — all in the Python template and wired into `LicenseEngine`; new public `GET /api/v1/health` endpoint for §15/§17; idempotency keys + rollback in activation/renewal/trial/bind; session seeding in `initialize()`/`_apply_fresh_state`; fingerprint stamped `v1:<hash>`; cache migration v1→v2 on startup; all modules in `MANDATORY_FILES` + exported from `__init__.py`; `python -m py_compile` clean on all 44 template files; `npm run test:generation` 6/6 passed) | 100% |
 | **FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure)** | ✅ Applied (Fix 4: License Management now groups License Center, Generate License (`/internal/api/sales/purchase`), Hardware (`/internal/api/hardware`), Activations (`/internal/api/activation`), Renewals, Reactivations (`/internal/api/reactivation-requests`), Trial Dashboard + Trial Templates. New dedicated Renewals page at `/internal/api/licenses/renewals` mounts the existing UI-only `RenewalsTab` component (`app/internal/api/licenses/generate/tabs/RenewalsTab.tsx`) — no duplicate logic, no new business logic. Removed the standalone "Hardware Management" sidebar section and the duplicate "Generate License" entry under Sales & Payments. Routes, icons, permissions and active-route logic unchanged. `next build` passes with the new route.) | 100% |

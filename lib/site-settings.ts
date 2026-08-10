@@ -70,6 +70,57 @@ const urlError = (key: SocialUrlKey, reason?: string) => {
   return reason ? `${base}. ${reason}` : base;
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export function isValidEmail(value: unknown): boolean {
+  const input = String(value ?? "").trim();
+  if (!input) return false;
+  return EMAIL_RE.test(input);
+}
+
+export function isValidPhone(value: unknown): boolean {
+  const input = String(value ?? "").trim();
+  if (!input) return true; // empty phone fields are allowed (hide publicly)
+  return /^[+]?[\d\s()\-./]{7,20}$/.test(input);
+}
+
+export function validateContactEmails(
+  value: Record<string, unknown>
+): Partial<Record<"email" | "sales_email" | "no_reply_email" | "hr_email", string>> {
+  const errors: Partial<Record<"email" | "sales_email" | "no_reply_email" | "hr_email", string>> = {};
+  const fields: Array<{ key: "email" | "sales_email" | "no_reply_email" | "hr_email"; label: string }> = [
+    { key: "email", label: "Contact Email" },
+    { key: "sales_email", label: "Sales Email" },
+    { key: "no_reply_email", label: "No-Reply Email" },
+    { key: "hr_email", label: "HR Email" },
+  ];
+  for (const field of fields) {
+    const input = String(value[field.key] ?? "").trim();
+    if (input && !isValidEmail(input)) {
+      errors[field.key] = `Enter a valid ${field.label} address (e.g. name@example.com).`;
+    }
+  }
+  return errors;
+}
+
+export function validateContactPhones(
+  value: Record<string, unknown>
+): Partial<Record<"phone" | "mobile_number" | "landline_number", string>> {
+  const errors: Partial<Record<"phone" | "mobile_number" | "landline_number", string>> = {};
+  const fields: Array<{ key: "phone" | "mobile_number" | "landline_number"; label: string }> = [
+    { key: "phone", label: "Primary Contact Number" },
+    { key: "mobile_number", label: "Mobile Number" },
+    { key: "landline_number", label: "Fixed/Landline Number" },
+  ];
+  for (const field of fields) {
+    const input = String(value[field.key] ?? "").trim();
+    if (input && !isValidPhone(input)) {
+      errors[field.key] = `Enter a valid ${field.label} (international formats like +91 98765 43210 are supported).`;
+    }
+  }
+  return errors;
+}
+
 export type NormalizeResult = { value: string; error: string | null };
 
 export function normalizeSocialUrl(key: SocialUrlKey, raw: unknown): NormalizeResult {

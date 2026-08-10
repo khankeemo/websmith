@@ -30,7 +30,7 @@ import { useLeadFunnel } from "./providers/LeadFunnelProvider";
 
 const defaultContactInfo = {
   headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
-  email: "sales@websmithdigital.com",
+  email: "support@websmithdigital.com",
   phone: "+1 815-426-9572",
   mobile_number: "",
   landline_number: "",

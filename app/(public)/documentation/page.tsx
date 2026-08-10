@@ -1,11 +1,37 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import type { CSSProperties } from "react";
 import { PublicPage } from "../_components/PublicPage";
 import { SimplePublicBody } from "../_components/SimplePublicContent";
+import API from "../../../core/services/apiService";
 
 export default function DocumentationPage() {
+  const [contactInfo, setContactInfo] = useState({
+    email: "support@websmithdigital.com",
+    sales_email: "sales@websmithdigital.com",
+    mobile_number: "",
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await API.get('/settings/public/contact_info');
+        if (res.data && res.data.success && res.data.data) {
+          setContactInfo({
+            email: res.data.data.email || contactInfo.email,
+            sales_email: res.data.data.sales_email || contactInfo.sales_email,
+            mobile_number: res.data.data.mobile_number || "",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch contact settings', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   return (
     <PublicPage
       eyebrow="Knowledge Base"
@@ -95,15 +121,15 @@ export default function DocumentationPage() {
           <div style={styles.contactRow}>
             <div style={styles.contactItem}>
               <span style={styles.contactLabel}>Support Email</span>
-              <a href="mailto:support@websmithdigital.com" style={styles.contactValue}>support@websmithdigital.com</a>
+              <a href={`mailto:${contactInfo.email}`} style={styles.contactValue}>{contactInfo.email}</a>
             </div>
             <div style={styles.contactItem}>
               <span style={styles.contactLabel}>Sales & Consultation</span>
-              <a href="mailto:sales@websmithdigital.com" style={styles.contactValue}>sales@websmithdigital.com</a>
+              <a href={`mailto:${contactInfo.sales_email}`} style={styles.contactValue}>{contactInfo.sales_email}</a>
             </div>
             <div style={styles.contactItem}>
               <span style={styles.contactLabel}>Mobile</span>
-              <span style={styles.contactValueText}>+91 ____________</span>
+              <span style={styles.contactValueText}>{contactInfo.mobile_number || "—"}</span>
             </div>
           </div>
         </section>

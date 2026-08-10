@@ -1,16 +1,42 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import type { CSSProperties } from "react";
 import { PublicPage } from "../_components/PublicPage";
 import { SimplePublicBody } from "../_components/SimplePublicContent";
+import API from "../../../core/services/apiService";
 
 export default function SupportPage() {
+  const [contactInfo, setContactInfo] = useState({
+    email: "support@websmithdigital.com",
+    sales_email: "sales@websmithdigital.com",
+    mobile_number: "",
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await API.get('/settings/public/contact_info');
+        if (res.data && res.data.success && res.data.data) {
+          setContactInfo({
+            email: res.data.data.email || contactInfo.email,
+            sales_email: res.data.data.sales_email || contactInfo.sales_email,
+            mobile_number: res.data.data.mobile_number || "",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch contact settings', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   return (
     <PublicPage
       eyebrow="Client Care"
       title="Support — WebSmith Digital"
       description="Support is more than assistance — it is our commitment to keeping your business running smoothly, efficiently, and without interruption."
-      cta={{ href: "mailto:support@websmithdigital.com", label: "Email Support" }}
+      cta={{ href: `mailto:${contactInfo.email}`, label: "Email Support" }}
     >
       <SimplePublicBody>
         {/* Intro */}
@@ -82,19 +108,19 @@ export default function SupportPage() {
           <div style={styles.contactGrid}>
             <div style={styles.contactCard}>
               <span style={styles.contactLabel}>General Support</span>
-              <a href="mailto:support@websmithdigital.com" style={styles.contactLink}>support@websmithdigital.com</a>
+              <a href={`mailto:${contactInfo.email}`} style={styles.contactLink}>{contactInfo.email}</a>
             </div>
             <div style={styles.contactCard}>
               <span style={styles.contactLabel}>Sales & Business</span>
-              <a href="mailto:sales@websmithdigital.com" style={styles.contactLink}>sales@websmithdigital.com</a>
+              <a href={`mailto:${contactInfo.sales_email}`} style={styles.contactLink}>{contactInfo.sales_email}</a>
             </div>
             <div style={styles.contactCard}>
               <span style={styles.contactLabel}>Mobile</span>
-              <span style={styles.contactValue}>+91 ____________</span>
+              <span style={styles.contactValue}>{contactInfo.mobile_number || "—"}</span>
             </div>
             <div style={styles.contactCard}>
               <span style={styles.contactLabel}>Support Hours</span>
-              <span style={styles.contactValue}>Mon - Sat | ____________</span>
+              <span style={styles.contactValue}>Mon - Sat | 9 AM - 9 PM</span>
             </div>
           </div>
         </section>

@@ -1,17 +1,45 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import type { CSSProperties } from "react";
 import { PublicPage } from "../_components/PublicPage";
 import { SimplePublicBody } from "../_components/SimplePublicContent";
+import API from "../../../core/services/apiService";
 
 export default function CareersPage() {
+  const [contactInfo, setContactInfo] = useState({
+    email: "support@websmithdigital.com",
+    sales_email: "sales@websmithdigital.com",
+    hr_email: "",
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await API.get('/settings/public/contact_info');
+        if (res.data && res.data.success && res.data.data) {
+          setContactInfo({
+            email: res.data.data.email || contactInfo.email,
+            sales_email: res.data.data.sales_email || contactInfo.sales_email,
+            hr_email: res.data.data.hr_email || "",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch contact settings', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const hrEmail = contactInfo.hr_email || contactInfo.email;
+
   return (
     <PublicPage
       eyebrow="Join Our Team"
       title="Build the Future of Smart Business Solutions"
       description="At WebSmith Digital, we believe great companies are built by talented people with creative minds, technical expertise, and a passion for innovation."
-      cta={{ href: "mailto:support@websmithdigital.com", label: "Send Your Resume" }}
+      cta={{ href: `mailto:${hrEmail}`, label: "Send Your Resume" }}
     >
       <SimplePublicBody>
         {/* Intro */}
@@ -105,11 +133,11 @@ export default function CareersPage() {
           <div style={styles.contactGrid}>
             <div style={styles.contactCard}>
               <span style={styles.contactLabel}>General Applications</span>
-              <a href="mailto:support@websmithdigital.com" style={styles.contactValue}>support@websmithdigital.com</a>
+              <a href={`mailto:${contactInfo.email}`} style={styles.contactValue}>{contactInfo.email}</a>
             </div>
             <div style={styles.contactCard}>
               <span style={styles.contactLabel}>Sales & Business Roles</span>
-              <a href="mailto:sales@websmithdigital.com" style={styles.contactValue}>sales@websmithdigital.com</a>
+              <a href={`mailto:${contactInfo.sales_email}`} style={styles.contactValue}>{contactInfo.sales_email}</a>
             </div>
           </div>
         </section>

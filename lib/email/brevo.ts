@@ -961,6 +961,23 @@ export async function sendEmail(
     return { success: false, error: 'BREVO_API_KEY not configured' };
   }
 
+  // Resolve sender addresses from Manage Page contact info (falls back to env vars)
+  const fromAddress = await getFromAddress(client);
+  const supportAddress = await getSupportAddress(client);
+  const salesAddress = await getSalesAddress(client);
+
+  const route = EMAIL_ROUTES[emailType] || { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME };
+  let senderEmail = route.sender;
+  const senderName = route.name;
+
+  if (emailType === 'admin_notification' || emailType === 'support_reply' || emailType === 'conversation_created') {
+    senderEmail = supportAddress;
+  } else if (emailType === 'new_sales_enquiry' || emailType === 'sales_reply') {
+    senderEmail = salesAddress;
+  } else {
+    senderEmail = fromAddress;
+  }
+
   try {
     const template = await getTemplate(client, emailType);
     const config = EMAIL_TYPES[emailType];
@@ -968,6 +985,8 @@ export async function sendEmail(
       console.warn(`Unknown email type: ${emailType}`);
       return { success: false, error: 'Unknown email type' };
     }
+
+    if (!data.support_email && supportAddress) data.support_email = supportAddress;
 
     const subject = options.custom?.subject || template?.subject || config?.subject || '';
     let htmlBody = options.custom?.html || template?.body || config?.defaultBody(data) || '';
@@ -978,12 +997,8 @@ export async function sendEmail(
       plainText = plainText.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val || '');
     }
 
-    const route = EMAIL_ROUTES[emailType] || { sender: MAIL_FROM_ADDRESS, name: MAIL_FROM_NAME };
-    const senderEmail = route.sender;
-    const senderName = route.name;
-
-    // Add automated email disclaimer for MAIL_FROM_ADDRESS
-    if (senderEmail === MAIL_FROM_ADDRESS) {
+    // Add automated email disclaimer for the no-reply email (fromAddress)
+    if (senderEmail === fromAddress) {
       const disclaimer = '<p style="margin:16px 0 0;font-size:12px;color:#8899aa;font-style:italic;border-top:1px solid #e8ecf1;padding-top:12px">This is an automated email. Please do not reply.</p>';
       htmlBody = htmlBody.replace('</body>', `${disclaimer}</body>`);
     }
@@ -1065,7 +1080,7 @@ export async function sendEmail(
     try {
       await logEmailDelivery(client, {
         emailType,
-        sender: MAIL_FROM_ADDRESS,
+        sender: senderEmail,
         recipient: to.email,
         subject: '',
         status: 'failed',

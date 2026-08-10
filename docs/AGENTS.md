@@ -336,21 +336,37 @@ Keep in sync with the master doc **SECTION 0.15**:
   Never create another table/collection or a new endpoint for these.
 - **Validation lives in shared `lib/site-settings.ts`**: URL hosts are strictly
   validated (facebook.com, instagram.com, linkedin.com, x.com/twitter.com,
-  youtube.com, wa.me); the API rejects invalid links with 400, and the admin UI
-  validates before submit. Never bypass these checks.
+  youtube.com, wa.me); emails via `validateEmails` and phones via
+  `validatePhones` (digits/`+`/`-`/`(`/`)`/spaces only); the API rejects invalid
+  values with 400 (`EMAIL_INVALID`/`PHONE_INVALID`), and the admin UI
+  validates before submit. Never bypass these checks; never save bad
+  addresses/numbers.
 - **WhatsApp special handling**: admins may enter `https://wa.me/<number>` or a
   plain number — plain numbers are always normalized to
   `https://wa.me/<digits>` before saving; visitors always open that URL.
 - **Empty = hidden**: public footer/contact/landing render a platform icon only
   when its URL is non-empty (`target="_blank" rel="noopener noreferrer"`); never
   render placeholder/empty icons. Mobile/Landline items render only when set.
-- **No hardcoded social URLs**: never re-add socials to `core/config/publicSite.ts`
-  or any public component; everything must come from the database record.
+- **No hardcoded contact info anywhere**: never hardcode email addresses,
+  phone numbers, or socials in public components — Careers / Support /
+  Documentation / Contact pages all fetch `/api/settings/public/contact_info`
+  and render DB values with fallbacks (General Support → `email`, Sales →
+  `sales_email`, Mobile → `mobile_number`); the landing page's default Contact
+  Email is `support@websmithdigital.com` until the DB value loads.
+- **Email service uses DB senders**: `lib/email/brevo.ts` `sendEmail` resolves
+  the sender per email type from the contact_info record — support-typed
+  (`admin_notification`/`support_reply`/`conversation_created`) → `email`,
+  sales-typed (`new_sales_enquiry`/`sales_reply`) → `sales_email`, all other
+  automated mail → `no_reply_email` (env vars as fallbacks); the automated
+  disclaimer applies only to no-reply sends; `{{support_email}}` placeholders
+  auto-fill. Never hardcode a sender email in a call site.
 - **Admin Manage Page** (`/admin/manage-page`): Contact Information card order is
   Headquarters Address → Contact Email → Sales Email → No-Reply Email → HR Email →
   Mobile Number → Fixed/Landline Number → Primary Contact Number; Social Media
   Links card sits below it; the single Save Changes button persists all fields
-  together. Do not redesign the admin UI.
+  together. Fields sit in responsive two-column grids (labels above inputs,
+  inline validation errors, empty social rows show "Add link" placeholders).
+  Do not redesign the admin UI.
 - **Backward compatibility**: `headquarters`/`phone` fall back to previous
   defaults only when the saved value is empty.
 
