@@ -23,6 +23,7 @@ import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
 import { getPublishedProjects, getPublishedTestimonials } from "./projects/services/projectService";
 import API from "../core/services/apiService";
+import { SOCIAL_PLATFORM_META } from "../lib/social-platforms";
 import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
 import { createPublicTicket } from "../core/services/ticketService";
@@ -31,9 +32,18 @@ import { useLeadFunnel } from "./providers/LeadFunnelProvider";
 const defaultContactInfo = {
   headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
   email: "support@websmithdigital.com",
+  sales_email: "",
+  no_reply_email: "",
+  hr_email: "",
   phone: "+1 815-426-9572",
   mobile_number: "",
   landline_number: "",
+  whatsapp_url: "",
+  facebook_url: "",
+  instagram_url: "",
+  linkedin_url: "",
+  x_url: "",
+  youtube_url: "",
 };
 
 type HorizontalCardStripProps<T> = {
@@ -370,6 +380,27 @@ export default function LandingPage() {
     { id: "stat-visibility", value: "100%", label: "Shared Delivery Visibility" },
   ];
 
+  // Manage Page (contact_info) is the source of truth. Derive complete
+  // collections so EVERY configured email / phone / social account renders
+  // (never first-item-only), with empties excluded and no invented values.
+  const contactEmails: string[] = [
+    contactInfo.email,
+    contactInfo.sales_email,
+    contactInfo.no_reply_email,
+    contactInfo.hr_email,
+  ].filter((value: string) => Boolean(value && value.trim()));
+
+  const contactPhones: string[] = [
+    contactInfo.phone,
+    contactInfo.mobile_number,
+    contactInfo.landline_number,
+  ].filter((value: string) => Boolean(value && value.trim()));
+
+  const contactSocials = SOCIAL_PLATFORM_META.map((platform) => ({
+    ...platform,
+    href: String(contactInfo[platform.key] || "").trim(),
+  })).filter((item) => Boolean(item.href));
+
   return (
     <div style={styles.container}>
       {/* Hero Section */}
@@ -614,49 +645,63 @@ export default function LandingPage() {
                 </div>
                 <div style={styles.infoItem}>
                   <div style={styles.infoIcon}>📧</div>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <h4 style={styles.infoLabel}>Email</h4>
-                    <p style={styles.infoValue}>
-                      <a href={`mailto:${contactInfo.email}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                        {contactInfo.email}
-                      </a>
-                    </p>
+                    <div style={styles.infoValueRow}>
+                      {contactEmails.length > 0 ? (
+                        contactEmails.map((email, index) => (
+                          <span key={email} style={styles.infoValueRowItem}>
+                            {index > 0 && <span style={styles.infoValueSeparator}>|</span>}
+                            <a href={`mailto:${email}`} style={{ color: 'inherit', textDecoration: 'none' }}>{email}</a>
+                          </span>
+                        ))
+                      ) : (
+                        <p style={styles.infoValue}>—</p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div style={styles.infoItem}>
                   <div style={styles.infoIcon}>📞</div>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <h4 style={styles.infoLabel}>Phone</h4>
-                    <p style={styles.infoValue}>
-                      <a href={`tel:${contactInfo.phone}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                        {contactInfo.phone}
-                      </a>
-                    </p>
-                  </div>
-                </div>
-                {contactInfo.mobile_number && (
-                  <div style={styles.infoItem}>
-                    <div style={styles.infoIcon}>📱</div>
-                    <div>
-                      <h4 style={styles.infoLabel}>Mobile</h4>
-                      <p style={styles.infoValue}>
-                        <a href={`tel:${contactInfo.mobile_number}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                          {contactInfo.mobile_number}
-                        </a>
-                      </p>
+                    <div style={styles.infoValueRow}>
+                      {contactPhones.length > 0 ? (
+                        contactPhones.map((phone, index) => (
+                          <span key={phone} style={styles.infoValueRowItem}>
+                            {index > 0 && <span style={styles.infoValueSeparator}>|</span>}
+                            <a href={`tel:${phone.replace(/[^+\d]/g, "")}`} style={{ color: 'inherit', textDecoration: 'none' }}>{phone}</a>
+                          </span>
+                        ))
+                      ) : (
+                        <p style={styles.infoValue}>—</p>
+                      )}
                     </div>
                   </div>
-                )}
-                {contactInfo.landline_number && (
+                </div>
+                {contactSocials.length > 0 && (
                   <div style={styles.infoItem}>
-                    <div style={styles.infoIcon}>☎️</div>
-                    <div>
-                      <h4 style={styles.infoLabel}>Landline</h4>
-                      <p style={styles.infoValue}>
-                        <a href={`tel:${contactInfo.landline_number}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                          {contactInfo.landline_number}
-                        </a>
-                      </p>
+                    <div style={styles.infoIcon}>🌐</div>
+                    <div style={{ minWidth: 0 }}>
+                      <h4 style={styles.infoLabel}>Social Media</h4>
+                      <div style={styles.infoSocialRow}>
+                        {contactSocials.map((social) => {
+                          const Icon = social.icon;
+                          return (
+                            <a
+                              key={social.key}
+                              href={social.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={social.label}
+                              title={social.label}
+                              style={styles.infoSocialLink}
+                            >
+                              <Icon size={16} />
+                            </a>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1601,6 +1646,46 @@ const styles: any = {
     fontSize: "16px",
     fontWeight: 500,
     color: "var(--text-primary)",
+  },
+  // One horizontal row per category (emails | phones | socials) that wraps
+  // naturally only when the available width requires it.
+  infoValueRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    rowGap: "8px",
+    fontSize: "16px",
+    fontWeight: 500,
+    color: "var(--text-primary)",
+  },
+  infoValueRowItem: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  infoValueSeparator: {
+    color: "var(--text-secondary)",
+    opacity: 0.6,
+    marginRight: "8px",
+  },
+  infoSocialRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    alignItems: "center",
+  },
+  infoSocialLink: {
+    width: "36px",
+    height: "36px",
+    borderRadius: "999px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textDecoration: "none",
+    transition: "all 0.24s cubic-bezier(0.22, 1, 0.36, 1)",
   },
   contactFormContainer: {
     flex: 1.5,
