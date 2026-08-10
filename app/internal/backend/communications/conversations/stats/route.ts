@@ -17,6 +17,14 @@ export async function GET() {
       WHERE deleted_at IS NULL
     `);
 
+    // Trash = soft-deleted conversations (same state the Trash folder list
+    // queries via show_deleted=true). Always matches the list, so counts stay
+    // consistent with the database after any trash/restore/empty-trash action.
+    const trashCount = await client.query(`
+      SELECT COUNT(*) as count FROM communication_conversations
+      WHERE deleted_at IS NOT NULL
+    `);
+
     let failed = 0;
     let queued = 0;
     try {
@@ -69,6 +77,7 @@ export async function GET() {
         failed,
         queued,
         unread: parseInt(unreadCount.rows[0].count, 10),
+        trash: parseInt(trashCount.rows[0].count, 10),
       }
     });
 

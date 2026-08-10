@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
         signature, auto_reply_enabled, auto_reply_message,
         auto_reply_template_key, auto_reply_signature,
         queue_size, created_at, updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'unknown','never',$15,$16,$17,$18,$19,$20,$21,$22,$22)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'unknown','never',$15,$16,$17,$18,$19,$20,$21,0,$22,$22)`,
       [
         mailboxId, provider, normalizedEmail, display_name || '',
         imap_host, imap_port || 993, imap_secure !== false, imap_username, imap_password,

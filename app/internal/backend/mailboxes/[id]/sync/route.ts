@@ -120,13 +120,32 @@ export async function POST(
                   );
                   messagesUpdated++;
                 } else {
-                  conversationId = `CONV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-                  await client?.query(
-                    `INSERT INTO communication_conversations (id, category, status, customer_email, customer_name, subject, mailbox_id, created_at, updated_at)
-                     VALUES ($1, 'general', 'open', $2, $3, $4, $5, $6, $6)`,
-                    [conversationId, from, from, subject, id, date.toISOString()]
+                  // A conversation already in Trash stays out of Inbox even if
+                  // the IMAP server still has the message (it is usually still
+                  // UNSEEN). Reuse the trashed conversation rather than creating
+                  // a duplicate that would reappear in the Inbox list.
+                  const trashed = await client?.query(
+                    'SELECT id FROM communication_conversations WHERE customer_email = $1 AND subject = $2 AND deleted_at IS NOT NULL ORDER BY updated_at DESC LIMIT 1',
+                    [from, subject]
                   );
-                  messagesNew++;
+                  const reuseTrashed = (trashed?.rows?.length ?? 0) > 0;
+
+                  if (reuseTrashed) {
+                    conversationId = trashed.rows[0].id;
+                    await client?.query(
+                      `UPDATE communication_conversations SET updated_at = $1, mailbox_id = COALESCE(mailbox_id, $2) WHERE id = $3 AND deleted_at IS NOT NULL`,
+                      [new Date().toISOString(), id, conversationId]
+                    );
+                    messagesUpdated++;
+                  } else {
+                    conversationId = `CONV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+                    await client?.query(
+                      `INSERT INTO communication_conversations (id, category, status, customer_email, customer_name, subject, mailbox_id, created_at, updated_at)
+                       VALUES ($1, 'general', 'open', $2, $3, $4, $5, $6, $6)`,
+                      [conversationId, from, from, subject, id, date.toISOString()]
+                    );
+                    messagesNew++;
+                  }
 
                   // ---- Auto-reply (new feature, UI/UX-scoped): if the mailbox
                   // has auto-reply enabled, answer the FIRST message of a NEW
@@ -134,7 +153,8 @@ export async function POST(
                   // (falls back to the legacy free-text auto_reply_message).
                   // Reuses the same nodemailer transporter options as the
                   // existing [id]/send route — no SMTP engine changes.
-                  if (mailbox.auto_reply_enabled) {
+                  // Never auto-replies to mail that is being re-held in Trash.
+                  if (mailbox.auto_reply_enabled && !reuseTrashed) {
                     try {
                       let replyBody = '';
                       if (mailbox.auto_reply_template_key) {

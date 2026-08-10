@@ -124,6 +124,7 @@ interface Stats {
   failed: number;
   queued: number;
   unread: number;
+  trash: number;
 }
 
 interface AttachmentRow {
@@ -216,7 +217,7 @@ const FOLDERS: FolderDef[] = [
   { key: 'ext-failed', label: 'Failed', icon: AlertTriangle, section: 'external', kind: 'list', params: { status: 'waiting_support,waiting_sales' }, badgeKey: 'failed' },
   { key: 'ext-queued', label: 'Queued', icon: Clock, section: 'external', kind: 'queue', badgeKey: 'queued' },
   { key: 'ext-spam', label: 'Spam', icon: ShieldAlert, section: 'external', kind: 'list', params: { status: 'spam' }, emptyNote: 'Spam detection is not wired to the backend yet — no spam folders are collected by the IMAP sync.' },
-  { key: 'ext-trash', label: 'Trash', icon: Trash2, section: 'external', kind: 'list', params: { show_deleted: 'true' } },
+  { key: 'ext-trash', label: 'Trash', icon: Trash2, section: 'external', kind: 'list', params: { show_deleted: 'true' }, badgeKey: 'trash' },
   { key: 'mailboxes', label: 'Mailboxes', icon: AtSign, section: 'external', kind: 'mailboxes' },
 ];
 
@@ -272,7 +273,7 @@ const FOLDER_CHIPS: { key: string; label: string; badgeKey?: keyof Stats }[] = [
   { key: 'all', label: 'Unread', badgeKey: 'unread' },
   { key: 'ext-draft', label: 'Drafts' },
   { key: 'ext-spam', label: 'Spam' },
-  { key: 'ext-trash', label: 'Trash' },
+  { key: 'ext-trash', label: 'Trash', badgeKey: 'trash' },
 ];
 
 // ---- Provider auto-configuration (single shared provider config —
@@ -631,7 +632,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 }
 
 export default function CommunicationsPage() {
-  const [stats, setStats] = useState<Stats>({ inbox: 0, sent: 0, waiting: 0, failed: 0, queued: 0, unread: 0 });
+  const [stats, setStats] = useState<Stats>({ inbox: 0, sent: 0, waiting: 0, failed: 0, queued: 0, unread: 0, trash: 0 });
   const [activeFolder, setActiveFolder] = useState<string>('ext-inbox');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -1007,7 +1008,7 @@ export default function CommunicationsPage() {
   // Persist a settings payload immediately (used by the system-account toggles,
   // inline edits and signature management so they take effect without a
   // separate Save click).
-  const persistCommSettings = useCallback(async (payload: any) => {
+  const persistCommSettings = useCallback(async (payload: any, successMsg?: string) => {
     setBusy('save-comm-settings');
     try {
       const res = await fetch('/internal/backend/communications/settings', {
@@ -1017,7 +1018,7 @@ export default function CommunicationsPage() {
       });
       const json = await res.json();
       if (json.success) {
-        showToast('ok', 'Communication settings saved');
+        showToast('ok', successMsg || 'Communication settings saved');
         setCommSettingsDirty(false);
         await loadCommsSettings();
       } else {
@@ -1091,7 +1092,7 @@ export default function CommunicationsPage() {
       if (!prev) return prev;
       const next: any = { ...prev, signatures: [...(prev.signatures || []), sig] };
       setCommSettingsDirty(true);
-      persistCommSettings(next);
+      persistCommSettings(next, 'Signature created successfully');
       return next;
     });
   }, [commSettings, signatures.length, persistCommSettings]);
@@ -3947,9 +3948,11 @@ export default function CommunicationsPage() {
                         const next: any = { ...prev, email_address: email };
                         // Outgoing mail uses the same address by default
                         // (editable afterwards for providers that need a
-                        // different sender).
-                        if (!next.imap_username) next.imap_username = email;
-                        if (!next.smtp_username) next.smtp_username = email;
+                        // different sender / username). The username mirrors
+                        // the incoming email while typing; a username that
+                        // was manually changed to something else is kept.
+                        if (!next.imap_username || next.imap_username === prev.email_address) next.imap_username = email;
+                        if (!next.smtp_username || next.smtp_username === prev.email_address) next.smtp_username = email;
                         if (detected.key !== 'custom') {
                           if (prev.provider === '' || prev.provider === 'custom') {
                             next.provider = detected.key;
@@ -4018,14 +4021,17 @@ export default function CommunicationsPage() {
                       <div className="relative">
                         <input type={showImapPass ? 'text' : 'password'} value={mailboxForm.imap_password || ''} onChange={e => {
                           const pw = e.target.value;
-                          setMailboxForm((prev: any) => ({
-                            ...prev,
-                            imap_password: pw,
-                            // Providers using the same credentials for IMAP
-                            // and SMTP get the outgoing password automatically
-                            // (editable afterwards when they differ).
-                            smtp_password: prev.smtp_password || pw,
-                          }));
+                          setMailboxForm((prev: any) => {
+                            const next: any = { ...prev, imap_password: pw };
+                            // Providers using the same credentials for IMAP and
+                            // SMTP: mirror the incoming password into outgoing.
+                            // If outgoing still equals the previous incoming
+                            // password (kept in sync) or is empty it follows the
+                            // new value; a manually overridden outgoing password
+                            // that differs is preserved.
+                            if (!prev.smtp_password || prev.smtp_password === prev.imap_password) next.smtp_password = pw;
+                            return next;
+                          });
                         }} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} name="mailbox-imap-password" autoComplete="new-password" data-lpignore="true" />
                         <button type="button" onClick={() => setShowImapPass(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
                           {showImapPass ? <EyeOff size={13} /> : <Eye size={13} />}
@@ -4201,6 +4207,49 @@ export default function CommunicationsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Signature creation modal (opened from the mailbox form's Add Signature) */}
+      {showMailboxForm && signatureForm.open && (
+        <Modal title={signatureForm.id ? 'Edit Signature' : 'Add Signature'} onClose={() => setSignatureForm({ open: false, id: null, name: '', content: '', enabled: true })}>
+          <div className="space-y-3">
+            <Field label="Signature Name">
+              <input type="text" value={signatureForm.name} onChange={e => setSignatureForm({ ...signatureForm, name: e.target.value })} className={inputCls} placeholder="e.g. Senior Engineer Signature" name="mailbox-signature-name" autoComplete="off" />
+            </Field>
+            <Field label="Signature Content">
+              <textarea rows={5} value={signatureForm.content} onChange={e => setSignatureForm({ ...signatureForm, content: e.target.value })}
+                className={`${inputCls} resize-y`} placeholder={"Best regards,\nThe Support Team\nsupport@websmithdigital.com"} />
+            </Field>
+            <Field label="Status">
+              <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                <Toggle checked={signatureForm.enabled !== false} onChange={() => setSignatureForm(prev => ({ ...prev, enabled: !(prev.enabled !== false) }))} />
+                <span>{signatureForm.enabled !== false ? 'Enabled' : 'Disabled'}</span>
+              </label>
+            </Field>
+            <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-primary)]/50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">Preview</p>
+              <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap break-words">{signatureForm.content || '(empty signature)'}</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => {
+                  if (!signatureForm.name.trim() && !signatureForm.content.trim()) { showToast('err', 'Signature name or content is required'); return; }
+                  if (signatureForm.id) {
+                    updateSignature(signatureForm.id, signatureForm.name, signatureForm.content, signatureForm.enabled);
+                  } else {
+                    addSignature(signatureForm.name, signatureForm.content, signatureForm.enabled);
+                  }
+                  setSignatureForm({ open: false, id: null, name: '', content: '', enabled: true });
+                }}
+                disabled={busy === 'save-comm-settings'}
+                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {busy === 'save-comm-settings' ? <><Loader2 size={13} className="animate-spin" /> Saving...</> : <><Save size={13} /> Save Signature</>}
+              </button>
+              <button onClick={() => setSignatureForm({ open: false, id: null, name: '', content: '', enabled: true })}
+                className="px-4 py-2 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">Cancel</button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Trash confirm */}

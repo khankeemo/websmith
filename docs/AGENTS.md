@@ -129,9 +129,15 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   starts with NO provider, NO server hosts, NO email — the Add Mailbox form is
   completely empty. Typing the **Incoming Email** auto-detects the provider
   (Gmail/Outlook/Yahoo/Zoho/Apple/Fastmail/Proton/custom via `PROVIDER_PRESETS`
-  + `presetForEmail`), fills IMAP/SMTP hosts/ports/encryption, mirrors the
-  address into both usernames, and the Incoming Password mirrors into Outgoing
-  when SMTP is still empty (all values stay editable). Unknown domains switch
+  + `presetForEmail`), fills IMAP/SMTP hosts/ports/encryption, and mirrors the
+  address into both usernames **while typing** — a username only follows the
+  email when empty or still equal to the previous address, so char-by-char
+  typing updates (no freeze at the first keystroke) but a manually-changed
+  username that differs is kept. The **Incoming Password mirrors into Outgoing
+  Password** — outgoing follows when it is empty or still equal to the previous
+  incoming password (kept in sync), while a manually-overridden outgoing
+  password that differs is preserved (per-field override; all values stay
+  editable). Unknown domains switch
   to `custom` manual mode (never invented server values). Provider select has
   an "Auto-detect from email" option. The Gmail/other App-Password help card
   renders only after a provider is detected. **Never** any default mailbox
@@ -152,6 +158,7 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   appended to replies. Mailbox enable/disable is enforced server-side: sync returns 403
   `MAILBOX_DISABLED` when off (send + queue-process already filtered by
   `is_enabled`).
+- **Final Mail Bugs fixed (see master doc Phase 10 entry)**: (1) **Trash leaves Inbox** — the trash model is `communication_conversations.deleted_at` (soft delete = Trash, restored via the `restore` PATCH action); Inbox + every non-trash list already exclude `deleted_at IS NULL` at the SQL level (never hide with frontend filters), Trash queries `show_deleted=true` → `deleted_at IS NOT NULL`, and inbox/sent/waiting/unread stats already filter it. Two gaps: the conversations **stats route now returns a `trash` count** (`deleted_at IS NOT NULL`, surfaced as the Trash folder badge via `Stats.trash` + `badgeKey: 'trash'`), and **`POST /mailboxes/[id]/sync` never re-imports trashed mail** — when the IMAP server still holds the (still-UNSEEN) message after the admin trashed it, the sync reuses the matching trashed conversation (`deleted_at IS NOT NULL ORDER BY updated_at DESC LIMIT 1`) keeping `deleted_at` set instead of creating a duplicate that would reappear in Inbox; auto-reply is skipped for reused trashed mail (`&& !reuseTrashed`). (2) **Gmail Create Mailbox failure** — root cause was the `POST /internal/backend/mailboxes` INSERT: 26 columns but only 25 VALUES (missing trailing `updated_at` value) → PostgreSQL `INSERT has more target columns than expressions` → generic "Failed to create mailbox." after the successful IMAP/SMTP test; fixed by adding the missing `$22` (`updated_at` = `now`) **AND** mapping `queue_size` to the literal `0` — the table column is `queue_size INTEGER NOT NULL DEFAULT 0`, and binding the `now` timestamp string (`$22`) into an INTEGER column raises `invalid input syntax for type integer` (masked earlier by the column-count error); the VALUES tail is now `...$21,0,$22,$22` (26/26). Create still verifies credentials via `test-connection` before saving, rejects duplicates (`DUPLICATE_EMAIL`), allows `signature` empty, and saves the exact tested form payload; no connection/Gmail logic was changed.
 - **Architecture hierarchy**: Master Doc → Language Templates → SDK Publisher →
   Generated SDK. Never edit Generated SDKs directly; never embed business logic
   in runtime generators.
