@@ -136,10 +136,20 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   an "Auto-detect from email" option. The Gmail/other App-Password help card
   renders only after a provider is detected. **Never** any default mailbox
   email anywhere in app/lib code (audited: `keeogamer@gmail.com` exists only
-  in the cleanup-test script + docs). Signatures are a Mail → Signatures
+  in the cleanup-test script + docs). **All mailbox-form inputs carry explicit
+  `name` + `autoComplete` attributes (`off` for text/email, `new-password` for
+  passwords) to prevent browser credential autofill (the admin's own saved Gmail
+  was otherwise leaked into the blank Add form).** Signatures are a Mail → Signatures
   section (settings-document `signatures` array): create/edit/delete/set
   default/preview + assign-to-mailbox; used by the reply composer and auto-
-  reply. Mailbox enable/disable is enforced server-side: sync returns 403
+  reply. **Signatures now carry an `enabled` flag (default true).** Disabled
+  signatures are excluded from the mailbox-form selector, auto-reply dropdowns,
+  and the reply composer; `assignSignatureToMailbox` refuses disabled signatures;
+  deletion clears `auto_reply_signature` references on mailboxes. The auto-reply
+  server (`[id]/sync`) resolves `auto_reply_signature` (ID) → content from the
+  settings document, skips disabled/unknown IDs, and falls back to the static
+  `mailbox.signature` content — fixing the latent bug where the raw ID was
+  appended to replies. Mailbox enable/disable is enforced server-side: sync returns 403
   `MAILBOX_DISABLED` when off (send + queue-process already filtered by
   `is_enabled`).
 - **Architecture hierarchy**: Master Doc → Language Templates → SDK Publisher →

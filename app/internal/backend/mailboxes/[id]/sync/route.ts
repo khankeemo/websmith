@@ -146,7 +146,21 @@ export async function POST(
                         if (t) replyBody = t.plain_text || t.body || '';
                       }
                       if (!replyBody) replyBody = mailbox.auto_reply_message || '';
-                      const replySignature = mailbox.auto_reply_signature || mailbox.signature || '';
+
+                      // Resolve auto_reply_signature (ID) to content from system_settings,
+                      // respecting enabled flag; fall back to mailbox.signature (static content)
+                      let replySignature = '';
+                      if (mailbox.auto_reply_signature) {
+                        const settingsResult = await client?.query(
+                          `SELECT settings FROM system_settings ORDER BY id DESC LIMIT 1`
+                        );
+                        const allSettings = settingsResult?.rows?.[0]?.settings || {};
+                        const sigs = allSettings.communications?.signatures || [];
+                        const sig = sigs.find((s: any) => s.id === mailbox.auto_reply_signature && s.enabled !== false);
+                        if (sig) replySignature = sig.content || '';
+                      }
+                      if (!replySignature) replySignature = mailbox.signature || '';
+
                       const fullReply = replyBody + (replySignature ? `\n\n${replySignature}` : '');
                       if (fullReply.trim()) {
                         const fromName = parsed.from?.value?.[0]?.name || '';

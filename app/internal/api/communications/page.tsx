@@ -165,6 +165,7 @@ interface SignatureItem {
   name: string;
   content: string;
   is_default: boolean;
+  enabled: boolean;
 }
 
 type ViewKind = 'list' | 'queue' | 'logs' | 'history' | 'mailboxes' | 'settings' | 'templates' | 'signatures' | 'auto-reply' | 'empty';
@@ -709,7 +710,7 @@ export default function CommunicationsPage() {
   const [templateSearch, setTemplateSearch] = useState('');
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [templateDraft, setTemplateDraft] = useState<EmailTemplate | null>(null);
-  const [signatureForm, setSignatureForm] = useState<{ open: boolean; id: string | null; name: string; content: string }>({ open: false, id: null, name: '', content: '' });
+  const [signatureForm, setSignatureForm] = useState<{ open: boolean; id: string | null; name: string; content: string; enabled: boolean }>({ open: false, id: null, name: '', content: '', enabled: true });
 
   const folderDefFor = useCallback((row: FolderRow): FolderDef => {
     const sys = FOLDERS.find(f => f.key === row.id);
@@ -1077,13 +1078,14 @@ export default function CommunicationsPage() {
     });
   }, [persistCommSettings]);
 
-  const addSignature = useCallback((name: string, content: string) => {
+  const addSignature = useCallback((name: string, content: string, enabled: boolean = true) => {
     if (!commSettings) return;
     const sig: SignatureItem = {
       id: `SIG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
       name: name.trim() || 'Untitled signature',
       content: content.trim(),
       is_default: signatures.length === 0,
+      enabled,
     };
     setCommSettings((prev: any) => {
       if (!prev) return prev;
@@ -1094,13 +1096,13 @@ export default function CommunicationsPage() {
     });
   }, [commSettings, signatures.length, persistCommSettings]);
 
-  const updateSignature = useCallback((id: string, name: string, content: string) => {
+  const updateSignature = useCallback((id: string, name: string, content: string, enabled: boolean = true) => {
     setCommSettings((prev: any) => {
       if (!prev) return prev;
       const next: any = {
         ...prev,
         signatures: (prev.signatures || []).map((s: SignatureItem) =>
-          s.id === id ? { ...s, name: name.trim() || s.name, content: content.trim() } : s
+          s.id === id ? { ...s, name: name.trim() || s.name, content: content.trim(), enabled } : s
         ),
       };
       setCommSettingsDirty(true);
@@ -1109,7 +1111,7 @@ export default function CommunicationsPage() {
     });
   }, [persistCommSettings]);
 
-  const deleteSignature = useCallback((id: string) => {
+  const deleteSignature = useCallback(async (id: string) => {
     setCommSettings((prev: any) => {
       if (!prev) return prev;
       const list = (prev.signatures || []).filter((s: SignatureItem) => s.id !== id);
@@ -1123,6 +1125,24 @@ export default function CommunicationsPage() {
       persistCommSettings(next);
       return next;
     });
+    // Spec 2.6: clear auto_reply_signature on mailboxes referencing the deleted signature
+    try {
+      const mbRes = await fetch(`${MB_BASE}`, { headers: getAuthHeaders() });
+      const mbJson = await mbRes.json();
+      if (mbJson.success && mbJson.data) {
+        for (const mb of mbJson.data) {
+          if (mb.auto_reply_signature === id) {
+            await fetch(`${MB_BASE}/${mb.id}`, {
+              method: 'PATCH',
+              headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+              body: JSON.stringify({ auto_reply_signature: '' }),
+            });
+          }
+        }
+      }
+    } catch {
+      // Non-fatal: server will gracefully handle unknown ID anyway
+    }
   }, [persistCommSettings]);
 
   const setDefaultSignature = useCallback((id: string) => {
@@ -1139,6 +1159,10 @@ export default function CommunicationsPage() {
   }, [persistCommSettings]);
 
   const assignSignatureToMailbox = useCallback(async (mailboxId: string, sig: SignatureItem) => {
+    if (sig.enabled === false) {
+      showToast('err', 'Cannot assign a disabled signature — enable it first');
+      return;
+    }
     setBusy(`assign-sig:${mailboxId}`);
     try {
       const res = await fetch(`${MB_BASE}/${mailboxId}`, {
@@ -1199,6 +1223,7 @@ export default function CommunicationsPage() {
   const insertSignatureIntoComposer = useCallback((id: string) => {
     const s = signatures.find(x => x.id === id);
     if (!s || !s.content) { showToast('err', 'Signature is empty — edit it first.'); return; }
+    if (s.enabled === false) { showToast('err', 'Cannot insert a disabled signature — enable it first.'); return; }
     setComposerText(prev => prev.trim() ? `${prev.trim()}\n\n${s.content}` : s.content);
     setComposerOpen(true);
     showToast('ok', `Signature "${s.name}" inserted — edit before sending.`);
@@ -2524,7 +2549,7 @@ export default function CommunicationsPage() {
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
                     {busyKey('sync') ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Sync
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, auto_reply_template_key: mb.auto_reply_template_key, auto_reply_signature: mb.auto_reply_signature, imap_password: '', smtp_password: '' }); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
+                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, is_enabled: mb.is_enabled !== false, is_default_sender: mb.is_default_sender === true, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, auto_reply_template_key: mb.auto_reply_template_key, auto_reply_signature: mb.auto_reply_signature, imap_password: '', smtp_password: '' }); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30">
                     <Pencil size={10} /> Edit
                   </button>
@@ -2913,7 +2938,7 @@ export default function CommunicationsPage() {
       <div className="flex flex-col min-h-0 h-full">
         <div className="px-3 py-2 border-b border-[var(--border-color)] shrink-0">
           <p className="text-xs text-[var(--text-muted)]">{signatures.length} signature(s) — select a signature to edit, or create a new one.</p>
-          <button onClick={() => setSignatureForm({ open: true, id: null, name: '', content: '' })}
+          <button onClick={() => setSignatureForm({ open: true, id: null, name: '', content: '', enabled: true })}
             className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
             <Plus size={13} /> Add Signature
           </button>
@@ -2925,17 +2950,40 @@ export default function CommunicationsPage() {
               <p className="text-xs">No signatures yet — create one to attach to replies and auto-replies.</p>
             </div>
           )}
-          {signatures.map(s => (
-            <div key={s.id} className="px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors cursor-pointer"
-              onClick={() => setSignatureForm({ open: true, id: s.id, name: s.name, content: s.content })}>
-              <div className="flex items-center gap-2">
-                <Signature size={12} className="text-[var(--text-muted)] flex-shrink-0" />
-                <span className="text-xs text-[var(--text-primary)] font-medium truncate flex-1">{s.name}</span>
-                {s.is_default && <Badge className="text-blue-400 bg-blue-500/10">Default</Badge>}
+          {signatures.map(s => {
+            const assignedMailboxes = mailboxes.filter(mb => mb.signature === s.content);
+            return (
+              <div key={s.id} className="px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Signature size={12} className="text-[var(--text-muted)] flex-shrink-0" />
+                  <span className="text-xs text-[var(--text-primary)] font-medium truncate flex-1">{s.name}</span>
+                  {s.is_default && <Badge className="text-blue-400 bg-blue-500/10">Default</Badge>}
+                  <Badge className={s.enabled !== false ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'}>
+                    {s.enabled !== false ? 'Enabled' : 'Disabled'}
+                  </Badge>
+                  <Toggle
+                    checked={s.enabled !== false}
+                    onChange={() => updateSignature(s.id, s.name, s.content, !(s.enabled !== false))}
+                    disabled={busy === 'save-comm-settings'}
+                  />
+                  {assignedMailboxes.length > 0 && (
+                    <span className="text-[9px] text-[var(--text-muted)] truncate flex-1 ml-2" title={assignedMailboxes.map(m => m.email_address).join(', ')}>
+                      → {assignedMailboxes.map(m => m.display_name || m.email_address).join(', ')}
+                    </span>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (confirm(`Delete signature "${s.name}"? This cannot be undone.`)) deleteSignature(s.id); }}
+                    disabled={busy === 'save-comm-settings' || busy?.toString().startsWith('assign-sig:')}
+                    className="p-1 text-[var(--text-muted)] hover:text-red-400 transition-colors disabled:opacity-50"
+                    title="Delete signature"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-[var(--text-muted)] whitespace-pre-wrap break-words mt-1 line-clamp-2">{s.content || '(empty)'}</p>
               </div>
-              <p className="text-[10px] text-[var(--text-muted)] whitespace-pre-wrap break-words mt-1 line-clamp-2">{s.content || '(empty)'}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -2967,17 +3015,23 @@ export default function CommunicationsPage() {
               <textarea rows={5} value={signatureForm.content} onChange={e => setSignatureForm({ ...signatureForm, content: e.target.value })}
                 className={`${inputCls} resize-y`} placeholder={"Best regards,\nThe Support Team\nsupport@websmithdigital.com"} />
             </Field>
+            <Field label="Status">
+              <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                <Toggle checked={signatureForm.enabled !== false} onChange={() => setSignatureForm(prev => ({ ...prev, enabled: !(prev.enabled !== false) }))} />
+                <span>{signatureForm.enabled !== false ? 'Enabled' : 'Disabled'}</span>
+              </label>
+            </Field>
           </div>
           <div className="flex items-center gap-1.5 mt-3">
             {isNew ? (
-              <button onClick={() => { if (!signatureForm.name.trim() && !signatureForm.content.trim()) { showToast('err', 'Signature name or content is required'); return; } addSignature(signatureForm.name, signatureForm.content); setSignatureForm({ open: false, id: null, name: '', content: '' }); }}
+              <button onClick={() => { if (!signatureForm.name.trim() && !signatureForm.content.trim()) { showToast('err', 'Signature name or content is required'); return; } addSignature(signatureForm.name, signatureForm.content, signatureForm.enabled); setSignatureForm({ open: false, id: null, name: '', content: '', enabled: true }); }}
                 disabled={busy === 'save-comm-settings'}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
                 <Plus size={11} /> Create Signature
               </button>
             ) : (
               <>
-                <button onClick={() => { updateSignature(signatureForm.id!, signatureForm.name, signatureForm.content); setSignatureForm({ open: false, id: null, name: '', content: '' }); }}
+                <button onClick={() => { updateSignature(signatureForm.id!, signatureForm.name, signatureForm.content, signatureForm.enabled); setSignatureForm({ open: false, id: null, name: '', content: '', enabled: true }); }}
                   disabled={busy === 'save-comm-settings'}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
                   <Save size={11} /> Save Signature
@@ -2987,14 +3041,14 @@ export default function CommunicationsPage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
                   <CheckCheck size={11} /> Set Default
                 </button>
-                <button onClick={() => { if (confirm(`Delete signature "${signatureForm.name}"? This cannot be undone.`)) { deleteSignature(signatureForm.id!); setSignatureForm({ open: false, id: null, name: '', content: '' }); } }}
+                <button onClick={() => { if (confirm(`Delete signature "${signatureForm.name}"? This cannot be undone.`)) { deleteSignature(signatureForm.id!); setSignatureForm({ open: false, id: null, name: '', content: '', enabled: true }); } }}
                   disabled={busy === 'save-comm-settings'}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 text-[11px] font-medium transition-colors disabled:opacity-50">
                   <Trash2 size={11} /> Delete
                 </button>
               </>
             )}
-            <button onClick={() => setSignatureForm({ open: false, id: null, name: '', content: '' })}
+            <button onClick={() => setSignatureForm({ open: false, id: null, name: '', content: '', enabled: true })}
               className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">Close</button>
           </div>
         </div>
@@ -3004,7 +3058,7 @@ export default function CommunicationsPage() {
             <p className="text-[10px] text-[var(--text-muted)] mb-2">Copy this signature into a mailbox so every email sent through it includes the signature.</p>
             <div className="space-y-1">
               {mailboxes.map(mb => (
-                <button key={mb.id} onClick={() => assignSignatureToMailbox(mb.id, existing || { id: signatureForm.id!, name: signatureForm.name, content: signatureForm.content, is_default: false })}
+                <button key={mb.id} onClick={() => assignSignatureToMailbox(mb.id, existing || { id: signatureForm.id!, name: signatureForm.name, content: signatureForm.content, is_default: false, enabled: signatureForm.enabled })}
                   disabled={busy === `assign-sig:${mb.id}`}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
                   {busy === `assign-sig:${mb.id}` ? <Loader2 size={11} className="animate-spin" /> : <AtSign size={11} />}
@@ -3051,7 +3105,7 @@ export default function CommunicationsPage() {
             const setDraft = (patch: any) => setAutoReplyDrafts(prev => ({ ...prev, [mb.id]: { ...(prev[mb.id] || base), ...patch } }));
             const unsaved = JSON.stringify(draft) !== JSON.stringify(base);
             const tpl = templates.find(t => t.email_type === draft.auto_reply_template_key);
-            const sig = signatures.find(s => s.id === draft.auto_reply_signature) || (draft.auto_reply_signature ? null : signatures.find(s => s.is_default));
+            const sig = signatures.find(s => s.id === draft.auto_reply_signature);
             const preview = (draft.auto_reply_enabled ? (templateTextOf(tpl) || draft.auto_reply_message || '(no template selected)') + (sig?.content ? `\n\n${sig.content}` : (mb.signature ? `\n\n${mb.signature}` : '')) : 'Auto-reply is disabled for this mailbox.');
             const h = mailboxHealth(mb);
             const saving = busy === `auto-reply:${mb.id}`;
@@ -3077,7 +3131,7 @@ export default function CommunicationsPage() {
                     <select value={draft.auto_reply_signature} onChange={e => setDraft({ auto_reply_signature: e.target.value })}
                       className={inputCls} disabled={saving}>
                       <option value="">— None —</option>
-                      {signatures.map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
+                      {signatures.filter(s => s.enabled !== false).map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
                     </select>
                   </Field>
                 </div>
@@ -3879,7 +3933,7 @@ export default function CommunicationsPage() {
                         smtp_port: p.smtp.port,
                         smtp_secure: p.smtp.secure,
                       }));
-                    }} className={inputCls}>
+                    }} className={inputCls} name="mailbox-provider" autoComplete="off" data-lpignore="true">
                       <option value="">Auto-detect from email</option>
                       {PROVIDER_PRESETS.filter(p => p.key !== 'custom').map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                       <option value="custom">Custom / Other (manual)</option>
@@ -3913,11 +3967,11 @@ export default function CommunicationsPage() {
                         }
                         return next;
                       });
-                    }} className={inputCls} placeholder="support@yourcompany.com" disabled={false} />
+                    }} className={inputCls} placeholder="support@yourcompany.com" name="mailbox-email" autoComplete="off" data-lpignore="true" />
                   </Field>
                   <Field label="Display Name">
                     <input type="text" value={mailboxForm.display_name || ''} onChange={e => setMailboxForm({ ...mailboxForm, display_name: e.target.value })}
-                      className={inputCls} placeholder="Support Team" />
+                      className={inputCls} placeholder="Support Team" name="mailbox-display-name" autoComplete="off" />
                   </Field>
                   <div className="flex items-end">
                     <button type="button" onClick={() => {
@@ -3947,19 +4001,19 @@ export default function CommunicationsPage() {
                 <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400 mb-2">Incoming — IMAP</p>
                   <div className="space-y-2.5">
-                    <Field label="Server *"><input type="text" value={mailboxForm.imap_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_host: e.target.value })} className={inputCls} placeholder="imap.example.com" /></Field>
+                    <Field label="Server *"><input type="text" value={mailboxForm.imap_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_host: e.target.value })} className={inputCls} placeholder="imap.example.com" name="mailbox-imap-host" autoComplete="off" /></Field>
                     <div className="grid grid-cols-2 gap-2">
                       <Field label="Port">
-                        <input type="number" value={mailboxForm.imap_port ?? 993} onChange={e => setMailboxForm({ ...mailboxForm, imap_port: parseInt(e.target.value) || 993 })} className={inputCls} />
+                        <input type="number" value={mailboxForm.imap_port ?? 993} onChange={e => setMailboxForm({ ...mailboxForm, imap_port: parseInt(e.target.value) || 993 })} className={inputCls} name="mailbox-imap-port" autoComplete="off" />
                       </Field>
                       <Field label="Encryption">
-                        <select value={mailboxForm.imap_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, imap_secure: e.target.value === 'true' })} className={inputCls}>
+                        <select value={mailboxForm.imap_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, imap_secure: e.target.value === 'true' })} className={inputCls} name="mailbox-imap-encryption" autoComplete="off">
                           <option value="true">SSL / TLS</option>
                           <option value="false">None</option>
                         </select>
                       </Field>
                     </div>
-                    <Field label="Username *"><input type="text" value={mailboxForm.imap_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_username: e.target.value })} className={inputCls} placeholder="user@example.com" /></Field>
+                    <Field label="Username *"><input type="text" value={mailboxForm.imap_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, imap_username: e.target.value })} className={inputCls} placeholder="user@example.com" name="mailbox-imap-username" autoComplete="off" /></Field>
                     <Field label="Password / App Password *">
                       <div className="relative">
                         <input type={showImapPass ? 'text' : 'password'} value={mailboxForm.imap_password || ''} onChange={e => {
@@ -3972,7 +4026,7 @@ export default function CommunicationsPage() {
                             // (editable afterwards when they differ).
                             smtp_password: prev.smtp_password || pw,
                           }));
-                        }} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} />
+                        }} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} name="mailbox-imap-password" autoComplete="new-password" data-lpignore="true" />
                         <button type="button" onClick={() => setShowImapPass(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
                           {showImapPass ? <EyeOff size={13} /> : <Eye size={13} />}
                         </button>
@@ -3983,22 +4037,22 @@ export default function CommunicationsPage() {
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-2">Outgoing — SMTP</p>
                   <div className="space-y-2.5">
-                    <Field label="Server *"><input type="text" value={mailboxForm.smtp_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_host: e.target.value })} className={inputCls} placeholder="smtp.example.com" /></Field>
+                    <Field label="Server *"><input type="text" value={mailboxForm.smtp_host || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_host: e.target.value })} className={inputCls} placeholder="smtp.example.com" name="mailbox-smtp-host" autoComplete="off" /></Field>
                     <div className="grid grid-cols-2 gap-2">
                       <Field label="Port">
-                        <input type="number" value={mailboxForm.smtp_port ?? 465} onChange={e => setMailboxForm({ ...mailboxForm, smtp_port: parseInt(e.target.value) || 465 })} className={inputCls} />
+                        <input type="number" value={mailboxForm.smtp_port ?? 465} onChange={e => setMailboxForm({ ...mailboxForm, smtp_port: parseInt(e.target.value) || 465 })} className={inputCls} name="mailbox-smtp-port" autoComplete="off" />
                       </Field>
                       <Field label="Encryption">
-                        <select value={mailboxForm.smtp_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, smtp_secure: e.target.value === 'true' })} className={inputCls}>
+                        <select value={mailboxForm.smtp_secure !== false ? 'true' : 'false'} onChange={e => setMailboxForm({ ...mailboxForm, smtp_secure: e.target.value === 'true' })} className={inputCls} name="mailbox-smtp-encryption" autoComplete="off">
                           <option value="true">SSL / TLS</option>
                           <option value="false">None</option>
                         </select>
                       </Field>
                     </div>
-                    <Field label="Username *"><input type="text" value={mailboxForm.smtp_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_username: e.target.value })} className={inputCls} placeholder="user@example.com" /></Field>
+                    <Field label="Username *"><input type="text" value={mailboxForm.smtp_username || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_username: e.target.value })} className={inputCls} placeholder="user@example.com" name="mailbox-smtp-username" autoComplete="off" /></Field>
                     <Field label="Password / App Password *">
                       <div className="relative">
-                        <input type={showSmtpPass ? 'text' : 'password'} value={mailboxForm.smtp_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_password: e.target.value })} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} />
+                        <input type={showSmtpPass ? 'text' : 'password'} value={mailboxForm.smtp_password || ''} onChange={e => setMailboxForm({ ...mailboxForm, smtp_password: e.target.value })} className={`${inputCls} pr-8`} placeholder={editingMailbox ? '•••••••• (unchanged — leave blank to keep)' : ''} name="mailbox-smtp-password" autoComplete="new-password" data-lpignore="true" />
                         <button type="button" onClick={() => setShowSmtpPass(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
                           {showSmtpPass ? <EyeOff size={13} /> : <Eye size={13} />}
                         </button>
@@ -4049,15 +4103,14 @@ export default function CommunicationsPage() {
                   </label>
                   <Field label="Email Signature">
                     <div className="flex gap-1.5">
-                      <select value="" onChange={e => {
+                      <select value={signatures.find(s => s.enabled !== false && s.content === (mailboxForm.signature || ''))?.id || ''} onChange={e => {
                         const sig = signatures.find(s => s.id === e.target.value);
                         if (sig) setMailboxForm((prev: any) => ({ ...prev, signature: sig.content }));
-                      }} className={inputCls}>
-                        <option value="">Select Signature ▼</option>
-                        {signatures.map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
+                      }} className={inputCls} name="mailbox-signature" autoComplete="off">
+                        <option value="">No signature selected</option>
+                        {signatures.filter(s => s.enabled !== false).map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
                       </select>
-                      <button type="button" onClick={() => { setSignatureForm({ open: true, id: null, name: '', content: '' }); showToast('ok', 'Create the signature in the Signatures section — it becomes available here.'); }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-blue-500/30 text-[11px] text-blue-400 hover:bg-blue-500/10 transition-colors shrink-0">
+                      <button type="button" onClick={() => setSignatureForm({ open: true, id: null, name: '', content: '', enabled: true })} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-blue-500/30 text-[11px] text-blue-400 hover:bg-blue-500/10 transition-colors shrink-0">
                         <Plus size={11} /> Add Signature
                       </button>
                     </div>
@@ -4077,9 +4130,9 @@ export default function CommunicationsPage() {
                         </select>
                       </Field>
                       <Field label="Auto Reply Signature">
-                        <select value={mailboxForm.auto_reply_signature || ''} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_signature: e.target.value })} className={inputCls}>
+                        <select value={mailboxForm.auto_reply_signature || ''} onChange={e => setMailboxForm({ ...mailboxForm, auto_reply_signature: e.target.value })} className={inputCls} name="mailbox-auto-reply-signature" autoComplete="off">
                           <option value="">— None —</option>
-                          {signatures.map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
+                          {signatures.filter(s => s.enabled !== false).map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
                         </select>
                       </Field>
                       {!mailboxForm.auto_reply_template_key && (

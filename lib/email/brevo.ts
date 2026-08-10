@@ -8,6 +8,48 @@ const MAIL_SALES_NAME = process.env.MAIL_SALES_NAME || 'Websmith Sales Team';
 const COMPANY_NAME = process.env.BRANDING_COMPANY_NAME || 'Websmith Digital';
 const WEBSITE_URL = process.env.BRANDING_WEBSITE_URL || 'https://websmithdigital.com';
 
+async function getContactInfo(client: any) {
+  try {
+    // The client is expected to have a collection method for MongoDB
+    const settings = client.collection?.('settings') || client;
+    const doc = await settings.findOne({ key: 'contact_info' });
+    return doc?.value ?? {};
+  } catch (error) {
+    console.error('Failed to fetch contact info for email service:', error);
+    return {};
+  }
+}
+
+async function getFromAddress(client: any) {
+  try {
+    const contactInfo = await getContactInfo(client);
+    return contactInfo.no_reply_email || MAIL_FROM_ADDRESS;
+  } catch (error) {
+    console.error('Failed to fetch contact info for email service:', error);
+    return MAIL_FROM_ADDRESS;
+  }
+}
+
+async function getSupportAddress(client: any) {
+  try {
+    const contactInfo = await getContactInfo(client);
+    return contactInfo.email || MAIL_SUPPORT_ADDRESS;
+  } catch (error) {
+    console.error('Failed to fetch contact info for email service:', error);
+    return MAIL_SUPPORT_ADDRESS;
+  }
+}
+
+async function getSalesAddress(client: any) {
+  try {
+    const contactInfo = await getContactInfo(client);
+    return contactInfo.sales_email || MAIL_SALES_ADDRESS;
+  } catch (error) {
+    console.error('Failed to fetch contact info for email service:', error);
+    return MAIL_SALES_ADDRESS;
+  }
+}
+
 function wrapHtml(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
