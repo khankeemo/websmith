@@ -1473,9 +1473,17 @@ No new endpoints are created.
   render only when non-empty. Email cards: General Inquiries → `email`,
   Sales & Business → `sales_email` (falls back to `email` when empty), No-Reply
   and Careers & HR cards render only when their value is non-empty.
-- **Landing Page** (`app/page.tsx`): contact section shows Mobile and Landline
-  items from saved values (only when non-empty); the default Contact Email is
-  `support@websmithdigital.com` (never `sales@`) until a DB value is loaded.
+- **Landing Page** (`app/page.tsx`): the `#contact` section derives its
+  Contact Information from the full contact_info record via `contactEmails`
+  (`email` + `sales_email` + `no_reply_email` + `hr_email`, mailto links
+  separated by `|`), `contactPhones` (`phone` + `mobile_number` +
+  `landline_number`, grouped under one Phone item with `tel:` links) and
+  `contactSocials` (`SOCIAL_PLATFORM_META` → every configured platform render
+  as one Social Media item with `target="_blank" rel="noopener noreferrer"`
+  icon links). EVERY configured email/phone/social renders — never
+  first-item-only — with empty values excluded (no invented values). The
+  default Contact Email is `support@websmithdigital.com` (never `sales@`)
+  until a DB value is loaded.
 - **Careers Page** (`app/(public)/careers/page.tsx`), **Support Page**
   (`app/(public)/support/page.tsx`) and **Documentation Page**
   (`app/(public)/documentation/page.tsx`): all contact cards/links

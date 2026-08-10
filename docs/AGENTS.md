@@ -354,6 +354,14 @@ Keep in sync with the master doc **SECTION 0.15**:
 - **Empty = hidden**: public footer/contact/landing render a platform icon only
   when its URL is non-empty (`target="_blank" rel="noopener noreferrer"`); never
   render placeholder/empty icons. Mobile/Landline items render only when set.
+- **Landing `#contact` section renders everything**: the `#contact` section's
+  Contact Information derives from the contact_info record via `contactEmails`
+  (`email`+`sales_email`+`no_reply_email`+`hr_email` as mailto links),
+  `contactPhones` (`phone`+`mobile_number`+`landline_number` as tel: links) and
+  `contactSocials` (every configured URL in one Social Media item). Every
+  configured value renders — never first-item-only — empties are excluded (no
+  invented values); the default Contact Email `support@websmithdigital.com`
+  applies only until a DB value loads.
 - **No hardcoded contact info anywhere**: never hardcode email addresses,
   phone numbers, or socials in public components — Careers / Support /
   Documentation / Contact pages all fetch `/api/settings/public/contact_info`
