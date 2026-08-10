@@ -5094,7 +5094,7 @@ Every future phase must follow this reporting format.
 | **Activation UI Rollback (Python Template)** | ✅ Applied (`activation.py` restored to the standalone `ActivationDialog` window — Hardware / Customer / Trial / License cards, Refresh + Activate actions, OTP step, GlobalMessage-driven status, restart confirmation; delegates to `LicenseEngine` (`validate_license_key`, `send_otp`, `verify_otp`, `activate`, `refresh`); `open_activation_dialog(center)` opens it. AGENTS.md + master doc SECTION 0E updated to reflect the rollback per Rule 3.) | 100% |
 | **ULC Activation Form — COMPACT COLORFUL MODERN (no Uiverse FX, UI-only)** | ✅ Applied (file-local `_UVInput`/`_UVButton`/`_UVPhase`/`_UVBar` widgets in `universal_license_center.py` restyle the `_show_key_flow_dialog` as a compact centered card with a 1px border + primary top accent, rounded-corner rectangular textboxes with accent focus ring, flat colourful primary/success/ghost buttons with colour-only hover, plain text status line (no oval badge), thin flat progress bar; `docs/UI.MD` used for structure only; every field/control/order/callback preserved — activation/renewal workflow, auto-OTP, 5-minute OTP timer, GlobalMessage, success dialog + SDK restart and engine delegation unchanged; API mirrors the previous widgets (`.get`/`.insert`/`.delete`/`.state`/`.entry`, `.set_state`/`.set_text`/`._command`, `.start`/`.stop`); headless `Tk` dialog construction smoke test OK, `npm run test:generation` 6/6 and `npm run test:multi-runtime` 13/13 green) | 100% |
 | **Validation Failure — Exact Backend Message Passthrough (Rule 5 enforcement)** | ✅ Applied (Bug: failed `Validate License` in `universal_license_center.py` + `activation.py` substituted a generic `GlobalMessage` string ('Customer not found. Please check your email.') BEFORE reading the backend's `message`, because non-ACTIVE/non-validated responses carry no `license`/`customer` object. Fix: `_validation_message` now returns the server-provided `message` (top-level or `error.message`, dict-extracted) verbatim first (Rule 5), using the GlobalMessage status map only as a fallback when no server message exists. Aligns the code with the documented "fail → EXACT backend message" contract. `python -m py_compile` clean; `npm run test:generation` 6/6 + `npm run test:multi-runtime` 13/13 green) | 100% |
-| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module (Phases 1-10 incl. Redesign: Mailboxes nav + Auto Reply + one-sided connection tests + Mail Delete feature with backend-enforced Allow Email Deletion toggle + integration-level Mailbox Removal with mailbox_id ownership + Final Mail Bugs: Trash leaves Inbox [trash count + sync no-resurrect guard] + Gmail Mailbox Creation INSERT fix [column count + queue_size INTEGER cast] + Incoming→Outgoing auto-fill + mailbox-form Add Signature modal) + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup) + Validation Message Passthrough (Rule 5) + OPERATIONAL QA (2026-08) — backend expiry auto-recompute, dashboard force-dynamic, device_reset audit parity, multi-runtime SDK parity (getProducts/getTrialStatus in all 13 runtimes) + 13/13 SDK validation + Two-Step Login + Shared OTP + Auth Hardening (SECTION 0.17)** | **100%** |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module (Phases 1-10 incl. Redesign: Mailboxes nav + Auto Reply + one-sided connection tests + Mail Delete feature with backend-enforced Allow Email Deletion toggle + integration-level Mailbox Removal with mailbox_id ownership + Final Mail Bugs: Trash leaves Inbox [trash count + sync no-resurrect guard] + Gmail Mailbox Creation INSERT fix [column count + queue_size INTEGER cast] + Incoming→Outgoing auto-fill + mailbox-form Add Signature modal) + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup) + Validation Message Passthrough (Rule 5) + OPERATIONAL QA (2026-08) — backend expiry auto-recompute, dashboard force-dynamic, device_reset audit parity, multi-runtime SDK parity (getProducts/getTrialStatus in all 13 runtimes) + 13/13 SDK validation + Two-Step Login + Shared OTP + Auth Hardening (SECTION 0.17) + Internal Login as Step 2 — Website Session Gate + Please Login First gate page (ws_session cookie mirror)** | **100%** |
 
 ### How much is completed?
 
@@ -5410,6 +5410,41 @@ used by both entries.
   `/internal/api/auth/login?next=…`; the login page parses `next` from
   `window.location.search` (no `useSearchParams`/Suspense) and returns the
   user there after OTP success; default fallback `/internal/api/dashboard`.
+
+### Website Session Gate + "Please Login First" (Internal Login is Step 2)
+- The Internal API Center login page (`/internal/api/auth/login`) is the
+  **second step** — it must NEVER render without a valid WEBSITE login first.
+  The proxy now gates it: `pathname === "/internal/api/auth/login"` calls
+  `hasValidWebsiteSession(request)` (verifies the `ws_session` cookie — the
+  mirrored website JWT signed with `JWT_SECRET` — via `jose.jwtVerify`). Valid
+  → `NextResponse.next()` (login renders). Invalid/missing → "Please Login
+  First". Direct API entry (no website session) also fails: credentials step
+  runs against a non-existent/cleared website session by normal OTP rules.
+- `ws_session` cookie: written by `setAuthSession()` in `lib/auth.ts`
+  (`WEBSITE_SESSION_COOKIE = "ws_session"`, SameSite Lax, same-origin) and
+  cleared by `clearAuthSession()` (same 5 call sites as the old website token:
+  `login/page`, `ClientLayout`, `Sidebar`, `apiService` 401 interceptor, logout
+  in `WebsiteAuthModal`/`ProfileModal`). Logout → both the old `token` and
+  `ws_session` are removed together.
+- "Please Login First" page (`app/internal/api/auth/please-login/page.tsx`,
+  standalone full-screen, dark glass, `ShieldAlert` + `LogIn`): its ONLY CTA is
+  a "Login" button to the public website `/login`. It never exposes the
+  Internal API login form or any proxy-protected link. Rendered standalone by
+  `app/internal/api/layout.tsx` (it sits under `/internal/api/auth`, the
+  no-sidebar branch).
+- All `/internal/backend/*` API requests without a website session return
+  `401 { success:false, error:"Unauthorized - Please login" }` (JSON) via the
+  same `pleaseLoginFirstResponse`; page requests redirect (GET/HTML) to
+  `/internal/api/auth/please-login?next=…`.
+- After website login, visitors enter the Internal API through the **Admin
+  Dashboard → API Center** nav point, arriving at `/internal/api/auth/login`
+  and continuing the existing two-step Internal login (credentials → login
+  OTP → `api_center_token`). If an Internal session expires mid-session, any
+  protected/internal URL is blocked and the user is sent back to the
+  `/login` authentication flow (session invalid → please-login-first → Login).
+- Internal session expiry is unchanged: `app/internal/api/layout.tsx` still
+  verifies `api_center_token` via `/internal/backend/api/auth/verify` for
+  non-auth pages.
 
 ### Verification
 - `tsc --noEmit` clean; `next build` succeeds (both new OTP verify/resend

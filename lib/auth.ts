@@ -32,9 +32,19 @@ export interface AuthUser {
 const TOKEN_KEY = "token";
 const USER_KEY = "user";
 
+// Mirror the website JWT into a cookie so server-side middleware (proxy.ts) can
+// verify that a WEBSITE login happened BEFORE exposing the Internal API Center
+// auth entry. This is the same stateless JWT — signature + expiry are checked
+// with JWT_SECRET; it is NOT a second session. Kept in sync by set/clear here.
+export const WEBSITE_SESSION_COOKIE = "ws_session";
+const WEBSITE_SESSION_MAX_AGE = 7 * 24 * 60 * 60; // matches the 7d JWT
+
 export const setAuthSession = (token: string, user: AuthUser) => {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (typeof document !== "undefined") {
+    document.cookie = `${WEBSITE_SESSION_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${WEBSITE_SESSION_MAX_AGE}; SameSite=Lax`;
+  }
 };
 
 export const getToken = () => {
@@ -66,6 +76,9 @@ export const getStoredUser = (): AuthUser | null => {
 export const clearAuthSession = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  if (typeof document !== "undefined") {
+    document.cookie = `${WEBSITE_SESSION_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  }
 };
 
 export const PUBLIC_PATHS = [

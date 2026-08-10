@@ -3,8 +3,10 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const PUBLIC_PATHS = [
-  // Authentication entry pages + API (two-step login keeps these public)
-  "/internal/api/auth/login",
+  // "Please Login First" entry guard — always renderable (links to /login)
+  "/internal/api/auth/please-login",
+  // Internal API auth pages AFTER a valid website session (login is gated
+  // separately below; register/forgot/reset stay public like before)
   "/internal/api/auth/register",
   "/internal/api/auth/forgot-password",
   "/internal/api/auth/reset-password",
@@ -52,24 +54,55 @@ const getBearerToken = (request: NextRequest): string | null => {
   return null;
 };
 
-const isApiRequest = (pathname: string): boolean => {
-  return pathname.startsWith("/internal/backend") || pathname.startsWith("/internal/api");
+const isBackendApiRequest = (pathname: string): boolean => {
+  return pathname.startsWith("/internal/backend");
 };
 
-const unauthorizedResponse = (request: NextRequest): NextResponse => {
-  if (isApiRequest(request.nextUrl.pathname)) {
+// A valid WEBSITE login session (mirrored into the ws_session cookie by
+// lib/auth.ts setAuthSession; verified with JWT_SECRET). The Internal API
+// login page is ONLY reachable after this check passes.
+const hasValidWebsiteSession = async (request: NextRequest): Promise<boolean> => {
+  const cookieValue = request.cookies.get("ws_session")?.value;
+  if (!cookieValue) return false;
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return false;
+  try {
+    let token = cookieValue;
+    try {
+      token = decodeURIComponent(cookieValue);
+    } catch {
+      /* keep raw value */
+    }
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    return Boolean(payload && (payload.sub || payload.email));
+  } catch {
+    return false;
+  }
+};
+
+const pleaseLoginFirstResponse = (request: NextRequest): NextResponse => {
+  if (isBackendApiRequest(request.nextUrl.pathname)) {
     return NextResponse.json(
       { success: false, error: "Unauthorized - Please login" },
       { status: 401 }
     );
   }
-  const loginUrl = new URL("/internal/api/auth/login", request.url);
-  loginUrl.searchParams.set("next", request.nextUrl.pathname);
-  return NextResponse.redirect(loginUrl);
+  const pleaseUrl = new URL("/internal/api/auth/please-login", request.url);
+  pleaseUrl.searchParams.set("next", request.nextUrl.pathname);
+  return NextResponse.redirect(pleaseUrl);
 };
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;
+
+  // The Internal API login page is the SECOND step: it must never render
+  // without a valid WEBSITE login first. Without one → "Please Login First".
+  if (pathname === "/internal/api/auth/login") {
+    if (await hasValidWebsiteSession(request)) {
+      return NextResponse.next();
+    }
+    return pleaseLoginFirstResponse(request);
+  }
 
   if (isPublicPath(pathname)) {
     return NextResponse.next();
@@ -89,12 +122,21 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const token = getBearerToken(request);
 
     if (!token) {
-      return unauthorizedResponse(request);
+      // Step 2 continues: a user with a valid WEBSITE session but no Internal
+      // API session is sent to the Internal API login (already gated by the
+      // website-session check above). Without a website session → Please
+      // Login First so they start at /login.
+      if (await hasValidWebsiteSession(request)) {
+        const loginUrl = new URL("/internal/api/auth/login", request.url);
+        loginUrl.searchParams.set("next", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+      return pleaseLoginFirstResponse(request);
     }
 
     const JWT_SECRET = process.env.API_CENTER_JWT_SECRET;
     if (!JWT_SECRET) {
-      return unauthorizedResponse(request);
+      return pleaseLoginFirstResponse(request);
     }
 
     try {
@@ -109,7 +151,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
       return response;
     } catch {
-      const response = unauthorizedResponse(request);
+      const response = pleaseLoginFirstResponse(request);
       response.cookies.delete("api_center_token");
       return response;
     }
