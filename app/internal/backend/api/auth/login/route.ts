@@ -1,12 +1,24 @@
 // FILE: app/internal/backend/api/auth/login/route.ts
-// PURPOSE: API Center Login - JWT Authentication with Cookie
+// PURPOSE: API Center Login - STEP 1 of 2 (credentials check)
+//          Validates email + password, then sends a login OTP
+//          (purpose 'api_login'). NO token/cookie is issued here —
+//          the session is created ONLY after the OTP is verified in
+//          /login/otp/verify (two-step login, OTP once per sign-in).
 // FIXED: Notification code moved BEFORE client.release()
 // ADDED: Top-level debug log to verify code execution
 
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import { sendLoginOtp } from "@/lib/otp/login-otp";
+
+const LOGIN_OTP_PURPOSE = "api_login";
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  return `${local.charAt(0)}***@${domain}`;
+}
 
 // ============================================================
 // DATABASE CONNECTION
@@ -152,125 +164,29 @@ export async function POST(request: Request) {
       );
     }
 
-    // 6. Update Last Login
-    try {
-      await client.query(
-        `UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1`,
-        [user.id]
-      );
-      console.log("✅ Last login updated");
-    } catch (updateError) {
-      console.error("⚠️ Failed to update last_login:", updateError);
-    }
+    // 6. Credentials OK → Send LOGIN OTP (step 1 of two-step login)
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
 
-    // 7. Generate JWT Token
-    const JWT_SECRET = process.env.API_CENTER_JWT_SECRET;
-    if (!JWT_SECRET) {
-      console.error("❌ API_CENTER_JWT_SECRET is not set");
-      client.release();
+    const otpResult = await sendLoginOtp(pool, LOGIN_OTP_PURPOSE, user.email, ipAddress);
+
+    client.release();
+
+    if (!otpResult.success) {
+      console.error(`❌ Login OTP send failed for: ${user.email}`);
       return NextResponse.json(
-        { success: false, error: "Server configuration error" },
+        { success: false, error: otpResult.error || "Failed to send verification code" },
         { status: 500 }
       );
     }
 
-    const tokenExpiry = rememberMe ? "30d" : "7d";
-    const cookieMaxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7;
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        theme: user.theme || "dark",
-      },
-      JWT_SECRET,
-      { expiresIn: tokenExpiry }
-    );
-
-    console.log(`✅ JWT token generated (expires: ${tokenExpiry})`);
-
-    // ============================================================
-    // 8. Create Login Notification - BEFORE client.release()
-    // ============================================================
-    try {
-      console.log(`📝 Creating login notification for user: ${user.id}`);
-      
-      // Log to debug table
-      await client.query(
-        `INSERT INTO debug_logs (message, details) VALUES ($1, $2)`,
-        ['Notification attempt', JSON.stringify({ user_id: user.id, email: user.email })]
-      );
-      
-      const insertResult = await client.query(
-        `INSERT INTO notifications (user_id, title, message, type, link, created_at)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-         RETURNING id`,
-        [
-          user.id,
-          "Login",
-          `User ${user.name} logged in`,
-          "login",
-          "/internal/api/dashboard"
-        ]
-      );
-      
-      // Log success to debug table
-      await client.query(
-        `INSERT INTO debug_logs (message, details) VALUES ($1, $2)`,
-        ['Notification created', JSON.stringify({ id: insertResult.rows[0].id })]
-      );
-      
-      console.log(`✅ Login notification created with ID: ${insertResult.rows[0].id}`);
-    } catch (notifError) {
-      console.error("⚠️ Failed to create login notification:", notifError);
-      
-      // Log error to debug table
-      await client.query(
-        `INSERT INTO debug_logs (message, details) VALUES ($1, $2)`,
-        ['Notification error', JSON.stringify({ 
-          error: notifError.message, 
-          stack: notifError.stack,
-          code: notifError.code,
-          detail: notifError.detail
-        })]
-      );
-      // Don't throw - continue with login
-    }
-
-    // ============================================================
-    // 9. Release client AFTER notification
-    // ============================================================
-    client.release();
-
-    // 10. Prepare Response
-    const response = NextResponse.json({
+    console.log(`✅ ===== STEP 1 COMPLETE for: ${user.email} — OTP sent =====`);
+    return NextResponse.json({
       success: true,
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        avatar: user.avatar,
-        theme: user.theme || "dark",
-      },
+      requires_otp: true,
+      email: user.email,
+      email_masked: maskEmail(user.email),
+      expires_in: otpResult.expires_in,
     });
-
-    // 11. Set Cookie
-    response.cookies.set({
-      name: "api_center_token",
-      value: token,
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: cookieMaxAge,
-    });
-
-    console.log(`✅ ===== LOGIN SUCCESSFUL for: ${user.email} =====`);
-    return response;
 
   } catch (error) {
     console.error("❌ ===== LOGIN ERROR =====");

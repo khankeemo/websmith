@@ -198,9 +198,10 @@ activation endpoints, test-sms, admin trials/trial-templates/cleanup).
 | POST | `.../admin/reset-device` / `replace-device` | Device ops (`device_reset` / `device_changed`). |
 | GET/POST | `.../admin/store/gateways` | List / seed payment gateway registry. |
 | GET/POST | `.../admin/products`, `.../admin/products/[id]/plans` | Product/plan management. |
-| GET | `.../admin/trials`, `.../admin/trials/trial-templates` | Trials management (public allow-list). |
+| GET | `.../admin/trials`, `.../admin/trials/trial-templates` | Trials management (auth-gated, NOT in proxy allow-list). |
 | GET | `.../admin/dashboard`, `.../admin/revenue`, `.../admin/stats/products` | Reporting. |
 | POST | `.../admin/sms/send`, `GET/PUT .../admin/sms/templates` | SMS send + templates. |
+| GET | `.../admin/cleanup` | Admin-only cleanup (auth-gated). |
 | GET | `.../logs` | Audit log viewer. |
 
 ### Store
@@ -209,7 +210,8 @@ activation endpoints, test-sms, admin trials/trial-templates/cleanup).
 |---|---|---|
 | GET/POST/DELETE | `.../store/cart` | Cart by `session_id` (+items). |
 | GET/POST | `.../store/coupons` | List / create coupons. |
-| GET/POST | `.../store/enquiries` | List / create sales enquiries. |
+| POST | `.../store/enquiries` | Create sales enquiries (public contact form — proxy method-split keeps POST public). |
+| GET | `.../store/enquiries` | Admin enquiries listing (auth-gated). |
 | GET/PUT | `.../store/gateways` | List / configure gateways. |
 | GET/POST | `.../store/invoices` | List / create invoices. |
 | GET/POST | `.../store/orders` | List / create orders. |
@@ -230,8 +232,8 @@ activation endpoints, test-sms, admin trials/trial-templates/cleanup).
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `.../health` | Health check. |
-| POST | `.../test-sms` | Send test SMS. |
+| GET | `.../health` | Health check (public). |
+| POST | `.../test-sms` | Send test SMS (auth-gated). |
 
 ## Errors
 

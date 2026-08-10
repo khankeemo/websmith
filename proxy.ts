@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const PUBLIC_PATHS = [
+  // Authentication entry pages + API (two-step login keeps these public)
   "/internal/api/auth/login",
   "/internal/api/auth/register",
   "/internal/api/auth/forgot-password",
@@ -14,11 +15,14 @@ const PUBLIC_PATHS = [
   "/internal/backend/api/auth/verify-otp",
   "/internal/backend/api/auth/forgot-password",
   "/internal/backend/api/auth/reset-password",
+  // Universal Buy & Renew Portal — standalone customer pages, NO admin login gate
+  "/internal/api/buy",
+  "/internal/api/renew",
+  // Health + public storefront/SDK-facing endpoints
   "/internal/backend/health",
   "/internal/backend/store",
   "/internal/backend/store/products",
   "/internal/backend/license/status",
-  "/internal/backend/store/enquiries",
   "/internal/backend/licenses/validate",
   "/internal/backend/licenses/activate",
   "/internal/backend/licenses/deactivate",
@@ -31,10 +35,6 @@ const PUBLIC_PATHS = [
   "/internal/backend/trials/journey",
   "/internal/backend/trials/register",
   "/internal/backend/trials/suspicious",
-  "/internal/backend/admin/trials",
-  "/internal/backend/admin/trials/trial-templates",
-  "/internal/backend/test-sms",
-  "/internal/backend/admin/cleanup",
 ];
 
 const isPublicPath = (pathname: string): boolean => {
@@ -72,6 +72,16 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;
 
   if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // The public contact form POSTs sales enquiries to store/enquiries; the
+  // GET (admin listing) stays behind the auth gate. Method-split here so the
+  // public page keeps working without exposing the admin list.
+  if (
+    request.method === "POST" &&
+    pathname === "/internal/backend/store/enquiries"
+  ) {
     return NextResponse.next();
   }
 

@@ -5094,7 +5094,7 @@ Every future phase must follow this reporting format.
 | **Activation UI Rollback (Python Template)** | ✅ Applied (`activation.py` restored to the standalone `ActivationDialog` window — Hardware / Customer / Trial / License cards, Refresh + Activate actions, OTP step, GlobalMessage-driven status, restart confirmation; delegates to `LicenseEngine` (`validate_license_key`, `send_otp`, `verify_otp`, `activate`, `refresh`); `open_activation_dialog(center)` opens it. AGENTS.md + master doc SECTION 0E updated to reflect the rollback per Rule 3.) | 100% |
 | **ULC Activation Form — COMPACT COLORFUL MODERN (no Uiverse FX, UI-only)** | ✅ Applied (file-local `_UVInput`/`_UVButton`/`_UVPhase`/`_UVBar` widgets in `universal_license_center.py` restyle the `_show_key_flow_dialog` as a compact centered card with a 1px border + primary top accent, rounded-corner rectangular textboxes with accent focus ring, flat colourful primary/success/ghost buttons with colour-only hover, plain text status line (no oval badge), thin flat progress bar; `docs/UI.MD` used for structure only; every field/control/order/callback preserved — activation/renewal workflow, auto-OTP, 5-minute OTP timer, GlobalMessage, success dialog + SDK restart and engine delegation unchanged; API mirrors the previous widgets (`.get`/`.insert`/`.delete`/`.state`/`.entry`, `.set_state`/`.set_text`/`._command`, `.start`/`.stop`); headless `Tk` dialog construction smoke test OK, `npm run test:generation` 6/6 and `npm run test:multi-runtime` 13/13 green) | 100% |
 | **Validation Failure — Exact Backend Message Passthrough (Rule 5 enforcement)** | ✅ Applied (Bug: failed `Validate License` in `universal_license_center.py` + `activation.py` substituted a generic `GlobalMessage` string ('Customer not found. Please check your email.') BEFORE reading the backend's `message`, because non-ACTIVE/non-validated responses carry no `license`/`customer` object. Fix: `_validation_message` now returns the server-provided `message` (top-level or `error.message`, dict-extracted) verbatim first (Rule 5), using the GlobalMessage status map only as a fallback when no server message exists. Aligns the code with the documented "fail → EXACT backend message" contract. `python -m py_compile` clean; `npm run test:generation` 6/6 + `npm run test:multi-runtime` 13/13 green) | 100% |
-| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module (Phases 1-10 incl. Redesign: Mailboxes nav + Auto Reply + one-sided connection tests + Mail Delete feature with backend-enforced Allow Email Deletion toggle + integration-level Mailbox Removal with mailbox_id ownership + Final Mail Bugs: Trash leaves Inbox [trash count + sync no-resurrect guard] + Gmail Mailbox Creation INSERT fix [column count + queue_size INTEGER cast] + Incoming→Outgoing auto-fill + mailbox-form Add Signature modal) + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup) + Validation Message Passthrough (Rule 5) + OPERATIONAL QA (2026-08) — backend expiry auto-recompute, dashboard force-dynamic, device_reset audit parity, multi-runtime SDK parity (getProducts/getTrialStatus in all 13 runtimes) + 13/13 SDK validation** | **100%** |
+| **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module (Phases 1-10 incl. Redesign: Mailboxes nav + Auto Reply + one-sided connection tests + Mail Delete feature with backend-enforced Allow Email Deletion toggle + integration-level Mailbox Removal with mailbox_id ownership + Final Mail Bugs: Trash leaves Inbox [trash count + sync no-resurrect guard] + Gmail Mailbox Creation INSERT fix [column count + queue_size INTEGER cast] + Incoming→Outgoing auto-fill + mailbox-form Add Signature modal) + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup) + Validation Message Passthrough (Rule 5) + OPERATIONAL QA (2026-08) — backend expiry auto-recompute, dashboard force-dynamic, device_reset audit parity, multi-runtime SDK parity (getProducts/getTrialStatus in all 13 runtimes) + 13/13 SDK validation + Two-Step Login + Shared OTP + Auth Hardening (SECTION 0.17)** | **100%** |
 
 ### How much is completed?
 
@@ -5338,6 +5338,85 @@ admin pages; changing them never changes the admin dashboard.
   Pre-existing repo issue “You cannot use different slug names for the same
   dynamic path ('id' !== 'projectId')” prevents local `next dev` (unrelated to
   the portal files, which are static routes).
+
+## SECTION 0.17 — Two-Step Login + Shared OTP + Auth Hardening (Session)
+
+Applied 2026-08-10. Both login entry points are now **two-step**: credentials
+check → server-sent login OTP → OTP verify creates the session. NO session is
+ever issued at the credentials step. The SAME shared OTP verification UI is
+used by both entries.
+
+### One Shared OTP UI
+- `components/shared/OtpVerification.tsx` is the ONLY OTP verification UI in
+  the repo. Presentational only — no client-side `verified=true` trust.
+- Props: `email` (masked display), `onVerify(otp)` / `onResend()` callbacks
+  returning `{ success, error?, expires_in? }`, `onBack()` ("Use password
+  instead"), `variant` `light` (website) | `dark` (Internal API Center).
+- Features: 6-digit boxed input (paste + auto-advance + backspace + arrow
+  nav), resend countdown (default 300s, resets to server `expires_in`),
+  loading states, error display (invalid/expired/too-many-attempts/network).
+
+### Two-Step Login — Internal API Center (`/internal/backend/api/auth`)
+- STEP 1 `POST /login`: bcrypt-check credentials, on success send login OTP
+  (purpose `api_login`) and return
+  `{ success, requires_otp, email, email_masked, expires_in }` — NO token/cookie.
+- STEP 2 `POST /login/otp/verify`: server-side `verifyLoginOtp` (purpose
+  `api_login`) → re-fetch user → update `last_login` → insert the login
+  `notifications` row → sign JWT → set `api_center_token` cookie (7d / 30d
+  remember-me) → return `{ success, token, user }`.
+- `POST /login/otp/resend`: re-sends a fresh code (replaces code, resets
+  attempts/expiry).
+- The login notification is created ONLY after OTP verify (real login), never
+  at the credentials step.
+
+### Two-Step Login — Public Website (`/api/auth`)
+- STEP 1 `POST /api/auth/login`: Mongo credential check, on success send login
+  OTP (purpose `website_login`) and return `{ success, requires_otp, email,
+  email_masked, expires_in }` — NO token/user.
+- STEP 2 `POST /api/auth/login/otp/verify`: verify OTP → re-fetch the Mongo
+  user → return `{ success, token, user }` → `setAuthSession`.
+- `POST /api/auth/login/otp/resend`: re-sends a fresh code.
+- `core/services/authService.ts`: `login()` stops setting a session when
+  `requires_otp` is returned; new `verifyLoginOtp(email, otp)` and
+  `resendLoginOtp(email)` helpers.
+- Shared helpers `lib/website-auth.ts`: `toPublicUser` + `signToken` used by
+  the website login + verify routes.
+
+### Login OTP Service (`lib/otp/login-otp.ts`)
+- Parameterized `sendLoginOtp(pool, purpose, email, ip)` and
+  `verifyLoginOtp(pool, purpose, email, otp)`.
+- Purposes: `website_login`, `api_login` — distinct from `password_reset` and
+  `purchase` so `otp_verifications` `UNIQUE(email, purpose)` never collides.
+- 5-minute expiry; max 15 attempts (locked out beyond); per-IP send throttle
+  (5 sends / 10 min, in-memory best effort); audit rows `login_otp_sent` /
+  `login_otp_verified`. Emails via `@/lib/email/brevo` `sendEmail` only.
+
+### Auth Hardening — Proxy `PUBLIC_PATHS` (`proxy.ts`)
+- PUBLIC_PATHS is now a strict allow-list: auth entry pages + routes,
+  `/internal/backend/health`, SDK-facing endpoints (`license/status`,
+  `licenses/validate|activate|deactivate|reactivation/reactivation/submit`,
+  `trials/start|status|analyze|convert|journey|register|suspicious`),
+  storefront (`store`, `store/products`), `store/enquiries` (method-split:
+  POST public for the contact form; GET admin listing behind the gate), and
+  the portal pages `/internal/api/buy` + `/internal/api/renew`.
+- REMOVED (now require a valid `api_center_token` cookie/Bearer): `admin/trials`,
+  `admin/trials/trial-templates`, `test-sms`, `admin/cleanup`, and GET
+  `store/enquiries`. Direct unauthenticated access returns 401. Logged-in
+  admins pass via the cookie already sent by their dashboard.
+- Portal pages `/internal/api/buy` + `/internal/api/renew` were added to
+  PUBLIC_PATHS so the standalone customer portal loads without any admin login
+  gate (matches `isPortalPage` in `app/internal/api/layout.tsx`).
+- `?next=` deep links preserved: proxy redirects to
+  `/internal/api/auth/login?next=…`; the login page parses `next` from
+  `window.location.search` (no `useSearchParams`/Suspense) and returns the
+  user there after OTP success; default fallback `/internal/api/dashboard`.
+
+### Verification
+- `tsc --noEmit` clean; `next build` succeeds (both new OTP verify/resend
+  routes registered under `/internal/backend/api/auth/login/otp/*` and
+  `/api/auth/login/otp/*`); `npm test` 6/6 + 13/13 green.
+- Browser E2E (real OTP email delivery via Brevo, live Postgres/Mongo users)
+  must be exercised in the deployed environment.
 
 ## Software Store — UI/UX Redesign & Architecture (2026-08)
 

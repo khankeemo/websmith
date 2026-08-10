@@ -4,12 +4,14 @@
 import Image from "next/image";
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { login } from "../../core/services/authService";
+import { login, verifyLoginOtp, resendLoginOtp } from "../../core/services/authService";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { getDefaultRouteForRole } from "../../lib/auth";
 import PublicSiteNav from "../../components/layout/PublicSiteNav";
 import { useLeadFunnel } from "../providers/LeadFunnelProvider";
+import OtpVerification from "../../components/shared/OtpVerification";
+import type { OtpCallResult } from "../../components/shared/OtpVerification";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -21,6 +23,10 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<"credentials" | "otp">("credentials");
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpEmailMasked, setOtpEmailMasked] = useState("");
+  const [otpExpiresIn, setOtpExpiresIn] = useState(300);
   const loginReason = searchParams.get("reason");
   const showSessionExpiredNotice = loginReason === "session-expired";
   const showPasswordUpdateRequiredNotice = loginReason === "password-update-required";
@@ -36,11 +42,43 @@ function LoginPageContent() {
 
     try {
       const result = await login(identifier, password);
+      if (result.success && result.requires_otp) {
+        setOtpEmail(result.email);
+        setOtpEmailMasked(result.email_masked || result.email);
+        setOtpExpiresIn(result.expires_in || 300);
+        setStep("otp");
+        return;
+      }
       router.push(getDefaultRouteForRole(result.user?.role));
     } catch (err) {
       setError("Invalid credentials. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ✅ STEP 2: Complete login by verifying the OTP (session established only here)
+  const handleOtpVerify = async (otp: string): Promise<OtpCallResult> => {
+    try {
+      const result = await verifyLoginOtp(otpEmail, otp);
+      if (result.success && result.user) {
+        router.push(getDefaultRouteForRole(result.user?.role));
+        return { success: true };
+      }
+      return { success: false, error: result.error || "Invalid code. Please try again." };
+    } catch (err) {
+      return { success: false, error: "Invalid code. Please try again." };
+    }
+  };
+
+  // ✅ STEP 2: Resend the login OTP
+  const handleOtpResend = async (): Promise<OtpCallResult> => {
+    try {
+      const result = await resendLoginOtp(otpEmail);
+      if (result.success) return { success: true, expires_in: result.expires_in || 300 };
+      return { success: false, error: result.error || "Could not resend the code." };
+    } catch (err) {
+      return { success: false, error: "Network error. Please try again." };
     }
   };
 
@@ -77,7 +115,7 @@ function LoginPageContent() {
           </div>
 
           {/* Error message */}
-          {error && (
+          {step === "credentials" && error && (
             <div style={styles.errorContainer}>
               <span style={styles.errorText}>{error}</span>
             </div>
@@ -95,7 +133,22 @@ function LoginPageContent() {
             </div>
           )}
 
-          {/* Email input */}
+          {step === "otp" ? (
+            <OtpVerification
+              variant="light"
+              email={otpEmailMasked}
+              expiresIn={otpExpiresIn}
+              verifyLabel="Verify & Sign In"
+              onVerify={handleOtpVerify}
+              onResend={handleOtpResend}
+              onBack={() => {
+                setStep("credentials");
+                setError("");
+              }}
+            />
+          ) : (
+            <>
+              {/* Email input */}
           <div style={styles.inputGroup}>
             <label style={styles.label}>Email or Client ID</label>
             <div style={styles.inputWrapper}>
@@ -173,6 +226,8 @@ function LoginPageContent() {
               Get started
             </button>
           </div>
+          </>
+          )}
         </div>
 
         {/* Footer - Copyright */}

@@ -1,36 +1,25 @@
 import { NextResponse } from "next/server";
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import { Pool } from "pg";
+import { sendLoginOtp } from "@/lib/otp/login-otp";
 
-function toPublicUser(user: any) {
-  return {
-    id: user._id.toString(),
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    phone: user.phone ?? undefined,
-    company: user.company ?? undefined,
-    avatar: user.avatar ?? undefined,
-    adminLevel: user.adminLevel ?? undefined,
-    isTemporaryPassword: user.isTemporaryPassword ?? false,
-    isForcedPasswordReset: user.isForcedPasswordReset ?? false,
-    setupCompleted: user.setupCompleted ?? true,
-    preferences: user.preferences,
-    customId: user.customId,
-  };
-}
+const LOGIN_OTP_PURPOSE = "website_login";
 
-function signToken(user: any): string {
-  const JWT_SECRET = process.env.JWT_SECRET;
-  if (!JWT_SECRET) {
-    throw new Error("JWT_SECRET environment variable is required");
-  }
-  return jwt.sign(
-    { sub: user._id.toString(), email: user.email, role: user.role, name: user.name },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+const portalPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: false }
+    : false,
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  return `${local.charAt(0)}***@${domain}`;
 }
 
 export async function POST(request: Request) {
@@ -85,10 +74,27 @@ export async function POST(request: Request) {
     await mongoClient.close();
     mongoClient = null;
 
+    const accountEmail =
+      typeof user.email === "string" ? user.email : identifierValue.toLowerCase();
+
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+
+    const otpResult = await sendLoginOtp(portalPool, LOGIN_OTP_PURPOSE, accountEmail, ipAddress);
+
+    if (!otpResult.success) {
+      console.error("Login OTP send failed:", otpResult.error);
+      return NextResponse.json(
+        { success: false, error: otpResult.error || "Failed to send verification code. Please try again." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      token: signToken(user),
-      user: toPublicUser(user),
+      requires_otp: true,
+      email: accountEmail,
+      email_masked: maskEmail(accountEmail),
+      expires_in: otpResult.expires_in,
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);

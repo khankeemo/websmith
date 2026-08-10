@@ -4,8 +4,27 @@ import { setAuthSession } from "../../lib/auth";
 export const login = async (identifier: string, password: string) => {
   const res = await API.post("/auth/login", { identifier, password });
 
+  if (res.data.success && res.data.requires_otp) {
+    return res.data;
+  }
+
   setAuthSession(res.data.token, res.data.user);
 
+  return res.data;
+};
+
+export const verifyLoginOtp = async (email: string, otp: string) => {
+  const res = await API.post("/auth/login/otp/verify", { email, otp });
+
+  if (res.data.success && res.data.token && res.data.user) {
+    setAuthSession(res.data.token, res.data.user);
+  }
+
+  return res.data;
+};
+
+export const resendLoginOtp = async (email: string) => {
+  const res = await API.post("/auth/login/otp/resend", { email });
   return res.data;
 };
 

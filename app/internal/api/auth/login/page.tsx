@@ -20,9 +20,13 @@ import {
   Loader2
 } from "lucide-react";
 import { isValidEmail } from "@/lib/validation";
+import OtpVerification from "@/components/shared/OtpVerification";
+import type { OtpCallResult } from "@/components/shared/OtpVerification";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [nextPath, setNextPath] = useState("/internal/api/dashboard");
+  const [step, setStep] = useState<"credentials" | "otp">("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,11 +34,20 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpEmailMasked, setOtpEmailMasked] = useState("");
+  const [otpExpiresIn, setOtpExpiresIn] = useState(300);
 
   useEffect(() => {
     setMounted(true);
     
     if (typeof window !== "undefined") {
+      // Preserve the ?next= destination added by proxy.ts redirects
+      const nextParam = new URLSearchParams(window.location.search).get("next");
+      if (nextParam && nextParam.startsWith("/internal/")) {
+        setNextPath(nextParam);
+      }
+      
       // ✅ Check for saved credentials (email + password)
       const savedEmail = localStorage.getItem("api_center_saved_email");
       const savedPassword = localStorage.getItem("api_center_saved_password");
@@ -82,6 +95,15 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (data.success) {
+        if (data.requires_otp) {
+          // ✅ Move to the shared OTP step (credentials confirmed) — password
+          //    stays in memory so Remember Me can still save it after OTP verify
+          setOtpEmail(data.email);
+          setOtpEmailMasked(data.email_masked || data.email);
+          setOtpExpiresIn(data.expires_in || 300);
+          setStep("otp");
+          return;
+        }
         // ✅ Store token in localStorage and cookie (for proxy.ts middleware)
         localStorage.setItem("api_center_token", data.token);
         document.cookie = `api_center_token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
@@ -100,8 +122,8 @@ export default function LoginPage() {
         // ✅ Clear sensitive data from memory
         setPassword("");
         
-        // ✅ Navigate to dashboard
-        router.push("/internal/api/dashboard");
+        // ✅ Navigate to destination (preserves ?next= from proxy.ts)
+        router.push(nextPath);
       } else {
         setError(data.error || "Invalid email or password");
       }
@@ -109,6 +131,56 @@ export default function LoginPage() {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ STEP 2: Complete login by verifying the OTP (session issued only here)
+  const handleOtpVerify = async (otp: string): Promise<OtpCallResult> => {
+    try {
+      const response = await fetch("/internal/backend/api/auth/login/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: otpEmail, otp, rememberMe }),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        localStorage.setItem("api_center_token", data.token);
+        document.cookie = `api_center_token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+
+        if (rememberMe) {
+          localStorage.setItem("api_center_saved_email", email.trim());
+          localStorage.setItem("api_center_saved_password", password);
+          localStorage.setItem("api_center_remember", "true");
+        } else {
+          localStorage.removeItem("api_center_saved_email");
+          localStorage.removeItem("api_center_saved_password");
+          localStorage.removeItem("api_center_remember");
+        }
+
+        setPassword("");
+        router.push(nextPath);
+        return { success: true };
+      }
+      return { success: false, error: data.error || "Invalid code. Please try again." };
+    } catch {
+      return { success: false, error: "Network error. Please try again." };
+    }
+  };
+
+  // ✅ STEP 2: Resend the login OTP
+  const handleOtpResend = async (): Promise<OtpCallResult> => {
+    try {
+      const response = await fetch("/internal/backend/api/auth/login/otp/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: otpEmail }),
+      });
+      const data = await response.json();
+      if (data.success) return { success: true, expires_in: data.expires_in || 300 };
+      return { success: false, error: data.error || "Could not resend the code." };
+    } catch {
+      return { success: false, error: "Network error. Please try again." };
     }
   };
 
@@ -159,13 +231,26 @@ export default function LoginPage() {
               <span className="text-xs text-slate-400 font-medium">Secured · JWT Authentication</span>
             </div>
 
-            {error && (
+            {step === "credentials" && error && (
               <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2 animate-shake">
                 <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                 <p className="text-red-400 text-sm">{error}</p>
               </div>
             )}
 
+            {step === "otp" ? (
+              <OtpVerification
+                variant="dark"
+                email={otpEmailMasked}
+                expiresIn={otpExpiresIn}
+                onVerify={handleOtpVerify}
+                onResend={handleOtpResend}
+                onBack={() => {
+                  setStep("credentials");
+                  setError(null);
+                }}
+              />
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
               {/* Email Field - Fixed height to prevent layout shift */}
               <div className="space-y-1.5 min-h-[80px]">
@@ -266,6 +351,7 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+            )}
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
