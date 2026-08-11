@@ -106,6 +106,10 @@ export async function POST(request: NextRequest) {
     const productId = String(body.product_id || "").trim();
     const attachSdk = body.attach_sdk === true || body.attach_sdk === "true";
     const sdkJobId = String(body.sdk_job_id || "").trim();
+    // Optional sender override from the compose From dropdown (account ID based).
+    const fromEmail = String(body.from_email || "").trim();
+    const fromName = String(body.from_name || "").trim();
+    const fromMailboxId = String(body.from_mailbox_id || "").trim();
 
     if (!toEmail) {
       return NextResponse.json({ success: false, error: "Recipient email is required" }, { status: 400 });
@@ -161,12 +165,188 @@ export async function POST(request: NextRequest) {
     }
 
     const htmlMessage = `<p>${(message || '').replace(/\n/g, '<br/>')}</p>`;
+    const now = new Date().toISOString();
+    const category = TYPE_CATEGORY[emailType] || 'sales';
+
+    // ---- Mailbox sender: send via the mailbox's SMTP (reuses the exact
+    // nodemailer pattern from /mailboxes/[id]/send) so the email leaves FROM
+    // the selected external mailbox account.
+    if (fromMailboxId) {
+      const mbResult = await client.query('SELECT * FROM mailboxes WHERE id = $1', [fromMailboxId]);
+      if (mbResult.rows.length === 0) {
+        return NextResponse.json({ success: false, error: "Mailbox not found" }, { status: 404 });
+      }
+      const mailbox = mbResult.rows[0];
+      if (!mailbox.is_enabled) {
+        return NextResponse.json({ success: false, error: "Mailbox is disabled" }, { status: 400 });
+      }
+
+      const fromLabel = mailbox.display_name ? `"${mailbox.display_name}" <${mailbox.email_address}>` : mailbox.email_address;
+      const fullMessage = message + (mailbox.signature ? `\n\n${mailbox.signature}` : "");
+
+      // Ensure a conversation thread exists (same shape as /mailboxes/[id]/send)
+      const convRes = await client.query(
+        `SELECT id FROM communication_conversations
+         WHERE customer_email = $1 AND category = $2 AND deleted_at IS NULL
+         ORDER BY created_at DESC LIMIT 1`,
+        [toEmail, category]
+      );
+      let conversationId = convRes.rows[0]?.id || null;
+      if (!conversationId) {
+        conversationId = `CONV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        await client.query(
+          `INSERT INTO communication_conversations
+           (id, category, status, customer_email, customer_name, subject, product_id, license_key, created_at, updated_at)
+           VALUES ($1,$2,'open',$3,$4,$5,$6,$7,$8,$8)`,
+          [conversationId, category, toEmail, toName || '', subject, productId || '', licenseKey || '', now]
+        );
+      } else {
+        await client.query(
+          `UPDATE communication_conversations SET updated_at = $2, license_key = COALESCE(NULLIF($3,''), license_key) WHERE id = $1`,
+          [conversationId, now, licenseKey || '']
+        );
+      }
+
+      let delivered = false;
+      let smtpError = '';
+      let messageId = '';
+      try {
+        const nodemailer = (await import('nodemailer')).default;
+        const transporter = nodemailer.createTransport({
+          host: mailbox.smtp_host,
+          port: mailbox.smtp_port,
+          secure: mailbox.smtp_secure,
+          auth: { user: mailbox.smtp_username, pass: mailbox.smtp_password },
+          tls: { rejectUnauthorized: false },
+          connectionTimeout: 30000,
+        });
+        const info = await transporter.sendMail({
+          from: fromLabel,
+          to: toName ? `"${toName}" <${toEmail}>` : toEmail,
+          subject,
+          text: fullMessage,
+          html: `<p>${fullMessage.replace(/\n/g, '<br/>')}</p>`,
+          ...(attachments.length > 0
+            ? { attachments: attachments.map(a => ({ filename: a.name, content: Buffer.from(a.content, 'base64'), contentType: a.type })) }
+            : {}),
+        });
+        delivered = true;
+        messageId = String(info.messageId || '');
+      } catch (err: any) {
+        smtpError = err?.message || 'SMTP send failed';
+      }
+
+      if (!delivered) {
+        // Queue for retry (same pattern as /mailboxes/[id]/send)
+        const maxRetries = 5;
+        await client.query(
+          `INSERT INTO message_queue
+           (conversation_id, category, customer_email, customer_name, subject, message, status, retry_count, max_retries, last_error, next_retry_at, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,'pending',0,$7,$8,$9,$10,$10)`,
+          [conversationId, category, toEmail, toName || '', subject, message, maxRetries, smtpError, now]
+        );
+        try {
+          await client.query(
+            `UPDATE mailboxes SET last_failure = $2, last_error = $3, updated_at = $4 WHERE id = $1`,
+            [fromMailboxId, now, smtpError, now]
+          );
+        } catch (e) {
+          console.error('mailbox failure marker failed:', e);
+        }
+        try {
+          await client.query(
+            `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key)
+             VALUES ($1,$2,CURRENT_TIMESTAMP,$3,$4)`,
+            ['email_queued', `Email "${subject}" to ${toEmail} queued for retry (SMTP error: ${smtpError}) by ${userEmail}`, request.headers.get("x-forwarded-for") || "unknown", licenseKey || null]
+          );
+        } catch (e) {
+          console.error('email audit failed:', e);
+        }
+        return NextResponse.json({
+          success: true,
+          delivered: false,
+          queued: true,
+          error: smtpError,
+          message: "SMTP delivery failed — email queued for automatic retry",
+          conversation_id: conversationId,
+        });
+      }
+
+      // Delivered via mailbox SMTP
+      await client.query(
+        `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, error, license_key, created_at)
+         VALUES ($1,'smtp',$2,$3,'sent',$4,NULL,$5,$6)`,
+        [emailType, toEmail, subject, messageId || null, licenseKey || null, now]
+      );
+      const logRes = await client.query(
+        `SELECT id FROM notification_logs WHERE recipient = $1 AND event_type = $2 ORDER BY id DESC LIMIT 1`,
+        [toEmail, emailType]
+      );
+      const notificationLogId = logRes.rows[0]?.id || null;
+
+      for (const sf of storedFiles) {
+        await client.query(
+          `INSERT INTO email_attachments (notification_log_id, email_type, recipient, license_key, file_name, file_size, mime_type, storage_path)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [notificationLogId, emailType, toEmail, licenseKey || null, sf.fileName, sf.fileSize, sf.mimeType, sf.storagePath]
+        );
+      }
+      if (sdkJob && sdkJob.result?.zipData) {
+        await client.query(
+          `INSERT INTO email_attachments (notification_log_id, email_type, recipient, license_key, file_name, file_size, mime_type, storage_path)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [
+            notificationLogId, emailType, toEmail, licenseKey || null,
+            sdkJob.filename || `SDK-${sdkJob.job_id}.zip`,
+            Buffer.from(String(sdkJob.result.zipData), 'base64').length,
+            'application/zip',
+            `sdk_jobs:${sdkJob.job_id}`,
+          ]
+        );
+      }
+
+      await client.query(
+        `INSERT INTO conversation_messages
+         (conversation_id, sender_type, sender_name, sender_email, message, is_internal, email_sent, created_at)
+         VALUES ($1,'admin',$2,$3,$4,FALSE,TRUE,$5)`,
+        [conversationId, mailbox.display_name || mailbox.email_address, mailbox.email_address, message, now]
+      );
+
+      try {
+        await client.query(
+          `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key)
+           VALUES ($1,$2,CURRENT_TIMESTAMP,$3,$4)`,
+          [
+            'email_sent',
+            `Email "${subject}" (${emailType}) sent to ${toEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment(s)` : ''} via SMTP (${mailbox.email_address}) by ${userEmail}`,
+            request.headers.get("x-forwarded-for") || "unknown",
+            licenseKey || null,
+          ]
+        );
+      } catch (e) {
+        console.error('email audit failed:', e);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Email sent successfully",
+        message_id: messageId,
+        conversation_id: conversationId,
+        attachments_sent: attachments.length,
+      });
+    }
+
+    // ---- System-account sender (default): Brevo with optional from override ----
     const sendResult = await sendEmail(
       client,
       emailType,
       { email: toEmail, name: toName || 'Valued Customer' },
       { license_key: licenseKey, product_id: productId, customer_email: toEmail, customer_name: toName },
-      { custom: { subject, html: htmlMessage, plainText: message }, attachments }
+      {
+        custom: { subject, html: htmlMessage, plainText: message },
+        attachments,
+        from: fromEmail ? { email: fromEmail, name: fromName || undefined } : null,
+      }
     );
 
     if (!sendResult.success) {
@@ -205,8 +385,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Communication center log — one conversation thread per customer
-    const category = TYPE_CATEGORY[emailType] || 'sales';
-    const now = new Date().toISOString();
     const convRes = await client.query(
       `SELECT id FROM communication_conversations
        WHERE customer_email = $1 AND category = $2 AND deleted_at IS NULL

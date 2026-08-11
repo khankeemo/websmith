@@ -77,6 +77,82 @@ interface Mailbox {
   smtp_password?: string;
 }
 
+// Unified mail-account identity used by the From dropdown and the receiving-
+// account context in the reader. Always derived from the real configured
+// accounts (system mail_accounts + external mailboxes) — never hardcoded.
+interface MailSenderAccount {
+  id: string;
+  kind: 'system' | 'mailbox';
+  display_name: string;
+  email: string;
+  is_active: boolean;
+  is_default: boolean;
+  type?: string;
+}
+
+const buildSenderAccounts = (commSettings: any, mailboxes: Mailbox[]): MailSenderAccount[] => {
+  const accounts: MailSenderAccount[] = [];
+  for (const a of (commSettings?.mail_accounts || [])) {
+    if (!a?.id) continue;
+    accounts.push({
+      id: String(a.id),
+      kind: 'system',
+      display_name: a.display_name || a.name || '',
+      email: a.email || '',
+      is_active: a.is_active !== false,
+      is_default: !!a.is_default_sender,
+      type: a.type,
+    });
+  }
+  for (const mb of mailboxes) {
+    accounts.push({
+      id: mb.id,
+      kind: 'mailbox',
+      display_name: mb.display_name || '',
+      email: mb.email_address || '',
+      is_active: mb.is_enabled !== false,
+      is_default: !!mb.is_default_sender,
+      type: mb.provider,
+    });
+  }
+  return accounts;
+};
+
+const defaultSenderId = (accounts: MailSenderAccount[]): string =>
+  accounts.find(a => a.is_default && a.is_active)?.id
+  || accounts.find(a => a.is_active)?.id
+  || accounts[0]?.id || '';
+
+// Category routing per system account — mirrors the documented routing
+// (support_categories / sales_categories / general), used to derive the
+// receiving account of a conversation that has no mailbox integration.
+const systemAccountCategories = (commSettings: any, acct: any): string[] => {
+  const routing = commSettings?.routing || {};
+  if (acct?.type === 'support') return routing.support_categories || ['support', 'activation', 'renewal', 'reactivation', 'hardware_replacement', 'general'];
+  if (acct?.type === 'sales') return routing.sales_categories || ['sales'];
+  return ['general'];
+};
+
+// The mail account a conversation was received in: a mailbox integration wins
+// (conv.mailbox_id), otherwise the system account that owns the category.
+const accountForConversation = (
+  conv: any,
+  commSettings: any,
+  mailboxes: Mailbox[]
+): MailSenderAccount | null => {
+  const accounts = buildSenderAccounts(commSettings, mailboxes);
+  if (conv?.mailbox_id) {
+    const mb = accounts.find(a => a.kind === 'mailbox' && a.id === conv.mailbox_id);
+    if (mb) return mb;
+  }
+  const system = accounts.filter(a => a.kind === 'system');
+  for (const a of system) {
+    const acct = (commSettings?.mail_accounts || []).find((x: any) => String(x.id) === a.id);
+    if (systemAccountCategories(commSettings, acct).includes(conv?.category)) return a;
+  }
+  return system.find(a => a.is_active) || system[0] || null;
+};
+
 interface QueueItem {
   id: string;
   conversation_id: string | null;
@@ -256,12 +332,6 @@ const SETTINGS_DEF: FolderDef = {
 const TEMPLATES_DEF: FolderDef = { key: 'templates', label: 'Templates', icon: BookMarked, section: 'internal', kind: 'templates' };
 const SIGNATURES_DEF: FolderDef = { key: 'signatures', label: 'Signatures', icon: Signature, section: 'internal', kind: 'signatures' };
 const AUTO_REPLY_DEF: FolderDef = { key: 'auto-reply', label: 'Auto Reply', icon: Zap, section: 'internal', kind: 'auto-reply' };
-
-const groupFor = (def: FolderDef): string => {
-  if (def.key === 'email-history') return 'universal';
-  if (def.key === 'mailboxes') return 'mailboxes';
-  return def.section;
-};
 
 // ---- Folder chips shown above the email list (middle pane) ----
 const FOLDER_CHIPS: { key: string; label: string; badgeKey?: keyof Stats }[] = [
@@ -672,6 +742,8 @@ export default function CommunicationsPage() {
     defaultProductId?: string;
     defaultProductName?: string;
     defaultAction?: 'send' | 'history' | 'buy-license' | 'activate' | 'renew' | 'reactivation' | 'device-replacement' | 'support' | 'general';
+    fromAccounts?: MailSenderAccount[];
+    defaultFromId?: string;
   }>({ isOpen: false });
 
   const [showMailboxForm, setShowMailboxForm] = useState(false);
@@ -692,6 +764,17 @@ export default function CommunicationsPage() {
   const [commMailboxes, setCommMailboxes] = useState<Mailbox[]>([]);
   const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [accountDraft, setAccountDraft] = useState<any>(null);
+
+  // Account-scoped mail (Mail/Websmith Mail/Mailboxes navigation) + reply From
+  const [accountScope, setAccountScope] = useState<{ kind: 'system' | 'mailbox'; id: string } | null>(null);
+  const [composerFromId, setComposerFromId] = useState('');
+
+  const senderAccounts = useMemo(() => buildSenderAccounts(commSettings, mailboxes), [commSettings, mailboxes]);
+  const scopeLabel = useMemo(() => {
+    if (!accountScope) return null;
+    const acct = senderAccounts.find(a => a.id === accountScope.id);
+    return acct ? (acct.display_name || acct.email) : null;
+  }, [accountScope, senderAccounts]);
 
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [showFolderManager, setShowFolderManager] = useState(false);
@@ -859,7 +942,7 @@ export default function CommunicationsPage() {
     } catch {}
   }, []);
 
-  const loadConversations = useCallback(async (folder: FolderDef, search: string, statusF: string, categoryF: string) => {
+  const loadConversations = useCallback(async (folder: FolderDef, search: string, statusF: string, categoryF: string, scope?: { kind: 'system' | 'mailbox'; id: string } | null) => {
     setLoading(true);
     setError(null);
     try {
@@ -874,6 +957,21 @@ export default function CommunicationsPage() {
       if (statusF) params.set('status', statusF);
       if (categoryF) params.set('category', categoryF);
       if (search) params.set('search', search);
+
+      // Account-scoped mail: a mailbox narrows by its integration id, a system
+      // account by the mailbox it routes through or its category list.
+      if (scope?.kind === 'mailbox') {
+        params.set('mailbox_id', scope.id);
+      } else if (scope?.kind === 'system') {
+        const acct = (commSettings?.mail_accounts || []).find((a: any) => String(a.id) === scope.id);
+        const mb = mailboxes.find(m => (acct?.email || '').toLowerCase() === (m.email_address || '').toLowerCase());
+        if (mb) {
+          params.set('mailbox_id', mb.id);
+        } else {
+          params.set('category', systemAccountCategories(commSettings, acct).join(','));
+        }
+      }
+
       const res = await fetch(`${API_BASE}/conversations?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) {
@@ -886,7 +984,7 @@ export default function CommunicationsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [commSettings, mailboxes]);
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -1238,15 +1336,25 @@ export default function CommunicationsPage() {
     setComposerError(null);
     try {
       const adminName = commSettings?.mail_accounts?.find((a: any) => a.type === 'support')?.display_name || 'Admin';
+      const composerFrom = senderAccounts.find(a => a.id === composerFromId) || null;
+      const payload: Record<string, any> = {
+        conversation_id: convId,
+        message: composerText.trim(),
+        sender_name: adminName,
+        is_internal: composerInternal,
+      };
+      // Real email replies send FROM the chosen receiving account: a mailbox
+      // sends via its SMTP, a system account overrides the sender identity.
+      if (!composerInternal && composerFrom) {
+        payload.from_account_id = composerFrom.id;
+        payload.from_email = composerFrom.email;
+        payload.from_name = composerFrom.display_name;
+        if (composerFrom.kind === 'mailbox') payload.from_mailbox_id = composerFrom.id;
+      }
       const res = await fetch(`${REPLY_BASE}`, {
         method: 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversation_id: convId,
-          message: composerText.trim(),
-          sender_name: adminName,
-          is_internal: composerInternal,
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (json.success) {
@@ -1269,7 +1377,7 @@ export default function CommunicationsPage() {
     } finally {
       setBusy(null);
     }
-  }, [detail, composerText, composerInternal, commSettings, showToast]);
+  }, [detail, composerText, composerInternal, commSettings, senderAccounts, composerFromId, showToast]);
 
   // Live auto-sync (no cron on serverless): process queue + pull IMAP for every
   // enabled mailbox on a timer, and refresh immediately whenever the tab regains
@@ -1282,13 +1390,14 @@ export default function CommunicationsPage() {
         await fetch(`${API_BASE}/queue/process`, { method: 'POST', headers });
         const mbRes = await fetch(`${MB_BASE}`, { headers });
         const mbJson = await mbRes.json();
-        const enabled = (mbJson.data?.mailboxes || []).filter((m: any) => m.is_enabled);
+        const allMailboxes = mbJson.data?.mailboxes || [];
+        setMailboxes(allMailboxes);
+        const enabled = allMailboxes.filter((m: any) => m.is_enabled);
         await Promise.all(enabled.map((m: any) =>
           fetch(`${MB_BASE}/${m.id}/sync`, { method: 'POST', headers }).catch(() => {})
         ));
         fetchStats();
-        if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter);
-        else if (activeFolderDef.kind === 'mailboxes') loadMailboxes();
+        if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter, accountScope);
         else if (activeFolderDef.kind === 'settings') loadCommsSettings();
       } catch {}
     };
@@ -1296,7 +1405,7 @@ export default function CommunicationsPage() {
     const onVisible = () => { if (typeof document !== 'undefined' && !document.hidden) runAutoSync(); };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
     return () => { clearInterval(iv); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible); };
-  }, [activeFolderDef, searchQuery, statusFilter, categoryFilter, loadConversations, loadMailboxes, loadCommsSettings, fetchStats]);
+  }, [activeFolderDef, searchQuery, statusFilter, categoryFilter, accountScope, loadConversations, loadMailboxes, loadCommsSettings, fetchStats]);
 
   const syncAllMailboxes = useCallback(async () => {
     setBusy('sync-all');
@@ -1323,16 +1432,15 @@ export default function CommunicationsPage() {
       : activeFolder === 'signatures' ? SIGNATURES_DEF
       : activeFolder === 'auto-reply' ? AUTO_REPLY_DEF
       : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]));
-    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter);
+    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope);
     else if (f.kind === 'queue') loadQueue();
     else if (f.kind === 'logs') loadLogs();
     else if (f.kind === 'history') loadHistory();
-    else if (f.kind === 'mailboxes') loadMailboxes();
     else if (f.kind === 'settings') loadCommsSettings();
     else if (f.kind === 'templates') loadTemplates();
     else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes();
     fetchStats();
-  }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, loadCommsSettings, loadTemplates, fetchStats]);
+  }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, accountScope, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, loadCommsSettings, loadTemplates, fetchStats]);
 
   // Phase 5: deliver queued emails via the default sender mailbox SMTP
   const processQueue = useCallback(async () => {
@@ -1357,6 +1465,10 @@ export default function CommunicationsPage() {
 
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
+  // Load mailboxes on mount so the Mailboxes section + From dropdowns are
+  // populated immediately (no need to visit the mailboxes view first).
+  useEffect(() => { loadMailboxes(); }, [loadMailboxes]);
+
   // Load settings + signatures + mailboxes on mount so the composer's Signature
   // dropdown and mailbox form options are populated from the start
   useEffect(() => { loadCommsSettings(); }, [loadCommsSettings]);
@@ -1377,6 +1489,40 @@ export default function CommunicationsPage() {
     setSelectedHistoryItem(null);
     setError(null);
     setComposerOpen(false);
+    // Folders are per-account navigation inside Mail; only system-wide views
+    // (internal categories, logs, history, management panes) clear the scope.
+    if (!key.startsWith('ext-')) setAccountScope(null);
+    const row = folders.find(x => x.id === key);
+    const f = key === 'settings' ? SETTINGS_DEF
+      : key === 'templates' ? TEMPLATES_DEF
+      : key === 'signatures' ? SIGNATURES_DEF
+      : key === 'auto-reply' ? AUTO_REPLY_DEF
+      : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === key) || FOLDERS[0]));
+    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope);
+    else if (f.kind === 'queue') loadQueue();
+    else if (f.kind === 'logs') loadLogs();
+    else if (f.kind === 'history') loadHistory();
+    else if (f.kind === 'settings') loadCommsSettings();
+    else if (f.kind === 'templates') loadTemplates();
+    else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes();
+    fetchStats();
+  };
+
+  // Select a mail account (Websmith Mail system account or external Mailbox).
+  // Jumps into the Mail Inbox scoped to that account; folders then navigate
+  // inside the account. Refreshing happens via the accountScope change.
+  const handleAccountSelect = (kind: 'system' | 'mailbox', id: string) => {
+    setActiveFolder('ext-inbox');
+    setSelectedIds(new Set());
+    setDetail(null);
+    setSelectedMailbox(null);
+    setMailboxDetail(null);
+    setSelectedQueueItem(null);
+    setSelectedLog(null);
+    setSelectedHistoryItem(null);
+    setError(null);
+    setComposerOpen(false);
+    setAccountScope({ kind, id });
   };
 
   const toggleSelect = (id: string) => {
@@ -1403,6 +1549,10 @@ export default function CommunicationsPage() {
       const json = await res.json();
       if (json.success) {
         setDetail(json.data);
+        const recv = accountForConversation(json.data.conversation, commSettings, mailboxes);
+        setComposerFromId(
+          recv && recv.is_active ? recv.id : defaultSenderId(senderAccounts)
+        );
         if ((json.data.conversation?.unread_replies || 0) > 0) {
           await fetch(`${API_BASE}/conversations/${id}`, {
             method: 'PATCH',
@@ -1530,7 +1680,12 @@ export default function CommunicationsPage() {
   };
 
   const openCompose = () => {
-    setEmailDialog({ isOpen: true, defaultAction: 'send' });
+    setEmailDialog({
+      isOpen: true,
+      defaultAction: 'send',
+      fromAccounts: senderAccounts,
+      defaultFromId: defaultSenderId(senderAccounts),
+    });
   };
 
   const openReply = (to?: string, action?: 'support' | 'general') => {
@@ -1543,22 +1698,28 @@ export default function CommunicationsPage() {
     const d = detail;
     const target = to || d?.conversation.customer_email || (d?.customer?.email as string) || '';
     const act = action || (d?.conversation.category === 'support' ? 'support' : 'general');
+    const recv = d ? accountForConversation(d.conversation, commSettings, mailboxes) : null;
     setEmailDialog({
       isOpen: true,
       defaultEmail: target,
       defaultLicenseKey: d?.conversation.license_key || undefined,
       defaultProductId: d?.conversation.product_id || undefined,
       defaultAction: act,
+      fromAccounts: senderAccounts,
+      defaultFromId: recv?.id || defaultSenderId(senderAccounts),
     });
   };
 
   const openForward = () => {
     const d = detail;
+    const recv = d ? accountForConversation(d.conversation, commSettings, mailboxes) : null;
     setEmailDialog({
       isOpen: true,
       defaultAction: 'send',
       defaultLicenseKey: d?.conversation.license_key || undefined,
       defaultProductId: d?.conversation.product_id || undefined,
+      fromAccounts: senderAccounts,
+      defaultFromId: recv?.id || defaultSenderId(senderAccounts),
     });
   };
 
@@ -2052,186 +2213,210 @@ export default function CommunicationsPage() {
   ];
 
   // ---- Sidebar (mailbox navigation — Websmith Default Mail stays fixed left) ----
-  const renderSidebar = () => (
-    <aside className="w-[240px] flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)] bg-[var(--bg-tertiary)]/10">
-      <div className="shrink-0 px-2 py-3 overflow-y-auto scrollbar-thin space-y-4">
-        <div className="px-2 flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
-            <Mail className="h-3.5 w-3.5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-[var(--text-primary)] leading-tight truncate">Websmith Communications</p>
-            <p className="text-[9px] text-[var(--text-muted)]">Communication Center</p>
-          </div>
-        </div>
+  const renderSidebar = () => {
+    const systemAccounts = (commSettings?.mail_accounts || []).filter((a: any) => a?.id);
 
-        {/* Websmith Default Mail — fixed on the left */}
-        <div>
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            className="w-full px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase hover:text-[var(--text-primary)] transition-colors"
-          >
-            <Mail size={10} /> Websmith Default Mail
-            <ChevronDown size={11} className={`ml-auto transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {sidebarOpen && (
+    const folderBtn = (def: FolderDef, badgeKey?: keyof Stats, extra?: any) => {
+      const Icon = def.icon;
+      const active = activeFolder === def.key;
+      const badge = badgeKey ? stats[badgeKey] : 0;
+      return (
+        <button
+          key={def.key}
+          onClick={() => handleFolderChange(def.key)}
+          className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+            active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+          }`}
+        >
+          {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+          <Icon size={14} className="flex-shrink-0" />
+          <span className="flex-1 text-left truncate">{def.label}</span>
+          {extra}
+          {badge > 0 && (
+            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${def.key === 'all' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-blue-500/20 text-blue-400'}`}>{badge}</span>
+          )}
+        </button>
+      );
+    };
+
+    const groupLabel = (text: string, icon?: any) => {
+      const GIcon = icon;
+      return (
+        <p className="px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
+          {GIcon && <GIcon size={10} />} {text}
+          {accountScope && (text === 'Mail') && scopeLabel && (
+            <span className="ml-auto flex items-center gap-1 text-[9px] font-medium normal-case text-blue-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> {scopeLabel}
+            </span>
+          )}
+        </p>
+      );
+    };
+
+    const mailFolders = ['ext-inbox', 'ext-sent', 'ext-draft', 'ext-waiting', 'ext-failed', 'ext-queued', 'ext-spam', 'ext-trash']
+      .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
+      .filter((f): f is FolderDef => !!f);
+
+    const internalFolders = ['all', 'sales', 'support', 'activation', 'renewal', 'reactivation', 'hardware', 'trial', 'payment', 'sdk', 'customer', 'notifications', 'email-history']
+      .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
+      .filter((f): f is FolderDef => !!f);
+
+    return (
+      <aside className="w-[240px] flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)] bg-[var(--bg-tertiary)]/10">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-2 py-3 space-y-4">
+          <div className="px-2 flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
+              <Mail className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-[var(--text-primary)] leading-tight truncate">Websmith Communications</p>
+              <p className="text-[9px] text-[var(--text-muted)]">Communication Center</p>
+            </div>
+          </div>
+
+          {/* Mail — the email folders (Inbox/Sent/Drafts/Waiting/Failed/Queued/Spam/Trash/All) */}
+          <div>
+            {groupLabel('Mail')}
             <div className="space-y-0.5">
-              {folders.filter(f => groupFor(folderDefFor(f)) === 'internal').map(row => {
-                const def = folderDefFor(row);
-                const Icon = def.icon;
-                const active = activeFolder === row.id;
-                const badge = def.badgeKey ? stats[def.badgeKey] : 0;
-                return (
-                  <button
-                    key={row.id}
-                    onClick={() => handleFolderChange(row.id)}
-                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                    <Icon size={14} className="flex-shrink-0" />
-                    <span className="flex-1 text-left truncate">{def.label}</span>
-                    {badge > 0 && (
-                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${row.id === 'all' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-blue-500/20 text-blue-400'}`}>{badge}</span>
-                    )}
-                  </button>
-                );
-              })}
-              {folders.filter(f => groupFor(folderDefFor(f)) === 'universal').map(row => {
-                const def = folderDefFor(row);
-                const Icon = def.icon;
-                const active = activeFolder === row.id;
-                return (
-                  <button
-                    key={row.id}
-                    onClick={() => handleFolderChange(row.id)}
-                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                    <Icon size={14} className="flex-shrink-0" />
-                    <span className="flex-1 text-left truncate">{def.label}</span>
-                  </button>
-                );
-              })}
-              {/* System Mail Accounts (native routing, not external mailboxes) */}
-              {(commSettings?.mail_accounts || []).length > 0 && (
-                <div className="pt-1.5 mt-1.5 border-t border-[var(--border-color)] space-y-0.5">
-                  <p className="px-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">System Mail Accounts</p>
-                  {(commSettings.mail_accounts || []).map((a: any) => (
-                    <div key={a.id} className="flex items-center gap-2 px-2.5 py-1 rounded-lg">
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${a.is_active ? 'bg-green-400' : 'bg-gray-500/40'}`} />
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-[10px] text-[var(--text-secondary)] truncate">{a.display_name || a.name}</span>
-                        <span className="block text-[9px] text-[var(--text-muted)] truncate">{a.email}</span>
-                      </span>
-                      <Badge className="text-purple-400 bg-purple-500/10">System</Badge>
-                    </div>
-                  ))}
-                </div>
+              {mailFolders.map(def =>
+                folderBtn(def, def.badgeKey as keyof Stats | undefined)
               )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Mailboxes */}
-        <div>
-          <p className="px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
-            <AtSign size={10} /> Mailboxes
-          </p>
-          <div className="space-y-0.5">
-            {mailboxes.map(mb => {
-              const h = mailboxHealth(mb);
-              const active = activeFolder === 'mailboxes' && selectedMailbox?.id === mb.id;
-              const dotColor = h.status === 'connected' ? 'bg-green-400' : h.status === 'syncing' ? 'bg-blue-400' : h.status === 'auth_required' || h.status === 'failed' ? 'bg-red-400' : h.status === 'disabled' ? 'bg-gray-500/40' : 'bg-gray-500/30';
-              return (
-                <button
-                  key={mb.id}
-                  onClick={() => { handleFolderChange('mailboxes'); loadMailboxDetail(mb.id); }}
-                  className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                    active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                  }`}
-                  title={`${mb.email_address} — ${h.label}`}
-                >
-                  {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
-                  <span className="flex-1 min-w-0 text-left">
-                    <span className="block truncate">{mb.display_name || mb.email_address}</span>
-                    <span className="block text-[9px] text-[var(--text-muted)] truncate">{mb.email_address}</span>
-                  </span>
-                  {mb.is_default_sender && <Flag size={10} className="flex-shrink-0 text-amber-400" />}
-                </button>
-              );
-            })}
-            {mailboxes.length === 0 && (
-              <p className="px-2.5 py-1 text-[10px] text-[var(--text-muted)]">No external mailboxes configured.</p>
+          {/* Websmith Mail — built-in system accounts (support/sales/no-reply) */}
+          {systemAccounts.length > 0 && (
+            <div>
+              {groupLabel('Websmith Mail')}
+              <div className="space-y-0.5">
+                {systemAccounts.map(a => {
+                  const active = accountScope?.kind === 'system' && accountScope.id === String(a.id);
+                  return (
+                    <button
+                      key={String(a.id)}
+                      onClick={() => handleAccountSelect('system', String(a.id))}
+                      title={`${a.email || ''} — ${a.is_active ? 'Active' : 'Disabled'}`}
+                      className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${a.is_active ? 'bg-green-400' : 'bg-gray-500/40'}`} />
+                      <span className="flex-1 min-w-0 text-left">
+                        <span className="block truncate">{a.display_name || a.name || a.email}</span>
+                        <span className="block text-[9px] text-[var(--text-muted)] truncate">{a.email}</span>
+                      </span>
+                      {a.is_default_sender && <Flag size={10} className="flex-shrink-0 text-amber-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Mailboxes — external mailbox accounts; row actions + Add Mailbox
+              live in the dedicated Manage Mails workspace */}
+          <div>
+            {groupLabel('Mailboxes')}
+            <div className="space-y-0.5">
+              {mailboxes.map(mb => {
+                const h = mailboxHealth(mb);
+                const active = accountScope?.kind === 'mailbox' && accountScope.id === mb.id;
+                const dotColor = h.status === 'connected' ? 'bg-green-400' : h.status === 'syncing' ? 'bg-blue-400' : h.status === 'auth_required' || h.status === 'failed' ? 'bg-red-400' : h.status === 'disabled' ? 'bg-gray-500/40' : 'bg-gray-500/30';
+                return (
+                  <button
+                    key={mb.id}
+                    onClick={() => handleAccountSelect('mailbox', mb.id)}
+                    title={`${mb.email_address} — ${h.label}`}
+                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
+                    <span className="flex-1 min-w-0 text-left">
+                      <span className="block truncate">{mb.display_name || mb.email_address}</span>
+                      <span className="block text-[9px] text-[var(--text-muted)] truncate">{mb.email_address}</span>
+                    </span>
+                    {mb.is_default_sender && <Flag size={10} className="flex-shrink-0 text-amber-400" />}
+                  </button>
+                );
+              })}
+              {mailboxes.length === 0 && (
+                <p className="px-2.5 py-1 text-[10px] text-[var(--text-muted)]">No external mailboxes configured.</p>
+              )}
+            </div>
+            <button
+              onClick={() => { window.location.href = '/internal/api/communications/manage-mails'; }}
+              className="mt-1.5 w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors"
+              title="Add, test, sync and configure mailboxes in the dedicated workspace"
+            >
+              <ExternalLink size={13} /> Manage Mails
+            </button>
+          </div>
+
+          {/* Internal — Websmith system categories + email logs */}
+          <div>
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              className="w-full px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase hover:text-[var(--text-primary)] transition-colors"
+            >
+              <Inbox size={10} /> Internal
+              <ChevronDown size={11} className={`ml-auto transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {sidebarOpen && (
+              <div className="space-y-0.5">
+                {internalFolders.map(def => folderBtn(def))}
+              </div>
             )}
           </div>
-          <div className="pt-1.5 space-y-0.5">
-            {folders.filter(f => groupFor(folderDefFor(f)) === 'external' || groupFor(folderDefFor(f)) === 'mailboxes').map(row => {
-              const def = folderDefFor(row);
-              const Icon = def.icon;
-              const active = activeFolder === row.id;
-              const badge = def.badgeKey ? stats[def.badgeKey] : 0;
-              return (
-                <button
-                  key={row.id}
-                  onClick={() => handleFolderChange(row.id)}
-                  className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                    active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                  <Icon size={14} className="flex-shrink-0" />
-                  <span className="flex-1 text-left truncate">{def.label}</span>
-                  {badge > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/20 text-blue-400">{badge}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <button onClick={() => { setEditingMailbox(null); setMailboxForm(newMailboxForm()); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
-            className="mt-1.5 w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
-            <Plus size={13} /> Add Mailbox
-          </button>
-        </div>
 
-        {/* Utility sections */}
-        <div className="pt-1 space-y-0.5">
-          {[
-            { key: 'templates', label: 'Templates', icon: BookMarked },
-            { key: 'signatures', label: 'Signatures', icon: Signature },
-            { key: 'auto-reply', label: 'Auto Reply', icon: Zap },
-            { key: 'settings', label: 'Communication Settings', icon: Settings },
-            { key: 'notifications', label: 'Email Logs', icon: Activity },
-          ].map(item => {
-            const Icon = item.icon;
-            const active = activeFolder === item.key;
-            return (
+          {/* Manage Mails — settings, templates, signatures, auto reply */}
+          <div>
+            <p className="px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
+              <Settings size={10} /> Manage Mails
+            </p>
+            <div className="space-y-0.5">
+              {[
+                { key: 'settings', label: 'Communication Settings', icon: Settings },
+                { key: 'templates', label: 'Templates', icon: BookMarked },
+                { key: 'signatures', label: 'Signatures', icon: Signature },
+                { key: 'auto-reply', label: 'Auto Reply', icon: Zap },
+              ].map(item => {
+                const Icon = item.icon;
+                const active = activeFolder === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => handleFolderChange(item.key)}
+                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+                    <Icon size={14} className="flex-shrink-0" />
+                    <span className="flex-1 text-left truncate">{item.label}</span>
+                  </button>
+                );
+              })}
               <button
-                key={item.key}
-                onClick={() => handleFolderChange(item.key)}
-                className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                  active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                }`}
+                onClick={() => { window.location.href = '/internal/api/communications/manage-mails'; }}
+                className="relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)] transition-colors"
               >
-                {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                <Icon size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">{item.label}</span>
+                <Mail size={14} className="flex-shrink-0" />
+                <span className="flex-1 text-left truncate">Manage Mails</span>
+                <ExternalLink size={11} className="flex-shrink-0 text-[var(--text-muted)]" />
               </button>
-            );
-          })}
-          <button onClick={() => setShowFolderManager(true)}
-            className="w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
-            <FolderPlus size={13} /> Manage Folders
-          </button>
+              <button onClick={() => setShowFolderManager(true)}
+                className="w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
+                <FolderPlus size={13} /> Manage Folders
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </aside>
-  );
+      </aside>
+    );
+  };
 
   // ---- Middle pane: folder chips + email list ----
   const renderFolderChips = () => (
@@ -3394,6 +3579,11 @@ export default function CommunicationsPage() {
     const conv = detail.conversation;
     const unread = (conv.unread_replies || 0) > 0;
     const prio = priorityOf(conv.status);
+    const receiving = accountForConversation(conv, commSettings, mailboxes);
+    const receivingLabel = receiving
+      ? (receiving.display_name ? `${receiving.display_name} <${receiving.email}>` : receiving.email)
+      : (conv.category === 'sales' ? 'sales@websmithdigital.com' : 'support@websmithdigital.com');
+    const composerFrom = senderAccounts.find(a => a.id === composerFromId) || null;
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         {/* Reader toolbar */}
@@ -3466,13 +3656,13 @@ export default function CommunicationsPage() {
                     {conv.customer_name || 'Unknown'} <span className="text-[var(--text-muted)] font-normal">&lt;{conv.customer_email}&gt;</span>
                     {unread && <span className="ml-2 text-[9px] font-medium text-blue-400">{conv.unread_replies} unread</span>}
                   </p>
-                  <p className="text-[10px] text-[var(--text-muted)] truncate">To: {conv.category === 'sales' ? 'sales@websmithdigital.com' : 'support@websmithdigital.com'}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate">To: {receivingLabel}</p>
                 </div>
                 <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">{new Date(conv.created_at).toLocaleString()}</span>
               </div>
               <div className="text-[11px] text-[var(--text-muted)] mt-2 space-y-0.5">
                 <p>From: <span className="text-[var(--text-secondary)]">{conv.customer_name || 'Unknown'} &lt;{conv.customer_email}&gt;</span></p>
-                <p>To: <span className="text-[var(--text-secondary)]">{conv.category === 'sales' ? 'sales@websmithdigital.com' : 'support@websmithdigital.com'}</span> · CC: <span className="text-[var(--text-secondary)]">—</span> · BCC: <span className="text-[var(--text-secondary)]">—</span></p>
+                <p>To: <span className="text-[var(--text-secondary)]">{receivingLabel}</span> · CC: <span className="text-[var(--text-secondary)]">—</span> · BCC: <span className="text-[var(--text-secondary)]">—</span></p>
                 <p>Date &amp; Time: <span className="text-[var(--text-secondary)]">{new Date(conv.created_at).toLocaleString()}</span> · Updated: {new Date(conv.updated_at).toLocaleString()}</p>
                 <p>Status: <span className="text-[var(--text-secondary)]">{STATUS_LABELS[conv.status]?.label || conv.status}</span> · Priority: <span className={prio.color}>{prio.label}</span></p>
               </div>
@@ -3642,7 +3832,10 @@ export default function CommunicationsPage() {
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${composerInternal && composerOpen ? 'bg-amber-500/20 text-amber-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30'}`}>
                   <StickyNote size={11} /> Internal Note
                 </button>
-                <span className="ml-auto text-[10px] text-[var(--text-muted)]">Replying to {conv.customer_email}</span>
+                <span className="ml-auto text-[10px] text-[var(--text-muted)]">
+                  Replying to {conv.customer_email}
+                  {composerFrom && ` · From ${composerFrom.display_name || composerFrom.email}`}
+                </span>
               </div>
               {composerOpen && (
                 <>
@@ -3654,6 +3847,18 @@ export default function CommunicationsPage() {
                     className="w-full px-3 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)]/60 text-[var(--text-primary)] text-xs placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-y scrollbar-thin"
                   />
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <select
+                      value={composerFromId}
+                      onChange={e => setComposerFromId(e.target.value)}
+                      disabled={composerInternal}
+                      title="Send from this account"
+                      className="px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-40"
+                    >
+                      <option value="">From ▼</option>
+                      {senderAccounts.filter(a => a.is_active).map(a => (
+                        <option key={a.id} value={a.id}>{a.display_name ? `${a.display_name} <${a.email}>` : a.email}</option>
+                      ))}
+                    </select>
                     <select
                       value=""
                       onChange={e => { if (e.target.value) insertTemplateIntoComposer(e.target.value); }}
@@ -3707,7 +3912,9 @@ export default function CommunicationsPage() {
           </div>
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-[var(--text-primary)] leading-tight truncate">Communication Center</h1>
-            <p className="text-xs text-[var(--text-secondary)] truncate">{activeFolderDef.label}</p>
+            <p className="text-xs text-[var(--text-secondary)] truncate">
+              {scopeLabel ? `${activeFolderDef.label} · ${scopeLabel}` : activeFolderDef.label}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -3779,6 +3986,8 @@ export default function CommunicationsPage() {
         defaultProductId={emailDialog.defaultProductId}
         defaultProductName={emailDialog.defaultProductName}
         defaultAction={emailDialog.defaultAction}
+        fromAccounts={emailDialog.fromAccounts}
+        defaultFromId={emailDialog.defaultFromId}
       />
 
       {/* Folder manager modal */}

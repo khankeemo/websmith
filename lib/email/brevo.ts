@@ -947,6 +947,10 @@ export interface EmailAttachmentInput {
 export interface EmailSendOptions {
   attachments?: EmailAttachmentInput[];
   custom?: { subject: string; html: string; plainText: string } | null;
+  // Optional sender override (used by the admin reply/send routes when the
+  // compose UI picks a specific mail account). When omitted the sender is
+  // derived from the email type as before.
+  from?: { email: string; name?: string } | null;
 }
 
 export async function sendEmail(
@@ -977,6 +981,11 @@ export async function sendEmail(
   } else {
     senderEmail = fromAddress;
   }
+
+  // Sender override (compose UI account selection)
+  const effectiveSenderEmail = options.from?.email || senderEmail;
+  const effectiveSenderName = options.from?.name || senderName;
+  senderEmail = effectiveSenderEmail;
 
   try {
     const template = await getTemplate(client, emailType);
@@ -1017,7 +1026,7 @@ export async function sendEmail(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            sender: { name: senderName, email: senderEmail },
+            sender: { name: effectiveSenderName, email: effectiveSenderEmail },
             to: [{ email: to.email, name: to.name || 'Valued Customer' }],
             subject,
             htmlContent: htmlBody,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   Mail,
   Send,
@@ -30,6 +30,21 @@ import Button from "@/components/ui/Button";
 
 const API_BASE = "/internal/backend";
 const SUPPORT_EMAIL = "support@websmithdigital.com";
+
+// A unified mail account used by the compose From dropdown. It is always
+// derived from the real configured accounts (system mail_accounts + external
+// mailboxes) — never hardcoded. `id` is the actual account identifier
+// (system account id like 'support', or a mailbox id like 'MBX-…').
+export interface SenderOption {
+  id: string;
+  kind: 'system' | 'mailbox';
+  display_name: string;
+  email: string;
+  is_active: boolean;
+  is_default: boolean;
+  type?: string;
+  provider?: string;
+}
 
 type EmailAction =
   | "send"
@@ -75,6 +90,10 @@ interface EmailDialogProps {
   defaultProductId?: string;
   defaultAction?: EmailAction;
   allowedActions?: EmailAction[];
+  // Dynamic From dropdown (account ID based). When omitted the dialog keeps
+  // its previous behaviour (server-derived sender).
+  fromAccounts?: SenderOption[];
+  defaultFromId?: string;
 }
 
 const actionConfig: Record<EmailAction, { label: string; icon: typeof Mail; description: string }> = {
@@ -101,13 +120,14 @@ function formatSize(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions }: EmailDialogProps) {
+export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId }: EmailDialogProps) {
   const [view, setView] = useState<"actions" | "form" | "history">("actions");
   const [action, setAction] = useState<EmailAction>(defaultAction || "send");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [fromId, setFromId] = useState("");
   const [recipientEmail, setRecipientEmail] = useState(defaultEmail || "");
   const [recipientName, setRecipientName] = useState("");
   const [subject, setSubject] = useState("");
@@ -139,11 +159,29 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       setFiles([]);
       setAttachSdk(false);
       setSdkJob(null);
+      // Reset the From account: prefer the provided default (receiving account
+      // for Reply/Forward, or the system default sender for New Mail), falling
+      // back to the first available account.
+      const enabled = (fromAccounts || []).filter(a => a.is_active);
+      if (fromAccounts && fromAccounts.length > 0) {
+        const requested = defaultFromId && fromAccounts.find(a => a.id === defaultFromId);
+        const def = (requested && requested.is_active)
+          ? requested
+          : enabled[0] || fromAccounts[0];
+        setFromId(def?.id || "");
+      } else {
+        setFromId("");
+      }
       if (defaultAction) {
         openAction(defaultAction);
       }
     }
-  }, [isOpen, defaultAction]);
+  }, [isOpen, defaultAction, defaultFromId, fromAccounts]);
+
+  const selectedSender = useMemo(
+    () => (fromAccounts || []).find(a => a.id === fromId) || null,
+    [fromAccounts, fromId]
+  );
 
   // Load SDK job info for the product when the dialog opens
   useEffect(() => {
@@ -281,7 +319,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
 
     try {
       const emailType = emailTypeForAction();
-      const common = {
+      const common: Record<string, string> = {
         to_email: recipientEmail.trim(),
         to_name: recipientName.trim() || customerName.trim(),
         subject,
@@ -292,6 +330,17 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         attach_sdk: attachSdk ? "true" : "false",
         sdk_job_id: attachSdk && sdkJob ? sdkJob.job_id : "",
       };
+
+      // When the user chose an explicit From account, tell the backend so the
+      // email leaves FROM that account (mailbox SMTP or a specific sender).
+      if (selectedSender) {
+        common.from_account_id = selectedSender.id;
+        common.from_email = selectedSender.email;
+        common.from_name = selectedSender.display_name;
+        if (selectedSender.kind === "mailbox") {
+          common.from_mailbox_id = selectedSender.id;
+        }
+      }
 
       let res: Response;
       if (files.length > 0) {
@@ -429,6 +478,26 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
             <p className="text-sm text-[var(--text-secondary)]">
               This request will be sent to our support team for processing.
             </p>
+          </div>
+        )}
+
+        {fromAccounts && fromAccounts.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">From</label>
+            <div className="relative">
+              <Send size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+              <select
+                value={fromId}
+                onChange={(e) => setFromId(e.target.value)}
+                className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 transition-all"
+              >
+                {(fromAccounts || []).filter(a => a.is_active).map(a => (
+                  <option key={a.id} value={a.id} className="bg-[var(--bg-primary)]">
+                    {a.display_name ? `${a.display_name} <${a.email}>` : a.email}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 

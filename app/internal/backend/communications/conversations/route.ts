@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const email = searchParams.get('email');
     const search = searchParams.get('search');
+    const mailboxId = searchParams.get('mailbox_id');
     const hasCustomer = searchParams.get('has_customer') === 'true';
     const showDeleted = searchParams.get('show_deleted') === 'true';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
@@ -71,6 +72,11 @@ export async function GET(request: NextRequest) {
 
     if (hasCustomer) {
       whereClauses.push(`EXISTS (SELECT 1 FROM customers c WHERE c.email = cc.customer_email)`);
+    }
+
+    if (mailboxId) {
+      whereClauses.push(`cc.mailbox_id = $${paramIndex++}`);
+      params.push(mailboxId);
     }
 
     const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';

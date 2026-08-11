@@ -124,6 +124,48 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `.mail-boundary` panels, reduced-motion guards) — never a global `button`
   selector. The Add/Edit Mailbox form keeps the blank + auto-detected rules and
   the save-time connection gate; masked/stripped passwords on PATCH.
+- **Communications Center is a unified mail client (Mail / Websmith Mail /
+  Mailboxes / Internal / Manage Mails)** (see master doc SECTION 0.18 +
+  "Communications mail-client redesign" progress entry): the main page
+  `app/internal/api/communications/page.tsx` sidebar is now `Mail` (email
+  folders Inbox / Sent / Draft / Waiting / Failed / Queued / Spam / Trash, all
+  `ext-*` + custom folder rows, badges from `Stats`), `Websmith Mail` (the
+  built-in system accounts support/sales/no-reply — row = health dot +
+  display name + email, active when the account scope matches), `Mailboxes`
+  (external mailbox rows with health dots; clicking opens **account-scoped
+  mail** in the Mail Inbox, NOT the old mailbox detail pane), `Internal`
+  (All + category folders + Email Logs / Universal Email) and a `Manage Mails`
+  group (Communication Settings / Templates / Signatures / Auto Reply /
+  Manage Folders + a **Manage Mails** button that navigates to
+  `manage-mails`). Account rows click through `handleAccountSelect()` →
+  `setAccountScope({kind:'system'|'mailbox', id})` + `setActiveFolder('ext-inbox')`;
+  **folders inside Mail keep the account scope, system-wide views clear it**
+  (`handleFolderChange`: `!key.startsWith('ext-')` → `setAccountScope(null)`);
+  `loadConversations()` applies the scope server-side (mailbox → `mailbox_id`
+  param on the existing `/communications/conversations` route — the ONLY
+  backend addition; system account → `mailbox_id` when its email matches a
+  configured mailbox, else `category=` its `support_categories`/
+  `sales_categories`/`['general']` list). The sidebar is **full-height
+  scrollable** (its own `overflow-y-auto`, header stays fixed) so many
+  accounts/folders never clip. Sender identity is account ID based and always
+  derived from real configured accounts — `buildSenderAccounts(commSettings,
+  mailboxes)` (+ `defaultSenderId`, `accountForConversation`, module-level in
+  the page; exported `SenderOption` from `UniversalEmailDialog.tsx`). The
+  reader shows the **receiving account** (`accountForConversation`: mailbox
+  wins by `conv.mailbox_id`, else the system account owning the category) in
+  the To: lines instead of hardcoded addresses. **From dropdowns**: the inline
+  reply composer (auto-preselected to the receiving account via
+  `setComposerFromId` in `openDetail`, disabled for internal notes) and the
+  `UniversalEmailDialog` (new optional `fromAccounts`/`defaultFromId` props,
+  "From" select above To; used by New Email with the default sender and by
+  Forward with the receiving account). Composer/dialog sends carry
+  `from_account_id`/`from_email`/`from_name` (+ `from_mailbox_id` for
+  mailboxes) into the existing `admin/communication/send` and
+  `admin/communication/reply` routes — which now honor them as a **sender
+  override**: `from_mailbox_id` sends via that mailbox's SMTP (same nodemailer
+  pattern as `[id]/send`), otherwise `from_email`/`from_name` override the
+  Brevo sender identity. No SMTP/IMAP/queue/schema/auth logic changed; no
+  hardcoded sender addresses added.
 - **Mailbox integration removal is integration-level** (see master doc Phase 9
   entry): `DELETE /internal/backend/mailboxes/[id]` no longer deletes only the
   row — it calls `removeMailboxIntegration()` in `lib/communications/remove-mailbox.ts`
