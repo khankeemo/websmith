@@ -947,3 +947,95 @@ main.app-main-shell[data-shell="panel"] .app-main-scroll {
     transition: none;
   }
 }
+
+/* ============================================================
+   MANAGE MAILS (app/internal/api/communications/manage-mails)
+   Scoped UI — EVERYTHING lives under .manage-mails-ui, never a
+   global selector. The .mail-action-button is the Navarog21
+   ridge/glow button (see .uv-button above) re-scoped with the
+   platform accent (#149CEA → #1479EA). Keep in sync with the
+   master implementation doc.
+   ============================================================ */
+.manage-mails-ui {
+  --mail-accent: #149CEA;
+  --mail-accent-strong: #1479EA;
+  --mail-accent-soft: rgba(20, 156, 234, 0.12);
+  --mail-boundary: rgba(20, 121, 234, 0.45);
+}
+
+/* Action button (Uiverse Navarog21, re-scoped) */
+.manage-mails-ui .mail-action-button {
+  position: relative;
+  border: 2px ridge var(--mail-accent);
+  outline: none;
+  background-color: transparent;
+  color: #ffffff;
+  transition: 0.5s;
+  border-radius: 0.35em;
+  cursor: pointer;
+}
+
+.manage-mails-ui .mail-action-button::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 3%;
+  width: 95%;
+  height: 40%;
+  background-color: var(--bg-primary, #212121);
+  transition: 0.5s;
+  transform-origin: center;
+  z-index: -1;
+}
+
+.manage-mails-ui .mail-action-button::before {
+  content: "";
+  transform-origin: center;
+  position: absolute;
+  top: 78%;
+  left: 3%;
+  width: 95%;
+  height: 40%;
+  background-color: var(--bg-primary, #212121);
+  transition: 0.5s;
+  z-index: -1;
+}
+
+.manage-mails-ui .mail-action-button:hover::before,
+.manage-mails-ui .mail-action-button:hover::after {
+  transform: scale(0);
+}
+
+.manage-mails-ui .mail-action-button:hover {
+  box-shadow: inset 0px 0px 25px var(--mail-accent-strong);
+}
+
+.manage-mails-ui .mail-action-button:focus-visible {
+  outline: 2px solid var(--mail-accent);
+  outline-offset: 2px;
+}
+
+.manage-mails-ui .mail-action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Accent boundary helper for account cards / panels */
+.manage-mails-ui .mail-boundary {
+  border: 1px solid var(--mail-boundary);
+  border-radius: 0.6rem;
+  background: linear-gradient(
+    180deg,
+    var(--mail-accent-soft),
+    rgba(20, 121, 234, 0.03)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manage-mails-ui .mail-action-button,
+  .manage-mails-ui .mail-action-button::after,
+  .manage-mails-ui .mail-action-button::before {
+    transition: none;
+  }
+}

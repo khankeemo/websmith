@@ -46,6 +46,7 @@ import {
   Inbox,
   Settings,
   MessageCircle,
+  AtSign,
 } from "lucide-react";
 
 interface NavLeaf {
@@ -149,6 +150,7 @@ const menu: NavSection[] = [
       {
         label: "Email",
         items: [
+          { name: "Manage Mails", icon: AtSign, path: "/internal/api/communications/manage-mails" },
           { name: "Email Templates", icon: Mail, path: "/internal/api/email/templates" },
         ],
       },
@@ -202,18 +204,31 @@ const menu: NavSection[] = [
   },
 ];
 
-// Preserved active-route logic (unchanged).
-function isPathActive(pathname: string, item: NavLeaf): boolean {
-  return pathname === item.path || (item.path !== "/internal/api/dashboard" && pathname.startsWith(item.path));
+// Preserved active-route logic with deepest-prefix resolution: an EXACT path
+// match always wins, otherwise the LONGEST matching prefix is active. This keeps
+// existing single-level routes unchanged while a child page (e.g.
+// /internal/api/communications/manage-mails) highlights only its own leaf and
+// never the parent overview (/internal/api/communications).
+function deepestMatch(leaves: NavLeaf[], pathname: string): NavLeaf | null {
+  const exact = leaves.find(l => pathname === l.path);
+  if (exact) return exact;
+  const prefixes = leaves
+    .filter(l => l.path !== "/internal/api/dashboard" && pathname.startsWith(l.path))
+    .sort((a, b) => b.path.length - a.path.length);
+  return prefixes[0] || null;
+}
+
+function isPathActive(pathname: string, item: NavLeaf, leaves: NavLeaf[]): boolean {
+  return deepestMatch(leaves, pathname)?.path === item.path;
 }
 
 function sectionHasActive(section: NavSection, pathname: string): boolean {
   const leaves = [...(section.items || []), ...(section.groups || []).flatMap(g => g.items)];
-  return leaves.some(leaf => isPathActive(pathname, leaf));
+  return leaves.some(leaf => isPathActive(pathname, leaf, leaves));
 }
 
-function NavRow({ item, pathname }: { item: NavLeaf; pathname: string }) {
-  const isActive = isPathActive(pathname, item);
+function NavRow({ item, pathname, leaves }: { item: NavLeaf; pathname: string; leaves: NavLeaf[] }) {
+  const isActive = isPathActive(pathname, item, leaves);
   return (
     <Link
       href={item.path}
@@ -496,13 +511,13 @@ export default function Sidebar() {
                           <p className="ia-nav-subgroup">{group.label}</p>
                           <div className="ia-nav-children">
                             {group.items.map((item) => (
-                              <NavRow key={item.name} item={item} pathname={pathname} />
+                              <NavRow key={item.name} item={item} pathname={pathname} leaves={group.items} />
                             ))}
                           </div>
                         </div>
                       ))}
                       {section.items?.map((item) => (
-                        <NavRow key={item.name} item={item} pathname={pathname} />
+                        <NavRow key={item.name} item={item} pathname={pathname} leaves={section.items!} />
                       ))}
                     </div>
                   </div>
@@ -514,7 +529,7 @@ export default function Sidebar() {
                     <span>{section.title}</span>
                   </p>
                   {section.items?.map((item) => (
-                    <NavRow key={item.name} item={item} pathname={pathname} />
+                    <NavRow key={item.name} item={item} pathname={pathname} leaves={section.items!} />
                   ))}
                 </>
               )}
