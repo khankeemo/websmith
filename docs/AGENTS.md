@@ -98,6 +98,32 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   disabled), confirmation `Modal` in the existing style, immediate
   list/detail refresh via `refreshCurrent()` + `fetchStats()`, toasts at
   `z-[100]`. Soft-delete/Trash flow is unchanged.
+- **Manage Mails — centralized mail workspace** (see master doc SECTION 0.18 /
+  Progress Tracking entry): the standalone page `app/internal/api/communications/
+  manage-mails/page.tsx` (full-viewport Communications layout, NO app sidebar)
+  manages the built-in **Websmith Mail** accounts (no-reply / support / sales) +
+  user **Mailboxes** + their mail in ONE 3-pane UI, reusing ONLY the existing
+  backend read-only — `/internal/backend/communications/settings` GET/POST
+  (system-account `is_active` toggle + display_name/reply_to/signature edits
+  persisted immediately via a full settings-doc POST), `/internal/backend/
+  mailboxes` (enable/disable, sync, set-default, `[id]/test`, send-test,
+  DELETE), `/internal/backend/communications/conversations` (list/detail, PATCH
+  `mark_read`/`mark_unread`/`archive`/`restore`, soft-DELETE, permanent bulk
+  DELETE + account-scoped Empty Trash both gated by `allow_email_deletion`).
+  **Account-scoped routing**: a mailbox shows mail by `cc.mailbox_id`; a system
+  account whose email matches a configured mailbox routes through that mailbox,
+  otherwise by `routing.support_categories` / `sales_categories` /
+  `['general']` for type system. **Sidebar rule**: the **Manage Mails** leaf
+  lives under Communications → Email (`/internal/api/communications/manage-mails`)
+  and active-route resolution is **deepest-prefix** — exact path match wins,
+  otherwise the longest matching prefix is active (`deepestMatch()` in
+  `components/internal-api/Sidebar.tsx`), so the child page never highlights the
+  parent Communications overview. Reply/New Email reuses `UniversalEmailDialog`.
+  Styling is a scoped `.manage-mails-ui` block in `app/globals.css`
+  (`.mail-action-button` Navarog21 ridge/glow in `#149CEA`→`#1479EA`,
+  `.mail-boundary` panels, reduced-motion guards) — never a global `button`
+  selector. The Add/Edit Mailbox form keeps the blank + auto-detected rules and
+  the save-time connection gate; masked/stripped passwords on PATCH.
 - **Mailbox integration removal is integration-level** (see master doc Phase 9
   entry): `DELETE /internal/backend/mailboxes/[id]` no longer deletes only the
   row — it calls `removeMailboxIntegration()` in `lib/communications/remove-mailbox.ts`
