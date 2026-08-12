@@ -11,7 +11,7 @@ import {
   Forward, CheckCheck, MailOpen, AtSign, LifeBuoy, FlaskConical,
   Package, BellRing, ShieldAlert, FilePen, Server, Plug,
   Database, Wrench, History as HistoryIcon, Download, X,
-  ChevronDown, ArchiveRestore, MailX, Eye,
+  ArchiveRestore, MailX, Eye,
   BookOpen, Ban, Smartphone, Save,
   Folder, FolderPlus, FolderOpen, FolderCog,
   Sparkles, ShieldCheck, Wifi, KeySquare,
@@ -443,6 +443,18 @@ const MAILBOX_LABELS: Record<string, { label: string; purpose: string }> = {
   sales: { label: 'Sales', purpose: 'Sales enquiries and purchase conversations.' },
 };
 
+// UI display names for the built-in Websmith Mail accounts (Websmith Mail
+// section in Communications Setting). Presentation-only — the backend values
+// stay untouched. Keyed like MAILBOX_LABELS (id with dashes → underscores).
+const SYSTEM_ACCOUNT_UI_LABELS: Record<string, string> = {
+  no_reply: 'Websmith Authentications',
+  support: 'Websmith Support Team',
+  sales: 'Websmith Sales Team',
+};
+
+const systemAccountUiLabel = (a: any): string =>
+  SYSTEM_ACCOUNT_UI_LABELS[String(a.id).replace(/-/g, '_')] || a.display_name || a.name || a.email;
+
 const MB_FIELD_LABELS: Record<string, string> = {
   provider: 'Provider',
   email_address: 'Mail Address',
@@ -728,7 +740,6 @@ export default function CommunicationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [showFilter, setShowFilter] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const displayConversations = useMemo(() => {
     if (readFilter === 'all') return conversations;
@@ -764,6 +775,11 @@ export default function CommunicationsPage() {
   const [commMailboxes, setCommMailboxes] = useState<Mailbox[]>([]);
   const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [accountDraft, setAccountDraft] = useState<any>(null);
+
+  // Communications Setting workspace — section navigation (single destination,
+  // no duplicate sidebar entries for templates/signatures/auto-reply/mailboxes).
+  type SettingsSection = 'general' | 'accounts' | 'mailboxes' | 'templates' | 'signatures' | 'auto-reply';
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('general');
 
   // Account-scoped mail (Mail/Websmith Mail/Mailboxes navigation) + reply From
   const [accountScope, setAccountScope] = useState<{ kind: 'system' | 'mailbox'; id: string } | null>(null);
@@ -1436,7 +1452,7 @@ export default function CommunicationsPage() {
     else if (f.kind === 'queue') loadQueue();
     else if (f.kind === 'logs') loadLogs();
     else if (f.kind === 'history') loadHistory();
-    else if (f.kind === 'settings') loadCommsSettings();
+    else if (f.kind === 'settings') { loadCommsSettings(); loadMailboxes(); loadTemplates(); }
     else if (f.kind === 'templates') loadTemplates();
     else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes();
     fetchStats();
@@ -1502,27 +1518,10 @@ export default function CommunicationsPage() {
     else if (f.kind === 'queue') loadQueue();
     else if (f.kind === 'logs') loadLogs();
     else if (f.kind === 'history') loadHistory();
-    else if (f.kind === 'settings') loadCommsSettings();
+    else if (f.kind === 'settings') { loadCommsSettings(); loadMailboxes(); loadTemplates(); }
     else if (f.kind === 'templates') loadTemplates();
     else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes();
     fetchStats();
-  };
-
-  // Select a mail account (Websmith Mail system account or external Mailbox).
-  // Jumps into the Mail Inbox scoped to that account; folders then navigate
-  // inside the account. Refreshing happens via the accountScope change.
-  const handleAccountSelect = (kind: 'system' | 'mailbox', id: string) => {
-    setActiveFolder('ext-inbox');
-    setSelectedIds(new Set());
-    setDetail(null);
-    setSelectedMailbox(null);
-    setMailboxDetail(null);
-    setSelectedQueueItem(null);
-    setSelectedLog(null);
-    setSelectedHistoryItem(null);
-    setError(null);
-    setComposerOpen(false);
-    setAccountScope({ kind, id });
   };
 
   const toggleSelect = (id: string) => {
@@ -2212,10 +2211,8 @@ export default function CommunicationsPage() {
     { key: 'unread', label: 'Unread', icon: MailOpen, color: 'bg-cyan-500/10 text-cyan-400' },
   ];
 
-  // ---- Sidebar (mailbox navigation — Websmith Default Mail stays fixed left) ----
+  // ---- Sidebar (Mail folders + Categories/Labels + Communications Setting) ----
   const renderSidebar = () => {
-    const systemAccounts = (commSettings?.mail_accounts || []).filter((a: any) => a?.id);
-
     const folderBtn = (def: FolderDef, badgeKey?: keyof Stats, extra?: any) => {
       const Icon = def.icon;
       const active = activeFolder === def.key;
@@ -2261,6 +2258,8 @@ export default function CommunicationsPage() {
       .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
       .filter((f): f is FolderDef => !!f);
 
+    const settingsActive = activeFolder === 'settings';
+
     return (
       <aside className="w-[240px] flex-shrink-0 flex flex-col min-h-0 border-r border-[var(--border-color)] bg-[var(--bg-tertiary)]/10">
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-2 py-3 space-y-4">
@@ -2274,7 +2273,7 @@ export default function CommunicationsPage() {
             </div>
           </div>
 
-          {/* Mail — the email folders (Inbox/Sent/Drafts/Waiting/Failed/Queued/Spam/Trash/All) */}
+          {/* Mail — the email folders (Inbox/Sent/Draft/Waiting/Failed/Queued/Spam/Trash) */}
           <div>
             {groupLabel('Mail')}
             <div className="space-y-0.5">
@@ -2284,135 +2283,38 @@ export default function CommunicationsPage() {
             </div>
           </div>
 
-          {/* Websmith Mail — built-in system accounts (support/sales/no-reply) */}
-          {systemAccounts.length > 0 && (
-            <div>
-              {groupLabel('Websmith Mail')}
-              <div className="space-y-0.5">
-                {systemAccounts.map(a => {
-                  const active = accountScope?.kind === 'system' && accountScope.id === String(a.id);
-                  return (
-                    <button
-                      key={String(a.id)}
-                      onClick={() => handleAccountSelect('system', String(a.id))}
-                      title={`${a.email || ''} — ${a.is_active ? 'Active' : 'Disabled'}`}
-                      className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                        active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${a.is_active ? 'bg-green-400' : 'bg-gray-500/40'}`} />
-                      <span className="flex-1 min-w-0 text-left">
-                        <span className="block truncate">{a.display_name || a.name || a.email}</span>
-                        <span className="block text-[9px] text-[var(--text-muted)] truncate">{a.email}</span>
-                      </span>
-                      {a.is_default_sender && <Flag size={10} className="flex-shrink-0 text-amber-400" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Mailboxes — external mailbox accounts; row actions + Add Mailbox
-              live in the dedicated Manage Mails workspace */}
+          {/* Categories / Labels — system-wide conversation categories */}
           <div>
-            {groupLabel('Mailboxes')}
+            {groupLabel('Categories / Labels')}
             <div className="space-y-0.5">
-              {mailboxes.map(mb => {
-                const h = mailboxHealth(mb);
-                const active = accountScope?.kind === 'mailbox' && accountScope.id === mb.id;
-                const dotColor = h.status === 'connected' ? 'bg-green-400' : h.status === 'syncing' ? 'bg-blue-400' : h.status === 'auth_required' || h.status === 'failed' ? 'bg-red-400' : h.status === 'disabled' ? 'bg-gray-500/40' : 'bg-gray-500/30';
-                return (
-                  <button
-                    key={mb.id}
-                    onClick={() => handleAccountSelect('mailbox', mb.id)}
-                    title={`${mb.email_address} — ${h.label}`}
-                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
-                    <span className="flex-1 min-w-0 text-left">
-                      <span className="block truncate">{mb.display_name || mb.email_address}</span>
-                      <span className="block text-[9px] text-[var(--text-muted)] truncate">{mb.email_address}</span>
-                    </span>
-                    {mb.is_default_sender && <Flag size={10} className="flex-shrink-0 text-amber-400" />}
-                  </button>
-                );
-              })}
-              {mailboxes.length === 0 && (
-                <p className="px-2.5 py-1 text-[10px] text-[var(--text-muted)]">No external mailboxes configured.</p>
+              {internalFolders.map(def =>
+                folderBtn(def, def.badgeKey as keyof Stats | undefined)
               )}
             </div>
-            <button
-              onClick={() => { window.location.href = '/internal/api/communications/manage-mails'; }}
-              className="mt-1.5 w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors"
-              title="Add, test, sync and configure mailboxes in the dedicated workspace"
-            >
-              <ExternalLink size={13} /> Manage Mails
-            </button>
           </div>
+        </div>
 
-          {/* Internal — Websmith system categories + email logs */}
-          <div>
-            <button
-              onClick={() => setSidebarOpen(o => !o)}
-              className="w-full px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase hover:text-[var(--text-primary)] transition-colors"
-            >
-              <Inbox size={10} /> Internal
-              <ChevronDown size={11} className={`ml-auto transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {sidebarOpen && (
-              <div className="space-y-0.5">
-                {internalFolders.map(def => folderBtn(def))}
-              </div>
-            )}
-          </div>
-
-          {/* Manage Mails — settings, templates, signatures, auto reply */}
-          <div>
-            <p className="px-2 mb-1 flex items-center gap-1.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">
-              <Settings size={10} /> Manage Mails
-            </p>
-            <div className="space-y-0.5">
-              {[
-                { key: 'settings', label: 'Communication Settings', icon: Settings },
-                { key: 'templates', label: 'Templates', icon: BookMarked },
-                { key: 'signatures', label: 'Signatures', icon: Signature },
-                { key: 'auto-reply', label: 'Auto Reply', icon: Zap },
-              ].map(item => {
-                const Icon = item.icon;
-                const active = activeFolder === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    onClick={() => handleFolderChange(item.key)}
-                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      active ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
-                    <Icon size={14} className="flex-shrink-0" />
-                    <span className="flex-1 text-left truncate">{item.label}</span>
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => { window.location.href = '/internal/api/communications/manage-mails'; }}
-                className="relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)] transition-colors"
-              >
-                <Mail size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">Manage Mails</span>
-                <ExternalLink size={11} className="flex-shrink-0 text-[var(--text-muted)]" />
-              </button>
-              <button onClick={() => setShowFolderManager(true)}
-                className="w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg border border-dashed border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors">
-                <FolderPlus size={13} /> Manage Folders
-              </button>
-            </div>
-          </div>
+        {/* Bottom — Communications Setting + Manage Folder only */}
+        <div className="shrink-0 border-t border-[var(--border-color)] px-2 py-2 space-y-0.5">
+          <button
+            onClick={() => handleFolderChange('settings')}
+            title="System communication settings, Websmith Mail accounts, Mailbox management, Templates, Signatures and Auto Reply"
+            className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+              settingsActive ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'
+            }`}
+          >
+            {settingsActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400" />}
+            <Settings size={14} className="flex-shrink-0" />
+            <span className="flex-1 text-left truncate">Communications Setting</span>
+          </button>
+          <button
+            onClick={() => setShowFolderManager(true)}
+            title="Create, rename, delete and restore conversation folders"
+            className="relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)] transition-colors"
+          >
+            <FolderCog size={14} className="flex-shrink-0" />
+            <span className="flex-1 text-left truncate">Manage Folder</span>
+          </button>
         </div>
       </aside>
     );
@@ -2752,6 +2654,61 @@ export default function CommunicationsPage() {
     );
   };
 
+  // ---- Communications Setting workspace (single consolidated configuration
+  // destination: General + Websmith Mail accounts + Mailbox management +
+  // Templates + Signatures + Auto Reply). No duplicate navigation entries and
+  // no duplicate controls — the old Manage Mails/Templates/Signatures/Auto
+  // Reply sidebar destinations all resolve here. ----
+  const renderSettingsWorkspace = () => {
+    const tabs: { key: SettingsSection; label: string; icon: any }[] = [
+      { key: 'general', label: 'General', icon: Settings },
+      { key: 'accounts', label: 'Websmith Mail', icon: AtSign },
+      { key: 'mailboxes', label: 'Mailboxes', icon: Inbox },
+      { key: 'templates', label: 'Templates', icon: BookMarked },
+      { key: 'signatures', label: 'Signatures', icon: Signature },
+      { key: 'auto-reply', label: 'Auto Reply', icon: Zap },
+    ];
+    return (
+      <div className="flex flex-col min-h-0 w-full">
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 shrink-0 overflow-x-auto scrollbar-thin">
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            const active = settingsSection === tab.key;
+            return (
+              <button key={tab.key} onClick={() => setSettingsSection(tab.key)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-colors ${active ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}>
+                <Icon size={12} /> {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex-1 min-h-0 flex">
+          {settingsSection === 'general' && renderSettings()}
+          {settingsSection === 'accounts' && renderSettingsAccounts()}
+          {settingsSection === 'mailboxes' && (
+            <>
+              <div className="w-[340px] min-w-[280px] flex-shrink-0 flex flex-col border-r border-[var(--border-color)]">{renderMailboxGrid()}</div>
+              <div className="flex-1 min-w-0 flex flex-col">{renderMailboxDetail()}</div>
+            </>
+          )}
+          {settingsSection === 'templates' && (
+            <>
+              <div className="w-[300px] min-w-[260px] flex-shrink-0 flex flex-col border-r border-[var(--border-color)]">{renderTemplatesList()}</div>
+              <div className="flex-1 min-w-0 flex flex-col">{renderTemplateEditor()}</div>
+            </>
+          )}
+          {settingsSection === 'signatures' && (
+            <>
+              <div className="w-[300px] min-w-[260px] flex-shrink-0 flex flex-col border-r border-[var(--border-color)]">{renderSignaturesList()}</div>
+              <div className="flex-1 min-w-0 flex flex-col">{renderSignatureEditor()}</div>
+            </>
+          )}
+          {settingsSection === 'auto-reply' && renderAutoReplyList()}
+        </div>
+      </div>
+    );
+  };
+
   const renderSettings = () => {
     if (commSettingsLoading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
     if (!commSettings) return (
@@ -2837,7 +2794,7 @@ export default function CommunicationsPage() {
               <div key={a.id} className="rounded-lg border border-[var(--border-color)] p-2.5">
                 <div className="flex items-center gap-2">
                   <AtSign size={11} className="text-[var(--text-muted)] flex-shrink-0" />
-                  <span className="text-xs text-[var(--text-primary)] font-medium truncate">{a.display_name || a.name}</span>
+                  <span className="text-xs text-[var(--text-primary)] font-medium truncate">{systemAccountUiLabel(a)}</span>
                   <Badge className={a.is_active ? 'text-green-400 bg-green-500/10' : 'text-gray-400 bg-gray-500/10'}>{a.is_active ? 'Active' : 'Inactive'}</Badge>
                   <span className="ml-auto text-[10px] text-[var(--text-muted)]">{a.type}</span>
                 </div>
@@ -2934,7 +2891,7 @@ export default function CommunicationsPage() {
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-[var(--text-primary)] truncate">{a.display_name || a.name}</span>
+                    <span className="text-xs font-medium text-[var(--text-primary)] truncate">{systemAccountUiLabel(a)}</span>
                     <Badge className={isActive ? 'text-green-400 bg-green-500/10' : 'text-gray-400 bg-gray-500/10'}>{isActive ? 'Active' : 'Inactive'}</Badge>
                     <Badge className="text-purple-400 bg-purple-500/10">System</Badge>
                     <span className="text-[10px] text-[var(--text-muted)]">{a.type}</span>
@@ -3371,7 +3328,7 @@ export default function CommunicationsPage() {
       case 'logs': return renderLogDetail();
       case 'history': return renderHistoryDetail();
       case 'mailboxes': return renderMailboxDetail();
-      case 'settings': return renderSettingsAccounts();
+      case 'settings': return renderSettingsWorkspace();
       case 'templates': return renderTemplateEditor();
       case 'signatures': return renderSignatureEditor();
       case 'auto-reply': return renderAutoReplyList();
@@ -3956,7 +3913,7 @@ export default function CommunicationsPage() {
       {/* 3-pane body: Mailboxes | Folders + Email List | Conversation */}
       <div className="flex-1 min-h-0 flex rounded-xl border border-[var(--border-color)] overflow-hidden">
         {renderSidebar()}
-        {activeFolderDef.kind !== 'auto-reply' && (
+        {activeFolderDef.kind !== 'auto-reply' && activeFolderDef.kind !== 'settings' && (
           <div className="w-[340px] min-w-[280px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
             {renderMiddle()}
           </div>

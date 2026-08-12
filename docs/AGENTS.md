@@ -124,9 +124,46 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `.mail-boundary` panels, reduced-motion guards) — never a global `button`
   selector. The Add/Edit Mailbox form keeps the blank + auto-detected rules and
   the save-time connection gate; masked/stripped passwords on PATCH.
+- **Communications Center — consolidated sidebar + single Communications Setting
+  (Phase 12, UI-ONLY — see master doc "Phase 12 — Communications Setting
+  consolidation" progress entry)**: the sidebar of
+  `app/internal/api/communications/page.tsx` now shows ONLY **Websmith
+  Communications → Communication Center → Mail** (Inbox / Sent / Draft /
+  Waiting / Failed / Queued / Spam / Trash, `ext-*` + custom folder rows,
+  badges from `Stats`) and **Categories / Labels** (All / Sales / Support /
+  Activation / Renewal / Reactivation / Hardware / Trial / Payment / SDK /
+  Customer / Notifications / Universal Email), plus a pinned bottom with
+  exactly **Communications Setting** + **Manage Folder** (opens the existing
+  folder-manager modal). All former nav destinations — Websmith Mail accounts,
+  Mailboxes, Templates, Signatures, Auto Reply, Manage Mails — were REMOVED
+  from the sidebar (no duplicates; the `manage-mails` route file is untouched
+  but no longer reachable from this page). **Communications Setting**
+  (`activeFolder 'settings'`) is ONE consolidated workspace
+  (`renderSettingsWorkspace()`: the middle pane is hidden, the center pane
+  renders a section tab bar **General / Websmith Mail / Mailboxes / Templates /
+  Signatures / Auto Reply**): **General** = the system communication settings
+  (General / Email Deletion / Routing cards + the single Save — the system
+  Communication toggle lives here and is NEVER duplicated), **Websmith Mail** =
+  the built-in accounts rendered with UI display labels
+  (`SYSTEM_ACCOUNT_UI_LABELS` / `systemAccountUiLabel`: Websmith Authentications
+  — no-reply@, Websmith Support Team — support@, Websmith Sales Team — sales@;
+  presentation-only overrides, backend settings values untouched) with the
+  enable/disable toggle + Edit / Test / Sync actions + IMAP / SMTP / Sync /
+  Health status grid, **Mailboxes** = the existing full mailbox-management UI
+  (grid + detail: enable/disable toggle, Add / Edit / Delete, Test / Sync /
+  Set Default / Send Test Email, connection status badges Connected /
+  Connection Failed / Authentication Required / Disabled + `last_error`
+  display — UI placement only, NO connection-logic change), and **Templates /
+  Signatures / Auto Reply** = the old Manage Mails configuration UI (one
+  source, no duplicate controls). Settings navigation state lives in
+  `settingsSection` (local, not a sidebar route); entering settings reloads
+  commSettings + mailboxes + templates. No SMTP/IMAP/queue/schema/auth/
+  storefront logic changed.
 - **Communications Center is a unified mail client (Mail / Websmith Mail /
   Mailboxes / Internal / Manage Mails)** (see master doc SECTION 0.18 +
-  "Communications mail-client redesign" progress entry): the main page
+  "Communications mail-client redesign" progress entry; **sidebar structure
+  since Phase 12 = Mail + Categories/Labels + Communications Setting only —
+  see the Phase 12 bullet above**): the main page
   `app/internal/api/communications/page.tsx` sidebar is now `Mail` (email
   folders Inbox / Sent / Draft / Waiting / Failed / Queued / Spam / Trash, all
   `ext-*` + custom folder rows, badges from `Stats`), `Websmith Mail` (the
