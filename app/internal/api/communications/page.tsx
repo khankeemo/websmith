@@ -2621,15 +2621,6 @@ export default function CommunicationsPage() {
         </button>
       </div>
     );
-    const online = mailboxes.filter(m => m.is_enabled && mailboxHealth(m).status === 'connected').length;
-    const authFailed = mailboxes.filter(m => mailboxHealth(m).status === 'auth_required' || mailboxHealth(m).status === 'failed').length;
-    const syncing = mailboxes.filter(m => m.sync_status === 'syncing').length;
-    const failed = mailboxes.filter(m => m.last_failure && (!m.last_success || m.last_failure > m.last_success)).length;
-    const lastSync = mailboxes
-      .map(m => m.last_sync)
-      .filter(Boolean)
-      .sort()
-      .pop();
     const fmtAgo = (iso?: string | null) => {
       if (!iso) return 'never';
       const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -2638,17 +2629,13 @@ export default function CommunicationsPage() {
       if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
       return `${Math.floor(s / 86400)}d ago`;
     };
-    const overview = [
-      { label: 'Mailboxes', value: mailboxes.length, icon: AtSign, cls: 'text-blue-400' },
-      { label: 'Connected', value: online, icon: Wifi, cls: 'text-green-400' },
-      { label: 'Auth / Failed', value: authFailed, icon: KeySquare, cls: 'text-red-400' },
-      { label: 'Syncing', value: syncing, icon: RefreshCw, cls: 'text-amber-400' },
-      { label: 'Last Sync', value: fmtAgo(lastSync), icon: Clock, cls: 'text-[var(--text-muted)]' },
-    ];
     return (
       <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-[var(--text-muted)]">{mailboxes.length} mailbox(es) — IMAP receive + SMTP send</p>
+        <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Mailboxes — External IMAP/SMTP</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{mailboxes.length} external mailbox(es) — real IMAP receive + SMTP send</p>
+          </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button onClick={syncAllMailboxes} disabled={busy === 'sync-all'}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
@@ -2659,16 +2646,6 @@ export default function CommunicationsPage() {
               <Plus size={13} /> Add Mailbox
             </button>
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {overview.map(card => (
-            <div key={card.label} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-3 py-2.5">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                <card.icon size={11} className={card.cls} /> {card.label}
-              </div>
-              <p className={`text-lg font-bold mt-1 ${card.cls}`}>{card.value}</p>
-            </div>
-          ))}
         </div>
         <div className="grid grid-cols-1 gap-2">
           {mailboxes.map(mb => {
