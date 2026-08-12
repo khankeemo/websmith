@@ -769,6 +769,7 @@ export default function CommunicationsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ ids: string[]; count: number; subject?: string } | null>(null);
   const [showDeleteMailboxConfirm, setShowDeleteMailboxConfirm] = useState<string | null>(null);
   const [testEmailTo, setTestEmailTo] = useState('');
+  const [testMailDraft, setTestMailDraft] = useState<Record<string, string>>({});
   const [commSettings, setCommSettings] = useState<any>(null);
   const [commSettingsLoading, setCommSettingsLoading] = useState(false);
   const [commSettingsDirty, setCommSettingsDirty] = useState(false);
@@ -1176,7 +1177,7 @@ export default function CommunicationsPage() {
       const next: any = {
         ...prev,
         mail_accounts: (prev.mail_accounts || []).map((a: any) =>
-          a.id === id ? { ...a, display_name: draft.display_name, reply_to: draft.reply_to, signature: draft.signature } : a
+          a.id === id ? { ...a, display_name: draft.display_name, email: draft.email, reply_to: draft.reply_to, signature: draft.signature } : a
         ),
       };
       setCommSettingsDirty(true);
@@ -1184,6 +1185,58 @@ export default function CommunicationsPage() {
       return next;
     });
   }, [persistCommSettings]);
+
+  // The three built-in Websmith Mail accounts (no-reply / support / sales) are
+  // app-config defaults and are NEVER deleted — they can only be disabled.
+  const isProtectedSystemAccount = (a: any) =>
+    ['no_reply', 'support', 'sales'].includes(String(a?.id || '').replace(/-/g, '_'));
+
+  // Add a new Websmith Mail account (a system sender identity). UI-only: the
+  // entry is added to the settings document and persisted through the existing
+  // communications/settings endpoint — no brand-new backend logic.
+  const addSystemAccount = useCallback(() => {
+    if (!commSettings) return;
+    const acct = {
+      id: `sys-${Date.now().toString(36).toLowerCase()}`,
+      type: 'general',
+      display_name: 'New Mail Account',
+      name: '',
+      email: '',
+      is_active: true,
+      is_default_sender: false,
+      reply_to: '',
+      signature: '',
+      templates: [],
+    };
+    const next: any = { ...commSettings, mail_accounts: [...(commSettings.mail_accounts || []), acct] };
+    setCommSettings(next);
+    setEditAccountId(acct.id);
+    setAccountDraft(acct);
+    setCommSettingsDirty(true);
+    persistCommSettings(next);
+  }, [commSettings, persistCommSettings]);
+
+  // Delete a user-added Websmith Mail account. The built-in system accounts
+  // (no_reply / support / sales) are protected — attempts show a toast and
+  // never reach the backend.
+  const deleteSystemAccount = useCallback((id: string) => {
+    if (!commSettings) return;
+    const target = (commSettings.mail_accounts || []).find((a: any) => a.id === id);
+    if (!target) return;
+    if (isProtectedSystemAccount(target)) {
+      showToast('err', `"${systemAccountUiLabel(target)}" is a built-in system account and cannot be deleted — disable it instead.`);
+      return;
+    }
+    if (!confirm(`Delete mail account "${systemAccountUiLabel(target) || target.email}"? This removes it from the sender identities.`)) return;
+    if (editAccountId === id) setEditAccountId(null);
+    const next: any = {
+      ...commSettings,
+      mail_accounts: (commSettings.mail_accounts || []).filter((a: any) => a.id !== id),
+    };
+    setCommSettings(next);
+    setCommSettingsDirty(true);
+    persistCommSettings(next);
+  }, [commSettings, showToast, persistCommSettings, editAccountId]);
 
   // ---- Signatures (stored in communication settings) ----
   const signatures: SignatureItem[] = commSettings?.signatures || [];
@@ -2282,21 +2335,21 @@ export default function CommunicationsPage() {
             </div>
           </div>
 
-          {/* Mail — the email folders (Inbox/Sent/Draft/Waiting/Failed/Queued/Spam/Trash) */}
+          {/* Categories / Labels — system-wide conversation categories (shown FIRST) */}
           <div>
-            {groupLabel('Mail')}
+            {groupLabel('Categories / Labels')}
             <div className="space-y-0.5">
-              {mailFolders.map(def =>
+              {internalFolders.map(def =>
                 folderBtn(def, def.badgeKey as keyof Stats | undefined)
               )}
             </div>
           </div>
 
-          {/* Categories / Labels — system-wide conversation categories */}
+          {/* Mail — the email folders (Inbox/Sent/Draft/Waiting/Failed/Queued/Spam/Trash) */}
           <div>
-            {groupLabel('Categories / Labels')}
+            {groupLabel('Mail')}
             <div className="space-y-0.5">
-              {internalFolders.map(def =>
+              {mailFolders.map(def =>
                 folderBtn(def, def.badgeKey as keyof Stats | undefined)
               )}
             </div>
@@ -2409,34 +2462,42 @@ export default function CommunicationsPage() {
               <div
                 key={conv.id}
                 onClick={() => openDetail(conv.id)}
-                className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${sel ? 'bg-blue-500/10' : unread ? 'hover:bg-[var(--bg-tertiary)]/20 bg-[var(--bg-tertiary)]/5' : 'hover:bg-[var(--bg-tertiary)]/20'}`}
+                className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors ${sel ? 'bg-blue-500/10' : unread ? 'hover:bg-[var(--bg-tertiary)]/20 bg-[var(--bg-tertiary)]/5' : 'hover:bg-[var(--bg-tertiary)]/20'}`}
               >
-                <div className="w-5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                <div className="w-5 flex-shrink-0 mt-0.5" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={sel} onChange={() => toggleSelect(conv.id)} className="accent-blue-500" />
                 </div>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${unread ? 'bg-blue-500/20 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${unread ? 'bg-blue-500/20 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
                   {initial}
                 </div>
-                <div className="w-40 flex-shrink-0 min-w-0">
-                  <p className={`text-xs truncate ${unread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-secondary)]'}`}>{sender}</p>
-                  <p className="text-[10px] text-[var(--text-muted)] truncate">{conv.customer_email}</p>
-                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {unread && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
-                    <p className={`text-xs truncate ${unread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-secondary)]'}`}>{conv.subject || '(No subject)'}</p>
-                    <CategoryBadge category={conv.category} />
+                  {/* Line 1 — sender name + unread indicator */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className={`text-xs truncate min-w-0 ${unread ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-secondary)]'}`}>{sender}</p>
+                    {unread && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" title="Unread" />}
                   </div>
-                  <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">
-                    {conv.product_id ? `Product ${conv.product_id}` : ''}{conv.product_id && conv.license_key ? ' · ' : ''}{conv.license_key || ''}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {conv.attachment_count > 0 && <Paperclip size={12} className="text-[var(--text-muted)]" />}
-                  <span className={`text-[10px] font-medium flex items-center gap-1 ${prio.color}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`} /> {prio.label}
-                  </span>
-                  <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap w-16 text-right">{new Date(conv.updated_at).toLocaleDateString()}</span>
+                  {/* Line 2 — sender email */}
+                  <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">{conv.customer_email}</p>
+                  {/* Line 3 — subject / content */}
+                  <p className={`text-xs truncate mt-1 ${unread ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'}`}>{conv.subject || '(No subject)'}</p>
+                  {/* Line 4 — category / priority / attachments / date (reserved slots, never overlap) */}
+                  <div className="flex items-center gap-3 mt-1.5 min-w-0">
+                    <CategoryBadge category={conv.category} />
+                    <span className={`text-[10px] font-medium flex items-center gap-1 flex-shrink-0 whitespace-nowrap ${prio.color}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`} /> {prio.label}
+                    </span>
+                    {conv.attachment_count > 0 && (
+                      <span className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] flex-shrink-0">
+                        <Paperclip size={10} /> {conv.attachment_count}
+                      </span>
+                    )}
+                    {conv.product_id || conv.license_key ? (
+                      <span className="text-[9px] text-[var(--text-muted)] truncate min-w-0">
+                        {conv.product_id ? `Product ${conv.product_id}` : ''}{conv.product_id && conv.license_key ? ' · ' : ''}{conv.license_key || ''}
+                      </span>
+                    ) : null}
+                    <span className="ml-auto text-[10px] text-[var(--text-muted)] whitespace-nowrap flex-shrink-0 pl-2">{new Date(conv.updated_at).toLocaleDateString()}</span>
+                  </div>
                 </div>
               </div>
             );
@@ -2637,7 +2698,7 @@ export default function CommunicationsPage() {
                   <span>Sent {fmtAgo(mb.last_success)}</span>
                   {mb.last_error && <span className="flex items-center gap-1 text-red-400 truncate max-w-[200px]"><AlertTriangle size={10} /> {mb.last_error}</span>}
                 </div>
-                <div className="flex items-center gap-1.5 mt-2">
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                   <button onClick={(e) => { e.stopPropagation(); mailboxAction(mb.id, 'test', 'POST', undefined, 'Connection test completed'); }} disabled={busyKey('test')}
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
                     {busyKey('test') ? <Loader2 size={10} className="animate-spin" /> : <ShieldCheck size={10} />} Test
@@ -2646,6 +2707,10 @@ export default function CommunicationsPage() {
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
                     {busyKey('sync') ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Sync
                   </button>
+                  <button onClick={(e) => { e.stopPropagation(); mailboxAction(mb.id, 'set-default', 'POST', undefined, 'Default sender updated'); }} disabled={busyKey('set-default') || mb.is_default_sender}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
+                    {busyKey('set-default') ? <Loader2 size={10} className="animate-spin" /> : <Flag size={10} />} Set Default
+                  </button>
                   <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, is_enabled: mb.is_enabled !== false, is_default_sender: mb.is_default_sender === true, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, auto_reply_template_key: mb.auto_reply_template_key, auto_reply_signature: mb.auto_reply_signature, imap_password: '', smtp_password: '' }); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30">
                     <Pencil size={10} /> Edit
@@ -2653,6 +2718,21 @@ export default function CommunicationsPage() {
                   <button onClick={(e) => { e.stopPropagation(); setShowDeleteMailboxConfirm(mb.id); }} disabled={busy === `delete:${mb.id}`}
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-red-500/20 text-[10px] text-red-400 hover:bg-red-500/10 disabled:opacity-50">
                     <Trash2 size={10} /> Delete
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="email"
+                    placeholder="Send test email to..."
+                    value={testMailDraft[mb.id] || ''}
+                    onChange={e => setTestMailDraft(prev => ({ ...prev, [mb.id]: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter' && testMailDraft[mb.id]?.trim()) mailboxAction(mb.id, 'send-test', 'POST', { to_email: testMailDraft[mb.id].trim() }, 'Test email sent'); }}
+                    className="flex-1 min-w-0 px-2.5 py-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-[10px] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <button onClick={() => { mailboxAction(mb.id, 'send-test', 'POST', { to_email: testMailDraft[mb.id]?.trim() }, 'Test email sent'); setTestMailDraft(prev => ({ ...prev, [mb.id]: '' })); }}
+                    disabled={busyKey('send-test') || !testMailDraft[mb.id]?.trim()}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-medium transition-colors disabled:opacity-50 shrink-0">
+                    {busyKey('send-test') ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />} Send Test Email
                   </button>
                 </div>
               </div>
@@ -2696,7 +2776,7 @@ export default function CommunicationsPage() {
           {settingsSection === 'accounts' && renderSettingsAccounts()}
           {settingsSection === 'mailboxes' && (
             <>
-              <div className="w-[340px] min-w-[280px] flex-shrink-0 flex flex-col border-r border-[var(--border-color)]">{renderMailboxGrid()}</div>
+              <div className="w-[380px] min-w-[320px] flex-shrink-0 flex flex-col border-r border-[var(--border-color)]">{renderMailboxGrid()}</div>
               <div className="flex-1 min-w-0 flex flex-col">{renderMailboxDetail()}</div>
             </>
           )}
@@ -2876,15 +2956,21 @@ export default function CommunicationsPage() {
     };
     return (
       <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">System Mail Accounts</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Built-in sender routing accounts. Toggles persist via the real backend configuration.</p>
+        <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Websmith Mail — System Accounts</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Company-managed sender routing accounts. Toggles persist via the real backend configuration.</p>
           </div>
-          <button onClick={() => loadCommsSettings()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
-            <RefreshCw size={12} /> Refresh
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button onClick={addSystemAccount}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
+              <Plus size={13} /> Add Mail Account
+            </button>
+            <button onClick={() => loadCommsSettings()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
+              <RefreshCw size={12} /> Refresh
+            </button>
+          </div>
         </div>
 
         {accounts.length === 0 && <p className="text-xs text-[var(--text-muted)] px-1">No mail accounts configured.</p>}
@@ -2896,42 +2982,49 @@ export default function CommunicationsPage() {
           const editing = editAccountId === a.id;
           return (
             <div key={a.id} className={`rounded-xl border p-3 transition-colors ${isActive ? 'border-[var(--border-color)] bg-[var(--bg-tertiary)]/5' : 'border-gray-500/20 bg-[var(--bg-tertiary)]/5 opacity-80'}`}>
-              {/* Header: identity + status + toggle */}
-              <div className="flex items-start gap-2">
+              {/* Header: identity + status + Enable/Disable toggle */}
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${isActive ? 'bg-blue-500/20 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
+                  {(systemAccountUiLabel(a) || 'A').trim()[0]?.toUpperCase() || '?'}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-medium text-[var(--text-primary)] truncate">{systemAccountUiLabel(a)}</span>
                     <Badge className={isActive ? 'text-green-400 bg-green-500/10' : 'text-gray-400 bg-gray-500/10'}>{isActive ? 'Active' : 'Inactive'}</Badge>
                     <Badge className="text-purple-400 bg-purple-500/10">System</Badge>
-                    <span className="text-[10px] text-[var(--text-muted)]">{a.type}</span>
+                    {a.is_default_sender && <Badge className="text-blue-400 bg-blue-500/10">Default Sender</Badge>}
                   </div>
-                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1"><AtSign size={10} className="text-[var(--text-muted)]" />{a.email}</p>
-                  <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Purpose: {MAILBOX_LABELS[String(a.id).replace(/-/g, '_')]?.purpose || (a.type === 'sales' ? 'Sales enquiries and purchase conversations.' : a.type === 'support' ? 'Customer support conversations.' : 'Automated system emails (OTP, license, payments, notifications).')}</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1 min-w-0">
+                    <AtSign size={10} className="text-[var(--text-muted)] flex-shrink-0" />
+                    <span className="truncate">{a.email || '(no email set)'}</span>
+                  </p>
                 </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
-                    Status: <Toggle checked={isActive} onChange={() => toggleSystemAccount(a.id)} disabled={busy === 'save-comm-settings'} />
-                  </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] shrink-0">
+                  <span className="hidden sm:inline">Enabled</span>
+                  <Toggle checked={isActive} onChange={() => toggleSystemAccount(a.id)} disabled={busy === 'save-comm-settings'} />
                   {busy === 'save-comm-settings' && <Loader2 size={11} className="animate-spin text-blue-400" />}
                 </div>
               </div>
 
+              {/* Purpose */}
+              <p className="text-[10px] text-[var(--text-muted)] mt-2">Purpose: {MAILBOX_LABELS[String(a.id).replace(/-/g, '_')]?.purpose || (a.type === 'sales' ? 'Sales enquiries and purchase conversations.' : a.type === 'support' ? 'Customer support conversations.' : 'Automated system emails (OTP, license, payments, notifications).')}</p>
+
               {/* Connection / sync status (real mailbox row when present, else honest "n/a") */}
-              <div className="grid grid-cols-2 gap-1.5 text-[10px] text-[var(--text-muted)] mt-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 text-[10px] text-[var(--text-muted)] mt-2">
                 <span className="flex items-center gap-1">
-                  <Database size={10} className="text-blue-400" /> IMAP:
+                  <Database size={10} className="text-blue-400 flex-shrink-0" /> IMAP:
                   {matching ? <span className={matching.connection_status === 'connected' ? 'text-green-400' : matching.connection_status === 'failed' ? 'text-red-400' : ''}>{matching.connection_status || 'unknown'}</span> : <span className="text-[var(--text-muted)]">n/a (native)</span>}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Server size={10} className="text-emerald-400" /> SMTP:
-                  {matching ? <span>{matching.smtp_host || '-'}{matching.smtp_port ? `:${matching.smtp_port}` : ''}</span> : <span className="text-[var(--text-muted)]">n/a (native)</span>}
+                  <Server size={10} className="text-emerald-400 flex-shrink-0" /> SMTP:
+                  {matching ? <span className="truncate">{matching.smtp_host || '-'}{matching.smtp_port ? `:${matching.smtp_port}` : ''}</span> : <span className="text-[var(--text-muted)]">n/a (native)</span>}
                 </span>
                 <span className="flex items-center gap-1">
-                  <RefreshCw size={10} className="text-amber-400" /> Sync:
+                  <RefreshCw size={10} className="text-amber-400 flex-shrink-0" /> Sync:
                   {matching ? <span>{fmtSync(matching.last_sync)}</span> : <span className="text-[var(--text-muted)]">n/a (native)</span>}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Activity size={10} className="text-purple-400" /> Health:
+                  <Activity size={10} className="text-purple-400 flex-shrink-0" /> Health:
                   {h ? <HealthBadge h={h} /> : <span className="text-[var(--text-muted)]">system (no external mailbox)</span>}
                 </span>
               </div>
@@ -2941,10 +3034,11 @@ export default function CommunicationsPage() {
               {editing && (
                 <div className="mt-2 rounded-lg border border-[var(--border-color)] p-2 space-y-2">
                   <Field label="Display Name"><input type="text" value={accountDraft?.display_name ?? a.display_name} onChange={e => setAccountDraft({ ...(accountDraft || a), display_name: e.target.value })} className={inputCls} /></Field>
+                  <Field label="Email"><input type="email" value={accountDraft?.email ?? a.email} onChange={e => setAccountDraft({ ...(accountDraft || a), email: e.target.value })} className={inputCls} /></Field>
                   <Field label="Reply-To"><input type="email" value={accountDraft?.reply_to ?? a.reply_to} onChange={e => setAccountDraft({ ...(accountDraft || a), reply_to: e.target.value })} className={inputCls} /></Field>
                   <Field label="Signature"><textarea rows={2} value={accountDraft?.signature ?? a.signature} onChange={e => setAccountDraft({ ...(accountDraft || a), signature: e.target.value })} className={inputCls} /></Field>
                   <div className="flex items-center gap-1.5">
-                    <button onClick={() => saveAccountDraft(a.id, { display_name: accountDraft?.display_name ?? a.display_name, reply_to: accountDraft?.reply_to ?? a.reply_to, signature: accountDraft?.signature ?? a.signature })} disabled={busy === 'save-comm-settings'}
+                    <button onClick={() => saveAccountDraft(a.id, { display_name: accountDraft?.display_name ?? a.display_name, email: accountDraft?.email ?? a.email, reply_to: accountDraft?.reply_to ?? a.reply_to, signature: accountDraft?.signature ?? a.signature })} disabled={busy === 'save-comm-settings'}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-medium disabled:opacity-50">
                       {busy === 'save-comm-settings' ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />} Save
                     </button>
@@ -2953,8 +3047,8 @@ export default function CommunicationsPage() {
                 </div>
               )}
 
-              {/* Actions */}
-              <div className="flex items-center gap-1.5 mt-2">
+              {/* Actions: Edit / Test / Sync / Delete */}
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                 <button onClick={() => { setEditAccountId(editing ? null : a.id); setAccountDraft(null); }}
                   className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30">
                   <Pencil size={10} /> Edit
@@ -2972,6 +3066,11 @@ export default function CommunicationsPage() {
                   disabled={busy === 'save-comm-settings'}
                   className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
                   <RefreshCw size={10} /> Sync
+                </button>
+                <button onClick={() => deleteSystemAccount(a.id)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] transition-colors ${isProtectedSystemAccount(a) ? 'border-gray-500/20 text-[var(--text-muted)] cursor-not-allowed' : 'border-red-500/20 text-red-400 hover:bg-red-500/10'}`}
+                  title={isProtectedSystemAccount(a) ? 'Built-in system accounts cannot be deleted — disable them instead' : 'Delete this mail account'}>
+                  <Trash2 size={10} /> Delete
                 </button>
               </div>
             </div>
@@ -3601,36 +3700,46 @@ export default function CommunicationsPage() {
         {/* Reader body */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <div className="max-w-5xl mx-auto p-4 space-y-4">
-            {/* Header card */}
+            {/* Header card — consistent display bar: sender / email / category / priority / date */}
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-4">
-              <div className="flex items-start gap-2">
-                <h2 className="flex-1 min-w-0 text-base font-semibold text-[var(--text-primary)] leading-snug">{conv.subject || '(No subject)'}</h2>
-                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                  <CategoryBadge category={conv.category} />
-                  <StatusBadge status={conv.status} />
-                  <span className={`text-[10px] font-medium flex items-center gap-1 ${prio.color}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`} /> {prio.label} priority
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${unread ? 'bg-blue-500/20 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
+              <div className="flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${unread ? 'bg-blue-500/20 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
                   {(conv.customer_name || conv.customer_email || '?').trim()[0]?.toUpperCase() || '?'}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-[var(--text-primary)] truncate font-medium">
+                  <h2 className="text-sm font-semibold text-[var(--text-primary)] leading-snug truncate">{conv.subject || '(No subject)'}</h2>
+                  <p className="text-xs text-[var(--text-primary)] mt-1 truncate font-medium">
                     {conv.customer_name || 'Unknown'} <span className="text-[var(--text-muted)] font-normal">&lt;{conv.customer_email}&gt;</span>
                     {unread && <span className="ml-2 text-[9px] font-medium text-blue-400">{conv.unread_replies} unread</span>}
                   </p>
                   <p className="text-[10px] text-[var(--text-muted)] truncate">To: {receivingLabel}</p>
                 </div>
-                <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">{new Date(conv.created_at).toLocaleString()}</span>
+                <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap shrink-0">{new Date(conv.updated_at).toLocaleDateString()}</span>
               </div>
-              <div className="text-[11px] text-[var(--text-muted)] mt-2 space-y-0.5">
-                <p>From: <span className="text-[var(--text-secondary)]">{conv.customer_name || 'Unknown'} &lt;{conv.customer_email}&gt;</span></p>
+              {/* Meta row — every label keeps its own reserved space */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 pt-3 border-t border-[var(--border-color)]">
+                <span className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] whitespace-nowrap">
+                  Category <CategoryBadge category={conv.category} />
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] whitespace-nowrap">
+                  Priority
+                  <span className={`text-[10px] font-medium flex items-center gap-1 ${prio.color}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`} /> {prio.label}
+                  </span>
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] whitespace-nowrap">
+                  Status <StatusBadge status={conv.status} />
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] whitespace-nowrap">
+                  From <span className="text-[var(--text-secondary)]">{conv.customer_name || 'Unknown'} &lt;{conv.customer_email}&gt;</span>
+                </span>
+                <span className="ml-auto flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] whitespace-nowrap">
+                  Received <span className="text-[var(--text-secondary)]">{new Date(conv.created_at).toLocaleDateString()}</span>
+                </span>
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-2 pt-2 border-t border-[var(--border-color)] space-y-0.5">
                 <p>To: <span className="text-[var(--text-secondary)]">{receivingLabel}</span> · CC: <span className="text-[var(--text-secondary)]">—</span> · BCC: <span className="text-[var(--text-secondary)]">—</span></p>
                 <p>Date &amp; Time: <span className="text-[var(--text-secondary)]">{new Date(conv.created_at).toLocaleString()}</span> · Updated: {new Date(conv.updated_at).toLocaleString()}</p>
-                <p>Status: <span className="text-[var(--text-secondary)]">{STATUS_LABELS[conv.status]?.label || conv.status}</span> · Priority: <span className={prio.color}>{prio.label}</span></p>
               </div>
             </div>
 
@@ -3923,7 +4032,7 @@ export default function CommunicationsPage() {
       <div className="flex-1 min-h-0 flex rounded-xl border border-[var(--border-color)] overflow-hidden">
         {renderSidebar()}
         {activeFolderDef.kind !== 'auto-reply' && activeFolderDef.kind !== 'settings' && (
-          <div className="w-[340px] min-w-[280px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
+          <div className="w-[380px] min-w-[320px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
             {renderMiddle()}
           </div>
         )}
