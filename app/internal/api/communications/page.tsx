@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Mail, Send, Inbox, AlertTriangle, MessageSquare, FileText,
   Settings, Clock, RefreshCw, Loader2, Search, Filter,
@@ -776,6 +776,15 @@ export default function CommunicationsPage() {
   const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [accountDraft, setAccountDraft] = useState<any>(null);
 
+  // Latest-value refs: loadConversations reads these so its identity stays
+  // stable — loaded data must never re-trigger the refreshCurrent effect,
+  // otherwise opening the Communications Setting workspace spins an endless
+  // reload loop that keeps flipping the loading flags and unmounting tabs.
+  const commSettingsRef = useRef<any>(null);
+  const mailboxesRef = useRef<Mailbox[]>([]);
+  useEffect(() => { commSettingsRef.current = commSettings; }, [commSettings]);
+  useEffect(() => { mailboxesRef.current = mailboxes; }, [mailboxes]);
+
   // Communications Setting workspace — section navigation (single destination,
   // no duplicate sidebar entries for templates/signatures/auto-reply/mailboxes).
   type SettingsSection = 'general' | 'accounts' | 'mailboxes' | 'templates' | 'signatures' | 'auto-reply';
@@ -979,12 +988,12 @@ export default function CommunicationsPage() {
       if (scope?.kind === 'mailbox') {
         params.set('mailbox_id', scope.id);
       } else if (scope?.kind === 'system') {
-        const acct = (commSettings?.mail_accounts || []).find((a: any) => String(a.id) === scope.id);
-        const mb = mailboxes.find(m => (acct?.email || '').toLowerCase() === (m.email_address || '').toLowerCase());
+        const acct = (commSettingsRef.current?.mail_accounts || []).find((a: any) => String(a.id) === scope.id);
+        const mb = mailboxesRef.current.find(m => (acct?.email || '').toLowerCase() === (m.email_address || '').toLowerCase());
         if (mb) {
           params.set('mailbox_id', mb.id);
         } else {
-          params.set('category', systemAccountCategories(commSettings, acct).join(','));
+          params.set('category', systemAccountCategories(commSettingsRef.current, acct).join(','));
         }
       }
 
@@ -1000,7 +1009,7 @@ export default function CommunicationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [commSettings, mailboxes]);
+  }, []);
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
