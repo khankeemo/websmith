@@ -2637,44 +2637,72 @@ export default function CommunicationsPage() {
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{mailboxes.length} external mailbox(es) — real IMAP receive + SMTP send</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <button onClick={syncAllMailboxes} disabled={busy === 'sync-all'}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
-              {busy === 'sync-all' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
-            </button>
             <button onClick={() => { setEditingMailbox(null); setMailboxForm(newMailboxForm()); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
               <Plus size={13} /> Add Mailbox
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-2">
+        <div className="space-y-2">
           {mailboxes.map(mb => {
             const h = mailboxHealth(mb);
+            const isEnabled = mb.is_enabled !== false;
             const busyKey = (e: string) => busy === `${e}:${mb.id}`;
+            const label = mb.display_name || mb.email_address || 'Mailbox';
             return (
               <div
                 key={mb.id}
                 onClick={() => loadMailboxDetail(mb.id)}
-                className={`cursor-pointer rounded-xl border p-3 transition-colors ${selectedMailbox?.id === mb.id ? 'border-blue-500/40 bg-blue-500/10' : 'border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 hover:bg-[var(--bg-tertiary)]/20'}`}
+                className={`rounded-xl border p-3 transition-colors cursor-pointer ${selectedMailbox?.id === mb.id ? 'border-blue-500/40 bg-blue-500/10' : isEnabled ? 'border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 hover:bg-[var(--bg-tertiary)]/20' : 'border-gray-500/20 bg-[var(--bg-tertiary)]/5 opacity-80'}`}
               >
+                {/* Header: identity + status + Enable/Disable toggle */}
                 <div className="flex items-center gap-2">
-                  <HealthBadge h={h} />
-                  <span className="text-xs font-medium text-[var(--text-primary)] truncate">{mb.display_name || mb.email_address}</span>
-                  {mb.is_default_sender && <Badge className="text-blue-400 bg-blue-500/10">Default Sender</Badge>}
-                  <span className="ml-auto flex items-center gap-2">
-                    {mb.sync_status === 'syncing' && <Loader2 size={12} className="animate-spin text-blue-400" />}
-                    <Toggle checked={mb.is_enabled !== false} onChange={() => mailboxAction(mb.id, mb.is_enabled ? 'disable' : 'enable', 'POST', undefined, mb.is_enabled ? 'Mailbox disabled' : 'Mailbox enabled')} />
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${isEnabled ? 'bg-blue-500/20 text-blue-400' : 'bg-[var(--bg-tertiary)]/40 text-[var(--text-secondary)]'}`}>
+                    {(label || 'M').trim()[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-[var(--text-primary)] truncate">{label}</span>
+                      <Badge className={h.color}>{h.label}</Badge>
+                      <Badge className="text-purple-400 bg-purple-500/10">Mailbox</Badge>
+                      {mb.is_default_sender && <Badge className="text-blue-400 bg-blue-500/10">Default Sender</Badge>}
+                    </div>
+                    <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1 min-w-0">
+                      <AtSign size={10} className="text-[var(--text-muted)] flex-shrink-0" />
+                      <span className="truncate">{mb.email_address || '(no email set)'}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] shrink-0">
+                    <span className="hidden sm:inline">Enabled</span>
+                    <Toggle checked={isEnabled} onChange={() => mailboxAction(mb.id, isEnabled ? 'disable' : 'enable', 'POST', undefined, isEnabled ? 'Mailbox disabled' : 'Mailbox enabled')} />
+                  </div>
+                </div>
+
+                {/* Purpose */}
+                <p className="text-[10px] text-[var(--text-muted)] mt-2">Purpose: External IMAP/SMTP mailbox.</p>
+
+                {/* Connection / sync status */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 text-[10px] text-[var(--text-muted)] mt-2">
+                  <span className="flex items-center gap-1">
+                    <Database size={10} className="text-blue-400 flex-shrink-0" /> IMAP:
+                    <span className="truncate">{mb.imap_host || '-'}{mb.imap_port ? `:${mb.imap_port}` : ''}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Server size={10} className="text-emerald-400 flex-shrink-0" /> SMTP:
+                    <span className="truncate">{mb.smtp_host || '-'}{mb.smtp_port ? `:${mb.smtp_port}` : ''}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <RefreshCw size={10} className="text-amber-400 flex-shrink-0" /> Sync:
+                    <span>{fmtAgo(mb.last_sync)}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Activity size={10} className="text-purple-400 flex-shrink-0" /> Health:
+                    <HealthBadge h={h} />
                   </span>
                 </div>
-                <p className="text-[11px] text-[var(--text-secondary)] truncate mt-1.5">{mb.email_address}</p>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[10px] text-[var(--text-muted)]">
-                  <span className="flex items-center gap-1"><Wifi size={10} className={mb.imap_secure ? 'text-green-400' : 'text-amber-400'} /> IMAP {mb.imap_host}:{mb.imap_port}</span>
-                  <span className="flex items-center gap-1"><Send size={10} className={mb.smtp_secure ? 'text-green-400' : 'text-amber-400'} /> SMTP {mb.smtp_host}:{mb.smtp_port}</span>
-                  {mb.queue_size > 0 && <span className="flex items-center gap-1 text-amber-400"><Clock size={10} /> {mb.queue_size} queued</span>}
-                  <span>Sync {fmtAgo(mb.last_sync)}</span>
-                  <span>Sent {fmtAgo(mb.last_success)}</span>
-                  {mb.last_error && <span className="flex items-center gap-1 text-red-400 truncate max-w-[200px]"><AlertTriangle size={10} /> {mb.last_error}</span>}
-                </div>
+                {mb.last_error && <p className="text-[10px] text-red-400 break-words mt-1">{mb.last_error}</p>}
+
+                {/* Actions: Test / Sync / Set Default / Edit / Delete */}
                 <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                   <button onClick={(e) => { e.stopPropagation(); mailboxAction(mb.id, 'test', 'POST', undefined, 'Connection test completed'); }} disabled={busyKey('test')}
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
@@ -2688,7 +2716,7 @@ export default function CommunicationsPage() {
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 disabled:opacity-50">
                     {busyKey('set-default') ? <Loader2 size={10} className="animate-spin" /> : <Flag size={10} />} Set Default
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, is_enabled: mb.is_enabled !== false, is_default_sender: mb.is_default_sender === true, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, auto_reply_template_key: mb.auto_reply_template_key, auto_reply_signature: mb.auto_reply_signature, imap_password: '', smtp_password: '' }); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
+                  <button onClick={(e) => { e.stopPropagation(); setEditingMailbox(mb); setMailboxForm({ provider: mb.provider || 'custom', email_address: mb.email_address, display_name: mb.display_name, imap_host: mb.imap_host, imap_port: mb.imap_port, imap_secure: mb.imap_secure, imap_username: mb.imap_username, smtp_host: mb.smtp_host, smtp_port: mb.smtp_port, smtp_secure: mb.smtp_secure, smtp_username: mb.smtp_username, signature: mb.signature, is_enabled: isEnabled, is_default_sender: mb.is_default_sender === true, auto_reply_enabled: mb.auto_reply_enabled, auto_reply_message: mb.auto_reply_message, auto_reply_template_key: mb.auto_reply_template_key, auto_reply_signature: mb.auto_reply_signature, imap_password: '', smtp_password: '' }); setMailboxFormError(null); setMailboxTest({ running: false, results: null }); setShowMailboxForm(true); }}
                     className="flex items-center gap-1 px-2 py-1 rounded-md border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30">
                     <Pencil size={10} /> Edit
                   </button>
@@ -2697,6 +2725,8 @@ export default function CommunicationsPage() {
                     <Trash2 size={10} /> Delete
                   </button>
                 </div>
+
+                {/* Send test email */}
                 <div className="flex items-center gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
                   <input
                     type="email"
