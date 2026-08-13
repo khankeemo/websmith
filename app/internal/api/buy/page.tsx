@@ -20,6 +20,7 @@ import {
   PortalShell, PortalStepper, Field, Toast, inputClass,
   portalPrice, portalDate, toMoney,
 } from "../portal/_ui";
+import ContactSales from "../portal/_ContactSales";
 import {
   PortalProduct, PortalPlan, CheckoutCountry,
   fetchPortalProducts, fetchPortalConfig, sendOtp, verifyOtp,
@@ -278,9 +279,22 @@ export default function BuyLicensePage() {
     }
   }, [otpVerified, firstName, lastName, company, email, countryCode, mobile, addressLine1, addressLine2, city, state, countryName, postalCode, selectedProduct, selectedPlan]);
 
+  // Contact Sales entry — opens the shared email dialog in customer mode.
+  // Posts to the public /api/portal/support-message route; recipient is
+  // resolved server-side (Buy → sales@websmithdigital.com).
+  const contactSalesEntry = (
+    <ContactSales
+      action="buy-license"
+      defaultEmail={email}
+      defaultCustomerName={[firstName, lastName].filter(Boolean).join(" ").trim() || undefined}
+      defaultCustomerMobile={mobile}
+      defaultProductName={selectedProduct?.name}
+    />
+  );
+
   if (loading) {
     return (
-      <PortalShell eyebrow="Buy License" title="Buy License">
+      <PortalShell eyebrow="Buy License" title="Buy License" headerAction={contactSalesEntry}>
         <div className="grid lg:grid-cols-2 gap-6 animate-pulse">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 p-6 h-40" />
@@ -295,7 +309,7 @@ export default function BuyLicensePage() {
   // ============================================================
   if (result) {
     return (
-      <PortalShell eyebrow="Buy License" title="License Ready for Activation">
+      <PortalShell eyebrow="Buy License" title="License Ready for Activation" headerAction={contactSalesEntry}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -374,7 +388,7 @@ export default function BuyLicensePage() {
   // MAIN FLOW
   // ============================================================
   return (
-    <PortalShell eyebrow="Buy License" title="Buy License">
+    <PortalShell eyebrow="Buy License" title="Buy License" headerAction={contactSalesEntry}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">

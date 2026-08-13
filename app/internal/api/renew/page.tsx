@@ -19,6 +19,7 @@ import {
 import {
   PortalShell, PortalStepper, Field, Toast, inputClass, portalPrice,
 } from "../portal/_ui";
+import ContactSales from "../portal/_ContactSales";
 import {
   fetchLicenseInfo, LicenseInfo, createPortalOrder, payPortalOrder, sendOtp, verifyOtp,
 } from "../portal/portalClient";
@@ -199,12 +200,26 @@ export default function RenewLicensePage() {
     }
   }, [otpVerified, licenseInfo, selectedRenewPlan, firstName, lastName, company, email, mobile]);
 
+  // Contact Sales entry — opens the shared email dialog in customer mode.
+  // Posts to the public /api/portal/support-message route; recipient is
+  // resolved server-side (Renew → sales@websmithdigital.com).
+  const contactSalesEntry = (
+    <ContactSales
+      action="renew"
+      defaultEmail={email}
+      defaultCustomerName={[firstName, lastName].filter(Boolean).join(" ").trim() || undefined}
+      defaultCustomerMobile={mobile}
+      defaultLicenseKey={licenseInfo?.license_key || licenseKey}
+      defaultProductName={licenseInfo?.product_name}
+    />
+  );
+
   // ============================================================
   // SUCCESS — License Extended, Refresh Status
   // ============================================================
   if (result) {
     return (
-      <PortalShell eyebrow="Renew License" title="License Renewed">
+      <PortalShell eyebrow="Renew License" title="License Renewed" headerAction={contactSalesEntry}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/5 to-transparent p-6 sm:p-8 text-center">
           <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mb-6">
@@ -255,7 +270,7 @@ export default function RenewLicensePage() {
   }
 
   return (
-    <PortalShell eyebrow="Renew License" title="Renew License" subtitle="Renew your existing license. Your license is extended with additional time — a new license is never created.">
+    <PortalShell eyebrow="Renew License" title="Renew License" subtitle="Renew your existing license. Your license is extended with additional time — a new license is never created." headerAction={contactSalesEntry}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">

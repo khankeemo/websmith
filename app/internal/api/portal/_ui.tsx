@@ -165,11 +165,13 @@ export function PortalShell({
   title,
   subtitle,
   children,
+  headerAction,
 }: {
   eyebrow: string;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  headerAction?: React.ReactNode;
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--bg-primary)]" style={PORTAL_DARK_STYLE}>
@@ -184,9 +186,12 @@ export function PortalShell({
               <p className="text-[11px] text-[var(--text-secondary)]">{eyebrow}</p>
             </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-            <Lock className="w-3.5 h-3.5" /> Secure Portal
-          </span>
+          <div className="flex items-center gap-2">
+            {headerAction}
+            <span className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+              <Lock className="w-3.5 h-3.5" /> Secure Portal
+            </span>
+          </div>
         </div>
       </header>
 

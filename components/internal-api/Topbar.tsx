@@ -17,11 +17,9 @@ import {
   ChevronDown,
   Activity,
   Sparkles,
-  Mail,
 } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeSwitcher } from "./ThemeSwitcher";
-import UniversalEmailDialog from "./UniversalEmailDialog";
 
 interface UserData {
   id: string;
@@ -36,7 +34,6 @@ export default function Topbar() {
   const [loading, setLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // ============================================================
@@ -174,15 +171,6 @@ export default function Topbar() {
         {/* Theme Switcher */}
         <ThemeSwitcher />
 
-        {/* Email Center */}
-        <button
-          onClick={() => setIsEmailDialogOpen(true)}
-          className="group relative flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300"
-          title="Email Center"
-        >
-          <Mail size={16} className="transition-transform duration-300 group-hover:scale-110" />
-        </button>
-
         {/* Notifications */}
         <NotificationBell />
 
@@ -283,7 +271,6 @@ export default function Topbar() {
           )}
         </div>
       </div>
-      <UniversalEmailDialog isOpen={isEmailDialogOpen} onClose={() => setIsEmailDialogOpen(false)} />
     </header>
   );
 }

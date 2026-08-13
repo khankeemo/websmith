@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
-import UniversalEmailDialog from "./UniversalEmailDialog";
 
 const API_BASE = "/internal/backend";
 
@@ -193,9 +192,6 @@ export default function UniversalActivationCenter({ isOpen, onClose, initialLice
   const [editHardwareId, setEditHardwareId] = useState("");
   const [reason, setReason] = useState("");
   const [requestId, setRequestId] = useState("");
-
-  // Email dialog
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   // Key-entry for reactivation
   const [keyError, setKeyError] = useState("");
@@ -495,9 +491,6 @@ export default function UniversalActivationCenter({ isOpen, onClose, initialLice
         <p className="text-sm text-[var(--text-secondary)] mb-4">
           To purchase a new license, please contact our sales team. We will help you find the right plan for your needs.
         </p>
-        <Button onClick={() => setEmailDialogOpen(true)} leftIcon={<Mail size={16} />}>
-          Contact Sales
-        </Button>
       </div>
 
       {result?.plans && result.plans.length > 0 && (
@@ -774,9 +767,6 @@ export default function UniversalActivationCenter({ isOpen, onClose, initialLice
         <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/10 p-6">
           <h3 className="font-semibold text-[var(--text-primary)] mb-2">Start a Trial</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">Contact support to begin a free trial of our products.</p>
-          <Button onClick={() => setEmailDialogOpen(true)} leftIcon={<Mail size={16} />}>
-            Request Trial
-          </Button>
         </div>
       )}
     </div>
@@ -880,7 +870,7 @@ export default function UniversalActivationCenter({ isOpen, onClose, initialLice
         )}
 
         {/* Support contact */}
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="mt-6">
           <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs text-[var(--text-muted)]">Support Email</label>
@@ -888,13 +878,6 @@ export default function UniversalActivationCenter({ isOpen, onClose, initialLice
             </div>
             <p className="text-sm font-medium text-[var(--text-primary)]">support@websmithdigital.com</p>
           </div>
-          <button onClick={() => setEmailDialogOpen(true)}
-            className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 hover:bg-[var(--bg-tertiary)]/20 hover:border-blue-500/30 transition-all text-left">
-            <p className="text-xs text-[var(--text-muted)] mb-1">Quick Actions</p>
-            <p className="text-sm font-medium text-blue-400 flex items-center gap-2">
-              <Mail size={14} /> Open Email Center
-            </p>
-          </button>
         </div>
       </div>
     </div>
@@ -962,13 +945,6 @@ export default function UniversalActivationCenter({ isOpen, onClose, initialLice
           {renderContent()}
         </Modal>
       )}
-
-      <UniversalEmailDialog
-        isOpen={emailDialogOpen}
-        onClose={() => setEmailDialogOpen(false)}
-        defaultLicenseKey={licenseKey}
-        defaultEmail={customerEmail}
-      />
     </>
   );
 }

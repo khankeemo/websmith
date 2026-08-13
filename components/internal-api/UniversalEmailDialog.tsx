@@ -30,6 +30,7 @@ import Button from "@/components/ui/Button";
 
 const API_BASE = "/internal/backend";
 const SUPPORT_EMAIL = "support@websmithdigital.com";
+const SALES_EMAIL = "sales@websmithdigital.com";
 
 // A unified mail account used by the compose From dropdown. It is always
 // derived from the real configured accounts (system mail_accounts + external
@@ -117,6 +118,15 @@ interface EmailDialogProps {
   defaultMessage?: string;
   defaultCc?: string;
   defaultBcc?: string;
+  // Customer-facing mode: posts to the public /api/portal/support-message
+  // route (no admin session). The recipient is resolved SERVER-SIDE from the
+  // action — the browser never supplies an address. Used by the Universal
+  // Buy & Renew Portal contact-sales entries.
+  customerMode?: boolean;
+  // Prefilled customer identity for user→admin forms (Name REQUIRED, Email
+  // REQUIRED, Mobile optional).
+  defaultCustomerName?: string;
+  defaultCustomerMobile?: string;
   // Content libraries for Template ▼ / Signature ▼ insertion (optional).
   templates?: EmailTemplate[];
   signatures?: EmailSignature[];
@@ -125,13 +135,27 @@ interface EmailDialogProps {
 const actionConfig: Record<EmailAction, { label: string; icon: typeof Mail; description: string }> = {
   send: { label: "Send Email", icon: Send, description: "Send a custom email message" },
   history: { label: "Email History", icon: History, description: "View sent email history" },
-  "buy-license": { label: "Buy License", icon: ShoppingCart, description: "Purchase a new license" },
-  activate: { label: "Activate License", icon: KeyRound, description: "Activate a license key" },
-  renew: { label: "Renew License", icon: Repeat, description: "Extend license expiration" },
-  reactivation: { label: "Reactivation", icon: RefreshCw, description: "Reactivate a previously active license" },
-  "device-replacement": { label: "Device Replacement", icon: Monitor, description: "Replace a bound device" },
-  support: { label: "Support Request", icon: LifeBuoy, description: "Contact support for assistance" },
-  general: { label: "General Request", icon: MessageSquare, description: "Submit a general inquiry" },
+  "buy-license": { label: "Buy License", icon: ShoppingCart, description: "Contact our sales team to purchase a license" },
+  activate: { label: "Activate License", icon: KeyRound, description: "Request assistance activating a license key" },
+  renew: { label: "Renew License", icon: Repeat, description: "Contact our sales team to renew your license" },
+  reactivation: { label: "Reactivation", icon: RefreshCw, description: "Request reactivation of a previously active license" },
+  "device-replacement": { label: "Device Replacement", icon: Monitor, description: "Request a replacement for a bound device" },
+  support: { label: "Support Request", icon: LifeBuoy, description: "Get help from our support team" },
+  general: { label: "General Support", icon: MessageSquare, description: "Submit a general inquiry to our team" },
+};
+
+// Per-action help text shown above user→admin forms so customers know where
+// their request goes and what happens next.
+const SUPPORT_ACTIONS: EmailAction[] = ["buy-license", "renew", "activate", "reactivation", "device-replacement", "support", "general"];
+
+const SUPPORT_INFO_TEXT: Partial<Record<EmailAction, string>> = {
+  "buy-license": "Your inquiry will be sent to our sales team, who will respond to the email address you provide.",
+  renew: "Your renewal inquiry will be sent to our sales team, who will respond to the email address you provide.",
+  activate: "Your activation request will be sent to our support team, who will respond to the email address you provide.",
+  reactivation: "Your reactivation request will be sent to our support team, who will respond to the email address you provide.",
+  "device-replacement": "Your device replacement request will be sent to our support team, who will respond to the email address you provide.",
+  support: "Your support request will be sent to our support team, who will respond to the email address you provide.",
+  general: "Your inquiry will be sent to our team, who will respond to the email address you provide.",
 };
 
 function formatSize(bytes: number): string {
@@ -146,7 +170,7 @@ function formatSize(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc, templates, signatures }: EmailDialogProps) {
+export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc, templates, signatures, customerMode, defaultCustomerName, defaultCustomerMobile }: EmailDialogProps) {
   const [view, setView] = useState<"actions" | "form" | "history">("actions");
   const [action, setAction] = useState<EmailAction>(defaultAction || "send");
   const [loading, setLoading] = useState(false);
@@ -166,6 +190,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
   const [productName, setProductName] = useState(defaultProductName || "");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [reason, setReason] = useState("");
 
@@ -205,8 +230,18 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       if (defaultAction) {
         openAction(defaultAction);
       }
+      if (customerMode) {
+        // Customer-facing forms start from the visitor's identity so they
+        // don't have to re-type the details they already entered on the
+        // Buy / Renew portal.
+        setCustomerName(defaultCustomerName || "");
+        setCustomerEmail(defaultEmail || "");
+        setCustomerPhone(defaultCustomerMobile || "");
+        setProductName(defaultProductName || "");
+        setLicenseKey(defaultLicenseKey || "");
+      }
     }
-  }, [isOpen, defaultAction, defaultFromId, fromAccounts]);
+  }, [isOpen, defaultAction, defaultFromId, fromAccounts, customerMode, defaultCustomerName, defaultCustomerMobile]);
 
   const selectedSender = useMemo(
     () => (fromAccounts || []).find(a => a.id === fromId) || null,
@@ -262,28 +297,28 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         setView("history");
         break;
       case "buy-license":
-        setSubject(`License Purchase Inquiry - ${productName || "Product"}`);
-        setMessage(`I am interested in purchasing a license for ${productName || "your product"}.\n\nPlease provide pricing and availability.`);
-        setRecipientEmail(SUPPORT_EMAIL);
+        setSubject(`License Purchase Inquiry - ${productName || defaultProductName || "Product"}`);
+        setMessage(`I am interested in purchasing a license for ${productName || defaultProductName || "your product"}.\n\nPlease provide pricing and availability.`);
+        setRecipientEmail(SALES_EMAIL);
         setView("form");
         break;
       case "activate":
-        setSubject(`License Activation Request - ${licenseKey || ""}`);
+        setSubject(`License Activation Request - ${licenseKey || defaultLicenseKey || ""}`);
         setRecipientEmail(SUPPORT_EMAIL);
         setView("form");
         break;
       case "renew":
-        setSubject(`License Renewal Request - ${licenseKey || ""}`);
-        setRecipientEmail(SUPPORT_EMAIL);
+        setSubject(`License Renewal Request - ${licenseKey || defaultLicenseKey || ""}`);
+        setRecipientEmail(SALES_EMAIL);
         setView("form");
         break;
       case "reactivation":
-        setSubject(`License Reactivation Request - ${licenseKey || ""}`);
+        setSubject(`License Reactivation Request - ${licenseKey || defaultLicenseKey || ""}`);
         setRecipientEmail(SUPPORT_EMAIL);
         setView("form");
         break;
       case "device-replacement":
-        setSubject(`Device Replacement Request - ${licenseKey || ""}`);
+        setSubject(`Device Replacement Request - ${licenseKey || defaultLicenseKey || ""}`);
         setRecipientEmail(SUPPORT_EMAIL);
         setView("form");
         break;
@@ -298,7 +333,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         setView("form");
         break;
     }
-  }, [defaultEmail, defaultLicenseKey, productName, licenseKey, recipientEmail, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc]);
+  }, [defaultEmail, defaultLicenseKey, defaultProductName, productName, licenseKey, recipientEmail, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc]);
 
   const loadHistory = useCallback(async (email?: string) => {
     const search = email || searchEmail;
@@ -308,7 +343,11 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       const res = await fetch(`${API_BASE}/admin/communication/history?email=${encodeURIComponent(search)}`);
       const data = await res.json();
       if (data.success) {
-        setEmailHistory(data.data.map((row: any) => ({
+        // Always show newest first, even if the backend ordering ever changes.
+        const rows = (data.data || []).slice().sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setEmailHistory(rows.map((row: any) => ({
           id: String(row.id),
           email_type: row.event_type,
           recipient: row.recipient,
@@ -355,6 +394,22 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       setError("A valid recipient email is required");
       return;
     }
+    // User→admin forms always require the requester's identity.
+    const isSupportAction = SUPPORT_ACTIONS.includes(action);
+    if (isSupportAction) {
+      if (!customerName.trim()) {
+        setError("Your name is required");
+        return;
+      }
+      if (!customerEmail.trim()) {
+        setError("Your email is required");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
+        setError("Please enter a valid email address");
+        return;
+      }
+    }
     setLoading(true);
     setError("");
     setSuccess("");
@@ -365,11 +420,24 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
 
     try {
       const emailType = emailTypeForAction();
+      // User→admin requests are sent as a structured message that always
+      // carries the requester's identity plus the request details.
+      let finalMessage = message;
+      if (isSupportAction) {
+        const identityLines = [
+          `Request Type: ${actionConfig[action].label}`,
+          `Name: ${customerName.trim()}`,
+          `Email: ${customerEmail.trim()}`,
+          `Mobile: ${customerPhone.trim() || "Not provided"}`,
+        ];
+        if (subject.trim()) identityLines.push(`Subject: ${subject.trim()}`);
+        finalMessage = `${identityLines.join("\n")}\n\n${message.trim()}`;
+      }
       const common: Record<string, string> = {
         to_email: recipientEmail.trim(),
         to_name: recipientName.trim() || customerName.trim(),
         subject,
-        message,
+        message: finalMessage,
         email_type: emailType,
         license_key: licenseKey,
         product_id: defaultProductId || "",
@@ -391,7 +459,25 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       }
 
       let res: Response;
-      if (conversationId) {
+      if (customerMode) {
+        // Customer-facing send: no admin session. Post to the public portal
+        // route — the recipient is resolved SERVER-SIDE from the action (Buy /
+        // Renew → sales@), so the browser can never target an arbitrary address.
+        const payload: Record<string, string> = {
+          action,
+          customer_name: customerName.trim(),
+          customer_email: customerEmail.trim(),
+          mobile: customerPhone.trim(),
+          subject,
+          message: finalMessage,
+          license_key: licenseKey,
+        };
+        res = await fetch("/api/portal/support-message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else if (conversationId) {
         // Reply mode: same universal composer, posted to the conversation
         // reply endpoint so the message lands in the conversation thread.
         const payload: Record<string, string> = {
@@ -551,19 +637,19 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
   };
 
   const renderEmailForm = () => {
-    const isSupportAction = ["buy-license", "renew", "reactivation", "device-replacement", "support", "general"].includes(action);
+    const isSupportAction = SUPPORT_ACTIONS.includes(action);
 
     return (
       <div className="space-y-4">
         {isSupportAction && (
           <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
             <p className="text-sm text-[var(--text-secondary)]">
-              This request will be sent to our support team for processing.
+              {SUPPORT_INFO_TEXT[action] || "This request will be sent to our team for processing."}
             </p>
           </div>
         )}
 
-        {fromAccounts && fromAccounts.length > 0 && (
+        {!customerMode && fromAccounts && fromAccounts.length > 0 && (
           <div>
             <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">From</label>
             <div className="relative">
@@ -609,6 +695,50 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
               className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
             />
           </div>
+        )}
+
+        {isSupportAction && (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Your Name <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Your full name"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Your Email <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Mobile <span className="text-[var(--text-muted)]">(optional)</span></label>
+              <div className="relative">
+                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="Mobile number"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
+                />
+              </div>
+            </div>
+          </>
         )}
 
         {action === "send" && (
@@ -719,32 +849,6 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         {(action === "reactivation" || action === "device-replacement") && (
           <>
             <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Customer Name</label>
-              <div className="relative">
-                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Customer name"
-                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Customer Phone</label>
-              <div className="relative">
-                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                <input
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Phone number"
-                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
-                />
-              </div>
-            </div>
-            <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Device / Hardware ID</label>
               <div className="relative">
                 <Monitor size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
@@ -773,9 +877,9 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
               />
             </div>
 
-            {(action === "reactivation" || action === "device-replacement" || action === "support" || action === "general" || action === "send") && (
+            {(isSupportAction || action === "send") && (
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Message</label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Message <span className="text-red-400">*</span></label>
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -801,7 +905,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </>
         )}
 
-        {!conversationId && renderAttachmentSection()}
+        {!conversationId && !customerMode && renderAttachmentSection()}
 
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-xl border border-red-500/20 bg-red-500/5">
