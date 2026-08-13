@@ -353,6 +353,62 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   mailboxes/[id]/sync/route.ts`, `app/internal/backend/communications/
   conversations/[id]/route.ts`, `app/internal/api/communications/page.tsx`,
   `app/internal/api/communications/manage-mails/page.tsx`.
+- **Final Email Fixes — Recipient Name + Universal Attachments + Strict
+  Separation (see master doc "Final Email Fixes" progress entry)**: (1)
+  **Reply/Reply All auto-fill Recipient Name** — `UniversalEmailDialog` gained
+  `defaultRecipientName` (reset on open, editable); Communications Center +
+  Manage Mails reply pass the real name (`d.customer?.name` → `conversation.
+  customer_name`), email-like strings dropped via `/[ @<>]/`; Compose/Forward
+  stay empty (no known recipient — never invented). (2) **One universal
+  attachment pattern** — `admin/communication/send` now INSERTs the admin
+  message `RETURNING id` and links uploaded files in `conversation_attachments`
+  on BOTH paths (mailbox SMTP + Brevo), so Compose/Forward attachments show in
+  the reader exactly like Reply/incoming (same storage + max 5 files/10MB/
+  allow-list). (3-5) **Strict system/mailbox separation** — the DB signal is
+  `communication_conversations.mailbox_id` (NULL = system mail, set = mailbox
+  mail); conversations GET + stats routes accept `source=system|mailbox`
+  (`mailbox_id IS NULL`/`IS NOT NULL`, 400 `INVALID_SOURCE` otherwise) and the
+  Communications Center always sends it: internal folders (Websmith
+  Communications) show system mail only, external Mail folders show mailbox
+  mail only — NEVER mixed. Stats fetch per source (`systemStats`/
+  `mailboxStats`) and badges/status cards are section-scoped; account pills are
+  section-aware; a system scope always routes by its category list (never by a
+  matching mailbox); `handleFolderChange` clears any scope that does not belong
+  to the opened folder's section. No SMTP/IMAP/queue/schema/auth/notification/
+  storefront logic changed. Files: `UniversalEmailDialog.tsx`, both mail pages,
+  `admin/communication/send/route.ts`, `communications/conversations/route.ts`
+  + `stats/route.ts`. Deployed 2026-08-13 (build green 289 pages).
+- **Universal Email Attachment System (see master doc "Universal Email
+  Attachment System" progress entry)**: the failing attachment pipeline was
+  replaced with ONE reusable service for the whole Internal API email system.
+  ROOT CAUSES: (1) send/reply validated by browser MIME against a narrow
+  allow-list missing PPT/PPTX/RAR → valid files rejected; (2) uploads written
+  only to `public/attachments/email` on the runtime FS → on Vercel serverless
+  the FS is read-only/ephemeral so uploads could fail and download/preview URLs
+  404 (runtime `public/` files are never CDN-served); (3) duplicated
+  validation/storage across send/reply/sync. FIX: **`lib/communications/
+  attachment-policy.ts`** (pure, client-safe: `EXTENSION_MIME` map for PDF/TXT/
+  DOC/DOCX/XLS/XLSX/CSV/PPT/PPTX/JPG/JPEG/PNG/GIF/WebP/ZIP/RAR/7z/JSON/XML/HTML/
+  MD/RTF/ODF/SVG/TIFF/BMP/iCal/vCard, `MAX_ATTACHMENT_COUNT` 5, `MAX_ATTACHMENT_
+  SIZE` 10MB, `mimeForFile`, `sanitizeFileName`, `validateAttachmentFiles` with
+  clear errors, `ATTACHMENT_ACCEPT`) + **`lib/communications/attachments.ts`**
+  (server-only: `storeUploadedFiles`/`storeIncomingAttachment`, `toBrevo
+  Attachments`/`toNodemailerAttachments`, `linkConversationAttachments`/
+  `linkEmailAttachments` persisting bytes, `resolveAttachmentById`). Schema:
+  `conversation_attachments` + `email_attachments` gained `content BYTEA`
+  (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `lib/backend-db/index.ts`) so
+  bytes survive on serverless; disk `storage_path` stays best-effort +
+  fallback. New download route `GET /internal/backend/communications/
+  attachments/[id]` (proxy-auth, `force-dynamic`) serves DB bytes with
+  `Content-Type` + `Content-Disposition` (UTF-8 `filename*`). send/reply/sync
+  validate + link via the service (incoming mail never extension-validated).
+  UI: dialog file input has `accept={ATTACHMENT_ACCEPT}` + client-side
+  validation (same policy); reader threads download/preview via
+  `${API_BASE}/attachments/<id>` (legacy public path only as fallback).
+  Zero-attachment emails unchanged; unsupported types → clear 400 listing
+  supported extensions. No public website / store / public API / SMTP / IMAP /
+  queue / auth / notification logic changed. Deployed 2026-08-13, build green
+  289 pages.
 - **Mailbox form is blank + auto-detected (no defaults)**: `newMailboxForm()`
   starts with NO provider, NO server hosts, NO email — the Add Mailbox form is
   completely empty. Typing the **Incoming Email** auto-detects the provider

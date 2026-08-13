@@ -10,8 +10,20 @@ export async function GET(request: NextRequest) {
     const mailboxId = searchParams.get('mailbox_id');
     const showDeleted = searchParams.get('show_deleted') === 'true';
     const category = searchParams.get('category');
+    // Strict source separation: 'system' = Websmith Communications mail only
+    // (mailbox_id IS NULL), 'mailbox' = configured mailbox mail only.
+    const source = searchParams.get('source');
+    if (source && !['system', 'mailbox'].includes(source)) {
+      return NextResponse.json({ success: false, error: { code: 'INVALID_SOURCE', message: `Invalid source: "${source}". Valid: system, mailbox` } }, { status: 400 });
+    }
 
     client = await (await getDb()).connect();
+
+    const sourceClause = source === 'system'
+      ? 'cc.mailbox_id IS NULL'
+      : source === 'mailbox'
+        ? 'cc.mailbox_id IS NOT NULL'
+        : null;
 
     let whereClauses: string[] = [];
     let params: any[] = [];
@@ -23,6 +35,8 @@ export async function GET(request: NextRequest) {
     } else {
       whereClauses.push('cc.deleted_at IS NOT NULL');
     }
+
+    if (sourceClause) whereClauses.push(sourceClause);
 
     if (mailboxId) {
       whereClauses.push('cc.mailbox_id = $' + paramIndex++);
@@ -61,6 +75,7 @@ export async function GET(request: NextRequest) {
     const trashClauses: string[] = ['cc.deleted_at IS NOT NULL'];
     const trashParams: any[] = [];
     let trashParamIndex = 1;
+    if (sourceClause) trashClauses.push(sourceClause);
     if (mailboxId) {
       trashClauses.push('cc.mailbox_id = $' + trashParamIndex++);
       trashParams.push(mailboxId);
@@ -104,6 +119,7 @@ export async function GET(request: NextRequest) {
     const unreadClauses: string[] = ['cc.deleted_at IS NULL'];
     const unreadParams: any[] = [];
     let unreadParamIndex = 1;
+    if (sourceClause) unreadClauses.push(sourceClause);
     if (mailboxId) {
       unreadClauses.push('cc.mailbox_id = $' + unreadParamIndex++);
       unreadParams.push(mailboxId);

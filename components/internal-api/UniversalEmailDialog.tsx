@@ -27,6 +27,11 @@ import {
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import {
+  ATTACHMENT_ACCEPT,
+  MAX_ATTACHMENT_COUNT,
+  validateAttachmentFiles,
+} from "@/lib/communications/attachment-policy";
 
 const API_BASE = "/internal/backend";
 const SUPPORT_EMAIL = "support@websmithdigital.com";
@@ -103,6 +108,10 @@ interface EmailDialogProps {
   onClose: () => void;
   onSent?: () => void;
   defaultEmail?: string;
+  // Auto-filled Recipient Name for admin Send/Reply flows when the real
+  // customer name is known from the conversation/customer record (never
+  // invented — callers pass only verified data, and the admin can edit it).
+  defaultRecipientName?: string;
   defaultLicenseKey?: string;
   defaultProductName?: string;
   defaultProductId?: string;
@@ -177,7 +186,7 @@ function formatSize(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc, templates, signatures, customerMode, defaultCustomerName, defaultCustomerMobile, themeStyle }: EmailDialogProps) {
+export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultRecipientName, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc, templates, signatures, customerMode, defaultCustomerName, defaultCustomerMobile, themeStyle }: EmailDialogProps) {
   const [view, setView] = useState<"actions" | "form" | "history">("actions");
   const [action, setAction] = useState<EmailAction>(defaultAction || "send");
   const [loading, setLoading] = useState(false);
@@ -247,8 +256,12 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         setProductName(defaultProductName || "");
         setLicenseKey(defaultLicenseKey || "");
       }
+      // Admin Send/Reply flows auto-fill the Recipient Name when the real
+      // customer name is known (from the conversation/customer record). Always
+      // editable; never derived from a guess.
+      setRecipientName(defaultRecipientName || "");
     }
-  }, [isOpen, defaultAction, defaultFromId, fromAccounts, customerMode, defaultCustomerName, defaultCustomerMobile]);
+  }, [isOpen, defaultAction, defaultFromId, fromAccounts, customerMode, defaultCustomerName, defaultCustomerMobile, defaultRecipientName]);
 
   const selectedSender = useMemo(
     () => (fromAccounts || []).find(a => a.id === fromId) || null,
@@ -390,10 +403,21 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    setFiles(prev => {
-      const merged = [...prev, ...selected.map(f => ({ file: f, size: f.size }))];
-      return merged.slice(0, 5);
-    });
+    // Client-side validation (mirrors the server policy) so the admin gets a
+    // clear message BEFORE submitting instead of a backend rejection.
+    const validation = validateAttachmentFiles(selected);
+    if (!validation.ok) {
+      setError(validation.error);
+      e.target.value = "";
+      return;
+    }
+    const merged = [...files, ...selected.map(f => ({ file: f, size: f.size }))];
+    if (merged.length > MAX_ATTACHMENT_COUNT) {
+      setError(`A maximum of ${MAX_ATTACHMENT_COUNT} attachments are allowed.`);
+      e.target.value = "";
+      return;
+    }
+    setFiles(merged);
     e.target.value = "";
   };
 
@@ -617,12 +641,13 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
           >
-            <Paperclip size={13} /> Add files (max 5)
+            <Paperclip size={13} /> Add files (max 5, 10MB each)
           </button>
           <input
             ref={fileInputRef}
             type="file"
             multiple
+            accept={ATTACHMENT_ACCEPT}
             className="hidden"
             onChange={handleFileSelect}
           />

@@ -5294,6 +5294,55 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
       - **Detail-route attachment flag**: `GET /communications/conversations/[id]` now computes `has_attachments` via an `EXISTS` subquery on `conversation_attachments` so the standalone conversation page's "Has attachments" indicator works.
       - **Scope discipline**: OTP flow untouched; Software Store Email Center entry (customerMode → `POST /api/portal/support-message`) untouched; `/api/v1/store/*` / `/api/v1/checkout/*` untouched; no new email system/UI created — one shared composer.
       - **Verification**: deployed to production 2026-08-13 via Vercel — TypeScript clean, build green (289 pages, `websmith-z.vercel.app`); the only build fix was the manage-mails `emailDialog.fromAccounts` state type adding `is_default`/`type` to satisfy `SenderOption[]`. Production tests with real external email (Support Reply, Sales Reply, external-mailbox reply, Compose, Reply All, Forward, attachment in + out) per the acceptance checklist.
+- **Final Email Fixes — Recipient Name + Universal Attachments + Strict System/Mailbox Separation (2026-08-13)**: Internal-API-only email fixes (no SMTP/IMAP/queue/schema/auth/notification/storefront logic changed). (1) **Reply/Compose auto-fill Recipient Name** — the shared `UniversalEmailDialog` gained an optional `defaultRecipientName` prop (reset on open, always editable); the Communications Center and Manage Mails `openReply`/`openReplyAll` now pass the real recipient name from the customer record (`d.customer?.name`) falling back to the conversation row (`conversation.customer_name`), with email-like strings (a bare address or `Name <a@b.c>` from IMAP-parsed mail) dropped via `/[ @<>]/` so the name field never receives an address. Compose/Forward leave it empty (no known recipient — never invented). (2) **One universal attachment pattern** — the send route (`admin/communication/send`) already stored uploaded files + attached them to the real MIME (mailbox-SMTP nodemailer AND Brevo) + recorded `email_attachments`, but did NOT link `conversation_attachments`, so Compose/Forward attachments were invisible in the reader thread; the route now INSERTs the admin message with `RETURNING id` on BOTH paths (mailbox SMTP + Brevo) and links each uploaded file in `conversation_attachments` exactly like the reply route — Compose / Reply / Reply All / Forward / incoming (IMAP sync) all use the SAME storage + linking pattern (max 5 files, 10MB, allow-list). (3-5) **Strict system/mailbox separation** — `communication_conversations.mailbox_id` is the DB source-of-truth signal (NULL = system mail, set = mailbox mail; traced conversation → mailbox_id → sender/recipient → attachments → email source). The conversations GET route and the stats route accept a new `source=system|mailbox` param (`cc.mailbox_id IS NULL` / `IS NOT NULL`, 400 `INVALID_SOURCE` otherwise); the Communications Center now always passes it — internal folders (Websmith Communications: All/Sales/Support/Activation/Renewal/Reactivation/Hardware/Trial/Payment/SDK/Customer + logs/history) show **system mail only**, external Mail folders (Inbox/Sent/Draft/Waiting/Failed/Queued/Spam/Trash/custom) show **mailbox mail only** — never mixed. Stats are fetched per source into `systemStats`/`mailboxStats` (Promise.all) and badges/status cards read the section-appropriate object (status cards are section-scoped: Mail shows mailbox counts, Communications shows system counts). Account selector pills are section-aware (system accounts inside Communications, mailboxes inside Mail only), a system scope now always routes by its category list (never by a matching mailbox), and `handleFolderChange` clears any scope that does not belong to the opened folder's section. Files: `components/internal-api/UniversalEmailDialog.tsx`, `app/internal/api/communications/page.tsx`, `app/internal/api/communications/manage-mails/page.tsx`, `app/internal/backend/admin/communication/send/route.ts`, `app/internal/backend/communications/conversations/route.ts`, `app/internal/backend/communications/conversations/stats/route.ts`. **Verification**: deployed to production 2026-08-13 via Vercel — first build caught the two `emailDialog` state types missing `defaultRecipientName` (TS2353); fixed; second build green (TypeScript clean, 289 pages, `websmith-z.vercel.app`).
+- **Universal Email Attachment System (2026-08-13, deployed)**: Internal-API-only
+  email/communications fix — ONE reusable attachment pipeline for the whole email
+  system (no public website / store / public API / SMTP / IMAP / queue / auth /
+  notification logic changed). **ROOT CAUSES** of the failing attachments:
+  (1) send + reply routes validated attachments by browser MIME against a narrow
+  `ALLOWED_MIME_TYPES` allow-list missing PPT/PPTX/RAR (and other common
+  email-safe types) → valid files rejected; (2) uploads were written only to
+  `public/attachments/email` (`ATTACHMENT_STORAGE_PATH`) on the runtime FS, which
+  on Vercel serverless is read-only/ephemeral → uploads could fail and
+  download/preview links (`/attachments/email/...`) 404 because runtime-written
+  `public/` files are never served by the CDN; (3) attachment
+  validation/storage logic was duplicated (and inconsistent) across send/reply/
+  sync. **FIX**: shared modules — `lib/communications/attachment-policy.ts`
+  (pure, client-safe: `EXTENSION_MIME` map for PDF/TXT/DOC/DOCX/XLS/XLSX/CSV/
+  PPT/PPTX/JPG/JPEG/PNG/GIF/WebP/ZIP/RAR/7z/JSON/XML/HTML/MD/RTF/ODF/SVG/TIFF/
+  BMP/iCal/vCard, `MAX_ATTACHMENT_COUNT` 5, `MAX_ATTACHMENT_SIZE` 10MB,
+  `mimeForFile`, `sanitizeFileName`, `validateAttachmentFiles` returning clear
+  errors, `ATTACHMENT_ACCEPT`) and `lib/communications/attachments.ts`
+  (server-only service: `storeUploadedFiles`/`storeIncomingAttachment` read
+  bytes + best-effort disk write that never throws, `toBrevoAttachments`/
+  `toNodemailerAttachments` payload shapers, `linkConversationAttachments`/
+  `linkEmailAttachments` persisting the bytes into the durable DB columns,
+  `resolveAttachmentById` for retrieval). **Schema**: `conversation_attachments`
+  + `email_attachments` gained a `content BYTEA` column (`ALTER TABLE ... ADD
+  COLUMN IF NOT EXISTS` in `lib/backend-db/index.ts`) so bytes survive on
+  serverless; the disk `storage_path` stays a best-effort cache + fallback for
+  legacy rows. **New internal download route**
+  `GET /internal/backend/communications/attachments/[id]` (proxy-auth gated,
+  `force-dynamic`) serves the bytes with correct `Content-Type` +
+  `Content-Disposition` (incl. UTF-8 `filename*`), reading DB content first then
+  disk. The `send`, `reply` and `mailboxes/[id]/sync` routes all validate via
+  the service and link through it (incoming mail never extension-validated).
+  **UI**: `UniversalEmailDialog` file input has `accept={ATTACHMENT_ACCEPT}` and
+  validates client-side with the SAME policy (clear error before submit);
+  reader threads in the Communications Center + Manage Mails download/preview
+  via the DB route (`${API_BASE}/attachments/<id>`) with the legacy public path
+  only as fallback. Zero-attachment emails behave exactly as before; unsupported
+  types → clear 400 listing supported extensions. Deployed 2026-08-13, build
+  green (289 pages), TS clean; live-verified (`/internal/backend/
+  communications/attachments/[id]` route present, proxy auth gate 401 for
+  anonymous). Files: `lib/communications/attachment-policy.ts`,
+  `lib/communications/attachments.ts`, `app/internal/backend/communications/
+  attachments/[id]/route.ts`, `app/internal/backend/admin/communication/send/
+  route.ts`, `app/internal/backend/admin/communication/reply/route.ts`,
+  `app/internal/backend/mailboxes/[id]/sync/route.ts`, `lib/backend-db/index.ts`,
+  `components/internal-api/UniversalEmailDialog.tsx`, `app/internal/api/
+  communications/page.tsx`, `app/internal/api/communications/manage-mails/
+  page.tsx`. Not committed.
 36. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture

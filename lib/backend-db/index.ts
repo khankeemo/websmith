@@ -1264,6 +1264,11 @@ export async function getDb(): Promise<Pool> {
       )
     `);
     try { await client.query(`ALTER TABLE conversation_attachments ADD COLUMN IF NOT EXISTS message_id INTEGER REFERENCES conversation_messages(id) ON DELETE CASCADE`); } catch (e) {}
+    // Durable attachment bytes (BYTEA) — stored so downloads work on hosts with
+    // no persistent disk (e.g. Vercel serverless). Served via the internal
+    // communications/attachments download route; disk storage_path stays as a
+    // best-effort cache + fallback for legacy rows.
+    try { await client.query(`ALTER TABLE conversation_attachments ADD COLUMN IF NOT EXISTS content BYTEA`); } catch (e) {}
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_attachments_message_id ON conversation_attachments(message_id)`);
 
     // 27f. Create email_attachments table — metadata for files attached to outbound emails
@@ -1283,6 +1288,7 @@ export async function getDb(): Promise<Pool> {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_email_attachments_notification_log_id ON email_attachments(notification_log_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_email_attachments_recipient ON email_attachments(recipient)`);
+    try { await client.query(`ALTER TABLE email_attachments ADD COLUMN IF NOT EXISTS content BYTEA`); } catch (e) {}
 
 
     // 27e. Create message_queue table for email delivery queue and retry logic

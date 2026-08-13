@@ -436,6 +436,7 @@ export default function ManageMailsPage() {
   const [emailDialog, setEmailDialog] = useState<{
     isOpen: boolean;
     defaultEmail?: string;
+    defaultRecipientName?: string;
     defaultLicenseKey?: string;
     defaultProductId?: string;
     defaultAction?: any;
@@ -1149,9 +1150,14 @@ export default function ManageMailsPage() {
   const openReply = () => {
     const d = detail;
     const recv = d ? accountForConversation(d.conversation, commSettings, mailboxes) : null;
+    // Real recipient name from the customer/conversation record — never a
+    // guess; email-like strings (from IMAP-parsed mail) are dropped.
+    const recvName = (d?.customer?.name || d?.conversation.customer_name || '').trim();
+    const defaultRecipientName = /[@<>]/.test(recvName) ? '' : recvName;
     setEmailDialog({
       isOpen: true,
       defaultEmail: d?.conversation.customer_email || d?.customer?.email || '',
+      defaultRecipientName,
       defaultLicenseKey: d?.conversation.license_key || undefined,
       defaultProductId: d?.conversation.product_id || undefined,
       defaultAction: 'send',
@@ -1630,6 +1636,7 @@ export default function ManageMailsPage() {
         onClose={() => setEmailDialog({ isOpen: false })}
         onSent={() => { setEmailDialog({ isOpen: false }); refreshConversations(); }}
         defaultEmail={emailDialog.defaultEmail}
+        defaultRecipientName={emailDialog.defaultRecipientName}
         defaultLicenseKey={emailDialog.defaultLicenseKey}
         defaultProductId={emailDialog.defaultProductId}
         defaultAction={emailDialog.defaultAction}
@@ -1925,7 +1932,9 @@ const typeIconOf = (name: string, mime: string): any => {
 };
 
 function AttachmentCard({ a }: { a: AttachmentRow }) {
-  const href = attachmentUrl(a.storage_path || '');
+  // Download through the internal DB-backed attachment route (durable bytes on
+  // serverless); fall back to the legacy public path for old rows.
+  const href = a.id ? `${API_BASE}/attachments/${a.id}` : attachmentUrl(a.storage_path || '');
   const Icon = typeIconOf(a.file_name, a.mime_type);
   const label = typeLabelOf(a.file_name, a.mime_type);
   return (

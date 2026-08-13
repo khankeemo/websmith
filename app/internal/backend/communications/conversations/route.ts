@@ -22,6 +22,13 @@ export async function GET(request: NextRequest) {
     const mailboxId = searchParams.get('mailbox_id');
     const hasCustomer = searchParams.get('has_customer') === 'true';
     const showDeleted = searchParams.get('show_deleted') === 'true';
+    // Strict source separation: 'system' = Websmith Communications mail only
+    // (support@/sales@/no-reply@ + system accounts — conversations NOT owned by
+    // a mailbox integration), 'mailbox' = configured mailbox mail only.
+    const source = searchParams.get('source');
+    if (source && !['system', 'mailbox'].includes(source)) {
+      return NextResponse.json({ success: false, error: { code: 'INVALID_SOURCE', message: `Invalid source: "${source}". Valid: system, mailbox` } }, { status: 400 });
+    }
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
     const offset = (page - 1) * limit;
@@ -77,6 +84,15 @@ export async function GET(request: NextRequest) {
     if (mailboxId) {
       whereClauses.push(`cc.mailbox_id = $${paramIndex++}`);
       params.push(mailboxId);
+    }
+
+    // Strict source separation — a conversation is system mail when it is NOT
+    // owned by a mailbox integration (mailbox_id IS NULL) and mailbox mail
+    // when it IS. Never both.
+    if (source === 'system') {
+      whereClauses.push(`cc.mailbox_id IS NULL`);
+    } else if (source === 'mailbox') {
+      whereClauses.push(`cc.mailbox_id IS NOT NULL`);
     }
 
     const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -238,10 +254,35 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (action === 'empty_trash') {
-      // Permanently delete ALL soft-deleted conversations (one transaction)
+      // Strict source separation: empty ONLY the trash of the section that
+      // requested it — 'system' = Universal/Websmith Communications mail
+      // (mailbox_id IS NULL), 'mailbox' = configured mailbox mail
+      // (mailbox_id IS NOT NULL), optionally narrowed to one mailbox. Without
+      // a source param the legacy global behavior (all trash) is kept.
+      const source = searchParams.get('source');
+      if (source && !['system', 'mailbox'].includes(source)) {
+        client.release();
+        client = null;
+        return NextResponse.json({ success: false, error: { code: 'INVALID_SOURCE', message: `Invalid source: "${source}". Valid: system, mailbox` } }, { status: 400 });
+      }
+      const mailboxId = searchParams.get('mailbox_id');
+
+      const trashClauses: string[] = ['deleted_at IS NOT NULL'];
+      const trashParams: any[] = [];
+      if (source === 'system') {
+        trashClauses.push('mailbox_id IS NULL');
+      } else if (source === 'mailbox') {
+        trashClauses.push('mailbox_id IS NOT NULL');
+      }
+      if (mailboxId) {
+        trashClauses.push(`mailbox_id = $${trashParams.length + 1}`);
+        trashParams.push(mailboxId);
+      }
+
+      // Permanently delete the scoped soft-deleted conversations (one transaction)
       const target = await client.query(
-        `SELECT id FROM communication_conversations WHERE deleted_at IS NOT NULL`,
-        []
+        `SELECT id FROM communication_conversations WHERE ${trashClauses.join(' AND ')}`,
+        trashParams
       );
       const trashIds = target.rows.map((r: any) => r.id);
 

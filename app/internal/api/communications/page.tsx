@@ -300,6 +300,7 @@ const FOLDERS: FolderDef[] = [
   { key: 'customer', label: 'Customer', icon: Users, section: 'internal', kind: 'list', params: { has_customer: 'true' } },
   { key: 'notifications', label: 'Notifications', icon: BellRing, section: 'internal', kind: 'logs' },
   { key: 'email-history', label: 'Universal Email', icon: MailOpen, section: 'internal', kind: 'history' },
+  { key: 'int-trash', label: 'Trash', icon: Trash2, section: 'internal', kind: 'list', params: { show_deleted: 'true' }, badgeKey: 'trash' },
 
   // External Mailboxes
   { key: 'ext-inbox', label: 'Inbox', icon: Inbox, section: 'external', kind: 'list', params: { status: 'open,waiting_customer' }, badgeKey: 'inbox' },
@@ -360,6 +361,7 @@ const FOLDER_CHIPS: { key: string; label: string; badgeKey?: keyof Stats }[] = [
   { key: 'ext-draft', label: 'Drafts' },
   { key: 'ext-spam', label: 'Spam' },
   { key: 'ext-trash', label: 'Trash', badgeKey: 'trash' },
+  { key: 'int-trash', label: 'Universal Trash', badgeKey: 'trash' },
 ];
 
 // ---- Provider auto-configuration (single shared provider config —
@@ -661,7 +663,9 @@ function AttachmentPreview({ a, href, kind }: { a: AttachmentRow; href: string; 
 
 function AttachmentCard({ a }: { a: AttachmentRow }) {
   const [previewOpen, setPreviewOpen] = useState(false);
-  const href = attachmentUrl(a.storage_path || '');
+  // Download through the internal DB-backed attachment route (durable bytes on
+  // serverless); fall back to the legacy public path for old rows.
+  const href = a.id ? `${API_BASE}/attachments/${a.id}` : attachmentUrl(a.storage_path || '');
   const kind = previewKindOf(a.file_name, a.mime_type);
   const Icon = typeIconOf(a.file_name, a.mime_type);
   const label = typeLabelOf(a.file_name, a.mime_type);
@@ -730,7 +734,11 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 }
 
 export default function CommunicationsPage() {
-  const [stats, setStats] = useState<Stats>({ inbox: 0, sent: 0, waiting: 0, failed: 0, queued: 0, unread: 0, trash: 0 });
+  // Stats are fetched per source (system vs mailbox) so the Websmith
+  // Communications badges and the Mail badges never mix counts.
+  const emptyStats = { inbox: 0, sent: 0, waiting: 0, failed: 0, queued: 0, unread: 0, trash: 0 };
+  const [systemStats, setSystemStats] = useState<Stats>(emptyStats);
+  const [mailboxStats, setMailboxStats] = useState<Stats>(emptyStats);
   const [activeFolder, setActiveFolder] = useState<string>('ext-inbox');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -765,6 +773,7 @@ export default function CommunicationsPage() {
   const [emailDialog, setEmailDialog] = useState<{
     isOpen: boolean;
     defaultEmail?: string;
+    defaultRecipientName?: string;
     defaultLicenseKey?: string;
     defaultProductId?: string;
     defaultProductName?: string;
@@ -989,25 +998,33 @@ export default function CommunicationsPage() {
   }, [loadFolders, showToast]);
 
   const fetchStats = useCallback(async () => {
-    try {
-      let url = `${API_BASE}/conversations/stats`;
-      if (accountScope?.kind === 'mailbox') {
-        url += `?mailbox_id=${accountScope.id}`;
-      } else if (accountScope?.kind === 'system') {
-        const acct = (commSettingsRef.current?.mail_accounts || []).find((a: any) => String(a.id) === accountScope.id);
-        const mb = mailboxesRef.current.find(m => (acct?.email || '').toLowerCase() === (m.email_address || '').toLowerCase());
-        if (mb) {
-          url += `?mailbox_id=${mb.id}`;
-        } else {
-          // System account without a mailbox routes by its category list — the
-          // stats must match the scoped list so badges are never stale/global.
-          const cats = systemAccountCategories(commSettingsRef.current, acct);
-          if (cats.length > 0) url += `?category=${encodeURIComponent(cats.join(','))}`;
-        }
+    // Strict source separation: systemStats = Websmith Communications mail only,
+    // mailboxStats = configured mailbox mail only. Badges never mix sources.
+    const systemScope = accountScope?.kind === 'system' ? accountScope : null;
+    const mailboxScope = accountScope?.kind === 'mailbox' ? accountScope : null;
+
+    const buildUrl = (source: string, scope: { kind: 'system' | 'mailbox'; id: string } | null) => {
+      let url = `${API_BASE}/conversations/stats?source=${source}`;
+      if (scope?.kind === 'mailbox') {
+        url += `&mailbox_id=${encodeURIComponent(scope.id)}`;
+      } else if (scope?.kind === 'system') {
+        const acct = (commSettingsRef.current?.mail_accounts || []).find((a: any) => String(a.id) === scope.id);
+        const cats = systemAccountCategories(commSettingsRef.current, acct);
+        if (cats.length > 0) url += `&category=${encodeURIComponent(cats.join(','))}`;
       }
-      const res = await fetch(url, { headers: getAuthHeaders() });
-      const json = await res.json();
-      if (json.success) setStats(json.data);
+      return url;
+    };
+
+    const systemUrl = buildUrl('system', systemScope);
+    const mailboxUrl = buildUrl('mailbox', mailboxScope);
+    try {
+      const [sysRes, mbRes] = await Promise.all([
+        fetch(systemUrl, { headers: getAuthHeaders() }),
+        fetch(mailboxUrl, { headers: getAuthHeaders() }),
+      ]);
+      const [sysJson, mbJson] = await Promise.all([sysRes.json(), mbRes.json()]);
+      if (sysJson.success) setSystemStats(sysJson.data);
+      if (mbJson.success) setMailboxStats(mbJson.data);
     } catch {}
   }, [accountScope, commSettingsRef, mailboxesRef, showToast]);
 
@@ -1018,6 +1035,9 @@ export default function CommunicationsPage() {
       const params = new URLSearchParams();
       params.set('page', '1');
       params.set('limit', '100');
+      // Strict source separation: internal (Websmith Communications) folders
+      // list system mail only; external (Mail) folders list mailbox mail only.
+      params.set('source', folder.section === 'external' ? 'mailbox' : 'system');
       if (folder.params?.status) params.set('status', folder.params.status);
       if (folder.params?.category) params.set('category', folder.params.category);
       if (folder.params?.search) params.set('search', folder.params.search);
@@ -1027,18 +1047,14 @@ export default function CommunicationsPage() {
       if (categoryF) params.set('category', categoryF);
       if (search) params.set('search', search);
 
-      // Account-scoped mail: a mailbox narrows by its integration id, a system
-      // account by the mailbox it routes through or its category list.
+      // Account-scoped mail: a mailbox narrows by its integration id; a system
+      // account routes by its category list (never by a mailbox, so a system
+      // account can never pull mailbox-owned mail into the system section).
       if (scope?.kind === 'mailbox') {
         params.set('mailbox_id', scope.id);
       } else if (scope?.kind === 'system') {
         const acct = (commSettingsRef.current?.mail_accounts || []).find((a: any) => String(a.id) === scope.id);
-        const mb = mailboxesRef.current.find(m => (acct?.email || '').toLowerCase() === (m.email_address || '').toLowerCase());
-        if (mb) {
-          params.set('mailbox_id', mb.id);
-        } else {
-          params.set('category', systemAccountCategories(commSettingsRef.current, acct).join(','));
-        }
+        params.set('category', systemAccountCategories(commSettingsRef.current, acct).join(','));
       }
 
       const res = await fetch(`${API_BASE}/conversations?${params.toString()}`, { headers: getAuthHeaders() });
@@ -1606,15 +1622,20 @@ export default function CommunicationsPage() {
     setSelectedHistoryItem(null);
     setError(null);
     setComposerOpen(false);
-    // Folders are per-account navigation inside Mail; only system-wide views
-    // (internal categories, logs, history, management panes) clear the scope.
-    if (!key.startsWith('ext-')) setAccountScope(null);
     const row = folders.find(x => x.id === key);
     const f = key === 'settings' ? SETTINGS_DEF
       : key === 'templates' ? TEMPLATES_DEF
       : key === 'signatures' ? SIGNATURES_DEF
       : key === 'auto-reply' ? AUTO_REPLY_DEF
       : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === key) || FOLDERS[0]));
+    // Strict separation: keep an account scope only when it belongs to the
+    // section being opened (a mailbox inside Mail, a system account inside
+    // Websmith Communications). Any mismatch clears it so mailbox mail can
+    // never appear in the system section and system mail can never appear in
+    // the Mail section.
+    const keepScope = (accountScope?.kind === 'mailbox' && f.section === 'external')
+      || (accountScope?.kind === 'system' && f.section === 'internal');
+    if (!keepScope) setAccountScope(null);
     if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope);
     else if (f.kind === 'queue') loadQueue();
     else if (f.kind === 'logs') loadLogs();
@@ -1886,6 +1907,15 @@ export default function CommunicationsPage() {
     return lines.join('\n\n');
   };
 
+  // Real recipient name for Reply/Reply All — from the customer record or the
+  // conversation row. Never a guess; email-like strings ("name <a@b.c>" or a
+  // bare address from IMAP-parsed mail) are dropped so the name field never
+  // receives an address.
+  const recipientNameFor = (d: DetailData | null): string => {
+    const name = (d?.customer?.name || d?.conversation.customer_name || '').trim();
+    return /[@<>]/.test(name) ? '' : name;
+  };
+
   const openReply = (to?: string, _action?: 'support' | 'general', replyAll?: boolean) => {
     const d = detail;
     const target = to || d?.conversation.customer_email || (d?.customer?.email as string) || '';
@@ -1893,6 +1923,7 @@ export default function CommunicationsPage() {
     setEmailDialog({
       isOpen: true,
       defaultEmail: target,
+      defaultRecipientName: recipientNameFor(d),
       defaultLicenseKey: d?.conversation.license_key || undefined,
       defaultProductId: d?.conversation.product_id || undefined,
       defaultAction: 'send',
@@ -2291,18 +2322,33 @@ export default function CommunicationsPage() {
   const renderToolbar = () => {
     const hasSelection = selectedIds.size > 0;
     const btn = 'p-2 rounded-lg hover:bg-[var(--bg-tertiary)]/50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]';
-    // Compute enabled accounts for the selector
+    // Compute enabled accounts for the selector — strict separation: inside the
+    // Websmith Communications section only system accounts (support@/sales@/
+    // no-reply@) are offered; inside Mail only configured mailboxes. A system
+    // account can never select a mailbox and vice versa.
     const enabledAccounts = useMemo(() => {
-      const system = (commSettings?.mail_accounts || []).filter(a => a.is_active !== false);
-      const mailboxesList = mailboxes.filter(m => m.is_enabled !== false);
-      return [...system, ...mailboxesList].map(a => ({
-        id: a.kind === 'system' ? a.id : (mailboxes.find(m => m.email_address.toLowerCase() === (a.email || '').toLowerCase())?.id || ''),
-        kind: a.kind === 'system' ? 'system' : 'mailbox',
-        display_name: a.kind === 'system' ? (a.display_name || a.name || '') : (mailboxes.find(m => m.id === a.id)?.display_name || a.email || ''),
-        email: a.kind === 'system' ? (a.email || '') : (mailboxes.find(m => m.id === a.id)?.email_address || ''),
-        is_active: a.is_active !== false,
-      }));
-    }, [commSettings, mailboxes]);
+      const isExternal = activeFolderDef.section === 'external';
+      if (isExternal) {
+        return mailboxes
+          .filter(m => m.is_enabled !== false)
+          .map(m => ({
+            id: m.id,
+            kind: 'mailbox' as const,
+            display_name: m.display_name || m.email_address || '',
+            email: m.email_address || '',
+            is_active: m.is_enabled !== false,
+          }));
+      }
+      return (commSettings?.mail_accounts || [])
+        .filter(a => a.is_active !== false)
+        .map(a => ({
+          id: a.id,
+          kind: 'system' as const,
+          display_name: a.display_name || a.name || '',
+          email: a.email || '',
+          is_active: a.is_active !== false,
+        }));
+    }, [commSettings, mailboxes, activeFolderDef]);
 
     return (
       <div className="flex items-center gap-1 flex-wrap rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-2 py-1.5">
@@ -2447,10 +2493,10 @@ export default function CommunicationsPage() {
 
   // ---- Sidebar (Mail folders + Categories/Labels + Communications Setting) ----
   const renderSidebar = () => {
-    const folderBtn = (def: FolderDef, badgeKey?: keyof Stats, extra?: any) => {
+    const folderBtn = (def: FolderDef, badgeKey?: keyof Stats, extra?: any, statsSource: Stats = systemStats) => {
       const Icon = def.icon;
       const active = activeFolder === def.key;
-      const badge = badgeKey ? stats[badgeKey] : 0;
+      const badge = badgeKey ? statsSource[badgeKey] : 0;
       return (
         <button
           key={def.key}
@@ -2512,7 +2558,7 @@ export default function CommunicationsPage() {
             {groupLabel('Categories / Labels')}
             <div className="space-y-0.5">
               {internalFolders.map(def =>
-                folderBtn(def, def.badgeKey as keyof Stats | undefined)
+                folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, systemStats)
               )}
             </div>
           </div>
@@ -2522,7 +2568,7 @@ export default function CommunicationsPage() {
             {groupLabel('Mail')}
             <div className="space-y-0.5">
               {mailFolders.map(def =>
-                folderBtn(def, def.badgeKey as keyof Stats | undefined)
+                folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, mailboxStats)
               )}
             </div>
           </div>
@@ -2559,7 +2605,7 @@ export default function CommunicationsPage() {
     <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 shrink-0 overflow-x-auto scrollbar-thin">
       {FOLDER_CHIPS.map(chip => {
         const active = activeFolder === chip.key;
-        const badge = chip.badgeKey ? stats[chip.badgeKey] : 0;
+        const badge = chip.badgeKey ? (chip.key === 'all' || chip.key === 'int-trash' ? systemStats[chip.badgeKey] : mailboxStats[chip.badgeKey]) : 0;
         return (
           <button key={chip.key} onClick={() => handleFolderChange(chip.key)}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${active ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}>
@@ -4179,22 +4225,26 @@ export default function CommunicationsPage() {
       {/* Toolbar */}
       <div className="relative shrink-0">{renderToolbar()}</div>
 
-      {/* Pinned status cards — always visible */}
+      {/* Pinned status cards — always visible (section-scoped: Mail shows
+          mailbox stats, Websmith Communications shows system stats) */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 shrink-0">
-        {statusCards.map(card => {
-          const Icon = card.icon;
-          const cardFolderMap: Record<string, string> = { inbox: 'ext-inbox', waiting: 'ext-waiting', sent: 'ext-sent', failed: 'ext-failed', queued: 'ext-queued', unread: 'all' };
-          return (
-            <button key={card.key} onClick={() => handleFolderChange(cardFolderMap[card.key])}
-              className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-3 py-2 hover:bg-[var(--bg-tertiary)]/20 transition-colors">
-              <span className={`p-1.5 rounded-lg ${card.color}`}><Icon size={13} /></span>
-              <span className="flex-1 text-left min-w-0">
-                <span className="block text-[10px] text-[var(--text-muted)] truncate">{card.label}</span>
-                <span className="block text-sm font-bold text-[var(--text-primary)] leading-tight">{stats[card.key]}</span>
-              </span>
-            </button>
-          );
-        })}
+        {(() => {
+          const activeStats = activeFolderDef.section === 'external' ? mailboxStats : systemStats;
+          return statusCards.map(card => {
+            const Icon = card.icon;
+            const cardFolderMap: Record<string, string> = { inbox: 'ext-inbox', waiting: 'ext-waiting', sent: 'ext-sent', failed: 'ext-failed', queued: 'ext-queued', unread: 'all' };
+            return (
+              <button key={card.key} onClick={() => handleFolderChange(cardFolderMap[card.key])}
+                className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-3 py-2 hover:bg-[var(--bg-tertiary)]/20 transition-colors">
+                <span className={`p-1.5 rounded-lg ${card.color}`}><Icon size={13} /></span>
+                <span className="flex-1 text-left min-w-0">
+                  <span className="block text-[10px] text-[var(--text-muted)] truncate">{card.label}</span>
+                  <span className="block text-sm font-bold text-[var(--text-primary)] leading-tight">{activeStats[card.key]}</span>
+                </span>
+              </button>
+            );
+          });
+        })()}
       </div>
 
       {/* 3-pane body: Mailboxes | Folders + Email List | Conversation */}
@@ -4225,6 +4275,7 @@ export default function CommunicationsPage() {
         isOpen={emailDialog.isOpen}
         onClose={() => setEmailDialog({ isOpen: false })}
         defaultEmail={emailDialog.defaultEmail}
+        defaultRecipientName={emailDialog.defaultRecipientName}
         defaultLicenseKey={emailDialog.defaultLicenseKey}
         defaultProductId={emailDialog.defaultProductId}
         defaultProductName={emailDialog.defaultProductName}

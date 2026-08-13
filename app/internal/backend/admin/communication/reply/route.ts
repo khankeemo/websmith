@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { getDb } from '@/lib/backend-db';
 import { sendEmail } from '@/lib/email/brevo';
+import {
+  linkConversationAttachments,
+  storeUploadedFiles,
+  toBrevoAttachments,
+  toNodemailerAttachments,
+  validateAttachmentFiles,
+} from '@/lib/communications/attachments';
 
 const CATEGORY_ROUTE_MAP: Record<string, string> = {
   support: 'support_reply',
@@ -13,19 +18,6 @@ const CATEGORY_ROUTE_MAP: Record<string, string> = {
   hardware_replacement: 'support_reply',
   general: 'support_reply',
 };
-
-const ALLOWED_MIME_TYPES = [
-  'text/plain', 'text/csv', 'text/html', 'text/xml',
-  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
-  'application/json', 'application/pdf',
-  'application/zip', 'application/x-zip-compressed',
-  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/octet-stream',
-];
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_FILES = 5;
 
 // The reply is a REAL outbound email when is_internal is false. The composer
 // may post `is_internal` as a boolean OR the string "true"/"false", so it is
@@ -78,33 +70,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Outgoing attachment files (uploaded with the reply). Saved to storage and
-    // attached to the real email for BOTH the mailbox-SMTP and Brevo paths.
-    const attachments: { name: string; content: string; type?: string }[] = [];
-    const storedFiles: { fileName: string; fileSize: number; mimeType: string; storagePath: string }[] = [];
+    // Outgoing attachment files (uploaded with the reply). Flow through the
+    // universal attachment service — validated, stored (best-effort disk +
+    // durable DB bytes), and shaped for the email providers. Attached to the
+    // real email for BOTH the mailbox-SMTP and Brevo paths.
+    const storedFiles: Awaited<ReturnType<typeof storeUploadedFiles>> = [];
     if (isMultipart && files.length > 0) {
-      if (files.length > MAX_FILES) {
-        return NextResponse.json({ success: false, error: `Maximum ${MAX_FILES} attachments allowed` }, { status: 400 });
+      const fileValidation = validateAttachmentFiles(files);
+      if (!fileValidation.ok) {
+        return NextResponse.json({ success: false, error: fileValidation.error }, { status: 400 });
       }
-      const storagePath = process.env.ATTACHMENT_STORAGE_PATH || path.join(process.cwd(), 'public', 'attachments', 'email');
-      fs.mkdirSync(storagePath, { recursive: true });
-      for (const file of files) {
-        if (file.size > MAX_FILE_SIZE) {
-          return NextResponse.json({ success: false, error: `File "${file.name}" exceeds the 10MB limit` }, { status: 400 });
-        }
-        const mimeType = file.type || 'application/octet-stream';
-        if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-          return NextResponse.json({ success: false, error: `File type "${mimeType}" for "${file.name}" is not supported` }, { status: 400 });
-        }
-        const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedName}`;
-        const filePath = path.join(storagePath, uniqueName);
-        const buffer = Buffer.from(await file.arrayBuffer());
-        fs.writeFileSync(filePath, buffer);
-        attachments.push({ name: sanitizedName, content: buffer.toString('base64'), type: mimeType });
-        storedFiles.push({ fileName: sanitizedName, fileSize: file.size, mimeType, storagePath: filePath });
-      }
+      storedFiles.push(...(await storeUploadedFiles(files)));
     }
+    const attachments = toBrevoAttachments(storedFiles);
+    const nodemailerAttachments = toNodemailerAttachments(storedFiles);
 
     const db = await getDb();
     client = await db.connect();
@@ -147,16 +126,11 @@ export async function POST(request: NextRequest) {
       ['admin_conversation_reply', `Admin reply added to conversation ${conversation_id}`, now]
     );
 
-    // Stored conversation attachments (linked to this message so the reader
-    // thread shows them under the reply).
+    // Stored conversation attachments (linked to this message via the
+    // universal service — durable DB bytes + best-effort disk) so the reader
+    // thread shows + downloads them under the reply.
     if (storedFiles.length > 0 && messageId) {
-      for (const sf of storedFiles) {
-        await client.query(
-          `INSERT INTO conversation_attachments (message_id, file_name, file_size, mime_type, storage_path)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [messageId, sf.fileName, sf.fileSize, sf.mimeType, sf.storagePath]
-        );
-      }
+      await linkConversationAttachments(client, messageId, storedFiles);
     }
 
     // Internal notes are NEVER email — nothing is sent below.
@@ -218,8 +192,8 @@ export async function POST(request: NextRequest) {
             subject: replySubject,
             text: fullMessage,
             html: `<p>${fullMessage.replace(/\n/g, '<br/>')}</p>`,
-            ...(attachments.length > 0
-              ? { attachments: attachments.map(a => ({ filename: a.name, content: Buffer.from(a.content, 'base64'), contentType: a.type })) }
+            ...(nodemailerAttachments.length > 0
+              ? { attachments: nodemailerAttachments }
               : {}),
           });
           smtpDelivered = true;

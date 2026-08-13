@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { getDb } from '@/lib/backend-db';
+import { linkConversationAttachments, storeIncomingAttachment } from '@/lib/communications/attachments';
 
 export async function POST(
   _request: NextRequest,
@@ -244,28 +243,18 @@ export async function POST(
                 );
                 const customerMessageId = msgInsert?.rows?.[0]?.id;
 
-                // ---- Incoming attachments: save any files in the email to
-                // storage and link them to the customer message so the reader
+                // ---- Incoming attachments: store any files in the email via
+                // the universal attachment service (sanitized + durable DB
+                // bytes) and link them to the customer message so the reader
                 // thread can show + download them. (conversation_attachments)
                 if (customerMessageId && Array.isArray(parsed.attachments) && parsed.attachments.length > 0) {
                   try {
-                    const storagePath = process.env.ATTACHMENT_STORAGE_PATH || path.join(process.cwd(), 'public', 'attachments', 'email');
-                    fs.mkdirSync(storagePath, { recursive: true });
+                    const storedIncoming: NonNullable<ReturnType<typeof storeIncomingAttachment>>[] = [];
                     for (const att of parsed.attachments) {
-                      const fileName = (att.filename || 'attachment').replace(/[^a-zA-Z0-9._-]/g, '_');
-                      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${fileName}`;
-                      const filePath = path.join(storagePath, uniqueName);
-                      const content = att.content;
-                      const size = att.size || (content && content.length) || 0;
-                      if (content) {
-                        fs.writeFileSync(filePath, content);
-                        await client?.query(
-                          `INSERT INTO conversation_attachments (message_id, file_name, file_size, mime_type, storage_path)
-                           VALUES ($1, $2, $3, $4, $5)`,
-                          [customerMessageId, fileName, size, att.contentType || 'application/octet-stream', filePath]
-                        );
-                      }
+                      const stored = storeIncomingAttachment(att);
+                      if (stored) storedIncoming.push(stored);
                     }
+                    await linkConversationAttachments(client, customerMessageId, storedIncoming);
                   } catch (attErr: any) {
                     console.error('Failed to store incoming attachment:', attErr?.message || attErr);
                   }
