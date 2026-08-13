@@ -268,9 +268,10 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
     [fromAccounts, fromId]
   );
 
-  // Load SDK job info for the product when the dialog opens
+  // Load SDK job info for the product when the dialog opens (admin flows only —
+  // the SDK attach endpoint is internal and never used by customer mode).
   useEffect(() => {
-    if (isOpen && (defaultProductId || defaultProductName)) {
+    if (isOpen && !customerMode && (defaultProductId || defaultProductName)) {
       let cancelled = false;
       const productId = defaultProductId || "";
       if (productId) {
@@ -285,7 +286,24 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       }
       return () => { cancelled = true; };
     }
-  }, [isOpen, defaultProductId, defaultProductName]);
+  }, [isOpen, customerMode, defaultProductId, defaultProductName]);
+
+  // Customer-facing (customerMode) default messages are the approved customer →
+  // admin templates. They only substitute values that already exist in the
+  // dialog (customer name / product name / license key); a detail line is
+  // omitted when its value is empty (the visitor fills it in the form and can
+  // always edit the message).
+  const customerMessageVars = () => ({
+    name: (customerName || defaultCustomerName || "").trim(),
+    product: (productName || defaultProductName || "").trim(),
+    license: (licenseKey || defaultLicenseKey || "").trim(),
+  });
+  const customerDetailBlock = (pairs: [string, string][]) => {
+    const lines = pairs
+      .filter(([, value]) => value)
+      .map(([label, value]) => `**${label}:** ${value}`);
+    return lines.length ? `\n${lines.join("\n")}\n` : "";
+  };
 
   const openAction = useCallback((a: EmailAction) => {
     setAction(a);
@@ -312,6 +330,18 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         // is resolved SERVER-SIDE (support@) and the visitor supplies their
         // own identity — the To field is a read-only mirror of that target.
         if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("General Email Request");
+          setMessage(`Hello Websmith Digital Team,
+
+I would like to contact your team regarding the following matter:
+
+Please review my request and let me know how I can proceed.
+
+Thank you for your assistance.
+
+Regards,
+${v.name}`);
           setRecipientEmail(SUPPORT_EMAIL);
         } else if (!recipientEmail) {
           setRecipientEmail(defaultEmail || "");
@@ -324,51 +354,173 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         setView("history");
         break;
       case "buy-license":
-        setSubject(`License Purchase Inquiry - ${productName || defaultProductName || "Product"}`);
-        setMessage(`I am interested in purchasing a license for ${productName || defaultProductName || "your product"}.\n\nPlease provide pricing and availability.`);
+        if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("License Purchase Enquiry");
+          setMessage(`Hello Websmith Digital Sales Team,
+
+I am interested in purchasing a Websmith Digital software license.
+
+Please provide me with the available license/plan options, pricing, and the steps required to complete the purchase.
+${customerDetailBlock([["Product", v.product]])}
+Thank you. I look forward to your response.
+
+Regards,
+${v.name}`);
+        } else {
+          setSubject(`License Purchase Inquiry - ${productName || defaultProductName || "Product"}`);
+          setMessage(`I am interested in purchasing a license for ${productName || defaultProductName || "your product"}.\n\nPlease provide pricing and availability.`);
+        }
         setRecipientEmail(SALES_EMAIL);
         setView("form");
         break;
       case "activate":
-        setSubject(`License Activation Request - ${licenseKey || defaultLicenseKey || ""}`);
+        if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("License Activation Request");
+          setMessage(`Hello Websmith Digital Support Team,
+
+I need assistance with activating my Websmith Digital license.
+
+Please review my license and activation details and let me know if any additional information is required.
+${customerDetailBlock([["Product", v.product], ["License", v.license]])}
+Thank you for your support.
+
+Regards,
+${v.name}`);
+        } else {
+          setSubject(`License Activation Request - ${licenseKey || defaultLicenseKey || ""}`);
+        }
         setRecipientEmail(SUPPORT_EMAIL);
         setView("form");
         break;
       case "renew":
-        setSubject(`License Renewal Request - ${licenseKey || defaultLicenseKey || ""}`);
+        if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("License Renewal Request");
+          setMessage(`Hello Websmith Digital Team,
+
+I would like to renew my software license.
+
+Please review my current license details and provide the available renewal options and any required steps.
+${customerDetailBlock([["Product", v.product], ["License", v.license]])}
+Thank you.
+
+Regards,
+${v.name}`);
+        } else {
+          setSubject(`License Renewal Request - ${licenseKey || defaultLicenseKey || ""}`);
+        }
         setRecipientEmail(SALES_EMAIL);
         setView("form");
         break;
       case "reactivation":
-        setSubject(`License Reactivation Request - ${licenseKey || defaultLicenseKey || ""}`);
+        if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("License Reactivation Request");
+          setMessage(`Hello Websmith Digital Support Team,
+
+My software license requires reactivation, and I would like assistance restoring access.
+
+Please review my license status and let me know what is required to reactivate it.
+${customerDetailBlock([["Product", v.product], ["License", v.license]])}
+Thank you for your assistance.
+
+Regards,
+${v.name}`);
+        } else {
+          setSubject(`License Reactivation Request - ${licenseKey || defaultLicenseKey || ""}`);
+        }
         setRecipientEmail(SUPPORT_EMAIL);
         setView("form");
         break;
       case "device-replacement":
-        setSubject(`Device Replacement Request - ${licenseKey || defaultLicenseKey || ""}`);
+        if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("Device Replacement Request");
+          setMessage(`Hello Websmith Digital Support Team,
+
+I need to replace the device currently associated with my software license.
+
+Please review my license and device details and advise me on the required replacement process.
+${customerDetailBlock([["Product", v.product], ["License", v.license]])}
+Thank you.
+
+Regards,
+${v.name}`);
+        } else {
+          setSubject(`Device Replacement Request - ${licenseKey || defaultLicenseKey || ""}`);
+        }
         setRecipientEmail(SUPPORT_EMAIL);
         setView("form");
         break;
       case "support":
-        setSubject("Support Request");
+        if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("Technical Support Request");
+          setMessage(`Hello Websmith Digital Support Team,
+
+I need technical assistance with my Websmith Digital software.
+
+Please review my request and help me resolve the issue.
+${customerDetailBlock([["Product", v.product]])}
+I have included any relevant details and attachments that may help your team investigate the issue.
+
+Thank you for your support.
+
+Regards,
+${v.name}`);
+        } else {
+          setSubject("Support Request");
+        }
         setRecipientEmail(SUPPORT_EMAIL);
         setView("form");
         break;
       case "general":
-        setSubject("General Inquiry");
+        if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("General Support Request");
+          setMessage(`Hello Websmith Digital Support Team,
+
+I would like assistance with a general question or issue regarding your software or services.
+
+Please review my request and let me know how I can proceed.
+
+Thank you for your assistance.
+
+Regards,
+${v.name}`);
+        } else {
+          setSubject("General Inquiry");
+        }
         setRecipientEmail(SUPPORT_EMAIL);
         setView("form");
         break;
       case "software-store":
-        setSubject(`Software Store Enquiry${productName || defaultProductName ? ` - ${productName || defaultProductName}` : ""}`);
-        setMessage(productName || defaultProductName
-          ? `I have a question about ${productName || defaultProductName}.\n\nPlease get in touch.`
-          : "I have a question about a product in the Software Store.\n\nPlease get in touch.");
+        if (customerMode) {
+          const v = customerMessageVars();
+          setSubject("Software Store Enquiry");
+          setMessage(`Hello Websmith Digital Sales Team,
+
+I have an enquiry regarding the Websmith Digital Software Store.
+
+Please provide the relevant information about the product, licensing, purchasing process, or any other details related to my enquiry.
+${customerDetailBlock([["Product", v.product]])}
+Thank you. I look forward to your response.
+
+Regards,
+${v.name}`);
+        } else {
+          setSubject(`Software Store Enquiry${productName || defaultProductName ? ` - ${productName || defaultProductName}` : ""}`);
+          setMessage(productName || defaultProductName
+            ? `I have a question about ${productName || defaultProductName}.\n\nPlease get in touch.`
+            : "I have a question about a product in the Software Store.\n\nPlease get in touch.");
+        }
         setRecipientEmail(SALES_EMAIL);
         setView("form");
         break;
     }
-  }, [defaultEmail, defaultLicenseKey, defaultProductName, productName, licenseKey, recipientEmail, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc]);
+  }, [defaultEmail, defaultLicenseKey, defaultProductName, productName, licenseKey, customerName, defaultCustomerName, recipientEmail, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc]);
 
   const loadHistory = useCallback(async (email?: string) => {
     const search = email || searchEmail;
@@ -512,6 +664,8 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         // Customer-facing send: no admin session. Post to the public portal
         // route — the recipient is resolved SERVER-SIDE from the action (Buy /
         // Renew → sales@), so the browser can never target an arbitrary address.
+        // Attachments use the SAME universal attachment flow (multipart → the
+        // public route validates + stores them with the shared service).
         const payload: Record<string, string> = {
           action,
           customer_name: customerName.trim(),
@@ -521,11 +675,18 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           message: finalMessage,
           license_key: licenseKey,
         };
-        res = await fetch("/api/portal/support-message", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        if (files.length > 0) {
+          const formData = new FormData();
+          for (const [k, v] of Object.entries(payload)) formData.append(k, v);
+          for (const f of files) formData.append("files", f.file);
+          res = await fetch("/api/portal/support-message", { method: "POST", body: formData });
+        } else {
+          res = await fetch("/api/portal/support-message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
       } else if (conversationId) {
         // Reply mode: same universal composer, posted to the conversation
         // reply endpoint so the message lands in the conversation thread.
@@ -631,7 +792,9 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
   );
 
   const renderAttachmentSection = () => {
-    const canAttachSdk = Boolean(sdkJob?.has_sdk) && Boolean(licenseKey || defaultProductId);
+    // The product SDK attach is an admin-only feature (it reads an internal
+    // endpoint) — file uploads are shared by admin AND customer modes.
+    const canAttachSdk = !customerMode && Boolean(sdkJob?.has_sdk) && Boolean(licenseKey || defaultProductId);
     return (
       <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/10 p-3 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -689,7 +852,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
             </span>
           </label>
         )}
-        {sdkLoading && (
+        {!customerMode && sdkLoading && (
           <p className="text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
             <Loader2 size={11} className="animate-spin" /> Checking for product SDK…
           </p>
@@ -972,7 +1135,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </>
         )}
 
-        {!customerMode && renderAttachmentSection()}
+        {renderAttachmentSection()}
 
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-xl border border-red-500/20 bg-red-500/5">

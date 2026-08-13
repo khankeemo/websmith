@@ -51,6 +51,29 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `sales@websmithdigital.com`; send / activate / reactivation /
   device-replacement / support / general → `support@websmithdigital.com`).
   Everything else on the storefront stays untouched.
+- **Customer Email Center — 9 unique default messages + customer attachments
+  (see master doc "Customer Email Center — 9 unique default messages + customer
+  attachments" progress entry)**: the customer-mode Email Center (`/software-store`
+  Email entry + buy/renew portals) pre-fills ONE unique customer→admin default
+  message per action — Send Email → **General Email Request**; Buy License →
+  **License Purchase Enquiry**; Activate → **License Activation Request**; Renew
+  → **License Renewal Request**; Reactivation → **License Reactivation Request**;
+  Device Replacement → **Device Replacement Request**; Support → **Technical
+  Support Request**; General → **General Support Request**; Software Store →
+  **Software Store Enquiry** — substituting ONLY existing dynamic values
+  (`customerName`/`defaultCustomerName`, `productName`/`defaultProductName`,
+  `licenseKey`/`defaultLicenseKey`; empty detail lines omitted); admin
+  (non-customerMode) defaults unchanged. **Attachments work for ALL 9 options**
+  via the EXISTING universal attachment system: the shared dialog's attachment
+  section is enabled in customer mode (SDK attach stays admin-only), customer-mode
+  Send posts multipart to the PUBLIC `POST /api/portal/support-message` when files
+  are attached, and that public route now accepts `multipart/form-data`, validates
+  (`validateAttachmentFiles` max 5 / 10MB / allow-list), stores (`storeUploadedFiles`),
+  attaches to the Brevo send (`toBrevoAttachments`), and links to the customer
+  `conversation_messages` row (`linkConversationAttachments`) + the
+  `notification_logs` row (`linkEmailAttachments`) — the same pipeline as the
+  admin composer. Recipient routing / identity fields / structured body / per-IP
+  throttle / auth / SMTP / IMAP / queue / schema unchanged.
 - **Built-in mailboxes** (`support@`, `sales@`, `no-reply@`) are app-config
   defaults; enabling/disabling is an app-config toggle + `mailboxes.is_enabled` —
   never delete accounts.

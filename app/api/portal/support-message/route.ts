@@ -16,6 +16,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 import { sendEmail } from "@/lib/email/brevo";
+import {
+  linkConversationAttachments,
+  linkEmailAttachments,
+  storeUploadedFiles,
+  toBrevoAttachments,
+  validateAttachmentFiles,
+} from "@/lib/communications/attachments";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -76,14 +83,37 @@ export async function POST(request: NextRequest) {
     }
 
     let body: any = {};
+    const files: File[] = [];
+    const contentType = request.headers.get("content-type") || "";
+    const isMultipart = contentType.includes("multipart/form-data");
     try {
-      body = await request.json();
+      if (isMultipart) {
+        const formData = await request.formData();
+        for (const [key, value] of formData.entries()) {
+          if (value instanceof File) files.push(value);
+          else body[key] = value;
+        }
+      } else {
+        body = await request.json();
+      }
     } catch {
       return NextResponse.json(
         { success: false, error: { message: "Invalid request body" } },
         { status: 400 }
       );
     }
+
+    // Uploaded files flow through the SAME universal attachment policy + service
+    // as the admin composer (max 5 files / 10MB / extension allow-list), then
+    // get attached to the outbound email and stored in the admin workflow.
+    const fileValidation = validateAttachmentFiles(files);
+    if (!fileValidation.ok) {
+      return NextResponse.json(
+        { success: false, error: { message: fileValidation.error } },
+        { status: 400 }
+      );
+    }
+    const storedFiles = isMultipart ? await storeUploadedFiles(files) : [];
 
     const action = String(body.action || "").trim();
     if (!VALID_ACTIONS.includes(action)) {
@@ -132,12 +162,20 @@ export async function POST(request: NextRequest) {
       [conversationId, route.category, customerEmail, customerName, subject || '', licenseKey || '', now]
     );
 
-    await client.query(
+    const msgRes = await client.query(
       `INSERT INTO conversation_messages
        (conversation_id, sender_type, sender_name, sender_email, message, created_at)
-       VALUES ($1, 'customer', $2, $3, $4, $5)`,
+       VALUES ($1, 'customer', $2, $3, $4, $5) RETURNING id`,
       [conversationId, customerName, customerEmail, message, now]
     );
+    const conversationMessageId = msgRes.rows[0]?.id || null;
+
+    // Link uploaded files to the customer conversation message (universal
+    // attachment service — durable DB bytes + best-effort disk) so the admin
+    // reader shows + downloads them alongside the message.
+    if (conversationMessageId && storedFiles.length > 0) {
+      await linkConversationAttachments(client, conversationMessageId, storedFiles);
+    }
 
     await client.query(
       `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key)
@@ -150,9 +188,10 @@ export async function POST(request: NextRequest) {
 
     let emailDelivered = true;
     const isSales = route.category === "sales";
+    const emailType = isSales ? 'new_sales_enquiry' : 'admin_notification';
     const sendResult = await sendEmail(
       pool,
-      isSales ? 'new_sales_enquiry' : 'admin_notification',
+      emailType,
       { email: route.recipient, name: isSales ? 'Sales' : 'Support' },
       {
         customer_name: customerName,
@@ -173,12 +212,39 @@ export async function POST(request: NextRequest) {
           html: `<p>${message.replace(/\n/g, '<br/>')}</p>`,
           plainText: message,
         },
+        attachments: toBrevoAttachments(storedFiles),
       }
     );
 
     if (!sendResult.success) {
       emailDelivered = false;
       console.error(`[Portal support-message] email delivery failed for ${conversationId}:`, sendResult.error);
+    } else if (storedFiles.length > 0) {
+      // Persist attachment metadata against the notification log row that
+      // sendEmail recorded (same pattern as the admin send route), so the
+      // attachments are retrievable/downloadable in the admin workflow.
+      try {
+        const linkClient = await pool.connect();
+        try {
+          const logRes = await linkClient.query(
+            `SELECT id FROM notification_logs WHERE recipient = $1 AND event_type = $2 ORDER BY id DESC LIMIT 1`,
+            [route.recipient, emailType]
+          );
+          const notificationLogId = logRes.rows[0]?.id || null;
+          await linkEmailAttachments(
+            linkClient,
+            notificationLogId,
+            emailType,
+            route.recipient,
+            licenseKey || null,
+            storedFiles
+          );
+        } finally {
+          linkClient.release();
+        }
+      } catch (linkErr) {
+        console.error('[Portal support-message] attachment link failed:', linkErr);
+      }
     }
 
     return NextResponse.json({ success: true, conversation_id: conversationId, emailDelivered });
