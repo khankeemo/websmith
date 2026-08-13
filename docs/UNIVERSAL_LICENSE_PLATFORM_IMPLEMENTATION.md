@@ -5375,6 +5375,42 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
   pages), TS clean; live-verified (route present, proxy auth gate 401 for
   anonymous). Files: `app/internal/api/communications/page.tsx`,
   `app/internal/backend/communications/conversations/route.ts`. Not committed.
+- **Universal Trash "Failed to load conversations" — root cause + fix
+  (2026-08-13, deployed)**: after the Trash separation above, clicking
+  **Universal/System Trash** in the Communication Center showed the misleading
+  error **"Failed to load conversations."** The Universal Trash data path
+  (`source=system` + `show_deleted=true` → `cc.mailbox_id IS NULL AND
+  deleted_at IS NOT NULL`) is correct and mirrors the working Mailbox Trash —
+  the failure was **NOT** a backend/SQL issue. **ROOT CAUSE (traced via live
+  production logs)**: when the Internal API session (`api_center_token` /
+  Authorization header) is missing or expired while the website session
+  (`ws_session`) is still valid, the auth proxy returns a **307 redirect** to
+  `/internal/api/auth/login?next=…` for every `/internal/backend/*` request
+  (Vercel function logs showed 100% of `/internal/backend/communications/
+  conversations*` calls returning 307). The Communications Center frontend
+  `fetch()` calls used the default `redirect: 'follow'`, so the browser
+  silently followed the 307 and received the **login page HTML**; `res.json()`
+  then **threw**, and the loader's catch showed "Failed to load conversations."
+  (every folder was affected once the session lapsed — Trash was the one being
+  clicked). **FIX** (`app/internal/api/communications/page.tsx`, UI-only): added
+  a shared **`internalFetch()`** helper — `fetch(url, { ...init,
+  redirect: 'manual' })` that detects a 3xx response whose `Location` points at
+  `/internal/api/auth/login` and, instead of following it into HTML, redirects
+  the admin back through the two-step login with the current location preserved
+  (`/internal/api/auth/login?next=<pathname+search>`, the documented session-
+  recovery flow), then throws so the loader stops. All READ loaders now use it:
+  `loadConversations` (list + Universal/Mailbox Trash), `fetchStats`,
+  `loadQueue`, `loadLogs`, `loadHistory`, `loadMailboxes`, `loadTemplates`,
+  `loadCommsSettings`, `loadFolders`. Working action/mutation calls (send,
+  reply, delete, restore, mark read/unread, archive, mailbox create/test/sync/
+  send-test, settings save, folder CRUD) are untouched — no mailbox/compose/
+  attachment/category/conversation logic changed. With a valid session the
+  Universal Trash list loads normally (deleted system conversations only,
+  `deleted_at` set), empty Trash returns `{success:true, data:{conversations:[],
+  total:0}}` (empty state — not an error), and Delete/Restore/Delete-Forever/
+  read-unread/Empty Trash keep working id-based as before. Deployed 2026-08-13,
+  build green (289 pages), TS clean. Files: `app/internal/api/communications/
+  page.tsx`. Not committed.
 36. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture

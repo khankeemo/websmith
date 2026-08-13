@@ -434,6 +434,30 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `source=mailbox` from `ext-trash` (+ `mailbox_id` when a mailbox is
   account-scoped). No SMTP/IMAP/queue/schema/auth/notification/storefront logic
   changed. Deployed 2026-08-13, build green 289 pages.
+- **Universal Trash "Failed to load conversations" — root cause + fix (see
+  master doc "Universal Trash 'Failed to load conversations' — root cause +
+  fix" progress entry)**: clicking Universal/System Trash showed "Failed to
+  load conversations." — NOT a backend/SQL issue (the `source=system` +
+  `show_deleted=true` trash path is correct and mirrors Mailbox Trash). ROOT
+  CAUSE (live production logs): when the Internal API session
+  (`api_center_token`) is missing/expired but the website session (`ws_session`)
+  is valid, the proxy returns a **307 redirect** to `/internal/api/auth/login`
+  for every `/internal/backend/*` call; the Communications page `fetch()` calls
+  followed it by default and received the **login page HTML**, so `res.json()`
+  threw → the loader's catch showed "Failed to load conversations." FIX
+  (`app/internal/api/communications/page.tsx`, UI-only): a shared
+  **`internalFetch()`** helper fetches with `redirect: 'manual'`, detects the
+  3xx whose `Location` is `/internal/api/auth/login`, sends the admin back
+  through the two-step login with `?next=<current location>` preserved, then
+  throws. All READ loaders use it (`loadConversations`, `fetchStats`,
+  `loadQueue`, `loadLogs`, `loadHistory`, `loadMailboxes`, `loadTemplates`,
+  `loadCommsSettings`, `loadFolders`); working action/mutation calls (send,
+  reply, delete, restore, mark read/unread, archive, mailbox create/test/sync,
+  settings save, folder CRUD) are untouched. With a valid session Universal
+  Trash loads deleted system conversations only, empty Trash returns a valid
+  empty result (not an error), and Delete/Restore/Delete-Forever/read-unread/
+  Empty Trash work id-based as before. No mailbox/compose/attachment/category/
+  conversation logic changed. Deployed 2026-08-13, build green 289 pages.
 - **Mailbox form is blank + auto-detected (no defaults)**: `newMailboxForm()`
   starts with NO provider, NO server hosts, NO email — the Add Mailbox form is
   completely empty. Typing the **Incoming Email** auto-detects the provider
