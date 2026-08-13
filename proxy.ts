@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { isPublicRoute } from "./core/constants/routes";
 
 const PUBLIC_PATHS = [
   // "Please Login First" entry guard — always renderable (links to /login)
@@ -92,8 +93,31 @@ const pleaseLoginFirstResponse = (request: NextRequest): NextResponse => {
   return NextResponse.redirect(pleaseUrl);
 };
 
+// Main-website protected pages (non-internal) reuse the existing website
+// login with its established "session expired" message (same redirect the
+// apiService 401 interceptor already uses: /login?reason=session-expired).
+const sessionExpiredResponse = (request: NextRequest): NextResponse => {
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("reason", "session-expired");
+  return NextResponse.redirect(loginUrl);
+};
+
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;
+
+  // Backend /api/* routes (website API) enforce their own server-side auth
+  // (each route verifies the website JWT). The matcher also excludes them;
+  // this guard is defense-in-depth so API calls are never caught by the page
+  // session gate below.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
+  // Static assets / Next.js internals — also excluded by the matcher; kept as
+  // a guard so CSS/JS/images/robots/sitemap can never be redirected to login.
+  if (pathname.startsWith("/_next/") || /\.\w+$/.test(pathname)) {
+    return NextResponse.next();
+  }
 
   // The Internal API login page is the SECOND step: it must never render
   // without a valid WEBSITE login first. Without one → "Please Login First".
@@ -157,9 +181,29 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.next();
+  // Main-website protected pages: anything NOT on the centralized public
+  // route allow-list (core/constants/routes.ts isPublicRoute) requires a
+  // valid WEBSITE session (ws_session cookie — the mirrored JWT verified
+  // against JWT_SECRET). This runs before the page/RSC content is served, so
+  // direct URL access never exposes protected pages or their data.
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (await hasValidWebsiteSession(request)) {
+    return NextResponse.next();
+  }
+
+  return sessionExpiredResponse(request);
 }
 
 export const config = {
-  matcher: ["/internal/:path*"],
+  matcher: [
+    "/internal/:path*",
+    // Everything else that is not a static asset or Next.js/API internal
+    // (negative-lookahead pattern documented for Next.js proxy/middleware).
+    // Public website pages pass through via the allow-list above; protected
+    // pages (admin/client/developer/dashboard/...) are gated server-side.
+    "/((?!api|_next|images|videos|fonts|favicon|robots|sitemap|.*\\..*).*)",
+  ],
 };

@@ -47,6 +47,10 @@ export default function OtpVerification({
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usedAttempts, setUsedAttempts] = useState(0);
+  // When the user clicks/focuses a completed OTP again (e.g. after a wrong
+  // attempt), the whole existing code is treated as selected so typing a new
+  // code replaces it immediately — no manual deletion required.
+  const [allSelected, setAllSelected] = useState(false);
   const maxAttempts = 15;
 
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
@@ -63,9 +67,28 @@ export default function OtpVerification({
 
   const canResend = secondsLeft <= 0 && !resending;
 
+  // Focusing a completed OTP marks the whole code as selected: the very next
+  // typed digit starts a fresh code (overwrite) instead of blocking on a full
+  // box or requiring the old code to be deleted first.
+  const handleFocus = () => {
+    if (!verifying && !resending && digits.every((digit) => digit !== "")) {
+      setAllSelected(true);
+    }
+  };
+
   const setDigit = (index: number, value: string) => {
     const clean = value.replace(/\D/g, "");
     if (clean.length <= 1) {
+      if (allSelected) {
+        const next = Array(OTP_LENGTH).fill("");
+        next[0] = clean;
+        setAllSelected(false);
+        setDigits(next);
+        if (clean) {
+          inputsRef.current[1]?.focus();
+        }
+        return;
+      }
       setDigits((prev) => {
         const next = [...prev];
         next[index] = clean;
@@ -84,13 +107,32 @@ export default function OtpVerification({
     const next = Array(OTP_LENGTH).fill("");
     for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
     setDigits(next);
+    setAllSelected(false);
     inputsRef.current[Math.min(index + pasted.length, OTP_LENGTH - 1)]?.focus();
     setError(null);
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // While the whole OTP is selected, a digit key replaces the code entirely
+    // (the first typed digit becomes the new first digit). Intercepted here
+    // because a maxLength=1 box would otherwise swallow the first keystroke.
+    if (allSelected && e.key >= "0" && e.key <= "9") {
+      e.preventDefault();
+      const next = Array(OTP_LENGTH).fill("");
+      next[0] = e.key;
+      setAllSelected(false);
+      setDigits(next);
+      inputsRef.current[1]?.focus();
+      return;
+    }
     if (e.key === "Backspace") {
       e.preventDefault();
+      if (allSelected) {
+        setAllSelected(false);
+        setDigits(Array(OTP_LENGTH).fill(""));
+        inputsRef.current[0]?.focus();
+        return;
+      }
       if (digits[index]) {
         const next = [...digits];
         next[index] = "";
@@ -112,6 +154,7 @@ export default function OtpVerification({
       return;
     }
     setError(null);
+    setAllSelected(false);
     setVerifying(true);
     try {
       const result = await onVerify(otp);
@@ -141,6 +184,7 @@ export default function OtpVerification({
       const result = await onResend();
       if (result.success) {
         setDigits(Array(OTP_LENGTH).fill(""));
+        setAllSelected(false);
         setUsedAttempts(0);
         setSecondsLeft(result.expires_in || expiresIn);
         inputsRef.current[0]?.focus();
@@ -194,13 +238,14 @@ export default function OtpVerification({
             value={value}
             disabled={verifying || resending}
             onChange={(e) => setDigit(index, e.target.value)}
+            onFocus={handleFocus}
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={(e) => handlePaste(index, e)}
             className={`w-12 h-14 text-center text-xl font-bold rounded-xl outline-none transition-all duration-200 ${
               dark
                 ? "bg-white/5 border border-white/10 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
                 : "bg-[#F5F5F7] border-2 border-[#E3E3E6] text-[#1C1C1E] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/10"
-            } disabled:opacity-50`}
+            } ${allSelected ? (dark ? "border-blue-500 ring-2 ring-blue-500/50" : "border-[#007AFF] ring-4 ring-[#007AFF]/10") : ""} disabled:opacity-50`}
             aria-label={`Digit ${index + 1} of ${OTP_LENGTH}`}
           />
         ))}
