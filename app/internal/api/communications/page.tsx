@@ -901,7 +901,7 @@ export default function CommunicationsPage() {
     if (row) return folderDefFor(row);
     return FOLDERS.find(f => f.key === activeFolder) || FOLDERS[0];
   }, [activeFolder, folders, folderDefFor]);
-  const isTrash = activeFolder === 'ext-trash';
+  const isTrash = activeFolder === 'ext-trash' || activeFolder === 'int-trash';
 
   const showToast = useCallback((type: 'ok' | 'err' | 'warn', text: string) => {
     setToast({ type, text });
@@ -1832,7 +1832,20 @@ export default function CommunicationsPage() {
   const emptyTrash = async () => {
     setBusy('empty-trash');
     try {
-      const res = await fetch(`${API_BASE}/conversations?action=empty_trash`, { method: 'DELETE', headers: getAuthHeaders() });
+      // Strict source separation: the Universal/System Trash (int-trash) empties
+      // ONLY system mail (mailbox_id IS NULL); the Mailbox Trash (ext-trash)
+      // empties ONLY mailbox mail — and only the selected mailbox when one is
+      // account-scoped. The two trashes never mix.
+      const trashIsSystem = activeFolder === 'int-trash';
+      let url = `${API_BASE}/conversations?action=empty_trash&source=${trashIsSystem ? 'system' : 'mailbox'}`;
+      if (!trashIsSystem && accountScope?.kind === 'mailbox') {
+        url += `&mailbox_id=${encodeURIComponent(accountScope.id)}`;
+      } else if (trashIsSystem && accountScope?.kind === 'system') {
+        const acct = (commSettingsRef.current?.mail_accounts || []).find((a: any) => String(a.id) === accountScope.id);
+        const cats = systemAccountCategories(commSettingsRef.current, acct);
+        if (cats.length > 0) url += `&category=${encodeURIComponent(cats.join(','))}`;
+      }
+      const res = await fetch(url, { method: 'DELETE', headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) {
         showToast('ok', json.data?.message || 'Trash emptied');
@@ -2534,7 +2547,7 @@ export default function CommunicationsPage() {
       .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
       .filter((f): f is FolderDef => !!f);
 
-    const internalFolders = ['all', 'sales', 'support', 'activation', 'renewal', 'reactivation', 'hardware', 'trial', 'payment', 'sdk', 'customer', 'notifications', 'email-history']
+    const internalFolders = ['all', 'sales', 'support', 'activation', 'renewal', 'reactivation', 'hardware', 'trial', 'payment', 'sdk', 'customer', 'notifications', 'email-history', 'int-trash']
       .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
       .filter((f): f is FolderDef => !!f);
 
