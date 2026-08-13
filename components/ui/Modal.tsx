@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -31,9 +32,19 @@ export default function Modal({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
+  // Render through a portal into <body> so the fixed overlay is always
+  // positioned against the real viewport. This escapes any ancestor that
+  // creates a containing block for fixed-position descendants (e.g. a
+  // backdrop-filter on the app Topbar), which would otherwise pin the modal
+  // to that ancestor's box instead of centering it on screen.
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -151,6 +162,7 @@ export default function Modal({
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
