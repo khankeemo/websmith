@@ -409,6 +409,31 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   supported extensions. No public website / store / public API / SMTP / IMAP /
   queue / auth / notification logic changed. Deployed 2026-08-13, build green
   289 pages.
+- **Universal / System Trash separation (see master doc "Universal / System
+  Trash separation" progress entry)**: the Communication Center has a dedicated
+  **Trash for Universal Email / System conversations** (`int-trash`) fully
+  separate from the Mailbox Trash (`ext-trash`) — the two email systems never
+  mix in any folder including Trash. UI (`app/internal/api/communications/
+  page.tsx`): `int-trash` is added to `FOLDERS` (`section:'internal'`,
+  `kind:'list'`, `params:{show_deleted:'true'}`, `badgeKey:'trash'`), to the
+  sidebar Categories/Labels group, and to the folder chips ("Universal Trash"
+  reading `systemStats.trash`; the Mailbox Trash chip keeps reading
+  `mailboxStats.trash`); `isTrash` covers both keys so Restore / Delete-Forever /
+  Mark Read / Mark Unread / Archive gating and reader trash handling work
+  identically. Soft delete → Trash, Restore, bulk PATCH, read/unread, counts/
+  badges, category filtering, search and refresh are unchanged (id-based or
+  already source-filtered by the list + stats routes: `source=system` +
+  `show_deleted=true` → `cc.mailbox_id IS NULL AND deleted_at IS NOT NULL`).
+  **Empty Trash is source-scoped**: the DELETE `?action=empty_trash` handler
+  (`app/internal/backend/communications/conversations/route.ts`) accepts
+  `source=system|mailbox` (400 `INVALID_SOURCE` otherwise) + optional
+  `mailbox_id` + optional `category` (validated against the shared
+  `VALID_CATEGORIES`) and permanently deletes ONLY the scoped trash (previously
+  it deleted ALL trash — one section could wipe the other). The UI passes
+  `source=system` from `int-trash` (+ scoped system-account categories) and
+  `source=mailbox` from `ext-trash` (+ `mailbox_id` when a mailbox is
+  account-scoped). No SMTP/IMAP/queue/schema/auth/notification/storefront logic
+  changed. Deployed 2026-08-13, build green 289 pages.
 - **Mailbox form is blank + auto-detected (no defaults)**: `newMailboxForm()`
   starts with NO provider, NO server hosts, NO email — the Add Mailbox form is
   completely empty. Typing the **Incoming Email** auto-detects the provider

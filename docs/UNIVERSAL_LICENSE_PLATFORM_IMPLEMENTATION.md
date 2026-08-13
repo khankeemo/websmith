@@ -5343,6 +5343,38 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
   `components/internal-api/UniversalEmailDialog.tsx`, `app/internal/api/
   communications/page.tsx`, `app/internal/api/communications/manage-mails/
   page.tsx`. Not committed.
+- **Universal / System Trash separation (2026-08-13, deployed)**: Internal-API-only
+  — the Communication Center now has a **dedicated Trash for Universal Email /
+  System conversations** (`int-trash`), fully separate from the existing Mailbox
+  Trash (`ext-trash`). The two email systems never mix, in any folder including
+  Trash. **UI** (`app/internal/api/communications/page.tsx`): a new `int-trash`
+  folder (`section:'internal'`, `kind:'list'`, `params:{show_deleted:'true'}`,
+  `badgeKey:'trash'`, Trash2 icon) was added to `FOLDERS` (after Universal Email),
+  to the sidebar Categories/Labels group, and to the folder chips ("Universal
+  Trash"); its chip badge reads from `systemStats.trash` (system mail only) while
+  the Mailbox Trash chip reads `mailboxStats.trash`. `isTrash` now covers both
+  keys so Restore / Delete-Forever / Mark Read / Mark Unread / Archive gating and
+  the reader's trash handling work identically in the Universal Trash. Deletion
+  (soft delete → Trash) already worked id-based and Restore/bulk PATCH are
+  id-based, so no backend change was needed for move/restore — the list route
+  already source-filters trash (`source=system` + `show_deleted=true` →
+  `cc.mailbox_id IS NULL AND deleted_at IS NOT NULL`), and the stats route
+  already counts trash per source. **Empty Trash is now source-scoped**: the
+  DELETE `?action=empty_trash` handler
+  (`app/internal/backend/communications/conversations/route.ts`) accepts
+  `source=system|mailbox` (400 `INVALID_SOURCE` otherwise), optional `mailbox_id`
+  (narrow to one mailbox) and optional `category` (comma list, validated against
+  the shared `VALID_CATEGORIES`); it permanently deletes ONLY the scoped
+  soft-deleted conversations (previously it deleted ALL trash — mailbox trash
+  could have wiped Universal Email trash and vice-versa). The UI passes
+  `source=system` from `int-trash` (plus the scoped system account's category
+  list when one is selected) and `source=mailbox` from `ext-trash` (plus
+  `mailbox_id` when a mailbox is account-scoped), so each section's Empty Trash
+  never touches the other section's trash. No SMTP/IMAP/queue/schema/auth/
+  notification/storefront logic changed. Deployed 2026-08-13, build green (289
+  pages), TS clean; live-verified (route present, proxy auth gate 401 for
+  anonymous). Files: `app/internal/api/communications/page.tsx`,
+  `app/internal/backend/communications/conversations/route.ts`. Not committed.
 36. Communication Analytics dashboard (open/closed/resolution time/response time/workload/failed deliveries/retry count/attachment usage)
 21. SDK Distribution — complete "Send SDK by Email" with delivery tracking, audit log, download history
 22. Database review — migrate legacy `requests` table into universal conversation architecture

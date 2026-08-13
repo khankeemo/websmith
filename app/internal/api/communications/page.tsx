@@ -563,6 +563,25 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// Internal API fetches must NOT follow the proxy's 307 → login redirect: the
+// browser would receive the login page HTML and res.json() would throw a
+// confusing "Failed to load conversations". When the Internal API session
+// (api_center_token) is missing/expired the proxy redirects to the two-step
+// login — detect that redirect here and send the admin back through login
+// with the current location preserved so they continue where they left off.
+const internalFetch = async (url: string, init?: RequestInit): Promise<Response> => {
+  const res = await fetch(url, { ...init, redirect: 'manual' });
+  if (res.status >= 300 && res.status < 400) {
+    const loc = res.headers.get('location') || '';
+    if (loc.includes('/internal/api/auth/login')) {
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/internal/api/auth/login?next=${next}`;
+      throw new Error('Internal API session expired');
+    }
+  }
+  return res;
+};
+
 const formatSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -883,10 +902,10 @@ export default function CommunicationsPage() {
 
   const loadFolders = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/folders`, { headers: getAuthHeaders() });
+      const res = await internalFetch(`${API_BASE}/folders`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setFolders(json.data.folders || []);
-      const del = await fetch(`${API_BASE}/folders?include_deleted=1`, { headers: getAuthHeaders() });
+      const del = await internalFetch(`${API_BASE}/folders?include_deleted=1`, { headers: getAuthHeaders() });
       const delJson = await del.json();
       if (delJson.success) setDeletedFolders((delJson.data.folders || []).filter((f: FolderRow) => f.deleted_at));
     } catch {}
@@ -1019,8 +1038,8 @@ export default function CommunicationsPage() {
     const mailboxUrl = buildUrl('mailbox', mailboxScope);
     try {
       const [sysRes, mbRes] = await Promise.all([
-        fetch(systemUrl, { headers: getAuthHeaders() }),
-        fetch(mailboxUrl, { headers: getAuthHeaders() }),
+        internalFetch(systemUrl, { headers: getAuthHeaders() }),
+        internalFetch(mailboxUrl, { headers: getAuthHeaders() }),
       ]);
       const [sysJson, mbJson] = await Promise.all([sysRes.json(), mbRes.json()]);
       if (sysJson.success) setSystemStats(sysJson.data);
@@ -1057,7 +1076,7 @@ export default function CommunicationsPage() {
         params.set('category', systemAccountCategories(commSettingsRef.current, acct).join(','));
       }
 
-      const res = await fetch(`${API_BASE}/conversations?${params.toString()}`, { headers: getAuthHeaders() });
+      const res = await internalFetch(`${API_BASE}/conversations?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) {
         setConversations(json.data.conversations || []);
@@ -1075,7 +1094,7 @@ export default function CommunicationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/queue?limit=100`, { headers: getAuthHeaders() });
+      const res = await internalFetch(`${API_BASE}/queue?limit=100`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setQueue(json.data.queue || []);
     } catch {
@@ -1089,7 +1108,7 @@ export default function CommunicationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/delivery-logs?limit=100`, { headers: getAuthHeaders() });
+      const res = await internalFetch(`${API_BASE}/delivery-logs?limit=100`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setLogs(json.data.logs || []);
     } catch {
@@ -1103,7 +1122,7 @@ export default function CommunicationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/internal/backend/admin/communication/history?limit=100', { headers: getAuthHeaders() });
+      const res = await internalFetch('/internal/backend/admin/communication/history?limit=100', { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setHistory(json.data || []);
       else setError(json.error || 'Failed to load email history');
@@ -1118,7 +1137,7 @@ export default function CommunicationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${MB_BASE}`, { headers: getAuthHeaders() });
+      const res = await internalFetch(`${MB_BASE}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setMailboxes(json.data.mailboxes || []);
     } catch {
@@ -1130,7 +1149,7 @@ export default function CommunicationsPage() {
 
   const loadTemplates = useCallback(async () => {
     try {
-      const res = await fetch(`${TEMPLATES_BASE}`, { headers: getAuthHeaders() });
+      const res = await internalFetch(`${TEMPLATES_BASE}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setTemplates(json.templates || []);
     } catch {}
@@ -1140,8 +1159,8 @@ export default function CommunicationsPage() {
     setCommSettingsLoading(true);
     try {
       const [settingsRes, mbRes] = await Promise.all([
-        fetch('/internal/backend/communications/settings', { headers: getAuthHeaders() }),
-        fetch(`${MB_BASE}`, { headers: getAuthHeaders() }),
+        internalFetch('/internal/backend/communications/settings', { headers: getAuthHeaders() }),
+        internalFetch(`${MB_BASE}`, { headers: getAuthHeaders() }),
       ]);
       const settingsJson = await settingsRes.json();
       if (settingsJson.success) setCommSettings(settingsJson.settings);
