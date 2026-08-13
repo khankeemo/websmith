@@ -140,12 +140,17 @@ const accountForConversation = (
   commSettings: any,
   mailboxes: Mailbox[]
 ): MailSenderAccount | null => {
-  const accounts = buildSenderAccounts(commSettings, mailboxes);
+  const all = buildSenderAccounts(commSettings, mailboxes);
+  const enabled = all.filter(a => {
+    if (a.kind === 'system') return a.is_active !== false;
+    if (a.kind === 'mailbox') return mailboxes.find(m => m.id === a.id)?.is_enabled !== false;
+    return true;
+  });
   if (conv?.mailbox_id) {
-    const mb = accounts.find(a => a.kind === 'mailbox' && a.id === conv.mailbox_id);
+    const mb = enabled.find(a => a.kind === 'mailbox' && a.id === conv.mailbox_id);
     if (mb) return mb;
   }
-  const system = accounts.filter(a => a.kind === 'system');
+  const system = enabled.filter(a => a.kind === 'system');
   for (const a of system) {
     const acct = (commSettings?.mail_accounts || []).find((x: any) => String(x.id) === a.id);
     if (systemAccountCategories(commSettings, acct).includes(conv?.category)) return a;
@@ -795,7 +800,14 @@ export default function CommunicationsPage() {
   const [accountScope, setAccountScope] = useState<{ kind: 'system' | 'mailbox'; id: string } | null>(null);
   const [composerFromId, setComposerFromId] = useState('');
 
-  const senderAccounts = useMemo(() => buildSenderAccounts(commSettings, mailboxes), [commSettings, mailboxes]);
+  const senderAccounts = useMemo(() => {
+    const all = buildSenderAccounts(commSettings, mailboxes);
+    return all.filter(a => {
+      if (a.kind === 'system') return a.is_active !== false;
+      if (a.kind === 'mailbox') return mailboxes.find(m => m.id === a.id)?.is_enabled !== false;
+      return true;
+    });
+  }, [commSettings, mailboxes]);
   const scopeLabel = useMemo(() => {
     if (!accountScope) return null;
     const acct = senderAccounts.find(a => a.id === accountScope.id);
@@ -962,11 +974,21 @@ export default function CommunicationsPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/conversations/stats`, { headers: getAuthHeaders() });
+      let url = `${API_BASE}/conversations/stats`;
+      if (accountScope?.kind === 'mailbox') {
+        url += `?mailbox_id=${accountScope.id}`;
+      } else if (accountScope?.kind === 'system') {
+        const acct = (commSettingsRef.current?.mail_accounts || []).find((a: any) => String(a.id) === accountScope.id);
+        const mb = mailboxesRef.current.find(m => (acct?.email || '').toLowerCase() === (m.email_address || '').toLowerCase());
+        if (mb) {
+          url += `?mailbox_id=${mb.id}`;
+        }
+      }
+      const res = await fetch(url, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setStats(json.data);
     } catch {}
-  }, []);
+  }, [accountScope, commSettingsRef, mailboxesRef, showToast]);
 
   const loadConversations = useCallback(async (folder: FolderDef, search: string, statusF: string, categoryF: string, scope?: { kind: 'system' | 'mailbox'; id: string } | null) => {
     setLoading(true);
@@ -2150,6 +2172,19 @@ export default function CommunicationsPage() {
   const renderToolbar = () => {
     const hasSelection = selectedIds.size > 0;
     const btn = 'p-2 rounded-lg hover:bg-[var(--bg-tertiary)]/50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]';
+    // Compute enabled accounts for the selector
+    const enabledAccounts = useMemo(() => {
+      const system = (commSettings?.mail_accounts || []).filter(a => a.is_active !== false);
+      const mailboxesList = mailboxes.filter(m => m.is_enabled !== false);
+      return [...system, ...mailboxesList].map(a => ({
+        id: a.kind === 'system' ? a.id : (mailboxes.find(m => m.email_address.toLowerCase() === (a.email || '').toLowerCase())?.id || ''),
+        kind: a.kind === 'system' ? 'system' : 'mailbox',
+        display_name: a.kind === 'system' ? (a.display_name || a.name || '') : (mailboxes.find(m => m.id === a.id)?.display_name || a.email || ''),
+        email: a.kind === 'system' ? (a.email || '') : (mailboxes.find(m => m.id === a.id)?.email_address || ''),
+        is_active: a.is_active !== false,
+      }));
+    }, [commSettings, mailboxes]);
+
     return (
       <div className="flex items-center gap-1 flex-wrap rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-2 py-1.5">
         <button onClick={openCompose} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
@@ -2259,6 +2294,24 @@ export default function CommunicationsPage() {
             <button onClick={() => { setStatusFilter(''); setCategoryFilter(''); }} className="w-full text-center text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">Clear filters</button>
           </div>
         )}
+        {/* Account selector pills */}
+        <div className="flex items-center gap-1.5 pt-1.5">
+          {enabledAccounts.map((acct) => {
+            const isSelected = accountScope?.kind === acct.kind && accountScope?.id === acct.id;
+            return (
+              <button
+                key={acct.id}
+                onClick={() => setAccountScope(acct.kind === 'system' ? { kind: 'system', id: acct.id } : { kind: 'mailbox', id: acct.id })}
+                className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-medium transition-colors ${isSelected ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 hover:text-[var(--text-primary)]'}`}
+              >
+                <span className={isSelected ? 'absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-blue-400' : ''}>
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${acct.is_active ? 'bg-green-400' : 'bg-gray-500/30'}`} />
+                  <span className="truncate max-w-xs">{acct.display_name || acct.email}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   };

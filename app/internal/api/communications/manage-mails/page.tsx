@@ -43,6 +43,7 @@ interface Conversation {
 
 interface Mailbox {
   id: string;
+  kind: "system" | "mailbox";
   provider: string;
   email_address: string;
   display_name: string;
@@ -251,6 +252,50 @@ const inputCls = "w-full px-2.5 py-1.5 rounded-lg border border-[var(--border-co
 
 const iconBtnCls = "p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)] transition-colors disabled:opacity-40";
 
+const defaultSenderId = (accounts: any[]): string =>
+  accounts.find(a => a.is_default && a.is_active)?.id
+  || accounts.find(a => a.is_active)?.id
+  || accounts[0]?.id || '';
+
+const accountForConversation = (
+  conv: any,
+  commSettings: any,
+  mailboxes: Mailbox[]
+): { id: string; kind: string; display_name: string; email: string; is_active: boolean } | null => {
+  const mailboxOptions = mailboxes.filter(m => m.is_enabled !== false).map(m => ({
+    id: m.id,
+    kind: 'mailbox',
+    display_name: m.display_name || m.email_address || '',
+    email: m.email_address || '',
+    is_active: m.is_enabled !== false,
+  }));
+  const systemAccounts = (commSettings?.mail_accounts || []).filter(a => a.is_active !== false).map(a => ({
+    id: a.id,
+    kind: 'system',
+    display_name: a.display_name || a.name || a.email,
+    email: a.email || '',
+    is_active: a.is_active !== false,
+  }));
+
+  if (conv?.mailbox_id) {
+    const mb = mailboxOptions.find(m => m.id === conv.mailbox_id);
+    if (mb) return mb;
+  }
+
+  const system = systemAccounts.filter(a => a.is_active);
+  for (const a of system) {
+    const cats = (commSettings?.routing || {}).support_categories ||
+      (commSettings?.routing || {}).sales_categories ||
+      ['general'];
+    if (a.kind === 'system' && a.type === 'support' ? cats.includes(conv?.category) :
+        a.kind === 'system' && a.type === 'sales' ? cats.includes(conv?.category) : true) {
+      return a;
+    }
+  }
+
+  return system[0] || null;
+};
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
@@ -384,6 +429,8 @@ export default function ManageMailsPage() {
     defaultLicenseKey?: string;
     defaultProductId?: string;
     defaultAction?: any;
+    fromAccounts?: { id: string; kind: "system" | "mailbox"; display_name: string; email: string; is_active: boolean }[];
+    defaultFromId?: string;
   }>({ isOpen: false });
 
   const showToast = useCallback((type: 'ok' | 'err', text: string) => {
@@ -1000,16 +1047,42 @@ export default function ManageMailsPage() {
   };
 
   // ---- Universal email dialog (reply / new email) ----
-  const openCompose = () => setEmailDialog({ isOpen: true, defaultAction: 'send' });
+  const fromAccounts = useMemo(() => {
+    const systemAccounts = commSettings?.mail_accounts || [];
+    const enabledSystem = systemAccounts.filter(a => a.is_active !== false).map(a => ({
+      id: a.id,
+      kind: 'system',
+      display_name: a.display_name || a.name || a.email,
+      email: a.email || '',
+      is_active: a.is_active !== false,
+      is_default: false,
+      type: a.type,
+    }));
+    const enabledMailboxes = mailboxes.filter(m => m.is_enabled !== false).map(mb => ({
+      id: mb.id,
+      kind: 'mailbox',
+      display_name: mb.display_name || '',
+      email: mb.email_address || '',
+      is_active: mb.is_enabled !== false,
+      is_default: false,
+      type: mb.provider,
+    }));
+    return [...enabledSystem, ...enabledMailboxes];
+  }, [commSettings, mailboxes]);
+
+  const openCompose = () => setEmailDialog({ isOpen: true, defaultAction: 'send', fromAccounts, defaultFromId: defaultSenderId(fromAccounts) });
 
   const openReply = () => {
     const d = detail;
+    const recv = d ? accountForConversation(d.conversation, commSettings, mailboxes) : null;
     setEmailDialog({
       isOpen: true,
       defaultEmail: d?.conversation.customer_email || d?.customer?.email || '',
       defaultLicenseKey: d?.conversation.license_key || undefined,
       defaultProductId: d?.conversation.product_id || undefined,
       defaultAction: d?.conversation.category === 'support' ? 'support' : 'general',
+      fromAccounts,
+      defaultFromId: recv?.id || defaultSenderId(fromAccounts),
     });
   };
 
