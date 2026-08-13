@@ -25,10 +25,11 @@ const pool = new Pool({
 const MAIL_SALES_ADDRESS = process.env.MAIL_SALES_ADDRESS || "sales@websmithdigital.com";
 
 // Recipient routing is fixed server-side — never taken from the browser.
-// Buy / Renew support messages always go to the sales team.
+// Buy / Renew / Software Store support messages always go to the sales team.
 const ACTION_ROUTES: Record<string, { recipient: string; category: string }> = {
   "buy-license": { recipient: MAIL_SALES_ADDRESS, category: "sales" },
   renew: { recipient: MAIL_SALES_ADDRESS, category: "sales" },
+  "software-store": { recipient: MAIL_SALES_ADDRESS, category: "sales" },
 };
 const VALID_ACTIONS = Object.keys(ACTION_ROUTES);
 
@@ -144,8 +145,8 @@ export async function POST(request: NextRequest) {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: mobile || 'Not provided',
-        product_name: action === 'renew' ? 'License renewal' : 'License purchase',
-        plan_name: action === 'renew' ? 'Renewal' : 'Purchase',
+        product_name: action === 'renew' ? 'License renewal' : action === 'software-store' ? 'Software Store' : 'License purchase',
+        plan_name: action === 'renew' ? 'Renewal' : action === 'software-store' ? 'Store enquiry' : 'Purchase',
         enquiry_id: conversationId,
         message,
         subject,
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
       },
       {
         custom: {
-          subject: subject || (action === 'renew' ? 'License Renewal Request' : 'License Purchase Inquiry'),
+          subject: subject || (action === 'renew' ? 'License Renewal Request' : action === 'software-store' ? 'Software Store Enquiry' : 'License Purchase Inquiry'),
           html: `<p>${message.replace(/\n/g, '<br/>')}</p>`,
           plainText: message,
         },

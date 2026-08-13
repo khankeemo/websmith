@@ -5096,6 +5096,8 @@ Every future phase must follow this reporting format.
 | **Validation Failure — Exact Backend Message Passthrough (Rule 5 enforcement)** | ✅ Applied (Bug: failed `Validate License` in `universal_license_center.py` + `activation.py` substituted a generic `GlobalMessage` string ('Customer not found. Please check your email.') BEFORE reading the backend's `message`, because non-ACTIVE/non-validated responses carry no `license`/`customer` object. Fix: `_validation_message` now returns the server-provided `message` (top-level or `error.message`, dict-extracted) verbatim first (Rule 5), using the GlobalMessage status map only as a fallback when no server message exists. Aligns the code with the documented "fail → EXACT backend message" contract. `python -m py_compile` clean; `npm run test:generation` 6/6 + `npm run test:multi-runtime` 13/13 green) | 100% |
 | **Manage Mails — Centralized Mail Workspace (SECTION 0.18, UI/UX-only)** | ✅ Applied (New standalone page `app/internal/api/communications/manage-mails/page.tsx` renders under the full-viewport Communications layout and manages the built-in **Websmith Mail** accounts (no-reply / support / sales) + user **Mailboxes** + their mail from ONE 3-pane UI, reusing ONLY the existing backend — `/internal/backend/communications/settings` GET/POST (system-account toggle `is_active` + edit display_name/reply_to/signature persisted immediately), `/internal/backend/mailboxes` (enable/disable, sync, set-default, [id]/test, send-test, DELETE), `/internal/backend/communications/conversations` (list/detail, PATCH mark_read/mark_unread/archive/restore, soft-DELETE, permanent bulk DELETE gated by `allow_email_deletion`, account-scoped Empty Trash). Sidebar: new **Manage Mails** leaf under Communications → Email (`/internal/api/communications/manage-mails`) with **deepest-prefix active-route resolution** in `components/internal-api/Sidebar.tsx` — exact path match wins, otherwise the LONGEST matching prefix is active, so the child page never highlights the parent Communications overview and existing single-level routes are unchanged. Account-scoped mail routing: a mailbox shows conversations by `cc.mailbox_id`; a system account whose email matches a configured mailbox routes through that mailbox, otherwise by `routing.support_categories` / `sales_categories` / `['general']` for type system. Add/Edit Mailbox modal stays **blank + auto-detected** (provider presets, email→provider auto-detect filling server config only, username mirrors address while equal, incoming→outgoing password mirror while equal, one-sided Test Incoming/Outgoing + Test Connection via `test-connection`, save-time verification gate, masked `********`/stripped passwords on PATCH — never rendered/never wiped). Reply/New Email reuses `UniversalEmailDialog`. New scoped `.manage-mails-ui` block in `app/globals.css` (`.mail-action-button` = Navarog21 ridge/glow button with the platform accent `#149CEA`→`#1479EA`, `.mail-boundary` panel, reduced-motion guards) — never a global `button` selector. Verification: `tsc --noEmit` 0 errors, `npm test` 6/6 + 13/13, `next build` green, route emitted at `.next/server/app/internal/api/communications/manage-mails`) | 100% |
 | **Communications Center — Consolidated Sidebar + Single Communications Setting (Phase 12, UI/UX-only)** | ✅ Applied (sidebar of `app/internal/api/communications/page.tsx` reduced to **Mail** [Inbox/Sent/Draft/Waiting/Failed/Queued/Spam/Trash] + **Categories / Labels** [All/Sales/Support/Activation/Renewal/Reactivation/Hardware/Trial/Payment/SDK/Customer/Notifications/Universal Email] + pinned bottom **Communications Setting** + **Manage Folder** only — Websmith Mail accounts, Mailboxes, Internal and the Manage Mails group removed from the sidebar; **Communications Setting** is ONE consolidated workspace (`renderSettingsWorkspace()`, middle pane hidden) with a section tab bar General / Websmith Mail / Mailboxes / Templates / Signatures / Auto Reply — General = system settings (single system Communication toggle, never duplicated), Websmith Mail = built-in accounts with UI display labels `SYSTEM_ACCOUNT_UI_LABELS` (Websmith Authentications / Websmith Support Team / Websmith Sales Team, presentation-only) + enable/disable/Edit/Test/Sync + IMAP/SMTP/Sync/Health status, Mailboxes = full mailbox-management UI (enable/disable, Add/Edit/Delete, Test/Sync/Set Default/Send Test Email, Connected / Connection Failed / Authentication Required / Disabled badges + `last_error` — UI placement only), Templates / Signatures / Auto Reply = old Manage Mails config UI (no duplicate controls); `settingsSection` local state; entering settings loads commSettings + mailboxes + templates; no SMTP/IMAP/queue/schema/auth/storefront changes; `manage-mails` route + app Sidebar.tsx untouched) | 100% |
+| **Email Center Separation + Email Form Cleanup (Buy/Renew Contact Sales, UI/UX-only)** | ✅ Applied (user-facing Email Center entry points REMOVED: the Topbar email icon and the Activation Center **Contact Sales / Request Trial / Open Email Center** shortcuts + their `UniversalEmailDialog` renders/states/imports — `Mail` icon kept for the Activation Center's FieldInput Email fields; **Contact Sales** header entry added to `/internal/api/buy` + `/internal/api/renew` via NEW `app/internal/api/portal/_ContactSales.tsx` + a `headerAction` slot added to `PortalShell` in `app/internal/api/portal/_ui.tsx`, prefilled from the visitor's already-entered identity (name/email/mobile) + product/license context; NEW public route `POST /api/portal/support-message` — action→recipient map resolved SERVER-SIDE (buy-license / renew → `sales@websmithdigital.com`; browser can never supply an address), server-side validation (name + email + message required, mobile optional, length caps), per-IP throttle, creates `communication_conversations` (category `sales`) + `conversation_messages` (sender `customer`) + `audit_logs` row, then `sendEmail()` (`new_sales_enquiry`) with honest `emailDelivered`; `UniversalEmailDialog` — Buy License + Renew now route to **sales@** (was support@), every user→admin action (buy-license, renew, activate, reactivation, device-replacement, support, general) now requires **Your Name\* / Your Email\*** + optional **Mobile** and sends a STRUCTURED body (Request Type / Name / Email / Mobile / Subject / Message), new `customerMode` prop (posts to the PUBLIC route — no admin session; hides From dropdown + attachments), per-action instruction texts, `general` label renamed "General Support", Email History newest→oldest (server `ORDER BY created_at DESC` already + client-side sort), `defaultProductName`/`defaultLicenseKey` feed the buy/renew subjects; General Support / Support Request / Device Replacement stay **support@**; admin dialog usages (LicenseManagerTab, GenerateLicenseTab, sales/enquiries, Communications Center, manage-mails, integrations) + the email backend (SMTP/IMAP/queue/schema/auth) unchanged; `/software-store` untouched — existing `/support` + `/contact` links + product `support_url` links already cover storefront contact) | 100% |
+| **Software Store Email Center Entry (approved storefront exception, UI/UX-only)** | ✅ Applied (ONE approved change to the otherwise-untouchable public storefront: an **Email / Support icon** beside the existing Wishlist + Cart icons in the `/software-store` header (`app/software-store/page.tsx`, header action cluster — icon matches the existing header button styling) that opens the SHARED `UniversalEmailDialog` in `customerMode` via NEW `app/software-store/components/store-email-center.tsx` — prefilled from the store's known customer identity (saved history email / last order email from localStorage + sessionStorage) where available, default action `software-store` + `allowedActions: ['software-store']`. Customer-mode Send posts to the PUBLIC `POST /api/portal/support-message` (no admin session) — the action→recipient map is extended server-side with `software-store` → `sales@websmithdigital.com` (category `sales`), so the browser can never choose a recipient. Same identity rules apply: **Your Name\* / Your Email\*** + optional **Mobile**, STRUCTURED body (Request Type / Name / Email / Mobile / Subject / Message), server-side validation + per-IP throttle + `communication_conversations`/`conversation_messages`/`audit_logs` + `sendEmail()` (`new_sales_enquiry`) with honest `emailDelivered`. NO `mailto:`, NO `/contact` redirect, NO duplicate email form, NO admin endpoint, NO `/api/v1/store/*` / `/api/v1/checkout/*` / cart / wishlist / checkout / payment / pricing changes) | 100% |
 | **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module (Phases 1-10 incl. Redesign: Mailboxes nav + Auto Reply + one-sided connection tests + Mail Delete feature with backend-enforced Allow Email Deletion toggle + integration-level Mailbox Removal with mailbox_id ownership + Final Mail Bugs: Trash leaves Inbox [trash count + sync no-resurrect guard] + Gmail Mailbox Creation INSERT fix [column count + queue_size INTEGER cast] + Incoming→Outgoing auto-fill + mailbox-form Add Signature modal) + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup) + Validation Message Passthrough (Rule 5) + OPERATIONAL QA (2026-08) — backend expiry auto-recompute, dashboard force-dynamic, device_reset audit parity, multi-runtime SDK parity (getProducts/getTrialStatus in all 13 runtimes) + 13/13 SDK validation + Two-Step Login + Shared OTP + Auth Hardening (SECTION 0.17) + Internal Login as Step 2 — Website Session Gate + Please Login First gate page (ws_session cookie mirror) + Manage Mails Centralized Mail Workspace (SECTION 0.18) — 3-pane system-accounts + mailboxes + conversations page, Manage Mails sidebar leaf + deepest-prefix active-route logic, scoped `.manage-mails-ui` CSS, blank auto-detected mailbox form + Phase 11 Communications mail-client redesign — unified Mail / Websmith Mail / Mailboxes / Internal / Manage Mails sidebar (full-height scrollable, account rows open account-scoped mail in the Mail Inbox), server-side account-scoped conversation filtering (`mailbox_id` param / system-account category routing), receiving-account context in the reader, account-ID From dropdowns in the reply composer + UniversalEmailDialog, sender-override (`from_account_id`/`from_email`/`from_name`/`from_mailbox_id`) honored by the existing send/reply routes (mailbox SMTP or Brevo identity override), no SMTP/IMAP/queue/schema/auth changes + **Phase 13 — Communications Center live fixes** (stats trash-count own-WHERE fix → live inbox/sent/waiting/trash counts, schema-correct IMAP message storage → email bodies render, admin replies delivered to the customer + `{{request_id}}` filled, delete/restore always re-fetch list + stats, one full-width mailbox card per mailbox with dynamic real-DB-id actions — no per-address hardcoding, 400px middle panes)** | **100%** |
 
 ### How much is completed?
@@ -5308,9 +5310,21 @@ admin pages; changing them never changes the admin dashboard.
     `otp_verifications` (purpose `purchase`), rate-limited per IP.
   - `POST /api/portal/license/info` — validates license via
     `resolveGlobalLicenseStatus()` (Rule 1); returns only customer-owned fields.
-  - `POST /api/portal/order/create` — server OTP gate + `createPendingOrder()`.
-  - `POST /api/portal/order/pay` — BUY: `fulfillOrder()` (new license);
-    RENEW: `fulfillPortalRenewal()` (extends existing license).
+- `POST /api/portal/order/create` — server OTP gate + `createPendingOrder()`.
+- `POST /api/portal/order/pay` — BUY: `fulfillOrder()` (new license);
+  RENEW: `fulfillPortalRenewal()` (extends existing license).
+- `POST /api/portal/support-message` — **Contact Sales** (no admin session).
+  The action→recipient map is resolved SERVER-SIDE: `buy-license` / `renew` /
+  `software-store` → `sales@websmithdigital.com` (the browser can never supply
+  an address). `software-store` is the approved Software Store Email Center
+  entry (see the Software Store section below).
+  Server-side validation (name + email + message required, mobile optional,
+  length caps), per-IP throttle (5 / 10 min), creates
+  `communication_conversations` (category `sales`) +
+  `conversation_messages` (sender `customer`) + `audit_logs` row, then sends
+  via the existing `sendEmail()` (`new_sales_enquiry`) with honest
+  `emailDelivered` feedback. Public — outside the `/internal/:path*` proxy
+  matcher (same as the other `/api/portal/*` routes).
 
 ### Non-Negotiable Security Invariants
 - **Never trust the browser/localStorage/UI.** Every step is re-validated
@@ -5333,6 +5347,42 @@ admin pages; changing them never changes the admin dashboard.
 - **Public storefront untouchable**: `/api/v1/store/*` and `/api/v1/checkout/*`
   are re-used read-only (catalog + checkout config). `lib/store/checkout.ts` is
   imported/called, never edited.
+- **Contact Sales recipient is server-controlled**: customer-mode sends hit
+  `POST /api/portal/support-message` ONLY; the action→recipient map lives
+  server-side. No `/internal/backend/admin/communication/*` endpoint is ever
+  exposed publicly, and the browser can never target an arbitrary address.
+
+### Contact Sales Entry (Email Center Separation, 2026-08)
+- Both pages render a **Contact Sales** header button via `PortalShell`'s new
+  `headerAction` slot (`app/internal/api/portal/_ContactSales.tsx`), prefilled
+  from the already-entered customer identity (name / email / mobile) +
+  product/license context.
+- It opens the SHARED `components/internal-api/UniversalEmailDialog.tsx` in
+  **customer mode** (`customerMode`, `defaultAction`/`allowedActions` restricted
+  to `buy-license` | `renew`) — the SAME email UI, no duplicated form. In
+  customer mode Send POSTs to `POST /api/portal/support-message` (never the
+  admin-session-gated `/internal/backend/admin/communication/*`).
+- Buy License + Renew user→admin requests route to **sales@websmithdigital.com**;
+  General Support / Support Request / Device Replacement stay
+  **support@websmithdigital.com**.
+- User→admin forms always collect **Your Name\* / Your Email\*** + optional
+  **Mobile** and send a STRUCTURED body (Request Type / Name / Email / Mobile /
+  Subject / Message) — enforced client-side (dialog validation) and server-side
+  (route validation).
+- `UniversalEmailDialog` Email History is newest→oldest (server
+  `ORDER BY created_at DESC` + client-side sort).
+- Entry-point removals (UI-only): Topbar **Email Center** icon and the
+  Activation Center **Contact Sales / Request Trial / Open Email Center**
+  shortcuts + their dialog renders are GONE. Admin dialog usages
+  (LicenseManagerTab, GenerateLicenseTab, sales/enquiries, Communications
+  Center, manage-mails, integrations) and the email backend
+  (SMTP/IMAP/queue/schema/auth) are unchanged. `/software-store` is untouched
+  EXCEPT the ONE approved **Software Store Email Center header entry** (an
+  Email icon beside Wishlist + Cart opening the shared `UniversalEmailDialog`
+  in `customerMode` → public `POST /api/portal/support-message`,
+  `software-store` → `sales@websmithdigital.com`) — existing `/support` +
+  `/contact` links and product `support_url` links are unaffected and no
+  `mailto:` / `/contact` redirect / duplicate form / admin endpoint was added.
 
 ### SDK Integration
 - `Buy License` → opens `store.buy_url`; `Renew License` → opens
@@ -5568,6 +5618,37 @@ Cart / add / quantity / wishlist / compare are client state (persisted in localS
 - ✅ Product details show all correct information (loaded dynamically)
 - ✅ Routing and business logic remain intact
 - ✅ Responsive at desktop / tablet / mobile, no overflow / overlap
+
+### Software Store Email Center Entry (Approved Exception — 2026-08)
+
+The public storefront stays untouched for ALL purchase/cart/wishlist/checkout/
+payment logic, store APIs and store database logic. The ONLY approved change
+is the **Software Store Email Center header entry**:
+
+- **Header relationship**: `/software-store` header shows **Wishlist · Cart ·
+  Email** — an Email / Support icon placed BESIDE the existing Wishlist and
+  Cart controls, styled to match the existing header buttons.
+- **Click → full Email Center**: opens the SHARED `UniversalEmailDialog`
+  (components/internal-api/UniversalEmailDialog.tsx) in **customer mode**
+  (NEW `app/software-store/components/store-email-center.tsx` entry). No
+  `mailto:`, no `/contact` redirect, no small popup, no duplicate form.
+- **Customer mode**: default action `software-store`, `allowedActions:
+  ['software-store']`. Send posts to the PUBLIC `POST /api/portal/support-message`
+  (no admin session; never `/internal/backend/admin/communication/*`).
+- **Server-controlled recipient**: the action→recipient map is extended with
+  `software-store` → `sales@websmithdigital.com` (category `sales`) — the
+  browser can never supply an address.
+- **Identity + structured body**: Your Name\* / Your Email\* required, Mobile
+  optional; body = Request Type / Name / Email / Mobile / Subject / Message;
+  validated client + server; per-IP throttle; `communication_conversations` +
+  `conversation_messages` + `audit_logs`; `sendEmail()` (`new_sales_enquiry`)
+  with honest `emailDelivered` feedback.
+- **Context prefilled where available**: known customer identity (saved history
+  email `software_store_history_email` / last order email from
+  `software_store_order`) is prefilled; nothing is invented.
+- **Unchanged**: Wishlist, Cart, product cards, search, filters, checkout,
+  payment, pricing, `/api/v1/store/*`, `/api/v1/checkout/*`, product purchasing
+  workflow, public contact page, unrelated storefront styling.
 
 ---
 

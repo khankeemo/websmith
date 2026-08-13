@@ -56,7 +56,8 @@ type EmailAction =
   | "reactivation"
   | "device-replacement"
   | "support"
-  | "general";
+  | "general"
+  | "software-store";
 
 interface EmailRecord {
   id: string;
@@ -142,11 +143,12 @@ const actionConfig: Record<EmailAction, { label: string; icon: typeof Mail; desc
   "device-replacement": { label: "Device Replacement", icon: Monitor, description: "Request a replacement for a bound device" },
   support: { label: "Support Request", icon: LifeBuoy, description: "Get help from our support team" },
   general: { label: "General Support", icon: MessageSquare, description: "Submit a general inquiry to our team" },
+  "software-store": { label: "Software Store Enquiry", icon: ShoppingCart, description: "Ask a question about a product or order from the Software Store" },
 };
 
 // Per-action help text shown above user→admin forms so customers know where
 // their request goes and what happens next.
-const SUPPORT_ACTIONS: EmailAction[] = ["buy-license", "renew", "activate", "reactivation", "device-replacement", "support", "general"];
+const SUPPORT_ACTIONS: EmailAction[] = ["buy-license", "renew", "activate", "reactivation", "device-replacement", "support", "general", "software-store"];
 
 const SUPPORT_INFO_TEXT: Partial<Record<EmailAction, string>> = {
   "buy-license": "Your inquiry will be sent to our sales team, who will respond to the email address you provide.",
@@ -156,6 +158,7 @@ const SUPPORT_INFO_TEXT: Partial<Record<EmailAction, string>> = {
   "device-replacement": "Your device replacement request will be sent to our support team, who will respond to the email address you provide.",
   support: "Your support request will be sent to our support team, who will respond to the email address you provide.",
   general: "Your inquiry will be sent to our team, who will respond to the email address you provide.",
+  "software-store": "Your enquiry will be sent to our sales team, who will respond to the email address you provide.",
 };
 
 function formatSize(bytes: number): string {
@@ -330,6 +333,14 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       case "general":
         setSubject("General Inquiry");
         setRecipientEmail(SUPPORT_EMAIL);
+        setView("form");
+        break;
+      case "software-store":
+        setSubject(`Software Store Enquiry${productName || defaultProductName ? ` - ${productName || defaultProductName}` : ""}`);
+        setMessage(productName || defaultProductName
+          ? `I have a question about ${productName || defaultProductName}.\n\nPlease get in touch.`
+          : "I have a question about a product in the Software Store.\n\nPlease get in touch.");
+        setRecipientEmail(SALES_EMAIL);
         setView("form");
         break;
     }

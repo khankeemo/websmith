@@ -29,6 +29,7 @@ import {
 import {
   StoreToast, CartPanel, WishlistPanel, CompareModal, CompareTray,
 } from "./components/store-panels";
+import StoreEmailCenter from "./components/store-email-center";
 
 // Scoped premium dark theme — CSS variables are redefined only inside the
 // software store subtree, so the rest of the site is untouched.
@@ -758,6 +759,7 @@ export default function SoftwareStorePage() {
                 </motion.span>
               )}
             </motion.button>
+            <StoreEmailCenter />
           </div>
         </div>
       </div>

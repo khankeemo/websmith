@@ -34,9 +34,15 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
 
 - **UI/UX-only scope**: the Communications upgrades must never alter the sending
   (SMTP), receiving (IMAP), queue, schema, auth, or notification engines/APIs.
-- **Public storefront is untouchable**: `www.websmithdigital.com/software-store`
-  (PostgreSQL `products` + `/api/v1/store/*` + `/api/v1/checkout/*`). Never edit
-  it; it is the working public storefront.
+- **Public storefront is untouchable (one approved UI exception)**: `www.websmithdigital.com/software-store`
+  (PostgreSQL `products` + `/api/v1/store/*` + `/api/v1/checkout/*`). The
+  purchase/cart/wishlist/checkout/payment logic is never edited — the ONLY
+  approved change is the **Software Store Email Center header entry** (see the
+  "Software Store Email Center Entry" rule below): an Email icon beside the
+  existing Wishlist and Cart icons in the `/software-store` header that opens
+  the shared `UniversalEmailDialog` in `customerMode` posting to the public
+  `POST /api/portal/support-message` (sales enquiry → `sales@websmithdigital.com`
+  server-side). Everything else on the storefront stays untouched.
 - **Built-in mailboxes** (`support@`, `sales@`, `no-reply@`) are app-config
   defaults; enabling/disabling is an app-config toggle + `mailboxes.is_enabled` —
   never delete accounts.
@@ -594,6 +600,9 @@ Keep in sync with the master doc **SECTION 0.16**. Do not regress:
 - **Public storefront untouchable**: `/api/v1/store/*` and `/api/v1/checkout/*` are re-used read-only (catalog + checkout config); they are never modified. `lib/store/checkout.ts` is imported/called, never edited.
 - **SDK integration**: `Buy License` opens `store.buy_url`; `Renew License` opens `store.renew_url` (config/api-config.json) via `config.get_buy_url/get_renew_url` and `ULC._open_store/_open_renew_portal`. No placeholder URLs.
 - **Publisher auto-populates portal URLs during SDK generation**: `ConfigBuilder` (`app/internal/publisher/config-builder.ts`) always writes a `store` section into the generated `config/api-config.json`, deriving `buy_url`/`renew_url` (and `url`) from the configured API base URL (`WEBSMITH_API_URL`/`NEXT_PUBLIC_API_URL`), i.e. `<base>/internal/api/buy`, `<base>/internal/api/renew`, `<base>/software-store`. No hardcoding, no placeholders, no empty strings. `sdk-validator.ts` fails generation if `store.buy_url`/`store.renew_url` are missing/empty.
+- **Contact Sales entry (Email Center Separation)**: `/internal/api/buy` and `/internal/api/renew` render a **Contact Sales** header button (`app/internal/api/portal/_ContactSales.tsx`, passed into `PortalShell` via its `headerAction` slot in `_ui.tsx`) that opens the SHARED `UniversalEmailDialog` in **customer mode** (`customerMode`, `defaultAction`/`allowedActions` restricted to `buy-license`|`renew`) prefilled from the visitor's entered identity. Never duplicate the email form/dialog; never add a portal email entry that posts to `/internal/backend/admin/communication/*`.
+- **Contact Sales recipient is server-controlled**: customer-mode sends POST to the PUBLIC `POST /api/portal/support-message` — the action→recipient map lives SERVER-SIDE (buy-license / renew → `sales@websmithdigital.com`); the browser can never supply an address, and no admin endpoint is made public.
+- **`POST /api/portal/support-message`** (public, outside the `/internal/:path*` proxy matcher): validates name + email + message server-side (mobile optional, length caps), per-IP throttle, creates `communication_conversations` (category `sales`) + `conversation_messages` (sender `customer`) + `audit_logs`, then sends via the existing `sendEmail()` (`new_sales_enquiry`). Emails are structured (Request Type / Name / Email / Mobile / Subject / Message).
 - Keep this rule in sync with the master doc SECTION 0.16.
 
 ## Two-Step Login + Shared OTP + Auth Hardening (Session)
@@ -609,3 +618,26 @@ Keep in sync with the master doc **SECTION 0.17**. Never regress:
 - **Websmith Website Session is STEP 1 for the Internal API Center**: the Internal API login (`/internal/api/auth/login`) is gated by the proxy via `hasValidWebsiteSession(request)` — it verifies the `ws_session` cookie (the mirrored website JWT, signed with `JWT_SECRET`, written by `setAuthSession()`/cleared by `clearAuthSession()` in `lib/auth.ts`; EVERY auth call site syncs both `token` + `ws_session` together). Without a valid website session the internal login NEVER renders: page loads get the standalone **"Please Login First"** page (`app/internal/api/auth/please-login/page.tsx`, only CTA = explicit **Login** button → public `/login`; it never exposes the internal login form or proxy-protected links), and `/internal/backend/*` requests get `401 {success:false, error:"Unauthorized - Please login"}` (JSON) — both via `pleaseLoginFirstResponse`. Missing `api_center_token` but a valid `ws_session` → redirect to `/internal/api/auth/login?next=…` (step 2 continues). After website login, admins enter via **Admin Dashboard → API Center** (`/internal/api/auth/login`) and continue the existing two-step Internal login (credentials → login OTP → `api_center_token`); an expired Internal session mid-use is blocked and sent back to the `/login` flow. Never render the Internal API login (or bypass the website gate) without a valid `ws_session`.
 - **Shared helpers**: `lib/website-auth.ts` owns `toPublicUser` + `signToken` (website JWT) so the website login and its OTP verify routes share the same token/user contract.
 - Keep this rule in sync with the master doc SECTION 0.17.
+
+## Email Center Separation + Email Form Cleanup (UI-only)
+
+Keep in sync with the master doc **SECTION 0.16** + Progress Tracking ("Email
+Center Separation + Email Form Cleanup"). Never regress:
+
+- **No user-facing Email Center entry points in the admin chrome**: the Topbar email icon and the Activation Center shortcuts (Contact Sales / Request Trial / Open Email Center) were REMOVED. The shared `UniversalEmailDialog` stays available to ADMIN flows (LicenseManagerTab, GenerateLicenseTab, sales/enquiries, Communications Center, manage-mails, integrations). Never re-add an Email Center button to the global Topbar or to the customer-facing Activation Center.
+- **Buy / Renew customer contact = the Buy & Renew Portal only**: `/internal/api/buy` and `/internal/api/renew` carry the **Contact Sales** header entry (`_ContactSales.tsx` + `PortalShell` `headerAction`). It opens the SHARED `UniversalEmailDialog` in `customerMode` — NEVER duplicate an email form, NEVER add a second email dialog component.
+- **Recipient is server-controlled**: customer-mode sends POST to the PUBLIC `POST /api/portal/support-message`; the action→recipient map lives server-side (buy-license / renew → `sales@websmithdigital.com`). The browser can never target an arbitrary address; `/internal/backend/admin/communication/send|reply` must NEVER be made public.
+- **User→admin forms require identity**: every user→admin action (buy-license, renew, activate, reactivation, device-replacement, support, general) shows **Your Name\* / Your Email\*** + optional **Mobile** and validates Name + Email before sending; the email body is STRUCTURED (Request Type / Name / Email / Mobile / Subject / Message). Buy License + Renew route to `sales@`; General Support / Support Request / Device Replacement stay `support@`.
+- **`POST /api/portal/support-message`** validates server-side (name/email/message, length caps), throttles per-IP, creates `communication_conversations` (category `sales`) + `conversation_messages` (sender `customer`) + `audit_logs`, and sends via `sendEmail()` (`new_sales_enquiry`). Email History is newest→oldest (server `ORDER BY created_at DESC` + client-side sort in the dialog).
+- **Storefront untouched (one approved Email Center exception)**: `/software-store`
+  and `/api/v1/store/*` are never edited for email entry points EXCEPT the ONE
+  approved **Software Store Email Center header entry**: an Email icon beside the
+  existing Wishlist and Cart icons in the `/software-store` header opens the
+  SHARED `UniversalEmailDialog` in `customerMode` (prefilled from the store's
+  known customer identity where available) and posts to the PUBLIC
+  `POST /api/portal/support-message` with the server-side sales routing
+  (`software-store` → `sales@websmithdigital.com`). Cart / Wishlist / product
+  cards / search / filters / checkout / payment / pricing / `/api/v1/store/*` /
+  `/api/v1/checkout/*` and all store database logic remain untouched. No
+  `mailto:`, no `/contact` redirect, no duplicate email form, no admin endpoint.
+- Keep this rule in sync with the master doc.
