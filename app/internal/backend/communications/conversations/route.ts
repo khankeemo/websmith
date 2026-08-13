@@ -266,6 +266,7 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ success: false, error: { code: 'INVALID_SOURCE', message: `Invalid source: "${source}". Valid: system, mailbox` } }, { status: 400 });
       }
       const mailboxId = searchParams.get('mailbox_id');
+      const category = searchParams.get('category');
 
       const trashClauses: string[] = ['deleted_at IS NOT NULL'];
       const trashParams: any[] = [];
@@ -277,6 +278,17 @@ export async function DELETE(request: NextRequest) {
       if (mailboxId) {
         trashClauses.push(`mailbox_id = $${trashParams.length + 1}`);
         trashParams.push(mailboxId);
+      }
+      if (category) {
+        const categories = category.split(',');
+        const invalid = categories.filter(c => !VALID_CATEGORIES.includes(c));
+        if (invalid.length > 0) {
+          client.release();
+          client = null;
+          return NextResponse.json({ success: false, error: { code: 'INVALID_CATEGORY', message: `Invalid category values: ${invalid.join(', ')}. Valid: ${VALID_CATEGORIES.join(', ')}` } }, { status: 400 });
+        }
+        trashClauses.push(`category = ANY($${trashParams.length + 1})`);
+        trashParams.push(categories);
       }
 
       // Permanently delete the scoped soft-deleted conversations (one transaction)
