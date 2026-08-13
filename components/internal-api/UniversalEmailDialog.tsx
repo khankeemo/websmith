@@ -1049,6 +1049,24 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
     return actionConfig[action]?.description || "";
   };
 
+  // Back / Cancel navigation. When the dialog was opened DIRECTLY into a
+  // specific action (defaultAction set — admin Compose / Reply / Forward,
+  // Buy-Renew Contact Sales), going back closes the dialog and returns to the
+  // calling page (Communications / the conversation) — it must NEVER open the
+  // Email Center action grid. Only the full Email Center flow (no
+  // defaultAction, e.g. the Software Store customer center) goes back to the
+  // action grid.
+  const goBack = () => {
+    setError("");
+    setSuccess("");
+    setWarning("");
+    if (defaultAction) {
+      onClose();
+    } else {
+      setView("actions");
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="" maxWidth="760px" containerStyle={themeStyle}>
       <div className="space-y-4">
@@ -1059,7 +1077,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </div>
           {view !== "actions" && (
             <button
-              onClick={() => { setView("actions"); setError(""); setSuccess(""); setWarning(""); }}
+              onClick={goBack}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/20 transition-all"
             >
               <ArrowLeft size={14} />
@@ -1073,7 +1091,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           <div className="space-y-4">
             {renderEmailForm()}
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="secondary" onClick={() => setView("actions")} disabled={loading}>
+              <Button variant="secondary" onClick={goBack} disabled={loading}>
                 Cancel
               </Button>
               <Button onClick={handleSendEmail} isLoading={loading} leftIcon={<Send size={16} />}>
