@@ -4,12 +4,17 @@
 // PURPOSE: Approved Software Store Email Center header entry. Renders an
 //          Email / Support icon beside the existing Wishlist and Cart controls
 //          in the /software-store header. Clicking opens the SHARED
-//          UniversalEmailDialog in customer mode — no mailto, no /contact
-//          redirect, no duplicate form, no admin endpoint. Customer-mode Send
-//          posts to the PUBLIC /api/portal/support-message route (no admin
-//          session); the recipient is resolved SERVER-SIDE (software-store →
-//          sales@websmithdigital.com). Known customer identity (saved history
-//          email / last order email + name) is prefilled where available.
+//          UniversalEmailDialog in customer mode — the FULL existing customer
+//          Email Center (all actionConfig actions except the admin-only Email
+//          History): Send Email, Buy License, Renew License, Activate,
+//          Reactivation, Device Replacement, Support, General, Software Store
+//          Enquiry. No mailto, no /contact redirect, no duplicate form, no
+//          admin endpoint, no /internal/api redirect. Customer-mode Send posts
+//          to the PUBLIC /api/portal/support-message route (no admin session);
+//          the recipient is resolved SERVER-SIDE per action (buy-license /
+//          renew / software-store → sales@; support/activation/general →
+//          support@). Known customer identity (saved history email / last
+//          order email + name) is prefilled where available.
 // SCOPE: UI-only; cart/wishlist/product cards/search/checkout/payment and all
 //        /api/v1/store/* + /api/v1/checkout/* logic are untouched.
 
@@ -17,7 +22,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Mail } from "lucide-react";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
-import { STORAGE_HISTORY_EMAIL_KEY } from "../store-state";
+import { STORAGE_HISTORY_EMAIL_KEY, STORE_DARK_STYLE } from "../store-state";
 
 export default function StoreEmailCenter() {
   const [open, setOpen] = useState(false);
@@ -56,10 +61,9 @@ export default function StoreEmailCenter() {
         isOpen={open}
         onClose={() => setOpen(false)}
         customerMode
-        defaultAction="software-store"
-        allowedActions={["software-store"]}
         defaultEmail={knownEmail}
         defaultCustomerName={knownName}
+        themeStyle={STORE_DARK_STYLE}
       />
     </>
   );

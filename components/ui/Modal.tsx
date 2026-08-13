@@ -11,6 +11,10 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxWidth?: string;
+  // Optional CSS custom properties applied to the dialog box itself. Needed
+  // for callers that render inside a scoped theme subtree (e.g. the Software
+  // Store) whose CSS variables are lost when the modal portals into <body>.
+  containerStyle?: React.CSSProperties;
 }
 
 export default function Modal({
@@ -20,6 +24,7 @@ export default function Modal({
   children,
   footer,
   maxWidth = "500px",
+  containerStyle,
 }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
@@ -77,6 +82,7 @@ export default function Modal({
           overflow: "hidden",
           color: "var(--text-primary)",
           animation: "modalSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          ...containerStyle,
         }}
         onClick={(e) => e.stopPropagation()}
       >

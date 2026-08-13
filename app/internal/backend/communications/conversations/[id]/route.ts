@@ -47,16 +47,22 @@ export async function GET(
     const conversation = convResult.rows[0];
 
     const messagesResult = await client.query(
-      `SELECT * FROM conversation_messages 
-       WHERE conversation_id = $1 AND (is_internal = false OR is_internal IS NULL)
-       ORDER BY created_at ASC`,
+      `SELECT cm.*, EXISTS (
+         SELECT 1 FROM conversation_attachments ca WHERE ca.message_id = cm.id
+       ) AS has_attachments
+       FROM conversation_messages cm 
+       WHERE cm.conversation_id = $1 AND (cm.is_internal = false OR cm.is_internal IS NULL)
+       ORDER BY cm.created_at ASC`,
       [id]
     );
 
     const internalResult = await client.query(
-      `SELECT * FROM conversation_messages 
-       WHERE conversation_id = $1 AND is_internal = true
-       ORDER BY created_at ASC`,
+      `SELECT cm.*, EXISTS (
+         SELECT 1 FROM conversation_attachments ca WHERE ca.message_id = cm.id
+       ) AS has_attachments
+       FROM conversation_messages cm 
+       WHERE cm.conversation_id = $1 AND cm.is_internal = true
+       ORDER BY cm.created_at ASC`,
       [id]
     );
 

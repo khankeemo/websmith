@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 import { getDb } from '@/lib/backend-db';
 
 export async function POST(
@@ -210,9 +212,9 @@ export async function POST(
                         }
 
                         await client?.query(
-                          `INSERT INTO conversation_messages (conversation_id, sender_type, sender_name, sender_email, message, is_internal, email_sent, created_at)
-                           VALUES ($1, 'admin', $2, $3, $4, FALSE, TRUE, $5)`,
-                          [conversationId, mailbox.display_name || mailbox.email_address, mailbox.email_address, replyBody, new Date().toISOString()]
+                          `INSERT INTO conversation_messages (conversation_id, sender_type, sender_name, sender_email, message, is_internal, email_sent, email_error, created_at)
+                           VALUES ($1, 'admin', $2, $3, $4, FALSE, $5, $6, $7)`,
+                          [conversationId, mailbox.display_name || mailbox.email_address, mailbox.email_address, replyBody, autoReplyOk, autoReplyOk ? null : (autoReplyError || null), new Date().toISOString()]
                         );
                         await client?.query(
                           `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, error, created_at)
@@ -235,11 +237,39 @@ export async function POST(
                   }
                 }
 
-                await client?.query(
+                const msgInsert = await client?.query(
                   `INSERT INTO conversation_messages (conversation_id, sender_type, sender_name, sender_email, message, is_internal, created_at)
-                   VALUES ($1, 'customer', $2, $3, $4, FALSE, $5)`,
+                   VALUES ($1, 'customer', $2, $3, $4, FALSE, $5) RETURNING id`,
                   [conversationId, from, from, text || html || '(No content)', date.toISOString()]
                 );
+                const customerMessageId = msgInsert?.rows?.[0]?.id;
+
+                // ---- Incoming attachments: save any files in the email to
+                // storage and link them to the customer message so the reader
+                // thread can show + download them. (conversation_attachments)
+                if (customerMessageId && Array.isArray(parsed.attachments) && parsed.attachments.length > 0) {
+                  try {
+                    const storagePath = process.env.ATTACHMENT_STORAGE_PATH || path.join(process.cwd(), 'public', 'attachments', 'email');
+                    fs.mkdirSync(storagePath, { recursive: true });
+                    for (const att of parsed.attachments) {
+                      const fileName = (att.filename || 'attachment').replace(/[^a-zA-Z0-9._-]/g, '_');
+                      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${fileName}`;
+                      const filePath = path.join(storagePath, uniqueName);
+                      const content = att.content;
+                      const size = att.size || (content && content.length) || 0;
+                      if (content) {
+                        fs.writeFileSync(filePath, content);
+                        await client?.query(
+                          `INSERT INTO conversation_attachments (message_id, file_name, file_size, mime_type, storage_path)
+                           VALUES ($1, $2, $3, $4, $5)`,
+                          [customerMessageId, fileName, size, att.contentType || 'application/octet-stream', filePath]
+                        );
+                      }
+                    }
+                  } catch (attErr: any) {
+                    console.error('Failed to store incoming attachment:', attErr?.message || attErr);
+                  }
+                }
               } catch (parseError: any) {
                 console.error('Failed to parse email:', parseError);
               }

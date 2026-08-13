@@ -9,6 +9,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { StoreProduct, StoreProductPlan } from "./services/softwareStoreService";
 
 export const STORAGE_CART_KEY = "software_store_cart";
@@ -17,6 +18,22 @@ export const STORAGE_COMPARE_KEY = "software_store_compare";
 export const STORAGE_HISTORY_EMAIL_KEY = "software_store_history_email";
 export const MAX_COMPARE = 4;
 export const GST_RATE = 0.18;
+
+// Scoped premium dark theme — CSS variables are redefined only inside the
+// software store subtree, so the rest of the site is untouched. Shared by the
+// storefront wrapper AND the portaled Email Center modal (which escapes the
+// store subtree via createPortal and therefore needs the vars applied inline).
+export const STORE_DARK_STYLE = {
+  "--bg-primary": "#070B14",
+  "--bg-secondary": "#0B1220",
+  "--bg-tertiary": "#111827",
+  "--text-primary": "#F1F5F9",
+  "--text-secondary": "#94A3B8",
+  "--text-muted": "#64748B",
+  "--border-color": "rgba(148, 163, 184, 0.16)",
+  "--card-shadow": "0 20px 60px -15px rgba(0, 0, 0, 0.6)",
+  colorScheme: "dark",
+} as CSSProperties;
 
 export interface CartItem {
   product: StoreProduct;

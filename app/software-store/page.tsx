@@ -24,26 +24,12 @@ import { getSoftwareStoreVisibility } from "@/core/services/publicSettingsServic
 import {
   STORAGE_HISTORY_EMAIL_KEY, MAX_COMPARE, containerVariants, itemVariants,
   staggerItem, formatPrice, formatDate, useCart, useWishlist,
-  useCompare,
+  useCompare, STORE_DARK_STYLE,
 } from "./store-state";
 import {
   StoreToast, CartPanel, WishlistPanel, CompareModal, CompareTray,
 } from "./components/store-panels";
 import StoreEmailCenter from "./components/store-email-center";
-
-// Scoped premium dark theme — CSS variables are redefined only inside the
-// software store subtree, so the rest of the site is untouched.
-const STORE_DARK_STYLE = {
-  "--bg-primary": "#070B14",
-  "--bg-secondary": "#0B1220",
-  "--bg-tertiary": "#111827",
-  "--text-primary": "#F1F5F9",
-  "--text-secondary": "#94A3B8",
-  "--text-muted": "#64748B",
-  "--border-color": "rgba(148, 163, 184, 0.16)",
-  "--card-shadow": "0 20px 60px -15px rgba(0, 0, 0, 0.6)",
-  colorScheme: "dark",
-} as React.CSSProperties;
 
 function Shimmer() {
   return (

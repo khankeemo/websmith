@@ -1,10 +1,13 @@
 // FILE: app/api/portal/support-message/route.ts
 // PURPOSE: Public customer-facing support message endpoint for the Universal
-//          Buy & Renew Portal (/internal/api/buy, /internal/api/renew). The
-//          Email Center dialog posts here in customer mode so visitors WITHOUT
-//          an admin session can reach the sales team.
+//          Email Center in customer mode — used by the Universal Buy & Renew
+//          Portal (/internal/api/buy, /internal/api/renew) and the Software
+//          Store Email Center (/software-store). The Email Center dialog posts
+//          here so visitors WITHOUT an admin session can reach the sales and
+//          support teams.
 // ACCESS: Public (not gated by proxy.ts — the matcher only covers /internal).
-//          The recipient is controlled SERVER-SIDE per action; the browser can
+//          The recipient is controlled SERVER-SIDE per action (sales requests
+//          → sales@, all other customer requests → support@); the browser can
 //          never supply an arbitrary address. Reuses the existing sendEmail +
 //          communication_conversations infrastructure (same pattern as
 //          /api/v1/communication/create and /internal/backend/store/enquiries).
@@ -23,12 +26,21 @@ const pool = new Pool({
 });
 
 const MAIL_SALES_ADDRESS = process.env.MAIL_SALES_ADDRESS || "sales@websmithdigital.com";
+const MAIL_SUPPORT_ADDRESS = process.env.MAIL_SUPPORT_ADDRESS || "support@websmithdigital.com";
 
 // Recipient routing is fixed server-side — never taken from the browser.
-// Buy / Renew / Software Store support messages always go to the sales team.
+// Buy / Renew / Software Store enquiries always go to the sales team; all
+// other customer requests (Send Email, Activation, Reactivation, Device
+// Replacement, Support, General) go to the support team.
 const ACTION_ROUTES: Record<string, { recipient: string; category: string }> = {
+  send: { recipient: MAIL_SUPPORT_ADDRESS, category: "support" },
   "buy-license": { recipient: MAIL_SALES_ADDRESS, category: "sales" },
+  activate: { recipient: MAIL_SUPPORT_ADDRESS, category: "support" },
   renew: { recipient: MAIL_SALES_ADDRESS, category: "sales" },
+  reactivation: { recipient: MAIL_SUPPORT_ADDRESS, category: "support" },
+  "device-replacement": { recipient: MAIL_SUPPORT_ADDRESS, category: "support" },
+  support: { recipient: MAIL_SUPPORT_ADDRESS, category: "support" },
+  general: { recipient: MAIL_SUPPORT_ADDRESS, category: "support" },
   "software-store": { recipient: MAIL_SALES_ADDRESS, category: "sales" },
 };
 const VALID_ACTIONS = Object.keys(ACTION_ROUTES);
@@ -137,16 +149,17 @@ export async function POST(request: NextRequest) {
     client = null;
 
     let emailDelivered = true;
+    const isSales = route.category === "sales";
     const sendResult = await sendEmail(
       pool,
-      'new_sales_enquiry',
-      { email: route.recipient, name: 'Sales' },
+      isSales ? 'new_sales_enquiry' : 'admin_notification',
+      { email: route.recipient, name: isSales ? 'Sales' : 'Support' },
       {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: mobile || 'Not provided',
-        product_name: action === 'renew' ? 'License renewal' : action === 'software-store' ? 'Software Store' : 'License purchase',
-        plan_name: action === 'renew' ? 'Renewal' : action === 'software-store' ? 'Store enquiry' : 'Purchase',
+        product_name: action === 'renew' ? 'License renewal' : action === 'software-store' ? 'Software Store' : isSales ? 'License purchase' : 'Support request',
+        plan_name: action === 'renew' ? 'Renewal' : action === 'software-store' ? 'Store enquiry' : isSales ? 'Purchase' : 'Support',
         enquiry_id: conversationId,
         message,
         subject,
@@ -154,7 +167,9 @@ export async function POST(request: NextRequest) {
       },
       {
         custom: {
-          subject: subject || (action === 'renew' ? 'License Renewal Request' : action === 'software-store' ? 'Software Store Enquiry' : 'License Purchase Inquiry'),
+          subject: subject || (isSales
+            ? (action === 'renew' ? 'License Renewal Request' : action === 'software-store' ? 'Software Store Enquiry' : 'License Purchase Inquiry')
+            : 'Support Request'),
           html: `<p>${message.replace(/\n/g, '<br/>')}</p>`,
           plainText: message,
         },

@@ -128,6 +128,10 @@ interface EmailDialogProps {
   // REQUIRED, Mobile optional).
   defaultCustomerName?: string;
   defaultCustomerMobile?: string;
+  // Optional CSS custom properties for the portaled dialog box. Callers that
+  // live inside a scoped theme subtree (e.g. the Software Store) pass their
+  // vars here so the modal matches even though it portals into <body>.
+  themeStyle?: React.CSSProperties;
   // Content libraries for Template ▼ / Signature ▼ insertion (optional).
   templates?: EmailTemplate[];
   signatures?: EmailSignature[];
@@ -173,7 +177,7 @@ function formatSize(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc, templates, signatures, customerMode, defaultCustomerName, defaultCustomerMobile }: EmailDialogProps) {
+export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc, templates, signatures, customerMode, defaultCustomerName, defaultCustomerMobile, themeStyle }: EmailDialogProps) {
   const [view, setView] = useState<"actions" | "form" | "history">("actions");
   const [action, setAction] = useState<EmailAction>(defaultAction || "send");
   const [loading, setLoading] = useState(false);
@@ -291,7 +295,14 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           setCc("");
           setBcc("");
         }
-        if (!recipientEmail) setRecipientEmail(defaultEmail || "");
+        // Customer-facing Send Email is a support-style form: the recipient
+        // is resolved SERVER-SIDE (support@) and the visitor supplies their
+        // own identity — the To field is a read-only mirror of that target.
+        if (customerMode) {
+          setRecipientEmail(SUPPORT_EMAIL);
+        } else if (!recipientEmail) {
+          setRecipientEmail(defaultEmail || "");
+        }
         setView("form");
         break;
       case "history":
@@ -405,9 +416,12 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       setError("A valid recipient email is required");
       return;
     }
-    // User→admin forms always require the requester's identity.
+    // User→admin forms always require the requester's identity. In customer
+    // mode every send (including the plain Send Email action) is a user→admin
+    // request, so identity is required there too.
     const isSupportAction = SUPPORT_ACTIONS.includes(action);
-    if (isSupportAction) {
+    const requiresIdentity = isSupportAction || customerMode;
+    if (requiresIdentity) {
       if (!customerName.trim()) {
         setError("Your name is required");
         return;
@@ -434,7 +448,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       // User→admin requests are sent as a structured message that always
       // carries the requester's identity plus the request details.
       let finalMessage = message;
-      if (isSupportAction) {
+      if (requiresIdentity) {
         const identityLines = [
           `Request Type: ${actionConfig[action].label}`,
           `Name: ${customerName.trim()}`,
@@ -491,6 +505,8 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       } else if (conversationId) {
         // Reply mode: same universal composer, posted to the conversation
         // reply endpoint so the message lands in the conversation thread.
+        // Attachments are supported: when files are attached the request is
+        // sent as multipart so the reply endpoint can store + email them.
         const payload: Record<string, string> = {
           conversation_id: conversationId,
           message,
@@ -509,11 +525,18 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
             payload.from_mailbox_id = selectedSender.id;
           }
         }
-        res = await fetch(`${API_BASE}/admin/communication/reply`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        if (files.length > 0) {
+          const formData = new FormData();
+          for (const [k, v] of Object.entries(payload)) formData.append(k, v);
+          for (const f of files) formData.append("files", f.file);
+          res = await fetch(`${API_BASE}/admin/communication/reply`, { method: "POST", body: formData });
+        } else {
+          res = await fetch(`${API_BASE}/admin/communication/reply`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
       } else if (files.length > 0) {
         const formData = new FormData();
         for (const [k, v] of Object.entries(common)) formData.append(k, String(v));
@@ -558,6 +581,9 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
   const renderActions = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {(Object.entries(actionConfig) as [EmailAction, typeof actionConfig[EmailAction]][])
+        // Email History loads the admin communication ledger — never exposed
+        // to customers.
+        .filter(([key]) => key !== "history" || !customerMode)
         .filter(([key]) => !allowedActions || allowedActions.includes(key))
         .map(([key, cfg]) => {
         const Icon = cfg.icon;
@@ -621,7 +647,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </div>
         )}
 
-        {canAttachSdk && (
+        {!conversationId && canAttachSdk && (
           <label className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 cursor-pointer hover:bg-blue-500/10 transition-colors">
             <input
               type="checkbox"
@@ -649,10 +675,13 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
 
   const renderEmailForm = () => {
     const isSupportAction = SUPPORT_ACTIONS.includes(action);
+    // In customer mode every form (including plain Send Email) is a user→admin
+    // request that carries the visitor's identity to the public support route.
+    const requiresIdentity = isSupportAction || customerMode;
 
     return (
       <div className="space-y-4">
-        {isSupportAction && (
+        {requiresIdentity && (
           <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
             <p className="text-sm text-[var(--text-secondary)]">
               {SUPPORT_INFO_TEXT[action] || "This request will be sent to our team for processing."}
@@ -689,13 +718,13 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
               value={recipientEmail}
               onChange={(e) => setRecipientEmail(e.target.value)}
               placeholder="recipient@example.com"
-              readOnly={isSupportAction}
+              readOnly={requiresIdentity}
               className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all read-only:opacity-70"
             />
           </div>
         </div>
 
-        {!isSupportAction && (
+        {!requiresIdentity && (
           <div>
             <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Recipient Name</label>
             <input
@@ -708,7 +737,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </div>
         )}
 
-        {isSupportAction && (
+        {requiresIdentity && (
           <>
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Your Name <span className="text-red-400">*</span></label>
@@ -752,7 +781,9 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </>
         )}
 
-        {action === "send" && (
+                {/* CC/BCC/Template/Signature are admin composer features — hidden in
+            customer mode, where sends go to the server-defined support inbox. */}
+        {action === "send" && !customerMode && (
           <>
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">CC <span className="text-[var(--text-muted)]">(comma or semicolon separated)</span></label>
@@ -916,7 +947,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </>
         )}
 
-        {!conversationId && !customerMode && renderAttachmentSection()}
+        {!customerMode && renderAttachmentSection()}
 
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-xl border border-red-500/20 bg-red-500/5">
@@ -1007,19 +1038,19 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
   );
 
   const getActionTitle = () => {
-    if (view === "actions") return allowedActions ? "Email Options" : "Email Center";
+    if (view === "actions") return customerMode ? "Email Center" : allowedActions ? "Email Options" : "Email Center";
     if (view === "history") return "Email History";
     return actionConfig[action]?.label || "Send Email";
   };
 
   const getActionDescription = () => {
-    if (view === "actions") return allowedActions ? "Select an admin email action to get started" : "Select an email action to get started";
+    if (view === "actions") return customerMode ? "Select an email action to get started" : allowedActions ? "Select an admin email action to get started" : "Select an email action to get started";
     if (view === "history") return "View sent emails and request history";
     return actionConfig[action]?.description || "";
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="" maxWidth="760px">
+    <Modal isOpen={isOpen} onClose={onClose} title="" maxWidth="760px" containerStyle={themeStyle}>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>

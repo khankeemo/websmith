@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 import { getDb } from '@/lib/backend-db';
 import { sendEmail } from '@/lib/email/brevo';
 
@@ -12,12 +14,49 @@ const CATEGORY_ROUTE_MAP: Record<string, string> = {
   general: 'support_reply',
 };
 
+const ALLOWED_MIME_TYPES = [
+  'text/plain', 'text/csv', 'text/html', 'text/xml',
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+  'application/json', 'application/pdf',
+  'application/zip', 'application/x-zip-compressed',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/octet-stream',
+];
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILES = 5;
+
+// The reply is a REAL outbound email when is_internal is false. The composer
+// may post `is_internal` as a boolean OR the string "true"/"false", so it is
+// normalized here — a non-empty "false" string must never be treated as true.
+const parseInternal = (v: unknown): boolean =>
+  v === true || String(v).toLowerCase() === 'true';
+
 export async function POST(request: NextRequest) {
   let client = null;
 
   try {
-    const body = await request.json();
-    const { conversation_id, message, sender_name, is_internal } = body;
+    const contentType = request.headers.get('content-type') || '';
+    const isMultipart = contentType.includes('multipart/form-data');
+
+    let body: Record<string, any> = {};
+    const files: File[] = [];
+    if (isMultipart) {
+      const formData = await request.formData();
+      for (const [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          files.push(value);
+        } else {
+          body[key] = value;
+        }
+      }
+    } else {
+      body = await request.json().catch(() => ({}));
+    }
+
+    const { conversation_id, message, sender_name } = body;
+    const isInternal = parseInternal(body.is_internal);
     // Optional sender override from the compose From dropdown (account ID based).
     const from_email = String(body.from_email || "").trim();
     const from_name = String(body.from_name || "").trim();
@@ -37,6 +76,34 @@ export async function POST(request: NextRequest) {
         success: false,
         error: { code: 'MISSING_FIELDS', message: 'conversation_id and message are required' }
       }, { status: 400 });
+    }
+
+    // Outgoing attachment files (uploaded with the reply). Saved to storage and
+    // attached to the real email for BOTH the mailbox-SMTP and Brevo paths.
+    const attachments: { name: string; content: string; type?: string }[] = [];
+    const storedFiles: { fileName: string; fileSize: number; mimeType: string; storagePath: string }[] = [];
+    if (isMultipart && files.length > 0) {
+      if (files.length > MAX_FILES) {
+        return NextResponse.json({ success: false, error: `Maximum ${MAX_FILES} attachments allowed` }, { status: 400 });
+      }
+      const storagePath = process.env.ATTACHMENT_STORAGE_PATH || path.join(process.cwd(), 'public', 'attachments', 'email');
+      fs.mkdirSync(storagePath, { recursive: true });
+      for (const file of files) {
+        if (file.size > MAX_FILE_SIZE) {
+          return NextResponse.json({ success: false, error: `File "${file.name}" exceeds the 10MB limit` }, { status: 400 });
+        }
+        const mimeType = file.type || 'application/octet-stream';
+        if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+          return NextResponse.json({ success: false, error: `File type "${mimeType}" for "${file.name}" is not supported` }, { status: 400 });
+        }
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${sanitizedName}`;
+        const filePath = path.join(storagePath, uniqueName);
+        const buffer = Buffer.from(await file.arrayBuffer());
+        fs.writeFileSync(filePath, buffer);
+        attachments.push({ name: sanitizedName, content: buffer.toString('base64'), type: mimeType });
+        storedFiles.push({ fileName: sanitizedName, fileSize: file.size, mimeType, storagePath: filePath });
+      }
     }
 
     const db = await getDb();
@@ -60,12 +127,14 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const adminName = from_name || sender_name || 'Support Team';
 
-    await client.query(
+    const msgResult = await client.query(
       `INSERT INTO conversation_messages
        (conversation_id, sender_type, sender_name, sender_email, message, is_internal, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [conversation_id, 'admin', adminName, from_email, message, is_internal || false, now]
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id`,
+      [conversation_id, 'admin', adminName, from_email, message, isInternal, now]
     );
+    const messageId = msgResult.rows[0]?.id;
 
     await client.query(
       'UPDATE communication_conversations SET status = $1, updated_at = $2 WHERE id = $3',
@@ -78,114 +147,191 @@ export async function POST(request: NextRequest) {
       ['admin_conversation_reply', `Admin reply added to conversation ${conversation_id}`, now]
     );
 
-    if (!is_internal && conv.customer_email) {
-      // Sender = a configured external mailbox: send via that mailbox's SMTP
-      // (reuses the exact nodemailer pattern from /mailboxes/[id]/send) so the
-      // reply leaves FROM the account that received the email.
-if (from_mailbox_id) {
-        const mbResult = await client.query('SELECT * FROM mailboxes WHERE id = $1', [from_mailbox_id]);
-        const mailbox = mbResult.rows[0];
-        if (mailbox && mailbox.is_enabled) {
-          const fromLabel = mailbox.display_name ? `"${mailbox.display_name}" <${mailbox.email_address}>` : mailbox.email_address;
-          const fullMessage = message + (mailbox.signature ? `\n\n${mailbox.signature}` : "");
-          const replySubject = subjectOverride || (conv.subject ? `Re: ${conv.subject}` : 'Re: Your request');
-          let smtpDelivered = false;
-          try {
-            const nodemailer = (await import('nodemailer')).default;
-            const transporter = nodemailer.createTransport({
-              host: mailbox.smtp_host,
-              port: mailbox.smtp_port,
-              secure: mailbox.smtp_secure,
-              auth: { user: mailbox.smtp_username, pass: mailbox.smtp_password },
-              tls: { rejectUnauthorized: false },
-              connectionTimeout: 30000,
-            });
-            const info = await transporter.sendMail({
-              from: fromLabel,
-              to: conv.customer_name ? `"${conv.customer_name}" <${conv.customer_email}>` : conv.customer_email,
-              ...(ccList.length > 0 ? { cc: ccList } : {}),
-              ...(bccList.length > 0 ? { bcc: bccList } : {}),
-              subject: replySubject,
-              text: fullMessage,
-              html: `<p>${fullMessage.replace(/\n/g, '<br/>')}</p>`,
-            });
-            smtpDelivered = true;
-            await client.query(
-              `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, created_at)
-               VALUES ($1,'smtp',$2,$3,'sent',$4,$5)`,
-              ['support_reply', conv.customer_email, replySubject, String(info.messageId || ''), now]
-            );
-            await client.query(
-              `INSERT INTO audit_logs (event_type, message, timestamp)
-               VALUES ($1, $2, $3)`,
-              ['email_sent', `Reply to ${conv.customer_email} sent via SMTP (${mailbox.email_address})`, now]
-            );
-          } catch (smtpError: any) {
-            await client.query(
-              `INSERT INTO audit_logs (event_type, message, timestamp)
-               VALUES ($1, $2, $3)`,
-              ['email_failed', `Reply email failed for ${conversation_id}: ${smtpError?.message || 'SMTP send failed'}`, now]
-            );
-          }
-          client.release();
-          client = null;
-          // The reply is stored in the conversation either way, but the admin
-          // must know when the email never left the mailbox SMTP.
-          return NextResponse.json({
-            success: true,
-            emailDelivered: smtpDelivered,
-            warning: smtpDelivered ? undefined : 'Reply saved, but the email could not be sent via the mailbox SMTP.'
-          });
-        }
-        // Mailbox missing/disabled → fall through to the Brevo path below.
-      }
-
-      if (process.env.BREVO_API_KEY) {
-        const emailTemplate = CATEGORY_ROUTE_MAP[conv.category] || 'support_reply';
-        // The reply is for the CUSTOMER — never the admin/company address.
-        const emailResult = await sendEmail(
-          db,
-          emailTemplate,
-          { email: conv.customer_email, name: conv.customer_name || 'Valued Customer' },
-          {
-            conversation_id,
-            request_id: conv.request_id || conversation_id,
-            customer_name: conv.customer_name || 'N/A',
-            customer_email: conv.customer_email,
-            message,
-          },
-          {
-            ...(from_email ? { from: { email: from_email, name: from_name || adminName } } : {}),
-            ...(ccList.length > 0 ? { cc: ccList.map(e => ({ email: e })) } : {}),
-            ...(bccList.length > 0 ? { bcc: bccList.map(e => ({ email: e })) } : {}),
-            custom: subjectOverride ? { subject: subjectOverride, html: `<p>${message.replace(/\n/g, '<br/>')}</p>`, plainText: message } : null,
-          }
+    // Stored conversation attachments (linked to this message so the reader
+    // thread shows them under the reply).
+    if (storedFiles.length > 0 && messageId) {
+      for (const sf of storedFiles) {
+        await client.query(
+          `INSERT INTO conversation_attachments (message_id, file_name, file_size, mime_type, storage_path)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [messageId, sf.fileName, sf.fileSize, sf.mimeType, sf.storagePath]
         );
-        if (!emailResult.success) {
-          console.error(`[Admin Comm] Reply email delivery failed for ${conversation_id}:`, emailResult.error);
+      }
+    }
+
+    // Internal notes are NEVER email — nothing is sent below.
+    if (isInternal) {
+      client.release();
+      client = null;
+      return NextResponse.json({
+        success: true,
+        message: 'Internal note added.',
+        emailDelivered: false,
+        internal: true,
+      });
+    }
+
+    if (!conv.customer_email) {
+      client.release();
+      client = null;
+      return NextResponse.json({
+        success: true,
+        message: 'Reply saved.',
+        emailDelivered: false,
+        warning: 'No customer email on this conversation — reply was saved but no email was sent.',
+      });
+    }
+
+    // Honest delivery reporting: the final return must never claim the email
+    // was delivered unless an email actually went out (mailbox SMTP or Brevo).
+    let emailAttempted = false;
+
+    // Sender = a configured external mailbox: send via that mailbox's SMTP
+    // (reuses the exact nodemailer pattern from /mailboxes/[id]/send) so the
+    // reply leaves FROM the account that received the email.
+    if (from_mailbox_id) {
+      const mbResult = await client.query('SELECT * FROM mailboxes WHERE id = $1', [from_mailbox_id]);
+      const mailbox = mbResult.rows[0];
+      if (mailbox && mailbox.is_enabled) {
+        emailAttempted = true;
+        const fromLabel = mailbox.display_name ? `"${mailbox.display_name}" <${mailbox.email_address}>` : mailbox.email_address;
+        const fullMessage = message + (mailbox.signature ? `\n\n${mailbox.signature}` : "");
+        const replySubject = subjectOverride || (conv.subject ? `Re: ${conv.subject}` : 'Re: Your request');
+        let smtpDelivered = false;
+        let smtpErrorMsg = '';
+        let messageIdResp = '';
+        try {
+          const nodemailer = (await import('nodemailer')).default;
+          const transporter = nodemailer.createTransport({
+            host: mailbox.smtp_host,
+            port: mailbox.smtp_port,
+            secure: mailbox.smtp_secure,
+            auth: { user: mailbox.smtp_username, pass: mailbox.smtp_password },
+            tls: { rejectUnauthorized: false },
+            connectionTimeout: 30000,
+          });
+          const info = await transporter.sendMail({
+            from: fromLabel,
+            to: conv.customer_name ? `"${conv.customer_name}" <${conv.customer_email}>` : conv.customer_email,
+            ...(ccList.length > 0 ? { cc: ccList } : {}),
+            ...(bccList.length > 0 ? { bcc: bccList } : {}),
+            subject: replySubject,
+            text: fullMessage,
+            html: `<p>${fullMessage.replace(/\n/g, '<br/>')}</p>`,
+            ...(attachments.length > 0
+              ? { attachments: attachments.map(a => ({ filename: a.name, content: Buffer.from(a.content, 'base64'), contentType: a.type })) }
+              : {}),
+          });
+          smtpDelivered = true;
+          messageIdResp = String(info.messageId || '');
+        } catch (smtpError: any) {
+          smtpErrorMsg = smtpError?.message || 'SMTP send failed';
           await client.query(
             `INSERT INTO audit_logs (event_type, message, timestamp)
              VALUES ($1, $2, $3)`,
-            ['email_failed', `Admin reply email failed for ${conversation_id}: ${emailResult.error || 'Unknown error'}`, now]
+            ['email_failed', `Reply email failed for ${conversation_id}: ${smtpErrorMsg}`, now]
           );
-          client.release();
-          client = null;
-          // The reply is stored in the conversation, but the admin must know
-          // the email never reached the customer (never fake success).
-          return NextResponse.json({
-            success: true,
-            emailDelivered: false,
-            warning: `Reply saved, but the email could not be delivered (${emailResult.error || 'provider error'}).`
-          });
         }
+
+        if (messageId) {
+          await client.query(
+            `UPDATE conversation_messages SET email_sent = $1, email_error = $2 WHERE id = $3`,
+            [smtpDelivered, smtpDelivered ? null : (smtpErrorMsg || null), messageId]
+          );
+        }
+
+        if (smtpDelivered) {
+          await client.query(
+            `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, created_at)
+             VALUES ($1,'smtp',$2,$3,'sent',$4,$5)`,
+            ['support_reply', conv.customer_email, replySubject, messageIdResp, now]
+          );
+          await client.query(
+            `INSERT INTO audit_logs (event_type, message, timestamp)
+             VALUES ($1, $2, $3)`,
+            ['email_sent', `Reply to ${conv.customer_email} sent via SMTP (${mailbox.email_address})`, now]
+          );
+        }
+
+        client.release();
+        client = null;
+        // The reply is stored in the conversation either way, but the admin
+        // must know when the email never left the mailbox SMTP.
+        return NextResponse.json({
+          success: true,
+          emailDelivered: smtpDelivered,
+          warning: smtpDelivered ? undefined : `Reply saved, but the email could not be sent via the mailbox SMTP (${smtpErrorMsg}).`
+        });
+      }
+      // Mailbox missing/disabled → fall through to the Brevo path below.
+    }
+
+    if (process.env.BREVO_API_KEY) {
+      emailAttempted = true;
+      const emailTemplate = CATEGORY_ROUTE_MAP[conv.category] || 'support_reply';
+      // The reply is for the CUSTOMER — never the admin/company address.
+      const emailResult = await sendEmail(
+        db,
+        emailTemplate,
+        { email: conv.customer_email, name: conv.customer_name || 'Valued Customer' },
+        {
+          conversation_id,
+          request_id: conv.request_id || conversation_id,
+          customer_name: conv.customer_name || 'N/A',
+          customer_email: conv.customer_email,
+          message,
+        },
+        {
+          ...(from_email ? { from: { email: from_email, name: from_name || adminName } } : {}),
+          ...(ccList.length > 0 ? { cc: ccList.map(e => ({ email: e })) } : {}),
+          ...(bccList.length > 0 ? { bcc: bccList.map(e => ({ email: e })) } : {}),
+          ...(attachments.length > 0 ? { attachments } : {}),
+          custom: subjectOverride ? { subject: subjectOverride, html: `<p>${message.replace(/\n/g, '<br/>')}</p>`, plainText: message } : null,
+        }
+      );
+
+      if (messageId) {
+        await client.query(
+          `UPDATE conversation_messages SET email_sent = $1, email_error = $2 WHERE id = $3`,
+          [emailResult.success, emailResult.success ? null : (emailResult.error || null), messageId]
+        );
+      }
+
+      if (!emailResult.success) {
+        console.error(`[Admin Comm] Reply email delivery failed for ${conversation_id}:`, emailResult.error);
+        await client.query(
+          `INSERT INTO audit_logs (event_type, message, timestamp)
+           VALUES ($1, $2, $3)`,
+          ['email_failed', `Admin reply email failed for ${conversation_id}: ${emailResult.error || 'Unknown error'}`, now]
+        );
+        client.release();
+        client = null;
+        // The reply is stored in the conversation, but the admin must know
+        // the email never reached the customer (never fake success).
+        return NextResponse.json({
+          success: true,
+          emailDelivered: false,
+          warning: `Reply saved, but the email could not be delivered (${emailResult.error || 'provider error'}).`
+        });
       }
     }
 
     client.release();
     client = null;
 
+    // No mail provider available (no mailbox SMTP + no Brevo key): the reply is
+    // saved but the email cannot leave — report honestly instead of faking success.
+    if (!emailAttempted) {
+      return NextResponse.json({
+        success: true,
+        emailDelivered: false,
+        warning: 'Reply saved, but no email provider is configured (mailbox SMTP or Brevo).'
+      });
+    }
+
     return NextResponse.json({
       success: true,
+      emailDelivered: true,
       message: 'Reply sent successfully.',
     });
 

@@ -123,6 +123,17 @@ const defaultSenderId = (accounts: MailSenderAccount[]): string =>
   || accounts.find(a => a.is_active)?.id
   || accounts[0]?.id || '';
 
+// Default sender for interactive mail (Compose / Reply / Forward): never the
+// transactional no-reply account — it is reserved for automated system mail
+// (OTP, license, payment, notifications). Falls back to any active account
+// only when no human-facing sender exists.
+const interactiveSenderId = (accounts: MailSenderAccount[]): string => {
+  const interactive = accounts.filter(a => a.is_active && a.type !== 'no_reply' && a.type !== 'no-reply');
+  return interactive.find(a => a.is_default)?.id
+    || interactive[0]?.id
+    || defaultSenderId(accounts);
+};
+
 // Category routing per system account — mirrors the documented routing
 // (support_categories / sales_categories / general), used to derive the
 // receiving account of a conversation that has no mailbox integration.
@@ -1857,7 +1868,7 @@ export default function CommunicationsPage() {
       isOpen: true,
       defaultAction: 'send',
       fromAccounts: senderAccounts,
-      defaultFromId: defaultSenderId(senderAccounts),
+      defaultFromId: interactiveSenderId(senderAccounts),
     });
   };
 
@@ -1875,7 +1886,7 @@ export default function CommunicationsPage() {
     return lines.join('\n\n');
   };
 
-  const openReply = (to?: string, _action?: 'support' | 'general') => {
+  const openReply = (to?: string, _action?: 'support' | 'general', replyAll?: boolean) => {
     const d = detail;
     const target = to || d?.conversation.customer_email || (d?.customer?.email as string) || '';
     const recv = d ? accountForConversation(d.conversation, commSettings, mailboxes) : null;
@@ -1886,11 +1897,13 @@ export default function CommunicationsPage() {
       defaultProductId: d?.conversation.product_id || undefined,
       defaultAction: 'send',
       fromAccounts: senderAccounts,
-      defaultFromId: recv?.id || defaultSenderId(senderAccounts),
+      defaultFromId: recv?.id || interactiveSenderId(senderAccounts),
       conversationId: d?.conversation.id || undefined,
       defaultSubject: d ? `Re: ${d.conversation.subject || ''}`.trim() : undefined,
       defaultMessage: d ? `\n\n---\n${threadContextFor(d)}` : undefined,
-      defaultCc: '',
+      // Reply All keeps the receiving account in the loop (CC) so the original
+      // recipient that the customer emailed stays part of the conversation.
+      defaultCc: replyAll && recv?.email ? recv.email : '',
       defaultBcc: '',
     });
   };
@@ -1904,7 +1917,7 @@ export default function CommunicationsPage() {
       defaultLicenseKey: d?.conversation.license_key || undefined,
       defaultProductId: d?.conversation.product_id || undefined,
       fromAccounts: senderAccounts,
-      defaultFromId: recv?.id || defaultSenderId(senderAccounts),
+      defaultFromId: recv?.id || interactiveSenderId(senderAccounts),
       defaultSubject: d ? `Fwd: ${d.conversation.subject || ''}`.trim() : undefined,
       defaultMessage: d ? `---------- Forwarded message ----------\nFrom: ${d.conversation.customer_name || 'Unknown'} <${d.conversation.customer_email}>\nDate: ${new Date(d.conversation.created_at).toLocaleString()}\nSubject: ${d.conversation.subject || ''}\n\n${threadContextFor(d)}` : undefined,
     });
@@ -2294,7 +2307,7 @@ export default function CommunicationsPage() {
     return (
       <div className="flex items-center gap-1 flex-wrap rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-2 py-1.5">
         <button onClick={openCompose} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
-          <Mail size={13} /> New Email
+          <Mail size={13} /> Compose
         </button>
         <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
         <button
@@ -2306,7 +2319,7 @@ export default function CommunicationsPage() {
           <Reply size={14} />
         </button>
         <button
-          onClick={() => openReply()}
+          onClick={() => openReply(undefined, undefined, true)}
           disabled={!hasSelection && !detail}
           title="Reply All"
           className={btn}
@@ -3939,6 +3952,7 @@ export default function CommunicationsPage() {
                         {m.sender_email && <span className="text-[10px] text-[var(--text-muted)] truncate">{m.sender_email}</span>}
                         <span className="text-[10px] text-[var(--text-muted)] shrink-0">{new Date(m.created_at).toLocaleString()}</span>
                         {m.email_sent && <span className="text-[9px] text-green-400 ml-auto">sent via email</span>}
+                        {!m.email_sent && m.email_error && <span className="text-[9px] text-red-400 ml-auto" title={m.email_error}>email failed</span>}
                       </div>
                       <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap break-words">{m.message}</p>
                       {msgAttachments.length > 0 && (

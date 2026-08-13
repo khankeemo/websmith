@@ -258,6 +258,15 @@ const defaultSenderId = (accounts: any[]): string =>
   || accounts.find(a => a.is_active)?.id
   || accounts[0]?.id || '';
 
+// Default sender for interactive mail (Compose / Reply): never the
+// transactional no-reply account — it is reserved for automated system mail.
+const interactiveSenderId = (accounts: any[]): string => {
+  const interactive = accounts.filter(a => a.is_active && a.type !== 'no_reply' && a.type !== 'no-reply');
+  return interactive.find(a => a.is_default)?.id
+    || interactive[0]?.id
+    || defaultSenderId(accounts);
+};
+
 const accountForConversation = (
   conv: any,
   commSettings: any,
@@ -430,7 +439,9 @@ export default function ManageMailsPage() {
     defaultLicenseKey?: string;
     defaultProductId?: string;
     defaultAction?: any;
-    fromAccounts?: { id: string; kind: "system" | "mailbox"; display_name: string; email: string; is_active: boolean }[];
+    conversationId?: string;
+    defaultSubject?: string;
+    fromAccounts?: { id: string; kind: "system" | "mailbox"; display_name: string; email: string; is_active: boolean; is_default: boolean; type?: string }[];
     defaultFromId?: string;
   }>({ isOpen: false });
 
@@ -1133,7 +1144,7 @@ export default function ManageMailsPage() {
     return [...enabledSystem, ...enabledMailboxes];
   }, [commSettings, mailboxes]);
 
-  const openCompose = () => setEmailDialog({ isOpen: true, defaultAction: 'send', fromAccounts, defaultFromId: defaultSenderId(fromAccounts) });
+  const openCompose = () => setEmailDialog({ isOpen: true, defaultAction: 'send', fromAccounts, defaultFromId: interactiveSenderId(fromAccounts) });
 
   const openReply = () => {
     const d = detail;
@@ -1143,9 +1154,11 @@ export default function ManageMailsPage() {
       defaultEmail: d?.conversation.customer_email || d?.customer?.email || '',
       defaultLicenseKey: d?.conversation.license_key || undefined,
       defaultProductId: d?.conversation.product_id || undefined,
-      defaultAction: d?.conversation.category === 'support' ? 'support' : 'general',
+      defaultAction: 'send',
+      conversationId: d?.conversation.id || undefined,
+      defaultSubject: d ? `Re: ${d.conversation.subject || ''}`.trim() : undefined,
       fromAccounts,
-      defaultFromId: recv?.id || defaultSenderId(fromAccounts),
+      defaultFromId: recv?.id || interactiveSenderId(fromAccounts),
     });
   };
 
@@ -1175,7 +1188,7 @@ export default function ManageMailsPage() {
         <div className="flex items-center gap-2 shrink-0">
           <button onClick={openCompose}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
-            <Zap size={12} /> New Email
+            <Zap size={12} /> Compose
           </button>
           <button onClick={loadAll} disabled={busy === 'save-comm-settings'}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30 transition-colors disabled:opacity-50">
@@ -1620,6 +1633,10 @@ export default function ManageMailsPage() {
         defaultLicenseKey={emailDialog.defaultLicenseKey}
         defaultProductId={emailDialog.defaultProductId}
         defaultAction={emailDialog.defaultAction}
+        conversationId={emailDialog.conversationId}
+        defaultSubject={emailDialog.defaultSubject}
+        fromAccounts={emailDialog.fromAccounts}
+        defaultFromId={emailDialog.defaultFromId}
       />
 
       {/* Add / Edit Mailbox modal */}

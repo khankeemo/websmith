@@ -40,9 +40,17 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   approved change is the **Software Store Email Center header entry** (see the
   "Software Store Email Center Entry" rule below): an Email icon beside the
   existing Wishlist and Cart icons in the `/software-store` header that opens
-  the shared `UniversalEmailDialog` in `customerMode` posting to the public
-  `POST /api/portal/support-message` (sales enquiry → `sales@websmithdigital.com`
-  server-side). Everything else on the storefront stays untouched.
+  the SHARED `UniversalEmailDialog` in `customerMode` — the FULL existing
+  customer Email Center (all `actionConfig` actions EXCEPT the admin-only
+  `history`: Send Email / Buy License / Renew License / Activate / Reactivation
+  / Device Replacement / Support / General / Software Store Enquiry), no
+  `defaultAction`/`allowedActions` restriction, store theme applied to the
+  portaled modal via `themeStyle` → `Modal.containerStyle`. Customer-mode Send
+  posts to the public `POST /api/portal/support-message` with the recipient
+  resolved SERVER-SIDE (buy-license / renew / software-store →
+  `sales@websmithdigital.com`; send / activate / reactivation /
+  device-replacement / support / general → `support@websmithdigital.com`).
+  Everything else on the storefront stays untouched.
 - **Built-in mailboxes** (`support@`, `sales@`, `no-reply@`) are app-config
   defaults; enabling/disabling is an app-config toggle + `mailboxes.is_enabled` —
   never delete accounts.
@@ -310,6 +318,41 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `softDelete` handles whole selections with per-row results. Verified:
   `npx tsc --noEmit` 0 errors, `npm run build` green; NOT deployed (awaits
   user approval).
+- **Email System Final Fix (see master doc Phase 15 entry)**: admin replies
+  ACTUALLY reach the customer on every account type. ROOT CAUSE: the universal
+  composer posted `is_internal: "false"` (STRING) and the reply route gated the
+  whole email-send block on `!is_internal` — the truthy string meant the email
+  was NEVER sent (only stored + status + audit). Fixed in the reply route: the
+  value is normalized via `parseInternal(v)` (`true`/`"true"` → internal,
+  everything else → real email), so the composer's `"false"` string is treated
+  as a real reply; an
+  Internal Note returns early `{success:true, internal:true}` (never an email).
+  Reply recipient = `conversation.customer_email` on BOTH paths (mailbox SMTP
+  nodemailer + Brevo), From/Reply-To derived from the real receiving account
+  (mailbox wins by `conv.mailbox_id`, else the system account owning the
+  category). Honest delivery: the route UPDATEs `email_sent`/`email_error` on
+  the exact message row (`RETURNING id`) after each attempt (both paths + IMAP
+  sync auto-reply); readers show green "sent via email" / red "email failed"
+  (title = error). Outgoing attachments: the shared composer shows the
+  attachment section in reply mode (SDK zip attach stays admin-only) and posts
+  multipart to the reply route, which stores files under the shared
+  `ATTACHMENT_STORAGE_PATH`/`public/attachments/email` pattern, attaches them to
+  the real outbound MIME for BOTH paths, and links `conversation_attachments` to
+  the message. Incoming attachments: `POST /mailboxes/[id]/sync` saves
+  `parsed.attachments` to storage + `conversation_attachments` linked to the
+  customer message. `interactiveSenderId()` (both mail pages) skips
+  `no_reply`/`no-reply` accounts as the default interactive sender — automated
+  mail keeps its dedicated no-reply route. "New Email" buttons relabeled
+  **Compose** (Reply/Reply All/Forward/Internal Note labels unchanged). Reply
+  All CCs the receiving account's address. `GET
+  /communications/conversations/[id]` computes `has_attachments` via EXISTS so
+  the standalone conversation page's attachment indicator works. OTP + Software
+  Store entry (`POST /api/portal/support-message`) untouched; one shared
+  composer. Files: `app/internal/backend/admin/communication/reply/route.ts`,
+  `components/internal-api/UniversalEmailDialog.tsx`, `app/internal/backend/
+  mailboxes/[id]/sync/route.ts`, `app/internal/backend/communications/
+  conversations/[id]/route.ts`, `app/internal/api/communications/page.tsx`,
+  `app/internal/api/communications/manage-mails/page.tsx`.
 - **Mailbox form is blank + auto-detected (no defaults)**: `newMailboxForm()`
   starts with NO provider, NO server hosts, NO email — the Add Mailbox form is
   completely empty. Typing the **Incoming Email** auto-detects the provider
@@ -626,18 +669,24 @@ Center Separation + Email Form Cleanup"). Never regress:
 
 - **No user-facing Email Center entry points in the admin chrome**: the Topbar email icon and the Activation Center shortcuts (Contact Sales / Request Trial / Open Email Center) were REMOVED. The shared `UniversalEmailDialog` stays available to ADMIN flows (LicenseManagerTab, GenerateLicenseTab, sales/enquiries, Communications Center, manage-mails, integrations). Never re-add an Email Center button to the global Topbar or to the customer-facing Activation Center.
 - **Buy / Renew customer contact = the Buy & Renew Portal only**: `/internal/api/buy` and `/internal/api/renew` carry the **Contact Sales** header entry (`_ContactSales.tsx` + `PortalShell` `headerAction`). It opens the SHARED `UniversalEmailDialog` in `customerMode` — NEVER duplicate an email form, NEVER add a second email dialog component.
-- **Recipient is server-controlled**: customer-mode sends POST to the PUBLIC `POST /api/portal/support-message`; the action→recipient map lives server-side (buy-license / renew → `sales@websmithdigital.com`). The browser can never target an arbitrary address; `/internal/backend/admin/communication/send|reply` must NEVER be made public.
-- **User→admin forms require identity**: every user→admin action (buy-license, renew, activate, reactivation, device-replacement, support, general) shows **Your Name\* / Your Email\*** + optional **Mobile** and validates Name + Email before sending; the email body is STRUCTURED (Request Type / Name / Email / Mobile / Subject / Message). Buy License + Renew route to `sales@`; General Support / Support Request / Device Replacement stay `support@`.
-- **`POST /api/portal/support-message`** validates server-side (name/email/message, length caps), throttles per-IP, creates `communication_conversations` (category `sales`) + `conversation_messages` (sender `customer`) + `audit_logs`, and sends via `sendEmail()` (`new_sales_enquiry`). Email History is newest→oldest (server `ORDER BY created_at DESC` + client-side sort in the dialog).
+- **Recipient is server-controlled**: customer-mode sends POST to the PUBLIC `POST /api/portal/support-message`; the action→recipient map lives server-side (buy-license / renew / software-store → `sales@websmithdigital.com`; send / activate / reactivation / device-replacement / support / general → `support@websmithdigital.com`). The browser can never target an arbitrary address; `/internal/backend/admin/communication/send|reply` must NEVER be made public.
+- **User→admin forms require identity**: every user→admin action (send, buy-license, renew, activate, reactivation, device-replacement, support, general) shows **Your Name\* / Your Email\*** + optional **Mobile** and validates Name + Email before sending; the email body is STRUCTURED (Request Type / Name / Email / Mobile / Subject / Message). Buy License + Renew route to `sales@`; General Support / Support Request / Device Replacement stay `support@`.
+- **`POST /api/portal/support-message`** validates server-side (name/email/message, length caps), throttles per-IP, creates `communication_conversations` (category `sales` or `support` per action) + `conversation_messages` (sender `customer`) + `audit_logs`, and sends via `sendEmail()` (`new_sales_enquiry` for sales actions, `admin_notification` for support actions). Email History is newest→oldest (server `ORDER BY created_at DESC` + client-side sort in the dialog).
 - **Storefront untouched (one approved Email Center exception)**: `/software-store`
   and `/api/v1/store/*` are never edited for email entry points EXCEPT the ONE
   approved **Software Store Email Center header entry**: an Email icon beside the
   existing Wishlist and Cart icons in the `/software-store` header opens the
-  SHARED `UniversalEmailDialog` in `customerMode` (prefilled from the store's
-  known customer identity where available) and posts to the PUBLIC
-  `POST /api/portal/support-message` with the server-side sales routing
-  (`software-store` → `sales@websmithdigital.com`). Cart / Wishlist / product
-  cards / search / filters / checkout / payment / pricing / `/api/v1/store/*` /
-  `/api/v1/checkout/*` and all store database logic remain untouched. No
-  `mailto:`, no `/contact` redirect, no duplicate email form, no admin endpoint.
+  SHARED `UniversalEmailDialog` in `customerMode` — the FULL existing customer
+  Email Center (every `actionConfig` action EXCEPT the admin-only `history`,
+  no `defaultAction`/`allowedActions` restriction; prefilled from the store's
+  known customer identity where available) — and posts to the PUBLIC
+  `POST /api/portal/support-message` with the recipient resolved SERVER-SIDE
+  (buy-license / renew / software-store → `sales@websmithdigital.com`;
+  send / activate / reactivation / device-replacement / support / general →
+  `support@websmithdigital.com`). The store theme follows the portaled modal
+  via `themeStyle` (`UniversalEmailDialog`) → `containerStyle`
+  (`components/ui/Modal.tsx`). Cart / Wishlist / product cards / search /
+  filters / checkout / payment / pricing / `/api/v1/store/*` / `/api/v1/checkout/*`
+  and all store database logic remain untouched. No `mailto:`, no `/contact`
+  redirect, no duplicate email form, no admin endpoint.
 - Keep this rule in sync with the master doc.
