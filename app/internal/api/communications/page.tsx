@@ -1660,7 +1660,8 @@ export default function CommunicationsPage() {
   const patchConversation = async (action: string, ids: string[], okMsg: string) => {
     setBusy(action);
     try {
-      let ok = true;
+      let succeeded = 0;
+      let firstError = '';
       for (const id of ids) {
         const res = await fetch(`${API_BASE}/conversations/${id}`, {
           method: 'PATCH',
@@ -1668,13 +1669,18 @@ export default function CommunicationsPage() {
           body: JSON.stringify({ action }),
         });
         const json = await res.json();
-        if (!json.success) { ok = false; showToast('err', json.error?.message || 'Action failed'); }
+        if (json.success) {
+          succeeded++;
+        } else if (!firstError) {
+          firstError = json.error?.message || 'Action failed';
+          showToast('err', firstError);
+        }
       }
-      if (ok) {
-        showToast('ok', okMsg);
-        setDetail(null);
-        refreshCurrent();
-      }
+      setSelectedIds(new Set());
+      setDetail(null);
+      refreshCurrent();
+      fetchStats();
+      if (succeeded > 0) showToast('ok', okMsg);
     } catch {
       showToast('err', 'Action failed');
     } finally {
@@ -1686,13 +1692,29 @@ export default function CommunicationsPage() {
     const ids = Array.from(selectedIds);
     setBusy('delete');
     try {
-      let ok = true;
+      let succeeded = 0;
+      let firstError = '';
       for (const id of ids) {
         const res = await fetch(`${API_BASE}/conversations/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
         const json = await res.json();
-        if (!json.success) { ok = false; showToast('err', json.error?.message || 'Delete failed'); }
+        if (json.success) {
+          succeeded++;
+        } else if (!firstError) {
+          firstError = json.error?.message || 'Delete failed';
+          showToast('err', firstError);
+        }
       }
-      if (ok) { showToast('ok', `${ids.length} conversation(s) moved to Trash`); setDetail(null); refreshCurrent(); }
+      // Always re-sync the list + stats (a partial failure must not leave
+      // deleted rows visible and counters stale).
+      setSelectedIds(new Set());
+      setDetail(null);
+      refreshCurrent();
+      fetchStats();
+      if (succeeded === ids.length) {
+        showToast('ok', `${ids.length} conversation(s) moved to Trash`);
+      } else if (succeeded > 0) {
+        showToast('ok', `${succeeded} of ${ids.length} conversation(s) moved to Trash`);
+      }
     } catch {
       showToast('err', 'Delete failed');
     } finally {
@@ -2795,6 +2817,22 @@ export default function CommunicationsPage() {
                     {busyKey('send-test') ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />} Send Test Email
                   </button>
                 </div>
+
+                {/* Expanded detail when this card is selected (click the card) */}
+                {selectedMailbox?.id === mb.id && mailboxDetail?.sync_logs && mailboxDetail.sync_logs.length > 0 && (
+                  <div className="mt-2 rounded-lg border border-[var(--border-color)] p-2.5" onClick={e => e.stopPropagation()}>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Sync Logs ({mailboxDetail.sync_logs.length})</p>
+                    <div className="space-y-1">
+                      {mailboxDetail.sync_logs.map((l: any) => (
+                        <div key={l.id} className="text-[10px] text-[var(--text-secondary)] flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${l.status === 'completed' ? 'bg-green-400' : l.status === 'running' ? 'bg-blue-400' : 'bg-red-400'}`} />
+                          <span className="truncate">{l.messages_fetched != null ? `${l.messages_fetched} fetched · ${l.messages_new != null ? l.messages_new + ' new' : ''}${l.messages_updated != null ? ' · ' + l.messages_updated + ' updated' : ''}` : (l.error_message || l.status)}</span>
+                          <span className="ml-auto text-[var(--text-muted)] shrink-0">{new Date(l.started_at).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -2835,10 +2873,7 @@ export default function CommunicationsPage() {
           {settingsSection === 'general' && renderSettings()}
           {settingsSection === 'accounts' && renderSettingsAccounts()}
           {settingsSection === 'mailboxes' && (
-            <>
-              <div className="w-[380px] min-w-[320px] flex-shrink-0 flex flex-col border-r border-[var(--border-color)]">{renderMailboxGrid()}</div>
-              <div className="flex-1 min-w-0 flex flex-col">{renderMailboxDetail()}</div>
-            </>
+            <div className="flex-1 min-w-0 flex flex-col">{renderMailboxGrid()}</div>
           )}
           {settingsSection === 'templates' && (
             <>
@@ -3818,7 +3853,8 @@ export default function CommunicationsPage() {
                           {(m.sender_name || (isCustomer ? 'C' : 'S')).trim()[0]?.toUpperCase() || '?'}
                         </div>
                         <span className="text-[11px] font-medium text-[var(--text-primary)]">{m.sender_name || (isCustomer ? 'Customer' : 'Support')}</span>
-                        <span className="text-[10px] text-[var(--text-muted)]">{new Date(m.created_at).toLocaleString()}</span>
+                        {m.sender_email && <span className="text-[10px] text-[var(--text-muted)] truncate">{m.sender_email}</span>}
+                        <span className="text-[10px] text-[var(--text-muted)] shrink-0">{new Date(m.created_at).toLocaleString()}</span>
                         {m.email_sent && <span className="text-[9px] text-green-400 ml-auto">sent via email</span>}
                       </div>
                       <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap break-words">{m.message}</p>
@@ -4092,7 +4128,7 @@ export default function CommunicationsPage() {
       <div className="flex-1 min-h-0 flex rounded-xl border border-[var(--border-color)] overflow-hidden">
         {renderSidebar()}
         {activeFolderDef.kind !== 'auto-reply' && activeFolderDef.kind !== 'settings' && (
-          <div className="w-[380px] min-w-[320px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
+          <div className="w-[400px] min-w-[320px] flex-shrink-0 flex flex-col border-l border-[var(--border-color)]">
             {renderMiddle()}
           </div>
         )}

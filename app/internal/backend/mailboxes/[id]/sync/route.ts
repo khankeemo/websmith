@@ -104,7 +104,6 @@ export async function POST(
                 const date = parsed.date || new Date();
                 const text = parsed.text || '';
                 const html = parsed.html || '';
-                const hasAttachments = parsed.attachments && parsed.attachments.length > 0;
 
                 const existing = await client?.query(
                   'SELECT id FROM communication_conversations WHERE customer_email = $1 AND subject = $2 AND deleted_at IS NULL',
@@ -237,9 +236,9 @@ export async function POST(
                 }
 
                 await client?.query(
-                  `INSERT INTO conversation_messages (conversation_id, sender_type, sender_name, sender_email, message, has_attachments, created_at)
-                   VALUES ($1, 'customer', $2, $3, $4, $5, $6)`,
-                  [conversationId, from, from, text || html || '(No content)', hasAttachments, date.toISOString()]
+                  `INSERT INTO conversation_messages (conversation_id, sender_type, sender_name, sender_email, message, is_internal, created_at)
+                   VALUES ($1, 'customer', $2, $3, $4, FALSE, $5)`,
+                  [conversationId, from, from, text || html || '(No content)', date.toISOString()]
                 );
               } catch (parseError: any) {
                 console.error('Failed to parse email:', parseError);

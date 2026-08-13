@@ -43,10 +43,20 @@ export async function GET(request: NextRequest) {
     // Trash = soft-deleted conversations (same state the Trash folder list
     // queries via show_deleted=true). Always matches the list, so counts stay
     // consistent with the database after any trash/restore/empty-trash action.
+    // Trash count needs its own WHERE list (deleted_at IS NOT NULL) — the
+    // shared ${whereSQL} already contains its own WHERE clause (deleted_at IS
+    // NULL for the default view), so it must never be concatenated here.
+    const trashClauses: string[] = ['cc.deleted_at IS NOT NULL'];
+    const trashParams: any[] = [];
+    let trashParamIndex = 1;
+    if (mailboxId) {
+      trashClauses.push('cc.mailbox_id = $' + trashParamIndex++);
+      trashParams.push(mailboxId);
+    }
     const trashCount = await client.query(`
-      SELECT COUNT(*) as count FROM communication_conversations cc ${whereSQL}
-      WHERE cc.deleted_at IS NOT NULL
-    `, params);
+      SELECT COUNT(*) as count FROM communication_conversations cc
+      WHERE ${trashClauses.join(' AND ')}
+    `, trashParams);
 
     let failed = 0;
     let queued = 0;

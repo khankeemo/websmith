@@ -12,16 +12,6 @@ const CATEGORY_ROUTE_MAP: Record<string, string> = {
   general: 'support_reply',
 };
 
-const CATEGORY_ADMIN_EMAIL_MAP: Record<string, string> = {
-  support: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  sales: process.env.MAIL_SALES_ADDRESS || 'sales@example.com',
-  activation: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  renewal: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  reactivation: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  hardware_replacement: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-  general: process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com',
-};
-
 export async function POST(request: NextRequest) {
   let client = null;
 
@@ -89,6 +79,7 @@ export async function POST(request: NextRequest) {
         if (mailbox && mailbox.is_enabled) {
           const fromLabel = mailbox.display_name ? `"${mailbox.display_name}" <${mailbox.email_address}>` : mailbox.email_address;
           const fullMessage = message + (mailbox.signature ? `\n\n${mailbox.signature}` : "");
+          let smtpDelivered = false;
           try {
             const nodemailer = (await import('nodemailer')).default;
             const transporter = nodemailer.createTransport({
@@ -106,6 +97,7 @@ export async function POST(request: NextRequest) {
               text: fullMessage,
               html: `<p>${fullMessage.replace(/\n/g, '<br/>')}</p>`,
             });
+            smtpDelivered = true;
             await client.query(
               `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, created_at)
                VALUES ($1,'smtp',$2,$3,'sent',$4,$5)`,
@@ -125,41 +117,39 @@ export async function POST(request: NextRequest) {
           }
           client.release();
           client = null;
-          return NextResponse.json({ success: true, message: 'Reply sent successfully.' });
+          // The reply is stored in the conversation either way, but the admin
+          // must know when the email never left the mailbox SMTP.
+          return NextResponse.json({
+            success: true,
+            emailDelivered: smtpDelivered,
+            warning: smtpDelivered ? undefined : 'Reply saved, but the email could not be sent via the mailbox SMTP.'
+          });
         }
         // Mailbox missing/disabled → fall through to the Brevo path below.
       }
 
       if (process.env.BREVO_API_KEY) {
         const emailTemplate = CATEGORY_ROUTE_MAP[conv.category] || 'support_reply';
-        const adminEmail = CATEGORY_ADMIN_EMAIL_MAP[conv.category] || process.env.MAIL_SUPPORT_ADDRESS || 'support@example.com';
-        try {
-          const emailResult = await sendEmail(
-            db,
-            emailTemplate,
-            { email: adminEmail, name: conv.category === 'sales' ? 'Sales' : 'Support' },
-            {
-              conversation_id,
-              customer_name: conv.customer_name || 'N/A',
-              customer_email: conv.customer_email,
-              message,
-            },
-            from_email ? { from: { email: from_email, name: from_name || adminName } } : {}
-          );
-          if (!emailResult.success) {
-            console.error(`[Admin Comm] Reply email delivery failed for ${conversation_id}:`, emailResult.error);
-            await client.query(
-              `INSERT INTO audit_logs (event_type, message, timestamp)
-               VALUES ($1, $2, $3)`,
-              ['email_failed', `Admin reply email failed for ${conversation_id}: ${emailResult.error || 'Unknown error'}`, now]
-            );
-          }
-        } catch (emailError: any) {
-          console.error(`[Admin Comm] Reply email delivery failed for ${conversation_id}:`, emailError?.message || emailError);
+        // The reply is for the CUSTOMER — never the admin/company address.
+        const emailResult = await sendEmail(
+          db,
+          emailTemplate,
+          { email: conv.customer_email, name: conv.customer_name || 'Valued Customer' },
+          {
+            conversation_id,
+            request_id: conv.request_id || conversation_id,
+            customer_name: conv.customer_name || 'N/A',
+            customer_email: conv.customer_email,
+            message,
+          },
+          from_email ? { from: { email: from_email, name: from_name || adminName } } : {}
+        );
+        if (!emailResult.success) {
+          console.error(`[Admin Comm] Reply email delivery failed for ${conversation_id}:`, emailResult.error);
           await client.query(
             `INSERT INTO audit_logs (event_type, message, timestamp)
              VALUES ($1, $2, $3)`,
-            ['email_failed', `Admin reply email failed for ${conversation_id}: ${emailError?.message || 'Unknown error'}`, now]
+            ['email_failed', `Admin reply email failed for ${conversation_id}: ${emailResult.error || 'Unknown error'}`, now]
           );
         }
       }

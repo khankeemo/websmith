@@ -159,6 +159,42 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `settingsSection` (local, not a sidebar route); entering settings reloads
   commSettings + mailboxes + templates. No SMTP/IMAP/queue/schema/auth/
   storefront logic changed.
+- **Communications Center live fixes (Phase 13 — see master doc "Phase 13 —
+  Communications Center live fixes" progress entry)**: (1) **stats route
+  trash-count 500 fixed** — `GET /internal/backend/communications/conversations/
+  stats` crashed on every request (`syntax error at or near "WHERE"`, 42601)
+  because the trash count appended `WHERE cc.deleted_at IS NOT NULL` after the
+  shared `${whereSQL}` (which already carries its own `WHERE`); the trash count
+  now builds its OWN WHERE list (`deleted_at IS NOT NULL` + optional
+  `mailbox_id`), so the UI gets live inbox/sent/waiting/failed/queued/unread/
+  trash numbers instead of `{inbox:0,…}`. (2) **IMAP sync never stored email
+  messages — fixed** — `POST /mailboxes/[id]/sync` INSERTed the nonexistent
+  `has_attachments` column into `conversation_messages`, so every customer-message
+  INSERT failed inside the per-message try/catch AFTER the conversation INSERT
+  committed (conversations existed with zero messages → bodies never rendered,
+  unread always 0); the INSERT now uses real schema columns (`conversation_id,
+  sender_type, sender_name, sender_email, message, is_internal, created_at`).
+  (3) **Admin reply goes to the CUSTOMER** — the Brevo fallback recipient is
+  `conv.customer_email` (was the admin/company address), `{{request_id}}` is
+  filled, and the mailbox-SMTP path reports `emailDelivered: false` + a warning
+  when SMTP throws (never fake success). (4) **Delete/restore always re-fetch** —
+  after any delete/restore attempt (including partial failures) the UI clears
+  the selection, refreshes the list + stats, and toasts "X of Y moved to Trash"
+  on partial success. (5) **One full-width mailbox card per mailbox** in
+  Communications Setting → Mailboxes (`renderMailboxGrid()` full-width,
+  Websmith Mail card style; avatar/label/badges/email, Enable/Disable toggle,
+  purpose, IMAP/SMTP/Sync/Health grid, `last_error`, Test / Sync / Set Default /
+  Edit / Delete, Send Test Email, expandable Sync Logs when selected — all
+  inside the single card, no grid|detail split). **Every mailbox action is
+  dynamic against the real mailbox DB id** — `mailboxAction(mb.id, endpoint)`
+  → `POST/PATCH/DELETE /internal/backend/mailboxes/[id]/…` (backend resolves
+  the row by id); no mailbox-specific email/address is hardcoded anywhere in
+  the action logic, so a newly added Gmail/Outlook/custom mailbox gets the
+  same cards + working actions with zero new code. (6) Middle panes widened
+  380→400px; the reader thread shows `sender_email`. Only 4 files changed:
+  `page.tsx`, `admin/communication/reply/route.ts`, `communications/
+  conversations/stats/route.ts`, `mailboxes/[id]/sync/route.ts`; no auth/
+  notification/OTP/storefront changes.
 - **Communications Center is a unified mail client (Mail / Websmith Mail /
   Mailboxes / Internal / Manage Mails)** (see master doc SECTION 0.18 +
   "Communications mail-client redesign" progress entry; **sidebar structure
