@@ -743,7 +743,7 @@ export default function CommunicationsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [toast, setToast] = useState<{ type: 'ok' | 'err' | 'warn'; text: string } | null>(null);
   const [showFilter, setShowFilter] = useState(false);
 
   const displayConversations = useMemo(() => {
@@ -760,6 +760,11 @@ export default function CommunicationsPage() {
     defaultAction?: 'send' | 'history' | 'buy-license' | 'activate' | 'renew' | 'reactivation' | 'device-replacement' | 'support' | 'general';
     fromAccounts?: MailSenderAccount[];
     defaultFromId?: string;
+    conversationId?: string;
+    defaultSubject?: string;
+    defaultMessage?: string;
+    defaultCc?: string;
+    defaultBcc?: string;
   }>({ isOpen: false });
 
   const [showMailboxForm, setShowMailboxForm] = useState(false);
@@ -878,9 +883,9 @@ export default function CommunicationsPage() {
   }, [activeFolder, folders, folderDefFor]);
   const isTrash = activeFolder === 'ext-trash';
 
-  const showToast = useCallback((type: 'ok' | 'err', text: string) => {
+  const showToast = useCallback((type: 'ok' | 'err' | 'warn', text: string) => {
     setToast({ type, text });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 5000);
   }, []);
 
   const createFolder = useCallback(async () => {
@@ -982,6 +987,11 @@ export default function CommunicationsPage() {
         const mb = mailboxesRef.current.find(m => (acct?.email || '').toLowerCase() === (m.email_address || '').toLowerCase());
         if (mb) {
           url += `?mailbox_id=${mb.id}`;
+        } else {
+          // System account without a mailbox routes by its category list — the
+          // stats must match the scoped list so badges are never stale/global.
+          const cats = systemAccountCategories(commSettingsRef.current, acct);
+          if (cats.length > 0) url += `?category=${encodeURIComponent(cats.join(','))}`;
         }
       }
       const res = await fetch(url, { headers: getAuthHeaders() });
@@ -1413,44 +1423,40 @@ export default function CommunicationsPage() {
     const t = templates.find(x => x.email_type === key);
     const text = templateTextOf(t);
     if (!text) { showToast('err', 'Template is empty — edit it first.'); return; }
-    setComposerText(prev => prev.trim() ? `${prev.trim()}\n\n${text}` : text);
-    setComposerOpen(true);
-    showToast('ok', `Template "${t?.email_type || key}" inserted — edit before sending.`);
-  }, [templates, showToast]);
+    // Templates open the SAME universal composer with the template content
+    // pre-filled — the reply composer and the template panel share one UI.
+    const d = detail;
+    const recv = d ? accountForConversation(d.conversation, commSettings, mailboxes) : null;
+    setEmailDialog({
+      isOpen: true,
+      defaultAction: 'send',
+      defaultEmail: d?.conversation.customer_email || undefined,
+      defaultLicenseKey: d?.conversation.license_key || undefined,
+      defaultProductId: d?.conversation.product_id || undefined,
+      fromAccounts: senderAccounts,
+      defaultFromId: recv?.id || defaultSenderId(senderAccounts),
+      conversationId: d?.conversation.id || undefined,
+      defaultSubject: t?.subject || undefined,
+      defaultMessage: text,
+    });
+    showToast('ok', `Template "${t?.email_type || key}" loaded into the composer — edit before sending.`);
+  }, [templates, detail, commSettings, mailboxes, senderAccounts, showToast]);
 
-  // Insert a signature into the reply composer (does NOT send).
-  const insertSignatureIntoComposer = useCallback((id: string) => {
-    const s = signatures.find(x => x.id === id);
-    if (!s || !s.content) { showToast('err', 'Signature is empty — edit it first.'); return; }
-    if (s.enabled === false) { showToast('err', 'Cannot insert a disabled signature — enable it first.'); return; }
-    setComposerText(prev => prev.trim() ? `${prev.trim()}\n\n${s.content}` : s.content);
-    setComposerOpen(true);
-    showToast('ok', `Signature "${s.name}" inserted — edit before sending.`);
-  }, [signatures, showToast]);
-
-  // ---- Composer send (existing admin/communication/reply pipeline) ----
+  // ---- Internal note send (inline mini-composer; notes are NOT email, so
+  // they never route through the universal mail composer) ----
   const sendReply = useCallback(async () => {
     const convId = detail?.conversation.id;
-    if (!convId || !composerText.trim()) return;
+    if (!convId || !composerText.trim() || !composerInternal) return;
     setBusy('composer-send');
     setComposerError(null);
     try {
       const adminName = commSettings?.mail_accounts?.find((a: any) => a.type === 'support')?.display_name || 'Admin';
-      const composerFrom = senderAccounts.find(a => a.id === composerFromId) || null;
       const payload: Record<string, any> = {
         conversation_id: convId,
         message: composerText.trim(),
         sender_name: adminName,
-        is_internal: composerInternal,
+        is_internal: true,
       };
-      // Real email replies send FROM the chosen receiving account: a mailbox
-      // sends via its SMTP, a system account overrides the sender identity.
-      if (!composerInternal && composerFrom) {
-        payload.from_account_id = composerFrom.id;
-        payload.from_email = composerFrom.email;
-        payload.from_name = composerFrom.display_name;
-        if (composerFrom.kind === 'mailbox') payload.from_mailbox_id = composerFrom.id;
-      }
       const res = await fetch(`${REPLY_BASE}`, {
         method: 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
@@ -1458,7 +1464,7 @@ export default function CommunicationsPage() {
       });
       const json = await res.json();
       if (json.success) {
-        showToast('ok', composerInternal ? 'Internal note added' : 'Reply sent');
+        showToast('ok', 'Internal note added');
         setComposerText('');
         setComposerOpen(false);
         setComposerInternal(false);
@@ -1466,18 +1472,18 @@ export default function CommunicationsPage() {
         refreshCurrent();
         fetchStats();
       } else {
-        const msg = json.error?.message || json.error || 'Failed to send reply.';
+        const msg = json.error?.message || json.error || 'Failed to add internal note.';
         setComposerError(msg);
         showToast('err', msg);
       }
     } catch {
-      const msg = 'Failed to send reply.';
+      const msg = 'Failed to add internal note.';
       setComposerError(msg);
       showToast('err', msg);
     } finally {
       setBusy(null);
     }
-  }, [detail, composerText, composerInternal, commSettings, senderAccounts, composerFromId, showToast]);
+  }, [detail, composerText, commSettings, showToast]);
 
   // Live auto-sync (no cron on serverless): process queue + pull IMAP for every
   // enabled mailbox on a timer, and refresh immediately whenever the tab regains
@@ -1657,30 +1663,50 @@ export default function CommunicationsPage() {
     }
   };
 
-  const patchConversation = async (action: string, ids: string[], okMsg: string) => {
-    setBusy(action);
+  // Bulk conversation state change (Mark Read / Mark Unread / Archive /
+  // Restore) against the REAL database via one collection PATCH. Reports the
+  // real number of conversations updated and any failures — the UI never
+  // claims success the backend did not confirm.
+  const patchConversations = async (action: string, ids: string[], okMsg: string) => {
+    if (!ids || ids.length === 0 || busy !== null) return;
+    const idList = Array.from(new Set(ids));
+    setBusy(`patch:${action}`);
+    // Clear the selection immediately: every listed item is being acted on,
+    // and a second submit would double-fire the same operation.
+    setSelectedIds(new Set());
     try {
-      let succeeded = 0;
-      let firstError = '';
-      for (const id of ids) {
-        const res = await fetch(`${API_BASE}/conversations/${id}`, {
-          method: 'PATCH',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action }),
-        });
-        const json = await res.json();
-        if (json.success) {
-          succeeded++;
-        } else if (!firstError) {
-          firstError = json.error?.message || 'Action failed';
-          showToast('err', firstError);
+      const res = await fetch(`${API_BASE}/conversations`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ids: idList }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const updated = json.data?.updated ?? 0;
+        const failed = json.data?.failed ?? 0;
+        // Apply the confirmed result to the visible list instantly, then let
+        // the authoritative re-fetch settle any remaining rows.
+        if (action === 'mark_read') {
+          setConversations(prev => prev.map(c => idList.includes(c.id) ? { ...c, unread_replies: 0 } : c));
+        } else if (action === 'mark_unread') {
+          setConversations(prev => prev.map(c => idList.includes(c.id) ? { ...c, unread_replies: Math.max(1, c.unread_replies || 1) } : c));
+        } else if (action === 'archive' || action === 'restore') {
+          // Archive moves a row out of inbox-type views; restore moves it out
+          // of Trash — the authoritative list re-fetch does the rest.
         }
+        if (action === 'archive') setDetail(null);
+        refreshCurrent();
+        fetchStats();
+        if (failed > 0) {
+          showToast('warn', `${updated} conversation(s) ${okMsg.toLowerCase()}. ${failed} failed.`);
+        } else {
+          showToast('ok', updated === 1
+            ? (action === 'mark_read' ? 'Conversation marked as read.' : action === 'mark_unread' ? 'Conversation marked as unread.' : okMsg)
+            : `${updated} conversation(s) ${okMsg.toLowerCase()}.`);
+        }
+      } else {
+        showToast('err', json.error?.message || 'Action failed');
       }
-      setSelectedIds(new Set());
-      setDetail(null);
-      refreshCurrent();
-      fetchStats();
-      if (succeeded > 0) showToast('ok', okMsg);
     } catch {
       showToast('err', 'Action failed');
     } finally {
@@ -1689,54 +1715,83 @@ export default function CommunicationsPage() {
   };
 
   const softDeleteSelected = async () => {
+    if (busy !== null) return;
     const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
     setBusy('delete');
+    // Clear the selection + close the reader up-front so a second click can
+    // never re-submit the same ids while the operation is running.
+    setSelectedIds(new Set());
+    setDetail(null);
     try {
       let succeeded = 0;
       let firstError = '';
+      const doneIds: string[] = [];
       for (const id of ids) {
         const res = await fetch(`${API_BASE}/conversations/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
         const json = await res.json();
         if (json.success) {
           succeeded++;
+          doneIds.push(id);
         } else if (!firstError) {
           firstError = json.error?.message || 'Delete failed';
-          showToast('err', firstError);
         }
       }
-      // Always re-sync the list + stats (a partial failure must not leave
-      // deleted rows visible and counters stale).
-      setSelectedIds(new Set());
-      setDetail(null);
+      // Remove the CONFIRMED deleted conversations from the visible list right
+      // away (they are now in Trash server-side), then re-fetch the
+      // authoritative list + stats. A failed row stays visible — it was never
+      // deleted, so hiding it locally would be a lie.
+      if (doneIds.length > 0) {
+        setConversations(prev => prev.filter(c => !doneIds.includes(c.id)));
+      }
       refreshCurrent();
       fetchStats();
-      if (succeeded === ids.length) {
-        showToast('ok', `${ids.length} conversation(s) moved to Trash`);
+      const failed = ids.length - succeeded;
+      if (failed === 0) {
+        showToast('ok', succeeded === 1 ? 'Conversation deleted successfully.' : `${succeeded} conversations deleted successfully.`);
       } else if (succeeded > 0) {
-        showToast('ok', `${succeeded} of ${ids.length} conversation(s) moved to Trash`);
+        showToast('warn', `${succeeded} of ${ids.length} conversations deleted successfully. ${failed} failed.`);
+      } else {
+        showToast('err', firstError || 'Failed to delete conversation. Please try again.');
       }
     } catch {
-      showToast('err', 'Delete failed');
+      showToast('err', 'Failed to delete conversation. Please try again.');
     } finally {
       setBusy(null);
     }
   };
 
   const restoreSelected = async () => {
+    if (busy !== null) return;
     const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
     setBusy('restore');
+    setSelectedIds(new Set());
     try {
-      for (const id of ids) {
-        await fetch(`${API_BASE}/conversations/${id}`, {
-          method: 'PATCH',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'restore' }),
-        });
+      const res = await fetch(`${API_BASE}/conversations`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore', ids }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const updated = json.data?.updated ?? 0;
+        const failed = json.data?.failed ?? 0;
+        if (updated > 0) {
+          setConversations(prev => prev.filter(c => !ids.includes(c.id)));
+        }
+        refreshCurrent();
+        fetchStats();
+        if (failed > 0) {
+          showToast('warn', `${updated} conversation(s) restored successfully. ${failed} failed.`);
+        } else {
+          showToast('ok', updated === 1 ? 'Conversation restored successfully.' : `${updated} conversations restored successfully.`);
+        }
+      } else {
+        showToast('err', json.error?.message || 'Conversation could not be restored.');
       }
-      showToast('ok', `${ids.length} conversation(s) restored`);
-      refreshCurrent();
     } catch {
-      showToast('err', 'Restore failed');
+      showToast('err', 'Conversation could not be restored.');
     } finally {
       setBusy(null);
     }
@@ -1747,7 +1802,14 @@ export default function CommunicationsPage() {
     try {
       const res = await fetch(`${API_BASE}/conversations?action=empty_trash`, { method: 'DELETE', headers: getAuthHeaders() });
       const json = await res.json();
-      if (json.success) { showToast('ok', json.data?.message || 'Trash emptied'); setShowTrashConfirm(false); refreshCurrent(); }
+      if (json.success) {
+        showToast('ok', json.data?.message || 'Trash emptied');
+        setShowTrashConfirm(false);
+        setSelectedIds(new Set());
+        setDetail(null);
+        refreshCurrent();
+        fetchStats();
+      }
       else showToast('err', json.error?.message || 'Failed to empty trash');
     } catch {
       showToast('err', 'Failed to empty trash');
@@ -1772,6 +1834,12 @@ export default function CommunicationsPage() {
         showToast('ok', json.data?.message || `${ids.length} conversation(s) permanently deleted`);
         setShowDeleteConfirm(null);
         setDetail(null);
+        setSelectedIds(prev => {
+          const next = new Set(prev);
+          ids.forEach(id => next.delete(id));
+          return next;
+        });
+        setConversations(prev => prev.filter(c => !ids.includes(c.id)));
         refreshCurrent();
         fetchStats();
       } else {
@@ -1793,25 +1861,37 @@ export default function CommunicationsPage() {
     });
   };
 
-  const openReply = (to?: string, action?: 'support' | 'general') => {
-    // In-panel composer: opens the reply composer on the right pane.
-    if (detail) {
-      setComposerOpen(true);
-      setComposerError(null);
-      return;
+  // ---- Universal composer for Reply / Reply All / Forward ----
+  // ONE composer for every email flow: New Email, Reply, Reply All and
+  // Forward all open the same UniversalEmailDialog. The reader's inline
+  // composer is reserved for internal notes only (notes are not email).
+  const threadContextFor = (d: DetailData | null): string => {
+    if (!d) return '';
+    const lines: string[] = [];
+    for (const m of d.messages || []) {
+      const who = m.sender_name || (m.sender_type === 'customer' ? 'Customer' : 'Support');
+      lines.push(`On ${new Date(m.created_at).toLocaleString()} ${who} wrote:\n${m.message}`);
     }
+    return lines.join('\n\n');
+  };
+
+  const openReply = (to?: string, _action?: 'support' | 'general') => {
     const d = detail;
     const target = to || d?.conversation.customer_email || (d?.customer?.email as string) || '';
-    const act = action || (d?.conversation.category === 'support' ? 'support' : 'general');
     const recv = d ? accountForConversation(d.conversation, commSettings, mailboxes) : null;
     setEmailDialog({
       isOpen: true,
       defaultEmail: target,
       defaultLicenseKey: d?.conversation.license_key || undefined,
       defaultProductId: d?.conversation.product_id || undefined,
-      defaultAction: act,
+      defaultAction: 'send',
       fromAccounts: senderAccounts,
       defaultFromId: recv?.id || defaultSenderId(senderAccounts),
+      conversationId: d?.conversation.id || undefined,
+      defaultSubject: d ? `Re: ${d.conversation.subject || ''}`.trim() : undefined,
+      defaultMessage: d ? `\n\n---\n${threadContextFor(d)}` : undefined,
+      defaultCc: '',
+      defaultBcc: '',
     });
   };
 
@@ -1825,6 +1905,8 @@ export default function CommunicationsPage() {
       defaultProductId: d?.conversation.product_id || undefined,
       fromAccounts: senderAccounts,
       defaultFromId: recv?.id || defaultSenderId(senderAccounts),
+      defaultSubject: d ? `Fwd: ${d.conversation.subject || ''}`.trim() : undefined,
+      defaultMessage: d ? `---------- Forwarded message ----------\nFrom: ${d.conversation.customer_name || 'Unknown'} <${d.conversation.customer_email}>\nDate: ${new Date(d.conversation.created_at).toLocaleString()}\nSubject: ${d.conversation.subject || ''}\n\n${threadContextFor(d)}` : undefined,
     });
   };
 
@@ -1862,7 +1944,7 @@ export default function CommunicationsPage() {
 
   const trashConversation = async () => {
     const id = detail?.conversation.id;
-    if (!id) return;
+    if (!id || busy === 'reader:trash') return;
     setBusy('reader:trash');
     try {
       const res = await fetch(`${API_BASE}/conversations/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
@@ -1870,6 +1952,8 @@ export default function CommunicationsPage() {
       if (json.success) {
         showToast('ok', 'Conversation moved to Trash');
         setDetail(null);
+        setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+        setConversations(prev => prev.filter(c => c.id !== id));
         refreshCurrent();
         fetchStats();
       } else {
@@ -2239,25 +2323,25 @@ export default function CommunicationsPage() {
         </button>
         <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
         <button
-          onClick={() => patchConversation('archive', Array.from(selectedIds), 'Conversation(s) archived')}
-          disabled={!hasSelection || isTrash}
+          onClick={() => patchConversations('archive', Array.from(selectedIds), 'archived')}
+          disabled={!hasSelection || isTrash || busy !== null}
           title="Archive"
           className={btn}
         >
-          <Archive size={14} />
+          {busy === 'patch:archive' ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
         </button>
         <button
           onClick={isTrash ? restoreSelected : softDeleteSelected}
-          disabled={!hasSelection}
+          disabled={!hasSelection || busy !== null}
           title={isTrash ? 'Restore' : 'Delete'}
           className={btn}
         >
-          {isTrash ? <ArchiveRestore size={14} /> : <Trash2 size={14} />}
+          {busy === 'restore' || busy === 'delete' ? <Loader2 size={14} className="animate-spin" /> : isTrash ? <ArchiveRestore size={14} /> : <Trash2 size={14} />}
         </button>
         {hasSelection && allowEmailDeletion && (
           <button
             onClick={() => setShowDeleteConfirm({ ids: Array.from(selectedIds), count: selectedIds.size })}
-            disabled={busy === 'permanent-delete'}
+            disabled={busy !== null}
             title="Delete Forever"
             className={`${btn} hover:bg-red-500/15 hover:text-red-400`}
           >
@@ -2265,20 +2349,20 @@ export default function CommunicationsPage() {
           </button>
         )}
         <button
-          onClick={() => patchConversation('mark_read', Array.from(selectedIds), 'Marked as read')}
-          disabled={!hasSelection || isTrash}
+          onClick={() => patchConversations('mark_read', Array.from(selectedIds), 'marked as read')}
+          disabled={!hasSelection || isTrash || busy !== null}
           title="Mark Read"
           className={btn}
         >
-          <MailOpen size={14} />
+          {busy === 'patch:mark_read' ? <Loader2 size={14} className="animate-spin" /> : <MailOpen size={14} />}
         </button>
         <button
-          onClick={() => patchConversation('mark_unread', Array.from(selectedIds), 'Marked as unread')}
-          disabled={!hasSelection || isTrash}
+          onClick={() => patchConversations('mark_unread', Array.from(selectedIds), 'marked as unread')}
+          disabled={!hasSelection || isTrash || busy !== null}
           title="Mark Unread"
           className={btn}
         >
-          <CheckCheck size={14} />
+          {busy === 'patch:mark_unread' ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
         </button>
         <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
         <button onClick={refreshCurrent} title="Refresh" className={btn}>
@@ -3743,7 +3827,6 @@ export default function CommunicationsPage() {
     const receivingLabel = receiving
       ? (receiving.display_name ? `${receiving.display_name} <${receiving.email}>` : receiving.email)
       : (conv.category === 'sales' ? 'sales@websmithdigital.com' : 'support@websmithdigital.com');
-    const composerFrom = senderAccounts.find(a => a.id === composerFromId) || null;
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         {/* Reader toolbar */}
@@ -3992,77 +4075,53 @@ export default function CommunicationsPage() {
               </div>
             )}
 
-            {/* Reply composer (Template ▼ / Signature ▼ + Send) */}
+            {/* Reply — the SAME universal composer used for New Email /
+                Reply All / Forward. The inline box is reserved for Internal
+                Notes only (notes are not email). */}
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 p-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <button onClick={() => { setComposerInternal(false); setComposerOpen(true); }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${!composerInternal && composerOpen ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30'}`}>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <button onClick={() => openReply()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
                   <Reply size={11} /> Reply
                 </button>
-                <button onClick={() => { setComposerInternal(true); setComposerOpen(true); }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${composerInternal && composerOpen ? 'bg-amber-500/20 text-amber-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/30'}`}>
-                  <StickyNote size={11} /> Internal Note
+                <button onClick={openForward}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg-tertiary)]/50 hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] text-[11px] font-medium transition-colors">
+                  <Forward size={11} /> Forward
                 </button>
-                <span className="ml-auto text-[10px] text-[var(--text-muted)]">
-                  Replying to {conv.customer_email}
-                  {composerFrom && ` · From ${composerFrom.display_name || composerFrom.email}`}
+                <span className="ml-auto text-[10px] text-[var(--text-muted)] truncate">
+                  Reply to <span className="text-[var(--text-secondary)]">{conv.customer_email}</span>
                 </span>
               </div>
-              {composerOpen && (
+              {composerOpen && composerInternal ? (
                 <>
                   <textarea
                     value={composerText}
                     onChange={e => setComposerText(e.target.value)}
-                    placeholder={composerInternal ? "Add an internal note (not visible to customer)..." : "Type your reply... Use Template ▼ / Signature ▼ to insert content."}
-                    rows={4}
+                    placeholder="Add an internal note (not visible to customer)..."
+                    rows={3}
                     className="w-full px-3 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)]/60 text-[var(--text-primary)] text-xs placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-y scrollbar-thin"
                   />
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <select
-                      value={composerFromId}
-                      onChange={e => setComposerFromId(e.target.value)}
-                      disabled={composerInternal}
-                      title="Send from this account"
-                      className="px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-40"
-                    >
-                      <option value="">From ▼</option>
-                      {senderAccounts.filter(a => a.is_active).map(a => (
-                        <option key={a.id} value={a.id}>{a.display_name ? `${a.display_name} <${a.email}>` : a.email}</option>
-                      ))}
-                    </select>
-                    <select
-                      value=""
-                      onChange={e => { if (e.target.value) insertTemplateIntoComposer(e.target.value); }}
-                      className="px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="">Template ▼</option>
-                      {templates.map(t => <option key={t.email_type} value={t.email_type}>{t.email_type}</option>)}
-                    </select>
-                    <select
-                      value=""
-                      onChange={e => { if (e.target.value) insertSignatureIntoComposer(e.target.value); }}
-                      className="px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="">Signature ▼</option>
-                      {signatures.map(s => <option key={s.id} value={s.id}>{s.name}{s.is_default ? ' (default)' : ''}</option>)}
-                    </select>
                     {composerError && <span className="text-[10px] text-red-400 flex-1 min-w-[120px]">{composerError}</span>}
                     <button onClick={sendReply} disabled={!composerText.trim() || busy === 'composer-send'}
-                      className="ml-auto flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
-                      {busy === 'composer-send' ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} Send
+                      className="ml-auto flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-medium transition-colors disabled:opacity-50">
+                      {busy === 'composer-send' ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} Add Note
+                    </button>
+                    <button onClick={() => { setComposerOpen(false); setComposerText(''); setComposerError(null); }}
+                      className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] text-[11px] hover:bg-[var(--bg-tertiary)]/30 transition-colors">
+                      Cancel
                     </button>
                   </div>
                 </>
-              )}
-              {!composerOpen && (
+              ) : (
                 <div className="flex items-center gap-2">
                   <AtSign size={13} className="text-[var(--text-muted)] flex-shrink-0" />
                   <span className="flex-1 min-w-0 text-[11px] text-[var(--text-muted)] truncate">
-                    Reply to <span className="text-[var(--text-secondary)]">{conv.customer_email}</span>
+                    {composerOpen ? 'Type your reply in the compose window — use the universal composer below.' : 'Reply opens the universal email composer (From / To / CC / BCC / Subject / Attachments).'}
                   </span>
-                  <button onClick={() => { setComposerOpen(true); setComposerInternal(false); }}
-                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors">
-                    Reply
+                  <button onClick={() => { setComposerOpen(true); setComposerInternal(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/20 text-amber-400 hover:bg-amber-500/10 text-[11px] font-medium transition-colors">
+                    <StickyNote size={11} /> Internal Note
                   </button>
                 </div>
               )}
@@ -4140,9 +4199,9 @@ export default function CommunicationsPage() {
       {/* Toast */}
       {toast && (
         <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm shadow-2xl shadow-black/40 ${
-          toast.type === 'ok' ? 'border-green-500/30 bg-[var(--bg-secondary)] text-green-400' : 'border-red-500/30 bg-[var(--bg-secondary)] text-red-400'
+          toast.type === 'ok' ? 'border-green-500/30 bg-[var(--bg-secondary)] text-green-400' : toast.type === 'warn' ? 'border-amber-500/30 bg-[var(--bg-secondary)] text-amber-400' : 'border-red-500/30 bg-[var(--bg-secondary)] text-red-400'
         }`}>
-          {toast.type === 'ok' ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+          {toast.type === 'ok' ? <CheckCircle2 size={15} /> : toast.type === 'warn' ? <AlertTriangle size={15} /> : <AlertCircle size={15} />}
           <span className="text-xs">{toast.text}</span>
         </div>
       )}
@@ -4151,7 +4210,6 @@ export default function CommunicationsPage() {
       <UniversalEmailDialog
         isOpen={emailDialog.isOpen}
         onClose={() => setEmailDialog({ isOpen: false })}
-        onSent={() => { setEmailDialog({ isOpen: false }); refreshCurrent(); }}
         defaultEmail={emailDialog.defaultEmail}
         defaultLicenseKey={emailDialog.defaultLicenseKey}
         defaultProductId={emailDialog.defaultProductId}
@@ -4159,6 +4217,14 @@ export default function CommunicationsPage() {
         defaultAction={emailDialog.defaultAction}
         fromAccounts={emailDialog.fromAccounts}
         defaultFromId={emailDialog.defaultFromId}
+        conversationId={emailDialog.conversationId}
+        defaultSubject={emailDialog.defaultSubject}
+        defaultMessage={emailDialog.defaultMessage}
+        defaultCc={emailDialog.defaultCc}
+        defaultBcc={emailDialog.defaultBcc}
+        templates={templates}
+        signatures={signatures}
+        onSent={() => { setEmailDialog({ isOpen: false }); refreshCurrent(); fetchStats(); }}
       />
 
       {/* Folder manager modal */}

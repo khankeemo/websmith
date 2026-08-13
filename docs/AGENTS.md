@@ -226,12 +226,12 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   the page; exported `SenderOption` from `UniversalEmailDialog.tsx`). The
   reader shows the **receiving account** (`accountForConversation`: mailbox
   wins by `conv.mailbox_id`, else the system account owning the category) in
-  the To: lines instead of hardcoded addresses. **From dropdowns**: the inline
-  reply composer (auto-preselected to the receiving account via
-  `setComposerFromId` in `openDetail`, disabled for internal notes) and the
-  `UniversalEmailDialog` (new optional `fromAccounts`/`defaultFromId` props,
-  "From" select above To; used by New Email with the default sender and by
-  Forward with the receiving account). Composer/dialog sends carry
+  the To: lines instead of hardcoded addresses. **From dropdowns**: the
+  `UniversalEmailDialog` (optional `fromAccounts`/`defaultFromId` props,
+  "From" select above To; used by New Email with the default sender, by
+  Forward with the receiving account, and by Reply/Reply All — see the Phase
+  14 entry: the reader's inline EMAIL composer was removed and replies open
+  the same dialog). Composer/dialog sends carry
   `from_account_id`/`from_email`/`from_name` (+ `from_mailbox_id` for
   mailboxes) into the existing `admin/communication/send` and
   `admin/communication/reply` routes — which now honor them as a **sender
@@ -266,6 +266,44 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `tests/communications/remove-mailbox-legacy.verify.mjs` (real schema only,
   no mock tables; read-only report by default, `--apply` cleans + re-verifies
   + rollback-proof + protected-mailbox snapshot comparison).
+- **Communications Center real-behavior fixes (Phase 14 — see master doc
+  "Phase 14 — Communications Center real-behavior fixes" progress entry)**:
+  (1) **Idempotent soft delete** — `conversations/[id]` DELETE returns
+  `success:true` + `data.already:true` ("Conversation is already in trash.")
+  instead of 400 when `deleted_at` is already set, and every
+  delete/restore/archive/mark-read/mark-unread button in both mail UIs is
+  disabled while a request is in flight — kills the double-click
+  "already deleted" error toast. (2) **Bulk PATCH endpoint** —
+  `PATCH /internal/backend/communications/conversations {action, ids:[…]}`
+  (mark_read/mark_unread/archive/restore, one transaction, per-row
+  `{total,updated,failed,not_found}`; archive skips trashed, restore touches
+  only trashed); both mail pages use it for selection actions with real-count
+  toasts (`"N conversations marked as read"`, amber `warn` toast on partial
+  failure) and clear the selection up-front. (3) **Stats scoping** —
+  `conversations/stats` accepts `category=` and applies it to statusCounts +
+  trash + unread counts (the unread count previously ignored ALL params).
+  (4) **One universal composer for Reply/Reply All/Forward** — the reader's
+  inline EMAIL composer is removed; Reply/Forward + the Templates panel open
+  `UniversalEmailDialog` with `conversationId`/`defaultSubject` (`Re:`/`Fwd:`)
+  /thread-context/`defaultFromId`; the dialog gained optional
+  `defaultSubject/defaultMessage/defaultCc/defaultBcc/conversationId/templates/
+  signatures` props, **CC/BCC fields**, **Template ▼ / Signature ▼** insertion
+  (enabled-only) and **reply mode** (Send → `admin/communication/reply` with
+  subject + cc/bcc + `from_*` override). The inline composer under the reader
+  is now **Internal Notes only** (`is_internal:true`, never an email).
+  (5) **Subject/CC/BCC through the pipeline** — `admin/communication/reply`
+  and `admin/communication/send` parse cc/bcc (comma/semicolon, regex
+  validated, 400 on invalid) and pass them to the mailbox-SMTP nodemailer and
+  Brevo paths; reply accepts a `subject` override. (6) **Honest delivery** —
+  reply returns `emailDelivered:false` + `warning` when Brevo throws (message
+  stays saved); send's `queued:true` (mailbox SMTP failure) and reply's
+  `emailDelivered:false` render as amber warnings in the dialog, never green
+  success. (7) **Detail page** (`conversations/[id]`) toasts real errors on
+  delete/permanent-delete/restore/reply instead of swallowing them. (8)
+  **Manage Mails** toolbar uses the bulk PATCH with real-count/warn toasts;
+  `softDelete` handles whole selections with per-row results. Verified:
+  `npx tsc --noEmit` 0 errors, `npm run build` green; NOT deployed (awaits
+  user approval).
 - **Mailbox form is blank + auto-detected (no defaults)**: `newMailboxForm()`
   starts with NO provider, NO server hosts, NO email — the Add Mailbox form is
   completely empty. Typing the **Incoming Email** auto-detects the provider

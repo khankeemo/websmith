@@ -255,13 +255,17 @@ export async function DELETE(
       return NextResponse.json({ success: true, data: { message: `${deleted.length} conversation permanently deleted.` } });
     }
 
-    // Soft delete - set deleted_at timestamp
+    // Soft delete - set deleted_at timestamp. Idempotent: a conversation that
+    // is already in Trash is treated as a SUCCESS (the desired end state is
+    // already reached), exactly like professional mail clients. The UI must
+    // never see "already deleted" while the row is still listed as active.
     if (conversation.deleted_at) {
       client.release();
+      client = null;
       return NextResponse.json({
-        success: false,
-        error: { code: 'ALREADY_DELETED', message: 'Conversation is already deleted.' }
-      }, { status: 400 });
+        success: true,
+        data: { message: 'Conversation is already in trash.', already: true }
+      });
     }
 
     const now = new Date().toISOString();

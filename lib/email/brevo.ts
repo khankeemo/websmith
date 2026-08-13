@@ -951,6 +951,9 @@ export interface EmailSendOptions {
   // compose UI picks a specific mail account). When omitted the sender is
   // derived from the email type as before.
   from?: { email: string; name?: string } | null;
+  // Optional CC/BCC recipients (used by the Communication Center composer).
+  cc?: { email: string; name?: string }[];
+  bcc?: { email: string; name?: string }[];
 }
 
 export async function sendEmail(
@@ -1028,6 +1031,12 @@ export async function sendEmail(
           body: JSON.stringify({
             sender: { name: effectiveSenderName, email: effectiveSenderEmail },
             to: [{ email: to.email, name: to.name || 'Valued Customer' }],
+            ...(options.cc && options.cc.length > 0
+              ? { cc: options.cc.map(c => ({ email: c.email, name: c.name || '' })) }
+              : {}),
+            ...(options.bcc && options.bcc.length > 0
+              ? { bcc: options.bcc.map(c => ({ email: c.email, name: c.name || '' })) }
+              : {}),
             subject,
             htmlContent: htmlBody,
             textContent: plainText,

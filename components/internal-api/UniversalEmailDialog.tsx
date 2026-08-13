@@ -80,6 +80,22 @@ interface SdkJobInfo {
   has_sdk: boolean;
 }
 
+interface EmailTemplate {
+  email_type: string;
+  subject?: string;
+  plain_text?: string;
+  body?: string;
+  is_active?: boolean;
+}
+
+interface EmailSignature {
+  id: string;
+  name: string;
+  content: string;
+  is_default?: boolean;
+  enabled?: boolean;
+}
+
 interface EmailDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -94,6 +110,16 @@ interface EmailDialogProps {
   // its previous behaviour (server-derived sender).
   fromAccounts?: SenderOption[];
   defaultFromId?: string;
+  // Reply mode: when set, Send posts to the communication reply endpoint
+  // (same universal composer used by the Communication Center).
+  conversationId?: string;
+  defaultSubject?: string;
+  defaultMessage?: string;
+  defaultCc?: string;
+  defaultBcc?: string;
+  // Content libraries for Template ▼ / Signature ▼ insertion (optional).
+  templates?: EmailTemplate[];
+  signatures?: EmailSignature[];
 }
 
 const actionConfig: Record<EmailAction, { label: string; icon: typeof Mail; description: string }> = {
@@ -120,18 +146,21 @@ function formatSize(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId }: EmailDialogProps) {
+export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultEmail, defaultLicenseKey, defaultProductName, defaultProductId, defaultAction, allowedActions, fromAccounts, defaultFromId, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc, templates, signatures }: EmailDialogProps) {
   const [view, setView] = useState<"actions" | "form" | "history">("actions");
   const [action, setAction] = useState<EmailAction>(defaultAction || "send");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [warning, setWarning] = useState("");
 
   const [fromId, setFromId] = useState("");
   const [recipientEmail, setRecipientEmail] = useState(defaultEmail || "");
   const [recipientName, setRecipientName] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
 
   const [licenseKey, setLicenseKey] = useState(defaultLicenseKey || "");
   const [productName, setProductName] = useState(defaultProductName || "");
@@ -156,6 +185,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       setView("actions");
       setError("");
       setSuccess("");
+      setWarning("");
       setFiles([]);
       setAttachSdk(false);
       setSdkJob(null);
@@ -206,11 +236,23 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
     setAction(a);
     setError("");
     setSuccess("");
+    setWarning("");
 
     switch (a) {
       case "send":
-        setSubject("");
-        setMessage("");
+        // Reply mode (conversationId set): keep the pre-filled subject /
+        // message / cc / bcc from the conversation context.
+        if (conversationId) {
+          setSubject(defaultSubject || "");
+          setMessage(defaultMessage || "");
+          setCc(defaultCc || "");
+          setBcc(defaultBcc || "");
+        } else {
+          setSubject("");
+          setMessage("");
+          setCc("");
+          setBcc("");
+        }
         if (!recipientEmail) setRecipientEmail(defaultEmail || "");
         setView("form");
         break;
@@ -256,7 +298,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         setView("form");
         break;
     }
-  }, [defaultEmail, defaultLicenseKey, productName, licenseKey, recipientEmail]);
+  }, [defaultEmail, defaultLicenseKey, productName, licenseKey, recipientEmail, conversationId, defaultSubject, defaultMessage, defaultCc, defaultBcc]);
 
   const loadHistory = useCallback(async (email?: string) => {
     const search = email || searchEmail;
@@ -316,6 +358,10 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
     setLoading(true);
     setError("");
     setSuccess("");
+    setWarning("");
+
+    const parseList = (raw: string): string[] =>
+      raw.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 0);
 
     try {
       const emailType = emailTypeForAction();
@@ -329,6 +375,8 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
         product_id: defaultProductId || "",
         attach_sdk: attachSdk ? "true" : "false",
         sdk_job_id: attachSdk && sdkJob ? sdkJob.job_id : "",
+        cc: cc.trim(),
+        bcc: bcc.trim(),
       };
 
       // When the user chose an explicit From account, tell the backend so the
@@ -343,7 +391,33 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
       }
 
       let res: Response;
-      if (files.length > 0) {
+      if (conversationId) {
+        // Reply mode: same universal composer, posted to the conversation
+        // reply endpoint so the message lands in the conversation thread.
+        const payload: Record<string, string> = {
+          conversation_id: conversationId,
+          message,
+          subject,
+          cc: cc.trim(),
+          bcc: bcc.trim(),
+          is_internal: "false",
+          sender_name: selectedSender?.display_name || "Admin",
+          email_type: emailType,
+        };
+        if (selectedSender) {
+          payload.from_account_id = selectedSender.id;
+          payload.from_email = selectedSender.email;
+          payload.from_name = selectedSender.display_name;
+          if (selectedSender.kind === "mailbox") {
+            payload.from_mailbox_id = selectedSender.id;
+          }
+        }
+        res = await fetch(`${API_BASE}/admin/communication/reply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else if (files.length > 0) {
         const formData = new FormData();
         for (const [k, v] of Object.entries(common)) formData.append(k, String(v));
         for (const f of files) formData.append("files", f.file);
@@ -358,16 +432,24 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
 
       const data = await res.json();
       if (data.success) {
-        setSuccess(`Email sent to ${recipientEmail}`);
+        // Honest delivery feedback: a success with emailDelivered:false or
+        // queued:true means the message was recorded but SMTP failed — show a
+        // warning, never a bare success.
+        if (data.emailDelivered === false || data.queued) {
+          setWarning(data.warning || data.message || "Email saved, but SMTP delivery failed — queued for automatic retry.");
+        } else {
+          setSuccess(conversationId ? `Reply sent to ${recipientEmail}` : `Email sent to ${recipientEmail}`);
+        }
         setFiles([]);
         setAttachSdk(false);
         if (onSent) onSent();
         setTimeout(() => {
           setView("actions");
           setSuccess("");
-        }, 2000);
+          setWarning("");
+        }, 2500);
       } else {
-        setError(data.error || "Failed to send email");
+        setError(data.error?.message || data.error || "Failed to send email");
       }
     } catch {
       setError("Failed to send email. Please try again.");
@@ -529,6 +611,80 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </div>
         )}
 
+        {action === "send" && (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">CC <span className="text-[var(--text-muted)]">(comma or semicolon separated)</span></label>
+              <div className="relative">
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="text"
+                  value={cc}
+                  onChange={(e) => setCc(e.target.value)}
+                  placeholder="cc@example.com"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">BCC <span className="text-[var(--text-muted)]">(comma or semicolon separated)</span></label>
+              <div className="relative">
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="text"
+                  value={bcc}
+                  onChange={(e) => setBcc(e.target.value)}
+                  placeholder="bcc@example.com"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-tertiary)]/20 border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 transition-all"
+                />
+              </div>
+            </div>
+            {(templates || signatures) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {templates && templates.length > 0 && (
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const t = templates.find(x => x.email_type === e.target.value);
+                      const text = t?.plain_text || (t?.body ? t.body.replace(/<[^>]+>/g, "") : "");
+                      if (!text) { setError("Template is empty — edit it first."); return; }
+                      setError("");
+                      setMessage(prev => prev.trim() ? `${prev.trim()}\n\n${text}` : text);
+                      if (!subject && t?.subject) setSubject(t.subject);
+                    }}
+                    className="px-2.5 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-500/50"
+                  >
+                    <option value="">Template ▼</option>
+                    {templates.filter(t => t.is_active !== false).map(t => (
+                      <option key={t.email_type} value={t.email_type}>{t.email_type}</option>
+                    ))}
+                  </select>
+                )}
+                {signatures && signatures.length > 0 && (
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const s = signatures.find(x => x.id === e.target.value);
+                      if (!s || !s.content) { setError("Signature is empty — edit it first."); return; }
+                      if (s.enabled === false) { setError("Cannot insert a disabled signature — enable it first."); return; }
+                      setError("");
+                      setMessage(prev => prev.trim() ? `${prev.trim()}\n\n${s.content}` : s.content);
+                    }}
+                    className="px-2.5 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-500/50"
+                  >
+                    <option value="">Signature ▼</option>
+                    {signatures.filter(s => s.enabled !== false).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}{s.is_default ? " (default)" : ""}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
         {(action === "activate" || action === "renew" || action === "reactivation" || action === "device-replacement") && (
           <>
             <div>
@@ -645,12 +801,19 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </>
         )}
 
-        {renderAttachmentSection()}
+        {!conversationId && renderAttachmentSection()}
 
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-xl border border-red-500/20 bg-red-500/5">
             <AlertCircle size={16} className="text-red-400 shrink-0" />
             <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+
+        {warning && (
+          <div className="flex items-center gap-2 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+            <AlertCircle size={16} className="text-amber-400 shrink-0" />
+            <p className="text-sm text-amber-400">{warning}</p>
           </div>
         )}
 
@@ -750,7 +913,7 @@ export default function UniversalEmailDialog({ isOpen, onClose, onSent, defaultE
           </div>
           {view !== "actions" && (
             <button
-              onClick={() => { setView("actions"); setError(""); setSuccess(""); }}
+              onClick={() => { setView("actions"); setError(""); setSuccess(""); setWarning(""); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/20 transition-all"
             >
               <ArrowLeft size={14} />

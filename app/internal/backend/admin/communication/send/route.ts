@@ -110,6 +110,11 @@ export async function POST(request: NextRequest) {
     const fromEmail = String(body.from_email || "").trim();
     const fromName = String(body.from_name || "").trim();
     const fromMailboxId = String(body.from_mailbox_id || "").trim();
+    // Optional CC/BCC recipients (comma or semicolon separated).
+    const splitEmails = (raw: string): string[] =>
+      String(raw || "").split(/[,;]/).map(e => e.trim().toLowerCase()).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+    const ccList = splitEmails(body.cc);
+    const bccList = splitEmails(body.bcc);
 
     if (!toEmail) {
       return NextResponse.json({ success: false, error: "Recipient email is required" }, { status: 400 });
@@ -223,6 +228,8 @@ export async function POST(request: NextRequest) {
         const info = await transporter.sendMail({
           from: fromLabel,
           to: toName ? `"${toName}" <${toEmail}>` : toEmail,
+          ...(ccList.length > 0 ? { cc: ccList } : {}),
+          ...(bccList.length > 0 ? { bcc: bccList } : {}),
           subject,
           text: fullMessage,
           html: `<p>${fullMessage.replace(/\n/g, '<br/>')}</p>`,
@@ -346,6 +353,8 @@ export async function POST(request: NextRequest) {
         custom: { subject, html: htmlMessage, plainText: message },
         attachments,
         from: fromEmail ? { email: fromEmail, name: fromName || undefined } : null,
+        ...(ccList.length > 0 ? { cc: ccList.map(e => ({ email: e })) } : {}),
+        ...(bccList.length > 0 ? { bcc: bccList.map(e => ({ email: e })) } : {}),
       }
     );
 

@@ -15,6 +15,7 @@ import {
   Download, FileText, FileImage, FileArchive, FileSpreadsheet,
   FileCode, FileJson, FileAudio, FileVideo, FileType, Presentation,
   Wifi, KeySquare, Ban, Send, Star, Plug, Zap, Archive, ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
@@ -400,7 +401,7 @@ export default function ManageMailsPage() {
 
   // ---- Actions / busy ----
   const [busy, setBusy] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [toast, setToast] = useState<{ type: 'ok' | 'err' | 'warn'; text: string } | null>(null);
 
   // ---- Mailbox form ----
   const [showMailboxForm, setShowMailboxForm] = useState(false);
@@ -433,7 +434,7 @@ export default function ManageMailsPage() {
     defaultFromId?: string;
   }>({ isOpen: false });
 
-  const showToast = useCallback((type: 'ok' | 'err', text: string) => {
+  const showToast = useCallback((type: 'ok' | 'err' | 'warn', text: string) => {
     setToast({ type, text });
     setTimeout(() => setToast(null), 4000);
   }, []);
@@ -590,24 +591,86 @@ export default function ManageMailsPage() {
     }
   }, [detail, showToast, refreshConversations, openConversation]);
 
-  const softDelete = useCallback(async (id: string) => {
-    setBusy('del:' + id);
+  // Bulk PATCH (one request, real per-row results). Archive excludes trashed
+  // conversations and restore only touches trashed ones — the backend decides.
+  const patchConversations = useCallback(async (action: string, ids: string[]) => {
+    if (ids.length === 0) return;
+    setBusy(`patch:${action}`);
     try {
-      const res = await fetch(`${API_BASE}/conversations/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/conversations`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ids }),
+      });
       const json = await res.json();
       if (json.success) {
-        showToast('ok', 'Conversation moved to Trash');
-        if (detail?.conversation.id === id) setDetail(null);
+        const d = json.data || {};
+        const total = d.total ?? ids.length;
+        const updated = d.updated ?? 0;
+        const failed = d.failed ?? 0;
+        const verb = { mark_read: 'marked as read', mark_unread: 'marked as unread', archive: 'archived', restore: 'restored from Trash' }[action as string] || `${action}d`;
+        const okMsg = updated === 1 ? `1 conversation ${verb}` : `${updated} conversations ${verb}`;
+        if (failed > 0) {
+          showToast('warn', `${okMsg}. ${failed} failed (of ${total} selected).`);
+        } else {
+          showToast('ok', okMsg);
+        }
+        if (action === 'archive') {
+          setSelectedIds(new Set());
+          setDetail(null);
+        } else if (action === 'restore') {
+          setSelectedIds(new Set());
+          if (detail) openConversation(detail.conversation.id);
+        }
         refreshConversations();
       } else {
-        showToast('err', json.error?.message || 'Delete failed');
+        showToast('err', json.error?.message || 'Action failed');
       }
+    } catch {
+      showToast('err', 'Action failed');
+    } finally {
+      setBusy(null);
+    }
+  }, [showToast, refreshConversations, detail, openConversation]);
+
+  const softDelete = useCallback(async (idsOrId: string | string[]) => {
+    const ids = Array.isArray(idsOrId) ? idsOrId : [idsOrId];
+    if (ids.length === 0) return;
+    const initialIds = new Set(selectedIds);
+    const targetIds = new Set(ids);
+    setBusy('del');
+    try {
+      let okCount = 0;
+      const failed: string[] = [];
+      for (const id of ids) {
+        try {
+          const res = await fetch(`${API_BASE}/conversations/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+          const json = await res.json();
+          if (json.success) okCount++;
+          else failed.push(id);
+        } catch {
+          failed.push(id);
+        }
+      }
+      const total = ids.length;
+      if (okCount === total) {
+        showToast('ok', total === 1 ? 'Conversation moved to Trash' : `${total} conversations moved to Trash`);
+      } else if (okCount > 0) {
+        showToast('warn', `${okCount} of ${total} conversations moved to Trash. ${failed.length} failed.`);
+      } else {
+        showToast('err', 'Failed to move conversations to Trash');
+      }
+      if (detail && targetIds.has(detail.conversation.id)) setDetail(null);
+      const nextSel = new Set(initialIds);
+      for (const id of targetIds) nextSel.delete(id);
+      setSelectedIds(nextSel);
+      refreshConversations();
     } catch {
       showToast('err', 'Delete failed');
     } finally {
       setBusy(null);
     }
-  }, [detail, showToast, refreshConversations]);
+  }, [detail, showToast, refreshConversations, selectedIds]);
 
   const restoreConversation = useCallback(async (id: string) => {
     await patchConversation(id, 'restore', 'Conversation restored from Trash');
@@ -1416,13 +1479,13 @@ export default function ManageMailsPage() {
           <div className="shrink-0 border-t border-[var(--border-color)] p-2 flex items-center gap-1.5 flex-wrap">
             {selectedIds.size > 0 && (
               <>
-                <button onClick={() => { selectedIds.forEach(id => patchConversation(id, 'mark_read', 'Marked as read')); }} className={iconBtnCls} title="Mark Read"><MailOpen size={13} /></button>
-                <button onClick={() => { selectedIds.forEach(id => patchConversation(id, 'mark_unread', 'Marked as unread')); }} className={iconBtnCls} title="Mark Unread"><CheckCheck size={13} /></button>
+                <button onClick={() => patchConversations('mark_read', Array.from(selectedIds))} disabled={busy !== null} className={iconBtnCls} title="Mark Read"><MailOpen size={13} /></button>
+                <button onClick={() => patchConversations('mark_unread', Array.from(selectedIds))} disabled={busy !== null} className={iconBtnCls} title="Mark Unread"><CheckCheck size={13} /></button>
                 {!isTrash && (
-                  <button onClick={() => { selectedIds.forEach(id => softDelete(id)); }} className={iconBtnCls} title="Move to Trash"><Trash2 size={13} /></button>
+                  <button onClick={() => softDelete(Array.from(selectedIds))} disabled={busy !== null} className={iconBtnCls} title="Move to Trash"><Trash2 size={13} /></button>
                 )}
                 {isTrash && (
-                  <button onClick={() => { selectedIds.forEach(id => restoreConversation(id)); }} className={iconBtnCls} title="Restore"><ArchiveRestore size={13} /></button>
+                  <button onClick={() => patchConversations('restore', Array.from(selectedIds))} disabled={busy !== null} className={iconBtnCls} title="Restore"><ArchiveRestore size={13} /></button>
                 )}
                 {allowEmailDeletion && !isTrash && (
                   <button onClick={() => setShowDeleteConfirm({ ids: Array.from(selectedIds), count: selectedIds.size })}
@@ -1541,9 +1604,9 @@ export default function ManageMailsPage() {
       {/* Toast — always above open modals */}
       {toast && (
         <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm shadow-2xl shadow-black/40 ${
-          toast.type === 'ok' ? 'border-green-500/30 bg-[var(--bg-secondary)] text-green-400' : 'border-red-500/30 bg-[var(--bg-secondary)] text-red-400'
+          toast.type === 'ok' ? 'border-green-500/30 bg-[var(--bg-secondary)] text-green-400' : toast.type === 'warn' ? 'border-amber-500/30 bg-[var(--bg-secondary)] text-amber-400' : 'border-red-500/30 bg-[var(--bg-secondary)] text-red-400'
         }`}>
-          {toast.type === 'ok' ? <CheckCheck size={14} /> : <Ban size={14} />}
+          {toast.type === 'ok' ? <CheckCheck size={14} /> : toast.type === 'warn' ? <AlertTriangle size={14} /> : <Ban size={14} />}
           <span className="text-xs">{toast.text}</span>
         </div>
       )}

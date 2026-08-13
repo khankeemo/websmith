@@ -124,6 +124,98 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  let client = null;
+  try {
+    const body = await request.json();
+    const { action, ids } = body || {};
+
+    const SUPPORTED_ACTIONS = ['mark_read', 'mark_unread', 'archive', 'restore'];
+    if (!SUPPORTED_ACTIONS.includes(action)) {
+      return NextResponse.json({
+        success: false,
+        error: { code: 'INVALID_ACTION', message: `Invalid action. Supported: ${SUPPORTED_ACTIONS.join(', ')}` }
+      }, { status: 400 });
+    }
+
+    const idList: string[] = Array.isArray(ids) ? ids.filter(Boolean).map(String) : [];
+    if (idList.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: { code: 'NO_IDS', message: 'No conversation ids provided.' }
+      }, { status: 400 });
+    }
+
+    client = await (await getDb()).connect();
+
+    // Resolve which of the requested ids actually exist, so the response can
+    // report a REAL per-id result (found + updated vs missing/failed).
+    const existingResult = await client.query(
+      `SELECT id, deleted_at FROM communication_conversations WHERE id = ANY($1)`,
+      [idList]
+    );
+    const existing = new Map(existingResult.rows.map((r: any) => [String(r.id), r.deleted_at]));
+
+    const now = new Date().toISOString();
+    let updated = 0;
+
+    switch (action) {
+      case 'mark_read':
+        updated = (await client.query(
+          `UPDATE communication_conversations SET admin_read_at = NOW() WHERE id = ANY($1)`,
+          [idList]
+        )).rowCount || 0;
+        break;
+      case 'mark_unread':
+        updated = (await client.query(
+          `UPDATE communication_conversations SET admin_read_at = NULL WHERE id = ANY($1)`,
+          [idList]
+        )).rowCount || 0;
+        break;
+      case 'archive':
+        // Only active (non-trashed) conversations can be archived — same rule
+        // as the per-conversation PATCH endpoint.
+        const archivable = idList.filter(id => !existing.get(id));
+        if (archivable.length > 0) {
+          updated = (await client.query(
+            `UPDATE communication_conversations SET status = 'closed', updated_at = $1 WHERE id = ANY($2)`,
+            [now, archivable]
+          )).rowCount || 0;
+        }
+        break;
+      case 'restore':
+        // Only trashed conversations can be restored (idempotent for the rest).
+        const restorable = idList.filter(id => !!existing.get(id));
+        if (restorable.length > 0) {
+          updated = (await client.query(
+            `UPDATE communication_conversations SET deleted_at = NULL, updated_at = $1 WHERE id = ANY($2)`,
+            [now, restorable]
+          )).rowCount || 0;
+        }
+        break;
+    }
+
+    client.release();
+    client = null;
+
+    const notFound = idList.length - existing.size;
+    const skipped = Math.max(0, existing.size - updated);
+    const failed = notFound + skipped;
+
+    return NextResponse.json({
+      success: true,
+      data: { action, total: idList.length, updated, failed, not_found: notFound }
+    });
+  } catch (error: any) {
+    console.error('Communications conversations bulk patch error:', error);
+    if (client) { client.release(); }
+    return NextResponse.json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to update conversations.' }
+    }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   let client = null;
   try {

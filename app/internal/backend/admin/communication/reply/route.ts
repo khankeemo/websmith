@@ -22,6 +22,15 @@ export async function POST(request: NextRequest) {
     const from_email = String(body.from_email || "").trim();
     const from_name = String(body.from_name || "").trim();
     const from_mailbox_id = String(body.from_mailbox_id || "").trim();
+    // Optional compose fields: explicit subject (falls back to "Re: <subject>")
+    // and CC/BCC recipients (comma-separated email list).
+    const subjectOverride = String(body.subject || "").trim();
+    const ccRaw = String(body.cc || "").trim();
+    const bccRaw = String(body.bcc || "").trim();
+    const splitEmails = (raw: string): string[] =>
+      raw.split(/[,;]/).map(e => e.trim().toLowerCase()).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+    const ccList = splitEmails(ccRaw);
+    const bccList = splitEmails(bccRaw);
 
     if (!conversation_id || !message || !message.trim()) {
       return NextResponse.json({
@@ -73,12 +82,13 @@ export async function POST(request: NextRequest) {
       // Sender = a configured external mailbox: send via that mailbox's SMTP
       // (reuses the exact nodemailer pattern from /mailboxes/[id]/send) so the
       // reply leaves FROM the account that received the email.
-      if (from_mailbox_id) {
+if (from_mailbox_id) {
         const mbResult = await client.query('SELECT * FROM mailboxes WHERE id = $1', [from_mailbox_id]);
         const mailbox = mbResult.rows[0];
         if (mailbox && mailbox.is_enabled) {
           const fromLabel = mailbox.display_name ? `"${mailbox.display_name}" <${mailbox.email_address}>` : mailbox.email_address;
           const fullMessage = message + (mailbox.signature ? `\n\n${mailbox.signature}` : "");
+          const replySubject = subjectOverride || (conv.subject ? `Re: ${conv.subject}` : 'Re: Your request');
           let smtpDelivered = false;
           try {
             const nodemailer = (await import('nodemailer')).default;
@@ -93,7 +103,9 @@ export async function POST(request: NextRequest) {
             const info = await transporter.sendMail({
               from: fromLabel,
               to: conv.customer_name ? `"${conv.customer_name}" <${conv.customer_email}>` : conv.customer_email,
-              subject: conv.subject ? `Re: ${conv.subject}` : 'Re: Your request',
+              ...(ccList.length > 0 ? { cc: ccList } : {}),
+              ...(bccList.length > 0 ? { bcc: bccList } : {}),
+              subject: replySubject,
               text: fullMessage,
               html: `<p>${fullMessage.replace(/\n/g, '<br/>')}</p>`,
             });
@@ -101,7 +113,7 @@ export async function POST(request: NextRequest) {
             await client.query(
               `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, created_at)
                VALUES ($1,'smtp',$2,$3,'sent',$4,$5)`,
-              ['support_reply', conv.customer_email, conv.subject ? `Re: ${conv.subject}` : 'Re: Your request', String(info.messageId || ''), now]
+              ['support_reply', conv.customer_email, replySubject, String(info.messageId || ''), now]
             );
             await client.query(
               `INSERT INTO audit_logs (event_type, message, timestamp)
@@ -142,7 +154,12 @@ export async function POST(request: NextRequest) {
             customer_email: conv.customer_email,
             message,
           },
-          from_email ? { from: { email: from_email, name: from_name || adminName } } : {}
+          {
+            ...(from_email ? { from: { email: from_email, name: from_name || adminName } } : {}),
+            ...(ccList.length > 0 ? { cc: ccList.map(e => ({ email: e })) } : {}),
+            ...(bccList.length > 0 ? { bcc: bccList.map(e => ({ email: e })) } : {}),
+            custom: subjectOverride ? { subject: subjectOverride, html: `<p>${message.replace(/\n/g, '<br/>')}</p>`, plainText: message } : null,
+          }
         );
         if (!emailResult.success) {
           console.error(`[Admin Comm] Reply email delivery failed for ${conversation_id}:`, emailResult.error);
@@ -151,6 +168,15 @@ export async function POST(request: NextRequest) {
              VALUES ($1, $2, $3)`,
             ['email_failed', `Admin reply email failed for ${conversation_id}: ${emailResult.error || 'Unknown error'}`, now]
           );
+          client.release();
+          client = null;
+          // The reply is stored in the conversation, but the admin must know
+          // the email never reached the customer (never fake success).
+          return NextResponse.json({
+            success: true,
+            emailDelivered: false,
+            warning: `Reply saved, but the email could not be delivered (${emailResult.error || 'provider error'}).`
+          });
         }
       }
     }

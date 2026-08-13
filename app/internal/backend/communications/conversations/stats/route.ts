@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const mailboxId = searchParams.get('mailbox_id');
     const showDeleted = searchParams.get('show_deleted') === 'true';
+    const category = searchParams.get('category');
 
     client = await (await getDb()).connect();
 
@@ -26,6 +27,17 @@ export async function GET(request: NextRequest) {
     if (mailboxId) {
       whereClauses.push('cc.mailbox_id = $' + paramIndex++);
       params.push(mailboxId);
+    }
+
+    // Category scope (comma list) — mirrors the list route so badges agree
+    // with the account-scoped conversation list (system accounts without a
+    // mailbox route by their category list).
+    if (category) {
+      const categories = category.split(',').map(c => c.trim()).filter(Boolean);
+      if (categories.length > 0) {
+        whereClauses.push('cc.category = ANY($' + paramIndex++ + ')');
+        params.push(categories);
+      }
     }
 
     const whereSQL = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
@@ -53,6 +65,13 @@ export async function GET(request: NextRequest) {
       trashClauses.push('cc.mailbox_id = $' + trashParamIndex++);
       trashParams.push(mailboxId);
     }
+    if (category) {
+      const categories = category.split(',').map(c => c.trim()).filter(Boolean);
+      if (categories.length > 0) {
+        trashClauses.push('cc.category = ANY($' + trashParamIndex++ + ')');
+        trashParams.push(categories);
+      }
+    }
     const trashCount = await client.query(`
       SELECT COUNT(*) as count FROM communication_conversations cc
       WHERE ${trashClauses.join(' AND ')}
@@ -79,10 +98,26 @@ export async function GET(request: NextRequest) {
     // Unread = conversations with at least one customer message newer than both
     // the last admin reply and admin_read_at (same definition as the list view's
     // unread_replies). This stays in sync with mark_read / mark_unread, which set
-    // admin_read_at on communication_conversations.
+    // admin_read_at on communication_conversations. The default-view WHERE list
+    // (deleted_at IS NULL + optional mailbox/category scope) is shared so scoped
+    // badges always agree with the scoped list.
+    const unreadClauses: string[] = ['cc.deleted_at IS NULL'];
+    const unreadParams: any[] = [];
+    let unreadParamIndex = 1;
+    if (mailboxId) {
+      unreadClauses.push('cc.mailbox_id = $' + unreadParamIndex++);
+      unreadParams.push(mailboxId);
+    }
+    if (category) {
+      const categories = category.split(',').map(c => c.trim()).filter(Boolean);
+      if (categories.length > 0) {
+        unreadClauses.push('cc.category = ANY($' + unreadParamIndex++ + ')');
+        unreadParams.push(categories);
+      }
+    }
     const unreadCount = await client.query(`
       SELECT COUNT(*) as count FROM communication_conversations cc
-      WHERE cc.deleted_at IS NULL
+      WHERE ${unreadClauses.join(' AND ')}
         AND EXISTS (
           SELECT 1 FROM conversation_messages cm
           WHERE cm.conversation_id = cc.id
@@ -96,7 +131,7 @@ export async function GET(request: NextRequest) {
               COALESCE(cc.admin_read_at, '1970-01-01T00:00:00Z')
             )
         )
-    `, params);
+    `, unreadParams);
 
     client.release();
     client = null;

@@ -121,6 +121,12 @@ export default function ConversationDetailPage() {
   const [showDeliveryLog, setShowDeliveryLog] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryResult, setRetryResult] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  const showNotice = useCallback((type: 'ok' | 'err', text: string) => {
+    setNotice({ type, text });
+    setTimeout(() => setNotice(null), 5000);
+  }, []);
 
   const fetchConversation = useCallback(async () => {
     if (!id) return;
@@ -165,8 +171,12 @@ export default function ConversationDetailPage() {
         setReplyText('');
         setIsInternal(false);
         fetchConversation();
+      } else {
+        showNotice('err', json.error?.message || 'Failed to send reply');
       }
-    } catch {}
+    } catch {
+      showNotice('err', 'Failed to send reply');
+    }
     setSending(false);
   };
 
@@ -195,8 +205,12 @@ export default function ConversationDetailPage() {
       const json = await res.json();
       if (json.success) {
         router.push('/internal/api/communications');
+      } else {
+        showNotice('err', json.error?.message || 'Delete failed');
       }
-    } catch {}
+    } catch {
+      showNotice('err', 'Delete failed');
+    }
     setDeleting(false);
     setShowDeleteConfirm(false);
   };
@@ -211,8 +225,12 @@ export default function ConversationDetailPage() {
       const json = await res.json();
       if (json.success) {
         router.push('/internal/api/communications?tab=trash');
+      } else {
+        showNotice('err', json.error?.message || 'Delete failed');
       }
-    } catch {}
+    } catch {
+      showNotice('err', 'Delete failed');
+    }
     setDeleting(false);
     setShowPermanentDeleteConfirm(false);
   };
@@ -227,9 +245,14 @@ export default function ConversationDetailPage() {
       });
       const json = await res.json();
       if (json.success) {
+        showNotice('ok', 'Conversation restored from Trash');
         fetchConversation();
+      } else {
+        showNotice('err', json.error?.message || 'Restore failed');
       }
-    } catch {}
+    } catch {
+      showNotice('err', 'Restore failed');
+    }
     setDeleting(false);
   };
 
@@ -297,6 +320,15 @@ export default function ConversationDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Notice toast */}
+      {notice && (
+        <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm shadow-2xl shadow-black/40 ${
+          notice.type === 'ok' ? 'border-green-500/30 bg-[var(--bg-secondary)] text-green-400' : 'border-red-500/30 bg-[var(--bg-secondary)] text-red-400'
+        }`}>
+          {notice.type === 'ok' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+          <span className="text-xs">{notice.text}</span>
+        </div>
+      )}
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
