@@ -56,6 +56,8 @@ type HorizontalCardStripProps<T> = {
   dragThreshold?: number;
   direction?: "left-to-right" | "right-to-left";
   scale?: number;
+  speed?: number;
+  outerPadding?: string;
 };
 
 function HorizontalCardStrip<T>({
@@ -68,6 +70,8 @@ function HorizontalCardStrip<T>({
   dragThreshold = 0,
   direction = "right-to-left",
   scale = 1,
+  speed = 0.5,
+  outerPadding,
 }: HorizontalCardStripProps<T>) {
   const outerRef = useRef<HTMLDivElement>(null);
   const dragState = useRef({ active: false, startX: 0, startScrollLeft: 0, lastX: 0, velocity: 0 });
@@ -82,7 +86,6 @@ function HorizontalCardStrip<T>({
 
     let initialized = false;
     let frameId: number;
-    const speed = 0.5;
 
     const step = () => {
       if (!dragState.current.active && outer) {
@@ -112,7 +115,7 @@ function HorizontalCardStrip<T>({
 
     frameId = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frameId);
-  }, [autoLoop, items.length, direction]);
+  }, [autoLoop, items.length, direction, speed]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const outer = outerRef.current;
@@ -166,6 +169,7 @@ function HorizontalCardStrip<T>({
         cursor: "grab",
         touchAction: "pan-y", 
         scrollBehavior: "auto",
+        ...(outerPadding ? { padding: outerPadding } : {}),
       }}
       role="region"
       aria-label={ariaLabel}
@@ -215,10 +219,12 @@ function StatsStrip({ items }: { items: StatSlide[] }) {
       autoLoopCount={1}
       direction="left-to-right"
       scale={1}
+      speed={1.2}
+      outerPadding="26px clamp(8px, 2vw, 16px) 30px"
       renderItem={(item) => (
         <article key={item.id} style={styles.statStaticCard} className="landing-stat-card">
-          <p style={styles.statStaticValue}>{item.value}</p>
-          <p style={styles.statStaticLabel}>{item.label}</p>
+          <p style={styles.statStaticValue} className="landing-stat-value">{item.value}</p>
+          <p style={styles.statStaticLabel} className="landing-stat-label">{item.label}</p>
         </article>
       )}
     />
@@ -326,7 +332,7 @@ function FloatingTechnologyBanner() {
     particles.current = TECHNOLOGIES.map((_, i) => {
       const seed = techSeed(i);
       const dirAngle = (i * 137.50776405003785) % (Math.PI * 2);
-      const base = 0.2 + ((i * 37) % 10) / 14;
+      const base = 0.9 + ((i * 37) % 10) / 9;
       return {
         x: seed.fx * sizes.current.w,
         y: seed.fy * sizes.current.h,
@@ -361,20 +367,31 @@ function FloatingTechnologyBanner() {
       const radius = node / 2;
       const speedFactor = w < 768 ? 0.55 : 1;
 
+      const MIN_SPEED = 0.55;
+      const MAX_SPEED = 3.4;
       for (let i = 0; i < particles.current.length; i++) {
         const p = particles.current[i];
-        const speed = Math.hypot(p.vx, p.vy) || 1;
+        const sp = Math.hypot(p.vx, p.vy) || 1;
         if (hoverIndex.current === i) {
-          if (speed > p.base * 0.4) {
+          if (sp > p.base * 0.45) {
             p.vx *= 0.94;
             p.vy *= 0.94;
           }
-        } else if (speed < p.base * 0.75) {
-          const nx = p.vx / speed;
-          const ny = p.vy / speed;
-          const kick = Math.min(p.base - speed, p.base * 0.06);
+        } else if (sp < p.base * 0.7) {
+          const nx = p.vx / sp;
+          const ny = p.vy / sp;
+          const kick = Math.min(p.base - sp, p.base * 0.14);
           p.vx += nx * kick;
           p.vy += ny * kick;
+        }
+        const sp2 = Math.hypot(p.vx, p.vy);
+        if (sp2 < MIN_SPEED) {
+          const ang = p.rot * 0.11 + i * 1.7;
+          p.vx = Math.cos(ang) * MIN_SPEED;
+          p.vy = Math.sin(ang) * MIN_SPEED;
+        } else if (sp2 > MAX_SPEED) {
+          p.vx = (p.vx / sp2) * MAX_SPEED;
+          p.vy = (p.vy / sp2) * MAX_SPEED;
         }
         p.x += p.vx * dt * 60 * speedFactor;
         p.y += p.vy * dt * 60 * speedFactor;
@@ -409,6 +426,11 @@ function FloatingTechnologyBanner() {
           a.vy += (vb - va) * ny;
           b.vx += (va - vb) * nx;
           b.vy += (va - vb) * ny;
+          const jitter = 0.16;
+          a.vx += (Math.random() - 0.5) * jitter;
+          a.vy += (Math.random() - 0.5) * jitter;
+          b.vx += (Math.random() - 0.5) * jitter;
+          b.vy += (Math.random() - 0.5) * jitter;
         }
       }
 
@@ -480,13 +502,13 @@ function FloatingTechnologyBanner() {
   };
 
   return (
-    <section aria-label="All Programming Languages" style={styles.techSection}>
+    <section aria-label="Built With the Right Technology" style={styles.techSection}>
       <div style={styles.techIntro}>
         <p style={styles.techEyebrow}>Powered by 50+ technologies</p>
         <h2 style={styles.techHeading}>
-          All <span style={styles.techHighlight}>Programming Languages</span>
+          Built With the <span style={styles.techHighlight}>Right Technology</span>
         </h2>
-        <p style={styles.techSub}>Build, integrate and ship with the technologies your team already uses.</p>
+        <p style={styles.techSub}>From proven foundations to emerging technologies, we choose the right tools to turn your ideas into scalable digital solutions.</p>
       </div>
       <div ref={fieldRef} className="tech-field">
         {TECHNOLOGIES.map((tech, i) => {
@@ -789,7 +811,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* All Programming Languages — floating technology banner */}
+      {/* Built With the Right Technology — floating technology banner */}
       <FloatingTechnologyBanner />
 
       {/* Stats — looping carousel */}
@@ -1228,27 +1250,38 @@ export default function LandingPage() {
           display: none;
         }
 
-        /* Trust at scale — stat card hover */
+        /* Trust at scale — stat card hover pop */
         .landing-stat-card {
-          transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
-          will-change: transform;
-          cursor: default;
+          transition: background-color 0.35s ease, background-image 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, color 0.35s ease;
+          cursor: pointer;
         }
         .landing-stat-card:hover {
-          transform: scale(1.06);
-          background-color: rgba(20, 156, 234, 0.16);
-          border-color: rgba(20, 156, 234, 0.7);
-          box-shadow: 0 18px 56px rgba(20, 156, 234, 0.32), 0 0 26px rgba(20, 156, 234, 0.22), inset 0 0 18px rgba(20, 156, 234, 0.1);
+          background-color: #149CEA !important;
+          background-image: linear-gradient(135deg, #22D3EE 0%, #149CEA 55%, #1479EA 100%) !important;
+          border-color: rgba(20, 156, 234, 0.9) !important;
+          box-shadow: 0 26px 80px rgba(20, 156, 234, 0.55), 0 0 46px rgba(20, 156, 234, 0.38), inset 0 0 24px rgba(255, 255, 255, 0.16);
+        }
+        .landing-stat-card:hover .landing-stat-value {
+          color: #062A4A !important;
+        }
+        .landing-stat-card:hover .landing-stat-label {
+          color: #12527E !important;
+        }
+        /* scale the whole strip cell so the popup floats above neighboring cards */
+        .landing-card-strip > div > div:has(.landing-stat-card:hover) {
+          position: relative;
+          z-index: 5;
+          transform: scale(1.16) !important;
         }
 
-        /* All Programming Languages — floating technology banner */
+        /* Built With the Right Technology — floating technology banner */
         .tech-field {
           position: relative;
-          height: clamp(250px, 32vw, 360px);
-          min-height: 200px;
+          height: clamp(280px, 34vw, 400px);
+          min-height: 240px;
           max-width: 1240px;
           margin: 0 auto;
-          --tech-node: 64px;
+          --tech-node: 84px;
         }
         .tech-node {
           z-index: 1;
@@ -1266,13 +1299,13 @@ export default function LandingPage() {
         }
         @media (max-width: 768px) {
           .tech-field {
-            --tech-node: 46px;
-            height: clamp(220px, 56vw, 300px);
+            --tech-node: 62px;
+            height: clamp(250px, 60vw, 320px);
           }
         }
         @media (max-width: 520px) {
           .tech-field {
-            --tech-node: 42px;
+            --tech-node: 54px;
           }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -1586,13 +1619,14 @@ const styles: any = {
     padding: "clamp(40px, 6vw, 72px) 0",
     overflow: "hidden",
   },
-  // All Programming Languages — floating technology banner
+  // Built With the Right Technology — floating technology banner
   techSection: {
     position: "relative",
     width: "100%",
     boxSizing: "border-box",
     overflow: "hidden",
     padding: "clamp(40px, 6vw, 72px) clamp(16px, 4vw, 48px)",
+    marginBottom: "clamp(32px, 4vw, 48px)",
     background:
       "radial-gradient(1100px 520px at 12% -10%, rgba(139,92,246,0.22), transparent 62%), radial-gradient(1000px 480px at 92% 8%, rgba(34,211,238,0.13), transparent 55%), #131024",
   },
@@ -1631,8 +1665,8 @@ const styles: any = {
   },
   techNode: {
     position: "absolute",
-    width: "var(--tech-node, 64px)",
-    height: "var(--tech-node, 64px)",
+    width: "var(--tech-node, 84px)",
+    height: "var(--tech-node, 84px)",
     transform: "translate(-50%, -50%)",
     willChange: "transform",
     cursor: "pointer",
