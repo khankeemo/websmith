@@ -216,12 +216,337 @@ function StatsStrip({ items }: { items: StatSlide[] }) {
       direction="left-to-right"
       scale={1}
       renderItem={(item) => (
-        <article key={item.id} style={styles.statStaticCard}>
+        <article key={item.id} style={styles.statStaticCard} className="landing-stat-card">
           <p style={styles.statStaticValue}>{item.value}</p>
           <p style={styles.statStaticLabel}>{item.label}</p>
         </article>
       )}
     />
+  );
+}
+
+type TechnologyLink = { name: string; icon: string; href: string | null };
+
+const TECHNOLOGIES: TechnologyLink[] = [
+  { name: "Python", icon: "/wds_icon/python.svg", href: null },
+  { name: "JavaScript", icon: "/wds_icon/javascript.svg", href: null },
+  { name: "TypeScript", icon: "/wds_icon/typescript.svg", href: null },
+  { name: "Java", icon: "/wds_icon/java.svg", href: null },
+  { name: "C#", icon: "/wds_icon/csharp.svg", href: null },
+  { name: "C++", icon: "/wds_icon/cplusplus.svg", href: null },
+  { name: "C", icon: "/wds_icon/c.svg", href: null },
+  { name: "Go", icon: "/wds_icon/go.svg", href: null },
+  { name: "Rust", icon: "/wds_icon/rust.svg", href: null },
+  { name: "PHP", icon: "/wds_icon/php.svg", href: null },
+  { name: "Ruby", icon: "/wds_icon/ruby.svg", href: null },
+  { name: "Kotlin", icon: "/wds_icon/kotlin.svg", href: null },
+  { name: "Swift", icon: "/wds_icon/swift.svg", href: null },
+  { name: "Dart", icon: "/wds_icon/dart.svg", href: null },
+  { name: "Scala", icon: "/wds_icon/scala.svg", href: null },
+  { name: "R", icon: "/wds_icon/r.svg", href: null },
+  { name: "Lua", icon: "/wds_icon/lua.svg", href: null },
+  { name: "Perl", icon: "/wds_icon/perl.svg", href: null },
+  { name: "Bash", icon: "/wds_icon/bash.svg", href: null },
+  { name: "Objective-C", icon: "/wds_icon/objectivec.svg", href: null },
+  { name: "HTML5", icon: "/wds_icon/html5.svg", href: null },
+  { name: "CSS3", icon: "/wds_icon/css3.svg", href: null },
+  { name: "Node.js", icon: "/wds_icon/nodejs.svg", href: null },
+  { name: "React", icon: "/wds_icon/react.svg", href: null },
+  { name: "Next.js", icon: "/wds_icon/nextjs.svg", href: null },
+  { name: "Vue.js", icon: "/wds_icon/vue.svg", href: null },
+  { name: "Angular", icon: "/wds_icon/angular.svg", href: null },
+  { name: "Svelte", icon: "/wds_icon/svelte.svg", href: null },
+  { name: "Express", icon: "/wds_icon/express.svg", href: null },
+  { name: "NestJS", icon: "/wds_icon/nestjs.svg", href: null },
+  { name: ".NET", icon: "/wds_icon/dotnet.svg", href: null },
+  { name: "Spring", icon: "/wds_icon/spring.svg", href: null },
+  { name: "Laravel", icon: "/wds_icon/laravel.svg", href: null },
+  { name: "Django", icon: "/wds_icon/django.svg", href: null },
+  { name: "Flask", icon: "/wds_icon/flask.svg", href: null },
+  { name: "FastAPI", icon: "/wds_icon/fastapi.svg", href: null },
+  { name: "Flutter", icon: "/wds_icon/flutter.svg", href: null },
+  { name: "React Native", icon: "/wds_icon/react-native.svg", href: null },
+  { name: "MongoDB", icon: "/wds_icon/mongodb.svg", href: null },
+  { name: "PostgreSQL", icon: "/wds_icon/postgresql.svg", href: null },
+  { name: "MySQL", icon: "/wds_icon/mysql.svg", href: null },
+  { name: "Redis", icon: "/wds_icon/redis.svg", href: null },
+  { name: "GraphQL", icon: "/wds_icon/graphql.svg", href: null },
+  { name: "Firebase", icon: "/wds_icon/firebase.svg", href: null },
+  { name: "Supabase", icon: "/wds_icon/supabase.svg", href: null },
+  { name: "Docker", icon: "/wds_icon/docker.svg", href: null },
+  { name: "Kubernetes", icon: "/wds_icon/kubernetes.svg", href: null },
+  { name: "AWS", icon: "/wds_icon/aws.svg", href: null },
+  { name: "Google Cloud", icon: "/wds_icon/google-cloud.svg", href: null },
+  { name: "Git", icon: "/wds_icon/git.svg", href: null },
+];
+
+const TECH_COUNT = TECHNOLOGIES.length;
+
+const techSeed = (i: number) => {
+  const angle = (i * 2.399963229728653) % (Math.PI * 2);
+  const radius = Math.sqrt((i + 0.5) / TECH_COUNT);
+  return {
+    fx: 0.5 + 0.44 * radius * Math.cos(angle),
+    fy: 0.5 + 0.42 * radius * Math.sin(angle),
+  };
+};
+
+type TechParticle = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  base: number;
+  rot: number;
+  spin: number;
+};
+
+function FloatingTechnologyBanner() {
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const nodeRefs = useRef<(HTMLElement | null)[]>([]);
+  const hoverIndex = useRef(-1);
+  const reducedMotion = useRef(false);
+  const sizes = useRef({ w: 1, h: 1, node: 64 });
+  const particles = useRef<TechParticle[]>([]);
+
+  useEffect(() => {
+    const field = fieldRef.current;
+    if (!field) return;
+
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    reducedMotion.current = media.matches;
+
+    const readSize = () => {
+      const rect = field.getBoundingClientRect();
+      const node = nodeRefs.current[0]?.offsetWidth || 64;
+      sizes.current = { w: Math.max(rect.width, 1), h: Math.max(rect.height, 1), node };
+    };
+    readSize();
+
+    particles.current = TECHNOLOGIES.map((_, i) => {
+      const seed = techSeed(i);
+      const dirAngle = (i * 137.50776405003785) % (Math.PI * 2);
+      const base = 0.2 + ((i * 37) % 10) / 14;
+      return {
+        x: seed.fx * sizes.current.w,
+        y: seed.fy * sizes.current.h,
+        vx: Math.cos(dirAngle) * base,
+        vy: Math.sin(dirAngle) * base,
+        base,
+        rot: (i % 20) * 18,
+        spin: (i % 2 === 0 ? 1 : -1) * (0.08 + ((i * 13) % 10) / 90),
+      };
+    });
+
+    let raf = 0;
+    let last = performance.now();
+    let visible = true;
+    let active = false;
+
+    const applyTransforms = () => {
+      const radius = sizes.current.node / 2;
+      for (let i = 0; i < particles.current.length; i++) {
+        const el = nodeRefs.current[i];
+        if (!el) continue;
+        const p = particles.current[i];
+        el.style.transform = `translate3d(${p.x - radius}px, ${p.y - radius}px, 0) rotate(${p.rot}deg)`;
+      }
+    };
+
+    const step = (now: number) => {
+      if (!active || !visible) return;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      const { w, h, node } = sizes.current;
+      const radius = node / 2;
+      const speedFactor = w < 768 ? 0.55 : 1;
+
+      for (let i = 0; i < particles.current.length; i++) {
+        const p = particles.current[i];
+        const speed = Math.hypot(p.vx, p.vy) || 1;
+        if (hoverIndex.current === i) {
+          if (speed > p.base * 0.4) {
+            p.vx *= 0.94;
+            p.vy *= 0.94;
+          }
+        } else if (speed < p.base * 0.75) {
+          const nx = p.vx / speed;
+          const ny = p.vy / speed;
+          const kick = Math.min(p.base - speed, p.base * 0.06);
+          p.vx += nx * kick;
+          p.vy += ny * kick;
+        }
+        p.x += p.vx * dt * 60 * speedFactor;
+        p.y += p.vy * dt * 60 * speedFactor;
+        p.rot += p.spin * dt * 60 * speedFactor;
+        if (p.x < radius) { p.x = radius; p.vx = Math.abs(p.vx); }
+        if (p.x > w - radius) { p.x = w - radius; p.vx = -Math.abs(p.vx); }
+        if (p.y < radius) { p.y = radius; p.vy = Math.abs(p.vy); }
+        if (p.y > h - radius) { p.y = h - radius; p.vy = -Math.abs(p.vy); }
+      }
+
+      const ps = particles.current;
+      for (let i = 0; i < ps.length; i++) {
+        for (let j = i + 1; j < ps.length; j++) {
+          const a = ps[i];
+          const b = ps[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const minDist = radius * 2;
+          const distSq = dx * dx + dy * dy;
+          if (distSq === 0 || distSq >= minDist * minDist) continue;
+          const dist = Math.sqrt(distSq);
+          const overlap = (minDist - dist) / 2;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          a.x -= nx * overlap;
+          a.y -= ny * overlap;
+          b.x += nx * overlap;
+          b.y += ny * overlap;
+          const va = a.vx * nx + a.vy * ny;
+          const vb = b.vx * nx + b.vy * ny;
+          a.vx += (vb - va) * nx;
+          a.vy += (vb - va) * ny;
+          b.vx += (va - vb) * nx;
+          b.vy += (va - vb) * ny;
+        }
+      }
+
+      for (let i = 0; i < ps.length; i++) {
+        const el = nodeRefs.current[i];
+        if (!el) continue;
+        const p = ps[i];
+        el.style.transform = `translate3d(${p.x - radius}px, ${p.y - radius}px, 0) rotate(${p.rot}deg)`;
+      }
+      raf = requestAnimationFrame(step);
+    };
+
+    const start = () => {
+      if (active || reducedMotion.current) return;
+      active = true;
+      last = performance.now();
+      raf = requestAnimationFrame(step);
+    };
+    const stop = () => {
+      active = false;
+      cancelAnimationFrame(raf);
+    };
+
+    applyTransforms();
+    if (!reducedMotion.current) start();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        visible = entries[0].isIntersecting;
+        if (visible) start();
+        else stop();
+      },
+      { rootMargin: "160px" }
+    );
+    observer.observe(field);
+
+    const ro = new ResizeObserver(() => {
+      readSize();
+      const { w, h, node } = sizes.current;
+      const radius = node / 2;
+      for (const p of particles.current) {
+        p.x = Math.max(radius, Math.min(w - radius, p.x));
+        p.y = Math.max(radius, Math.min(h - radius, p.y));
+      }
+      applyTransforms();
+    });
+    ro.observe(field);
+
+    const onReducedChange = (e: MediaQueryListEvent) => {
+      reducedMotion.current = e.matches;
+      if (e.matches) stop();
+      else start();
+    };
+    media.addEventListener("change", onReducedChange);
+
+    return () => {
+      stop();
+      observer.disconnect();
+      ro.disconnect();
+      media.removeEventListener("change", onReducedChange);
+    };
+  }, []);
+
+  const handleEnter = (i: number) => {
+    hoverIndex.current = i;
+  };
+  const handleLeave = (i: number) => {
+    if (hoverIndex.current === i) hoverIndex.current = -1;
+  };
+
+  return (
+    <section aria-label="All Programming Languages" style={styles.techSection}>
+      <div style={styles.techIntro}>
+        <p style={styles.techEyebrow}>Powered by 50+ technologies</p>
+        <h2 style={styles.techHeading}>
+          All <span style={styles.techHighlight}>Programming Languages</span>
+        </h2>
+        <p style={styles.techSub}>Build, integrate and ship with the technologies your team already uses.</p>
+      </div>
+      <div ref={fieldRef} className="tech-field">
+        {TECHNOLOGIES.map((tech, i) => {
+          const seed = techSeed(i);
+          const nodeStyle: React.CSSProperties = {
+            ...styles.techNode,
+            left: `${seed.fx * 100}%`,
+            top: `${seed.fy * 100}%`,
+          };
+          const inner = (
+            <span style={styles.techNodeMask} className="tech-node-mask" aria-hidden="true">
+              <img src={tech.icon} alt={tech.name} draggable={false} style={styles.techNodeImg} loading="lazy" />
+            </span>
+          );
+          const handlers = {
+            onMouseEnter: () => handleEnter(i),
+            onMouseLeave: () => handleLeave(i),
+            onFocus: () => handleEnter(i),
+            onBlur: () => handleLeave(i),
+          };
+          if (tech.href) {
+            return (
+              <a
+                key={tech.name}
+                ref={(el) => {
+                  nodeRefs.current[i] = el;
+                }}
+                href={tech.href}
+                target={tech.href.startsWith("http") ? "_blank" : undefined}
+                rel={tech.href.startsWith("http") ? "noreferrer" : undefined}
+                className="tech-node"
+                style={nodeStyle}
+                title={tech.name}
+                aria-label={tech.name}
+                {...handlers}
+              >
+                {inner}
+              </a>
+            );
+          }
+          return (
+            <div
+              key={tech.name}
+              ref={(el) => {
+                nodeRefs.current[i] = el;
+              }}
+              className="tech-node"
+              style={nodeStyle}
+              title={tech.name}
+              role="img"
+              aria-label={tech.name}
+              tabIndex={0}
+              {...handlers}
+            >
+              {inner}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -463,6 +788,9 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* All Programming Languages — floating technology banner */}
+      <FloatingTechnologyBanner />
 
       {/* Stats — looping carousel */}
       <section style={styles.statsSection}>
@@ -900,6 +1228,63 @@ export default function LandingPage() {
           display: none;
         }
 
+        /* Trust at scale — stat card hover */
+        .landing-stat-card {
+          transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+          will-change: transform;
+          cursor: default;
+        }
+        .landing-stat-card:hover {
+          transform: scale(1.06);
+          background-color: rgba(20, 156, 234, 0.16);
+          border-color: rgba(20, 156, 234, 0.7);
+          box-shadow: 0 18px 56px rgba(20, 156, 234, 0.32), 0 0 26px rgba(20, 156, 234, 0.22), inset 0 0 18px rgba(20, 156, 234, 0.1);
+        }
+
+        /* All Programming Languages — floating technology banner */
+        .tech-field {
+          position: relative;
+          height: clamp(250px, 32vw, 360px);
+          min-height: 200px;
+          max-width: 1240px;
+          margin: 0 auto;
+          --tech-node: 64px;
+        }
+        .tech-node {
+          z-index: 1;
+        }
+        .tech-node:hover .tech-node-mask,
+        .tech-node:focus-visible .tech-node-mask {
+          transform: scale(1.15);
+          border-color: rgba(34, 211, 238, 0.75);
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 26px rgba(139, 92, 246, 0.45), 0 0 34px rgba(34, 211, 238, 0.28), inset 0 0 16px rgba(139, 92, 246, 0.22);
+        }
+        .tech-node:focus-visible {
+          outline: 2px solid rgba(34, 211, 238, 0.8);
+          outline-offset: 4px;
+          border-radius: 50%;
+        }
+        @media (max-width: 768px) {
+          .tech-field {
+            --tech-node: 46px;
+            height: clamp(220px, 56vw, 300px);
+          }
+        }
+        @media (max-width: 520px) {
+          .tech-field {
+            --tech-node: 42px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .tech-node,
+          .tech-node .tech-node-mask {
+            animation: none !important;
+          }
+          .tech-node .tech-node-mask {
+            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+          }
+        }
+
         /* Removed landing-marquee-track animation as it is now handled via JS for drag support */
         
         /* Social Icon Hover */
@@ -987,7 +1372,7 @@ export default function LandingPage() {
             padding: 10px 16px !important;
           }
           .landing-hero {
-            min-height: 90vh !important;
+            min-height: 63vh !important;
             padding: 56px 16px !important;
             margin-top: 57px !important;
           }
@@ -1050,7 +1435,7 @@ const styles: any = {
     position: "relative",
     color: "#FFFFFF",
     overflow: "hidden",
-    minHeight: "90vh",
+    minHeight: "63vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -1200,6 +1585,79 @@ const styles: any = {
     backgroundColor: "#1C1C1E",
     padding: "clamp(40px, 6vw, 72px) 0",
     overflow: "hidden",
+  },
+  // All Programming Languages — floating technology banner
+  techSection: {
+    position: "relative",
+    width: "100%",
+    boxSizing: "border-box",
+    overflow: "hidden",
+    padding: "clamp(40px, 6vw, 72px) clamp(16px, 4vw, 48px)",
+    background:
+      "radial-gradient(1100px 520px at 12% -10%, rgba(139,92,246,0.22), transparent 62%), radial-gradient(1000px 480px at 92% 8%, rgba(34,211,238,0.13), transparent 55%), #131024",
+  },
+  techIntro: {
+    textAlign: "center" as const,
+    padding: "0 20px 28px",
+    maxWidth: "720px",
+    margin: "0 auto",
+  },
+  techEyebrow: {
+    margin: 0,
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase" as const,
+    color: "rgba(167,139,250,0.75)",
+  },
+  techHeading: {
+    margin: "10px 0 0",
+    fontSize: "clamp(22px, 3vw, 30px)",
+    fontWeight: 700,
+    color: "#FFFFFF",
+    textShadow: "0 0 22px rgba(139,92,246,0.35)",
+  },
+  techHighlight: {
+    backgroundImage: "linear-gradient(90deg, #a78bfa, #22d3ee)",
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    color: "transparent",
+  },
+  techSub: {
+    margin: "12px 0 0",
+    fontSize: "15px",
+    lineHeight: 1.55,
+    color: "rgba(255,255,255,0.65)",
+  },
+  techNode: {
+    position: "absolute",
+    width: "var(--tech-node, 64px)",
+    height: "var(--tech-node, 64px)",
+    transform: "translate(-50%, -50%)",
+    willChange: "transform",
+    cursor: "pointer",
+  },
+  techNodeMask: {
+    position: "absolute",
+    inset: 0,
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#171a2e",
+    backgroundImage: "radial-gradient(circle at 32% 26%, #232743, #0f1122 72%)",
+    border: "1px solid rgba(139,92,246,0.4)",
+    boxShadow: "0 10px 26px rgba(0,0,0,0.5), 0 0 16px rgba(139,92,246,0.18), inset 0 0 14px rgba(139,92,246,0.15)",
+    transition: "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, border-color 0.3s ease",
+    willChange: "transform",
+  },
+  techNodeImg: {
+    width: "56%",
+    height: "56%",
+    objectFit: "contain" as const,
+    filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.55))",
+    pointerEvents: "none",
+    userSelect: "none" as const,
   },
   statsIntro: {
     textAlign: "center" as const,

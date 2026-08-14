@@ -1,0 +1,452 @@
+﻿[
+    {
+        "name":  "Python",
+        "slug":  "python",
+        "image":  "/images/technologies/python.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  88,
+        "enabled":  true
+    },
+    {
+        "name":  "JavaScript",
+        "slug":  "javascript",
+        "image":  "/images/technologies/javascript.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  92,
+        "enabled":  true
+    },
+    {
+        "name":  "TypeScript",
+        "slug":  "typescript",
+        "image":  "/images/technologies/typescript.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "Java",
+        "slug":  "java",
+        "image":  "/images/technologies/java.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  86,
+        "enabled":  true
+    },
+    {
+        "name":  "C#",
+        "slug":  "csharp",
+        "image":  "/images/technologies/csharp.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  80,
+        "enabled":  true
+    },
+    {
+        "name":  "C++",
+        "slug":  "cplusplus",
+        "image":  "/images/technologies/cplusplus.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "C",
+        "slug":  "c",
+        "image":  "/images/technologies/c.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  80,
+        "enabled":  true
+    },
+    {
+        "name":  "Go",
+        "slug":  "go",
+        "image":  "/images/technologies/go.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  96,
+        "enabled":  true
+    },
+    {
+        "name":  "Rust",
+        "slug":  "rust",
+        "image":  "/images/technologies/rust.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  92,
+        "enabled":  true
+    },
+    {
+        "name":  "PHP",
+        "slug":  "php",
+        "image":  "/images/technologies/php.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  88,
+        "enabled":  true
+    },
+    {
+        "name":  "Ruby",
+        "slug":  "ruby",
+        "image":  "/images/technologies/ruby.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  90,
+        "enabled":  true
+    },
+    {
+        "name":  "Kotlin",
+        "slug":  "kotlin",
+        "image":  "/images/technologies/kotlin.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  80,
+        "enabled":  true
+    },
+    {
+        "name":  "Swift",
+        "slug":  "swift",
+        "image":  "/images/technologies/swift.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "Dart",
+        "slug":  "dart",
+        "image":  "/images/technologies/dart.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  80,
+        "enabled":  true
+    },
+    {
+        "name":  "Scala",
+        "slug":  "scala",
+        "image":  "/images/technologies/scala.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "R",
+        "slug":  "r",
+        "image":  "/images/technologies/r.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  80,
+        "enabled":  true
+    },
+    {
+        "name":  "Lua",
+        "slug":  "lua",
+        "image":  "/images/technologies/lua.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  88,
+        "enabled":  true
+    },
+    {
+        "name":  "Perl",
+        "slug":  "perl",
+        "image":  "/images/technologies/perl.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  86,
+        "enabled":  true
+    },
+    {
+        "name":  "Bash",
+        "slug":  "bash",
+        "image":  "/images/technologies/bash.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "Objective-C",
+        "slug":  "objectivec",
+        "image":  "/images/technologies/objectivec.svg",
+        "href":  null,
+        "category":  "language",
+        "recommendedSize":  82,
+        "enabled":  true
+    },
+    {
+        "name":  "HTML5",
+        "slug":  "html5",
+        "image":  "/images/technologies/html5.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  82,
+        "enabled":  true
+    },
+    {
+        "name":  "CSS3",
+        "slug":  "css3",
+        "image":  "/images/technologies/css3.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  82,
+        "enabled":  true
+    },
+    {
+        "name":  "Node.js",
+        "slug":  "nodejs",
+        "image":  "/images/technologies/nodejs.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  88,
+        "enabled":  true
+    },
+    {
+        "name":  "React",
+        "slug":  "react",
+        "image":  "/images/technologies/react.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  92,
+        "enabled":  true
+    },
+    {
+        "name":  "Next.js",
+        "slug":  "nextjs",
+        "image":  "/images/technologies/nextjs.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  80,
+        "enabled":  true
+    },
+    {
+        "name":  "Vue.js",
+        "slug":  "vue",
+        "image":  "/images/technologies/vue.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  80,
+        "enabled":  true
+    },
+    {
+        "name":  "Angular",
+        "slug":  "angular",
+        "image":  "/images/technologies/angular.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "Svelte",
+        "slug":  "svelte",
+        "image":  "/images/technologies/svelte.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  88,
+        "enabled":  true
+    },
+    {
+        "name":  "Express",
+        "slug":  "express",
+        "image":  "/images/technologies/express.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "NestJS",
+        "slug":  "nestjs",
+        "image":  "/images/technologies/nestjs.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  88,
+        "enabled":  true
+    },
+    {
+        "name":  ".NET",
+        "slug":  "dotnet",
+        "image":  "/images/technologies/dotnet.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  96,
+        "enabled":  true
+    },
+    {
+        "name":  "Spring",
+        "slug":  "spring",
+        "image":  "/images/technologies/spring.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  82,
+        "enabled":  true
+    },
+    {
+        "name":  "Laravel",
+        "slug":  "laravel",
+        "image":  "/images/technologies/laravel.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  86,
+        "enabled":  true
+    },
+    {
+        "name":  "Django",
+        "slug":  "django",
+        "image":  "/images/technologies/django.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  80,
+        "enabled":  true
+    },
+    {
+        "name":  "Flask",
+        "slug":  "flask",
+        "image":  "/images/technologies/flask.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  92,
+        "enabled":  true
+    },
+    {
+        "name":  "FastAPI",
+        "slug":  "fastapi",
+        "image":  "/images/technologies/fastapi.svg",
+        "href":  null,
+        "category":  "web",
+        "recommendedSize":  88,
+        "enabled":  true
+    },
+    {
+        "name":  "Flutter",
+        "slug":  "flutter",
+        "image":  "/images/technologies/flutter.svg",
+        "href":  null,
+        "category":  "mobile",
+        "recommendedSize":  82,
+        "enabled":  true
+    },
+    {
+        "name":  "React Native",
+        "slug":  "react-native",
+        "image":  "/images/technologies/react-native.svg",
+        "href":  null,
+        "category":  "mobile",
+        "recommendedSize":  90,
+        "enabled":  true
+    },
+    {
+        "name":  "MongoDB",
+        "slug":  "mongodb",
+        "image":  "/images/technologies/mongodb.svg",
+        "href":  null,
+        "category":  "database",
+        "recommendedSize":  90,
+        "enabled":  true
+    },
+    {
+        "name":  "PostgreSQL",
+        "slug":  "postgresql",
+        "image":  "/images/technologies/postgresql.svg",
+        "href":  null,
+        "category":  "database",
+        "recommendedSize":  94,
+        "enabled":  true
+    },
+    {
+        "name":  "MySQL",
+        "slug":  "mysql",
+        "image":  "/images/technologies/mysql.svg",
+        "href":  null,
+        "category":  "database",
+        "recommendedSize":  88,
+        "enabled":  true
+    },
+    {
+        "name":  "Redis",
+        "slug":  "redis",
+        "image":  "/images/technologies/redis.svg",
+        "href":  null,
+        "category":  "database",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "GraphQL",
+        "slug":  "graphql",
+        "image":  "/images/technologies/graphql.svg",
+        "href":  null,
+        "category":  "api",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "Firebase",
+        "slug":  "firebase",
+        "image":  "/images/technologies/firebase.svg",
+        "href":  null,
+        "category":  "backend",
+        "recommendedSize":  84,
+        "enabled":  true
+    },
+    {
+        "name":  "Supabase",
+        "slug":  "supabase",
+        "image":  "/images/technologies/supabase.svg",
+        "href":  null,
+        "category":  "backend",
+        "recommendedSize":  82,
+        "enabled":  true
+    },
+    {
+        "name":  "Docker",
+        "slug":  "docker",
+        "image":  "/images/technologies/docker.svg",
+        "href":  null,
+        "category":  "devops",
+        "recommendedSize":  94,
+        "enabled":  true
+    },
+    {
+        "name":  "Kubernetes",
+        "slug":  "kubernetes",
+        "image":  "/images/technologies/kubernetes.svg",
+        "href":  null,
+        "category":  "devops",
+        "recommendedSize":  94,
+        "enabled":  true
+    },
+    {
+        "name":  "AWS",
+        "slug":  "aws",
+        "image":  "/images/technologies/aws.svg",
+        "href":  null,
+        "category":  "cloud",
+        "recommendedSize":  90,
+        "enabled":  true
+    },
+    {
+        "name":  "Google Cloud",
+        "slug":  "google-cloud",
+        "image":  "/images/technologies/google-cloud.svg",
+        "href":  null,
+        "category":  "cloud",
+        "recommendedSize":  82,
+        "enabled":  true
+    },
+    {
+        "name":  "Git",
+        "slug":  "git",
+        "image":  "/images/technologies/git.svg",
+        "href":  null,
+        "category":  "version-control",
+        "recommendedSize":  80,
+        "enabled":  true
+    }
+]

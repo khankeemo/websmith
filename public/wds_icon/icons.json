@@ -1,0 +1,857 @@
+﻿{
+    "project":  "Websmith Animated Technology Banner",
+    "version":  "1.0",
+    "total_selected":  50,
+    "icons":  [
+                  {
+                      "name":  "Python",
+                      "slug":  "python",
+                      "category":  "language",
+                      "file":  "python.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  2300,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "JavaScript",
+                      "slug":  "javascript",
+                      "category":  "language",
+                      "file":  "javascript.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1144,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "TypeScript",
+                      "slug":  "typescript",
+                      "category":  "language",
+                      "file":  "typescript.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  943,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Java",
+                      "slug":  "java",
+                      "category":  "language",
+                      "file":  "java.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1540,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "C#",
+                      "slug":  "csharp",
+                      "category":  "language",
+                      "file":  "csharp.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  851,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "C++",
+                      "slug":  "cplusplus",
+                      "category":  "language",
+                      "file":  "cplusplus.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1143,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "C",
+                      "slug":  "c",
+                      "category":  "language",
+                      "file":  "c.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  241,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Go",
+                      "slug":  "go",
+                      "category":  "language",
+                      "file":  "go.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  8965,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Rust",
+                      "slug":  "rust",
+                      "category":  "language",
+                      "file":  "rust.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  5897,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "PHP",
+                      "slug":  "php",
+                      "category":  "language",
+                      "file":  "php.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  4624,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Ruby",
+                      "slug":  "ruby",
+                      "category":  "language",
+                      "file":  "ruby.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  8328,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Kotlin",
+                      "slug":  "kotlin",
+                      "category":  "language",
+                      "file":  "kotlin.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  502,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Swift",
+                      "slug":  "swift",
+                      "category":  "language",
+                      "file":  "swift.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1294,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Dart",
+                      "slug":  "dart",
+                      "category":  "language",
+                      "file":  "dart.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  710,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Scala",
+                      "slug":  "scala",
+                      "category":  "language",
+                      "file":  "scala.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1473,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "R",
+                      "slug":  "r",
+                      "category":  "language",
+                      "file":  "r.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1359,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Lua",
+                      "slug":  "lua",
+                      "category":  "language",
+                      "file":  "lua.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  4401,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Perl",
+                      "slug":  "perl",
+                      "category":  "language",
+                      "file":  "perl.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  3256,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Bash",
+                      "slug":  "bash",
+                      "category":  "language",
+                      "file":  "bash.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1800,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Objective-C",
+                      "slug":  "objectivec",
+                      "category":  "language",
+                      "file":  "objectivec.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1948,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "HTML5",
+                      "slug":  "html5",
+                      "category":  "web",
+                      "file":  "html5.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  607,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "CSS3",
+                      "slug":  "css3",
+                      "category":  "web",
+                      "file":  "css3.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  778,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Node.js",
+                      "slug":  "nodejs",
+                      "category":  "web",
+                      "file":  "nodejs.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1806,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "React",
+                      "slug":  "react",
+                      "category":  "web",
+                      "file":  "react.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  2387,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Next.js",
+                      "slug":  "nextjs",
+                      "category":  "web",
+                      "file":  "nextjs.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  749,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Vue.js",
+                      "slug":  "vue",
+                      "category":  "web",
+                      "file":  "vue.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  561,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Angular",
+                      "slug":  "angular",
+                      "category":  "web",
+                      "file":  "angular.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1115,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Svelte",
+                      "slug":  "svelte",
+                      "category":  "web",
+                      "file":  "svelte.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  3833,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Express",
+                      "slug":  "express",
+                      "category":  "web",
+                      "file":  "express.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  914,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "NestJS",
+                      "slug":  "nestjs",
+                      "category":  "web",
+                      "file":  "nestjs.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  5571,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  ".NET",
+                      "slug":  "dotnet",
+                      "category":  "web",
+                      "file":  "dotnet.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  14229,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Spring",
+                      "slug":  "spring",
+                      "category":  "web",
+                      "file":  "spring.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  943,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Laravel",
+                      "slug":  "laravel",
+                      "category":  "web",
+                      "file":  "laravel.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  2339,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Django",
+                      "slug":  "django",
+                      "category":  "web",
+                      "file":  "django.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  644,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Flask",
+                      "slug":  "flask",
+                      "category":  "web",
+                      "file":  "flask.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  9161,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "FastAPI",
+                      "slug":  "fastapi",
+                      "category":  "web",
+                      "file":  "fastapi.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  3065,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Flutter",
+                      "slug":  "flutter",
+                      "category":  "mobile",
+                      "file":  "flutter.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  646,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "React Native",
+                      "slug":  "react-native",
+                      "category":  "mobile",
+                      "file":  "react-native.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  4462,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "MongoDB",
+                      "slug":  "mongodb",
+                      "category":  "database",
+                      "file":  "mongodb.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  5611,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "PostgreSQL",
+                      "slug":  "postgresql",
+                      "category":  "database",
+                      "file":  "postgresql.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  9178,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "MySQL",
+                      "slug":  "mysql",
+                      "category":  "database",
+                      "file":  "mysql.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  2765,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Redis",
+                      "slug":  "redis",
+                      "category":  "database",
+                      "file":  "redis.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1728,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "GraphQL",
+                      "slug":  "graphql",
+                      "category":  "api",
+                      "file":  "graphql.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1550,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Firebase",
+                      "slug":  "firebase",
+                      "category":  "backend",
+                      "file":  "firebase.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1170,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Supabase",
+                      "slug":  "supabase",
+                      "category":  "backend",
+                      "file":  "supabase.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  1067,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Docker",
+                      "slug":  "docker",
+                      "category":  "devops",
+                      "file":  "docker.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  4452,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Kubernetes",
+                      "slug":  "kubernetes",
+                      "category":  "devops",
+                      "file":  "kubernetes.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  8951,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "AWS",
+                      "slug":  "aws",
+                      "category":  "cloud",
+                      "file":  "aws.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  3743,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Google Cloud",
+                      "slug":  "google-cloud",
+                      "category":  "cloud",
+                      "file":  "google-cloud.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  782,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  },
+                  {
+                      "name":  "Git",
+                      "slug":  "git",
+                      "category":  "version-control",
+                      "file":  "git.svg",
+                      "format":  "svg",
+                      "width":  null,
+                      "height":  null,
+                      "viewBox":  "0 0 128 128",
+                      "fileSizeBytes":  778,
+                      "vector":  true,
+                      "href":  null,
+                      "recommendedDisplaySize":  {
+                                                     "desktop":  "80-100px",
+                                                     "mobile":  "56-72px"
+                                                 }
+                  }
+              ]
+}
