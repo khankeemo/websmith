@@ -417,10 +417,11 @@ export default function LandingPage() {
             width: "100%",
             height: "100%",
             objectFit: "cover",
+            objectPosition: "center",
             zIndex: 0,
           }}
         >
-          <source src="/videos/techVideo 2026-04-07 at 17.28.20.mp4" type="video/mp4" />
+          <source src="/videos/Websmith Digital.mp4" type="video/mp4" />
         </video>
         <div style={styles.heroOverlay} />
         <div style={styles.heroContent} className="landing-hero-content">
@@ -986,7 +987,7 @@ export default function LandingPage() {
             padding: 10px 16px !important;
           }
           .landing-hero {
-            min-height: 62vh !important;
+            min-height: 90vh !important;
             padding: 56px 16px !important;
             margin-top: 57px !important;
           }
@@ -1049,7 +1050,7 @@ const styles: any = {
     position: "relative",
     color: "#FFFFFF",
     overflow: "hidden",
-    minHeight: "50vh",
+    minHeight: "90vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
