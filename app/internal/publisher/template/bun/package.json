@@ -1,13 +1,9 @@
 {
   "name": "${package_name}",
-  "version": "${product_version}",
-  "description": "${product_description} — Bun SDK",
+  "version": "${kit_version}",
+  "description": "SDK for ${product_name} — Bun runtime",
+  "module": "client.js",
   "type": "module",
-  "main": "index.ts",
-  "module": "index.ts",
-  "engines": {
-    "bun": ">=1.0.0"
-  },
   "license": "MIT",
-  "private": false
+  "keywords": ["websmith", "license", "sdk", "bun"]
 }

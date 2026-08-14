@@ -3,71 +3,56 @@
 ## Version
 ${kit_version}
 
-## Package Structure
+## Installation
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+${package_name} = { path = "path/to/${package_name}" }
 ```
-${package_name}/
-├── Cargo.toml                 # Crate manifest with dependencies
-├── src/
-│   ├── lib.rs                 # Core types, config loading, re-exports
-│   ├── activation.rs          # Activation dialog (CLI stdin)
-│   ├── cache.rs               # File-based cache with atomic writes
-│   ├── client.rs              # HTTP client with HMAC-SHA256 signing
-│   ├── crypto.rs              # HMAC-SHA256 signing utilities
-│   ├── device_replace.rs      # Device replacement dialog
-│   ├── hardware.rs            # Hardware fingerprint generation
-│   ├── license_engine.rs      # License engine (orchestrates all operations)
-│   ├── renewal.rs             # License renewal dialog
-│   ├── welcome.rs             # Interactive welcome dialog
-│   └── widgets/
-│       ├── entry.rs           # Widget module declarations
-│       ├── activation_button.rs # Activation button widget
-│       ├── dashboard_widget.rs  # Dashboard display widget
-│       ├── settings_widget.rs   # Settings panel widget
-│       └── status_widget.rs     # Status indicator widget
-├── config/
-│   └── api-config.json        # Generated API configuration
-├── assets/
-│   ├── badge.svg              # Status badge icon
-│   └── logo.svg               # Product logo
-├── manifest.json              # SDK manifest
-└── README.md                  # This file
-```
+
+Or publish and reference from a registry.
 
 ## Configuration
 
-Place `config/api-config.json` in your working directory. Override the API URL
-at runtime via the `WEBSMITH_API_URL` environment variable.
+Place `config/api-config.json` in your working directory (auto-generated during publish):
 
 ```json
 {
   "api": {
     "url": "${api_url}",
-    "version": "v1",
-    "public_key": "${api_public_key}",
-    "secret": "${api_secret}",
+    "public_key": "pk_xxxx",
+    "secret": "sk_xxxx",
     "timeout": 30000,
-    "retry_count": 3
+    "retry_count": 3,
+    "version": "v1"
   },
   "product": {
-    "id": "${product_id}",
-    "name": "${product_name}"
+    "id": "${product_id}"
   },
   "offline": {
-    "cache_days": ${offline_days}
+    "cache_days": 0
   }
 }
 ```
 
+Override the API URL at runtime via the `WEBSMITH_API_URL` environment variable.
+
 ## Quick Start
 
 ```rust
-use wsd_sdk::{Config, LicenseEngine};
+use ${lib_name}::{load_config, LicenseEngine};
 
-fn main() {
-    let config = Config::load_default().expect("Failed to load config");
-    let mut engine = LicenseEngine::new(config);
-    let status = engine.initialize();
-    println!("Status: {}, Valid: {}", status.status, status.valid);
+#[tokio::main]
+async fn main() {
+    let config = load_config().expect("Failed to load config/api-config.json");
+    let mut engine = LicenseEngine::new(&config);
+
+    // Check current status
+    let status = engine.initialize().await;
+    println!("Status: {}", status.status);
+    println!("Valid: {}", status.valid);
 }
 ```
 
@@ -76,14 +61,18 @@ fn main() {
 ### Initialize & Validate
 
 ```rust
-use wsd_sdk::{Config, LicenseEngine};
+use ${lib_name}::{load_config, LicenseEngine};
 
-fn main() {
-    let config = Config::load("config/api-config.json").unwrap();
-    let mut engine = LicenseEngine::new(config);
-    let status = engine.initialize();
+#[tokio::main]
+async fn main() {
+    let config = load_config().unwrap();
+    let mut engine = LicenseEngine::new(&config);
+    let status = engine.initialize().await;
+
     if status.valid {
         println!("License valid until {:?}", status.expires_at);
+    } else if status.status == "trial" {
+        println!("Trial active");
     } else {
         println!("Status: {} - {:?}", status.status, status.message);
     }
@@ -93,14 +82,14 @@ fn main() {
 ### Activate License
 
 ```rust
-let result = engine.activate("XXXXX-XXXXX-XXXXX-XXXXX").unwrap();
-println!("License activated: {}", result);
+engine.activate("XXXXX-XXXXX-XXXXX-XXXXX", "My Computer").await.unwrap();
+println!("License activated: {}", engine.is_valid());
 ```
 
 ### Start Trial
 
 ```rust
-let result = engine.start_trial("user@example.com", "John Doe", None).unwrap();
+let result = engine.start_trial("user@example.com", "John Doe").await.unwrap();
 if result.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
     println!("Trial started");
 }
@@ -109,76 +98,45 @@ if result.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
 ### Convert Trial
 
 ```rust
-let result = engine.convert_trial("premium", "John Doe", "user@example.com").unwrap();
+let result = engine.convert_trial("premium", "John Doe", "user@example.com").await.unwrap();
 ```
 
 ### Renew License
 
 ```rust
-let result = engine.renew().unwrap();
+let result = engine.renew().await.unwrap();
 ```
 
-### Replace Hardware
+### View Hardware Status
 
 ```rust
-let result = engine.replace_hardware().unwrap();
+let status = engine.view_hardware_status().await.unwrap();
+println!("Hardware matched: {}", status["matched"]);
+println!("Current HW ID: {}", status["current_hardware_id"]);
+println!("Registered HW ID: {}", status["registered_hardware_id"]);
 ```
 
 ### Bind Device
 
 ```rust
-let result = engine.bind_device("", "Workstation-1").unwrap();
+let result = engine.bind_device("Workstation-1").await.unwrap();
 ```
 
 ### Deactivate License
 
 ```rust
-let result = engine.deactivate("").unwrap();
+let result = engine.deactivate().await.unwrap();
 ```
 
-### Welcome Dialog
+### Welcome Dialog (stdin)
 
 ```rust
-use wsd_sdk::WelcomeDialog;
+use ${lib_name}::welcome;
 
-let result = WelcomeDialog::show(&mut engine);
-if let Some(res) = result {
-    println!("User: {}, Email: {}", res.name, res.email);
+// Welcome dialog removed - use Universal License Center
+    println!("User entered: {}", input);
 }
 ```
-
-### Activation Dialog
-
-```rust
-use wsd_sdk::ActivationDialog;
-
-let result = ActivationDialog::show(&mut engine).unwrap();
-if result.activated {
-    println!("License activated successfully!");
-}
-```
-
-## Widgets
-
-```rust
-use wsd_sdk::widgets::{DashboardWidget, StatusWidget};
-
-let mut dashboard = DashboardWidget::new(&mut engine);
-println!("{}", dashboard.render());
-
-let mut status = StatusWidget::new(&mut engine);
-println!("{}", status.get_status_line());
-```
-
-## HMAC Request Signing
-
-All API requests are signed using HMAC-SHA256:
-
-1. Generate ISO 8601 UTC timestamp and UUID v4 nonce
-2. Compute SHA-256 of JSON body
-3. Build message: `{method}\n{path}\n{query}\n{body_hash}\n{timestamp}\n{nonce}`
-4. Compute HMAC-SHA256 with `api_secret`
-5. Send headers: `X-API-KEY`, `X-TIMESTAMP`, `X-NONCE`, `X-SIGNATURE`
 
 ## API Endpoints
 
@@ -187,10 +145,19 @@ All API requests are signed using HMAC-SHA256:
 | `POST /api/v1/license` | License management (validate, activate, deactivate, renew) |
 | `POST /api/v1/trial` | Trial management (start, status, convert) |
 | `POST /api/v1/device` | Device management (bind, replace) |
-| `POST /api/v1/customer/register` | Customer registration |
-| `GET  /api/v1/store/products` | Product listing |
+| `GET  /api/v1/status` | API health check |
+
+## HMAC Request Signing
+
+All API requests are signed using HMAC-SHA256:
+
+1. Generate ISO 8601 UTC timestamp and UUID v4 nonce
+2. Compute SHA-256 of JSON body
+3. Build message: `{method}\n{path}\n\n{body_hash}\n{timestamp}\n{nonce}`
+4. Compute HMAC-SHA256 with `api_secret`
+5. Send headers: `X-API-KEY`, `X-TIMESTAMP`, `X-NONCE`, `X-SIGNATURE`
 
 ## License
 
+Copyright (c) 2026 ${product_name}
 Generated by Websmith License API Center
-Copyright (c) ${year}

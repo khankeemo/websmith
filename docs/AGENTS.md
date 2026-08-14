@@ -683,7 +683,35 @@ Both docs are in sync. Never regress:
   When editing any runtime generator, re-run it — all 13 must stay `valid: true`.
 - **Full fidelity over string-presence**: the validator checks `content.includes(method)`,
   but new methods must be real working calls, not placeholder strings.
-- Keep this rule in sync with the master doc progress table (OPERATIONAL QA row).
+- **ALL 13 runtime generators are orchestration-only (since 2026-08-14)**: python,
+  typescript, node, php, java, dotnet, go, rust, cpp, c, javascript, bun, deno all load
+  their SDK from `template/<runtime>/` files (the single implementation source of truth
+  per language) and only replace placeholders / validate / return the file map — no
+  business/startup/hardware/activation/OTP/UI logic in any generator. Templates use
+  canonical `${...}` tokens (`kit_version`, `runtime`, `generated_at`, `product_id`,
+  `product_name`, `package_name`, `api_url`, `api_version`, `support_email`, `year`,
+  plus runtime-specific ones) which every generator's placeholder map must cover
+  (unreplaced known tokens fail generation). Never move business logic into a
+  generator or bake context values directly into a template; never re-add the deleted
+  broken template files. Keep this rule in sync with the master doc progress table
+  (OPERATIONAL QA row).
+- **Final runtime verification (2026-08-14) fixed three genuine template defects**
+  that byte-diff parity could not catch (see master doc "FINAL RUNTIME VERIFICATION"
+  progress entry): **rust** — `Cargo.toml` used the nonexistent `machine_uid` crate
+  (real crates.io crate is `machine-uid`, imported as `machine_uid` in code) and
+  `src/lib.rs` `initialize()` had a borrow-checker error (`match &self.license_key`
+  then `self.store_license_data()` needs `&mut self` — fixed with `self.license_key.clone()`);
+  **typescript** — the template failed `tsc --strict` (`cache.ts` assigned `unknown` to
+  `Record<string, any>[]` → cast; `universal_email_dialog.ts` `await response.json()`
+  typed `unknown` → `as any`); **cpp** — `client.hpp` was missing the `WelcomeDialog`
+  class declaration/constructor (orphaned method bodies + `private:` at namespace scope,
+  a pre-existing error since the original inline generator — header never compiled;
+  full class restored from original output). After the fixes: `npm test` 6/6 + 13/13
+  green, `cargo check` green, `tsc` build green, and real-wire smoke tests (local HTTP
+  server) pass for node / python / typescript-compiled-dist / javascript. When editing
+  a runtime template, prefer re-running the real toolchain when available (`cargo
+  check`, `tsc --noEmit`, `node --check`, `python -m py_compile`) over diff-oracles
+  alone.
 
 ## Public Website Contact & Social Media Settings (Manage Page)
 

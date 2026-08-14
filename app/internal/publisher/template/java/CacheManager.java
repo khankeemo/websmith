@@ -4,8 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -13,7 +14,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class CacheManager {
-
     private final Path cacheDir;
     private final Path cacheFile;
     private final Path tmpFile;
@@ -77,7 +77,7 @@ public class CacheManager {
             return cache;
         }
         try {
-            String content = new String(Files.readAllBytes(cacheFile), StandardCharsets.UTF_8);
+            String content = new String(Files.readAllBytes(cacheFile));
             @SuppressWarnings("unchecked")
             Map<String, Object> raw = gson.fromJson(content, Map.class);
             cache = new HashMap<>();
@@ -88,9 +88,7 @@ public class CacheManager {
                         Map<String, Object> m = (Map<String, Object>) entry.getValue();
                         CacheEntry ce = new CacheEntry();
                         ce.value = m.get("value");
-                        if (m.get("cached_at") instanceof Number) {
-                            ce.cachedAt = ((Number) m.get("cached_at")).longValue();
-                        } else if (m.get("cachedAt") instanceof Number) {
+                        if (m.get("cachedAt") instanceof Number) {
                             ce.cachedAt = ((Number) m.get("cachedAt")).longValue();
                         }
                         cache.put(entry.getKey(), ce);
@@ -120,7 +118,7 @@ public class CacheManager {
         ensureCacheDir();
         try {
             String json = gson.toJson(cache);
-            Files.write(tmpFile, json.getBytes(StandardCharsets.UTF_8));
+            Files.write(tmpFile, json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             Files.move(tmpFile, cacheFile, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
             try { Files.deleteIfExists(tmpFile); } catch (IOException ignored) {}
@@ -158,38 +156,8 @@ public class CacheManager {
         saveCache();
     }
 
-    public boolean isValid() {
-        Map<String, CacheEntry> c = loadCache();
-        CacheEntry entry = c.get("license_status");
-        if (entry == null) return false;
-        return !isExpired(entry);
-    }
-
-    public boolean exists() {
-        return Files.exists(cacheFile);
-    }
-
-    public Object getLicenseStatus() {
-        return get("license_status");
-    }
-
-    public void setLicenseStatus(Object status) {
-        set("license_status", status);
-    }
-
-    public void invalidateLicenseStatus() {
-        remove("license_status");
-    }
-
-    public void setOnboardingComplete() {
-        Map<String, CacheEntry> c = loadCache();
-        c.put("onboarding_complete", new CacheEntry(true, System.currentTimeMillis()));
-        saveCache();
-    }
-
-    public boolean isOnboardingComplete() {
-        Object val = get("onboarding_complete");
-        return Boolean.TRUE.equals(val);
+    public Path getCacheDir() {
+        return cacheDir;
     }
 
     private boolean isExpired(CacheEntry entry) {

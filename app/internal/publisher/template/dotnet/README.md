@@ -2,172 +2,150 @@
 
 ## Overview
 
-The .NET SDK provides a production-ready client for the ${product_name} licensing API.
+The .NET SDK provides a production-ready client for the Websmith licensing API.
 It includes HMAC-SHA256 request signing, automatic retry with exponential backoff,
 hardware fingerprinting, cache management, and a full license engine.
 
-## Requirements
-
-- .NET 8.0 SDK or later
-- `System.Management` package (included)
-
 ## Installation
 
-Add the SDK to your project:
+1. Add the SDK to your project:
 
 ```xml
 <ProjectReference Include="path/to/websmith-sdk.csproj" />
 ```
 
-Or add to your solution:
-```
-dotnet add reference path/to/websmith-sdk.csproj
-```
-
-## Configuration
-
-Place `config/api-config.json` in your application root:
+2. Place `config/api-config.json` in your application root:
 
 ```json
 {
-  "api": {
-    "url": "${api_url}",
-    "public_key": "your-public-api-key",
-    "secret": "your-api-secret",
-    "version": "v1",
-    "timeout": 30000,
-    "retry_count": 3
-  },
-  "product": {
-    "id": "${product_id}",
-    "name": "${product_name}"
-  },
-  "trial": {
-    "enabled": true,
-    "days": ${trial_days}
-  },
-  "offline": {
-    "cache_days": ${offline_days}
-  },
-  "branding": {
-    "company_name": "${company_name}",
-    "support_email": "support@websmithdigital.com"
-  }
+  "apiKey": "your_api_key",
+  "secret": "your_hmac_secret",
+  "productId": "${product_id}"
 }
 ```
 
-## Quick Start
+## Usage
+
+### Initialize
 
 ```csharp
+using System.IO;
+using System.Text.Json;
 using WebsmithSDK;
 
-var engine = new LicenseEngine();
-var status = engine.Initialize();
-Console.WriteLine($"Status: {status.Status}");
-if (status.Valid)
-    Console.WriteLine("License is active!");
+var config = JsonSerializer.Deserialize<JsonElement>(
+    File.ReadAllText("config/api-config.json"));
+
+var apiKey = config.GetProperty("apiKey").GetString()!;
+var secret = config.GetProperty("secret").GetString()!;
+var productId = config.GetProperty("productId").GetString()!;
+
+var client = new Client(apiKey, secret);
+var engine = new LicenseEngine(client, productId);
+engine.Initialize();
 ```
 
-## Full Lifecycle
+### Start Trial
 
-### 1. Initialize
 ```csharp
-var engine = new LicenseEngine();
-var status = engine.Initialize();
+var trialResult = await engine.StartTrial("user@example.com", "John Doe");
 ```
 
-### 2. Start Trial
+### Check Trial Status
+
 ```csharp
-var customerData = new Dictionary<string, object> { ["company_name"] = "Acme Inc." };
-var result = await engine.StartTrial("user@example.com", "John Doe", customerData);
+var status = await engine.CheckTrial();
 ```
 
-### 3. Check Trial Status
-```csharp
-var result = await engine.GetClient().GetTrialStatus(engine.GetHardwareId());
-```
+### Convert Trial to License
 
-### 4. Convert Trial to License
 ```csharp
 var result = await engine.ConvertTrial("premium", "John Doe", "user@example.com");
 ```
 
-### 5. Validate License
+### Activate License
+
 ```csharp
-var result = await engine.Validate("LICENSE-KEY");
-bool valid = engine.IsValid();
+var result = await engine.Activate("LICENSE-KEY-HERE", "My Workstation");
 ```
 
-### 6. Activate License
+### Validate License
+
 ```csharp
-var result = await engine.Activate("LICENSE-KEY");
+if (engine.HasLicenseKey())
+{
+    var result = await engine.Validate();
+    if (engine.IsValid())
+        Console.WriteLine("License is valid!");
+}
 ```
 
-### 7. Renew License
+### Renew License
+
 ```csharp
-var result = await engine.Renew(365);
+var result = await engine.Renew();
 ```
 
-### 8. Replace Hardware
+### View Hardware Status
+
 ```csharp
-var result = await engine.ReplaceHardware();
+var status = engine.ViewHardwareStatus();
+Console.WriteLine($"Hardware matched: {status["matched"]}");
+Console.WriteLine(status["message"]);
 ```
 
-### 9. Bind Device
+### Bind Device
+
 ```csharp
-var result = await engine.BindDevice("LICENSE-KEY", "My Laptop");
+var fp = HardwareFingerprint.Generate();
+var hardwareId = fp["fingerprint"].ToString();
+var result = await engine.BindDevice("LICENSE-KEY", hardwareId, "Laptop-2");
 ```
 
-### 10. Deactivate License
+### Deactivate License
+
 ```csharp
-var result = await engine.Deactivate("LICENSE-KEY");
+var result = await engine.Deactivate();
 ```
 
-### 11. Welcome Dialog
+### Get License Info
+
 ```csharp
-var dialog = new WelcomeDialog(client, "${product_name}", true);
-if (!dialog.IsOnboardingComplete())
-    dialog.Show();
+var info = engine.GetLicenseInfo();
+Console.WriteLine(info.GetProperty("status").GetString());
 ```
 
-### 12. Activation Dialog
-```csharp
-var dialog = new ActivationDialog(client);
-var result = dialog.Show();
-if (result.Activated)
-    Console.WriteLine("License activated!");
-```
+## Configuration
 
-## API Endpoints
-- `POST /api/v1/license` - License management (validate, activate, deactivate, renew)
-- `POST /api/v1/trial` - Trial management (start, status, convert)
-- `POST /api/v1/device` - Device management (bind, replace)
-- `GET /api/v1/store/products` - List available products
+| Environment Variable | Description |
+|---------------------|-------------|
+| `WEBSMITH_API_URL` | Base URL for the Websmith API |
 
-## HMAC Signing
-All API requests signed with HMAC-SHA256:
-- `X-API-Key` — Your public API key
-- `X-Timestamp` — ISO 8601 UTC timestamp
-- `X-Nonce` — Unique request identifier (hex)
-- `X-Signature` — HMAC-SHA256 of the canonical request
+Configuration is loaded from `config/api-config.json` at the application root.
 
-Canonical string format:
-```
-METHOD\nPATH\nQUERY\nBODY_HASH\nTIMESTAMP\nNONCE
-```
+## Cache
 
-## Caching
-Cache location: `~/.websmith/<productId>/cache.json`
-Default TTL: ${offline_days} days (0 = no caching by default)
-Atomic writes with temp file + rename
+The SDK caches license data to `~/.websmith/<productId>/` with a configurable TTL.
+Cache entries are written atomically (temp file + rename).
 
-## Hardware Fingerprinting
-SHA-256 hash of:
-1. CPU core count + architecture + ID
-2. Motherboard serial (WMI on Windows, dmidecode on Linux)
-3. MAC addresses of active network interfaces
-4. OS version/description
+## HMAC-SHA256 Signing
 
-## License
+All API requests are signed with HMAC-SHA256 using:
+- `X-API-Key` — Your API key
+- `X-Timestamp` — Current Unix timestamp
+- `X-Nonce` — Unique request identifier
+- `X-Signature` — HMAC-SHA256 of `timestamp + nonce + body_hash`
 
-Copyright (c) ${year} ${product_name}
+## Error Handling
+
+The SDK throws `ApiException` on non-success HTTP responses with the status code
+and response body. Transient errors are automatically retried up to 3 times with
+exponential backoff (1s, 2s, 4s).
+
+## Hardware Fingerprint
+
+The fingerprint is a SHA-256 hash of:
+1. CPU core count + architecture
+2. Motherboard info (WMI on Windows)
+3. MAC addresses of active interfaces
+4. OS version

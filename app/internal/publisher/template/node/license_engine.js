@@ -15,6 +15,12 @@ class LicenseStatus {
     this.message = kwargs?.message || null;
     this.license_key = kwargs?.license_key || null;
     this.trial_active = kwargs?.trial_active || status === 'trial';
+    this.product_name = kwargs?.product_name || null;
+    this.customer_name = kwargs?.customer_name || null;
+    this.customer_email = kwargs?.customer_email || null;
+    this.customer_mobile = kwargs?.customer_mobile || null;
+    this.max_devices = kwargs?.max_devices ?? 0;
+    this.device_count = kwargs?.device_count ?? 0;
   }
 
   toDict() {
@@ -28,6 +34,12 @@ class LicenseStatus {
       message: this.message,
       license_key: this.license_key,
       trial_active: this.trial_active,
+      product_name: this.product_name,
+      customer_name: this.customer_name,
+      customer_email: this.customer_email,
+      customer_mobile: this.customer_mobile,
+      max_devices: this.max_devices,
+      device_count: this.device_count,
     };
   }
 
@@ -43,6 +55,12 @@ class LicenseStatus {
         message: data.message,
         license_key: data.license_key,
         trial_active: data.trial_active || data.status === 'trial',
+        product_name: data.product_name,
+        customer_name: data.customer_name,
+        customer_email: data.customer_email,
+        customer_mobile: data.customer_mobile,
+        max_devices: data.max_devices || 0,
+        device_count: data.device_count || 0,
       }
     );
   }
@@ -86,40 +104,34 @@ class LicenseEngine {
     try {
       const hardwareId = this._hardware.getFingerprint();
       const statusResponse = await this._client.getLicenseStatus(hardwareId);
-      if (statusResponse.success) {
-        const apiStatus = statusResponse.status || 'no_license';
-        if (apiStatus === 'licensed') {
-          const cust = statusResponse.customer || {};
-          const lic = statusResponse.license || {};
-          const plan = statusResponse.plan || {};
-          const devices = statusResponse.devices || {};
-          this._status = new LicenseStatus(true, 'licensed', {
-            expires_at: lic.expiry_date,
-            days_remaining: lic.days_remaining || 0,
-            plan: plan.name,
-            hardware_id: hardwareId,
-            license_key: lic.license_key,
-            message: 'License active',
-          });
-          if (this._status.valid) {
-            this._cache.setLicenseStatus(this._status.toDict());
-            this._cache.markHasEverActivatedPaidLicense();
-          }
-          return this._status;
-        } else if (apiStatus === 'trial') {
-          const cust = statusResponse.customer || {};
-          const lic = statusResponse.license || {};
-          const plan = statusResponse.plan || {};
-          this._status = new LicenseStatus(true, 'trial', {
-            expires_at: lic.expiry_date,
-            days_remaining: lic.days_remaining || 0,
-            plan: plan.name || 'Trial',
-            hardware_id: hardwareId,
-            message: 'Trial active',
-          });
-          if (this._status.valid) this._cache.setLicenseStatus(this._status.toDict());
-          return this._status;
+      const apiStatus = (statusResponse && statusResponse.status) || 'NO_CUSTOMER';
+      const valid = (apiStatus === 'ACTIVE' || apiStatus === 'TRIAL_ACTIVE');
+      if (valid) {
+        const cust = statusResponse.customer || {};
+        const lic = statusResponse.license || {};
+        const plan = statusResponse.plan || {};
+        const product = statusResponse.product || {};
+        const devices = statusResponse.devices || {};
+        const displayStatus = apiStatus === 'ACTIVE' ? 'licensed' : 'trial';
+        this._status = new LicenseStatus(true, displayStatus, {
+          expires_at: lic.expiry_date,
+          days_remaining: lic.days_remaining || lic.days_left || 0,
+          plan: plan.name || lic.plan || (displayStatus === 'trial' ? 'Trial' : null),
+          hardware_id: hardwareId,
+          license_key: lic.license_key,
+          message: statusResponse.message || statusResponse.reason || (displayStatus === 'licensed' ? 'License active' : 'Trial active'),
+          product_name: product.name,
+          customer_name: cust.name,
+          customer_email: cust.email,
+          customer_mobile: cust.mobile,
+          max_devices: devices.maximum ?? 0,
+          device_count: devices.current ?? 0,
+        });
+        if (this._status.valid) {
+          this._cache.setLicenseStatus(this._status.toDict());
+          if (displayStatus === 'licensed') this._cache.markHasEverActivatedPaidLicense();
         }
+        return this._status;
       }
       if (this._cache.hasEverActivatedPaidLicense()) {
         this._status = new LicenseStatus(false, 'force_reactivation', {
@@ -128,9 +140,16 @@ class LicenseEngine {
         });
         return this._status;
       }
-      this._status = new LicenseStatus(false, 'unlicensed', {
+      const displayStatus = {
+        TRIAL_EXPIRED: 'trial_consumed',
+        NO_CUSTOMER: 'no_license',
+        INACTIVE: 'inactive',
+        REVOKED: 'revoked',
+        EXPIRED: 'expired',
+      }[apiStatus] || 'no_license';
+      this._status = new LicenseStatus(false, displayStatus, {
         hardware_id: hardwareId,
-        message: 'No license or trial found',
+        message: (statusResponse && (statusResponse.message || statusResponse.reason)) || 'No license or trial found',
       });
       return this._status;
     } catch (e) {

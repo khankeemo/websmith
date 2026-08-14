@@ -252,7 +252,7 @@ export class CacheManager {
 
   queueMessage(msg: Record<string, any>): void {
     const cache = this._loadCache();
-    const queue: Record<string, any>[] = cache.message_queue?.value || [];
+    const queue: Record<string, any>[] = (cache.message_queue?.value as Record<string, any>[] | undefined) || [];
     msg.id = msg.id || `q_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     msg.status = msg.status || 'pending';
     msg.retry_count = msg.retry_count || 0;

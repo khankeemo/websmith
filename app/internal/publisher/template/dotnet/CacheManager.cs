@@ -1,205 +1,96 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 
-namespace WebsmithSDK;
-
-public class CacheManager
+namespace WebsmithSDK
 {
-    private readonly string _cacheDir;
-    private readonly string _cacheFile;
-    private readonly string _tmpFile;
-    private readonly string _corruptFile;
-    private readonly long _ttlMillis;
-    private Dictionary<string, CacheEntry>? _cache;
-
-    private class CacheEntry
+    public class CacheManager
     {
-        [JsonPropertyName("value")]
-        public JsonElement? Value { get; set; }
+        private readonly string _cacheDir;
+        private readonly int _ttlSeconds;
 
-        [JsonPropertyName("cached_at")]
-        public long CachedAt { get; set; }
-    }
-
-    public CacheManager(JsonDocument config)
-    {
-        int ttlDays = 0;
-        if (config.RootElement.TryGetProperty("offline", out var offline))
+        public CacheManager(string productId, int ttlSeconds = 0)
         {
-            if (offline.TryGetProperty("cache_days", out var cd))
-                ttlDays = cd.GetInt32();
-        }
-        _ttlMillis = ttlDays * 24L * 60L * 60L * 1000L;
-
-        string productId = "";
-        if (config.RootElement.TryGetProperty("product", out var product)
-            && product.TryGetProperty("id", out var pid))
-        {
-            productId = pid.GetString() ?? "";
-        }
-        var safeName = string.Join("_", (productId ?? "unknown").Split(
-            Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
-        if (string.IsNullOrEmpty(safeName)) safeName = "unknown";
-
-        var home = Environment.GetEnvironmentVariable("HOME")
-            ?? Environment.GetEnvironmentVariable("USERPROFILE")
-            ?? ".";
-        _cacheDir = Path.Combine(home, ".websmith", safeName);
-        _cacheFile = Path.Combine(_cacheDir, "cache.json");
-        _tmpFile = Path.Combine(_cacheDir, "cache.tmp");
-        _corruptFile = Path.Combine(_cacheDir, "cache.corrupt");
-        _cache = null;
-    }
-
-    public CacheManager() : this(JsonDocument.Parse("{}")) { }
-
-    private void EnsureCacheDir()
-    {
-        if (!Directory.Exists(_cacheDir))
+            _ttlSeconds = ttlSeconds;
+            var home = Environment.GetEnvironmentVariable("HOME")
+                ?? Environment.GetEnvironmentVariable("USERPROFILE")
+                ?? ".";
+            _cacheDir = Path.Combine(home, ".websmith", productId);
             Directory.CreateDirectory(_cacheDir);
-    }
-
-    private Dictionary<string, CacheEntry> LoadCache()
-    {
-        if (_cache != null) return _cache;
-        EnsureCacheDir();
-        if (!File.Exists(_cacheFile))
-        {
-            _cache = new Dictionary<string, CacheEntry>();
-            return _cache;
         }
-        try
+
+        public async Task Set(string key, object value)
         {
-            var json = File.ReadAllText(_cacheFile);
-            var raw = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
-            _cache = new Dictionary<string, CacheEntry>();
-            if (raw != null)
+            var entry = new CacheEntry
             {
-                foreach (var kv in raw)
-                {
-                    if (kv.Value.ValueKind == JsonValueKind.Object)
-                    {
-                        try
-                        {
-                            var entry = JsonSerializer.Deserialize<CacheEntry>(kv.Value.GetRawText());
-                            if (entry != null)
-                                _cache[kv.Key] = entry;
-                        }
-                        catch { }
-                    }
-                }
-            }
-            return _cache;
-        }
-        catch
-        {
-            PreserveCorruptCache();
-            _cache = new Dictionary<string, CacheEntry>();
-            return _cache;
-        }
-    }
+                Data = value,
+                ExpiresAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + _ttlSeconds
+            };
+            var json = JsonSerializer.Serialize(entry);
+            var fileName = SanitizeKey(key);
+            var tempPath = Path.Combine(_cacheDir, fileName + ".tmp");
+            var finalPath = Path.Combine(_cacheDir, fileName + ".json");
 
-    private void PreserveCorruptCache()
-    {
-        if (File.Exists(_cacheFile))
+            await File.WriteAllTextAsync(tempPath, json);
+            if (File.Exists(finalPath))
+                File.Delete(finalPath);
+            File.Move(tempPath, finalPath);
+        }
+
+        public async Task<T?> Get<T>(string key) where T : class
         {
+            var fileName = SanitizeKey(key);
+            var path = Path.Combine(_cacheDir, fileName + ".json");
+            if (!File.Exists(path))
+                return null;
+
             try
             {
-                if (File.Exists(_corruptFile)) File.Delete(_corruptFile);
-                File.Move(_cacheFile, _corruptFile);
+                var json = await File.ReadAllTextAsync(path);
+                var entry = JsonSerializer.Deserialize<CacheEntry>(json);
+                if (entry == null)
+                    return null;
+
+                if (entry.ExpiresAt < DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+                {
+                    File.Delete(path);
+                    return null;
+                }
+
+                var data = JsonSerializer.Deserialize<T>(entry.Data.GetRawText());
+                return data;
             }
             catch
             {
-                try { File.Delete(_cacheFile); } catch { }
+                return null;
             }
         }
-    }
 
-    private void SaveCache()
-    {
-        if (_cache == null) return;
-        EnsureCacheDir();
-        try
+        public void Clear()
         {
-            var json = JsonSerializer.Serialize(_cache);
-            File.WriteAllText(_tmpFile, json);
-            if (File.Exists(_cacheFile)) File.Delete(_cacheFile);
-            File.Move(_tmpFile, _cacheFile);
+            if (Directory.Exists(_cacheDir))
+            {
+                foreach (var f in Directory.GetFiles(_cacheDir, "*.json"))
+                {
+                    try { File.Delete(f); } catch { }
+                }
+            }
         }
-        catch
+
+        private static string SanitizeKey(string key)
         {
-            try { if (File.Exists(_tmpFile)) File.Delete(_tmpFile); } catch { }
+            var invalid = Path.GetInvalidFileNameChars();
+            var sb = new System.Text.StringBuilder(key.Length);
+            foreach (var c in key)
+                sb.Append(invalid.Contains(c) ? '_' : c);
+            return sb.ToString();
         }
-    }
 
-    public string? Get(string key)
-    {
-        var c = LoadCache();
-        if (!c.TryGetValue(key, out var entry)) return null;
-        if (IsExpired(entry))
+        private class CacheEntry
         {
-            c.Remove(key);
-            SaveCache();
-            return null;
+            public JsonElement Data { get; set; }
+            public long ExpiresAt { get; set; }
         }
-        return entry.Value?.GetRawText();
-    }
-
-    public void Set(string key, object value)
-    {
-        var c = LoadCache();
-        c[key] = new CacheEntry
-        {
-            Value = JsonSerializer.SerializeToElement(value),
-            CachedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-        };
-        SaveCache();
-    }
-
-    public void Remove(string key)
-    {
-        var c = LoadCache();
-        if (c.ContainsKey(key))
-        {
-            c.Remove(key);
-            SaveCache();
-        }
-    }
-
-    public void Clear()
-    {
-        _cache = new Dictionary<string, CacheEntry>();
-        SaveCache();
-    }
-
-    public bool IsValid()
-    {
-        var c = LoadCache();
-        if (!c.TryGetValue("license_status", out var entry)) return false;
-        return !IsExpired(entry);
-    }
-
-    public bool Exists() => File.Exists(_cacheFile);
-
-    public string? GetLicenseStatus() => Get("license_status");
-
-    public void SetLicenseStatus(string status) => Set("license_status", status);
-
-    public void InvalidateLicenseStatus() => Remove("license_status");
-
-    public void SetOnboardingComplete() => Set("onboarding_complete", true);
-
-    public bool IsOnboardingComplete()
-    {
-        var val = Get("onboarding_complete");
-        return val != null && val == "true";
-    }
-
-    private bool IsExpired(CacheEntry entry)
-    {
-        return (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - entry.CachedAt) > _ttlMillis;
     }
 }

@@ -1,4 +1,4 @@
-package wsd
+package websmith
 
 import (
 	"encoding/json"
@@ -11,52 +11,43 @@ import (
 )
 
 type CacheEntry struct {
-	Value    interface{} `json:"value"`
-	CachedAt float64     `json:"cached_at"`
+	Data      interface{} `json:"data"`
+	ExpiresAt int64       `json:"expires_at"`
+	CreatedAt int64       `json:"created_at"`
 }
 
 type CacheManager struct {
-	config     *Config
-	productID  string
-	cacheDir   string
-	cacheFile  string
-	tmpFile    string
-	corruptFile string
-	ttlDays    int
-	mu         sync.RWMutex
-	cache      map[string]CacheEntry
+	cacheDir string
+	ttl      time.Duration
+	mu       sync.RWMutex
 }
 
-func NewCacheManager(cfg *Config) *CacheManager {
-	productID := cfg.Product.ID
-	if productID == "" {
-		productID = "unknown"
-	}
-	safeName := sanitizeProductID(productID)
+func NewCacheManager(productID string, ttlSeconds int) (*CacheManager, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		home = "."
+		return nil, fmt.Errorf("cannot determine home directory: %w", err)
 	}
-	cacheDir := filepath.Join(home, ".websmith", safeName)
-	ttlDays := cfg.Offline.CacheDays
-	if ttlDays < 0 {
-		ttlDays = 0
+	cacheDir := filepath.Join(home, ".websmith", productID)
+	if ttlSeconds < 0 {
+		ttlSeconds = 0
 	}
 	return &CacheManager{
-		config:      cfg,
-		productID:   productID,
-		cacheDir:    cacheDir,
-		cacheFile:   filepath.Join(cacheDir, "cache.json"),
-		tmpFile:     filepath.Join(cacheDir, "cache.tmp"),
-		corruptFile: filepath.Join(cacheDir, "cache.corrupt"),
-		ttlDays:     ttlDays,
-		cache:       nil,
-	}
+		cacheDir: cacheDir,
+		ttl:      time.Duration(ttlSeconds) * time.Second,
+	}, nil
 }
 
-func sanitizeProductID(id string) string {
+func (cm *CacheManager) GetCacheDir() string {
+	return cm.cacheDir
+}
+
+func (cm *CacheManager) getFilePath(key string) string {
+	return filepath.Join(cm.cacheDir, sanitizeKey(key)+".json")
+}
+
+func sanitizeKey(key string) string {
 	var sb strings.Builder
-	for _, c := range id {
+	for _, c := range key {
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
 			sb.WriteRune(c)
 		} else {
@@ -66,199 +57,81 @@ func sanitizeProductID(id string) string {
 	return sb.String()
 }
 
-func (cm *CacheManager) ensureCacheDir() error {
-	return os.MkdirAll(cm.cacheDir, 0700)
+func (cm *CacheManager) Get(key string) (interface{}, bool) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	data, err := os.ReadFile(cm.getFilePath(key))
+	if err != nil {
+		return nil, false
+	}
+
+	var entry CacheEntry
+	if err := json.Unmarshal(data, &entry); err != nil {
+		return nil, false
+	}
+
+	if entry.ExpiresAt > 0 && time.Now().UnixMilli() > entry.ExpiresAt {
+		os.Remove(cm.getFilePath(key))
+		return nil, false
+	}
+
+	return entry.Data, true
 }
 
-func (cm *CacheManager) loadCache() (map[string]CacheEntry, error) {
-	cm.mu.RLock()
-	if cm.cache != nil {
-		cm.mu.RUnlock()
-		return cm.cache, nil
-	}
-	cm.mu.RUnlock()
-
+func (cm *CacheManager) Set(key string, value interface{}) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	if cm.cache != nil {
-		return cm.cache, nil
+	if err := os.MkdirAll(cm.cacheDir, 0700); err != nil {
+		return fmt.Errorf("failed to create cache dir: %w", err)
 	}
 
-	if err := cm.ensureCacheDir(); err != nil {
-		cm.cache = make(map[string]CacheEntry)
-		return cm.cache, nil
+	entry := CacheEntry{
+		Data:      value,
+		CreatedAt: time.Now().UnixMilli(),
+		ExpiresAt: time.Now().Add(cm.ttl).UnixMilli(),
 	}
 
-	if _, err := os.Stat(cm.cacheFile); os.IsNotExist(err) {
-		cm.cache = make(map[string]CacheEntry)
-		return cm.cache, nil
-	}
-
-	data, err := os.ReadFile(cm.cacheFile)
+	data, err := json.Marshal(entry)
 	if err != nil {
-		cm.preserveCorruptCache()
-		cm.cache = make(map[string]CacheEntry)
-		return cm.cache, nil
+		return fmt.Errorf("failed to marshal cache: %w", err)
 	}
 
-	var cache map[string]CacheEntry
-	if err := json.Unmarshal(data, &cache); err != nil {
-		cm.preserveCorruptCache()
-		cm.cache = make(map[string]CacheEntry)
-		return cm.cache, nil
-	}
-	cm.cache = cache
-	return cm.cache, nil
-}
+	filePath := cm.getFilePath(key)
+	tmpPath := filePath + ".tmp." + fmt.Sprintf("%d", time.Now().UnixNano())
 
-func (cm *CacheManager) preserveCorruptCache() {
-	if _, err := os.Stat(cm.cacheFile); os.IsNotExist(err) {
-		return
-	}
-	if _, err := os.Stat(cm.corruptFile); err == nil {
-		os.Remove(cm.corruptFile)
-	}
-	os.Rename(cm.cacheFile, cm.corruptFile)
-}
-
-func (cm *CacheManager) saveCache() error {
-	cm.mu.RLock()
-	if cm.cache == nil {
-		cm.mu.RUnlock()
-		return nil
-	}
-	cm.mu.RUnlock()
-
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	if cm.cache == nil {
-		return nil
+	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write cache: %w", err)
 	}
 
-	if err := cm.ensureCacheDir(); err != nil {
-		return err
+	if err := os.Rename(tmpPath, filePath); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to atomically write cache: %w", err)
 	}
 
-	data, err := json.MarshalIndent(cm.cache, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(cm.tmpFile, data, 0600); err != nil {
-		return err
-	}
-
-	if err := os.Rename(cm.tmpFile, cm.cacheFile); err != nil {
-		os.Remove(cm.tmpFile)
-		return err
-	}
 	return nil
 }
 
-func (cm *CacheManager) Get(key string) interface{} {
-	cache, err := cm.loadCache()
-	if err != nil {
-		return nil
-	}
-	entry, ok := cache[key]
-	if !ok {
-		return nil
-	}
-	if cm.isExpired(entry) {
-		cm.Delete(key)
-		return nil
-	}
-	return entry.Value
-}
-
-func (cm *CacheManager) Set(key string, value interface{}) {
-	cache, err := cm.loadCache()
-	if err != nil {
-		return
-	}
+func (cm *CacheManager) Clear() error {
 	cm.mu.Lock()
-	cache[key] = CacheEntry{
-		Value:    value,
-		CachedAt: float64(time.Now().Unix()),
-	}
-	cm.mu.Unlock()
-	cm.saveCache()
-}
+	defer cm.mu.Unlock()
 
-func (cm *CacheManager) Delete(key string) {
-	cache, err := cm.loadCache()
+	entries, err := os.ReadDir(cm.cacheDir)
 	if err != nil {
-		return
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to read cache dir: %w", err)
 	}
-	cm.mu.Lock()
-	delete(cache, key)
-	cm.mu.Unlock()
-	cm.saveCache()
-}
 
-func (cm *CacheManager) Clear() {
-	cm.mu.Lock()
-	cm.cache = make(map[string]CacheEntry)
-	cm.mu.Unlock()
-	cm.saveCache()
-}
-
-func (cm *CacheManager) isExpired(entry CacheEntry) bool {
-	ttlSeconds := cm.ttlDays * 24 * 60 * 60
-	return float64(time.Now().Unix())-entry.CachedAt > float64(ttlSeconds)
-}
-
-func (cm *CacheManager) IsValid() bool {
-	cache, err := cm.loadCache()
-	if err != nil {
-		return false
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".json" {
+			if err := os.Remove(filepath.Join(cm.cacheDir, entry.Name())); err != nil {
+				return fmt.Errorf("failed to remove cache entry: %w", err)
+			}
+		}
 	}
-	entry, ok := cache["license_status"]
-	if !ok {
-		return false
-	}
-	return !cm.isExpired(entry)
-}
 
-func (cm *CacheManager) Exists() bool {
-	_, err := os.Stat(cm.cacheFile)
-	return err == nil
-}
-
-func (cm *CacheManager) GetLicenseStatus() map[string]interface{} {
-	val := cm.Get("license_status")
-	if val == nil {
-		return nil
-	}
-	result, ok := val.(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	return result
-}
-
-func (cm *CacheManager) SetLicenseStatus(status map[string]interface{}) {
-	cm.Set("license_status", status)
-}
-
-func (cm *CacheManager) InvalidateLicenseStatus() {
-	cm.Delete("license_status")
-}
-
-func (cm *CacheManager) SetOnboardingComplete() {
-	cm.Set("onboarding_complete", true)
-}
-
-func (cm *CacheManager) IsOnboardingComplete() bool {
-	return cm.Get("onboarding_complete") == true
-}
-
-func (cm *CacheManager) MarkHasEverActivatedPaidLicense() {
-	cm.Set("has_ever_activated_paid_license", true)
-}
-
-func (cm *CacheManager) HasEverActivatedPaidLicense() bool {
-	return cm.Get("has_ever_activated_paid_license") == true
+	return nil
 }

@@ -11,78 +11,45 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.HashSet;
-import java.util.Set;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
-public class ApiClient {
-
-    private static final Set<Integer> RETRYABLE_STATUSES = new HashSet<>();
-    static {
-        RETRYABLE_STATUSES.add(500);
-        RETRYABLE_STATUSES.add(502);
-        RETRYABLE_STATUSES.add(503);
-        RETRYABLE_STATUSES.add(504);
-    }
-
+public class Client {
     private final String apiKey;
     private final String apiSecret;
     private final String baseUrl;
-    private final String apiVersion;
     private final String productId;
     private final int retryCount;
     private final int timeoutMs;
     private final HttpClient httpClient;
     private final Gson gson;
-    private HardwareDetector hardware;
-    private CacheManager cache;
 
-    public ApiClient() {
+    public Client() {
         this("config/api-config.json");
     }
 
-    public ApiClient(String configPath) {
-        JsonObject config = loadConfigFile(configPath);
-        JsonObject api = config.has("api") ? config.getAsJsonObject("api") : new JsonObject();
-        JsonObject product = config.has("product") ? config.getAsJsonObject("product") : new JsonObject();
+    public Client(String configPath) {
+        JsonObject config = loadConfig(configPath);
+        JsonObject api = config.getAsJsonObject("api");
+        JsonObject product = config.getAsJsonObject("product");
         this.apiKey = getJsonString(api, "public_key");
         this.apiSecret = getJsonString(api, "secret");
         String envUrl = System.getenv("WEBSMITH_API_URL");
         this.baseUrl = (envUrl != null ? envUrl : getJsonString(api, "url")).replaceAll("/+$", "");
-        this.apiVersion = getJsonString(api, "version");
-        if (this.apiVersion.isEmpty()) this.apiVersion = "v1";
         this.productId = getJsonString(product, "id");
         this.retryCount = getJsonInt(api, "retry_count", 3);
         this.timeoutMs = getJsonInt(api, "timeout", 30000);
         this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofMillis(this.timeoutMs))
+            .connectTimeout(java.time.Duration.ofMillis(this.timeoutMs))
             .build();
         this.gson = new Gson();
-        this.hardware = new HardwareDetector();
-        this.cache = new CacheManager(config);
     }
 
-    public ApiClient(JsonObject config, HardwareDetector hardware, CacheManager cache) {
-        JsonObject api = config.has("api") ? config.getAsJsonObject("api") : new JsonObject();
-        JsonObject product = config.has("product") ? config.getAsJsonObject("product") : new JsonObject();
-        this.apiKey = getJsonString(api, "public_key");
-        this.apiSecret = getJsonString(api, "secret");
-        String envUrl = System.getenv("WEBSMITH_API_URL");
-        this.baseUrl = (envUrl != null ? envUrl : getJsonString(api, "url")).replaceAll("/+$", "");
-        this.apiVersion = getJsonString(api, "version");
-        if (this.apiVersion.isEmpty()) this.apiVersion = "v1";
-        this.productId = getJsonString(product, "id");
-        this.retryCount = getJsonInt(api, "retry_count", 3);
-        this.timeoutMs = getJsonInt(api, "timeout", 30000);
-        this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofMillis(this.timeoutMs))
-            .build();
-        this.gson = new Gson();
-        this.hardware = hardware;
-        this.cache = cache;
-    }
-
-    private static JsonObject loadConfigFile(String path) {
+    private static JsonObject loadConfig(String path) {
         try {
             File f = new File(path);
             if (f.exists()) {
@@ -92,7 +59,7 @@ public class ApiClient {
             }
         } catch (Exception ignored) {}
         try (InputStreamReader reader = new InputStreamReader(
-                ApiClient.class.getClassLoader().getResourceAsStream(path))) {
+                Client.class.getClassLoader().getResourceAsStream(path))) {
             if (reader != null) {
                 return JsonParser.parseReader(reader).getAsJsonObject();
             }
@@ -102,11 +69,12 @@ public class ApiClient {
         api.addProperty("public_key", "");
         api.addProperty("secret", "");
         api.addProperty("url", "");
-        api.addProperty("version", "v1");
         api.addProperty("retry_count", 3);
         api.addProperty("timeout", 30000);
         fallback.add("api", api);
-        fallback.add("product", new JsonObject());
+        JsonObject product = new JsonObject();
+        product.addProperty("id", "");
+        fallback.add("product", product);
         return fallback;
     }
 
@@ -142,34 +110,31 @@ public class ApiClient {
         public JsonObject getResponseData() { return responseData; }
     }
 
-    private String getHardwareId() {
-        return hardware.getFingerprint();
+    private String generateTimestamp() {
+        return Instant.now().toString();
     }
 
-    public HardwareDetector getHardware() {
-        return hardware;
+    private String generateNonce() {
+        return UUID.randomUUID().toString();
     }
 
-    public CacheManager getCache() {
-        return cache;
-    }
-
-    private JsonObject signRequestHeaders(JsonObject payload, String method, String path, String query)
-            throws Exception {
-        String timestamp = CryptoUtils.generateTimestamp();
-        String nonce = CryptoUtils.generateNonce();
-        String signature = CryptoUtils.signRequest(payload, apiSecret, timestamp, nonce, method, path, query);
-        JsonObject headers = new JsonObject();
-        headers.addProperty("x-api-key", apiKey);
-        headers.addProperty("x-timestamp", timestamp);
-        headers.addProperty("x-nonce", nonce);
-        headers.addProperty("x-signature", signature);
-        return headers;
+    private String signPayload(JsonObject payload, String timestamp, String nonce,
+                               String method, String path, String query) throws Exception {
+        String bodyJson = gson.toJson(payload);
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        String bodyHash = bytesToHex(md.digest(bodyJson.getBytes(StandardCharsets.UTF_8)));
+        String canonical = method + "\n" + path + "\n" + query + "\n" + bodyHash + "\n" + timestamp + "\n" + nonce;
+        Mac mac = Mac.getInstance("HmacSHA256");
+        SecretKeySpec keySpec = new SecretKeySpec(apiSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        mac.init(keySpec);
+        return Base64.getEncoder().encodeToString(mac.doFinal(canonical.getBytes(StandardCharsets.UTF_8)));
     }
 
     private JsonObject request(String endpoint, JsonObject data) throws ApiException {
-        String url = baseUrl + "/api/" + apiVersion + "/" + endpoint;
-        String apiPath = "/api/" + apiVersion + "/" + endpoint;
+        String url = baseUrl + endpoint;
+        String apiPath = "/api/v1/" + endpoint;
+        String method = "POST";
+        String query = "";
         int maxRetries = retryCount;
 
         if (productId != null && !productId.isEmpty() && !data.has("product_id")) {
@@ -178,9 +143,9 @@ public class ApiClient {
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                String timestamp = CryptoUtils.generateTimestamp();
-                String nonce = CryptoUtils.generateNonce();
-                String signature = CryptoUtils.signRequest(data, apiSecret, timestamp, nonce, "POST", apiPath, "");
+                String timestamp = generateTimestamp();
+                String nonce = generateNonce();
+                String signature = signPayload(data, timestamp, nonce, method, apiPath, query);
 
                 String bodyJson = gson.toJson(data);
                 HttpRequest request = HttpRequest.newBuilder()
@@ -190,7 +155,7 @@ public class ApiClient {
                     .header("X-Timestamp", timestamp)
                     .header("X-Nonce", nonce)
                     .header("X-Signature", signature)
-                    .method("POST", HttpRequest.BodyPublishers.ofString(bodyJson, StandardCharsets.UTF_8))
+                    .method(method, HttpRequest.BodyPublishers.ofString(bodyJson, StandardCharsets.UTF_8))
                     .build();
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -221,16 +186,16 @@ public class ApiClient {
                     throw new ApiException(status, "Rate limit exceeded", result);
                 }
 
-                if (RETRYABLE_STATUSES.contains(status)) {
+                if (status >= 500) {
                     if (attempt < maxRetries) {
                         Thread.sleep((long) ((attempt + 1) * 2 * 1000L));
                         continue;
                     }
                 }
 
-                String msg = result.has("message") ? result.get("message").getAsString()
-                    : result.has("error") ? result.get("error").getAsString()
-                    : "HTTP " + status;
+                String msg = "HTTP " + status;
+                if (result.has("message")) msg = result.get("message").getAsString();
+                else if (result.has("error")) msg = result.get("error").getAsString();
                 throw new ApiException(status, msg, result);
 
             } catch (ApiException e) {
@@ -252,38 +217,29 @@ public class ApiClient {
         throw new ApiException(500, "Request failed after " + maxRetries + " retries");
     }
 
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) sb.append(String.format("%02x", b));
+        return sb.toString();
+    }
+
     public JsonObject validateLicense(String licenseKey, String hardwareId) throws ApiException {
         JsonObject data = new JsonObject();
         data.addProperty("action", "validate");
         data.addProperty("license_key", licenseKey);
         data.addProperty("hardware_id", hardwareId);
-        if (cache != null && cache.isValid()) {
-            Object cached = cache.get("license_status");
-            if (cached instanceof String) {
-                try {
-                    return JsonParser.parseString((String) cached).getAsJsonObject();
-                } catch (Exception ignored) {}
-            }
-        }
-        JsonObject response = request("license", data);
-        if (cache != null && response.has("success") && response.get("success").getAsBoolean()
-            && response.has("data") && response.getAsJsonObject("data").has("valid")
-            && response.getAsJsonObject("data").get("valid").getAsBoolean()) {
-            cache.set("license_status", response.toString());
-        }
-        return response;
+        return request("license", data);
     }
 
-    public JsonObject activateLicense(String licenseKey, String hardwareId) throws ApiException {
+    public JsonObject activateLicense(String licenseKey, String hardwareId, String deviceName) throws ApiException {
         JsonObject data = new JsonObject();
         data.addProperty("action", "activate");
         data.addProperty("license_key", licenseKey);
         data.addProperty("hardware_id", hardwareId);
-        JsonObject response = request("license", data);
-        if (cache != null) {
-            cache.remove("license_status");
+        if (deviceName != null && !deviceName.isEmpty()) {
+            data.addProperty("device_name", deviceName);
         }
-        return response;
+        return request("license", data);
     }
 
     public JsonObject deactivateLicense(String licenseKey, String hardwareId) throws ApiException {
@@ -291,11 +247,7 @@ public class ApiClient {
         data.addProperty("action", "deactivate");
         data.addProperty("license_key", licenseKey);
         data.addProperty("hardware_id", hardwareId);
-        JsonObject response = request("license", data);
-        if (cache != null) {
-            cache.remove("license_status");
-        }
-        return response;
+        return request("license", data);
     }
 
     public JsonObject renewLicense(String licenseKey, Integer extraDays) throws ApiException {
@@ -305,15 +257,11 @@ public class ApiClient {
         if (extraDays != null) {
             data.addProperty("extra_days", extraDays);
         }
-        JsonObject response = request("license", data);
-        if (cache != null) {
-            cache.remove("license_status");
-        }
-        return response;
+        return request("license", data);
     }
 
-    public JsonObject startTrial(String email, String customerName, String hardwareId, JsonObject customerData)
-            throws ApiException {
+    public JsonObject startTrial(String email, String customerName, String hardwareId,
+                                  JsonObject customerData) throws ApiException {
         JsonObject data = new JsonObject();
         data.addProperty("action", "start");
         data.addProperty("customer_email", email);
@@ -327,32 +275,21 @@ public class ApiClient {
         return request("trial", data);
     }
 
-    public JsonObject getTrialStatus(String hardwareId) throws ApiException {
-        return request("trial", createPayload("status", "hardware_id", hardwareId));
+    public JsonObject checkTrial(String hardwareId) throws ApiException {
+        JsonObject data = new JsonObject();
+        data.addProperty("action", "status");
+        data.addProperty("hardware_id", hardwareId);
+        return request("trial", data);
     }
 
     public JsonObject convertTrial(String hardwareId, String plan, String name, String email) throws ApiException {
         JsonObject data = new JsonObject();
         data.addProperty("action", "convert");
         data.addProperty("hardware_id", hardwareId);
-        if (plan != null) data.addProperty("plan", plan);
-        if (name != null && !name.isEmpty()) data.addProperty("customer_name", name);
-        if (email != null && !email.isEmpty()) data.addProperty("customer_email", email);
+        data.addProperty("plan", plan);
+        data.addProperty("customer_name", name);
+        data.addProperty("customer_email", email);
         return request("trial", data);
-    }
-
-    public JsonObject replaceDevice(String licenseKey, String oldHardwareId, String newHardwareId)
-            throws ApiException {
-        JsonObject data = new JsonObject();
-        data.addProperty("action", "replace");
-        data.addProperty("license_key", licenseKey);
-        data.addProperty("old_hardware_id", oldHardwareId);
-        data.addProperty("new_hardware_id", newHardwareId);
-        JsonObject response = request("device", data);
-        if (cache != null) {
-            cache.remove("license_status");
-        }
-        return response;
     }
 
     public JsonObject bindDevice(String licenseKey, String hardwareId, String deviceName) throws ApiException {
@@ -366,25 +303,16 @@ public class ApiClient {
         return request("device", data);
     }
 
-    public JsonObject getProducts() {
-        JsonObject payload = new JsonObject();
-        payload.addProperty("action", "list");
-        if (productId != null && !productId.isEmpty()) {
-            payload.addProperty("product_id", productId);
-        }
-        try {
-            return request("store/products", payload);
-        } catch (ApiException e) {
-            JsonObject fallback = new JsonObject();
-            fallback.addProperty("success", false);
-            return fallback;
-        }
+    public JsonObject getTrialStatus(String hardwareId) throws ApiException {
+        JsonObject data = new JsonObject();
+        data.addProperty("action", "status");
+        data.addProperty("hardware_id", hardwareId);
+        return request("trial", data);
     }
 
-    private static JsonObject createPayload(String action, String key, String value) {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("action", action);
-        obj.addProperty(key, value);
-        return obj;
+    public JsonObject getProducts() throws ApiException {
+        JsonObject data = new JsonObject();
+        data.addProperty("action", "list");
+        return request("store/products", data);
     }
 }

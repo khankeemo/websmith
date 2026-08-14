@@ -9,7 +9,7 @@
   <packaging>jar</packaging>
   <name>${product_name} SDK</name>
   <description>Websmith License SDK for ${product_name}</description>
-  <url>https://websmithdigital.com</url>
+  <url>${api_url}</url>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>11</maven.compiler.source>

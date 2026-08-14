@@ -119,7 +119,7 @@ export class UniversalEmailDialog {
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as any;
 
       if (result.success) {
         console.log(`\nRequest submitted successfully!`);

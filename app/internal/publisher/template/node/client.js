@@ -223,6 +223,52 @@ class ApiClient {
     }
   }
 
+  async getLicenseStatus(hardwareId) {
+    if (!hardwareId) hardwareId = this._getHardwareId();
+    return new Promise((resolve, reject) => {
+      const apiPath = '/internal/backend/license/status';
+      const query = `hardware_id=${encodeURIComponent(hardwareId)}`;
+      const url = `${this.baseUrl}${apiPath}?${query}`;
+      const headers = this._signRequest({}, 'GET', apiPath, query);
+      const urlObj = new URL(url);
+      const isHttps = urlObj.protocol === 'https:';
+      const transport = isHttps ? https : http;
+      const req = transport.request({
+        hostname: urlObj.hostname,
+        port: urlObj.port || (isHttps ? 443 : 80),
+        path: urlObj.pathname + urlObj.search,
+        method: 'GET',
+        headers,
+        timeout: this.timeout * 1000,
+      }, (res) => {
+        let responseData = '';
+        res.on('data', (chunk) => { responseData += chunk; });
+        res.on('end', () => {
+          let data = {};
+          try {
+            data = JSON.parse(responseData);
+          } catch (_) {
+            if (responseData) data = { message: responseData };
+          }
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(data);
+            return;
+          }
+          const message = data.message || data.error || `HTTP ${res.statusCode}`;
+          reject(new ApiError(res.statusCode, message, data));
+        });
+      });
+      req.on('error', (err) => {
+        reject(new ApiError(503, `Connection error: ${err.message}`));
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new ApiError(504, 'Request timeout'));
+      });
+      req.end();
+    });
+  }
+
   async updateCustomer(name, email, phone, hardwareId) {
     if (!hardwareId) hardwareId = this._getHardwareId();
     const payload = { action: 'update', name, email, mobile: phone, hardware_id: hardwareId };

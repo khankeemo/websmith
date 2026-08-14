@@ -1,10 +1,10 @@
 {
   "name": "${package_name}",
-  "version": "${product_version}",
-  "description": "${product_description} — Deno SDK",
-  "exports": "./mod.ts",
+  "version": "${kit_version}",
+  "exports": "./client.ts",
   "tasks": {
-    "check": "deno check mod.ts"
+    "check": "deno check client.ts",
+    "fmt": "deno fmt client.ts"
   },
-  "license": "MIT"
+  "imports": {}
 }

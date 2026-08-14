@@ -1,13 +1,53 @@
-package wsd
+package websmith
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
+
+type ApiConfig struct {
+	URL     string `json:"url"`
+	Version string `json:"version"`
+	Key     string `json:"public_key"`
+	Secret  string `json:"secret"`
+	Timeout int    `json:"timeout"`
+}
+
+type Config struct {
+	API     ApiConfig              `json:"api"`
+	Product map[string]interface{} `json:"product"`
+}
+
+func LoadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config: %w", err)
+	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+	if cfg.API.URL == "" {
+		cfg.API.URL = os.Getenv("WEBSMITH_API_URL")
+	}
+	if cfg.API.Version == "" {
+		cfg.API.Version = "v1"
+	}
+	if cfg.API.Timeout <= 0 {
+		cfg.API.Timeout = 30000
+	}
+	return &cfg, nil
+}
 
 type ApiError struct {
 	StatusCode int                    `json:"status_code"`
@@ -19,383 +59,222 @@ func (e *ApiError) Error() string {
 	return fmt.Sprintf("API Error %d: %s", e.StatusCode, e.Message)
 }
 
-var retryableStatuses = map[int]bool{500: true, 502: true, 503: true, 504: true}
-
-type ApiClient struct {
-	config     *Config
-	baseURL    string
-	apiVersion string
-	apiKey     string
-	apiSecret  string
-	timeout    time.Duration
-	retryCount int
-	productID  string
-	hardware   *HardwareDetector
-	cache      *CacheManager
-	httpClient *http.Client
+type Client struct {
+	config  *Config
+	http    *http.Client
+	retries int
 }
 
-func NewApiClient(cfg *Config, hw *HardwareDetector, cache *CacheManager) *ApiClient {
-	baseURL := cfg.API.URL
-	for len(baseURL) > 0 && baseURL[len(baseURL)-1] == '/' {
-		baseURL = baseURL[:len(baseURL)-1]
-	}
-	apiVersion := cfg.API.Version
-	if apiVersion == "" {
-		apiVersion = "v1"
+func NewClient(configPath string) (*Client, error) {
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		apiURL := os.Getenv("WEBSMITH_API_URL")
+		if apiURL == "" {
+			return nil, fmt.Errorf("no config file and no WEBSMITH_API_URL")
+		}
+		cfg = &Config{
+			API: ApiConfig{
+				URL:     apiURL,
+				Version: "v1",
+				Timeout: 30000,
+			},
+		}
 	}
 	timeout := time.Duration(cfg.API.Timeout) * time.Millisecond
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	retryCount := cfg.API.RetryCount
-	if retryCount <= 0 {
-		retryCount = 3
-	}
-	return &ApiClient{
-		config:     cfg,
-		baseURL:    baseURL,
-		apiVersion: apiVersion,
-		apiKey:     cfg.API.PublicKey,
-		apiSecret:  cfg.API.Secret,
-		timeout:    timeout,
-		retryCount: retryCount,
-		productID:  cfg.Product.ID,
-		hardware:   hw,
-		cache:      cache,
-		httpClient: &http.Client{Timeout: timeout},
-	}
+	return &Client{
+		config:  cfg,
+		http:    &http.Client{Timeout: timeout},
+		retries: 3,
+	}, nil
 }
 
-func (c *ApiClient) getHardwareID() string {
-	return c.hardware.GetFingerprint()
+func generateTimestamp() string {
+	return fmt.Sprintf("%d", time.Now().UnixMilli())
 }
 
-func (c *ApiClient) signRequest(payload interface{}, method string, path string, query string) map[string]string {
-	timestamp := GenerateTimestamp()
-	nonce := GenerateNonce()
-	signature := SignRequest(payload, c.apiSecret, timestamp, nonce, method, path, query)
-	return map[string]string{
-		"x-api-key":   c.apiKey,
-		"x-timestamp": timestamp,
-		"x-nonce":     nonce,
-		"x-signature": signature,
+func generateNonce() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%x", time.Now().UnixNano())
 	}
+	return hex.EncodeToString(b)
 }
 
-func (c *ApiClient) request(endpoint string, payload map[string]interface{}, retries ...int) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/api/%s/%s", c.baseURL, c.apiVersion, endpoint)
-	maxRetries := c.retryCount
-	if len(retries) > 0 {
-		maxRetries = retries[0]
-	}
-	requestPayload := make(map[string]interface{})
-	for k, v := range payload {
-		requestPayload[k] = v
-	}
-	if c.productID != "" {
-		if _, exists := requestPayload["product_id"]; !exists {
-			requestPayload["product_id"] = c.productID
+func (c *Client) signPayload(payload interface{}, timestamp, nonce string) string {
+	var bodyHash string
+	if payload != nil {
+		b, err := json.Marshal(payload)
+		if err == nil {
+			h := sha256.Sum256(b)
+			bodyHash = hex.EncodeToString(h[:])
 		}
 	}
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		apiPath := fmt.Sprintf("/api/%s/%s", c.apiVersion, endpoint)
-		headers := c.signRequest(requestPayload, "POST", apiPath, "")
-		headers["Content-Type"] = "application/json"
-		body, err := json.Marshal(requestPayload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal payload: %w", err)
-		}
-		resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(body))
-		if err != nil {
-			if attempt < maxRetries {
-				time.Sleep(time.Duration((attempt+1)*2) * time.Second)
-				continue
+	mac := hmac.New(sha256.New, []byte(c.config.API.Secret))
+	signStr := fmt.Sprintf("%s%s%s%s", timestamp, nonce, bodyHash, c.config.API.Key)
+	mac.Write([]byte(signStr))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func (c *Client) doRequest(method, endpoint string, data interface{}) (map[string]interface{}, error) {
+	baseURL := strings.TrimRight(c.config.API.URL, "/")
+	apiVersion := c.config.API.Version
+	url := fmt.Sprintf("%s/api/%s/%s", baseURL, apiVersion, endpoint)
+
+	timestamp := generateTimestamp()
+	nonce := generateNonce()
+	signature := c.signPayload(data, timestamp, nonce)
+
+	var lastErr error
+	for attempt := 0; attempt <= c.retries; attempt++ {
+		var body io.Reader
+		if data != nil {
+			b, err := json.Marshal(data)
+			if err != nil {
+				return nil, err
 			}
-			return nil, fmt.Errorf("request failed: %w", err)
+			body = bytes.NewReader(b)
 		}
-		respBody, _ := io.ReadAll(resp.Body)
+
+		req, err := http.NewRequest(method, url, body)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-API-Key", c.config.API.Key)
+		req.Header.Set("X-Timestamp", timestamp)
+		req.Header.Set("X-Nonce", nonce)
+		req.Header.Set("X-Signature", signature)
+
+		resp, err := c.http.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < c.retries {
+				time.Sleep(time.Duration(1<<uint(attempt)) * time.Second)
+			}
+			continue
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		var data map[string]interface{}
-		if len(respBody) > 0 {
-			json.Unmarshal(respBody, &data)
-		}
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return data, nil
-		}
-		if resp.StatusCode == 429 {
-			if attempt < maxRetries {
-				time.Sleep(5 * time.Second)
-				continue
+		if readErr != nil {
+			lastErr = readErr
+			if attempt < c.retries {
+				time.Sleep(time.Duration(1<<uint(attempt)) * time.Second)
 			}
-			return nil, &ApiError{StatusCode: resp.StatusCode, Message: "Rate limit exceeded", Data: data}
+			continue
 		}
-		if retryableStatuses[resp.StatusCode] {
-			if attempt < maxRetries {
-				time.Sleep(time.Duration((attempt+1)*2) * time.Second)
-				continue
+
+		if resp.StatusCode >= 500 {
+			lastErr = &ApiError{StatusCode: resp.StatusCode, Message: string(respBody)}
+			if attempt < c.retries {
+				time.Sleep(time.Duration(1<<uint(attempt)) * time.Second)
 			}
-			return nil, &ApiError{StatusCode: resp.StatusCode, Message: "Server error", Data: data}
+			continue
 		}
-		msg, _ := data["message"].(string)
-		if msg == "" {
-			msg, _ = data["error"].(string)
-		}
-		if msg == "" {
-			msg = fmt.Sprintf("HTTP %d", resp.StatusCode)
-		}
-		return nil, &ApiError{StatusCode: resp.StatusCode, Message: msg, Data: data}
-	}
-	return nil, &ApiError{StatusCode: 500, Message: fmt.Sprintf("Failed after %d retries", maxRetries)}
-}
 
-func (c *ApiClient) GetLicenseStatus(hardwareID string) (map[string]interface{}, error) {
-	if hardwareID == "" {
-		hardwareID = c.getHardwareID()
-	}
-	url := fmt.Sprintf("%s/internal/backend/license/status?hardware_id=%s", c.baseURL, hardwareID)
-	resp, err := c.httpClient.Get(url)
-	if err != nil {
-		return map[string]interface{}{
-			"success": false,
-			"status":  "no_license",
-			"error":   err.Error(),
-		}, nil
-	}
-	defer resp.Body.Close()
-	var data map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return map[string]interface{}{
-			"success": false,
-			"status":  "no_license",
-			"error":   err.Error(),
-		}, nil
-	}
-	return data, nil
-}
-
-func (c *ApiClient) ValidateLicense(licenseKey string, hardwareID string) (map[string]interface{}, error) {
-	if hardwareID == "" {
-		hardwareID = c.getHardwareID()
-	}
-	payload := map[string]interface{}{
-		"action":      "validate",
-		"license_key": licenseKey,
-		"hardware_id": hardwareID,
-	}
-	if c.cache != nil && c.cache.IsValid() {
-		cached := c.cache.GetLicenseStatus()
-		if cached != nil {
-			return cached, nil
+		if len(respBody) == 0 {
+			if resp.StatusCode >= 400 {
+				return nil, &ApiError{StatusCode: resp.StatusCode, Message: "empty error response"}
+			}
+			return map[string]interface{}{}, nil
 		}
-	}
-	result, err := c.request("license", payload)
-	if err != nil {
-		return nil, err
-	}
-	if c.cache != nil {
-		if success, ok := result["success"].(bool); ok && success {
-			if data, ok := result["data"].(map[string]interface{}); ok {
-				if valid, ok := data["valid"].(bool); ok && valid {
-					c.cache.SetLicenseStatus(result)
-				}
+
+		var result map[string]interface{}
+		if err := json.Unmarshal(respBody, &result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		if resp.StatusCode >= 400 {
+			msg, _ := result["error"].(string)
+			if msg == "" {
+				msg = fmt.Sprintf("request failed with status %d", resp.StatusCode)
+			}
+			return result, &ApiError{
+				StatusCode: resp.StatusCode,
+				Message:    msg,
+				Data:       result,
 			}
 		}
+
+		return result, nil
 	}
-	return result, nil
+
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("request failed after %d retries", c.retries+1)
 }
 
-func (c *ApiClient) ActivateLicense(licenseKey string, hardwareID string) (map[string]interface{}, error) {
-	if hardwareID == "" {
-		hardwareID = c.getHardwareID()
+func (c *Client) buildPayload(base map[string]interface{}) map[string]interface{} {
+	if c.config.Product != nil {
+		if pid, ok := c.config.Product["id"].(string); ok && pid != "" {
+			base["product_id"] = pid
+		}
 	}
-	payload := map[string]interface{}{
-		"action":      "activate",
-		"license_key": licenseKey,
-		"hardware_id": hardwareID,
-	}
-	result, err := c.request("license", payload)
-	if err != nil {
-		return nil, err
-	}
-	if c.cache != nil {
-		c.cache.InvalidateLicenseStatus()
-	}
-	return result, nil
+	return base
 }
 
-func (c *ApiClient) DeactivateLicense(licenseKey string, hardwareID string) (map[string]interface{}, error) {
-	if hardwareID == "" {
-		hardwareID = c.getHardwareID()
-	}
-	payload := map[string]interface{}{
-		"action":      "deactivate",
-		"license_key": licenseKey,
-		"hardware_id": hardwareID,
-	}
-	result, err := c.request("license", payload)
-	if err != nil {
-		return nil, err
-	}
-	if c.cache != nil {
-		c.cache.InvalidateLicenseStatus()
-	}
-	return result, nil
+func (c *Client) ValidateLicense(licenseKey, hardwareID string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "license", c.buildPayload(map[string]interface{}{
+		"action": "validate", "license_key": licenseKey, "hardware_id": hardwareID,
+	}))
 }
 
-func (c *ApiClient) RenewLicense(licenseKey string, extraDays ...int) (map[string]interface{}, error) {
-	payload := map[string]interface{}{
-		"action":      "renew",
-		"license_key": licenseKey,
-	}
-	if len(extraDays) > 0 {
-		payload["extra_days"] = extraDays[0]
-	}
-	result, err := c.request("license", payload)
-	if err != nil {
-		return nil, err
-	}
-	if c.cache != nil {
-		c.cache.InvalidateLicenseStatus()
-	}
-	return result, nil
+func (c *Client) ActivateLicense(licenseKey, hardwareID, deviceName string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "license", c.buildPayload(map[string]interface{}{
+		"action": "activate", "license_key": licenseKey, "hardware_id": hardwareID, "device_name": deviceName,
+	}))
 }
 
-func (c *ApiClient) StartTrial(email string, customerName string, customerData map[string]interface{}) (map[string]interface{}, error) {
-	hardwareID := c.getHardwareID()
-	payload := map[string]interface{}{
-		"action":         "start",
-		"customer_email": email,
-		"customer_name":  customerName,
-		"hardware_id":    hardwareID,
-	}
+func (c *Client) DeactivateLicense(licenseKey, hardwareID string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "license", c.buildPayload(map[string]interface{}{
+		"action": "deactivate", "license_key": licenseKey, "hardware_id": hardwareID,
+	}))
+}
+
+func (c *Client) RenewLicense(licenseKey string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "license", c.buildPayload(map[string]interface{}{
+		"action": "renew", "license_key": licenseKey,
+	}))
+}
+
+func (c *Client) StartTrial(email, customerName string, customerData map[string]interface{}) (map[string]interface{}, error) {
+	payload := c.buildPayload(map[string]interface{}{
+		"action": "start", "customer_email": email, "customer_name": customerName,
+	})
 	for k, v := range customerData {
 		payload[k] = v
 	}
-	return c.request("trial", payload)
+	return c.doRequest("POST", "trial", payload)
 }
 
-func (c *ApiClient) GetTrialStatus(hardwareID string) (map[string]interface{}, error) {
-	if hardwareID == "" {
-		hardwareID = c.getHardwareID()
-	}
-	return c.request("trial", map[string]interface{}{
-		"action":      "status",
-		"hardware_id": hardwareID,
-	})
+func (c *Client) CheckTrial(hardwareID string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "trial", c.buildPayload(map[string]interface{}{
+		"action": "status", "hardware_id": hardwareID,
+	}))
 }
 
-func (c *ApiClient) ConvertTrial(hardwareID string, plan string, customerName string, customerEmail string) (map[string]interface{}, error) {
-	if hardwareID == "" {
-		hardwareID = c.getHardwareID()
-	}
-	payload := map[string]interface{}{
-		"action":      "convert",
-		"hardware_id": hardwareID,
-	}
-	if plan != "" {
-		payload["plan"] = plan
-	}
-	if customerName != "" {
-		payload["customer_name"] = customerName
-	}
-	if customerEmail != "" {
-		payload["customer_email"] = customerEmail
-	}
-	result, err := c.request("trial", payload)
-	if err != nil {
-		return nil, err
-	}
-	if c.cache != nil {
-		c.cache.InvalidateLicenseStatus()
-	}
-	return result, nil
+func (c *Client) ConvertTrial(hardwareID, plan, name, email string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "trial", c.buildPayload(map[string]interface{}{
+		"action": "convert", "hardware_id": hardwareID, "plan": plan, "customer_name": name, "customer_email": email,
+	}))
 }
 
-func (c *ApiClient) BindDevice(licenseKey string, hardwareID string, deviceName string) (map[string]interface{}, error) {
-	if hardwareID == "" {
-		hardwareID = c.getHardwareID()
-	}
-	payload := map[string]interface{}{
-		"action":      "bind",
-		"license_key": licenseKey,
-		"hardware_id": hardwareID,
-	}
-	if deviceName != "" {
-		payload["device_name"] = deviceName
-	}
-	return c.request("device", payload)
+func (c *Client) BindDevice(licenseKey, hardwareID, deviceName string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "license", c.buildPayload(map[string]interface{}{
+		"action": "bind_device", "license_key": licenseKey, "hardware_id": hardwareID, "device_name": deviceName,
+	}))
 }
 
-func (c *ApiClient) ReplaceDevice(licenseKey string, newHardwareID string, oldHardwareID string) (map[string]interface{}, error) {
-	if newHardwareID == "" {
-		newHardwareID = c.getHardwareID()
-	}
-	if oldHardwareID == "" {
-		return nil, fmt.Errorf("old_hardware_id is required for device replacement")
-	}
-	payload := map[string]interface{}{
-		"action":           "replace",
-		"license_key":      licenseKey,
-		"old_hardware_id":  oldHardwareID,
-		"new_hardware_id":  newHardwareID,
-	}
-	result, err := c.request("device", payload)
-	if err != nil {
-		return nil, err
-	}
-	if c.cache != nil {
-		c.cache.InvalidateLicenseStatus()
-	}
-	return result, nil
+func (c *Client) GetTrialStatus(hardwareID string) (map[string]interface{}, error) {
+	return c.doRequest("POST", "trial", c.buildPayload(map[string]interface{}{
+		"action": "status", "hardware_id": hardwareID,
+	}))
 }
 
-func (c *ApiClient) GetProducts() (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/api/%s/store/products", c.baseURL, c.apiVersion)
-	payload := map[string]interface{}{
-		"action": "list",
-	}
-	if c.productID != "" {
-		payload["product_id"] = c.productID
-	}
-	apiPath := fmt.Sprintf("/api/%s/store/products", c.apiVersion)
-	headers := c.signRequest(payload, "POST", apiPath, "")
-	headers["Content-Type"] = "application/json"
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return map[string]interface{}{"success": false, "products": []interface{}{}}, nil
-	}
-	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return map[string]interface{}{"success": false, "products": []interface{}{}}, nil
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 200 {
-		var data map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&data); err == nil {
-			return data, nil
-		}
-	}
-	return map[string]interface{}{"success": false, "products": []interface{}{}}, nil
-}
-
-func (c *ApiClient) UpdateCustomer(name string, email string, phone string, hardwareID string) (map[string]interface{}, error) {
-	if hardwareID == "" {
-		hardwareID = c.getHardwareID()
-	}
-	payload := map[string]interface{}{
-		"action":      "update",
-		"name":        name,
-		"email":       email,
-		"mobile":      phone,
-		"hardware_id": hardwareID,
-	}
-	result, err := c.request("customer/register", payload)
-	if err != nil {
-		return map[string]interface{}{"success": false, "error": err.Error()}, nil
-	}
-	if success, ok := result["success"].(bool); ok && success && c.cache != nil {
-		c.cache.InvalidateLicenseStatus()
-	}
-	return result, nil
+func (c *Client) GetProducts() (map[string]interface{}, error) {
+	productID, _ := c.config.Product["id"].(string)
+	return c.doRequest("POST", "store/products", c.buildPayload(map[string]interface{}{
+		"action": "list", "product_id": productID,
+	}))
 }

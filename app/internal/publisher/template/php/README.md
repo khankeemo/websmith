@@ -8,7 +8,6 @@ Official PHP SDK for integrating ${product_name} license management.
 - ext-curl
 - ext-json
 - ext-mbstring
-- ext-openssl
 
 ## Installation
 
@@ -26,7 +25,7 @@ Place the SDK files in your project and configure autoloading:
 {
   "autoload": {
     "psr-4": {
-      "WSD\\SDK\\": "path/to/sdk/"
+      "WebsmithSDK\\": "path/to/sdk/"
     }
   }
 }
@@ -40,28 +39,26 @@ Create `config/api-config.json` in your project root:
 {
   "api": {
     "url": "${api_url}",
-    "public_key": "your-public-api-key",
+    "key": "your-api-key",
     "secret": "your-api-secret",
-    "version": "v1",
-    "timeout": 30000,
-    "retry_count": 3
+    "version": "v1"
   },
   "product": {
     "id": "${product_id}",
     "name": "${product_name}"
   },
-  "trial": {
-    "enabled": true,
-    "days": ${trial_days}
-  },
-  "offline": {
-    "cache_days": ${offline_days}
-  },
-  "branding": {
-    "company_name": "${company_name}",
-    "support_email": "support@websmithdigital.com"
+  "license": {
+    "cache_ttl_days": 0
   }
 }
+```
+
+Alternatively, set environment variables:
+
+```bash
+export WEBSMITH_API_URL="your-api-url"
+export WEBSMITH_API_KEY="your-api-key"
+export WEBSMITH_API_SECRET="your-api-secret"
 ```
 
 ## Quick Start
@@ -70,45 +67,64 @@ Create `config/api-config.json` in your project root:
 <?php
 require_once 'vendor/autoload.php';
 
-use WSD\SDK\LicenseEngine;
+use WebsmithSDK\LicenseEngine;
+use WebsmithSDK\Client;
 
+// Create engine (auto-loads config from config/api-config.json)
 $engine = new LicenseEngine();
-$status = $engine->initialize();
 
-if ($status->valid) {
+// Check if license is valid
+if ($engine->isValid()) {
     echo "License is active!\n";
+    print_r($engine->getLicenseInfo());
 } else {
-    echo "Status: {$status->status}\n";
+    echo "No valid license found.\n";
 }
 ?>
 ```
 
 ## Full Lifecycle Examples
 
-### 1. Initialize
+### 1. Initialize the SDK
 
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
 
+use WebsmithSDK\LicenseEngine;
+
+// Auto-loads config from __DIR__ . '/config/api-config.json'
 $engine = new LicenseEngine();
-$status = $engine->initialize();
-echo "Status: {$status->status}\n";
+
+// Check initialization status
+$status = $engine->getLicenseInfo();
+if ($status !== null) {
+    echo "License status: " . ($status['status'] ?? 'unknown') . "\n";
+}
 ?>
 ```
 
-### 2. Start Trial
+### 2. Start a Trial
 
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
-$result = $engine->startTrial('user@example.com', 'John Doe', ['company_name' => 'Acme Inc.']);
-if (!empty($result['success'])) {
-    echo "Trial started!\n";
+
+$result = $engine->startTrial(
+    'user@example.com',
+    'John Doe',
+    ['company_name' => 'Acme Inc.']
+);
+
+if (isset($result['success']) && $result['success']) {
+    echo "Trial started successfully!\n";
+    print_r($result);
+} else {
+    echo "Failed: " . ($result['error'] ?? $result['message'] ?? 'Unknown error') . "\n";
 }
 ?>
 ```
@@ -118,40 +134,60 @@ if (!empty($result['success'])) {
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
-$result = $engine->getClient()->getTrialStatus();
-echo "Trial status: " . ($result['data']['status'] ?? 'unknown') . "\n";
-?>
-```
+$status = $engine->checkTrial();
 
-### 4. Convert Trial to License
-
-```php
-<?php
-require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
-
-$engine = new LicenseEngine();
-$result = $engine->convertTrial(plan: 'premium', customerName: 'John Doe', customerEmail: 'user@example.com');
-if (!empty($result['success'])) {
-    echo "License key: " . $result['license_key'] . "\n";
+echo "Trial status: " . ($status['status'] ?? 'unknown') . "\n";
+if (isset($status['expires_at'])) {
+    echo "Expires: " . $status['expires_at'] . "\n";
 }
 ?>
 ```
 
-### 5. Activate License
+### 4. Convert Trial to Full License
 
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
-$result = $engine->activate('LICENSE-KEY-HERE');
-if (!empty($result['success'])) {
-    echo "License activated!\n";
+
+$result = $engine->convertTrial(
+    'premium_plan',
+    'John Doe',
+    'user@example.com'
+);
+
+if (isset($result['license_key'])) {
+    echo "License converted! Key: " . $result['license_key'] . "\n";
+}
+?>
+```
+
+### 5. Activate a License Key
+
+```php
+<?php
+require_once 'vendor/autoload.php';
+
+use WebsmithSDK\LicenseEngine;
+
+$engine = new LicenseEngine();
+
+$result = $engine->activate(
+    'LICENSE-KEY-HERE',
+    'My Workstation'
+);
+
+if ($engine->isValid()) {
+    echo "License activated successfully!\n";
+    $info = $engine->getLicenseInfo();
+    echo "Expires: " . ($info['expires_at'] ?? 'N/A') . "\n";
 }
 ?>
 ```
@@ -161,64 +197,80 @@ if (!empty($result['success'])) {
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
+
 $result = $engine->validate('LICENSE-KEY-HERE');
+
 if ($engine->isValid()) {
     echo "License is valid!\n";
+} else {
+    echo "License is invalid or expired.\n";
 }
 ?>
 ```
 
-### 7. Check Status
+### 7. Check License Status (after activation)
 
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
-$engine->initialize();
+
 if ($engine->hasLicenseKey()) {
     echo "License key: " . $engine->getLicenseKey() . "\n";
 }
-$status = $engine->getStatus();
-if ($status !== null && $status->valid) {
+
+if ($engine->isValid()) {
     echo "Status: Active\n";
+    print_r($engine->getLicenseInfo());
+} else {
+    echo "Status: Inactive / Unlicensed\n";
 }
 ?>
 ```
 
-### 8. Renew License
+### 8. Renew a License
 
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
+
 // Must have an activated license
-$result = $engine->renew(365);
-if (!empty($result['success'])) {
+$result = $engine->renew(365); // renew for 365 days
+
+if (isset($result['success']) && $result['success']) {
     echo "License renewed!\n";
 }
 ?>
 ```
 
-### 9. Replace Hardware
+### 9. View Hardware Status
 
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
-try {
-    $result = $engine->replaceHardware();
-    echo "Hardware replaced!\n";
-} catch (\Exception $e) {
-    echo "Error: " . $e->getMessage() . "\n";
+
+$status = $engine->viewHardwareStatus();
+
+if ($status['matched']) {
+    echo "Hardware ID matches the registered device.\n";
+} else {
+    echo "Hardware has changed!\n";
+    echo $status['message'] . "\n";
 }
 ?>
 ```
@@ -228,12 +280,15 @@ try {
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
-$result = $engine->bindDevice(deviceName: 'Development Machine');
-if (!empty($result['success'])) {
-    echo "Device bound!\n";
+
+$result = $engine->bindDevice('Development Machine');
+
+if (isset($result['success']) && $result['success']) {
+    echo "Device bound successfully!\n";
 }
 ?>
 ```
@@ -243,58 +298,58 @@ if (!empty($result['success'])) {
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\LicenseEngine;
+
+use WebsmithSDK\LicenseEngine;
 
 $engine = new LicenseEngine();
+
+// Deactivate the currently stored license
 $result = $engine->deactivate();
-if (!empty($result['success'])) {
+
+// Or deactivate a specific license
+// $result = $engine->deactivate('LICENSE-KEY-HERE');
+
+if (isset($result['success']) && $result['success']) {
     echo "License deactivated.\n";
-}
-?>
-```
-
-### 12. Welcome Dialog
-
-```php
-<?php
-require_once 'vendor/autoload.php';
-use WSD\SDK\WelcomeDialog;
-
-$dialog = new WelcomeDialog();
-if (!$dialog->isOnboardingComplete()) {
-    $result = $dialog->show();
-}
-?>
-```
-
-### 13. Activation Dialog
-
-```php
-<?php
-require_once 'vendor/autoload.php';
-use WSD\SDK\ActivationDialog;
-
-$dialog = new ActivationDialog();
-$result = $dialog->show();
-if (!empty($result['activated'])) {
-    echo "License activated!\n";
 }
 ?>
 ```
 
 ## API Client (Low-Level)
 
+For direct API access without the engine:
+
 ```php
 <?php
 require_once 'vendor/autoload.php';
-use WSD\SDK\ApiClient;
 
-$config = json_decode(file_get_contents('config/api-config.json'), true);
-$client = new ApiClient($config);
+use WebsmithSDK\Client;
 
+$client = new Client();
+
+// Validate license
 $result = $client->validateLicense('LICENSE-KEY', 'hardware-id');
-$result = $client->activateLicense('LICENSE-KEY', 'hardware-id');
+
+// Activate license
+$result = $client->activateLicense('LICENSE-KEY', 'hardware-id', 'Device Name');
+
+// Deactivate license
+$result = $client->deactivateLicense('LICENSE-KEY', 'hardware-id');
+
+// Start trial
 $result = $client->startTrial('user@example.com', 'John Doe');
+
+// Check trial status
+$result = $client->checkTrial('hardware-id');
+
+// Convert trial
+$result = $client->convertTrial('hardware-id', 'plan_name', 'John Doe', 'user@example.com');
+
+// Bind device
+$result = $client->bindDevice('LICENSE-KEY', 'hardware-id', 'Device Name');
+
+// View hardware status
+$result = $client->viewHardwareStatus();
 ?>
 ```
 
@@ -302,45 +357,46 @@ $result = $client->startTrial('user@example.com', 'John Doe');
 
 ```php
 <?php
-use WSD\SDK\LicenseEngine;
-use WSD\SDK\ApiError;
+use WebsmithSDK\LicenseEngine;
+use WebsmithSDK\ApiException;
 
 $engine = new LicenseEngine();
+
 try {
-    $engine->activate('INVALID-KEY');
-} catch (ApiError $e) {
-    echo "API Error ({$e->getStatusCode()}): {$e->getMessage()}\n";
-} catch (\Exception $e) {
-    echo "Error: {$e->getMessage()}\n";
+    $result = $engine->activate('INVALID-KEY', 'My PC');
+} catch (ApiException $e) {
+    echo "API Error (" . $e->getCode() . "): " . $e->getMessage() . "\n";
+} catch (Exception $e) {
+    echo "Unexpected error: " . $e->getMessage() . "\n";
 }
 ?>
 ```
 
 ## Caching
 
-Cache location: `sys_get_temp_dir()/.websmith/<productId>/cache.json`
-Default TTL: ${offline_days} days (0 = no caching)
-Atomic writes with file locking (LOCK_EX)
+The SDK caches license status locally to reduce API calls and enable offline validation:
+
+- Cache location: `~/.websmith/<productId>/cache.json`
+- Default TTL: 0 days (no caching by default; configurable via `license.cache_ttl_days` in config)
+- Atomic writes with file locking (LOCK_EX)
+- Automatically invalidated on activation/deactivation/renewal
 
 ## Hardware Fingerprinting
 
-SHA-256 hash of CPU → Motherboard → MAC fallback:
-1. CPU ID (wmic/sysctl/proc/cpuinfo)
-2. Motherboard serial (wmic/dmidecode)
-3. MAC addresses (/sys/class/net/getmac)
-4. OS info
+The SDK generates a unique hardware fingerprint using:
+
+1. CPU architecture (`php_uname('m')`)
+2. Hostname (`php_uname('n')`)
+3. MAC addresses (`/sys/class/net/*/address` on Linux, `getmac` on Windows)
+4. Combined and hashed with SHA-256
 
 ## HMAC Request Signing
 
-All API requests signed with HMAC-SHA256:
+All API requests are signed using HMAC-SHA256:
 
 ```
-Canonical: {method}\n{path}\n{query}\n{sha256(body)}\n{timestamp}\n{nonce}
-Signature: base64(hmac-sha256(canonical, secret))
+Canonical String: {method}\n{path}\n{query}\n{sha256(body)}\n{timestamp}\n{nonce}
+Signature: base64(hmac-sha256(canonical, api_secret))
 ```
 
 Headers: `X-API-Key`, `X-Timestamp`, `X-Nonce`, `X-Signature`
-
-## License
-
-Copyright (c) ${year} ${product_name}

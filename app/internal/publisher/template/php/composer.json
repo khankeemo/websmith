@@ -7,19 +7,18 @@
     "php": ">=7.4",
     "ext-curl": "*",
     "ext-json": "*",
-    "ext-mbstring": "*",
-    "ext-openssl": "*"
+    "ext-mbstring": "*"
   },
   "autoload": {
     "psr-4": {
-      "WSD\\SDK\\": ""
+      "WebsmithSDK\\": "src/"
     }
   },
   "license": "MIT",
   "authors": [
     {
       "name": "Websmith",
-      "email": "support@websmithdigital.com"
+      "email": "${support_email}"
     }
   ],
   "minimum-stability": "stable"

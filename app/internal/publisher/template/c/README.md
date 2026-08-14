@@ -1,54 +1,162 @@
-# ${product_name} SDK
-## ${kit_version}
+# ${product_name} SDK (C)
 
-## Requirements
+## Version
+${kit_version}
 
-- C11 compatible compiler (gcc, clang, MSVC)
-- OpenSSL (libssl, libcrypto)
+## Overview
+The ${product_name} C SDK provides a complete license management client for Websmith License API.
+It supports license validation, activation, deactivation, renewal, trial management, hardware binding,
+and hardware status verification with full HMAC-SHA256 signing and retry logic.
+
+## Dependencies
+- GCC (C11)
 - libcurl
-- GNU Make or compatible
+- cJSON
+- OpenSSL (libssl, libcrypto)
 
 ## Building
+Build the static library with the provided Makefile:
 
-```bash
-make
-```
+    make
 
-Or with custom flags:
+Clean build artifacts:
 
-```bash
-make CC=gcc CFLAGS="-std=c11 -O2 -I/usr/local/include" LDFLAGS="-L/usr/local/lib -lssl -lcrypto -lcurl"
-```
+    make clean
+
+## API Configuration
+The SDK reads the API URL from the `WEBSMITH_API_URL` environment variable. If not set, it defaults
+to an empty string (update in code or config file for production use).
 
 ## Quick Start
-
 ```c
-#include "license_engine.h"
+#include "client.h"
 #include <stdio.h>
 
-int main() {
-    LicenseEngine* engine = wsd_engine_new("config/api-config.json");
-    LicenseStatus* status = wsd_initialize(engine);
+int main(void) {
+    websmith_client_t* client = websmith_client_new("YOUR_API_KEY", "YOUR_API_SECRET");
+    websmith_cache_t* cache = websmith_cache_new(NULL);
+    websmith_license_engine_t* engine = websmith_engine_new(client, cache);
 
-    if (status && status->valid) {
-        printf("License %s - %d day(s) remaining\n",
-               status->status, status->days_remaining);
+    const char* license_key = "LICENSE-XXXX-XXXX-XXXX";
+
+    engine_load_license(engine, license_key);
+    if (websmith_engine_validate(engine) == 0) {
+        printf("License is valid!\\n");
     } else {
-        printf("Status: %s - %s\n",
-               status ? status->status : "error",
-               status ? status->message : "unknown");
+        printf("License validation failed\\n");
     }
 
-    wsd_engine_free(engine);
+    websmith_engine_free(engine);
+    websmith_cache_free(cache);
+    websmith_client_free(client);
     return 0;
 }
 ```
 
-## API
+## Full Lifecycle Examples
 
-All functions return a JsonMap* with at minimum a "success" field.
-Free returned maps with wsd_json_free().
+### Initialize Client
+```c
+websmith_client_t* client = websmith_client_new("YOUR_API_KEY", "YOUR_API_SECRET");
+websmith_cache_t* cache = websmith_cache_new("./cache");
+websmith_license_engine_t* engine = websmith_engine_new(client, cache);
+```
+
+### Start a Trial
+```c
+websmith_engine_start_trial(engine, "user@example.com", "John Doe", "monthly");
+```
+
+### Check Trial Status
+```c
+websmith_hardware_t* hw = websmith_hardware_new();
+if (hw) {
+    websmith_engine_check_trial(engine, hw->fingerprint);
+    websmith_hardware_free(hw);
+}
+```
+
+### Convert Trial to Paid License
+```c
+websmith_hardware_t* hw = websmith_hardware_new();
+if (hw) {
+    websmith_engine_convert_trial(engine, hw->fingerprint, "yearly", "John Doe", "user@example.com");
+    websmith_hardware_free(hw);
+}
+```
+
+### Activate a License
+```c
+websmith_hardware_t* hw = websmith_hardware_new();
+if (hw) {
+    websmith_engine_load_license(engine, "LICENSE-XXXX-XXXX-XXXX");
+    websmith_engine_activate(engine, hw->fingerprint);
+    websmith_hardware_free(hw);
+}
+```
+
+### Validate a License
+```c
+if (websmith_engine_validate(engine) == 0) {
+    printf("Valid: %s\\n", engine->status);
+} else {
+    printf("Invalid: %s\\n", engine->inactive_reason);
+}
+```
+
+### Renew a License
+```c
+websmith_engine_renew(engine);
+```
+
+### View Hardware Status
+```c
+websmith_result_t hw_status = websmith_engine_view_hardware_status(engine);
+if (hw_status.success) {
+    printf("Hardware status: %s\n", hw_status.data);
+} else {
+    printf("Error: %s\n", hw_status.error);
+}
+websmith_result_free(&hw_status);
+```
+
+### Bind Device
+```c
+websmith_engine_bind_device(engine, "LICENSE-XXXX-XXXX-XXXX",
+    "device_fingerprint", "My Machine");
+```
+
+### Deactivate a License
+```c
+websmith_engine_deactivate(engine);
+```
+
+
+## Memory Management
+Every allocation function has a corresponding `_free` function:
+- `websmith_client_new` -> `websmith_client_free`
+- `websmith_hardware_new` -> `websmith_hardware_free`
+- `websmith_cache_new` -> `websmith_cache_free`
+- `websmith_engine_new` -> `websmith_engine_free`
+- `websmith_result_ok`/`websmith_result_err` -> `websmith_result_free`
+
+## HMAC-SHA256 Signing
+All API requests are signed using HMAC-SHA256 with headers:
+- `X-API-Key` - Your API key
+- `X-Timestamp` - Unix timestamp in milliseconds
+- `X-Nonce` - Random 32-character hex string
+- `X-Signature` - HMAC-SHA256(`api_secret`, `timestamp:nonce:body`)
+
+## Retry Logic
+API requests automatically retry up to 3 times with exponential backoff:
+1. 1 second delay
+2. 2 second delay
+3. Returns error if still failing
+
+## API Endpoints
+- `POST /api/v1/license` - License management (validate, activate, deactivate, renew, bind, view_hardware_status)
+- `POST /api/v1/trial` - Trial management (start, status, convert)
 
 ## License
-
-Copyright (c) ${year} ${product_name}
+Generated by Websmith License API Center
+Copyright (c) ${year}

@@ -1,52 +1,27 @@
 [package]
-name = "wsd_sdk"
+name = "${package_name}"
 version = "${kit_version}"
 edition = "2021"
 description = "${product_name} SDK — License management client with HMAC-SHA256 signing, hardware fingerprinting, offline cache, and trial/license lifecycle support"
 license = "MIT"
 authors = ["Websmith License API Center"]
-homepage = "${homepage}"
-repository = "${repository}"
-keywords = ["license", "sdk", "activation", "trial", "websmith"]
-categories = ["api-bindings", "cryptography"]
-
-[features]
-default = ["blocking"]
-blocking = ["reqwest/blocking"]
-async = ["reqwest"]
 
 [dependencies]
-# HTTP client - supports both blocking and async modes
-reqwest = { version = "0.12", features = ["json"] }
-# Serialization/deserialization for config and API payloads
+reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-# HMAC-SHA256 request signing
 sha2 = "0.10"
 hmac = "0.12"
 hex = "0.4"
 base64 = "0.22"
-# UUID v4 generation for request nonces
 uuid = { version = "1", features = ["v4"] }
-# ISO 8601 timestamp generation
 chrono = { version = "0.4", features = ["serde"] }
-# Operating system detection
+tokio = { version = "1", features = ["full"] }
 os_info = "3.7"
-# Cross-platform unique machine identifier
-machine_uid = "0.3"
-# Home directory resolution for cache storage
+machine-uid = "0.3"
 dirs = "5.0"
-# Network MAC address retrieval for hardware fingerprinting
 mac_address = "1.1"
-# Error handling with backtrace support
-anyhow = "1.0"
-thiserror = "1.0"
 
 [lib]
-name = "wsd_sdk"
+name = "${lib_name}"
 path = "src/lib.rs"
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
