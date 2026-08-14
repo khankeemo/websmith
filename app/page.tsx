@@ -231,69 +231,72 @@ function StatsStrip({ items }: { items: StatSlide[] }) {
   );
 }
 
-type TechnologyLink = { name: string; icon: string; href: string | null };
+type TechnologyLink = { name: string; icon: string; href: string };
 
 const TECHNOLOGIES: TechnologyLink[] = [
-  { name: "Python", icon: "/wds_icon/python.svg", href: null },
-  { name: "JavaScript", icon: "/wds_icon/javascript.svg", href: null },
-  { name: "TypeScript", icon: "/wds_icon/typescript.svg", href: null },
-  { name: "Java", icon: "/wds_icon/java.svg", href: null },
-  { name: "C#", icon: "/wds_icon/csharp.svg", href: null },
-  { name: "C++", icon: "/wds_icon/cplusplus.svg", href: null },
-  { name: "C", icon: "/wds_icon/c.svg", href: null },
-  { name: "Go", icon: "/wds_icon/go.svg", href: null },
-  { name: "Rust", icon: "/wds_icon/rust.svg", href: null },
-  { name: "PHP", icon: "/wds_icon/php.svg", href: null },
-  { name: "Ruby", icon: "/wds_icon/ruby.svg", href: null },
-  { name: "Kotlin", icon: "/wds_icon/kotlin.svg", href: null },
-  { name: "Swift", icon: "/wds_icon/swift.svg", href: null },
-  { name: "Dart", icon: "/wds_icon/dart.svg", href: null },
-  { name: "Scala", icon: "/wds_icon/scala.svg", href: null },
-  { name: "R", icon: "/wds_icon/r.svg", href: null },
-  { name: "Lua", icon: "/wds_icon/lua.svg", href: null },
-  { name: "Perl", icon: "/wds_icon/perl.svg", href: null },
-  { name: "Bash", icon: "/wds_icon/bash.svg", href: null },
-  { name: "Objective-C", icon: "/wds_icon/objectivec.svg", href: null },
-  { name: "HTML5", icon: "/wds_icon/html5.svg", href: null },
-  { name: "CSS3", icon: "/wds_icon/css3.svg", href: null },
-  { name: "Node.js", icon: "/wds_icon/nodejs.svg", href: null },
-  { name: "React", icon: "/wds_icon/react.svg", href: null },
-  { name: "Next.js", icon: "/wds_icon/nextjs.svg", href: null },
-  { name: "Vue.js", icon: "/wds_icon/vue.svg", href: null },
-  { name: "Angular", icon: "/wds_icon/angular.svg", href: null },
-  { name: "Svelte", icon: "/wds_icon/svelte.svg", href: null },
-  { name: "Express", icon: "/wds_icon/express.svg", href: null },
-  { name: "NestJS", icon: "/wds_icon/nestjs.svg", href: null },
-  { name: ".NET", icon: "/wds_icon/dotnet.svg", href: null },
-  { name: "Spring", icon: "/wds_icon/spring.svg", href: null },
-  { name: "Laravel", icon: "/wds_icon/laravel.svg", href: null },
-  { name: "Django", icon: "/wds_icon/django.svg", href: null },
-  { name: "Flask", icon: "/wds_icon/flask.svg", href: null },
-  { name: "FastAPI", icon: "/wds_icon/fastapi.svg", href: null },
-  { name: "Flutter", icon: "/wds_icon/flutter.svg", href: null },
-  { name: "React Native", icon: "/wds_icon/react-native.svg", href: null },
-  { name: "MongoDB", icon: "/wds_icon/mongodb.svg", href: null },
-  { name: "PostgreSQL", icon: "/wds_icon/postgresql.svg", href: null },
-  { name: "MySQL", icon: "/wds_icon/mysql.svg", href: null },
-  { name: "Redis", icon: "/wds_icon/redis.svg", href: null },
-  { name: "GraphQL", icon: "/wds_icon/graphql.svg", href: null },
-  { name: "Firebase", icon: "/wds_icon/firebase.svg", href: null },
-  { name: "Supabase", icon: "/wds_icon/supabase.svg", href: null },
-  { name: "Docker", icon: "/wds_icon/docker.svg", href: null },
-  { name: "Kubernetes", icon: "/wds_icon/kubernetes.svg", href: null },
-  { name: "AWS", icon: "/wds_icon/aws.svg", href: null },
-  { name: "Google Cloud", icon: "/wds_icon/google-cloud.svg", href: null },
-  { name: "Git", icon: "/wds_icon/git.svg", href: null },
+  { name: "Python", icon: "/wds_icon/python.svg", href: "https://www.python.org/" },
+  { name: "JavaScript", icon: "/wds_icon/javascript.svg", href: "https://developer.mozilla.org/en-US/docs/Web/JavaScript" },
+  { name: "TypeScript", icon: "/wds_icon/typescript.svg", href: "https://www.typescriptlang.org/" },
+  { name: "Java", icon: "/wds_icon/java.svg", href: "https://www.java.com/" },
+  { name: "C#", icon: "/wds_icon/csharp.svg", href: "https://learn.microsoft.com/en-us/dotnet/csharp/" },
+  { name: "C++", icon: "/wds_icon/cplusplus.svg", href: "https://isocpp.org/" },
+  { name: "C", icon: "/wds_icon/c.svg", href: "https://www.open-std.org/JTC1/SC22/WG14/" },
+  { name: "Go", icon: "/wds_icon/go.svg", href: "https://go.dev/" },
+  { name: "Rust", icon: "/wds_icon/rust.svg", href: "https://www.rust-lang.org/" },
+  { name: "PHP", icon: "/wds_icon/php.svg", href: "https://www.php.net/" },
+  { name: "Ruby", icon: "/wds_icon/ruby.svg", href: "https://www.ruby-lang.org/" },
+  { name: "Kotlin", icon: "/wds_icon/kotlin.svg", href: "https://kotlinlang.org/" },
+  { name: "Swift", icon: "/wds_icon/swift.svg", href: "https://www.swift.org/" },
+  { name: "Dart", icon: "/wds_icon/dart.svg", href: "https://dart.dev/" },
+  { name: "Scala", icon: "/wds_icon/scala.svg", href: "https://www.scala-lang.org/" },
+  { name: "R", icon: "/wds_icon/r.svg", href: "https://www.r-project.org/" },
+  { name: "Lua", icon: "/wds_icon/lua.svg", href: "https://www.lua.org/" },
+  { name: "Perl", icon: "/wds_icon/perl.svg", href: "https://www.perl.org/" },
+  { name: "Bash", icon: "/wds_icon/bash.svg", href: "https://www.gnu.org/software/bash/" },
+  { name: "Objective-C", icon: "/wds_icon/objectivec.svg", href: "https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/ProgrammingWithObjectiveC/" },
+  { name: "HTML5", icon: "/wds_icon/html5.svg", href: "https://developer.mozilla.org/en-US/docs/Web/HTML" },
+  { name: "CSS3", icon: "/wds_icon/css3.svg", href: "https://developer.mozilla.org/en-US/docs/Web/CSS" },
+  { name: "Node.js", icon: "/wds_icon/nodejs.svg", href: "https://nodejs.org/" },
+  { name: "React", icon: "/wds_icon/react.svg", href: "https://react.dev/" },
+  { name: "Next.js", icon: "/wds_icon/nextjs.svg", href: "https://nextjs.org/" },
+  { name: "Vue.js", icon: "/wds_icon/vue.svg", href: "https://vuejs.org/" },
+  { name: "Angular", icon: "/wds_icon/angular.svg", href: "https://angular.dev/" },
+  { name: "Svelte", icon: "/wds_icon/svelte.svg", href: "https://svelte.dev/" },
+  { name: "Express", icon: "/wds_icon/express.svg", href: "https://expressjs.com/" },
+  { name: "NestJS", icon: "/wds_icon/nestjs.svg", href: "https://nestjs.com/" },
+  { name: ".NET", icon: "/wds_icon/dotnet.svg", href: "https://dotnet.microsoft.com/" },
+  { name: "Spring", icon: "/wds_icon/spring.svg", href: "https://spring.io/" },
+  { name: "Laravel", icon: "/wds_icon/laravel.svg", href: "https://laravel.com/" },
+  { name: "Django", icon: "/wds_icon/django.svg", href: "https://www.djangoproject.com/" },
+  { name: "Flask", icon: "/wds_icon/flask.svg", href: "https://flask.palletsprojects.com/" },
+  { name: "FastAPI", icon: "/wds_icon/fastapi.svg", href: "https://fastapi.tiangolo.com/" },
+  { name: "Flutter", icon: "/wds_icon/flutter.svg", href: "https://flutter.dev/" },
+  { name: "React Native", icon: "/wds_icon/react-native.svg", href: "https://reactnative.dev/" },
+  { name: "MongoDB", icon: "/wds_icon/mongodb.svg", href: "https://www.mongodb.com/" },
+  { name: "PostgreSQL", icon: "/wds_icon/postgresql.svg", href: "https://www.postgresql.org/" },
+  { name: "MySQL", icon: "/wds_icon/mysql.svg", href: "https://www.mysql.com/" },
+  { name: "Redis", icon: "/wds_icon/redis.svg", href: "https://redis.io/" },
+  { name: "GraphQL", icon: "/wds_icon/graphql.svg", href: "https://graphql.org/" },
+  { name: "Firebase", icon: "/wds_icon/firebase.svg", href: "https://firebase.google.com/" },
+  { name: "Supabase", icon: "/wds_icon/supabase.svg", href: "https://supabase.com/" },
+  { name: "Docker", icon: "/wds_icon/docker.svg", href: "https://www.docker.com/" },
+  { name: "Kubernetes", icon: "/wds_icon/kubernetes.svg", href: "https://kubernetes.io/" },
+  { name: "AWS", icon: "/wds_icon/aws.svg", href: "https://aws.amazon.com/" },
+  { name: "Google Cloud", icon: "/wds_icon/google-cloud.svg", href: "https://cloud.google.com/" },
+  { name: "Git", icon: "/wds_icon/git.svg", href: "https://git-scm.com/" },
 ];
 
-const TECH_COUNT = TECHNOLOGIES.length;
+const TECH_COLS = 10;
+const TECH_ROWS = 5;
 
 const techSeed = (i: number) => {
-  const angle = (i * 2.399963229728653) % (Math.PI * 2);
-  const radius = Math.sqrt((i + 0.5) / TECH_COUNT);
+  const col = i % TECH_COLS;
+  const row = Math.floor(i / TECH_COLS);
+  const jx = ((i * 31) % 100) / 100;
+  const jy = ((i * 57) % 100) / 100;
   return {
-    fx: 0.5 + 0.44 * radius * Math.cos(angle),
-    fy: 0.5 + 0.42 * radius * Math.sin(angle),
+    fx: (col + 0.18 + 0.64 * jx) / TECH_COLS,
+    fy: (row + 0.18 + 0.64 * jy) / TECH_ROWS,
   };
 };
 
@@ -305,7 +308,14 @@ type TechParticle = {
   base: number;
   rot: number;
   spin: number;
+  turnTimer: number;
+  turnEvery: number;
+  wander: number;
 };
+
+const MIN_SPEED = 1.1;
+const MAX_SPEED = 3.6;
+const BASE_SPEED = 1.7;
 
 function FloatingTechnologyBanner() {
   const fieldRef = useRef<HTMLDivElement>(null);
@@ -329,18 +339,28 @@ function FloatingTechnologyBanner() {
     };
     readSize();
 
+    const { w, h, node } = sizes.current;
+    const radius = node / 2;
+    const minX = radius;
+    const maxX = w - radius;
+    const minY = radius;
+    const maxY = h - radius;
+
     particles.current = TECHNOLOGIES.map((_, i) => {
       const seed = techSeed(i);
       const dirAngle = (i * 137.50776405003785) % (Math.PI * 2);
-      const base = 0.9 + ((i * 37) % 10) / 9;
+      const base = BASE_SPEED * (0.62 + ((i * 37) % 10) / 9);
       return {
-        x: seed.fx * sizes.current.w,
-        y: seed.fy * sizes.current.h,
+        x: minX + seed.fx * (maxX - minX),
+        y: minY + seed.fy * (maxY - minY),
         vx: Math.cos(dirAngle) * base,
         vy: Math.sin(dirAngle) * base,
         base,
         rot: (i % 20) * 18,
         spin: (i % 2 === 0 ? 1 : -1) * (0.08 + ((i * 13) % 10) / 90),
+        turnTimer: 0,
+        turnEvery: 1.2 + ((i * 29) % 10) / 6,
+        wander: 0.35 + ((i * 47) % 10) / 14,
       };
     });
 
@@ -350,58 +370,18 @@ function FloatingTechnologyBanner() {
     let active = false;
 
     const applyTransforms = () => {
-      const radius = sizes.current.node / 2;
+      const r = sizes.current.node / 2;
       for (let i = 0; i < particles.current.length; i++) {
         const el = nodeRefs.current[i];
         if (!el) continue;
         const p = particles.current[i];
-        el.style.transform = `translate3d(${p.x - radius}px, ${p.y - radius}px, 0) rotate(${p.rot}deg)`;
+        el.style.transform = `translate3d(${p.x - r}px, ${p.y - r}px, 0) rotate(${p.rot}deg)`;
       }
     };
 
-    const step = (now: number) => {
-      if (!active || !visible) return;
-      const dt = Math.min((now - last) / 1000, 0.05);
-      last = now;
-      const { w, h, node } = sizes.current;
-      const radius = node / 2;
-      const speedFactor = w < 768 ? 0.55 : 1;
-
-      const MIN_SPEED = 0.55;
-      const MAX_SPEED = 3.4;
-      for (let i = 0; i < particles.current.length; i++) {
-        const p = particles.current[i];
-        const sp = Math.hypot(p.vx, p.vy) || 1;
-        if (hoverIndex.current === i) {
-          if (sp > p.base * 0.45) {
-            p.vx *= 0.94;
-            p.vy *= 0.94;
-          }
-        } else if (sp < p.base * 0.7) {
-          const nx = p.vx / sp;
-          const ny = p.vy / sp;
-          const kick = Math.min(p.base - sp, p.base * 0.14);
-          p.vx += nx * kick;
-          p.vy += ny * kick;
-        }
-        const sp2 = Math.hypot(p.vx, p.vy);
-        if (sp2 < MIN_SPEED) {
-          const ang = p.rot * 0.11 + i * 1.7;
-          p.vx = Math.cos(ang) * MIN_SPEED;
-          p.vy = Math.sin(ang) * MIN_SPEED;
-        } else if (sp2 > MAX_SPEED) {
-          p.vx = (p.vx / sp2) * MAX_SPEED;
-          p.vy = (p.vy / sp2) * MAX_SPEED;
-        }
-        p.x += p.vx * dt * 60 * speedFactor;
-        p.y += p.vy * dt * 60 * speedFactor;
-        p.rot += p.spin * dt * 60 * speedFactor;
-        if (p.x < radius) { p.x = radius; p.vx = Math.abs(p.vx); }
-        if (p.x > w - radius) { p.x = w - radius; p.vx = -Math.abs(p.vx); }
-        if (p.y < radius) { p.y = radius; p.vy = Math.abs(p.vy); }
-        if (p.y > h - radius) { p.y = h - radius; p.vy = -Math.abs(p.vy); }
-      }
-
+    const collide = () => {
+      const r = sizes.current.node / 2;
+      const minDist = r * 2;
       const ps = particles.current;
       for (let i = 0; i < ps.length; i++) {
         for (let j = i + 1; j < ps.length; j++) {
@@ -409,13 +389,12 @@ function FloatingTechnologyBanner() {
           const b = ps[j];
           const dx = b.x - a.x;
           const dy = b.y - a.y;
-          const minDist = radius * 2;
           const distSq = dx * dx + dy * dy;
           if (distSq === 0 || distSq >= minDist * minDist) continue;
           const dist = Math.sqrt(distSq);
-          const overlap = (minDist - dist) / 2;
           const nx = dx / dist;
           const ny = dy / dist;
+          const overlap = (minDist - dist) / 2;
           a.x -= nx * overlap;
           a.y -= ny * overlap;
           b.x += nx * overlap;
@@ -426,11 +405,78 @@ function FloatingTechnologyBanner() {
           a.vy += (vb - va) * ny;
           b.vx += (va - vb) * nx;
           b.vy += (va - vb) * ny;
-          const jitter = 0.16;
+          const jitter = 0.1;
           a.vx += (Math.random() - 0.5) * jitter;
           a.vy += (Math.random() - 0.5) * jitter;
           b.vx += (Math.random() - 0.5) * jitter;
           b.vy += (Math.random() - 0.5) * jitter;
+        }
+      }
+    };
+
+    const step = (now: number) => {
+      if (!active || !visible) return;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      const { w, h, node } = sizes.current;
+      const r = node / 2;
+      const speedFactor = w < 768 ? 0.7 : 1;
+      const ps = particles.current;
+
+      for (let i = 0; i < ps.length; i++) {
+        const p = ps[i];
+        const sp = Math.hypot(p.vx, p.vy) || 1;
+
+        if (hoverIndex.current === i) {
+          if (sp > p.base * 0.45) {
+            p.vx *= 0.94;
+            p.vy *= 0.94;
+          }
+        }
+
+        p.turnTimer -= dt;
+        if (p.turnTimer <= 0) {
+          p.turnTimer = p.turnEvery;
+          const cur = Math.atan2(p.vy, p.vx);
+          const next = cur + (Math.random() - 0.5) * 1.6;
+          p.vx = Math.cos(next) * sp;
+          p.vy = Math.sin(next) * sp;
+        }
+
+        p.x += p.vx * dt * 60 * speedFactor;
+        p.y += p.vy * dt * 60 * speedFactor;
+        p.rot += p.spin * dt * 60 * speedFactor;
+
+        const px = Math.min(Math.max(p.x, r), w - r);
+        const py = Math.min(Math.max(p.y, r), h - r);
+        const hitX = px !== p.x;
+        const hitY = py !== p.y;
+        p.x = px;
+        p.y = py;
+        if (hitX) {
+          p.vx = Math.abs(p.vx) * (p.x === r ? 1 : -1) * (1 + (Math.random() - 0.5) * 0.3);
+          p.vx += (Math.random() - 0.5) * p.wander;
+          p.vy += (Math.random() - 0.5) * p.wander;
+        }
+        if (hitY) {
+          p.vy = Math.abs(p.vy) * (p.y === r ? 1 : -1) * (1 + (Math.random() - 0.5) * 0.3);
+          p.vx += (Math.random() - 0.5) * p.wander;
+          p.vy += (Math.random() - 0.5) * p.wander;
+        }
+      }
+
+      collide();
+
+      for (let i = 0; i < ps.length; i++) {
+        const p = ps[i];
+        const sp2 = Math.hypot(p.vx, p.vy);
+        if (sp2 < MIN_SPEED) {
+          const ang = p.rot * 0.11 + i * 1.7;
+          p.vx = Math.cos(ang) * MIN_SPEED;
+          p.vy = Math.sin(ang) * MIN_SPEED;
+        } else if (sp2 > MAX_SPEED) {
+          p.vx = (p.vx / sp2) * MAX_SPEED;
+          p.vy = (p.vy / sp2) * MAX_SPEED;
         }
       }
 
@@ -438,7 +484,7 @@ function FloatingTechnologyBanner() {
         const el = nodeRefs.current[i];
         if (!el) continue;
         const p = ps[i];
-        el.style.transform = `translate3d(${p.x - radius}px, ${p.y - radius}px, 0) rotate(${p.rot}deg)`;
+        el.style.transform = `translate3d(${p.x - r}px, ${p.y - r}px, 0) rotate(${p.rot}deg)`;
       }
       raf = requestAnimationFrame(step);
     };
@@ -512,11 +558,10 @@ function FloatingTechnologyBanner() {
       </div>
       <div ref={fieldRef} className="tech-field">
         {TECHNOLOGIES.map((tech, i) => {
-          const seed = techSeed(i);
           const nodeStyle: React.CSSProperties = {
             ...styles.techNode,
-            left: `${seed.fx * 100}%`,
-            top: `${seed.fy * 100}%`,
+            left: 0,
+            top: 0,
           };
           const inner = (
             <span style={styles.techNodeMask} className="tech-node-mask" aria-hidden="true">
@@ -529,42 +574,23 @@ function FloatingTechnologyBanner() {
             onFocus: () => handleEnter(i),
             onBlur: () => handleLeave(i),
           };
-          if (tech.href) {
-            return (
-              <a
-                key={tech.name}
-                ref={(el) => {
-                  nodeRefs.current[i] = el;
-                }}
-                href={tech.href}
-                target={tech.href.startsWith("http") ? "_blank" : undefined}
-                rel={tech.href.startsWith("http") ? "noreferrer" : undefined}
-                className="tech-node"
-                style={nodeStyle}
-                title={tech.name}
-                aria-label={tech.name}
-                {...handlers}
-              >
-                {inner}
-              </a>
-            );
-          }
           return (
-            <div
+            <a
               key={tech.name}
               ref={(el) => {
                 nodeRefs.current[i] = el;
               }}
+              href={tech.href}
+              target="_blank"
+              rel="noopener noreferrer"
               className="tech-node"
               style={nodeStyle}
               title={tech.name}
-              role="img"
               aria-label={tech.name}
-              tabIndex={0}
               {...handlers}
             >
               {inner}
-            </div>
+            </a>
           );
         })}
       </div>
@@ -1665,9 +1691,10 @@ const styles: any = {
   },
   techNode: {
     position: "absolute",
+    left: 0,
+    top: 0,
     width: "var(--tech-node, 84px)",
     height: "var(--tech-node, 84px)",
-    transform: "translate(-50%, -50%)",
     willChange: "transform",
     cursor: "pointer",
   },

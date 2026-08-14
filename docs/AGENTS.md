@@ -846,3 +846,35 @@ Center Separation + Email Form Cleanup"). Never regress:
   and all store database logic remain untouched. No `mailto:`, no `/contact`
   redirect, no duplicate email form, no admin endpoint.
 - Keep this rule in sync with the master doc.
+
+## Public Homepage Technology Banner (Websmith Landing Page)
+
+Keep `app/page.tsx`'s `FloatingTechnologyBanner` aligned. Never regress:
+
+- **50 technology nodes roam the FULL banner field** (`techSeed` = jittered
+  10×5 grid spread across the entire field at init, not one side). Each node
+  carries independent `x/y/vx/vy/base/rot/spin/turnTimer/turnEvery/wander`.
+  Motion is real 2D physics on `requestAnimationFrame`: independent velocity,
+  per-node turn timers (random ±0.8 rad direction changes for zig-zag), wall
+  bounces on all four edges (axis-flip + small random deflection so paths never
+  repeat), circle-to-circle **elastic collisions** (`collide()`: separate
+  overlapping circles first, then reflect velocity along the collision normal,
+  never permanent overlap), and a speed clamp that **restores a minimum
+  velocity** (`MIN_SPEED`) so no node stalls or clusters. Positions are applied
+  via `translate3d` only (GPU-friendly, no per-frame React re-render, no
+  physics library). The JS transform is the SOLE positioner — nodes are
+  `left:0/top:0` and fully offset by `translate3d(x - radius, y - radius)`;
+  never re-introduce `left/top` percentages + `translate3d` together (that
+  double-offset caused the old right-side clustering).
+- **Each node is a real anchor**: `<a>` with `target="_blank"` and
+  `rel="noopener noreferrer"` opens the technology's OFFICIAL website in a NEW
+  TAB. Every one of the 50 `TECHNOLOGIES` entries has a verified official
+  `href` (official domains/docs only — e.g. Python → python.org, TypeScript →
+  typescriptlang.org, React → react.dev, Go → go.dev, C → WG14 standards page,
+  Bash → gnu.org/software/bash, Objective-C → Apple docs). Never `href: null`,
+  never Wikipedia/tutorials/third-party icon pages, never invented URLs.
+- **Presentation preserved**: heading, subtitle, circular masks, icon assets,
+  hover zoom/glow, `prefers-reduced-motion` (animation fully stopped when
+  reduced motion is active), IntersectionObserver pause when off-screen, and
+  ResizeObserver re-clamping on resize all stay intact. Keep this rule in sync
+  with `README.md`.

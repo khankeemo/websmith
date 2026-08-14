@@ -34,3 +34,16 @@ Master Implementation Document → Language Templates → SDK Publisher → Gene
 Per AWS-01 rules these documentation files must always reflect the **current** state of
 the codebase. When behavior changes, update this library, `AGENTS.md`, and the master
 document on the same task.
+
+## Public homepage — floating technology banner
+
+`app/page.tsx` renders a "Built With the Right Technology" banner where **50 technology
+nodes roam the full field** with real 2D physics: independent velocity, zig-zag turn
+timers, wall bounces on all four edges, elastic circle-to-circle collisions (overlap is
+separated then velocities are reflected), and a minimum-speed clamp so no node stalls or
+clusters. Nodes are positioned every frame via `translate3d` only (no React re-render, no
+physics library); the animation pauses when the section is off-screen and stops entirely
+under `prefers-reduced-motion`. Every node is an `<a>` (`target="_blank"`,
+`rel="noopener noreferrer"`) linking to that technology's verified official website. See
+`AGENTS.md` → "Public Homepage Technology Banner (Websmith Landing Page)" for the exact
+invariants.
