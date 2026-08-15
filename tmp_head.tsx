@@ -513,7 +513,7 @@ export default function AdminMessagesClient() {
   return (
     <>
       {/* ============================ SIDEBAR / QUERY INBOX ============================ */}
-      <div className={selectedTicket ? "query-inbox-shell query-has-thread" : "query-inbox-shell"} style={styles.shell}>
+      <div className="query-inbox-shell" style={styles.shell}>
         <div className="query-inbox-sidebar" style={styles.sidebar}>
           <div style={styles.sidebarHeader}>
             <div>
@@ -966,7 +966,7 @@ function ConfirmModal({ title, tone, busy, onCancel, onConfirm, children }: { ti
 /* ============================ STYLES ============================ */
 
 const styles: Record<string, any> = {
-  shell: { display: "grid", gridTemplateColumns: "385px minmax(0, 1fr)", gap: "24px", padding: "24px", minHeight: "calc(100vh - 48px)" },
+  shell: { display: "grid", gridTemplateColumns: "360px minmax(0, 1fr)", gap: "24px", padding: "24px", minHeight: "calc(100vh - 48px)" },
   sidebar: { backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "24px", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 48px)" },
   sidebarHeader: { padding: "20px", borderBottom: "1px solid var(--border-color)", display: "flex", flexDirection: "column", gap: "14px" },
   title: { margin: 0, fontSize: "28px", fontWeight: 700, color: "var(--text-primary)" },
@@ -989,7 +989,7 @@ const styles: Record<string, any> = {
   ticketMeta: { margin: 0, fontSize: "13px", color: "var(--text-primary)" },
   ticketMetaMuted: { margin: "4px 0 0 0", fontSize: "12px", color: "var(--text-secondary)" },
   unreadDot: { display: "inline-block", width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#007AFF", marginRight: "6px", verticalAlign: "middle" },
-  menuHost: { position: "relative", display: "inline-flex" },
+  menuHost: { position: "absolute", top: "10px", right: "12px" },
   menuButton: { width: "28px", height: "28px", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-primary)", color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   menuButtonActive: { color: "#007AFF", borderColor: "#007AFF55" },
   menuBackdrop: { position: "fixed", inset: 0, zIndex: 40 },
