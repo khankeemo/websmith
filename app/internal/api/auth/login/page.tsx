@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Mail, 
@@ -22,6 +22,218 @@ import {
 import { isValidEmail } from "@/lib/validation";
 import OtpVerification from "@/components/shared/OtpVerification";
 import type { OtpCallResult } from "@/components/shared/OtpVerification";
+
+// ==== 25-bubble ambient field — inspired by the landing "Built With the Right Technology" banner ====
+type BubbleItem = { name: string; icon: string };
+
+const BUBBLES: BubbleItem[] = [
+  { name: "TypeScript", icon: "/wds_icon/typescript.svg" },
+  { name: "JavaScript", icon: "/wds_icon/javascript.svg" },
+  { name: "React", icon: "/wds_icon/react.svg" },
+  { name: "Next.js", icon: "/wds_icon/nextjs.svg" },
+  { name: "Node.js", icon: "/wds_icon/nodejs.svg" },
+  { name: "Python", icon: "/wds_icon/python.svg" },
+  { name: "Go", icon: "/wds_icon/go.svg" },
+  { name: "Rust", icon: "/wds_icon/rust.svg" },
+  { name: "PostgreSQL", icon: "/wds_icon/postgresql.svg" },
+  { name: "MongoDB", icon: "/wds_icon/mongodb.svg" },
+  { name: "Redis", icon: "/wds_icon/redis.svg" },
+  { name: "MySQL", icon: "/wds_icon/mysql.svg" },
+  { name: "GraphQL", icon: "/wds_icon/graphql.svg" },
+  { name: "Docker", icon: "/wds_icon/docker.svg" },
+  { name: "Kubernetes", icon: "/wds_icon/kubernetes.svg" },
+  { name: "Git", icon: "/wds_icon/git.svg" },
+  { name: "HTML5", icon: "/wds_icon/html5.svg" },
+  { name: "CSS3", icon: "/wds_icon/css3.svg" },
+  { name: "Flutter", icon: "/wds_icon/flutter.svg" },
+  { name: "Swift", icon: "/wds_icon/swift.svg" },
+  { name: "Kotlin", icon: "/wds_icon/kotlin.svg" },
+  { name: "Express", icon: "/wds_icon/express.svg" },
+  { name: "FastAPI", icon: "/wds_icon/fastapi.svg" },
+  { name: "Firebase", icon: "/wds_icon/firebase.svg" },
+  { name: "AWS", icon: "/wds_icon/aws.svg" },
+];
+
+type BubbleParticle = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  drift: number;
+  driftSpeed: number;
+  floatPhase: number;
+  floatSpeed: number;
+  floatAmp: number;
+  turnTimer: number;
+  turnEvery: number;
+  scale: number;
+  opacity: number;
+};
+
+function BubbleField() {
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const nodeRefs = useRef<(HTMLElement | null)[]>([]);
+  const particles = useRef<BubbleParticle[]>([]);
+  const sizes = useRef({ w: 1, h: 1, node: 104 });
+  const reducedMotion = useRef(false);
+
+  useEffect(() => {
+    const field = fieldRef.current;
+    if (!field) return;
+
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    reducedMotion.current = media.matches;
+
+    const readSize = () => {
+      const rect = field.getBoundingClientRect();
+      const node = nodeRefs.current[0]?.offsetWidth || 104;
+      sizes.current = { w: Math.max(rect.width, 1), h: Math.max(rect.height, 1), node };
+    };
+    readSize();
+
+    const { w, h, node } = sizes.current;
+    const r = node / 2;
+
+    particles.current = BUBBLES.map((_, i) => {
+      const fx = ((i * 67) % 100) / 100;
+      const fy = ((i * 29) % 100) / 100;
+      const up = i % 2 === 0;
+      const base = 0.34 + ((i * 37) % 10) / 24;
+      return {
+        x: r + fx * Math.max(w - r * 2, 1),
+        y: r + fy * Math.max(h - r * 2, 1),
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: up ? -base : base,
+        drift: Math.random() * Math.PI * 2,
+        driftSpeed: 0.1 + ((i * 13) % 10) / 48,
+        floatPhase: Math.random() * Math.PI * 2,
+        floatSpeed: 0.16 + ((i * 7) % 10) / 40,
+        floatAmp: 5 + ((i * 11) % 10) * 1.5,
+        turnTimer: 0,
+        turnEvery: 2 + ((i * 17) % 10) / 4,
+        scale: 0.8 + ((i * 23) % 10) / 32,
+        opacity: 0.25 + ((i * 19) % 10) / 30,
+      };
+    });
+
+    let raf = 0;
+    let last = performance.now();
+    let active = false;
+
+    const applyTransforms = () => {
+      const r2 = sizes.current.node / 2;
+      for (let i = 0; i < particles.current.length; i++) {
+        const el = nodeRefs.current[i];
+        if (!el) continue;
+        const p = particles.current[i];
+        const bob = Math.sin(p.floatPhase) * p.floatAmp;
+        el.style.transform = `translate3d(${p.x - r2}px, ${p.y + bob - r2}px, 0) scale(${p.scale})`;
+      }
+    };
+
+    const step = (now: number) => {
+      if (!active) return;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      const { w, h, node } = sizes.current;
+      const r2 = node / 2;
+
+      for (let i = 0; i < particles.current.length; i++) {
+        const p = particles.current[i];
+        p.drift += p.driftSpeed * dt * 60;
+        p.floatPhase += p.floatSpeed * dt * 60;
+        p.turnTimer -= dt;
+        if (p.turnTimer <= 0) {
+          p.turnTimer = p.turnEvery;
+          p.vx += (Math.random() - 0.5) * 0.24;
+        }
+        p.x += (p.vx + Math.sin(p.drift) * 0.35) * dt * 60;
+        p.y += p.vy * dt * 60;
+
+        if (p.x < r2) {
+          p.x = r2;
+          p.vx = Math.abs(p.vx);
+        } else if (p.x > w - r2) {
+          p.x = w - r2;
+          p.vx = -Math.abs(p.vx);
+        }
+
+        if (p.y > h + r2 * 1.5) p.y = -r2 * 1.5;
+        else if (p.y < -r2 * 1.5) p.y = h + r2 * 1.5;
+      }
+
+      for (let i = 0; i < particles.current.length; i++) {
+        const el = nodeRefs.current[i];
+        if (!el) continue;
+        const p = particles.current[i];
+        const bob = Math.sin(p.floatPhase) * p.floatAmp;
+        el.style.transform = `translate3d(${p.x - r2}px, ${p.y + bob - r2}px, 0) scale(${p.scale})`;
+      }
+      raf = requestAnimationFrame(step);
+    };
+
+    const start = () => {
+      if (active || reducedMotion.current) return;
+      active = true;
+      last = performance.now();
+      raf = requestAnimationFrame(step);
+    };
+    const stop = () => {
+      active = false;
+      cancelAnimationFrame(raf);
+    };
+
+    applyTransforms();
+    if (!reducedMotion.current) start();
+
+    const ro = new ResizeObserver(() => {
+      readSize();
+      const { w: w2, h: h2, node: n2 } = sizes.current;
+      const rr = n2 / 2;
+      for (const p of particles.current) {
+        p.x = Math.max(rr, Math.min(w2 - rr, p.x));
+        p.y = Math.max(rr, Math.min(h2 - rr, p.y));
+      }
+      applyTransforms();
+    });
+    ro.observe(field);
+
+    const onReducedChange = (e: MediaQueryListEvent) => {
+      reducedMotion.current = e.matches;
+      if (e.matches) stop();
+      else start();
+    };
+    media.addEventListener("change", onReducedChange);
+
+    return () => {
+      stop();
+      ro.disconnect();
+      media.removeEventListener("change", onReducedChange);
+    };
+  }, []);
+
+  return (
+    <div ref={fieldRef} className="login-bubble-field" aria-hidden="true">
+      {BUBBLES.map((bubble, i) => (
+        <span
+          key={bubble.name}
+          ref={(el) => {
+            nodeRefs.current[i] = el;
+          }}
+          className="login-bubble"
+          style={{
+            opacity: particles.current[i]?.opacity ?? 0.4,
+            transform: "translate3d(-9999px, -9999px, 0)",
+          }}
+        >
+          <span className="login-bubble-mask">
+            <img src={bubble.icon} alt="" draggable={false} loading="lazy" />
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -194,6 +406,53 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center bg-[#0B1120]">
+      <style>{`
+        .login-bubble-field {
+          position: absolute;
+          inset: 0;
+          z-index: 11;
+          overflow: hidden;
+          pointer-events: none;
+          --login-bubble: 104px;
+        }
+        .login-bubble {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: var(--login-bubble, 104px);
+          height: var(--login-bubble, 104px);
+          will-change: transform;
+        }
+        .login-bubble-mask {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: radial-gradient(circle at 32% 26%, rgba(35, 39, 67, 0.8), rgba(15, 17, 34, 0.76) 72%);
+          border: 1px solid rgba(139, 92, 246, 0.32);
+          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), inset 0 0 14px rgba(139, 92, 246, 0.12);
+          -webkit-backdrop-filter: blur(2px);
+          backdrop-filter: blur(2px);
+        }
+        .login-bubble-mask img {
+          width: 52%;
+          height: 52%;
+          object-fit: contain;
+          opacity: 0.9;
+          filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.25));
+        }
+        @media (max-width: 768px) {
+          .login-bubble-field { --login-bubble: 78px; }
+        }
+        @media (max-width: 520px) {
+          .login-bubble-field { --login-bubble: 68px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .login-bubble { animation: none !important; }
+        }
+      `}</style>
       {/* Video Background */}
       <video
         autoPlay
@@ -202,11 +461,15 @@ export default function LoginPage() {
         playsInline
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       >
-        <source src="/videos/API-Center.mp4" type="video/mp4" />
+        <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
       </video>
+
+      {/* 25-bubble ambient field (inspired by the landing technology banner) */}
+      <BubbleField />
 
       <div className="absolute inset-0 z-10 bg-gradient-to-br from-[#0B1120]/90 via-[#0B1120]/60 to-[#0B1120]/80" />
       <div className="absolute inset-0 z-10 bg-gradient-to-tr from-blue-600/5 via-purple-600/5 to-transparent animate-pulse" />
+      <div className="absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,rgba(11,17,32,0.55),transparent_62%)]" />
 
       <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] rounded-full bg-blue-500/20 blur-3xl animate-pulse z-10" />
       <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full bg-purple-500/20 blur-3xl animate-pulse delay-1000 z-10" />
