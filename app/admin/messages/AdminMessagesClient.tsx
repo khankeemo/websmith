@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Activity,
+  Briefcase,
   Check,
   Clock3,
   FileCheck2,
+  Hash,
   Loader2,
   Lock,
   Mail,
@@ -93,7 +96,7 @@ export default function AdminMessagesClient() {
   // ---- Client account state (Phase 6) ----
   const [accountState, setAccountState] = useState<TicketClientAccount | null>(null);
 
-  // ---- ⋮ conversation menu + modals (Phase 11/12/13) ----
+  // ---- Conversation menu + modals (Phase 11/12/13) ----
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [editTicket, setEditTicket] = useState<Ticket | null>(null);
   const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
@@ -105,9 +108,11 @@ export default function AdminMessagesClient() {
   // ---- Inbound email sync (Query Inbox two-way conversation) ----
   const [syncing, setSyncing] = useState(false);
 
-  // ---- Pinned conversation (keeps the thread pane + Resolution editor open
-  // after a conversation is closed, even though it leaves the active list) ----
+  // ---- Pinned conversation (keeps thread pane open after close) ----
   const [pinnedTicket, setPinnedTicket] = useState<Ticket | null>(null);
+
+  // ---- Chat workspace (Phase 16) ----
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const showNotice = useCallback((type: Notice["type"], text: string) => {
     setNotice({ type, text });
@@ -155,6 +160,7 @@ export default function AdminMessagesClient() {
   useEffect(() => {
     setSelectedId(null);
     setMenuFor(null);
+    setMenuFor(null);
     setAccountState(null);
     setPinnedTicket(null);
     loadPage(1);
@@ -170,7 +176,7 @@ export default function AdminMessagesClient() {
       .catch(() => showNotice("error", "Could not load resolution email templates."));
   }, [showNotice]);
 
-  // ---- Mark conversation read on open (clears the unread / NEW dot) ----
+  // ---- Mark conversation read on open ----
   const selectedTicket = useMemo(
     () => tickets.find((ticket) => ticket._id === selectedId) || pinnedTicket || null,
     [tickets, selectedId, pinnedTicket]
@@ -195,6 +201,12 @@ export default function AdminMessagesClient() {
     }
   }, [selectedTicket?._id]);
 
+  // ---- Scroll to newest message on conversation open ----
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [selectedTicket?._id]);
+
   const getRequester = (ticket: Ticket) => {
     if (ticket.source === "public_contact") {
       return {
@@ -211,9 +223,16 @@ export default function AdminMessagesClient() {
     };
   };
 
+  // ---- Helper: Client ID label ----
+  const getClientIdLabel = (ticket: Ticket): string | null => {
+    if (ticket.clientCustomId) return ticket.clientCustomId;
+    if (typeof ticket.clientId === "object" && ticket.clientId._id) return ticket.clientId._id;
+    return null;
+  };
+
   const refreshList = useCallback(() => loadPage(1), [loadPage]);
 
-  // ---- Mark conversation read on open (clears the unread / NEW dot) ----
+  // ---- Mark conversation read on open ----
   useEffect(() => {
     if (!selectedTicket?._id) return;
     const id = selectedTicket._id;
@@ -247,7 +266,7 @@ export default function AdminMessagesClient() {
     }
   };
 
-  // ---- Phase 5: Insert professional greeting (no internal markers) ----
+  // ---- Phase 5: Insert professional greeting ----
   const insertClientPortalGreeting = () => {
     if (!selectedTicket) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "https://www.websmithdigital.com";
@@ -271,8 +290,6 @@ export default function AdminMessagesClient() {
         resolution: status === "resolved" ? resolution.trim() || "Resolved by Websmith." : undefined,
       });
       const updated = result;
-      // Keep the thread pane (and Resolution editor) open after closing so the
-      // admin can write the Resolution Summary and send the Resolution Email.
       if (status === "closed" || status === "resolved") {
         setPinnedTicket(updated);
       } else {
@@ -296,14 +313,33 @@ export default function AdminMessagesClient() {
     try {
       const result = await updateTicketStatus(closeTicket._id, { status: "closed" });
       setCloseTicket(null);
-      // Keep the closed conversation open (pinned) so the Resolution Summary
-      // editor and Resolution Email remain reachable right after closing.
       if (selectedId === closeTicket._id) setPinnedTicket(result);
       await refreshList();
       showNotice("success", "Conversation closed. It remains available under the Closed tab with its full history.");
     } catch (error: any) {
       console.error("Close error:", error);
       showNotice("error", error?.response?.data?.message || "Could not close the conversation. Please try again.");
+    } finally {
+      setBusyTicket(null);
+    }
+  };
+
+  // ---- Reopen a closed conversation ----
+  const reopenTicket = async (ticket: Ticket) => {
+    if (ticket.status !== "closed" && ticket.chatStatus !== "closed") return;
+    setBusyTicket(ticket._id);
+    try {
+      const result = await updateTicketStatus(ticket._id, { status: "open" });
+      if (selectedId === ticket._id) {
+        setPinnedTicket(null);
+        setNextStatus(result.status);
+        setMenuFor(null);
+      }
+      await refreshList();
+      showNotice("success", "Conversation reopened.");
+    } catch (error: any) {
+      console.error("Reopen error:", error);
+      showNotice("error", error?.response?.data?.message || "Could not reopen the conversation. Please try again.");
     } finally {
       setBusyTicket(null);
     }
@@ -330,7 +366,7 @@ export default function AdminMessagesClient() {
     }
   };
 
-  // ---- Phase 11: Delete (soft delete via backend) ----
+  // ---- Phase 11: Delete (soft delete) ----
   const confirmDelete = async () => {
     if (!ticketToDelete) return;
     setBusyTicket(ticketToDelete._id);
@@ -348,7 +384,7 @@ export default function AdminMessagesClient() {
     }
   };
 
-  // ---- Phase 13: Resend (uses the stored email snapshot) ----
+  // ---- Phase 13: Resend ----
   const confirmResend = async () => {
     if (!resendTicket) return;
     setBusyTicket(resendTicket._id);
@@ -384,14 +420,12 @@ export default function AdminMessagesClient() {
       setCredentials(result);
       setOnboardingTicket(null);
       await refreshList();
-      getTicketClientAccount(onboardingTicket._id)
-        .then(setAccountState)
-        .catch(() => {});
+      getTicketClientAccount(onboardingTicket._id).then(setAccountState).catch(() => {});
       if (result.emailDelivered) {
         const createdNote = result.createdAccount ? " A new Client Portal account was created and the temporary password was sent by email." : " The customer's existing Client Portal account was used.";
         showNotice("success", `Client Portal access sent and delivered by email.${createdNote}`);
       } else {
-        showNotice("warn", `Client Portal access could not be delivered by email: ${result.emailError || "unknown error"}. The temporary password (if newly created) is shown below once — save it before leaving.`);
+        showNotice("warn", `Client Portal access could not be delivered by email: ${result.emailError || "unknown error"}.`);
       }
     } catch (error: any) {
       console.error("Onboarding error:", error);
@@ -404,16 +438,14 @@ export default function AdminMessagesClient() {
       }
       await refreshList();
       if (onboardingTicket) {
-        getTicketClientAccount(onboardingTicket._id)
-          .then(setAccountState)
-          .catch(() => {});
+        getTicketClientAccount(onboardingTicket._id).then(setAccountState).catch(() => {});
       }
     } finally {
       setBusyTicket(null);
     }
   };
 
-  // ---- Inbound email sync (Query Inbox two-way conversation) ----
+  // ---- Inbound email sync ----
   const handleSyncInbound = async () => {
     setSyncing(true);
     try {
@@ -451,9 +483,7 @@ export default function AdminMessagesClient() {
       } else {
         showNotice("warn", `Resolution email could not be delivered: ${result.emailError || "unknown error"}.`);
       }
-      getTicketClientAccount(selectedTicket._id)
-        .then(setAccountState)
-        .catch(() => {});
+      getTicketClientAccount(selectedTicket._id).then(setAccountState).catch(() => {});
     } catch (error: any) {
       console.error("Resolution email error:", error);
       const data = error?.response?.data;
@@ -462,9 +492,7 @@ export default function AdminMessagesClient() {
       } else {
         showNotice("error", data?.message || "Failed to send resolution email. Please try again.");
       }
-      getTicketClientAccount(selectedTicket._id)
-        .then(setAccountState)
-        .catch(() => {});
+      getTicketClientAccount(selectedTicket._id).then(setAccountState).catch(() => {});
     } finally {
       setSaving(false);
     }
@@ -473,12 +501,9 @@ export default function AdminMessagesClient() {
   const getAccountLabel = (state?: TicketClientAccount | null) => {
     if (!state) return "Checking...";
     switch (state.state) {
-      case "ready":
-        return "Ready";
-      case "existing":
-        return "Active";
-      default:
-        return "Not Created";
+      case "ready": return "Ready";
+      case "existing": return "Active";
+      default: return "Not Created";
     }
   };
 
@@ -486,481 +511,314 @@ export default function AdminMessagesClient() {
   const isResolvedOrClosed = selectedTicket?.status === "resolved" || selectedTicket?.status === "closed";
 
   return (
-    <div style={styles.shell}>
+    <>
       {/* ============================ SIDEBAR / QUERY INBOX ============================ */}
-      <div style={styles.sidebar}>
-        <div style={styles.sidebarHeader}>
-          <div>
-            <h1 style={styles.title}>Query Inbox</h1>
-            <p style={styles.subtitle}>Client portal questions and public contact inquiries in one threaded workspace.</p>
+      <div className="query-inbox-shell" style={styles.shell}>
+        <div className="query-inbox-sidebar" style={styles.sidebar}>
+          <div style={styles.sidebarHeader}>
+            <div>
+              <h1 style={styles.title}>Query Inbox</h1>
+              <p style={styles.subtitle}>Client portal questions and public contact inquiries in one threaded workspace.</p>
+            </div>
+            <div style={styles.searchBox}>
+              <Search size={16} color="var(--text-secondary)" />
+              <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search conversations..." style={styles.searchInput} />
+            </div>
+            <div style={styles.scopeTabs}>
+              <button style={{ ...styles.scopeTab, ...(scope === "active" ? styles.scopeTabActive : {}) }} onClick={() => setScope("active")}>Active</button>
+              <button style={{ ...styles.scopeTab, ...(scope === "closed" ? styles.scopeTabActive : {}) }} onClick={() => setScope("closed")}>Closed</button>
+            </div>
           </div>
-          <div style={styles.searchBox}>
-            <Search size={16} color="var(--text-secondary)" />
-            <input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search conversations..."
-              style={styles.searchInput}
-            />
-          </div>
-          <div style={styles.scopeTabs}>
-            <button type="button" style={{ ...styles.scopeTab, ...(scope === "active" ? styles.scopeTabActive : {}) }} onClick={() => setScope("active")}>
-              Active
-            </button>
-            <button type="button" style={{ ...styles.scopeTab, ...(scope === "closed" ? styles.scopeTabActive : {}) }} onClick={() => setScope("closed")}>
-              Closed
-            </button>
+
+          <div style={styles.ticketList}>
+            {loadingList ? (
+              <p style={styles.emptyText}>Loading conversations...</p>
+            ) : tickets.length === 0 ? (
+              <p style={styles.emptyText}>
+                {search ? "No conversations match your search." : scope === "closed" ? "No closed conversations." : "No active conversations. New Get in Touch submissions appear here."}
+              </p>
+            ) : (
+              <>
+                {tickets.map((ticket) => {
+                  const requester = getRequester(ticket);
+                  const storedEmail = hasStoredEmail(ticket);
+                  const isClosedTicket = ticket.status === "closed" || ticket.chatStatus === "closed";
+
+                  return (
+                    <div key={ticket._id} style={styles.ticketRowWrap}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { setPinnedTicket(null); setMenuFor(null); setSelectedId(ticket._id); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPinnedTicket(null); setMenuFor(null); setSelectedId(ticket._id); } }}
+                        style={{
+                          ...styles.ticketRow,
+                          ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
+                        }}
+                      >
+                        <div style={styles.ticketCardHeader}>
+                          <strong style={styles.ticketSubject}>{ticket.subject}</strong>
+                          <div style={styles.ticketActions}>
+                            <button
+                              title={isClosedTicket ? "Reopen conversation" : "Close conversation"}
+                              aria-label={isClosedTicket ? "Reopen conversation" : "Close conversation"}
+                              onClick={(e) => { e.stopPropagation(); if (isClosedTicket) reopenTicket(ticket); else setCloseTicket(ticket); }}
+                              disabled={busyTicket === ticket._id}
+                              style={{ ...styles.ticketActionBtn, ...(isClosedTicket ? styles.ticketActionOpen : styles.ticketActionClose) }}
+                            >
+                              {isClosedTicket ? <RotateCcw size={12} /> : <Lock size={12} />}
+                              {isClosedTicket ? "Open" : "Close"}
+                            </button>
+                            <div style={styles.menuHost}>
+                              <button
+                                aria-label="Conversation actions"
+                                onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === ticket._id ? null : ticket._id); }}
+                                style={{ ...styles.menuButton, ...(menuFor === ticket._id ? styles.menuButtonActive : {}) }}
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+                              {menuFor === ticket._id && (
+                                <>
+                                  <div style={styles.menuBackdrop} onClick={() => setMenuFor(null)} />
+                                  <div style={styles.menuDropdown} onClick={(e) => { e.stopPropagation(); setMenuFor(null); }}>
+                                    <button style={styles.menuItem} onClick={() => setEditTicket(ticket)}><Pencil size={14} /> Edit</button>
+                                    {storedEmail && <button style={styles.menuItem} onClick={() => setResendTicket(ticket)}><RotateCcw size={14} /> Resend</button>}
+                                    {isClosedTicket ? (
+                                      <button style={styles.menuItem} onClick={() => reopenTicket(ticket)}><RotateCcw size={14} /> Open Conversation</button>
+                                    ) : (
+                                      <button style={styles.menuItem} onClick={() => setCloseTicket(ticket)}><Lock size={14} /> Close Conversation</button>
+                                    )}
+                                    <button style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => setTicketToDelete(ticket)}><Trash2 size={14} /> Delete</button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <p style={styles.ticketMeta}>
+                          {ticket.hasNewClientReply && <span style={styles.unreadDot} />}
+                          {requester.name}
+                        </p>
+                        <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {hasMore && (
+                  <button onClick={loadMore} style={styles.loadMoreBtn} disabled={loadingMore}>
+                    {loadingMore ? (
+                      <>
+                        <Loader2 size={14} className="admin-messages-spin" /> Loading...
+                      </>
+                    ) : (
+                      <>Load More ({tickets.length} of {total})</>
+                    )}
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        <div style={styles.ticketList}>
-          {loadingList ? (
-            <p style={styles.emptyText}>Loading conversations...</p>
-          ) : tickets.length === 0 ? (
-            <p style={styles.emptyText}>
-              {search ? "No conversations match your search." : scope === "closed" ? "No closed conversations." : "No active conversations. New Get in Touch submissions appear here."}
-            </p>
+        {/* ============================ THREAD PANE ============================ */}
+        <div className="query-inbox-thread" style={styles.threadPane}>
+          {!selectedTicket ? (
+            <div style={styles.emptyThread}>
+              <MessageSquare size={40} color="var(--text-secondary)" />
+              <p style={styles.emptyText}>Select a conversation to view the thread.</p>
+            </div>
           ) : (
             <>
-              {tickets.map((ticket) => {
-                const requester = getRequester(ticket);
-                const storedEmail = hasStoredEmail(ticket);
-                return (
-                  <div key={ticket._id} style={styles.ticketRowWrap}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPinnedTicket(null);
-                        setSelectedId(ticket._id);
-                      }}
-                      style={{
-                        ...styles.ticketRow,
-                        ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
-                      }}
-                    >
-                      <div style={styles.ticketRowTop}>
-                        <strong style={styles.ticketSubject}>{ticket.subject}</strong>
-                        <span style={styles.ticketStatus}>{getStatusLabel(ticket.status)}</span>
-                      </div>
-                      <p style={styles.ticketMeta}>
-                        {ticket.hasNewClientReply && <span style={styles.unreadDot} aria-label="New client reply" title="New client reply" />}
-                        {requester.name}
-                      </p>
-                      <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
+              {notice && (
+                <div role={notice.type === "error" ? "alert" : "status"} style={{
+                  ...styles.notice,
+                  ...(notice.type === "success" ? styles.noticeSuccess : {}),
+                  ...(notice.type === "error" ? styles.noticeError : {}),
+                  ...(notice.type === "warn" ? styles.noticeWarn : {}),
+                }}>
+                  {notice.text}
+                </div>
+              )}
+
+              {/* ============================ CHAT HEADER ============================ */}
+              <div style={styles.chatHeader}>
+                <div style={styles.chatTitleBlock}>
+                  <h2 style={styles.chatTitle}>{selectedTicket.subject}</h2>
+                  <p style={styles.chatSubtitle}>
+                    {getRequester(selectedTicket).name} · {typeof selectedTicket.projectId === "object" && selectedTicket.projectId?.name ? `${selectedTicket.projectId.name} - ` : ""}{selectedTicket.source === "public_contact" ? "Public contact" : "Client portal"}
+                  </p>
+                </div>
+                <div style={styles.chatActions}>
+                  <button title="Sync inbound email" onClick={handleSyncInbound} disabled={saving || syncing} style={styles.iconBtn}>
+                    {syncing ? <Loader2 size={16} className="admin-messages-spin" /> : <Mail size={16} />}
+                  </button>
+                  <div style={styles.statusControlCompact}>
+                    <label style={styles.statusLabel}>Status</label>
+                    <select value={nextStatus} onChange={(e) => { setNextStatus(e.target.value as TicketStatus); if (e.target.value === "closed") setCloseTicket(selectedTicket); else handleStatus(e.target.value as TicketStatus).catch(() => {}); }} style={styles.statusSelectCompact} disabled={saving}>
+                      <option value="open">Open</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </div>
+                  <button
+                    title={isClosed ? "Reopen conversation" : "Close conversation"}
+                    aria-label={isClosed ? "Reopen conversation" : "Close conversation"}
+                    onClick={(e) => { e.stopPropagation(); if (isClosed) reopenTicket(selectedTicket); else setCloseTicket(selectedTicket); }}
+                    disabled={busyTicket === selectedTicket._id}
+                    style={{ ...styles.chatActionBtn, ...(isClosed ? styles.chatActionOpen : styles.chatActionClose) }}
+                  >
+                    {isClosed ? "Open" : "Close"}
+                  </button>
+                  <div style={styles.menuHostChat}>
+                    <button aria-label="Conversation actions" onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === selectedTicket._id ? null : selectedTicket._id); }} style={{ ...styles.menuButton, ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}) }}>
+                      <MoreVertical size={16} />
                     </button>
-                    <div style={styles.menuHost}>
-                      <button
-                        type="button"
-                        aria-label="Conversation actions"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setMenuFor((current) => (current === ticket._id ? null : ticket._id));
-                        }}
-                        style={{ ...styles.menuButton, ...(menuFor === ticket._id ? styles.menuButtonActive : {}) }}
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                      {menuFor === ticket._id && (
+                    {menuFor === selectedTicket._id && (
+                      <>
+                        <div style={styles.menuBackdrop} onClick={() => setMenuFor(null)} />
+                        <div style={styles.menuDropdownChat} onClick={(e) => { e.stopPropagation(); setMenuFor(null); }}>
+                          <button style={styles.menuItem} onClick={() => setEditTicket(selectedTicket)}><Pencil size={14} /> Edit</button>
+                          {hasStoredEmail(selectedTicket) && <button style={styles.menuItem} onClick={() => setResendTicket(selectedTicket)}><RotateCcw size={14} /> Resend</button>}
+                          <button style={styles.menuItem} onClick={() => { setPinnedTicket(null); setSelectedId(null); }}><X size={14} /> Close Panel</button>
+                          <button style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => setTicketToDelete(selectedTicket)}><Trash2 size={14} /> Delete</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ============================ META ROW ============================ */}
+              <div style={styles.metaRow}>
+                <span style={styles.metaChip}><Mail size={13} color="#007AFF" /> {getRequester(selectedTicket).email || "No email"}</span>
+                <span style={styles.metaChip}><Briefcase size={13} color="#007AFF" /> {getRequester(selectedTicket).subtitle}</span>
+                <span style={styles.metaChip}><ShieldCheck size={13} color="#007AFF" /> {isClosed ? "Closed" : "Open"}</span>
+                <span style={styles.metaChip}><Clock3 size={13} color="#007AFF" /> {formatDate(selectedTicket.createdAt)}</span>
+                {selectedTicket.updatedAt && <span style={styles.metaChip}><Activity size={13} color="#007AFF" /> Updated {formatDate(selectedTicket.updatedAt)}</span>}
+                {getClientIdLabel(selectedTicket) && <span style={styles.metaChip}><Hash size={13} color="#007AFF" /> Client ID: {getClientIdLabel(selectedTicket)!}</span>}
+              </div>
+
+              {/* ============================ CHAT HISTORY ============================ */}
+              <div style={styles.chatBody}>
+                <div ref={chatScrollRef} style={styles.chatHistory}>
+                  {selectedTicket.messages && selectedTicket.messages.length > 0 ? (
+                    selectedTicket.messages.map((message) => <ThreadBubble key={message.id} message={message} />)
+                  ) : (
+                    (selectedTicket.history || []).map((entry, index) => (
+                      <div key={`${entry.createdAt}-${index}`} style={styles.timelineItem}>
+                        <div style={styles.timelineDot} />
+                        <div style={styles.timelineContent}>
+                          <p style={styles.timelineLabel}>{entry.actorRole.replace("_", " ")} · {entry.action.replace("_", " ")}</p>
+                          {entry.emailSubject && <p style={styles.timelineEmailSubject}>{entry.action === "resend" && entry.originalAction ? `Resent (${entry.originalAction.replace("_", " ")})` : "Email"} — {entry.emailSubject}</p>}
+                          {entry.message?.trim() ? <p style={styles.timelineMessage}>{entry.message}</p> : entry.attachments?.length ? null : <p style={styles.timelineMessage}>No message provided.</p>}
+                          {entry.recipient && <p style={styles.timelineRecipient}>To: {entry.recipient}</p>}
+                          {entry.attachments && entry.attachments.length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+                              {entry.attachments.map((att, ai) => (
+                                <a key={`${att.url}-${ai}`} href={resolveTicketFileUrl(att.url)} target="_blank" rel="noreferrer" style={{ borderRadius: "10px", overflow: "hidden", display: "block" }}>
+                                  <img src={resolveTicketFileUrl(att.url)} alt={att.name} style={{ maxWidth: "180px", maxHeight: "140px", objectFit: "cover", borderRadius: "10px", border: "1px solid var(--border-color)" }} />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                          {entry.emailDelivered !== undefined && (
+                            <p style={entry.emailDelivered ? styles.deliveryOk : styles.deliveryFail}>
+                              {entry.emailDelivered
+                                ? "Email delivered to customer."
+                                : "Email delivery failed: " + (entry.emailError || "unknown error")}
+                            </p>
+                          )}
+                          <p style={styles.timelineTime}>{formatDate(entry.createdAt)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* ============================ REPLY COMPOSER ============================ */}
+              <div style={styles.replyComposer}>
+                <label style={styles.label}>Reply in Thread</label>
+                <textarea value={reply} onChange={(e) => setReply(e.target.value)} style={{ ...styles.textareaCompact, ...(isClosed ? styles.textareaDisabled : {}) }} placeholder={isClosed ? "This conversation is closed and read-only." : "Write a reply to continue the business conversation..."} disabled={isClosed} />
+                <div style={styles.composerFooter}>
+                  <div style={{ display: "flex", gap: "8px", marginRight: "auto" }}>
+                    <button onClick={insertClientPortalGreeting} style={styles.secondaryBtn} disabled={saving || isClosed}>Insert Client Portal Greeting</button>
+                  </div>
+                  <button onClick={handleReply} style={styles.primaryBtn} disabled={saving || !reply.trim() || isClosed}><Send size={14} /> Send Reply</button>
+                </div>
+              </div>
+
+              {/* ============================ ADMIN WORKFLOW ============================ */}
+              <div style={styles.adminWorkflow}>
+                {/* Client Portal Access */}
+                <div style={styles.onboardingCardCompact}>
+                  <div style={styles.cardHeaderRow}>
+                    <label style={styles.cardHeaderTitle}><UserPlus size={15} color="#007AFF" /> Client Portal Access</label>
+                    <span style={{ ...styles.accountBadge, ...(accountState?.state === "not_created" ? styles.accountBadgeNone : {}) }}>{getAccountLabel(accountState)}</span>
+                  </div>
+                  <p style={styles.cardHint}>Send credentials (Client ID, login, temp password, portal URL, first-login instructions).</p>
+                  <div style={styles.composerFooter}>
+                    <button onClick={() => setOnboardingTicket(selectedTicket)} style={styles.onboardingBtn} disabled={saving || busyTicket === selectedTicket._id}><UserPlus size={14} /> Send Client Portal Access</button>
+                  </div>
+                  {credentials && (
+                    <div style={styles.credentialsBox}>
+                      <div style={styles.credentialsHeader}>
+                        <strong>Client Portal access sent</strong>
+                        <button onClick={() => setCredentials(null)} style={styles.credentialsClose} aria-label="Dismiss"><X size={14} /></button>
+                      </div>
+                      <p style={styles.credentialsRow}>Client ID: <strong>{credentials.clientCustomId || "—"}</strong></p>
+                      <p style={styles.credentialsRow}>Login Email: <strong>{accountState?.email || "—"}</strong></p>
+                      {credentials.temporaryPassword ? (
                         <>
-                          <div style={styles.menuBackdrop} onClick={() => setMenuFor(null)} />
-                          <div style={styles.menuDropdown} onClick={() => setMenuFor(null)}>
-                            <button type="button" style={styles.menuItem} onClick={() => setEditTicket(ticket)}>
-                              <Pencil size={14} /> Edit
-                            </button>
-                            {storedEmail ? (
-                              <button type="button" style={styles.menuItem} onClick={() => setResendTicket(ticket)}>
-                                <RotateCcw size={14} /> Resend
-                              </button>
-                            ) : null}
-                            {scope === "active" ? (
-                              <button type="button" style={styles.menuItem} onClick={() => setCloseTicket(ticket)}>
-                                <Lock size={14} /> Close Conversation
-                              </button>
-                            ) : null}
-                            <button type="button" style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => setTicketToDelete(ticket)}>
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          </div>
+                          <p style={styles.credentialsRow}>Temporary Password: <strong style={styles.credentialsPassword}>{credentials.temporaryPassword}</strong></p>
+                          <p style={styles.credentialsWarning}>Shown once. The password was hashed in the database and is never stored. On first login the customer must create a new password.</p>
                         </>
-                      )}
+                      ) : <p style={styles.credentialsRow}>No new credentials — an existing Client Portal account was used.</p>}
+                    </div>
+                  )}
+                </div>
+
+                {/* Resolution Summary */}
+                <div style={styles.composerCard}>
+                  <label style={styles.label}>Resolution Summary</label>
+                  <textarea value={resolution} onChange={(e) => setResolution(e.target.value)} style={{ ...styles.textareaCompact, ...(!isResolvedOrClosed ? styles.textareaDisabled : {}) }} placeholder={isResolvedOrClosed ? "Document the final outcome: what was completed, the final project result, relevant final information and any next/final instructions..." : "Mark this conversation as Resolved or Closed to activate the Resolution workflow."} disabled={!isResolvedOrClosed} />
+                  <div style={styles.resolutionRow}>
+                    <div style={styles.resolutionField}>
+                      <label style={styles.label}>Email Template</label>
+                      <select value={selectedTemplateKey} onChange={(e) => setSelectedTemplateKey(e.target.value)} style={styles.statusSelectCompact} disabled={saving || !isResolvedOrClosed}>
+                        {templates.filter((t) => t.isActive).map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={styles.resolutionField}>
+                      <label style={styles.label}>Client Account</label>
+                      <span style={{ ...styles.accountBadge, ...(accountState?.state === "not_created" ? styles.accountBadgeNone : {}) }}>{getAccountLabel(accountState)}</span>
                     </div>
                   </div>
-                );
-              })}
-              {hasMore && (
-                <button type="button" onClick={loadMore} style={styles.loadMoreBtn} disabled={loadingMore}>
-                  {loadingMore ? (
-                    <>
-                      <Loader2 size={14} className="admin-messages-spin" /> Loading...
-                    </>
-                  ) : (
-                    <>Load More ({tickets.length} of {total})</>
-                  )}
-                </button>
-              )}
+                  {accountState?.state === "not_created" && isResolvedOrClosed && <p style={styles.accountHint}>This customer has no Client Portal account yet. The Resolution Email is the final completion message and will not deliver credentials — if this is a project client, send <strong>Client Portal Access</strong> first.</p>}
+                  <button onClick={handleResolutionEmail} style={styles.secondaryBtn} disabled={saving || !isResolvedOrClosed || !resolution.trim()}><FileCheck2 size={14} /> Send Resolution Email</button>
+                </div>
+              </div>
             </>
           )}
         </div>
       </div>
 
-      {/* ============================ THREAD PANE ============================ */}
-      <div style={styles.threadPane}>
-        {!selectedTicket ? (
-          <div style={styles.emptyThread}>
-            <MessageSquare size={40} color="var(--text-secondary)" />
-            <p style={styles.emptyText}>Select a conversation to view the thread.</p>
-          </div>
-        ) : (
-          <>
-            {notice && (
-              <div
-                role={notice.type === "error" ? "alert" : "status"}
-                style={{
-                  ...styles.notice,
-                  ...(notice.type === "success" ? styles.noticeSuccess : {}),
-                  ...(notice.type === "error" ? styles.noticeError : {}),
-                  ...(notice.type === "warn" ? styles.noticeWarn : {}),
-                }}
-              >
-                {notice.text}
-              </div>
-            )}
-
-            <div style={styles.threadHeader}>
-              <div>
-                <h2 style={styles.threadTitle}>{selectedTicket.subject}</h2>
-                <p style={styles.threadSubtitle}>
-                  {getRequester(selectedTicket).name}
-                  {" · "}
-                  {typeof selectedTicket.projectId === "object" && selectedTicket.projectId?.name
-                    ? `${selectedTicket.projectId.name} - `
-                    : ""}
-                  {selectedTicket.source === "public_contact" ? "Public contact" : "Client portal"}
-                </p>
-              </div>
-              <div style={styles.headerControls}>
-                <button type="button" onClick={handleSyncInbound} style={styles.secondaryBtn} disabled={saving || syncing} title="Pull client email replies into this inbox">
-                  {syncing ? <Loader2 size={14} className="admin-messages-spin" /> : <Mail size={14} />}
-                  Sync Inbound Email
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPinnedTicket(null);
-                    setSelectedId(null);
-                  }}
-                  style={styles.secondaryBtn}
-                  disabled={saving}
-                >
-                  Close Panel
-                </button>
-                <div style={styles.statusControl}>
-                  <label style={styles.statusLabel}>Status</label>
-                  <select
-                    value={nextStatus}
-                    onChange={(event) => {
-                      const status = event.target.value as TicketStatus;
-                      setNextStatus(status);
-                      if (status === "closed") {
-                        setCloseTicket(selectedTicket);
-                      } else {
-                        handleStatus(status).catch((error) => console.error("Update status error:", error));
-                      }
-                    }}
-                    style={styles.statusSelect}
-                    disabled={saving}
-                  >
-                    <option value="open">Open</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.metaCard}>
-              <div style={styles.metaItem}>
-                <Mail size={16} color="#007AFF" />
-                <span>{getRequester(selectedTicket).email || "No email available"}</span>
-              </div>
-              <div style={styles.metaItem}>
-                <ShieldCheck size={16} color="#007AFF" />
-                <span>{getRequester(selectedTicket).subtitle}</span>
-              </div>
-              <div style={styles.metaItem}>
-                <Clock3 size={16} color="#007AFF" />
-                <span>{formatDate(selectedTicket.createdAt)}</span>
-              </div>
-            </div>
-
-            {/* Thread — two-way conversation (Query Inbox message bubbles).
-                Conversations created by the R01 redesign carry a `messages`
-                array rendered as client/admin bubbles. Legacy conversations
-                without it fall back to the history timeline. */}
-            <div style={styles.timeline}>
-              {selectedTicket.messages && selectedTicket.messages.length > 0 ? (
-                selectedTicket.messages.map((message) => <ThreadBubble key={message.id} message={message} />)
-              ) : (
-                (selectedTicket.history || []).map((entry, index) => (
-                  <div key={`${entry.createdAt}-${index}`} style={styles.timelineItem}>
-                    <div style={styles.timelineDot} />
-                    <div style={styles.timelineContent}>
-                      <p style={styles.timelineLabel}>
-                        {entry.actorRole.replace("_", " ")} · {entry.action.replace("_", " ")}
-                      </p>
-                      {entry.emailSubject && (
-                        <p style={styles.timelineEmailSubject}>
-                          {entry.action === "resend" && entry.originalAction ? `Resent (${entry.originalAction.replace("_", " ")})` : "Email"} — {entry.emailSubject}
-                        </p>
-                      )}
-                      {entry.message?.trim() ? (
-                        <p style={styles.timelineMessage}>{entry.message}</p>
-                      ) : entry.attachments?.length ? null : (
-                        <p style={styles.timelineMessage}>No message provided.</p>
-                      )}
-                      {entry.recipient && (
-                        <p style={styles.timelineRecipient}>To: {entry.recipient}</p>
-                      )}
-                      {entry.attachments && entry.attachments.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
-                          {entry.attachments.map((att, ai) => (
-                            <a
-                              key={`${att.url}-${ai}`}
-                              href={resolveTicketFileUrl(att.url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ borderRadius: "10px", overflow: "hidden", display: "block" }}
-                            >
-                              <img
-                                src={resolveTicketFileUrl(att.url)}
-                                alt={att.name}
-                                style={{ maxWidth: "180px", maxHeight: "140px", objectFit: "cover", borderRadius: "10px", border: "1px solid var(--border-color)" }}
-                              />
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                      {entry.emailDelivered !== undefined && (
-                        <p style={entry.emailDelivered ? styles.deliveryOk : styles.deliveryFail}>
-                          {entry.emailDelivered ? "Email delivered to customer." : `Email delivery failed: ${entry.emailError || "unknown error"}`}
-                        </p>
-                      )}
-                      <p style={styles.timelineTime}>{formatDate(entry.createdAt)}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Phase 4: Reply in Thread */}
-            <div style={styles.composerCard}>
-              <label style={styles.label}>Reply in Thread</label>
-              <textarea
-                value={reply}
-                onChange={(event) => setReply(event.target.value)}
-                style={{ ...styles.textarea, ...(isClosed ? styles.textareaDisabled : {}) }}
-                placeholder={isClosed ? "This conversation is closed and read-only." : "Write a reply to continue the business conversation..."}
-                disabled={isClosed}
-              />
-              <div style={styles.composerFooter}>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginRight: "auto" }}>
-                  <button type="button" onClick={insertClientPortalGreeting} style={styles.secondaryBtn} disabled={saving || isClosed}>
-                    Insert Client Portal Greeting
-                  </button>
-                </div>
-                <button type="button" onClick={handleReply} style={styles.primaryBtn} disabled={saving || !reply.trim() || isClosed}>
-                  <Send size={14} />
-                  Send Reply
-                </button>
-              </div>
-            </div>
-
-            {/* Phase 6: Client Portal Access (onboarding) — separate from Resolution */}
-            <div style={styles.onboardingCard}>
-              <div style={styles.cardHeaderRow}>
-                <label style={styles.cardHeaderTitle}>
-                  <UserPlus size={15} color="#007AFF" /> Client Portal Access
-                </label>
-                <span
-                  style={{
-                    ...styles.accountBadge,
-                    ...(accountState?.state === "not_created" ? styles.accountBadgeNone : {}),
-                  }}
-                >
-                  Client Account · {getAccountLabel(accountState)}
-                </span>
-              </div>
-              <p style={styles.cardHint}>
-                Send the business-onboarding credentials (Client ID, login email, temporary password, portal login URL and
-                first-login password-change instruction) when the business relationship is confirmed. This is separate from the
-                Resolution Email and is never triggered by the public Get in Touch form.
-              </p>
-              {accountState && accountState.state !== "not_created" && accountState.clientCustomId && (
-                <p style={styles.accountHint}>
-                  Linked Client ID: <strong>{accountState.clientCustomId}</strong> — the customer's existing Client Portal
-                  account will be used; no new credentials are generated.
-                </p>
-              )}
-              <div style={styles.composerFooter}>
-                <button
-                  type="button"
-                  onClick={() => setOnboardingTicket(selectedTicket)}
-                  style={styles.onboardingBtn}
-                  disabled={saving || busyTicket === selectedTicket._id}
-                >
-                  <UserPlus size={14} />
-                  Send Client Portal Access
-                </button>
-              </div>
-              {credentials && (
-                <div style={styles.credentialsBox}>
-                  <div style={styles.credentialsHeader}>
-                    <strong>Client Portal access sent</strong>
-                    <button type="button" onClick={() => setCredentials(null)} style={styles.credentialsClose} aria-label="Dismiss">
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <p style={styles.credentialsRow}>Client ID: <strong>{credentials.clientCustomId || "—"}</strong></p>
-                  <p style={styles.credentialsRow}>Login Email: <strong>{accountState?.email || "—"}</strong></p>
-                  {credentials.temporaryPassword ? (
-                    <>
-                      <p style={styles.credentialsRow}>
-                        Temporary Password: <strong style={styles.credentialsPassword}>{credentials.temporaryPassword}</strong>
-                      </p>
-                      <p style={styles.credentialsWarning}>
-                        Shown once. The password was hashed in the database and is never stored in the conversation. On first
-                        login the customer must create a new password.
-                      </p>
-                    </>
-                  ) : (
-                    <p style={styles.credentialsRow}>No new credentials — an existing Client Portal account was used.</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Phase 7 + 8: Resolution Summary + Resolution Email */}
-            <div style={styles.composerCard}>
-              <label style={styles.label}>Resolution Summary</label>
-              <textarea
-                value={resolution}
-                onChange={(event) => setResolution(event.target.value)}
-                style={{ ...styles.textarea, ...(!isResolvedOrClosed ? styles.textareaDisabled : {}) }}
-                placeholder={
-                  isResolvedOrClosed
-                    ? "Document the final outcome: what was completed, the final project result, relevant final information and any next/final instructions..."
-                    : "Mark this conversation as Resolved or Closed to activate the Resolution workflow."
-                }
-                disabled={!isResolvedOrClosed}
-              />
-              <div style={styles.resolutionRow}>
-                <div style={styles.resolutionField}>
-                  <label style={styles.label}>Email Template</label>
-                  <select
-                    value={selectedTemplateKey}
-                    onChange={(event) => setSelectedTemplateKey(event.target.value)}
-                    style={styles.statusSelect}
-                    disabled={saving || !isResolvedOrClosed}
-                  >
-                    {templates
-                      .filter((template) => template.isActive)
-                      .map((template) => (
-                        <option key={template.key} value={template.key}>
-                          {template.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <div style={styles.resolutionField}>
-                  <label style={styles.label}>Client Account</label>
-                  <span
-                    style={{
-                      ...styles.accountBadge,
-                      ...(accountState?.state === "not_created" ? styles.accountBadgeNone : {}),
-                    }}
-                  >
-                    {getAccountLabel(accountState)}
-                  </span>
-                </div>
-              </div>
-              {accountState?.state === "not_created" && isResolvedOrClosed && (
-                <p style={styles.accountHint}>
-                  This customer has no Client Portal account yet. The Resolution Email is the final completion message and will
-                  not deliver credentials — if this is a project client, send <strong>Client Portal Access</strong> first.
-                </p>
-              )}
-              <div style={styles.composerFooter}>
-                <button
-                  type="button"
-                  onClick={handleResolutionEmail}
-                  style={styles.secondaryBtn}
-                  disabled={saving || !isResolvedOrClosed || !resolution.trim()}
-                >
-                  <FileCheck2 size={14} />
-                  Send Resolution Email
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
       {/* ============================ MODALS ============================ */}
-      {editTicket && (
-        <EditModal
-          ticket={editTicket}
-          busy={busyTicket === editTicket._id}
-          onCancel={() => setEditTicket(null)}
-          onSave={confirmEdit}
-        />
-      )}
+      {editTicket && <EditModal ticket={editTicket} busy={busyTicket === editTicket._id} onCancel={() => setEditTicket(null)} onSave={confirmEdit} />}
       {ticketToDelete && (
-        <ConfirmModal
-          title="Delete Conversation"
-          tone="danger"
-          busy={busyTicket === ticketToDelete._id}
-          onCancel={() => setTicketToDelete(null)}
-          onConfirm={confirmDelete}
-        >
-          <p style={styles.modalText}>
-            Delete <strong>{ticketToDelete.subject}</strong> from the Query Inbox? The conversation is removed from the active
-            Inbox while its full history is retained in the database (soft delete). Real customer history is never permanently destroyed.
-          </p>
+        <ConfirmModal title="Delete Conversation" tone="danger" busy={busyTicket === ticketToDelete._id} onCancel={() => setTicketToDelete(null)} onConfirm={confirmDelete}>
+          <p style={styles.modalText}>Delete <strong>{ticketToDelete.subject}</strong> from the Query Inbox? The conversation is removed from the active Inbox while its full history is retained in the database (soft delete). Real customer history is never permanently destroyed.</p>
         </ConfirmModal>
       )}
       {closeTicket && (
-        <ConfirmModal
-          title="Close Conversation"
-          tone="primary"
-          busy={busyTicket === closeTicket._id}
-          onCancel={() => setCloseTicket(null)}
-          onConfirm={confirmClose}
-        >
-          <p style={styles.modalText}>
-            Close <strong>{closeTicket.subject}</strong>? Closed conversations no longer appear in the active Inbox and keep
-            their complete history under the Closed tab.
-          </p>
+        <ConfirmModal title="Close Conversation" tone="primary" busy={busyTicket === closeTicket._id} onCancel={() => setCloseTicket(null)} onConfirm={confirmClose}>
+          <p style={styles.modalText}>Close <strong>{closeTicket.subject}</strong>? Closed conversations no longer appear in the active Inbox and keep their complete history under the Closed tab.</p>
         </ConfirmModal>
       )}
-      {resendTicket && (
-        <ResendModal
-          ticket={resendTicket}
-          busy={busyTicket === resendTicket._id}
-          onCancel={() => setResendTicket(null)}
-          onConfirm={confirmResend}
-        />
-      )}
-      {onboardingTicket && (
-        <OnboardingModal
-          ticket={onboardingTicket}
-          accountState={accountState}
-          busy={busyTicket === onboardingTicket._id}
-          onCancel={() => setOnboardingTicket(null)}
-          onConfirm={confirmOnboarding}
-        />
-      )}
-    </div>
+      {resendTicket && <ResendModal ticket={resendTicket} busy={busyTicket === resendTicket._id} onCancel={() => setResendTicket(null)} onConfirm={confirmResend} />}
+      {onboardingTicket && <OnboardingModal ticket={onboardingTicket} accountState={accountState} busy={busyTicket === onboardingTicket._id} onCancel={() => setOnboardingTicket(null)} onConfirm={confirmOnboarding} />}
+    </>
   );
 }
 
@@ -968,24 +826,16 @@ export default function AdminMessagesClient() {
 
 function ThreadBubble({ message }: { message: ThreadMessage }) {
   const isClient = message.senderType === "client" || message.senderType === "developer";
-  const sourceLabel =
-    message.source === "email" ? "via email"
-    : message.source === "public_contact" ? "Get in Touch"
-    : message.source === "portal" ? "portal"
-    : "";
+  const sourceLabel = message.source === "email" ? "via email" : message.source === "public_contact" ? "Get in Touch" : message.source === "portal" ? "portal" : "";
   return (
     <div style={isClient ? styles.bubbleRowClient : styles.bubbleRowAdmin}>
       <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
         <p style={isClient ? styles.bubbleSenderClient : styles.bubbleSenderAdmin}>
           {isClient ? message.senderName || "Client" : message.senderName || "Websmith Support Team"}
           {sourceLabel ? <span style={styles.bubbleSource}> · {sourceLabel}</span> : null}
-          {!isClient && message.deliveryStatus === "sent" ? (
-            <span style={styles.bubbleDelivered}> · sent via email</span>
-          ) : !isClient && message.deliveryStatus === "failed" ? (
-            <span style={styles.bubbleFailed}> · email failed{message.deliveryError ? `: ${message.deliveryError}` : ""}</span>
-          ) : !isClient && message.deliveryStatus === "not_sent" ? (
-            <span style={styles.bubbleSource}> · stored (not emailed)</span>
-          ) : null}
+          {!isClient && message.deliveryStatus === "sent" && <span style={styles.bubbleDelivered}> · sent via email</span>}
+          {!isClient && message.deliveryStatus === "failed" && <span style={styles.bubbleFailed}> · email failed{message.deliveryError ? `: ${message.deliveryError}` : ""}</span>}
+          {!isClient && message.deliveryStatus === "not_sent" && <span style={styles.bubbleSource}> · stored (not emailed)</span>}
         </p>
         <p style={isClient ? styles.bubbleTextClient : styles.bubbleTextAdmin}>{message.message || "(No message)"}</p>
         <p style={isClient ? styles.bubbleTimeClient : styles.bubbleTimeAdmin}>{formatDate(message.createdAt)}</p>
@@ -994,53 +844,32 @@ function ThreadBubble({ message }: { message: ThreadMessage }) {
   );
 }
 
-function EditModal({
-  ticket,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  ticket: Ticket;
-  busy: boolean;
-  onCancel: () => void;
-  onSave: (changes: { subject: string; contactName: string; contactEmail: string; contactCompany: string }) => void;
-}) {
+function EditModal({ ticket, busy, onCancel, onSave }: { ticket: Ticket; busy: boolean; onCancel: () => void; onSave: (changes: { subject: string; contactName: string; contactEmail: string; contactCompany: string }) => void }) {
   const [subject, setSubject] = useState(ticket.subject);
   const [contactName, setContactName] = useState(ticket.contactName || "");
   const [contactEmail, setContactEmail] = useState(ticket.contactEmail || "");
   const [contactCompany, setContactCompany] = useState(ticket.contactCompany || "");
-
   return (
     <div style={styles.modalBackdrop} onClick={busy ? undefined : onCancel}>
-      <div style={styles.modal} onClick={(event) => event.stopPropagation()}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <strong>Edit Conversation</strong>
-          <button type="button" onClick={onCancel} style={styles.modalClose} aria-label="Close">
-            <X size={16} />
-          </button>
+          <button onClick={onCancel} style={styles.modalClose} aria-label="Close"><X size={16} /></button>
         </div>
         <div style={styles.modalBody}>
           <label style={styles.modalLabel}>Subject</label>
-          <input value={subject} onChange={(event) => setSubject(event.target.value)} style={styles.modalInput} />
+          <input value={subject} onChange={(e) => setSubject(e.target.value)} style={styles.modalInput} />
           <label style={styles.modalLabel}>Contact Name</label>
-          <input value={contactName} onChange={(event) => setContactName(event.target.value)} style={styles.modalInput} />
+          <input value={contactName} onChange={(e) => setContactName(e.target.value)} style={styles.modalInput} />
           <label style={styles.modalLabel}>Contact Email</label>
-          <input value={contactEmail} type="email" onChange={(event) => setContactEmail(event.target.value)} style={styles.modalInput} />
+          <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} style={styles.modalInput} />
           <label style={styles.modalLabel}>Company</label>
-          <input value={contactCompany} onChange={(event) => setContactCompany(event.target.value)} style={styles.modalInput} />
+          <input value={contactCompany} onChange={(e) => setContactCompany(e.target.value)} style={styles.modalInput} />
         </div>
         <div style={styles.modalFooter}>
-          <button type="button" onClick={onCancel} style={styles.secondaryBtn} disabled={busy}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => onSave({ subject, contactName, contactEmail, contactCompany })}
-            style={styles.primaryBtn}
-            disabled={busy || !subject.trim()}
-          >
-            {busy ? <Loader2 size={14} className="admin-messages-spin" /> : <Check size={14} />}
-            Save Changes
+          <button onClick={onCancel} style={styles.secondaryBtn} disabled={busy}>Cancel</button>
+          <button onClick={() => onSave({ subject, contactName, contactEmail, contactCompany })} style={styles.primaryBtn} disabled={busy || !subject.trim()}>
+            {busy ? <Loader2 size={14} className="admin-messages-spin" /> : <Check size={14} />} Save Changes
           </button>
         </div>
       </div>
@@ -1048,54 +877,29 @@ function EditModal({
   );
 }
 
-function ResendModal({
-  ticket,
-  busy,
-  onCancel,
-  onConfirm,
-}: {
-  ticket: Ticket;
-  busy: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
+function ResendModal({ ticket, busy, onCancel, onConfirm }: { ticket: Ticket; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
   const entry = hasStoredEmail(ticket);
   return (
     <div style={styles.modalBackdrop} onClick={busy ? undefined : onCancel}>
-      <div style={styles.modal} onClick={(event) => event.stopPropagation()}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <strong>Resend Email</strong>
-          <button type="button" onClick={onCancel} style={styles.modalClose} aria-label="Close">
-            <X size={16} />
-          </button>
+          <button onClick={onCancel} style={styles.modalClose} aria-label="Close"><X size={16} /></button>
         </div>
         <div style={styles.modalBody}>
-          <p style={styles.modalText}>
-            Resend the last stored email for <strong>{ticket.subject}</strong> exactly as it was sent:
-          </p>
+          <p style={styles.modalText}>Resend the last stored email for <strong>{ticket.subject}</strong> exactly as it was sent:</p>
           <div style={styles.resendPreview}>
-            <p style={styles.resendPreviewRow}>
-              <strong>Recipient:</strong> {entry?.recipient || "—"}
-            </p>
-            <p style={styles.resendPreviewRow}>
-              <strong>Subject:</strong> {entry?.emailSubject || "—"}
-            </p>
-            <p style={styles.resendPreviewRow}>
-              <strong>Type:</strong> {entry?.originalAction || entry?.action || "email"} · {formatDate(entry?.createdAt)}
-            </p>
-            <p style={styles.resendPreviewBody}>
-              <strong>Message:</strong>
-            </p>
+            <p style={styles.resendPreviewRow}><strong>Recipient:</strong> {entry?.recipient || "—"}</p>
+            <p style={styles.resendPreviewRow}><strong>Subject:</strong> {entry?.emailSubject || "—"}</p>
+            <p style={styles.resendPreviewRow}><strong>Type:</strong> {entry?.originalAction || entry?.action || "email"} · {formatDate(entry?.createdAt)}</p>
+            <p style={styles.resendPreviewBody}><strong>Message:</strong></p>
             <p style={styles.resendPreviewBodyText}>{entry?.emailBody || "—"}</p>
           </div>
         </div>
         <div style={styles.modalFooter}>
-          <button type="button" onClick={onCancel} style={styles.secondaryBtn} disabled={busy}>
-            Cancel
-          </button>
-          <button type="button" onClick={onConfirm} style={styles.primaryBtn} disabled={busy || !entry}>
-            {busy ? <Loader2 size={14} className="admin-messages-spin" /> : <RotateCcw size={14} />}
-            Resend
+          <button onClick={onCancel} style={styles.secondaryBtn} disabled={busy}>Cancel</button>
+          <button onClick={onConfirm} style={styles.primaryBtn} disabled={busy || !entry}>
+            {busy ? <Loader2 size={14} className="admin-messages-spin" /> : <RotateCcw size={14} />} Resend
           </button>
         </div>
       </div>
@@ -1103,34 +907,17 @@ function ResendModal({
   );
 }
 
-function OnboardingModal({
-  ticket,
-  accountState,
-  busy,
-  onCancel,
-  onConfirm,
-}: {
-  ticket: Ticket;
-  accountState: TicketClientAccount | null;
-  busy: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
+function OnboardingModal({ ticket, accountState, busy, onCancel, onConfirm }: { ticket: Ticket; accountState: TicketClientAccount | null; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
   const creating = !accountState || accountState.state === "not_created";
   return (
     <div style={styles.modalBackdrop} onClick={busy ? undefined : onCancel}>
-      <div style={styles.modal} onClick={(event) => event.stopPropagation()}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <strong>Send Client Portal Access</strong>
-          <button type="button" onClick={onCancel} style={styles.modalClose} aria-label="Close">
-            <X size={16} />
-          </button>
+          <button onClick={onCancel} style={styles.modalClose} aria-label="Close"><X size={16} /></button>
         </div>
         <div style={styles.modalBody}>
-          <p style={styles.modalText}>
-            Business onboarding for <strong>{ticket.contactName || "this client"}</strong> ({ticket.contactEmail || "no email"}).
-            The customer will receive:
-          </p>
+          <p style={styles.modalText}>Business onboarding for <strong>{ticket.contactName || "this client"}</strong> ({ticket.contactEmail || "no email"}). The customer will receive:</p>
           <ul style={styles.onboardingList}>
             <li>Client ID</li>
             <li>Client login / email</li>
@@ -1139,28 +926,16 @@ function OnboardingModal({
             <li>First-login password-change instruction</li>
           </ul>
           {creating ? (
-            <p style={styles.accountHint}>
-              A new Client Portal account will be created. The temporary password is shown once after sending — save it if you
-              need to relay it. It must be changed on first login.
-            </p>
+            <p style={styles.accountHint}>A new Client Portal account will be created. The temporary password is shown once after sending — save it if you need to relay it. It must be changed on first login.</p>
           ) : (
-            <p style={styles.accountHint}>
-              The customer already has a Client Portal account (<strong>{accountState?.clientCustomId || "Client ID"}</strong>). No
-              new credentials will be generated and their existing password is never overwritten.
-            </p>
+            <p style={styles.accountHint}>The customer already has a Client Portal account (<strong>{accountState?.clientCustomId || "Client ID"}</strong>). No new credentials will be generated and their existing password is never overwritten.</p>
           )}
-          <p style={styles.modalNote}>
-            This is the business-onboarding credential email — separate from the Resolution Email, and never sent automatically
-            by the Get in Touch form.
-          </p>
+          <p style={styles.modalNote}>This is the business-onboarding credential email — separate from the Resolution Email, and never sent automatically by the Get in Touch form.</p>
         </div>
         <div style={styles.modalFooter}>
-          <button type="button" onClick={onCancel} style={styles.secondaryBtn} disabled={busy}>
-            Cancel
-          </button>
-          <button type="button" onClick={onConfirm} style={styles.onboardingBtn} disabled={busy}>
-            {busy ? <Loader2 size={14} className="admin-messages-spin" /> : <UserPlus size={14} />}
-            Send Client Portal Access
+          <button onClick={onCancel} style={styles.secondaryBtn} disabled={busy}>Cancel</button>
+          <button onClick={onConfirm} style={styles.onboardingBtn} disabled={busy}>
+            {busy ? <Loader2 size={14} className="admin-messages-spin" /> : <UserPlus size={14} />} Send Client Portal Access
           </button>
         </div>
       </div>
@@ -1168,43 +943,19 @@ function OnboardingModal({
   );
 }
 
-function ConfirmModal({
-  title,
-  tone,
-  busy,
-  onCancel,
-  onConfirm,
-  children,
-}: {
-  title: string;
-  tone: "primary" | "danger";
-  busy: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-  children: React.ReactNode;
-}) {
+function ConfirmModal({ title, tone, busy, onCancel, onConfirm, children }: { title: string; tone: "primary" | "danger"; busy: boolean; onCancel: () => void; onConfirm: () => void; children: React.ReactNode }) {
   return (
     <div style={styles.modalBackdrop} onClick={busy ? undefined : onCancel}>
-      <div style={styles.modal} onClick={(event) => event.stopPropagation()}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <strong>{title}</strong>
-          <button type="button" onClick={onCancel} style={styles.modalClose} aria-label="Close">
-            <X size={16} />
-          </button>
+          <button onClick={onCancel} style={styles.modalClose} aria-label="Close"><X size={16} /></button>
         </div>
         <div style={styles.modalBody}>{children}</div>
         <div style={styles.modalFooter}>
-          <button type="button" onClick={onCancel} style={styles.secondaryBtn} disabled={busy}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            style={tone === "danger" ? styles.dangerBtn : styles.primaryBtn}
-            disabled={busy}
-          >
-            {busy ? <Loader2 size={14} className="admin-messages-spin" /> : <Check size={14} />}
-            Confirm
+          <button onClick={onCancel} style={styles.secondaryBtn} disabled={busy}>Cancel</button>
+          <button onClick={onConfirm} style={tone === "danger" ? styles.dangerBtn : styles.primaryBtn} disabled={busy}>
+            {busy ? <Loader2 size={14} className="admin-messages-spin" /> : <Check size={14} />} Confirm
           </button>
         </div>
       </div>
@@ -1215,287 +966,78 @@ function ConfirmModal({
 /* ============================ STYLES ============================ */
 
 const styles: Record<string, any> = {
-  shell: {
-    display: "grid",
-    gridTemplateColumns: "360px minmax(0, 1fr)",
-    gap: "24px",
-    padding: "24px",
-    minHeight: "calc(100vh - 48px)",
-  },
-  sidebar: {
-    backgroundColor: "var(--bg-primary)",
-    border: "1px solid var(--border-color)",
-    borderRadius: "24px",
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    maxHeight: "calc(100vh - 48px)",
-  },
-  sidebarHeader: {
-    padding: "20px",
-    borderBottom: "1px solid var(--border-color)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
-  },
+  shell: { display: "grid", gridTemplateColumns: "360px minmax(0, 1fr)", gap: "24px", padding: "24px", minHeight: "calc(100vh - 48px)" },
+  sidebar: { backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "24px", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 48px)" },
+  sidebarHeader: { padding: "20px", borderBottom: "1px solid var(--border-color)", display: "flex", flexDirection: "column", gap: "14px" },
   title: { margin: 0, fontSize: "28px", fontWeight: 700, color: "var(--text-primary)" },
   subtitle: { margin: "8px 0 0 0", color: "var(--text-secondary)", fontSize: "14px", lineHeight: 1.5 },
-  searchBox: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    border: "1px solid var(--border-color)",
-    borderRadius: "14px",
-    padding: "10px 14px",
-    backgroundColor: "var(--bg-secondary)",
-  },
-  searchInput: {
-    border: "none",
-    outline: "none",
-    backgroundColor: "transparent",
-    color: "var(--text-primary)",
-    width: "100%",
-  },
-  scopeTabs: {
-    display: "flex",
-    gap: "8px",
-    padding: "4px",
-    borderRadius: "14px",
-    backgroundColor: "var(--bg-secondary)",
-    border: "1px solid var(--border-color)",
-  },
-  scopeTab: {
-    flex: 1,
-    padding: "8px 12px",
-    borderRadius: "10px",
-    border: "none",
-    backgroundColor: "transparent",
-    color: "var(--text-secondary)",
-    fontSize: "13px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  scopeTabActive: {
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-  },
-  ticketList: {
-    display: "flex",
-    flexDirection: "column",
-    padding: "14px",
-    gap: "10px",
-    overflowY: "auto",
-    flex: 1,
-  },
+  searchBox: { display: "flex", alignItems: "center", gap: "10px", border: "1px solid var(--border-color)", borderRadius: "14px", padding: "10px 14px", backgroundColor: "var(--bg-secondary)" },
+  searchInput: { border: "none", outline: "none", backgroundColor: "transparent", color: "var(--text-primary)", width: "100%" },
+  scopeTabs: { display: "flex", gap: "8px", padding: "4px", borderRadius: "14px", backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border-color)" },
+  scopeTab: { flex: 1, padding: "8px 12px", borderRadius: "10px", border: "none", backgroundColor: "transparent", color: "var(--text-secondary)", fontSize: "13px", fontWeight: 700, cursor: "pointer" },
+  scopeTabActive: { backgroundColor: "#007AFF", color: "#FFFFFF" },
+  ticketList: { display: "flex", flexDirection: "column", padding: "14px", gap: "10px", overflowY: "auto", flex: 1 },
   ticketRowWrap: { position: "relative" },
-  ticketRow: {
-    textAlign: "left",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-primary)",
-    borderRadius: "16px",
-    padding: "14px",
-    width: "100%",
-    cursor: "pointer",
-    display: "block",
-    marginRight: "34px",
-  },
-  ticketRowActive: {
-    borderColor: "#007AFF55",
-    backgroundColor: "rgba(0,122,255,0.08)",
-  },
-  ticketRowTop: { display: "flex", justifyContent: "space-between", gap: "10px", marginBottom: "8px", paddingRight: "6px" },
-  ticketSubject: { color: "var(--text-primary)", fontSize: "14px" },
-  ticketStatus: { textTransform: "capitalize", color: "#007AFF", fontSize: "12px", fontWeight: 700 },
+  ticketRow: { textAlign: "left", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-primary)", borderRadius: "16px", padding: "14px", width: "100%", cursor: "pointer", display: "flex", flexDirection: "column", gap: "6px" },
+  ticketRowActive: { borderColor: "#007AFF55", backgroundColor: "rgba(0,122,255,0.08)" },
+  ticketCardHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" },
+  ticketSubject: { color: "var(--text-primary)", fontSize: "14px", fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  ticketActions: { display: "flex", gap: "6px", flexShrink: 0 },
+  ticketActionBtn: { display: "inline-flex", alignItems: "center", gap: "4px", border: "1px solid var(--border-color)", borderRadius: "8px", padding: "4px 8px", fontSize: "11px", fontWeight: 700, cursor: "pointer", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", whiteSpace: "nowrap" },
+  ticketActionClose: { color: "#FF3B30", borderColor: "#FF3B3055" },
+  ticketActionOpen: { color: "#0F7B3D", borderColor: "#34C75955" },
   ticketMeta: { margin: 0, fontSize: "13px", color: "var(--text-primary)" },
   ticketMetaMuted: { margin: "4px 0 0 0", fontSize: "12px", color: "var(--text-secondary)" },
   unreadDot: { display: "inline-block", width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#007AFF", marginRight: "6px", verticalAlign: "middle" },
   menuHost: { position: "absolute", top: "10px", right: "12px" },
-  menuButton: {
-    width: "28px",
-    height: "28px",
-    borderRadius: "8px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-primary)",
-    color: "var(--text-secondary)",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-  },
+  menuButton: { width: "28px", height: "28px", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-primary)", color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   menuButtonActive: { color: "#007AFF", borderColor: "#007AFF55" },
   menuBackdrop: { position: "fixed", inset: 0, zIndex: 40 },
-  menuDropdown: {
-    position: "absolute",
-    top: "34px",
-    right: "0",
-    zIndex: 50,
-    minWidth: "190px",
-    backgroundColor: "var(--bg-primary)",
-    border: "1px solid var(--border-color)",
-    borderRadius: "12px",
-    boxShadow: "0 12px 32px rgba(0,0,0,0.18)",
-    padding: "6px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-  },
-  menuItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    width: "100%",
-    textAlign: "left",
-    border: "none",
-    backgroundColor: "transparent",
-    color: "var(--text-primary)",
-    padding: "9px 10px",
-    borderRadius: "8px",
-    fontSize: "13px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
+  menuDropdown: { position: "absolute", top: "34px", right: "0", zIndex: 50, minWidth: "190px", backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "12px", boxShadow: "0 12px 32px rgba(0,0,0,0.18)", padding: "6px", display: "flex", flexDirection: "column", gap: "2px" },
+  menuItem: { display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left", border: "none", backgroundColor: "transparent", color: "var(--text-primary)", padding: "9px 10px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, cursor: "pointer" },
   menuItemDanger: { color: "#FF3B30" },
-  loadMoreBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    padding: "10px 14px",
-    borderRadius: "12px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-secondary)",
-    color: "#007AFF",
-    fontSize: "13px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  threadPane: {
-    backgroundColor: "var(--bg-primary)",
-    border: "1px solid var(--border-color)",
-    borderRadius: "24px",
-    padding: "24px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "20px",
-    maxHeight: "calc(100vh - 48px)",
-    overflowY: "auto",
-  },
+  loadMoreBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px 14px", borderRadius: "12px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)", color: "#007AFF", fontSize: "13px", fontWeight: 700, cursor: "pointer" },
+  threadPane: { backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "24px", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", minHeight: "calc(100vh - 48px)", overflow: "hidden" },
   emptyThread: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "12px" },
   emptyText: { color: "var(--text-secondary)", fontSize: "14px" },
-  threadHeader: { display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" },
-  threadTitle: { margin: 0, fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" },
-  threadSubtitle: { margin: "6px 0 0 0", color: "var(--text-secondary)", fontSize: "14px" },
-  headerControls: { display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "flex-end" },
-  statusControl: { display: "flex", flexDirection: "column", gap: "6px" },
-  statusLabel: { fontSize: "12px", color: "var(--text-secondary)", fontWeight: 600 },
-  statusSelect: {
-    minWidth: "170px",
-    border: "1px solid var(--border-color)",
-    borderRadius: "12px",
-    backgroundColor: "var(--bg-secondary)",
-    color: "var(--text-primary)",
-    padding: "10px 12px",
-    textTransform: "capitalize",
-    outline: "none",
-    fontWeight: 600,
-  },
-  primaryBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    border: "none",
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-    borderRadius: "12px",
-    padding: "10px 14px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  secondaryBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-secondary)",
-    color: "var(--text-primary)",
-    borderRadius: "12px",
-    padding: "10px 14px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  dangerBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    border: "none",
-    backgroundColor: "#FF3B30",
-    color: "#FFFFFF",
-    borderRadius: "12px",
-    padding: "10px 14px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  onboardingBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    border: "none",
-    backgroundColor: "#34C759",
-    color: "#FFFFFF",
-    borderRadius: "12px",
-    padding: "10px 14px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  metaCard: {
-    display: "flex",
-    gap: "16px",
-    flexWrap: "wrap",
-    padding: "16px",
-    borderRadius: "18px",
-    backgroundColor: "var(--bg-secondary)",
-    border: "1px solid var(--border-color)",
-  },
-  metaItem: { display: "flex", alignItems: "center", gap: "8px", color: "var(--text-primary)", fontSize: "13px" },
-  timeline: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
-    padding: "4px 2px",
-    maxHeight: "420px",
-    overflowY: "auto",
-  },
+  // Chat header
+  chatHeader: { display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", alignItems: "flex-start" },
+  chatTitleBlock: { flex: 1, minWidth: 0 },
+  chatTitle: { margin: 0, fontSize: "18px", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  chatSubtitle: { margin: "6px 0 0 0", color: "var(--text-secondary)", fontSize: "13px" },
+  chatActions: { display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 },
+  statusControlCompact: { display: "flex", flexDirection: "column", gap: "4px" },
+  statusLabel: { fontSize: "11px", color: "var(--text-secondary)", fontWeight: 600 },
+  statusSelectCompact: { minWidth: "130px", border: "1px solid var(--border-color)", borderRadius: "10px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", padding: "8px 10px", textTransform: "capitalize", outline: "none", fontSize: "12px", fontWeight: 600 },
+  iconBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", cursor: "pointer" },
+  chatActionBtn: { display: "inline-flex", alignItems: "center", gap: "4px", border: "1px solid var(--border-color)", borderRadius: "8px", padding: "6px 10px", fontSize: "12px", fontWeight: 700, cursor: "pointer", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", whiteSpace: "nowrap" },
+  chatActionClose: { color: "#FF3B30", borderColor: "#FF3B3055" },
+  chatActionOpen: { color: "#0F7B3D", borderColor: "#34C75955" },
+  menuHostChat: { position: "relative" },
+  menuDropdownChat: { position: "absolute", top: "calc(100% + 6px)", right: "0", zIndex: 50, minWidth: "180px", backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", padding: "6px", display: "flex", flexDirection: "column", gap: "2px" },
+  // Meta row
+  metaRow: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", padding: "8px 12px", borderRadius: "12px", backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border-color)" },
+  metaChip: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "8px", backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-color)", fontSize: "12px", color: "var(--text-primary)" },
+  // Chat body
+  chatBody: { flex: 1, minHeight: 0, position: "relative", overflow: "hidden" },
+  chatHistory: { position: "absolute", inset: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", padding: "4px 2px" },
+  // Timeline
+  timeline: { display: "flex", flexDirection: "column", gap: "14px", padding: "4px 2px" },
   timelineItem: { display: "flex", gap: "12px" },
   timelineDot: { width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#007AFF", marginTop: "8px", flexShrink: 0 },
-  timelineContent: {
-    flex: 1,
-    border: "1px solid var(--border-color)",
-    borderRadius: "16px",
-    padding: "14px 16px",
-    backgroundColor: "var(--bg-secondary)",
-  },
+  timelineContent: { flex: 1, border: "1px solid var(--border-color)", borderRadius: "16px", padding: "14px 16px", backgroundColor: "var(--bg-secondary)" },
   timelineLabel: { margin: 0, color: "#007AFF", fontSize: "12px", fontWeight: 700, textTransform: "capitalize" },
   timelineEmailSubject: { margin: "6px 0 0", color: "var(--text-primary)", fontSize: "13px", fontWeight: 600 },
-  timelineMessage: { margin: "8px 0", color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.6, whiteSpace: "pre-wrap" },
+  timelineMessage: { margin: "8px 0 0", color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.6, whiteSpace: "pre-wrap" },
   timelineRecipient: { margin: "4px 0 0", color: "var(--text-secondary)", fontSize: "12px" },
   deliveryOk: { margin: "6px 0 0", color: "#34C759", fontSize: "12px", fontWeight: 600 },
   deliveryFail: { margin: "6px 0 0", color: "#FF3B30", fontSize: "12px", fontWeight: 600 },
-  // ---- Thread bubbles (Query Inbox two-way conversation) ----
+  timelineTime: { margin: 0, color: "var(--text-secondary)", fontSize: "12px" },
+  // Thread bubbles
   bubbleRowClient: { display: "flex", justifyContent: "flex-start", marginBottom: "12px" },
   bubbleRowAdmin: { display: "flex", justifyContent: "flex-end", marginBottom: "12px" },
-  bubbleClient: {
-    maxWidth: "78%",
-    backgroundColor: "var(--bg-secondary)",
-    border: "1px solid var(--border-color)",
-    borderRadius: "16px 16px 16px 4px",
-    padding: "12px 16px",
-  },
-  bubbleAdmin: {
-    maxWidth: "78%",
-    backgroundColor: "#007AFF",
-    borderRadius: "16px 16px 4px 16px",
-    padding: "12px 16px",
-  },
+  bubbleClient: { maxWidth: "78%", backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border-color)", borderRadius: "16px 16px 16px 4px", padding: "12px 16px" },
+  bubbleAdmin: { maxWidth: "78%", backgroundColor: "#007AFF", borderRadius: "16px 16px 4px 16px", padding: "12px 16px" },
   bubbleSenderClient: { margin: 0, color: "var(--text-secondary)", fontSize: "12px", fontWeight: 600 },
   bubbleSenderAdmin: { margin: 0, color: "rgba(255,255,255,0.85)", fontSize: "12px", fontWeight: 600 },
   bubbleSource: { fontWeight: 400, opacity: 0.75 },
@@ -1505,140 +1047,55 @@ const styles: Record<string, any> = {
   bubbleTextAdmin: { margin: "6px 0 0", color: "#FFFFFF", fontSize: "14px", lineHeight: 1.6, whiteSpace: "pre-wrap" },
   bubbleTimeClient: { margin: "6px 0 0", color: "var(--text-secondary)", fontSize: "11px" },
   bubbleTimeAdmin: { margin: "6px 0 0", color: "rgba(255,255,255,0.75)", fontSize: "11px" },
-  notice: {
-    padding: "12px 16px",
-    borderRadius: "12px",
-    fontSize: "14px",
-    fontWeight: 600,
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-secondary)",
-    color: "var(--text-primary)",
-  },
+  // Notice
+  notice: { padding: "12px 16px", borderRadius: "12px", fontSize: "14px", fontWeight: 600, border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" },
   noticeSuccess: { color: "#0F7B3D", borderColor: "#34C75966", backgroundColor: "rgba(52,199,89,0.12)" },
   noticeError: { color: "#C21F1F", borderColor: "#FF3B3066", backgroundColor: "rgba(255,59,48,0.12)" },
   noticeWarn: { color: "#B76E00", borderColor: "#FF950066", backgroundColor: "rgba(255,149,0,0.12)" },
-  timelineTime: { margin: 0, color: "var(--text-secondary)", fontSize: "12px" },
-  composerCard: {
-    border: "1px solid var(--border-color)",
-    borderRadius: "18px",
-    padding: "16px",
-    backgroundColor: "var(--bg-secondary)",
-  },
-  onboardingCard: {
-    border: "1px solid rgba(52,199,89,0.3)",
-    borderRadius: "18px",
-    padding: "16px",
-    backgroundColor: "rgba(52,199,89,0.06)",
-  },
+  // Reply composer
+  replyComposer: { border: "1px solid var(--border-color)", borderRadius: "16px", padding: "14px 16px", backgroundColor: "var(--bg-secondary)" },
+  // Admin workflow
+  adminWorkflow: { display: "flex", flexDirection: "column", gap: "12px", maxHeight: "300px", overflowY: "auto", paddingTop: "4px" },
+  // Composer cards
+  composerCard: { border: "1px solid var(--border-color)", borderRadius: "16px", padding: "14px 16px", backgroundColor: "var(--bg-secondary)" },
+  onboardingCardCompact: { border: "1px solid rgba(52,199,89,0.3)", borderRadius: "16px", padding: "14px 16px", backgroundColor: "rgba(52,199,89,0.06)" },
   cardHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" },
   cardHeaderTitle: { display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" },
-  cardHint: { margin: "10px 0 0", fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6 },
-  label: { display: "block", marginBottom: "10px", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" },
-  textarea: {
-    width: "100%",
-    minHeight: "110px",
-    resize: "vertical",
-    borderRadius: "14px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-primary)",
-    color: "var(--text-primary)",
-    padding: "12px 14px",
-    outline: "none",
-  },
+  cardHint: { margin: "10px 0 0", fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.6 },
+  label: { display: "block", marginBottom: "8px", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" },
+  textareaCompact: { width: "100%", minHeight: "84px", resize: "vertical", borderRadius: "12px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-primary)", color: "var(--text-primary)", padding: "10px 12px", outline: "none", fontSize: "14px" },
+  textarea: { width: "100%", minHeight: "110px", resize: "vertical", borderRadius: "14px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-primary)", color: "var(--text-primary)", padding: "12px 14px", outline: "none" },
   textareaDisabled: { opacity: 0.65, cursor: "not-allowed" },
-  composerFooter: { display: "flex", justifyContent: "flex-end", marginTop: "12px" },
-  resolutionRow: { display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" },
-  resolutionField: { display: "flex", flexDirection: "column", gap: "6px", flex: 1, minWidth: "220px" },
-  accountBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    width: "fit-content",
-    padding: "10px 14px",
-    borderRadius: "12px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-primary)",
-    color: "#0F7B3D",
-    fontSize: "13px",
-    fontWeight: 700,
-  },
+  composerFooter: { display: "flex", justifyContent: "flex-end", marginTop: "10px" },
+  resolutionRow: { display: "flex", gap: "14px", flexWrap: "wrap", marginTop: "10px" },
+  resolutionField: { display: "flex", flexDirection: "column", gap: "4px", flex: 1, minWidth: "200px" },
+  accountBadge: { display: "inline-flex", alignItems: "center", width: "fit-content", padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-primary)", color: "#0F7B3D", fontSize: "12px", fontWeight: 700 },
   accountBadgeNone: { color: "var(--text-secondary)", fontWeight: 600 },
-  accountHint: { margin: "12px 0 0", fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 },
-  credentialsBox: {
-    marginTop: "14px",
-    padding: "14px 16px",
-    borderRadius: "14px",
-    border: "1px solid rgba(52,199,89,0.4)",
-    backgroundColor: "var(--bg-primary)",
-  },
-  credentialsHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" },
+  accountHint: { margin: "10px 0 0", fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 },
+  credentialsBox: { marginTop: "10px", padding: "12px 14px", borderRadius: "12px", border: "1px solid rgba(52,199,89,0.4)", backgroundColor: "var(--bg-primary)" },
+  credentialsHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" },
   credentialsClose: { border: "none", backgroundColor: "transparent", color: "var(--text-secondary)", cursor: "pointer", display: "inline-flex" },
-  credentialsRow: { margin: "4px 0", fontSize: "13px", color: "var(--text-primary)", lineHeight: 1.5 },
-  credentialsPassword: { fontFamily: "monospace", fontSize: "15px", color: "#0F7B3D" },
-  credentialsWarning: { margin: "8px 0 0", fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 },
-  modalBackdrop: {
-    position: "fixed",
-    inset: 0,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 100,
-    padding: "20px",
-  },
-  modal: {
-    width: "100%",
-    maxWidth: "520px",
-    maxHeight: "90vh",
-    overflowY: "auto",
-    backgroundColor: "var(--bg-primary)",
-    border: "1px solid var(--border-color)",
-    borderRadius: "20px",
-    boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "16px 20px",
-    borderBottom: "1px solid var(--border-color)",
-    fontSize: "16px",
-    color: "var(--text-primary)",
-  },
+  credentialsRow: { margin: "3px 0", fontSize: "12px", color: "var(--text-primary)", lineHeight: 1.5 },
+  credentialsPassword: { fontFamily: "monospace", fontSize: "14px", color: "#0F7B3D" },
+  credentialsWarning: { margin: "6px 0 0", fontSize: "11px", color: "var(--text-secondary)", lineHeight: 1.5 },
+  // Modals
+  modalBackdrop: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: "20px" },
+  modal: { width: "100%", maxWidth: "520px", maxHeight: "90vh", overflowY: "auto", backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "20px", boxShadow: "0 24px 60px rgba(0,0,0,0.28)" },
+  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border-color)", fontSize: "16px", color: "var(--text-primary)" },
   modalClose: { border: "none", backgroundColor: "transparent", color: "var(--text-secondary)", cursor: "pointer", display: "inline-flex" },
   modalBody: { padding: "20px" },
   modalFooter: { display: "flex", justifyContent: "flex-end", gap: "10px", padding: "16px 20px", borderTop: "1px solid var(--border-color)" },
   modalText: { margin: 0, fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.6 },
   modalLabel: { display: "block", margin: "0 0 6px", fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" },
-  modalInput: {
-    width: "100%",
-    boxSizing: "border-box",
-    marginBottom: "14px",
-    padding: "10px 14px",
-    borderRadius: "12px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-secondary)",
-    color: "var(--text-primary)",
-    outline: "none",
-    fontSize: "14px",
-  },
-  resendPreview: {
-    marginTop: "14px",
-    padding: "14px 16px",
-    borderRadius: "14px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-secondary)",
-  },
+  modalInput: { width: "100%", boxSizing: "border-box", marginBottom: "14px", padding: "10px 14px", borderRadius: "12px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", outline: "none", fontSize: "14px" },
+  resendPreview: { marginTop: "14px", padding: "14px 16px", borderRadius: "14px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)" },
   resendPreviewRow: { margin: "4px 0", fontSize: "13px", color: "var(--text-primary)" },
   resendPreviewBody: { margin: "10px 0 4px", fontSize: "13px", color: "var(--text-primary)" },
-  resendPreviewBodyText: {
-    margin: 0,
-    fontSize: "13px",
-    color: "var(--text-secondary)",
-    lineHeight: 1.6,
-    whiteSpace: "pre-wrap",
-    maxHeight: "160px",
-    overflowY: "auto",
-  },
+  resendPreviewBodyText: { margin: 0, fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: "160px", overflowY: "auto" },
   onboardingList: { margin: "10px 0", paddingLeft: "20px", fontSize: "13px", color: "var(--text-primary)", lineHeight: 1.8 },
   modalNote: { margin: "14px 0 0", fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 },
+  primaryBtn: { display: "inline-flex", alignItems: "center", gap: "8px", border: "none", backgroundColor: "#007AFF", color: "#FFFFFF", borderRadius: "12px", padding: "10px 14px", fontWeight: 700, cursor: "pointer" },
+  secondaryBtn: { display: "inline-flex", alignItems: "center", gap: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", borderRadius: "12px", padding: "10px 14px", fontWeight: 600, cursor: "pointer" },
+  dangerBtn: { display: "inline-flex", alignItems: "center", gap: "8px", border: "none", backgroundColor: "#FF3B30", color: "#FFFFFF", borderRadius: "12px", padding: "10px 14px", fontWeight: 700, cursor: "pointer" },
+  onboardingBtn: { display: "inline-flex", alignItems: "center", gap: "8px", border: "none", backgroundColor: "#34C759", color: "#FFFFFF", borderRadius: "12px", padding: "10px 14px", fontWeight: 700, cursor: "pointer" }
 };
