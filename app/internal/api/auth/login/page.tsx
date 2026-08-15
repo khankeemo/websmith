@@ -17,64 +17,121 @@ import {
   Sparkles,
   Shield,
   AlertCircle,
-  Loader2
+  Loader2,
+  Code2,
+  Braces,
+  Terminal,
+  Database,
+  Cloud,
+  Server,
+  Cpu,
+  GitBranch,
+  Network,
+  Workflow,
+  type LucideIcon
 } from "lucide-react";
 import { isValidEmail } from "@/lib/validation";
 import OtpVerification from "@/components/shared/OtpVerification";
 import type { OtpCallResult } from "@/components/shared/OtpVerification";
 
-// ==== 25-bubble ambient field — inspired by the landing "Built With the Right Technology" banner ====
-type BubbleItem = { name: string; icon: string };
-
-const BUBBLES: BubbleItem[] = [
-  { name: "TypeScript", icon: "/wds_icon/typescript.svg" },
-  { name: "JavaScript", icon: "/wds_icon/javascript.svg" },
-  { name: "React", icon: "/wds_icon/react.svg" },
-  { name: "Next.js", icon: "/wds_icon/nextjs.svg" },
-  { name: "Node.js", icon: "/wds_icon/nodejs.svg" },
-  { name: "Python", icon: "/wds_icon/python.svg" },
-  { name: "Go", icon: "/wds_icon/go.svg" },
-  { name: "Rust", icon: "/wds_icon/rust.svg" },
-  { name: "PostgreSQL", icon: "/wds_icon/postgresql.svg" },
-  { name: "MongoDB", icon: "/wds_icon/mongodb.svg" },
-  { name: "Redis", icon: "/wds_icon/redis.svg" },
-  { name: "MySQL", icon: "/wds_icon/mysql.svg" },
-  { name: "GraphQL", icon: "/wds_icon/graphql.svg" },
-  { name: "Docker", icon: "/wds_icon/docker.svg" },
-  { name: "Kubernetes", icon: "/wds_icon/kubernetes.svg" },
-  { name: "Git", icon: "/wds_icon/git.svg" },
-  { name: "HTML5", icon: "/wds_icon/html5.svg" },
-  { name: "CSS3", icon: "/wds_icon/css3.svg" },
-  { name: "Flutter", icon: "/wds_icon/flutter.svg" },
-  { name: "Swift", icon: "/wds_icon/swift.svg" },
-  { name: "Kotlin", icon: "/wds_icon/kotlin.svg" },
-  { name: "Express", icon: "/wds_icon/express.svg" },
-  { name: "FastAPI", icon: "/wds_icon/fastapi.svg" },
-  { name: "Firebase", icon: "/wds_icon/firebase.svg" },
-  { name: "AWS", icon: "/wds_icon/aws.svg" },
-];
-
-type BubbleParticle = {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  drift: number;
-  driftSpeed: number;
-  floatPhase: number;
-  floatSpeed: number;
-  floatAmp: number;
-  turnTimer: number;
-  turnEvery: number;
-  scale: number;
-  opacity: number;
+// ==== 60-icon floating language field — inspired by the landing "Built With the Right Technology" banner ====
+type FloatIcon = {
+  name: string;
+  icon?: string;
+  lucide?: LucideIcon;
+  accent: string;
 };
 
-function BubbleField() {
+const FLOAT_ICONS: FloatIcon[] = [
+  { name: "TypeScript", icon: "/wds_icon/typescript.svg", accent: "49,120,198" },
+  { name: "JavaScript", icon: "/wds_icon/javascript.svg", accent: "247,223,30" },
+  { name: "Python", icon: "/wds_icon/python.svg", accent: "85,118,171" },
+  { name: "Java", icon: "/wds_icon/java.svg", accent: "248,152,32" },
+  { name: "C#", icon: "/wds_icon/csharp.svg", accent: "104,33,122" },
+  { name: "C++", icon: "/wds_icon/cplusplus.svg", accent: "0,89,156" },
+  { name: "C", icon: "/wds_icon/c.svg", accent: "168,185,204" },
+  { name: "Go", icon: "/wds_icon/go.svg", accent: "0,173,216" },
+  { name: "Rust", icon: "/wds_icon/rust.svg", accent: "222,165,132" },
+  { name: "PHP", icon: "/wds_icon/php.svg", accent: "119,123,180" },
+  { name: "Ruby", icon: "/wds_icon/ruby.svg", accent: "204,52,45" },
+  { name: "Kotlin", icon: "/wds_icon/kotlin.svg", accent: "127,82,255" },
+  { name: "Swift", icon: "/wds_icon/swift.svg", accent: "240,81,56" },
+  { name: "Dart", icon: "/wds_icon/dart.svg", accent: "1,117,194" },
+  { name: "Scala", icon: "/wds_icon/scala.svg", accent: "220,50,32" },
+  { name: "R", icon: "/wds_icon/r.svg", accent: "39,109,195" },
+  { name: "Lua", icon: "/wds_icon/lua.svg", accent: "45,85,190" },
+  { name: "Perl", icon: "/wds_icon/perl.svg", accent: "57,69,126" },
+  { name: "Bash", icon: "/wds_icon/bash.svg", accent: "78,170,37" },
+  { name: "Objective-C", icon: "/wds_icon/objectivec.svg", accent: "67,142,255" },
+  { name: "HTML5", icon: "/wds_icon/html5.svg", accent: "227,79,38" },
+  { name: "CSS3", icon: "/wds_icon/css3.svg", accent: "21,114,182" },
+  { name: "Node.js", icon: "/wds_icon/nodejs.svg", accent: "51,153,51" },
+  { name: "React", icon: "/wds_icon/react.svg", accent: "97,218,251" },
+  { name: "Next.js", icon: "/wds_icon/nextjs.svg", accent: "229,231,235" },
+  { name: "Vue.js", icon: "/wds_icon/vue.svg", accent: "66,184,131" },
+  { name: "Angular", icon: "/wds_icon/angular.svg", accent: "221,0,49" },
+  { name: "Svelte", icon: "/wds_icon/svelte.svg", accent: "255,62,0" },
+  { name: "Express", icon: "/wds_icon/express.svg", accent: "161,161,170" },
+  { name: "NestJS", icon: "/wds_icon/nestjs.svg", accent: "224,35,78" },
+  { name: ".NET", icon: "/wds_icon/dotnet.svg", accent: "81,43,212" },
+  { name: "Spring", icon: "/wds_icon/spring.svg", accent: "109,179,63" },
+  { name: "Laravel", icon: "/wds_icon/laravel.svg", accent: "255,45,32" },
+  { name: "Django", icon: "/wds_icon/django.svg", accent: "68,183,139" },
+  { name: "Flask", icon: "/wds_icon/flask.svg", accent: "148,163,184" },
+  { name: "FastAPI", icon: "/wds_icon/fastapi.svg", accent: "0,150,136" },
+  { name: "Flutter", icon: "/wds_icon/flutter.svg", accent: "2,86,155" },
+  { name: "React Native", icon: "/wds_icon/react-native.svg", accent: "0,216,255" },
+  { name: "MongoDB", icon: "/wds_icon/mongodb.svg", accent: "71,162,56" },
+  { name: "PostgreSQL", icon: "/wds_icon/postgresql.svg", accent: "51,103,145" },
+  { name: "MySQL", icon: "/wds_icon/mysql.svg", accent: "0,117,143" },
+  { name: "Redis", icon: "/wds_icon/redis.svg", accent: "255,68,56" },
+  { name: "GraphQL", icon: "/wds_icon/graphql.svg", accent: "225,0,152" },
+  { name: "Firebase", icon: "/wds_icon/firebase.svg", accent: "255,202,40" },
+  { name: "Supabase", icon: "/wds_icon/supabase.svg", accent: "62,207,142" },
+  { name: "Docker", icon: "/wds_icon/docker.svg", accent: "36,150,237" },
+  { name: "Kubernetes", icon: "/wds_icon/kubernetes.svg", accent: "50,108,229" },
+  { name: "AWS", icon: "/wds_icon/aws.svg", accent: "255,153,0" },
+  { name: "Google Cloud", icon: "/wds_icon/google-cloud.svg", accent: "66,133,244" },
+  { name: "Git", icon: "/wds_icon/git.svg", accent: "240,80,50" },
+  { name: "APIs", lucide: Code2, accent: "167,139,250" },
+  { name: "Data Models", lucide: Braces, accent: "251,191,36" },
+  { name: "Dev Tools", lucide: Terminal, accent: "34,211,238" },
+  { name: "Databases", lucide: Database, accent: "96,165,250" },
+  { name: "Cloud", lucide: Cloud, accent: "147,197,253" },
+  { name: "Servers", lucide: Server, accent: "196,181,253" },
+  { name: "Compute", lucide: Cpu, accent: "45,212,191" },
+  { name: "Version Control", lucide: GitBranch, accent: "248,113,113" },
+  { name: "Networking", lucide: Network, accent: "56,189,248" },
+  { name: "Pipelines", lucide: Workflow, accent: "52,211,153" },
+];
+
+type FloatParticle = {
+  ox: number;
+  oy: number;
+  rx: number;
+  ry: number;
+  fx: number;
+  fy: number;
+  px: number;
+  py: number;
+  x: number;
+  y: number;
+  size: number;
+};
+
+const rand = (() => {
+  let s = 20260815;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+})();
+
+function FloatIconField() {
   const fieldRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<(HTMLElement | null)[]>([]);
-  const particles = useRef<BubbleParticle[]>([]);
-  const sizes = useRef({ w: 1, h: 1, node: 104 });
+  const particles = useRef<FloatParticle[]>([]);
+  const sizes = useRef({ w: 1, h: 1, node: 106.2 });
   const reducedMotion = useRef(false);
 
   useEffect(() => {
@@ -86,35 +143,46 @@ function BubbleField() {
 
     const readSize = () => {
       const rect = field.getBoundingClientRect();
-      const node = nodeRefs.current[0]?.offsetWidth || 104;
+      const node = nodeRefs.current[0]?.offsetWidth || 106.2;
       sizes.current = { w: Math.max(rect.width, 1), h: Math.max(rect.height, 1), node };
     };
     readSize();
 
-    const { w, h, node } = sizes.current;
-    const r = node / 2;
-
-    particles.current = BUBBLES.map((_, i) => {
-      const fx = ((i * 67) % 100) / 100;
-      const fy = ((i * 29) % 100) / 100;
-      const up = i % 2 === 0;
-      const base = 0.34 + ((i * 37) % 10) / 24;
-      return {
-        x: r + fx * Math.max(w - r * 2, 1),
-        y: r + fy * Math.max(h - r * 2, 1),
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: up ? -base : base,
-        drift: Math.random() * Math.PI * 2,
-        driftSpeed: 0.1 + ((i * 13) % 10) / 48,
-        floatPhase: Math.random() * Math.PI * 2,
-        floatSpeed: 0.16 + ((i * 7) % 10) / 40,
-        floatAmp: 5 + ((i * 11) % 10) * 1.5,
-        turnTimer: 0,
-        turnEvery: 2 + ((i * 17) % 10) / 4,
-        scale: 0.8 + ((i * 23) % 10) / 32,
-        opacity: 0.25 + ((i * 19) % 10) / 30,
-      };
-    });
+    const init = () => {
+      const { w, h, node } = sizes.current;
+      const r = node / 2;
+      const D = node * 1.5;
+      const placed: { x: number; y: number }[] = [];
+      particles.current = FLOAT_ICONS.map((_, i) => {
+        let x = r;
+        let y = r;
+        let ok = false;
+        for (let a = 0; a < 48 && !ok; a++) {
+          x = r + rand() * Math.max(w - r * 2, 1);
+          y = r + rand() * Math.max(h - r * 2, 1);
+          ok = placed.every((q) => {
+            const dx = q.x - x;
+            const dy = q.y - y;
+            return dx * dx + dy * dy >= D * D;
+          });
+        }
+        placed.push({ x, y });
+        return {
+          ox: x,
+          oy: y,
+          rx: Math.min(node * (0.7 + rand() * 1.5), w * 0.16),
+          ry: Math.min(node * (0.7 + rand() * 1.5), h * 0.16),
+          fx: 0.08 + rand() * 0.14,
+          fy: 0.08 + rand() * 0.14,
+          px: rand() * Math.PI * 2,
+          py: rand() * Math.PI * 2,
+          x,
+          y,
+          size: 0.9 + rand() * 0.2,
+        };
+      });
+    };
+    init();
 
     let raf = 0;
     let last = performance.now();
@@ -126,8 +194,7 @@ function BubbleField() {
         const el = nodeRefs.current[i];
         if (!el) continue;
         const p = particles.current[i];
-        const bob = Math.sin(p.floatPhase) * p.floatAmp;
-        el.style.transform = `translate3d(${p.x - r2}px, ${p.y + bob - r2}px, 0) scale(${p.scale})`;
+        el.style.transform = `translate3d(${p.x - r2}px, ${p.y - r2}px, 0)`;
       }
     };
 
@@ -137,37 +204,48 @@ function BubbleField() {
       last = now;
       const { w, h, node } = sizes.current;
       const r2 = node / 2;
+      const D = node * 1.18;
+      const ps = particles.current;
+      const n = ps.length;
 
-      for (let i = 0; i < particles.current.length; i++) {
-        const p = particles.current[i];
-        p.drift += p.driftSpeed * dt * 60;
-        p.floatPhase += p.floatSpeed * dt * 60;
-        p.turnTimer -= dt;
-        if (p.turnTimer <= 0) {
-          p.turnTimer = p.turnEvery;
-          p.vx += (Math.random() - 0.5) * 0.24;
-        }
-        p.x += (p.vx + Math.sin(p.drift) * 0.35) * dt * 60;
-        p.y += p.vy * dt * 60;
-
-        if (p.x < r2) {
-          p.x = r2;
-          p.vx = Math.abs(p.vx);
-        } else if (p.x > w - r2) {
-          p.x = w - r2;
-          p.vx = -Math.abs(p.vx);
-        }
-
-        if (p.y > h + r2 * 1.5) p.y = -r2 * 1.5;
-        else if (p.y < -r2 * 1.5) p.y = h + r2 * 1.5;
+      for (let i = 0; i < n; i++) {
+        const p = ps[i];
+        p.px += p.fx * dt;
+        p.py += p.fy * dt;
+        const tx = p.ox + Math.sin(p.px) * p.rx;
+        const ty = p.oy + Math.cos(p.py) * p.ry;
+        p.x += (tx - p.x) * 0.05;
+        p.y += (ty - p.y) * 0.05;
       }
 
-      for (let i = 0; i < particles.current.length; i++) {
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const a = ps[i];
+          const b = ps[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq >= D * D) continue;
+          const dist = Math.sqrt(Math.max(distSq, 0.0001));
+          const overlap = D - dist;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const f = overlap * 0.04;
+          a.x -= nx * f;
+          a.y -= ny * f;
+          b.x += nx * f;
+          b.y += ny * f;
+        }
+      }
+
+      for (let i = 0; i < n; i++) {
+        const p = ps[i];
+        if (p.x < r2) p.x += (r2 - p.x) * 0.15;
+        else if (p.x > w - r2) p.x += (w - r2 - p.x) * 0.15;
+        if (p.y < r2) p.y += (r2 - p.y) * 0.15;
+        else if (p.y > h - r2) p.y += (h - r2 - p.y) * 0.15;
         const el = nodeRefs.current[i];
-        if (!el) continue;
-        const p = particles.current[i];
-        const bob = Math.sin(p.floatPhase) * p.floatAmp;
-        el.style.transform = `translate3d(${p.x - r2}px, ${p.y + bob - r2}px, 0) scale(${p.scale})`;
+        if (el) el.style.transform = `translate3d(${p.x - r2}px, ${p.y - r2}px, 0)`;
       }
       raf = requestAnimationFrame(step);
     };
@@ -186,11 +264,48 @@ function BubbleField() {
     applyTransforms();
     if (!reducedMotion.current) start();
 
+    let zoomTimer: number | null = null;
+    const zoomQueue: number[] = [];
+    let lastZoom = -1;
+
+    const pickZoom = () => {
+      if (zoomQueue.length === 0) {
+        const seq = Array.from({ length: FLOAT_ICONS.length }, (_, i) => i);
+        for (let i = seq.length - 1; i > 0; i--) {
+          const j = Math.floor(rand() * (i + 1));
+          [seq[i], seq[j]] = [seq[j], seq[i]];
+        }
+        if (seq.length > 1 && seq[0] === lastZoom) {
+          const t = seq[0];
+          seq[0] = seq[1];
+          seq[1] = t;
+        }
+        zoomQueue.push(...seq);
+      }
+      const idx = zoomQueue.shift();
+      if (idx === undefined) return;
+      lastZoom = idx;
+      const el = nodeRefs.current[idx];
+      if (!el || reducedMotion.current) return;
+      const size = particles.current[idx]?.size ?? 1;
+      const peak = size * (1.18 + size * 0.06);
+      el.style.setProperty("--zoom-start", String(size));
+      el.style.setProperty("--zoom-peak", String(peak));
+      el.classList.add("float-node-zoom");
+      window.setTimeout(() => el.classList.remove("float-node-zoom"), 620);
+    };
+
+    if (!reducedMotion.current) {
+      zoomTimer = window.setInterval(pickZoom, 1000);
+    }
+
     const ro = new ResizeObserver(() => {
       readSize();
       const { w: w2, h: h2, node: n2 } = sizes.current;
       const rr = n2 / 2;
       for (const p of particles.current) {
+        p.ox = Math.max(rr, Math.min(w2 - rr, p.ox));
+        p.oy = Math.max(rr, Math.min(h2 - rr, p.oy));
         p.x = Math.max(rr, Math.min(w2 - rr, p.x));
         p.y = Math.max(rr, Math.min(h2 - rr, p.y));
       }
@@ -200,34 +315,52 @@ function BubbleField() {
 
     const onReducedChange = (e: MediaQueryListEvent) => {
       reducedMotion.current = e.matches;
-      if (e.matches) stop();
-      else start();
+      if (e.matches) {
+        stop();
+        if (zoomTimer !== null) {
+          window.clearInterval(zoomTimer);
+          zoomTimer = null;
+        }
+      } else {
+        start();
+        if (zoomTimer === null) zoomTimer = window.setInterval(pickZoom, 1000);
+      }
     };
     media.addEventListener("change", onReducedChange);
 
     return () => {
       stop();
+      if (zoomTimer !== null) window.clearInterval(zoomTimer);
       ro.disconnect();
       media.removeEventListener("change", onReducedChange);
     };
   }, []);
 
   return (
-    <div ref={fieldRef} className="login-bubble-field" aria-hidden="true">
-      {BUBBLES.map((bubble, i) => (
+    <div ref={fieldRef} className="float-icon-field" aria-hidden="true">
+      {FLOAT_ICONS.map((f, i) => (
         <span
-          key={bubble.name}
+          key={f.name}
           ref={(el) => {
             nodeRefs.current[i] = el;
           }}
-          className="login-bubble"
-          style={{
-            opacity: particles.current[i]?.opacity ?? 0.4,
-            transform: "translate3d(-9999px, -9999px, 0)",
-          }}
+          className="float-node"
+          style={{ transform: "translate3d(-9999px, -9999px, 0)" }}
         >
-          <span className="login-bubble-mask">
-            <img src={bubble.icon} alt="" draggable={false} loading="lazy" />
+          <span
+            className="float-node-ring"
+            style={{
+              borderColor: `rgba(${f.accent},0.55)`,
+              boxShadow: `0 0 20px rgba(${f.accent},0.32), 0 12px 32px rgba(0,0,0,0.45), inset 0 0 14px rgba(${f.accent},0.14)`,
+              transform: `scale(${particles.current[i]?.size ?? 1})`,
+              transformOrigin: "center",
+            }}
+          >
+            {f.icon ? (
+              <img src={f.icon} alt="" draggable={false} loading="lazy" />
+            ) : f.lucide ? (
+              <f.lucide color={`rgb(${f.accent})`} strokeWidth={1.75} />
+            ) : null}
           </span>
         </span>
       ))}
@@ -237,6 +370,7 @@ function BubbleField() {
 
 export default function LoginPage() {
   const router = useRouter();
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [nextPath, setNextPath] = useState("/internal/api/dashboard");
   const [step, setStep] = useState<"credentials" | "otp">("credentials");
   const [email, setEmail] = useState("");
@@ -407,72 +541,113 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center bg-[#0B1120]">
       <style>{`
-        .login-bubble-field {
+        .float-icon-field {
           position: absolute;
           inset: 0;
           z-index: 11;
           overflow: hidden;
           pointer-events: none;
-          --login-bubble: 104px;
+          --float-node: 106.2px;
         }
-        .login-bubble {
+        .float-node {
           position: absolute;
           left: 0;
           top: 0;
-          width: var(--login-bubble, 104px);
-          height: var(--login-bubble, 104px);
+          width: var(--float-node, 106.2px);
+          height: var(--float-node, 106.2px);
           will-change: transform;
         }
-        .login-bubble-mask {
+        .float-node-ring {
           position: absolute;
           inset: 0;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: radial-gradient(circle at 32% 26%, rgba(35, 39, 67, 0.8), rgba(15, 17, 34, 0.76) 72%);
-          border: 1px solid rgba(139, 92, 246, 0.32);
-          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), inset 0 0 14px rgba(139, 92, 246, 0.12);
-          -webkit-backdrop-filter: blur(2px);
-          backdrop-filter: blur(2px);
+          background: radial-gradient(circle at 32% 26%, #1a2040, #0b0f22 72%);
+          border: 1px solid rgba(139, 92, 246, 0.5);
+          transform-origin: center;
         }
-        .login-bubble-mask img {
-          width: 52%;
-          height: 52%;
+        .float-node-ring img,
+        .float-node-ring svg {
+          width: 58%;
+          height: 58%;
           object-fit: contain;
-          opacity: 0.9;
-          filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.25));
         }
-        @media (max-width: 768px) {
-          .login-bubble-field { --login-bubble: 78px; }
+        .float-node-zoom .float-node-ring {
+          animation: float-node-zoom 0.55s ease-in-out forwards;
         }
-        @media (max-width: 520px) {
-          .login-bubble-field { --login-bubble: 68px; }
+        .wds-video-zoom {
+          transform-origin: center;
+          animation: wds-video-zoom 26s ease-in-out infinite;
+        }
+        @keyframes float-node-zoom {
+          0% { transform: scale(var(--zoom-start, 1)); }
+          45% { transform: scale(var(--zoom-peak, 1.24)); }
+          100% { transform: scale(var(--zoom-start, 1)); }
+        }
+        @keyframes wds-video-zoom {
+          0% { transform: scale(1); }
+          38% { transform: scale(1.14); }
+          72% { transform: scale(1.05); }
+          100% { transform: scale(1); }
+        }
+        @media (max-width: 1023px) {
+          .float-icon-field { --float-node: 86.4px; }
+        }
+        @media (max-width: 639px) {
+          .float-icon-field { --float-node: 57.6px; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .login-bubble { animation: none !important; }
+          .float-node { animation: none !important; }
+          .float-node-zoom .float-node-ring { animation: none !important; }
+          .wds-video-zoom { animation: none !important; }
         }
       `}</style>
-      {/* Video Background */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="absolute top-0 left-0 w-full h-full object-cover z-0"
-      >
-        <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
-      </video>
+      {/* Video Background — full-width, aspect-correct, subtle slow zoom */}
+      <div className="absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <div
+          className="absolute left-1/2 top-1/2"
+          style={{
+            width: "100%",
+            aspectRatio: "16 / 9",
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="wds-video-zoom w-full h-full object-cover"
+            onLoadedMetadata={() => {
+              const v = videoRef.current;
+              const p = v?.parentElement;
+              if (v && p && v.videoWidth && v.videoHeight) {
+                p.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
+              }
+            }}
+          >
+            <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </div>
 
-      {/* 25-bubble ambient field (inspired by the landing technology banner) */}
-      <BubbleField />
+      {/* 60-icon floating language field (inspired by the landing technology banner) */}
+      <FloatIconField />
 
-      <div className="absolute inset-0 z-10 bg-gradient-to-br from-[#0B1120]/90 via-[#0B1120]/60 to-[#0B1120]/80" />
-      <div className="absolute inset-0 z-10 bg-gradient-to-tr from-blue-600/5 via-purple-600/5 to-transparent animate-pulse" />
-      <div className="absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,rgba(11,17,32,0.55),transparent_62%)]" />
+      <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_center,rgba(16,24,48,0.5)_0%,rgba(11,17,32,0.38)_48%,rgba(7,10,20,0.62)_100%)]" />
 
-      <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] rounded-full bg-blue-500/20 blur-3xl animate-pulse z-10" />
-      <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full bg-purple-500/20 blur-3xl animate-pulse delay-1000 z-10" />
+      <div className="absolute inset-0 z-[2] overflow-hidden">
+        <div className="absolute top-[6%] -left-[14%] w-[46vw] h-[46vw] rounded-full bg-violet-700/20 blur-3xl animate-pulse" />
+        <div className="absolute top-[26%] -right-[12%] w-[40vw] h-[40vw] rounded-full bg-blue-700/20 blur-3xl animate-pulse delay-500" />
+        <div className="absolute bottom-[2%] left-[10%] w-[38vw] h-[38vw] rounded-full bg-cyan-600/15 blur-3xl animate-pulse delay-700" />
+        <div className="absolute bottom-[14%] right-[4%] w-[30vw] h-[30vw] rounded-full bg-fuchsia-700/15 blur-3xl animate-pulse delay-1000" />
+      </div>
+
+      <div className="absolute inset-0 z-[3] bg-gradient-to-br from-[#0B1120]/55 via-[#0B1120]/25 to-[#0B1120]/45" />
+      <div className="absolute inset-0 z-[4] bg-[radial-gradient(ellipse_at_center,rgba(11,17,32,0.4),transparent_62%)]" />
 
       <div className="relative z-20 w-full max-w-md px-4 sm:px-6">
         <div className="animate-fadeInUp">
