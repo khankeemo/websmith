@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { Db } from "mongodb";
+import { buildClientPortalGreeting } from "@/core/services/clientPortalGreeting";
 
 // ============================================================================
 // RESOLUTION EMAIL + CLIENT PORTAL ONBOARDING (Public Website domain)
@@ -52,7 +53,9 @@ Client Portal:
 Login Email:
 {{client_email}}
 
-{{#if temporary_password}}Temporary Password:
+{{#if client_id}}Client ID:
+{{client_id}}
+{{/if}}{{#if temporary_password}}Temporary Password:
 {{temporary_password}}
 
 For your security, you will be required to create a new password when you first sign in. Please do not share your login credentials with anyone.{{/if}}{{#unless temporary_password}}If you already have a Websmith account, please sign in using your existing credentials. If you need a password reset, use the Forgot Password option on the login page.{{/unless}}
@@ -372,6 +375,25 @@ export async function ensureResolutionTemplates(db: Db): Promise<ResolutionTempl
 export function findDefaultTemplate(templates: ResolutionTemplate[]): ResolutionTemplate | null {
   return templates.find((template) => template.isDefault) || templates[0] || null;
 }
+
+// The dedicated template used by the "Send Client Portal Access" onboarding
+// action (Phase 3 / Phase 6). It is the ONLY template that may carry initial
+// client credentials; the resolution templates never do.
+export const ONBOARDING_TEMPLATE_KEY = "client-portal-onboarding";
+
+// Guarantees the Client ID is present in an onboarding email even when the
+// database holds a legacy copy of the onboarding template that predates the
+// `client_id` variable. Pure text; never runs markers through a template.
+export function appendClientIdIfMissing(body: string, clientId: string): string {
+  if (!clientId) return body;
+  if (/client\s*id/i.test(body)) return body;
+  return `${body}\n\nClient ID:\n${clientId}`.trim();
+}
+
+// Shared professional, marker-free Client Portal Greeting (Phase 5). The
+// implementation lives in the client-safe module; re-exported here so server
+// helpers and the admin UI share exactly one source.
+export { buildClientPortalGreeting };
 
 // -- Client Portal Greeting -- / -- End Client Portal Greeting -- are editor-only
 // markers; they are removed from any customer-facing email copy.

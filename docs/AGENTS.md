@@ -878,3 +878,50 @@ Keep `app/page.tsx`'s `FloatingTechnologyBanner` aligned. Never regress:
   reduced motion is active), IntersectionObserver pause when off-screen, and
   ResizeObserver re-clamping on resize all stay intact. Keep this rule in sync
   with `README.md`.
+
+## Admin Messages — Query Inbox (Public Website, AWS-01 R01)
+
+Keep in sync with the master doc **Progress Tracking ("Admin Messages Query
+Inbox — Fresh Redesign (AWS-01 R01)")** entry. Never regress:
+
+- **Boundary**: this feature touches ONLY the public admin page
+  `app/admin/messages` (client component), its `core/services/ticketService.ts`
+  API layer, the `app/api/tickets/*` backend routes, `lib/tickets/email.ts`
+  (shared ticket email/template logic), `core/services/clientPortalGreeting.ts`,
+  and the public Get in Touch → Query Inbox connection. NEVER touch
+  `/internal/api/*`, the Communications Center, mailboxes, auth, notifications,
+  the storefront, or the public website beyond the Get in Touch form.
+- **Get in Touch never auto-delivers credentials**: the public contact
+  submission (`POST /api/tickets/public`) only creates the Query Inbox
+  conversation. The ONLY credential-delivery path is the admin "Send Client
+  Portal Access" action (`POST /api/tickets/[id]/send-client-portal-access`),
+  which reuses or creates the client account via `createClientAccount` and
+  renders the DB `client-portal-onboarding` template. Temporary passwords are
+  securely generated, bcrypt-hashed, NEVER stored/logged, returned once in the
+  response, require first-login change, and existing client passwords are never
+  overwritten. "Send Resolution Email" NEVER creates accounts and NEVER
+  delivers credentials.
+- **No internal markers in customer output**: `-- Client Portal Greeting --` /
+  `-- End Client Portal Greeting --` markers exist ONLY as admin-side insertion
+  anchors; every customer-bound email body passes through `stripAdminMarkers`.
+  The greeting itself is the marker-free shared builder
+  `core/services/clientPortalGreeting.ts` (professional, editable,
+  portal-login block + "The Websmith Digital Team" sign-off).
+- **Query Inbox list**: server-side pagination (`QUERY_INBOX_PAGE_SIZE = 15`,
+  `page`/`pageSize`/`limit`, `hasMore`/`total`) + escaped-regex `search`
+  AND-combined with the role scope (client/developer `$or` can never widen) +
+  `scope=active|closed`; soft-deleted rows (`deletedAt`) are excluded from
+  every view, never shown.
+- **Delete is soft-delete**: `DELETE /api/tickets/[id]` sets
+  `deletedAt`/`deletedBy` + `status: closed` + `chatStatus: closed` + a
+  `deleted` history entry — real customer history is never permanently
+  destroyed.
+- **Resend uses the stored snapshot**: admin replies and resolution/onboarding
+  emails store `recipient`/`subject`/`emailBody` at send time;
+  `POST /api/tickets/[id]/resend` re-sends exactly that snapshot (never
+  stale/arbitrary UI text).
+- **Resolution Email block rule**: `renderResolutionTemplate` renders the
+  `{{temporary_password}}` block only when a temporary password is present and
+  the Client ID block only when a client account exists; empty blocks are
+  omitted (no placeholder leakage).
+- Keep this rule in sync with the master doc Progress Tracking entry.

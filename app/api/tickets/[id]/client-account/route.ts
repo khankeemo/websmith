@@ -25,6 +25,7 @@ export const GET = apiHandler(async ({ db, user, params }) => {
       email,
       name: name || account.name || "",
       clientId: account._id.toString(),
+      clientCustomId: String(account.customId ?? ticket.clientCustomId ?? ""),
     },
   });
 }, { auth: "required" });

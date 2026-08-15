@@ -9,6 +9,27 @@ export const resolveTicketFileUrl = (url: string) => {
   return `${window.location.origin}${path}`;
 };
 
+export type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
+
+export interface TicketHistoryEntry {
+  action: string;
+  actorRole: "admin" | "client" | "developer" | "system";
+  message?: string;
+  attachments?: Array<{ name: string; url: string }>;
+  emailDelivered?: boolean;
+  emailError?: string;
+  // Email snapshots captured at send time (used by Resend / Phase 13).
+  recipient?: string;
+  emailSubject?: string;
+  emailBody?: string;
+  templateKey?: string;
+  templateName?: string;
+  accountState?: string;
+  accountId?: string;
+  originalAction?: string;
+  createdAt: string;
+}
+
 export interface Ticket {
   _id: string;
   source?: "client_portal" | "public_contact";
@@ -17,6 +38,7 @@ export interface Ticket {
     name: string;
     email: string;
   } | string | null;
+  clientEmail?: string;
   contactName?: string;
   contactEmail?: string;
   contactCompany?: string;
@@ -33,26 +55,25 @@ export interface Ticket {
   subject: string;
   description: string;
   priority: "low" | "medium" | "high";
-  status: "open" | "in_progress" | "resolved" | "closed";
+  status: TicketStatus;
   chatStatus?: "open" | "closed";
   resolution?: string;
   closedAt?: string | null;
   archiveAfter?: string | null;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  clientAccountSource?: "created" | "existing";
+  clientAccountEmail?: string;
+  clientCustomId?: string;
+  onboardingSentAt?: string | null;
   attachments?: Array<{
     _id?: string;
     name: string;
     url: string;
   }>;
-  history?: Array<{
-    action: string;
-    actorRole: "admin" | "client" | "developer" | "system";
-    message?: string;
-    attachments?: Array<{ name: string; url: string }>;
-    emailDelivered?: boolean;
-    emailError?: string;
-    createdAt: string;
-  }>;
+  history?: TicketHistoryEntry[];
   createdAt: string;
+  updatedAt?: string;
   emailDelivered?: boolean;
   emailError?: string;
 }
@@ -60,6 +81,30 @@ export interface Ticket {
 export const getTickets = async () => {
   const response = await API.get("/tickets");
   return response.data.data as Ticket[];
+};
+
+/** Paged Query Inbox list (Phase 10: max 15 initial + Load More). */
+export const getTicketsPaged = async (params: {
+  scope?: "active" | "closed";
+  page?: number;
+  pageSize?: number;
+  search?: string;
+} = {}) => {
+  const response = await API.get("/tickets", {
+    params: {
+      scope: params.scope || "active",
+      page: params.page || 1,
+      pageSize: params.pageSize || 15,
+      ...(params.search ? { search: params.search } : {}),
+    },
+  });
+  return response.data as {
+    data: Ticket[];
+    total: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+  };
 };
 
 export const createTicket = async (payload: {
@@ -86,10 +131,25 @@ export const createPublicTicket = async (payload: {
 
 export const updateTicketStatus = async (
   id: string,
-  payload: { status: Ticket["status"]; resolution?: string; reopenMessage?: string }
+  payload: { status: TicketStatus; resolution?: string; reopenMessage?: string }
 ) => {
   const response = await API.put(`/tickets/${id}/status`, payload);
   return response.data.data as Ticket;
+};
+
+/** Edit a conversation (Phase 11 — ⋮ → Edit). Admin only. */
+export const updateTicket = async (
+  id: string,
+  payload: { subject?: string; contactName?: string; contactEmail?: string; contactCompany?: string }
+) => {
+  const response = await API.patch(`/tickets/${id}`, payload);
+  return response.data as { data: Ticket; changed: string[] };
+};
+
+/** Soft delete a conversation (Phase 11 — ⋮ → Delete). Admin only. */
+export const deleteTicket = async (id: string) => {
+  const response = await API.delete(`/tickets/${id}`);
+  return response.data as { message: string; data?: { id: string; already?: boolean } };
 };
 
 export const uploadTicketImage = async (file: File) => {
@@ -113,10 +173,6 @@ export const addTicketReply = async (
   return response.data.data as Ticket;
 };
 
-export const deleteTicket = async (id: string) => {
-  await API.delete(`/tickets/${id}`);
-};
-
 export interface ResolutionTemplate {
   key: string;
   name: string;
@@ -133,6 +189,7 @@ export interface TicketClientAccount {
   email: string;
   name: string;
   clientId?: string;
+  clientCustomId?: string;
 }
 
 export const getResolutionTemplates = async (): Promise<{ data: ResolutionTemplate[]; defaultKey: string }> => {
@@ -145,15 +202,50 @@ export const getTicketClientAccount = async (id: string): Promise<TicketClientAc
   return response.data.data as TicketClientAccount;
 };
 
+export type OnboardingResult = {
+  accountState: "not_created" | "created" | "existing";
+  createdAccount: boolean;
+  clientId: string | null;
+  clientCustomId?: string;
+  temporaryPassword?: string;
+  emailDelivered: boolean;
+  emailError?: string;
+};
+
+/** Client onboarding credential delivery (Phase 3 + Phase 6). Admin only. */
+export const sendClientPortalAccess = async (
+  id: string,
+  payload: { portalUrl?: string } = {}
+) => {
+  const response = await API.post(`/tickets/${id}/send-client-portal-access`, payload);
+  return response.data as OnboardingResult;
+};
+
 export const sendResolutionEmail = async (
   id: string,
   payload: {
     resolution: string;
     templateKey?: string;
-    createAccount?: boolean;
     portalUrl?: string;
   }
 ) => {
   const response = await API.post(`/tickets/${id}/send-resolution-email`, payload);
-  return response.data;
+  return response.data as {
+    emailDelivered: boolean;
+    emailError?: string;
+    accountState?: string;
+    clientId?: string | null;
+    clientCustomId?: string;
+  };
+};
+
+/** Resend the last stored email snapshot (Phase 13). Admin only. */
+export const resendTicketEmail = async (id: string) => {
+  const response = await API.post(`/tickets/${id}/resend`);
+  return response.data as {
+    emailDelivered: boolean;
+    emailError?: string;
+    recipient?: string;
+    subject?: string;
+  };
 };

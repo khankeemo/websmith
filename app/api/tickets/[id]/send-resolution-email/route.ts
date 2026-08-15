@@ -7,7 +7,6 @@ import {
   renderResolutionTemplate,
   resolutionHtmlBody,
   stripAdminMarkers,
-  createClientAccount,
 } from "@/lib/tickets/email";
 
 const DEFAULT_ORIGIN = "https://www.websmithdigital.com";
@@ -18,6 +17,20 @@ function normalizeOrigin(value: unknown): string {
   return DEFAULT_ORIGIN;
 }
 
+// ============================================================================
+// RESOLUTION EMAIL (Phase 7 + Phase 8)
+//
+// Final project-completion communication: Resolution Summary + Email Template +
+// Client Account + Send Resolution Email. It communicates completion, the final
+// outcome, a Client Portal reference and a professional closing.
+//
+// Strict separation (Phase 6 / Phase 8): the Resolution Email NEVER delivers
+// initial client credentials and NEVER creates a client account. Initial
+// credentials belong to the business onboarding stage ("Send Client Portal
+// Access"). If the client already has a portal account, its Client ID is
+// referenced; otherwise the email points to the portal without inventing
+// credentials (the client can request access / use Forgot Password).
+// ============================================================================
 export const POST = apiHandler(async ({ db, request, user, params }) => {
   if (user.role !== "admin") throw forbidden();
   const body = await jsonBody(request);
@@ -42,9 +55,7 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
   }
   const clientName = String(ticket.contactName || "Valued Customer").trim();
 
-  // ------------------------------------------------------------------
-  // 1. Template selection (database-backed; default when none specified)
-  // ------------------------------------------------------------------
+  // 1. Template selection (database-backed; default when none specified).
   const templates = await ensureResolutionTemplates(db);
   const templateKey = String(body.templateKey ?? "").trim();
   const templateIdRaw = String(body.templateId ?? "").trim();
@@ -59,26 +70,12 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     return json({ success: false, error: "The selected template is inactive", message: "The selected template is inactive" }, { status: 400 });
   }
 
-  // ------------------------------------------------------------------
-  // 2. Client account check (Phase 10: never duplicate / never overwrite)
-  // ------------------------------------------------------------------
-  let account: any = await db.collection("users").findOne({ email: recipient, role: "client" });
-  let accountState: "not_created" | "created" | "existing" = "not_created";
-  let temporaryPassword: string | undefined;
-  const createAccount = body.createAccount === true;
+  // 2. Client account reference (read-only). Never created here, never its
+  //    credentials delivered in this email.
+  const account: any = await db.collection("users").findOne({ email: recipient, role: "client" });
+  const accountState = account ? (ticket.clientAccountSource === "created" ? "created" : "existing") : "not_created";
 
-  if (account) {
-    accountState = "existing";
-  } else if (createAccount) {
-    const created = await createClientAccount(db, { name: clientName, email: recipient });
-    account = created;
-    temporaryPassword = created.temporaryPassword;
-    accountState = "created";
-  }
-
-  // ------------------------------------------------------------------
-  // 3. Render the selected template with real values
-  // ------------------------------------------------------------------
+  // 3. Render the selected template with real values (no temporary password).
   let projectName = "";
   if (ticket.projectId && typeof ticket.projectId === "object" && (ticket.projectId as any).name) {
     projectName = String((ticket.projectId as any).name);
@@ -92,12 +89,13 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
   const data: Record<string, string> = {
     client_name: clientName,
     client_email: recipient,
+    client_id: String(account?.customId ?? ticket.clientCustomId ?? ""),
     project_name: projectName,
     query_subject: String(ticket.subject ?? ""),
     query_message: String(ticket.description ?? ""),
     resolution_summary: resolution,
     portal_url: portalUrl,
-    temporary_password: temporaryPassword ?? "",
+    temporary_password: "",
     company_name: "Websmith Digital",
     admin_name: String(user.name ?? "Websmith Team"),
     request_id: ticket._id.toString(),
@@ -105,29 +103,20 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
   };
 
   const rendered = renderResolutionTemplate(template, data);
+  // Marker-free customer copy (Phase 5).
   const bodyText = stripAdminMarkers(rendered.body);
   const subject = stripAdminMarkers(rendered.subject) || "Your Websmith Client Portal Access";
 
-  // ------------------------------------------------------------------
-  // 4. Send via the existing email provider (honest delivery result)
-  // ------------------------------------------------------------------
+  // 4. Send via the existing email provider (honest delivery result).
   const sendResult = await sendEmail(
     db,
     "support_reply",
     { email: recipient, name: clientName },
     data,
-    {
-      custom: {
-        subject,
-        html: resolutionHtmlBody(subject, bodyText),
-        plainText: bodyText,
-      },
-    }
+    { custom: { subject, html: resolutionHtmlBody(subject, bodyText), plainText: bodyText } }
   );
 
-  // ------------------------------------------------------------------
-  // 5. Persist delivery / action history + account relationship
-  // ------------------------------------------------------------------
+  // 5. Persist delivery / action history.
   const now = new Date();
   const history = ticket.history ?? [];
   history.push({
@@ -139,6 +128,8 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     accountState,
     accountId: account ? account._id.toString() : undefined,
     recipient,
+    emailSubject: subject,
+    emailBody: bodyText,
     emailDelivered: sendResult.success,
     emailError: sendResult.success ? undefined : sendResult.error,
     createdAt: now,
@@ -153,16 +144,16 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
   };
   if (account) {
     update.clientId = account._id.toString();
-    update.clientAccountSource = accountState === "created" ? "created" : "existing";
+    update.clientAccountSource = accountState;
     update.clientAccountEmail = recipient;
+    update.clientCustomId = String(account.customId ?? ticket.clientCustomId ?? "");
   }
   await db.collection("tickets").updateOne({ _id: id }, { $set: update });
 
   const accountResult = {
     accountState,
-    createdAccount: accountState === "created",
-    clientId: account ? account._id.toString() : null,
-    ...(temporaryPassword ? { temporaryPassword } : {}),
+    clientId: account ? account._id.toString() : ticket.clientId ?? null,
+    clientCustomId: String(account?.customId ?? ticket.clientCustomId ?? ""),
   };
 
   if (!sendResult.success) {

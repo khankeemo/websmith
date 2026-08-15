@@ -19,11 +19,14 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
   // developer replies are inbound and never trigger a customer email.
   let emailDelivered = false;
   let emailError = "";
+  let emailSnapshot: { recipient?: string; subject?: string; emailBody?: string } = {};
   if (user.role === "admin") {
     const recipient = String(ticket.contactEmail || ticket.clientEmail || "").trim();
     if (!recipient) {
       emailError = "No contact email on this ticket";
     } else {
+      const customerMessage = stripAdminMarkers(message);
+      const emailSubject = `Re: ${ticket.subject || "Support Request"}`;
       const sendResult = await sendEmail(
         db,
         "support_reply",
@@ -33,11 +36,18 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
           request_id: ticket._id.toString(),
           subject: ticket.subject || "Support Request",
           // Admin/editor markers are never sent to the customer.
-          message: stripAdminMarkers(message),
+          message: customerMessage,
         }
       );
       emailDelivered = sendResult.success;
       if (!sendResult.success) emailError = sendResult.error || "Email delivery failed";
+      // Stored snapshot for the Resend action (Phase 13) -- resends exactly
+      // what was sent, never stale/arbitrary UI text.
+      emailSnapshot = {
+        recipient,
+        subject: emailSubject,
+        emailBody: customerMessage,
+      };
     }
   }
 
@@ -48,6 +58,7 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     attachments: Array.isArray(body.attachments) ? body.attachments : [],
     emailDelivered,
     emailError: emailError || undefined,
+    ...emailSnapshot,
     createdAt: now,
   });
 

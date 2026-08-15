@@ -1,13 +1,90 @@
 ﻿import { apiHandler, jsonBody, json, badRequest } from "@/lib/server/api";
 
-export const GET = apiHandler(async ({ db, user }) => {
+// Maximum conversations rendered in the initial Query Inbox view (Phase 10).
+// The client-side list loads 15 at a time and exposes a "Load More" button;
+// older conversations are never deleted, they are simply paged.
+export const QUERY_INBOX_PAGE_SIZE = 15;
+
+const DEFAULT_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 200;
+
+// Searchable text fields (server-side so pagination and search stay consistent).
+const SEARCH_FIELDS = [
+  "subject",
+  "description",
+  "contactName",
+  "contactEmail",
+  "contactCompany",
+  "source",
+];
+
+function buildBaseFilter(user: any): any {
   const filter: any = {};
   if (user.role === "client") {
     filter.$or = [{ clientId: user._id.toString() }, { contactEmail: user.email }];
   } else if (user.role === "developer") {
     filter.developerId = user._id.toString();
   }
-  const tickets = await db.collection("tickets").find(filter).sort({ updatedAt: -1 }).toArray();
+  return filter;
+}
+
+export const GET = apiHandler(async ({ db, request, user }) => {
+  const url = new URL(request.url);
+
+  // Soft-deleted conversations never appear in any inbox view (Phase 11/12).
+  const baseFilter: any = buildBaseFilter(user);
+  baseFilter.deletedAt = { $exists: false };
+
+  // scope=active (default) shows open/in_progress/resolved; scope=closed shows
+  // only closed conversations (which retain their full history).
+  const scope = String(url.searchParams.get("scope") || "active");
+  if (scope === "closed") {
+    baseFilter.status = "closed";
+  } else if (scope === "active") {
+    baseFilter.status = { $ne: "closed" };
+  }
+
+  const search = String(url.searchParams.get("search") || "").trim();
+  if (search) {
+    const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    // The search must AND with the role scope (client/developer $or) so it can
+    // never widen what a non-admin user can see.
+    const searchOr = SEARCH_FIELDS.map((field) => ({ [field]: regex }));
+    const andClauses: any[] = [];
+    if (baseFilter.$or) {
+      andClauses.push({ $or: baseFilter.$or });
+      delete baseFilter.$or;
+    }
+    andClauses.push({ $or: searchOr });
+    baseFilter.$and = [...(baseFilter.$and || []), ...andClauses];
+  }
+
+  const hasPagination = url.searchParams.get("page") !== null || url.searchParams.get("pageSize") !== null || url.searchParams.get("limit") !== null;
+  if (hasPagination) {
+    const rawPage = parseInt(url.searchParams.get("page") || "1", 10);
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+    const rawSize = parseInt(url.searchParams.get("pageSize") || url.searchParams.get("limit") || String(DEFAULT_PAGE_SIZE), 10);
+    const pageSize = Number.isFinite(rawSize) && rawSize > 0 ? Math.min(rawSize, MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
+
+    const total = await db.collection("tickets").countDocuments(baseFilter);
+    const tickets = await db
+      .collection("tickets")
+      .find(baseFilter)
+      .sort({ updatedAt: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .toArray();
+    return json({
+      data: tickets.map((t) => ({ ...t, _id: t._id.toString() })),
+      total,
+      page,
+      pageSize,
+      hasMore: page * pageSize < total,
+    });
+  }
+
+  // Backward-compatible default: full (active) list for existing consumers.
+  const tickets = await db.collection("tickets").find(baseFilter).sort({ updatedAt: -1 }).toArray();
   return json({ data: tickets.map((t) => ({ ...t, _id: t._id.toString() })) });
 }, { auth: "required" });
 

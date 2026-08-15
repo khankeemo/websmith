@@ -1039,3 +1039,21 @@ main.app-main-shell[data-shell="panel"] .app-main-scroll {
     transition: none;
   }
 }
+
+/* Admin Query Inbox (app/admin/messages) — scoped spinner utility only; never a
+   global button/text selector. */
+.admin-messages-spin {
+  animation: adminMessagesSpin 0.8s linear infinite;
+}
+
+@keyframes adminMessagesSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-messages-spin {
+    animation: none;
+  }
+}
