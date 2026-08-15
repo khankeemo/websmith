@@ -15,7 +15,6 @@ export const PUT = apiHandler(async ({ db, request, user, params }) => {
   const update: any = { status, updatedAt: new Date() };
   if (typeof body.resolution === "string") update.resolution = body.resolution;
   if (status === "closed") update.closedAt = new Date();
-  if (status === "resolved") update.chatStatus = "closed";
 
   const history = ticket.history ?? [];
   history.push({
