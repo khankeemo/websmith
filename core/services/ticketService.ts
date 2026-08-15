@@ -116,3 +116,44 @@ export const addTicketReply = async (
 export const deleteTicket = async (id: string) => {
   await API.delete(`/tickets/${id}`);
 };
+
+export interface ResolutionTemplate {
+  key: string;
+  name: string;
+  category: string;
+  subject: string;
+  isActive: boolean;
+  isDefault: boolean;
+}
+
+export type ClientAccountState = "not_created" | "ready" | "existing";
+
+export interface TicketClientAccount {
+  state: ClientAccountState;
+  email: string;
+  name: string;
+  clientId?: string;
+}
+
+export const getResolutionTemplates = async (): Promise<{ data: ResolutionTemplate[]; defaultKey: string }> => {
+  const response = await API.get("/tickets/resolution-templates");
+  return response.data as { data: ResolutionTemplate[]; defaultKey: string };
+};
+
+export const getTicketClientAccount = async (id: string): Promise<TicketClientAccount> => {
+  const response = await API.get(`/tickets/${id}/client-account`);
+  return response.data.data as TicketClientAccount;
+};
+
+export const sendResolutionEmail = async (
+  id: string,
+  payload: {
+    resolution: string;
+    templateKey?: string;
+    createAccount?: boolean;
+    portalUrl?: string;
+  }
+) => {
+  const response = await API.post(`/tickets/${id}/send-resolution-email`, payload);
+  return response.data;
+};

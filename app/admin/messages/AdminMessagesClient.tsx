@@ -2,8 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Clock3, Mail, MessageSquare, Search, Send, ShieldCheck } from "lucide-react";
-import API from "@/core/services/apiService";
-import { addTicketReply, getTickets, resolveTicketFileUrl, Ticket, updateTicketStatus } from "@/core/services/ticketService";
+import {
+  addTicketReply,
+  getResolutionTemplates,
+  getTicketClientAccount,
+  getTickets,
+  resolveTicketFileUrl,
+  sendResolutionEmail,
+  Ticket,
+  TicketClientAccount,
+  updateTicketStatus,
+} from "@/core/services/ticketService";
 
 type QueryGroup = {
   key: string;
@@ -31,6 +40,11 @@ export default function AdminMessagesClient() {
   const [nextStatus, setNextStatus] = useState<Ticket["status"]>("open");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error" | "warn"; text: string } | null>(null);
+  const [templates, setTemplates] = useState<Array<{ key: string; name: string; category: string; isActive: boolean }>>([]);
+  const [defaultTemplateKey, setDefaultTemplateKey] = useState("");
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState("");
+  const [accountState, setAccountState] = useState<TicketClientAccount | null>(null);
+  const [createAccount, setCreateAccount] = useState(true);
 
   const showNotice = (type: "success" | "error" | "warn", text: string) => {
     setNotice({ type, text });
@@ -48,6 +62,16 @@ export default function AdminMessagesClient() {
 
   useEffect(() => {
     loadTickets().catch((error) => console.error("Load admin tickets error:", error));
+  }, []);
+
+  useEffect(() => {
+    getResolutionTemplates()
+      .then(({ data, defaultKey }) => {
+        setTemplates(data);
+        setDefaultTemplateKey(defaultKey);
+        setSelectedTemplateKey(defaultKey);
+      })
+      .catch(() => showNotice("error", "Could not load resolution email templates."));
   }, []);
 
   const filteredTickets = useMemo(
@@ -100,6 +124,18 @@ export default function AdminMessagesClient() {
       setResolution(selectedTicket.resolution || "");
       setNextStatus(selectedTicket.status);
     }
+  }, [selectedTicket?._id]);
+
+  useEffect(() => {
+    if (!selectedTicket?._id) {
+      setAccountState(null);
+      return;
+    }
+    setAccountState(null);
+    setCreateAccount(true);
+    getTicketClientAccount(selectedTicket._id)
+      .then(setAccountState)
+      .catch(() => setAccountState(null));
   }, [selectedTicket?._id]);
 
   const getRequester = (ticket: Ticket) => {
@@ -163,18 +199,53 @@ export default function AdminMessagesClient() {
     if (!selectedTicket || !resolution.trim()) return;
     setSaving(true);
     try {
-      const response = await API.post(`/tickets/${selectedTicket._id}/send-resolution-email`, { resolution: resolution.trim() });
+      const result = await sendResolutionEmail(selectedTicket._id, {
+        resolution: resolution.trim(),
+        templateKey: selectedTemplateKey || defaultTemplateKey || undefined,
+        createAccount,
+        portalUrl: typeof window !== "undefined" ? window.location.origin : undefined,
+      });
       await loadTickets();
-      if (response.data?.emailDelivered) {
-        showNotice("success", "Resolution email sent and delivered to the customer.");
+      const accountNote =
+        result.accountState === "created"
+          ? " A new Client Portal account was created and the temporary password was emailed to the customer."
+          : result.accountState === "existing"
+          ? " The customer's existing Client Portal account was used."
+          : "";
+      if (result.emailDelivered) {
+        showNotice("success", `Resolution email sent and delivered to the customer.${accountNote}`);
       } else {
-        showNotice("warn", "Resolution email request was accepted but delivery was not confirmed.");
+        showNotice("warn", `Resolution email could not be delivered: ${result.emailError || "unknown error"}.${accountNote}`);
       }
+      getTicketClientAccount(selectedTicket._id)
+        .then(setAccountState)
+        .catch(() => {});
     } catch (error: any) {
       console.error("Resolution email error:", error);
-      showNotice("error", error?.response?.data?.message || "Failed to send resolution email. Please try again.");
+      const data = error?.response?.data;
+      if (data?.emailDelivered === false) {
+        const accountNote = data.accountState === "created" ? " A new Client Portal account was created; the temporary password was emailed to the customer." : "";
+        showNotice("warn", `Resolution email could not be delivered: ${data.emailError || "unknown error"}.${accountNote}`);
+      } else {
+        showNotice("error", data?.message || "Failed to send resolution email. Please try again.");
+      }
+      getTicketClientAccount(selectedTicket._id)
+        .then(setAccountState)
+        .catch(() => {});
     } finally {
       setSaving(false);
+    }
+  };
+
+  const getAccountLabel = (state?: TicketClientAccount | null) => {
+    if (!state) return "Checking...";
+    switch (state.state) {
+      case "ready":
+        return "Ready";
+      case "existing":
+        return "Existing";
+      default:
+        return "Not Created";
     }
   };
 
@@ -474,6 +545,51 @@ export default function AdminMessagesClient() {
                 }
                 disabled={!isResolvedOrClosed}
               />
+              <div style={styles.resolutionRow}>
+                <div style={styles.resolutionField}>
+                  <label style={styles.label}>Email template</label>
+                  <select
+                    value={selectedTemplateKey}
+                    onChange={(event) => setSelectedTemplateKey(event.target.value)}
+                    style={styles.statusSelect}
+                    disabled={saving || !isResolvedOrClosed}
+                  >
+                    {templates
+                      .filter((template) => template.isActive)
+                      .map((template) => (
+                        <option key={template.key} value={template.key}>
+                          {template.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div style={styles.resolutionField}>
+                  <label style={styles.label}>Client account</label>
+                  <span
+                    style={{
+                      ...styles.accountBadge,
+                      ...(accountState?.state === "not_created" ? styles.accountBadgeNone : {}),
+                    }}
+                  >
+                    {getAccountLabel(accountState)}
+                  </span>
+                </div>
+              </div>
+              {accountState?.state === "not_created" && isResolvedOrClosed && (
+                <label style={styles.checkboxRow}>
+                  <input
+                    type="checkbox"
+                    checked={createAccount}
+                    onChange={(event) => setCreateAccount(event.target.checked)}
+                    disabled={saving}
+                    style={styles.checkbox}
+                  />
+                  <span>Create a Client Portal account for this customer (a secure temporary password will be emailed)</span>
+                </label>
+              )}
+              {accountState && accountState.state !== "not_created" && (
+                <p style={styles.accountHint}>The customer's existing Client Portal account will be used — no new credentials are generated.</p>
+              )}
               <div style={styles.composerFooter}>
                 <button
                   type="button"
@@ -689,4 +805,35 @@ const styles: Record<string, any> = {
     cursor: "not-allowed",
   },
   composerFooter: { display: "flex", justifyContent: "flex-end", marginTop: "12px" },
+  resolutionRow: { display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" },
+  resolutionField: { display: "flex", flexDirection: "column", gap: "6px", flex: 1, minWidth: "220px" },
+  accountBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    width: "fit-content",
+    padding: "10px 14px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    color: "#0F7B3D",
+    fontSize: "13px",
+    fontWeight: 700,
+  },
+  accountBadgeNone: { color: "var(--text-secondary)", fontWeight: 600 },
+  checkboxRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "10px",
+    marginTop: "14px",
+    padding: "12px 14px",
+    borderRadius: "12px",
+    backgroundColor: "rgba(0,122,255,0.06)",
+    border: "1px solid rgba(0,122,255,0.2)",
+    fontSize: "13px",
+    color: "var(--text-primary)",
+    lineHeight: 1.5,
+    cursor: "pointer",
+  },
+  checkbox: { marginTop: "2px", accentColor: "#007AFF", cursor: "pointer" },
+  accountHint: { margin: "12px 0 0", fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 },
 };

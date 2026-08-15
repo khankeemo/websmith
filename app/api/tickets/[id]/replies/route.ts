@@ -1,5 +1,6 @@
 ﻿import { apiHandler, jsonBody, json, badRequest, notFound, parseObjectId } from "@/lib/server/api";
 import { sendEmail } from "@/lib/email/brevo";
+import { stripAdminMarkers } from "@/lib/tickets/email";
 
 export const POST = apiHandler(async ({ db, request, user, params }) => {
   const body = await jsonBody(request);
@@ -31,7 +32,8 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
           customer_name: ticket.contactName || "Valued Customer",
           request_id: ticket._id.toString(),
           subject: ticket.subject || "Support Request",
-          message,
+          // Admin/editor markers are never sent to the customer.
+          message: stripAdminMarkers(message),
         }
       );
       emailDelivered = sendResult.success;
