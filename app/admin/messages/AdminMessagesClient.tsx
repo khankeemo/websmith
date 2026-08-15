@@ -30,6 +30,12 @@ export default function AdminMessagesClient() {
   const [resolution, setResolution] = useState("");
   const [nextStatus, setNextStatus] = useState<Ticket["status"]>("open");
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<{ type: "success" | "error" | "warn"; text: string } | null>(null);
+
+  const showNotice = (type: "success" | "error" | "warn", text: string) => {
+    setNotice({ type, text });
+    window.setTimeout(() => setNotice((current) => (current?.text === text ? null : current)), 6000);
+  };
 
   const loadTickets = async () => {
     try {
@@ -117,9 +123,19 @@ export default function AdminMessagesClient() {
     if (!selectedTicket || !reply.trim()) return;
     setSaving(true);
     try {
-      await addTicketReply(selectedTicket._id, reply.trim());
+      const result = await addTicketReply(selectedTicket._id, reply.trim());
       setReply("");
       await loadTickets();
+      if (result.emailDelivered) {
+        showNotice("success", "Reply sent and delivered to the customer by email.");
+      } else if (result.emailError) {
+        showNotice("warn", `Reply stored, but the email could not be delivered: ${result.emailError}`);
+      } else {
+        showNotice("success", "Reply added to the thread.");
+      }
+    } catch (error: any) {
+      console.error("Reply error:", error);
+      showNotice("error", error?.response?.data?.message || "Reply failed. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -134,6 +150,10 @@ export default function AdminMessagesClient() {
         resolution: status === "resolved" ? resolution.trim() || "Resolved by Websmith." : undefined,
       });
       await loadTickets();
+      showNotice("success", `Status updated to ${status.replace("_", " ")}.`);
+    } catch (error: any) {
+      console.error("Update status error:", error);
+      showNotice("error", error?.response?.data?.message || "Could not update status. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -143,10 +163,59 @@ export default function AdminMessagesClient() {
     if (!selectedTicket || !resolution.trim()) return;
     setSaving(true);
     try {
-      await API.post(`/tickets/${selectedTicket._id}/send-resolution-email`, { resolution: resolution.trim() });
+      const response = await API.post(`/tickets/${selectedTicket._id}/send-resolution-email`, { resolution: resolution.trim() });
+      await loadTickets();
+      if (response.data?.emailDelivered) {
+        showNotice("success", "Resolution email sent and delivered to the customer.");
+      } else {
+        showNotice("warn", "Resolution email request was accepted but delivery was not confirmed.");
+      }
+    } catch (error: any) {
+      console.error("Resolution email error:", error);
+      showNotice("error", error?.response?.data?.message || "Failed to send resolution email. Please try again.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const insertClientPortalGreeting = () => {
+    if (!selectedTicket) return;
+    if (reply.includes("Client Portal Greeting")) {
+      showNotice("warn", "The Client Portal Greeting is already inserted in this reply.");
+      return;
+    }
+
+    const requester = getRequester(selectedTicket);
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.websmithdigital.com";
+    const name = requester.name && requester.name !== "Public inquiry" ? requester.name : "";
+    const hasPortalAccount = Boolean(
+      typeof selectedTicket.clientId === "object" ? selectedTicket.clientId?._id : selectedTicket.clientId
+    );
+    const accountLine = hasPortalAccount
+      ? "Log in using the email address registered to your account and the password you set up. Websmith will never ask you to send passwords over email. If you have forgotten your password, use the \u201cForgot Password\u201d option on the login page to receive a secure reset code."
+      : "If you have a Websmith Client Portal account, log in using your account email and password. Websmith will never ask you to send passwords over email. If you don't have an account yet, reply to this email and we will be happy to set one up for you.";
+
+    const greeting = [
+      "-- Client Portal Greeting --",
+      `Hello ${name || "there"},`,
+      "",
+      "Thank you for contacting the Websmith Digital team \u2014 you have reached the right place.",
+      "",
+      "You can continue this conversation and keep track of your project through the Client Portal.",
+      "",
+      `Client Portal login: ${origin}/login`,
+      "",
+      accountLine,
+      "",
+      "Once logged in, open My Projects / Project Status to view the latest progress on your project.",
+      "",
+      "Best regards,",
+      "The Websmith Digital Team",
+      "-- End Client Portal Greeting --",
+    ].join("\n");
+
+    setReply((current) => (current.trim() ? `${current.trim()}\n\n${greeting}` : greeting));
+    showNotice("success", "Client Portal Greeting inserted. Review and edit it before sending.");
   };
 
   const isClosed = selectedTicket?.chatStatus === "closed" || selectedTicket?.status === "closed";
@@ -257,6 +326,19 @@ export default function AdminMessagesClient() {
           </div>
         ) : (
           <>
+            {notice && (
+              <div
+                role={notice.type === "error" ? "alert" : "status"}
+                style={{
+                  ...styles.notice,
+                  ...(notice.type === "success" ? styles.noticeSuccess : {}),
+                  ...(notice.type === "error" ? styles.noticeError : {}),
+                  ...(notice.type === "warn" ? styles.noticeWarn : {}),
+                }}
+              >
+                {notice.text}
+              </div>
+            )}
             <div style={styles.threadHeader}>
               <div>
                 <h2 style={styles.threadTitle}>{selectedTicket.subject}</h2>
@@ -341,6 +423,11 @@ export default function AdminMessagesClient() {
                         ))}
                       </div>
                     )}
+                    {entry.emailDelivered !== undefined && (
+                      <p style={entry.emailDelivered ? styles.deliveryOk : styles.deliveryFail}>
+                        {entry.emailDelivered ? "Email delivered to customer." : `Email delivery failed: ${entry.emailError || "unknown error"}`}
+                      </p>
+                    )}
                     <p style={styles.timelineTime}>{formatDate(entry.createdAt)}</p>
                   </div>
                 </div>
@@ -357,6 +444,16 @@ export default function AdminMessagesClient() {
                 disabled={isClosed}
               />
               <div style={styles.composerFooter}>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginRight: "auto" }}>
+                  <button
+                    type="button"
+                    onClick={insertClientPortalGreeting}
+                    style={styles.secondaryBtn}
+                    disabled={saving || isClosed}
+                  >
+                    Insert Client Portal Greeting
+                  </button>
+                </div>
                 <button type="button" onClick={handleReply} style={styles.primaryBtn} disabled={saving || !reply.trim() || isClosed}>
                   <Send size={14} />
                   Send Reply
@@ -554,6 +651,20 @@ const styles: Record<string, any> = {
   },
   timelineLabel: { margin: 0, color: "#007AFF", fontSize: "12px", fontWeight: 700, textTransform: "capitalize" },
   timelineMessage: { margin: "8px 0", color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.6 },
+  deliveryOk: { margin: "6px 0 0", color: "#34C759", fontSize: "12px", fontWeight: 600 },
+  deliveryFail: { margin: "6px 0 0", color: "#FF3B30", fontSize: "12px", fontWeight: 600 },
+  notice: {
+    padding: "12px 16px",
+    borderRadius: "12px",
+    fontSize: "14px",
+    fontWeight: 600,
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+  },
+  noticeSuccess: { color: "#0F7B3D", borderColor: "#34C75966", backgroundColor: "rgba(52,199,89,0.12)" },
+  noticeError: { color: "#C21F1F", borderColor: "#FF3B3066", backgroundColor: "rgba(255,59,48,0.12)" },
+  noticeWarn: { color: "#B76E00", borderColor: "#FF950066", backgroundColor: "rgba(255,149,0,0.12)" },
   timelineTime: { margin: 0, color: "var(--text-secondary)", fontSize: "12px" },
   composerCard: {
     border: "1px solid var(--border-color)",

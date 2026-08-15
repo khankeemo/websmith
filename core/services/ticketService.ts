@@ -48,9 +48,13 @@ export interface Ticket {
     actorRole: "admin" | "client" | "developer" | "system";
     message?: string;
     attachments?: Array<{ name: string; url: string }>;
+    emailDelivered?: boolean;
+    emailError?: string;
     createdAt: string;
   }>;
   createdAt: string;
+  emailDelivered?: boolean;
+  emailError?: string;
 }
 
 export const getTickets = async () => {

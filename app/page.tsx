@@ -611,11 +611,39 @@ export default function LandingPage() {
   const [contactState, setContactState] = useState({
     name: "",
     email: "",
+    company: "",
     subject: "",
     message: ""
   });
+  const [contactErrors, setContactErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<null | "success" | "error">(null);
+  const [submitErrorMsg, setSubmitErrorMsg] = useState("");
+
+  const validateContactForm = () => {
+    const errors: Record<string, string> = {};
+    const name = contactState.name.trim();
+    const email = contactState.email.trim().toLowerCase();
+    const subject = contactState.subject.trim();
+    const message = contactState.message.trim();
+    if (!name) errors.name = "Please enter your name.";
+    else if (name.length > 200) errors.name = "Name must be 200 characters or fewer.";
+    if (!email) errors.email = "Please enter your email address.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Please enter a valid email address.";
+    else if (email.length > 200) errors.email = "Email must be 200 characters or fewer.";
+    if (contactState.company.trim().length > 200) errors.company = "Company must be 200 characters or fewer.";
+    if (!subject) errors.subject = "Please enter a subject.";
+    else if (subject.length > 300) errors.subject = "Subject must be 300 characters or fewer.";
+    if (!message) errors.message = "Please enter your message.";
+    else if (message.length > 20000) errors.message = "Message must be 20,000 characters or fewer.";
+    setContactErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleContactChange = (field: keyof typeof contactState, value: string) => {
+    setContactState((prev) => ({ ...prev, [field]: value }));
+    setContactErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
+  };
   
   const [contactInfo, setContactInfo] = useState(defaultContactInfo);
   
@@ -1089,75 +1117,133 @@ export default function LandingPage() {
               <div style={styles.contactGlassCard}>
                 <form 
                   style={styles.contactForm}
+                  noValidate
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    setIsSubmitting(true);
                     setSubmitStatus(null);
+                    setSubmitErrorMsg("");
+                    if (!validateContactForm()) return;
+                    setIsSubmitting(true);
                     try {
                       await createPublicTicket({
-                        name: contactState.name,
-                        email: contactState.email,
-                        company: "",
-                        subject: contactState.subject,
-                        message: contactState.message,
+                        name: contactState.name.trim(),
+                        email: contactState.email.trim().toLowerCase(),
+                        company: contactState.company.trim(),
+                        subject: contactState.subject.trim(),
+                        message: contactState.message.trim(),
                       });
                       setSubmitStatus("success");
-                      setContactState({ name: "", email: "", subject: "", message: "" });
-                    } catch (error) {
+                      setContactState({ name: "", email: "", company: "", subject: "", message: "" });
+                      setContactErrors({});
+                    } catch (error: any) {
                       console.error("Public inquiry error:", error);
                       setSubmitStatus("error");
+                      setSubmitErrorMsg(
+                        error?.response?.data?.message ||
+                        "We could not send your message right now. Please try again."
+                      );
                     } finally {
                       setIsSubmitting(false);
-                      setTimeout(() => setSubmitStatus(null), 5000);
+                      setTimeout(() => setSubmitStatus(null), 6000);
                     }
                   }}
                 >
                   <div style={styles.formRow}>
                     <div style={styles.formGroup}>
-                      <label style={styles.formLabel}>Name</label>
+                      <label style={styles.formLabel} htmlFor="contact-name">Name</label>
                       <input 
+                        id="contact-name"
+                        name="name"
                         type="text" 
                         placeholder="Your Name" 
-                        style={styles.formInput}
+                        style={{ ...styles.formInput, ...(contactErrors.name ? styles.formInputError : {}) }}
                         required
+                        autoComplete="name"
+                        aria-invalid={Boolean(contactErrors.name)}
+                        aria-describedby={contactErrors.name ? "contact-name-error" : undefined}
                         value={contactState.name}
-                        onChange={(e) => setContactState({ ...contactState, name: e.target.value })}
+                        onChange={(e) => handleContactChange("name", e.target.value)}
                       />
+                      {contactErrors.name && (
+                        <p id="contact-name-error" role="alert" style={styles.fieldError}>{contactErrors.name}</p>
+                      )}
                     </div>
                     <div style={styles.formGroup}>
-                      <label style={styles.formLabel}>Email</label>
+                      <label style={styles.formLabel} htmlFor="contact-email">Email</label>
                       <input 
+                        id="contact-email"
+                        name="email"
                         type="email" 
                         placeholder="john@example.com" 
-                        style={{ ...styles.formInput, ...styles.emailInput }}
+                        style={{ ...styles.formInput, ...styles.emailInput, ...(contactErrors.email ? styles.formInputError : {}) }}
                         required
+                        autoComplete="email"
+                        aria-invalid={Boolean(contactErrors.email)}
+                        aria-describedby={contactErrors.email ? "contact-email-error" : undefined}
                         value={contactState.email}
-                        onChange={(e) => setContactState({ ...contactState, email: e.target.value })}
+                        onChange={(e) => handleContactChange("email", e.target.value)}
                       />
+                      {contactErrors.email && (
+                        <p id="contact-email-error" role="alert" style={styles.fieldError}>{contactErrors.email}</p>
+                      )}
                     </div>
                   </div>
                   
                   <div style={styles.formGroup}>
-                    <label style={styles.formLabel}>Subject</label>
+                    <label style={styles.formLabel} htmlFor="contact-company">Company <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span></label>
                     <input 
+                      id="contact-company"
+                      name="company"
                       type="text" 
-                      placeholder="Project Inquiry" 
-                      style={styles.formInput}
-                      required
-                      value={contactState.subject}
-                      onChange={(e) => setContactState({ ...contactState, subject: e.target.value })}
+                      placeholder="Company / Organization" 
+                      style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
+                      autoComplete="organization"
+                      aria-invalid={Boolean(contactErrors.company)}
+                      aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
+                      value={contactState.company}
+                      onChange={(e) => handleContactChange("company", e.target.value)}
                     />
+                    {contactErrors.company && (
+                      <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
+                    )}
                   </div>
                   
                   <div style={styles.formGroup}>
-                    <label style={styles.formLabel}>Message</label>
-                    <textarea 
-                      placeholder="Tell us about your project..." 
-                      style={styles.formTextarea}
+                    <label style={styles.formLabel} htmlFor="contact-subject">Subject</label>
+                    <input 
+                      id="contact-subject"
+                      name="subject"
+                      type="text" 
+                      placeholder="Project Inquiry" 
+                      style={{ ...styles.formInput, ...(contactErrors.subject ? styles.formInputError : {}) }}
                       required
-                      value={contactState.message}
-                      onChange={(e) => setContactState({ ...contactState, message: e.target.value })}
+                      autoComplete="off"
+                      aria-invalid={Boolean(contactErrors.subject)}
+                      aria-describedby={contactErrors.subject ? "contact-subject-error" : undefined}
+                      value={contactState.subject}
+                      onChange={(e) => handleContactChange("subject", e.target.value)}
                     />
+                    {contactErrors.subject && (
+                      <p id="contact-subject-error" role="alert" style={styles.fieldError}>{contactErrors.subject}</p>
+                    )}
+                  </div>
+                  
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel} htmlFor="contact-message">Message</label>
+                    <textarea 
+                      id="contact-message"
+                      name="message"
+                      placeholder="Tell us about your project..." 
+                      style={{ ...styles.formTextarea, ...(contactErrors.message ? styles.formInputError : {}) }}
+                      required
+                      aria-invalid={Boolean(contactErrors.message)}
+                      aria-describedby={contactErrors.message ? "contact-message-error" : undefined}
+                      value={contactState.message}
+                      onChange={(e) => handleContactChange("message", e.target.value)}
+                    />
+                    {contactErrors.message && (
+                      <p id="contact-message-error" role="alert" style={styles.fieldError}>{contactErrors.message}</p>
+                    )}
                   </div>
                   
                   <button 
@@ -1170,13 +1256,13 @@ export default function LandingPage() {
                   </button>
                   
                   {submitStatus === "success" && (
-                    <p style={{ color: "#34C759", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
+                    <p role="status" style={{ color: "#34C759", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
                       Inquiry submitted successfully. It is now available in the admin query thread.
                     </p>
                   )}
                   {submitStatus === "error" && (
-                    <p style={{ color: "#FF3B30", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
-                      We could not send your message right now. Please try again.
+                    <p role="alert" style={{ color: "#FF3B30", marginTop: "12px", fontSize: "14px", fontWeight: 500 }}>
+                      {submitErrorMsg}
                     </p>
                   )}
                 </form>
@@ -2254,6 +2340,16 @@ const styles: any = {
   emailInput: {
     border: "1px solid var(--border-color)",
     boxShadow: "inset 0 0 0 1px var(--border-color)",
+  },
+  formInputError: {
+    borderColor: "#FF3B30",
+    boxShadow: "inset 0 0 0 1px #FF3B30",
+  },
+  fieldError: {
+    margin: "6px 2px 0",
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "#FF3B30",
   },
   formTextarea: {
     padding: "14px 16px",

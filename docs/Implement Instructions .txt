@@ -1,0 +1,62 @@
+create very clear very specific critic no bla bla short and AI to AI r01 follow and merge keep boundiries and make strict rule not allowed to work beyod boundiries merge details and make todo ask how much we have done
+
+
+1. Contact Page (Get in Touch)
+Reference: https://www.websmithdigital.com/#contact
+Tasks
+Redesign the contact section with a modern, premium UI.
+Improve spacing, typography, and overall visual hierarchy.
+Enhance form usability and validation feedback.
+Add loading, success, and error states for form submission.
+Ensure full responsiveness across all screen sizes.
+Improve accessibility and user experience.
+
+2. Software Store
+Tasks
+Fix the double navbar issue.
+Resolve light/dark theme inconsistencies across all store pages.
+Convert the store into a full-screen responsive layout.
+Remove the duplicate search bar.
+Improve spacing, alignment, and navigation consistency.
+Test and optimize the store for desktop, tablet, and mobile devices.
+
+3. Payment Gateway Integration
+Tasks
+Integrate the production payment gateway.
+Verify the complete checkout flow from product selection to payment confirmation.
+Implement secure payment verification using webhooks.
+Prevent payment bypass, duplicate transactions, and unauthorized order fulfillment.
+Test successful, failed, cancelled, and refunded payment scenarios.
+Ensure invoice generation and order confirmation emails are working correctly.
+
+4. Admin Query Inbox
+Reference: https://www.websmithdigital.com/admin/messages
+Tasks
+Fix Send Reply functionality.
+Fix Send Resolution Email functionality.
+Ensure email templates render and send correctly.
+Track message status (Open, In Progress, Resolved, Closed).
+Store reply history and timestamps.
+Add proper error handling, success notifications, and delivery confirmation.
+
+5. Mobile Responsiveness
+Tasks
+Make the entire website fully responsive across all devices.
+Test all pages on standard mobile and tablet breakpoints.
+Fix layout overflow, navigation behavior, buttons, forms, tables, and cards.
+Optimize touch interactions and spacing.
+Ensure responsive typography, images, and media elements.
+
+6. Security & Rate Limiting
+Tasks
+Implement Redis/database-backed rate limiting.
+Protect login, OTP, password reset, contact form, and other public endpoints.
+Prevent brute-force attacks and excessive API requests.
+Add request throttling and abuse protection across authentication flows.
+
+7. Analytics & Consent Management
+Tasks
+Integrate production analytics (e.g., Google Analytics or equivalent).
+Implement a cookie consent banner and preference management.
+Ensure compliance with privacy and cookie policies.
+Track key user interactions and conversion events.

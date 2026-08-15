@@ -1,35 +1,73 @@
-import { apiHandler, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
+import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
+import { sendEmail } from "@/lib/email/brevo";
 
-export const POST = apiHandler(async ({ db, user, params }) => {
+export const POST = apiHandler(async ({ db, request, user, params }) => {
   if (user.role !== "admin") throw forbidden();
+  const body = await jsonBody(request);
   const id = parseObjectId(params.id);
   const ticket = await db.collection("tickets").findOne({ _id: id });
   if (!ticket) throw notFound("Ticket not found");
 
-  const recipientEmail = ticket.contactEmail || ticket.clientEmail;
-  if (!recipientEmail) return json({ success: false, error: "No contact email on this ticket", message: "No contact email on this ticket" }, { status: 400 });
-
-  const BREVO_API_KEY = process.env.BREVO_API_KEY;
-  if (!BREVO_API_KEY) return json({ success: false, error: "Email service not configured", message: "Email service not configured" }, { status: 500 });
-  const SENDER_EMAIL = process.env.SENDER_EMAIL || "support@websmithdigital.com";
-
-  const text = ticket.resolution || ticket.description || "Your request has been resolved.";
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "api-key": BREVO_API_KEY },
-    body: JSON.stringify({
-      sender: { email: SENDER_EMAIL, name: "Websmith Digital" },
-      to: [{ email: recipientEmail }],
-      subject: `[${ticket.subject}] Resolution`,
-      htmlContent: `<div style="font-family:sans-serif;padding:24px"><h2>Your ticket has been resolved</h2><p><strong>Subject:</strong> ${ticket.subject}</p><div style="padding:16px;background:#f5f5f5;border-radius:8px">${text}</div></div>`,
-    }),
-  });
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error("Brevo resolution email error:", response.status, errText);
-    return json({ success: false, error: "Failed to send resolution email", message: "Failed to send resolution email" }, { status: 502 });
+  const resolution =
+    String(body.resolution ?? "").trim() ||
+    String(ticket.resolution ?? "").trim() ||
+    String(ticket.description ?? "").trim();
+  if (!resolution) {
+    return json({ success: false, error: "A resolution message is required", message: "A resolution message is required" }, { status: 400 });
+  }
+  if (resolution.length > 20000) {
+    return json({ success: false, error: "Resolution message is too long", message: "Resolution message is too long" }, { status: 400 });
   }
 
-  await db.collection("tickets").updateOne({ _id: id }, { $set: { updatedAt: new Date() } });
-  return json({ message: "Resolution email sent" });
+  const recipient = String(ticket.contactEmail || ticket.clientEmail || "").trim();
+  if (!recipient) {
+    return json({ success: false, error: "No contact email on this ticket", message: "No contact email on this ticket" }, { status: 400 });
+  }
+
+  const sendResult = await sendEmail(
+    db,
+    "support_reply",
+    { email: recipient, name: ticket.contactName || "Valued Customer" },
+    {
+      customer_name: ticket.contactName || "Valued Customer",
+      request_id: ticket._id.toString(),
+      subject: ticket.subject || "Support Request",
+      message: resolution,
+    }
+  );
+
+  const now = new Date();
+  const history = ticket.history ?? [];
+  history.push({
+    action: "resolution_email",
+    actorRole: "admin",
+    message: `Resolution email sent: ${resolution}`,
+    emailDelivered: sendResult.success,
+    emailError: sendResult.success ? undefined : sendResult.error,
+    createdAt: now,
+  });
+
+  await db.collection("tickets").updateOne(
+    { _id: id },
+    {
+      $set: {
+        resolution: ticket.resolution || resolution,
+        history,
+        updatedAt: now,
+        lastEmailDelivered: sendResult.success,
+        lastEmailError: sendResult.success ? null : (sendResult.error || "Email delivery failed"),
+      },
+    }
+  );
+
+  if (!sendResult.success) {
+    return json({
+      success: false,
+      error: "Failed to send resolution email",
+      message: "Failed to send resolution email",
+      emailDelivered: false,
+      emailError: sendResult.error,
+    }, { status: 502 });
+  }
+  return json({ message: "Resolution email sent", emailDelivered: true });
 }, { auth: "required" });
