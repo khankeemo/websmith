@@ -1,4 +1,5 @@
 ﻿import { apiHandler, jsonBody, json } from "@/lib/server/api";
+import crypto from "node:crypto";
 
 // Lightweight in-memory per-IP throttle (best-effort guard for a public
 // endpoint; mirrors the pattern used by the public portal support-message
@@ -67,6 +68,25 @@ export const POST = apiHandler(async ({ db, request }) => {
     resolution: null,
     closedAt: null,
     attachments: [],
+    // Canonical two-way conversation thread (Phase: Query Inbox — message
+    // bubbles). The initial client message is seeded here; admin replies and
+    // inbound email replies are appended by the respective routes. `history`
+    // stays the audit log (Resend snapshots, status changes, etc.).
+    messages: [
+      {
+        id: crypto.randomUUID(),
+        senderType: "client",
+        direction: "inbound",
+        senderEmail: contactEmail,
+        senderName: contactName,
+        recipientEmail: "",
+        message,
+        createdAt: now,
+        source: "public_contact",
+      },
+    ],
+    lastClientReplyAt: now,
+    adminReadAt: null,
     history: [{ action: "created", actorRole: "client", message: "Ticket created from public contact form", createdAt: now }],
     createdAt: now,
     updatedAt: now,

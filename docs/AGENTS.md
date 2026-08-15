@@ -882,7 +882,9 @@ Keep `app/page.tsx`'s `FloatingTechnologyBanner` aligned. Never regress:
 ## Admin Messages — Query Inbox (Public Website, AWS-01 R01)
 
 Keep in sync with the master doc **Progress Tracking ("Admin Messages Query
-Inbox — Fresh Redesign (AWS-01 R01)")** entry. Never regress:
+Inbox — Fresh Redesign (AWS-01 R01)" + "Admin Messages Query Inbox — Two-Way
+Conversation + Inbound Email + Public Email Branding Cleanup (AWS-01 R01)")
+entries**. Never regress:
 
 - **Boundary**: this feature touches ONLY the public admin page
   `app/admin/messages` (client component), its `core/services/ticketService.ts`
@@ -924,4 +926,39 @@ Inbox — Fresh Redesign (AWS-01 R01)")** entry. Never regress:
   `{{temporary_password}}` block only when a temporary password is present and
   the Client ID block only when a client account exists; empty blocks are
   omitted (no placeholder leakage).
+- **Two-way conversation = `messages[]` on the same ticket** (canonical thread,
+  no second system): Get in Touch (`POST /api/tickets/public`) seeds the initial
+  client message + `lastClientReplyAt` + `adminReadAt:null`; admin replies,
+  resolution-email, onboarding and resend append outbound entries carrying the
+  Brevo `providerMessageId` + honest `deliveryStatus` (`sent`/`failed`/
+  `not_sent`); `history` stays the audit log (Resend snapshots, status changes).
+  The Query Inbox renders CLIENT/ADMIN bubbles from `messages` and falls back to
+  the history timeline for pre-R01 tickets.
+- **Inbound email is admin-triggered, thread-safe and non-destructive**
+  (`POST /api/tickets/inbound`): reads enabled PG `mailboxes` READ-ONLY via
+  `getDb`, opens IMAP READ-ONLY (never marks Seen / never mutates the mailbox,
+  so the Internal Communications Center sync of the same mailbox is unaffected),
+  matches by In-Reply-To/References against stored `messages.providerMessageId`
+  (fallback: sender == ticket `contactEmail`, NEVER subject alone), ALWAYS
+  verifies the sender, dedupes by Message-ID, appends the client message +
+  `client_reply` history + `lastClientReplyAt`, and reopens `closed →
+  in_progress`; returns an honest summary and a clear `NO_MAILBOXES` message
+  when none are configured. Never change mailbox rows/credentials, SMTP, or
+  schema.
+- **Unread is server-derived**: `GET /api/tickets` returns `hasNewClientReply` =
+  `lastClientReplyAt > adminReadAt`; `POST /api/tickets/[id]/read` stamps
+  `adminReadAt`; the UI auto-marks read on open and shows unread dots on rows.
+- **Public email branding is generic**: `lib/email/brevo.ts` `wrapHtml`
+  header/footer never hardcode a product line ("License Management") — a
+  configurable `BRANDING_TAGLINE` (default "Software Development & Client
+  Support") is used. Internal API email templates and license-specific copy are
+  untouched.
+- **Customer email rendering is clean**: customer message text is rendered
+  through the pure helpers `renderCustomerMessageHtml` /
+  `renderCustomerMessagePlain` in `lib/tickets/email.ts` (Markdown tables →
+  real HTML tables / separator rows stripped, HTML escaped) — no raw `| :-: |`
+  markup ever reaches a customer.
+- **Resolution stays reachable after Close**: the Query Inbox pins a just-closed
+  conversation so the Resolution Summary editor + Resolution Email remain
+  enabled and usable right after Resolved/Closed.
 - Keep this rule in sync with the master doc Progress Tracking entry.

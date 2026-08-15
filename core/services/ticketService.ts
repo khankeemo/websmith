@@ -30,6 +30,24 @@ export interface TicketHistoryEntry {
   createdAt: string;
 }
 
+/** Canonical two-way conversation message (Query Inbox thread bubbles). */
+export interface ThreadMessage {
+  id: string;
+  senderType: "client" | "admin" | "developer";
+  direction: "inbound" | "outbound";
+  senderEmail?: string;
+  senderName?: string;
+  recipientEmail?: string;
+  message: string;
+  createdAt: string;
+  source?: "public_contact" | "portal" | "email" | "admin_reply" | "resolution_email" | "onboarding_email" | "resend";
+  deliveryStatus?: "sent" | "failed" | "not_sent";
+  deliveryError?: string;
+  providerMessageId?: string;
+  inReplyTo?: string[];
+  references?: string[];
+}
+
 export interface Ticket {
   _id: string;
   source?: "client_portal" | "public_contact";
@@ -72,6 +90,10 @@ export interface Ticket {
     url: string;
   }>;
   history?: TicketHistoryEntry[];
+  messages?: ThreadMessage[];
+  lastClientReplyAt?: string | null;
+  adminReadAt?: string | null;
+  hasNewClientReply?: boolean;
   createdAt: string;
   updatedAt?: string;
   emailDelivered?: boolean;
@@ -247,5 +269,26 @@ export const resendTicketEmail = async (id: string) => {
     emailError?: string;
     recipient?: string;
     subject?: string;
+  };
+};
+
+/** Mark a conversation read (clears the unread/new-client-reply indicator). */
+export const markTicketRead = async (id: string) => {
+  const response = await API.post(`/tickets/${id}/read`);
+  return response.data.data as Ticket;
+};
+
+/** Sync inbound client email replies into their tickets (Query Inbox). Admin only. */
+export const syncInboundEmail = async () => {
+  const response = await API.post("/tickets/inbound");
+  return response.data.data as {
+    noMailboxes?: boolean;
+    message?: string;
+    processed: number;
+    matched: number;
+    duplicate: number;
+    senderMismatch: number;
+    unmatched: number;
+    errors?: string[];
   };
 };

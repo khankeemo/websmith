@@ -434,17 +434,110 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
-export function resolutionHtmlBody(title: string, bodyText: string): string {
-  const paragraphs = bodyText
-    .split(/\n{2,}/)
+// ============================================================================
+// Customer-facing message rendering (Phase 7 fix)
+//
+// The customer's original Get in Touch message, the admin reply message and the
+// resolution summary are stored as raw text (they may contain Markdown-style
+// tables: `| a | b |` + `| :-: |` separator rows). Rendering that text straight
+// into an HTML email body leaked the raw table markup (`| :-: |`, `| - |`) to
+// customers. These pure helpers render the message text for emails:
+//   - HTML: Markdown table blocks become real HTML tables; every other cell /
+//     line is HTML-escaped so no raw markup or scripts can ever be sent.
+//   - Plain: table separator rows (alignment rows) are dropped, everything else
+//     is kept verbatim (plain text needs no escaping).
+// Used by `support_reply` / `sales_reply` (lib/email/brevo.ts) and by
+// `resolutionHtmlBody` so every customer-bound email renders cleanly.
+// ============================================================================
+
+// Separator (alignment) rows: `| - |`, `| :-: |`, `| :---: |`, `| --- |`.
+// A cell is a separator when it contains only dashes with optional colons.
+const TABLE_SEPARATOR_RE = /^:?-+:?$/;
+
+function isTableRow(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith("|") && trimmed.endsWith("|");
+}
+
+function isSeparatorRow(line: string): boolean {
+  const trimmed = line.trim();
+  if (!isTableRow(trimmed)) return false;
+  const cells = trimmed.slice(1, -1).split("|").map((cell) => cell.trim());
+  return cells.every((cell) => cell === "" || TABLE_SEPARATOR_RE.test(cell));
+}
+
+function parseTableRow(line: string): string[] {
+  return line
+    .trim()
+    .slice(1, -1)
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function buildTableHtml(header: string[], body: string[][]): string {
+  const head = header
     .map(
-      (paragraph) =>
-        `<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.7">${escapeHtml(paragraph).replace(
-          /\n/g,
-          "<br/>"
-        )}</p>`
+      (cell) =>
+        `<th style="padding:8px 12px;text-align:left;font-size:13px;color:#1a1a2e;background:#f0f4ff;border-bottom:1px solid #e8ecf1">${escapeHtml(cell)}</th>`
     )
     .join("");
+  const rows = body
+    .map(
+      (cells) =>
+        `<tr>${cells
+          .map(
+            (cell) =>
+              `<td style="padding:8px 12px;font-size:13px;color:#333;border-bottom:1px solid #eef2f7">${escapeHtml(cell)}</td>`
+          )
+          .join("")}</tr>`
+    )
+    .join("");
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:12px 0;border:1px solid #e8ecf1;border-radius:8px;overflow:hidden"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// Renders customer message text (Markdown tables + paragraphs) as email HTML.
+export function renderCustomerMessageHtml(text: string): string {
+  if (!text) return "";
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (isTableRow(lines[i])) {
+      const rows: string[][] = [];
+      while (i < lines.length && isTableRow(lines[i])) {
+        rows.push(parseTableRow(lines[i]));
+        i++;
+      }
+      const cleaned = rows.filter((cells) => !cells.every((cell) => cell === "" || TABLE_SEPARATOR_RE.test(cell)));
+      out.push(buildTableHtml(cleaned[0] || [], cleaned.slice(1)));
+      continue;
+    }
+    if (!lines[i].trim()) {
+      i++;
+      continue;
+    }
+    out.push(
+      `<p style="margin:0 0 10px;font-size:14px;color:#333;line-height:1.7">${escapeHtml(lines[i])}</p>`
+    );
+    i++;
+  }
+  return out.join("");
+}
+
+// Renders customer message text for plain-text emails: strips Markdown table
+// separator (alignment) rows; everything else stays verbatim.
+export function renderCustomerMessagePlain(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => !isSeparatorRow(line))
+    .join("\n")
+    .trim();
+}
+
+export function resolutionHtmlBody(title: string, bodyText: string): string {
+  const paragraphs = renderCustomerMessageHtml(bodyText);
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>

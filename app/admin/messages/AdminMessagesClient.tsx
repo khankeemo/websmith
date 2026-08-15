@@ -25,14 +25,17 @@ import {
   getResolutionTemplates,
   getTicketClientAccount,
   getTicketsPaged,
+  markTicketRead,
   OnboardingResult,
   resendTicketEmail,
   resolveTicketFileUrl,
   sendClientPortalAccess,
   sendResolutionEmail,
+  syncInboundEmail,
   Ticket,
   TicketClientAccount,
   TicketHistoryEntry,
+  ThreadMessage,
   TicketStatus,
   updateTicket,
   updateTicketStatus,
@@ -99,6 +102,13 @@ export default function AdminMessagesClient() {
   const [onboardingTicket, setOnboardingTicket] = useState<Ticket | null>(null);
   const [credentials, setCredentials] = useState<OnboardingResult | null>(null);
 
+  // ---- Inbound email sync (Query Inbox two-way conversation) ----
+  const [syncing, setSyncing] = useState(false);
+
+  // ---- Pinned conversation (keeps the thread pane + Resolution editor open
+  // after a conversation is closed, even though it leaves the active list) ----
+  const [pinnedTicket, setPinnedTicket] = useState<Ticket | null>(null);
+
   const showNotice = useCallback((type: Notice["type"], text: string) => {
     setNotice({ type, text });
     window.setTimeout(() => setNotice((current) => (current?.text === text ? null : current)), 6000);
@@ -146,6 +156,7 @@ export default function AdminMessagesClient() {
     setSelectedId(null);
     setMenuFor(null);
     setAccountState(null);
+    setPinnedTicket(null);
     loadPage(1);
   }, [scope, search, loadPage]);
 
@@ -159,9 +170,10 @@ export default function AdminMessagesClient() {
       .catch(() => showNotice("error", "Could not load resolution email templates."));
   }, [showNotice]);
 
+  // ---- Mark conversation read on open (clears the unread / NEW dot) ----
   const selectedTicket = useMemo(
-    () => tickets.find((ticket) => ticket._id === selectedId) || null,
-    [tickets, selectedId]
+    () => tickets.find((ticket) => ticket._id === selectedId) || pinnedTicket || null,
+    [tickets, selectedId, pinnedTicket]
   );
 
   useEffect(() => {
@@ -200,6 +212,17 @@ export default function AdminMessagesClient() {
   };
 
   const refreshList = useCallback(() => loadPage(1), [loadPage]);
+
+  // ---- Mark conversation read on open (clears the unread / NEW dot) ----
+  useEffect(() => {
+    if (!selectedTicket?._id) return;
+    const id = selectedTicket._id;
+    markTicketRead(id)
+      .then(() => {
+        if (id === selectedId) refreshList();
+      })
+      .catch(() => {});
+  }, [selectedTicket?._id, refreshList]);
 
   // ---- Phase 4: Reply in Thread ----
   const handleReply = async () => {
@@ -243,12 +266,20 @@ export default function AdminMessagesClient() {
     if (!selectedTicket) return;
     setSaving(true);
     try {
-      await updateTicketStatus(selectedTicket._id, {
+      const result = await updateTicketStatus(selectedTicket._id, {
         status,
         resolution: status === "resolved" ? resolution.trim() || "Resolved by Websmith." : undefined,
       });
+      const updated = result;
+      // Keep the thread pane (and Resolution editor) open after closing so the
+      // admin can write the Resolution Summary and send the Resolution Email.
+      if (status === "closed" || status === "resolved") {
+        setPinnedTicket(updated);
+      } else {
+        setPinnedTicket(null);
+      }
       await refreshList();
-      if (status === "closed") setSelectedId(null);
+      setNextStatus(status);
       showNotice("success", `Status updated to ${getStatusLabel(status)}.`);
     } catch (error: any) {
       console.error("Update status error:", error);
@@ -263,9 +294,11 @@ export default function AdminMessagesClient() {
     if (!closeTicket) return;
     setBusyTicket(closeTicket._id);
     try {
-      await updateTicketStatus(closeTicket._id, { status: "closed" });
-      if (selectedId === closeTicket._id) setSelectedId(null);
+      const result = await updateTicketStatus(closeTicket._id, { status: "closed" });
       setCloseTicket(null);
+      // Keep the closed conversation open (pinned) so the Resolution Summary
+      // editor and Resolution Email remain reachable right after closing.
+      if (selectedId === closeTicket._id) setPinnedTicket(result);
       await refreshList();
       showNotice("success", "Conversation closed. It remains available under the Closed tab with its full history.");
     } catch (error: any) {
@@ -380,6 +413,27 @@ export default function AdminMessagesClient() {
     }
   };
 
+  // ---- Inbound email sync (Query Inbox two-way conversation) ----
+  const handleSyncInbound = async () => {
+    setSyncing(true);
+    try {
+      const result = await syncInboundEmail();
+      if (result.noMailboxes) {
+        showNotice("warn", result.message || "Inbound email is not configured.");
+      } else if (result.errors?.length) {
+        showNotice("warn", `Inbound sync: ${result.matched} new client message${result.matched === 1 ? "" : "s"} added (${result.errors.length} mailbox error${result.errors.length === 1 ? "" : "s"}; ${result.unmatched} unmatched).`);
+      } else {
+        showNotice("success", `Inbound sync complete: ${result.matched} new client message${result.matched === 1 ? "" : "s"} added to the inbox${result.unmatched ? ` (${result.unmatched} unmatched)` : ""}.`);
+      }
+      await refreshList();
+    } catch (error: any) {
+      console.error("Inbound sync error:", error);
+      showNotice("error", error?.response?.data?.message || "Inbound email sync failed. Please try again.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // ---- Phase 8: Resolution Email ----
   const handleResolutionEmail = async () => {
     if (!selectedTicket || !resolution.trim()) return;
@@ -475,7 +529,10 @@ export default function AdminMessagesClient() {
                   <div key={ticket._id} style={styles.ticketRowWrap}>
                     <button
                       type="button"
-                      onClick={() => setSelectedId(ticket._id)}
+                      onClick={() => {
+                        setPinnedTicket(null);
+                        setSelectedId(ticket._id);
+                      }}
                       style={{
                         ...styles.ticketRow,
                         ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
@@ -485,7 +542,10 @@ export default function AdminMessagesClient() {
                         <strong style={styles.ticketSubject}>{ticket.subject}</strong>
                         <span style={styles.ticketStatus}>{getStatusLabel(ticket.status)}</span>
                       </div>
-                      <p style={styles.ticketMeta}>{requester.name}</p>
+                      <p style={styles.ticketMeta}>
+                        {ticket.hasNewClientReply && <span style={styles.unreadDot} aria-label="New client reply" title="New client reply" />}
+                        {requester.name}
+                      </p>
                       <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
                     </button>
                     <div style={styles.menuHost}>
@@ -579,7 +639,19 @@ export default function AdminMessagesClient() {
                 </p>
               </div>
               <div style={styles.headerControls}>
-                <button type="button" onClick={() => setSelectedId(null)} style={styles.secondaryBtn} disabled={saving}>
+                <button type="button" onClick={handleSyncInbound} style={styles.secondaryBtn} disabled={saving || syncing} title="Pull client email replies into this inbox">
+                  {syncing ? <Loader2 size={14} className="admin-messages-spin" /> : <Mail size={14} />}
+                  Sync Inbound Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPinnedTicket(null);
+                    setSelectedId(null);
+                  }}
+                  style={styles.secondaryBtn}
+                  disabled={saving}
+                >
                   Close Panel
                 </button>
                 <div style={styles.statusControl}>
@@ -622,56 +694,63 @@ export default function AdminMessagesClient() {
               </div>
             </div>
 
-            {/* History / timeline (Phase 14) */}
+            {/* Thread — two-way conversation (Query Inbox message bubbles).
+                Conversations created by the R01 redesign carry a `messages`
+                array rendered as client/admin bubbles. Legacy conversations
+                without it fall back to the history timeline. */}
             <div style={styles.timeline}>
-              {(selectedTicket.history || []).map((entry, index) => (
-                <div key={`${entry.createdAt}-${index}`} style={styles.timelineItem}>
-                  <div style={styles.timelineDot} />
-                  <div style={styles.timelineContent}>
-                    <p style={styles.timelineLabel}>
-                      {entry.actorRole.replace("_", " ")} · {entry.action.replace("_", " ")}
-                    </p>
-                    {entry.emailSubject && (
-                      <p style={styles.timelineEmailSubject}>
-                        {entry.action === "resend" && entry.originalAction ? `Resent (${entry.originalAction.replace("_", " ")})` : "Email"} — {entry.emailSubject}
+              {selectedTicket.messages && selectedTicket.messages.length > 0 ? (
+                selectedTicket.messages.map((message) => <ThreadBubble key={message.id} message={message} />)
+              ) : (
+                (selectedTicket.history || []).map((entry, index) => (
+                  <div key={`${entry.createdAt}-${index}`} style={styles.timelineItem}>
+                    <div style={styles.timelineDot} />
+                    <div style={styles.timelineContent}>
+                      <p style={styles.timelineLabel}>
+                        {entry.actorRole.replace("_", " ")} · {entry.action.replace("_", " ")}
                       </p>
-                    )}
-                    {entry.message?.trim() ? (
-                      <p style={styles.timelineMessage}>{entry.message}</p>
-                    ) : entry.attachments?.length ? null : (
-                      <p style={styles.timelineMessage}>No message provided.</p>
-                    )}
-                    {entry.recipient && (
-                      <p style={styles.timelineRecipient}>To: {entry.recipient}</p>
-                    )}
-                    {entry.attachments && entry.attachments.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
-                        {entry.attachments.map((att, ai) => (
-                          <a
-                            key={`${att.url}-${ai}`}
-                            href={resolveTicketFileUrl(att.url)}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ borderRadius: "10px", overflow: "hidden", display: "block" }}
-                          >
-                            <img
-                              src={resolveTicketFileUrl(att.url)}
-                              alt={att.name}
-                              style={{ maxWidth: "180px", maxHeight: "140px", objectFit: "cover", borderRadius: "10px", border: "1px solid var(--border-color)" }}
-                            />
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                    {entry.emailDelivered !== undefined && (
-                      <p style={entry.emailDelivered ? styles.deliveryOk : styles.deliveryFail}>
-                        {entry.emailDelivered ? "Email delivered to customer." : `Email delivery failed: ${entry.emailError || "unknown error"}`}
-                      </p>
-                    )}
-                    <p style={styles.timelineTime}>{formatDate(entry.createdAt)}</p>
+                      {entry.emailSubject && (
+                        <p style={styles.timelineEmailSubject}>
+                          {entry.action === "resend" && entry.originalAction ? `Resent (${entry.originalAction.replace("_", " ")})` : "Email"} — {entry.emailSubject}
+                        </p>
+                      )}
+                      {entry.message?.trim() ? (
+                        <p style={styles.timelineMessage}>{entry.message}</p>
+                      ) : entry.attachments?.length ? null : (
+                        <p style={styles.timelineMessage}>No message provided.</p>
+                      )}
+                      {entry.recipient && (
+                        <p style={styles.timelineRecipient}>To: {entry.recipient}</p>
+                      )}
+                      {entry.attachments && entry.attachments.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+                          {entry.attachments.map((att, ai) => (
+                            <a
+                              key={`${att.url}-${ai}`}
+                              href={resolveTicketFileUrl(att.url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ borderRadius: "10px", overflow: "hidden", display: "block" }}
+                            >
+                              <img
+                                src={resolveTicketFileUrl(att.url)}
+                                alt={att.name}
+                                style={{ maxWidth: "180px", maxHeight: "140px", objectFit: "cover", borderRadius: "10px", border: "1px solid var(--border-color)" }}
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {entry.emailDelivered !== undefined && (
+                        <p style={entry.emailDelivered ? styles.deliveryOk : styles.deliveryFail}>
+                          {entry.emailDelivered ? "Email delivered to customer." : `Email delivery failed: ${entry.emailError || "unknown error"}`}
+                        </p>
+                      )}
+                      <p style={styles.timelineTime}>{formatDate(entry.createdAt)}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* Phase 4: Reply in Thread */}
@@ -886,6 +965,34 @@ export default function AdminMessagesClient() {
 }
 
 /* ============================ MODAL COMPONENTS ============================ */
+
+function ThreadBubble({ message }: { message: ThreadMessage }) {
+  const isClient = message.senderType === "client" || message.senderType === "developer";
+  const sourceLabel =
+    message.source === "email" ? "via email"
+    : message.source === "public_contact" ? "Get in Touch"
+    : message.source === "portal" ? "portal"
+    : "";
+  return (
+    <div style={isClient ? styles.bubbleRowClient : styles.bubbleRowAdmin}>
+      <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
+        <p style={isClient ? styles.bubbleSenderClient : styles.bubbleSenderAdmin}>
+          {isClient ? message.senderName || "Client" : message.senderName || "Websmith Support Team"}
+          {sourceLabel ? <span style={styles.bubbleSource}> · {sourceLabel}</span> : null}
+          {!isClient && message.deliveryStatus === "sent" ? (
+            <span style={styles.bubbleDelivered}> · sent via email</span>
+          ) : !isClient && message.deliveryStatus === "failed" ? (
+            <span style={styles.bubbleFailed}> · email failed{message.deliveryError ? `: ${message.deliveryError}` : ""}</span>
+          ) : !isClient && message.deliveryStatus === "not_sent" ? (
+            <span style={styles.bubbleSource}> · stored (not emailed)</span>
+          ) : null}
+        </p>
+        <p style={isClient ? styles.bubbleTextClient : styles.bubbleTextAdmin}>{message.message || "(No message)"}</p>
+        <p style={isClient ? styles.bubbleTimeClient : styles.bubbleTimeAdmin}>{formatDate(message.createdAt)}</p>
+      </div>
+    </div>
+  );
+}
 
 function EditModal({
   ticket,
@@ -1201,6 +1308,7 @@ const styles: Record<string, any> = {
   ticketStatus: { textTransform: "capitalize", color: "#007AFF", fontSize: "12px", fontWeight: 700 },
   ticketMeta: { margin: 0, fontSize: "13px", color: "var(--text-primary)" },
   ticketMetaMuted: { margin: "4px 0 0 0", fontSize: "12px", color: "var(--text-secondary)" },
+  unreadDot: { display: "inline-block", width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#007AFF", marginRight: "6px", verticalAlign: "middle" },
   menuHost: { position: "absolute", top: "10px", right: "12px" },
   menuButton: {
     width: "28px",
@@ -1372,6 +1480,31 @@ const styles: Record<string, any> = {
   timelineRecipient: { margin: "4px 0 0", color: "var(--text-secondary)", fontSize: "12px" },
   deliveryOk: { margin: "6px 0 0", color: "#34C759", fontSize: "12px", fontWeight: 600 },
   deliveryFail: { margin: "6px 0 0", color: "#FF3B30", fontSize: "12px", fontWeight: 600 },
+  // ---- Thread bubbles (Query Inbox two-way conversation) ----
+  bubbleRowClient: { display: "flex", justifyContent: "flex-start", marginBottom: "12px" },
+  bubbleRowAdmin: { display: "flex", justifyContent: "flex-end", marginBottom: "12px" },
+  bubbleClient: {
+    maxWidth: "78%",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "16px 16px 16px 4px",
+    padding: "12px 16px",
+  },
+  bubbleAdmin: {
+    maxWidth: "78%",
+    backgroundColor: "#007AFF",
+    borderRadius: "16px 16px 4px 16px",
+    padding: "12px 16px",
+  },
+  bubbleSenderClient: { margin: 0, color: "var(--text-secondary)", fontSize: "12px", fontWeight: 600 },
+  bubbleSenderAdmin: { margin: 0, color: "rgba(255,255,255,0.85)", fontSize: "12px", fontWeight: 600 },
+  bubbleSource: { fontWeight: 400, opacity: 0.75 },
+  bubbleDelivered: { fontWeight: 400, color: "#8FE8A8" },
+  bubbleFailed: { fontWeight: 400, color: "#FFB3A7" },
+  bubbleTextClient: { margin: "6px 0 0", color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.6, whiteSpace: "pre-wrap" },
+  bubbleTextAdmin: { margin: "6px 0 0", color: "#FFFFFF", fontSize: "14px", lineHeight: 1.6, whiteSpace: "pre-wrap" },
+  bubbleTimeClient: { margin: "6px 0 0", color: "var(--text-secondary)", fontSize: "11px" },
+  bubbleTimeAdmin: { margin: "6px 0 0", color: "rgba(255,255,255,0.75)", fontSize: "11px" },
   notice: {
     padding: "12px 16px",
     borderRadius: "12px",

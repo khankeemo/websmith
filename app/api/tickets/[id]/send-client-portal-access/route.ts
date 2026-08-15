@@ -10,6 +10,7 @@ import {
   resolutionHtmlBody,
   stripAdminMarkers,
 } from "@/lib/tickets/email";
+import crypto from "node:crypto";
 
 const DEFAULT_ORIGIN = "https://www.websmithdigital.com";
 
@@ -109,7 +110,7 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     { custom: { subject, html: resolutionHtmlBody(subject, bodyText), plainText: bodyText } }
   );
 
-  // 4. Persist delivery / action history + account relationship.
+  // 4. Persist delivery / action history + canonical thread entry + account relationship.
   const now = new Date();
   const history = ticket.history ?? [];
   history.push({
@@ -129,9 +130,27 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     createdAt: now,
   });
 
+  const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
+  messages.push({
+    id: crypto.randomUUID(),
+    senderType: "admin",
+    direction: "outbound",
+    senderEmail: "",
+    senderName: String(user.name ?? "Websmith Team"),
+    recipientEmail: recipient,
+    message: subject,
+    createdAt: now,
+    source: "onboarding_email",
+    deliveryStatus: sendResult.success ? "sent" : "failed",
+    deliveryError: sendResult.success ? undefined : sendResult.error,
+    providerMessageId: sendResult.messageId || undefined,
+  });
+
   const update: any = {
     history,
+    messages,
     updatedAt: now,
+    adminReadAt: now,
     clientId: account._id.toString(),
     clientAccountSource: accountState,
     clientAccountEmail: recipient,

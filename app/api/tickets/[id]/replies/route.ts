@@ -1,6 +1,7 @@
 ﻿import { apiHandler, jsonBody, json, badRequest, notFound, parseObjectId } from "@/lib/server/api";
 import { sendEmail } from "@/lib/email/brevo";
 import { stripAdminMarkers } from "@/lib/tickets/email";
+import crypto from "node:crypto";
 
 export const POST = apiHandler(async ({ db, request, user, params }) => {
   const body = await jsonBody(request);
@@ -13,12 +14,14 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
 
   const now = new Date();
   const history = ticket.history ?? [];
+  const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
 
   // Only ADMIN replies are emailed out to the customer (the required flow:
   // Admin -> Reply -> Backend -> Existing Email Provider -> Client). Client /
   // developer replies are inbound and never trigger a customer email.
   let emailDelivered = false;
   let emailError = "";
+  let providerMessageId = "";
   let emailSnapshot: { recipient?: string; subject?: string; emailBody?: string } = {};
   if (user.role === "admin") {
     const recipient = String(ticket.contactEmail || ticket.clientEmail || "").trim();
@@ -40,6 +43,7 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
         }
       );
       emailDelivered = sendResult.success;
+      providerMessageId = sendResult.messageId || "";
       if (!sendResult.success) emailError = sendResult.error || "Email delivery failed";
       // Stored snapshot for the Resend action (Phase 13) -- resends exactly
       // what was sent, never stale/arbitrary UI text.
@@ -62,10 +66,29 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     createdAt: now,
   });
 
-  const update: any = { history, updatedAt: now };
+  // Canonical thread entry (Query Inbox message bubbles). Admin replies are
+  // outbound email messages (delivery status + Brevo message id for inbound
+  // thread matching); client/developer replies are inbound local messages.
+  messages.push({
+    id: crypto.randomUUID(),
+    senderType: user.role === "admin" ? "admin" : user.role === "developer" ? "developer" : "client",
+    direction: user.role === "admin" ? "outbound" : "inbound",
+    senderEmail: user.role === "admin" ? "" : String(ticket.contactEmail || user.email || "").trim(),
+    senderName: String(user.name || (user.role === "admin" ? "Websmith Support Team" : "Customer")),
+    recipientEmail: user.role === "admin" ? String(ticket.contactEmail || "").trim() : "",
+    message,
+    createdAt: now,
+    source: user.role === "admin" ? "admin_reply" : "portal",
+    deliveryStatus: user.role === "admin" ? (emailDelivered ? "sent" : emailError ? "failed" : "not_sent") : undefined,
+    deliveryError: emailError || undefined,
+    providerMessageId: providerMessageId || undefined,
+  });
+
+  const update: any = { history, messages, updatedAt: now };
   if (user.role === "admin") {
     update.lastEmailDelivered = emailDelivered;
     update.lastEmailError = emailError || null;
+    update.adminReadAt = now;
   }
   if (ticket.status === "closed") update.status = "in_progress";
 

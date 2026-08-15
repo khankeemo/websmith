@@ -1,6 +1,7 @@
 import { apiHandler, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
 import { sendEmail } from "@/lib/email/brevo";
 import { resolutionHtmlBody } from "@/lib/tickets/email";
+import crypto from "node:crypto";
 
 // ============================================================================
 // RESEND (Phase 13)
@@ -59,12 +60,30 @@ export const POST = apiHandler(async ({ db, user, params }) => {
     createdAt: now,
   });
 
+  const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
+  messages.push({
+    id: crypto.randomUUID(),
+    senderType: "admin",
+    direction: "outbound",
+    senderEmail: "",
+    senderName: String(ticket.contactName || "Websmith Team"),
+    recipientEmail: recipient,
+    message: bodyText,
+    createdAt: now,
+    source: "resend",
+    deliveryStatus: sendResult.success ? "sent" : "failed",
+    deliveryError: sendResult.success ? undefined : sendResult.error,
+    providerMessageId: sendResult.messageId || undefined,
+  });
+
   await db.collection("tickets").updateOne(
     { _id: id },
     {
       $set: {
         history,
+        messages,
         updatedAt: now,
+        adminReadAt: now,
         lastEmailDelivered: sendResult.success,
         lastEmailError: sendResult.success ? null : (sendResult.error || "Email delivery failed"),
       },

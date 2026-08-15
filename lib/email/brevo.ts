@@ -1,3 +1,5 @@
+import { renderCustomerMessageHtml, renderCustomerMessagePlain } from "@/lib/tickets/email";
+
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const MAIL_FROM_ADDRESS = process.env.MAIL_FROM_ADDRESS || process.env.SENDER_EMAIL || 'no-reply@websmithdigital.com';
 const MAIL_SUPPORT_ADDRESS = process.env.MAIL_SUPPORT_ADDRESS || process.env.SENDER_EMAIL || 'support@websmithdigital.com';
@@ -6,6 +8,11 @@ const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || process.env.BREVO_SENDER_NA
 const MAIL_SUPPORT_NAME = process.env.MAIL_SUPPORT_NAME || 'Websmith Support Team';
 const MAIL_SALES_NAME = process.env.MAIL_SALES_NAME || 'Websmith Sales Team';
 const COMPANY_NAME = process.env.BRANDING_COMPANY_NAME || 'Websmith Digital';
+// Generic brand tagline for the email header/footer. The public website's email
+// branding must never hardcode a product-specific line (e.g. "License
+// Management") because the same shared email layout serves the public website
+// (Get in Touch / Query Inbox / client communication) too.
+const BRANDING_TAGLINE = process.env.BRANDING_TAGLINE || 'Software Development & Client Support';
 const WEBSITE_URL = process.env.BRANDING_WEBSITE_URL || 'https://websmithdigital.com';
 
 async function getContactInfo(client: any) {
@@ -60,7 +67,7 @@ function wrapHtml(title: string, bodyHtml: string): string {
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
         <tr><td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:28px 32px;text-align:center">
           <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px">${COMPANY_NAME}</h1>
-          <p style="margin:4px 0 0;color:#8899bb;font-size:13px">License Management</p>
+          <p style="margin:4px 0 0;color:#8899bb;font-size:13px">${BRANDING_TAGLINE}</p>
         </td></tr>
         <tr><td style="padding:32px">
           <h2 style="margin:0 0 16px;color:#1a1a2e;font-size:20px;font-weight:600">${title}</h2>
@@ -69,7 +76,7 @@ function wrapHtml(title: string, bodyHtml: string): string {
         <tr><td style="background-color:#f8f9fb;padding:24px 32px;border-top:1px solid #e8ecf1">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr><td style="text-align:center;font-size:13px;color:#8899aa;line-height:1.6">
-              <p style="margin:0 0 8px;font-weight:600;color:#555">${COMPANY_NAME} — License Management</p>
+              <p style="margin:0 0 8px;font-weight:600;color:#555">${COMPANY_NAME} — ${BRANDING_TAGLINE}</p>
               <p style="margin:0 0 4px">Need help? Contact our support team at <a href="mailto:{{support_email}}" style="color:#4a90d9;text-decoration:none">{{support_email}}</a></p>
               <p style="margin:0 0 4px">Visit our website: <a href="{{website}}" style="color:#4a90d9;text-decoration:none">{{website}}</a></p>
               <p style="margin:12px 0 0;font-size:11px;color:#aab">© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved. | This is an automated message, please do not reply directly.</p>
@@ -664,7 +671,7 @@ This is an automated administrative notification. Please review and take appropr
       <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
       <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">We have received a response to your support request <strong>{{request_id}}</strong>.</p>
       <div style="background:#f8f9fa;border-left:4px solid #4a90d9;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
-        ${d.message || 'No message provided.'}
+        ${renderCustomerMessageHtml(d.message || '') || 'No message provided.'}
       </div>
       <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">You can continue this conversation by replying to this email or visiting our support portal.</p>
       <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">If you did not submit a support request, please ignore this email.</p>
@@ -673,7 +680,7 @@ This is an automated administrative notification. Please review and take appropr
 
 We have received a response to your support request ${d.request_id}.
 
-${d.message || 'No message provided.'}
+${renderCustomerMessagePlain(d.message) || 'No message provided.'}
 
 You can continue this conversation by replying to this email or visiting our support portal.
 
@@ -776,7 +783,7 @@ ${COMPANY_NAME} Support`
       <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
       <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Our sales team has responded to your enquiry <strong>{{enquiry_id}}</strong>.</p>
       <div style="background:#f8f9fa;border-left:4px solid #10b981;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
-        ${d.message || 'No message provided.'}
+        ${renderCustomerMessageHtml(d.message || '') || 'No message provided.'}
       </div>
       <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">You can continue this conversation by replying to this email or contacting our sales team directly.</p>
       <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">If you did not submit a sales enquiry, please ignore this email.</p>
@@ -785,7 +792,7 @@ ${COMPANY_NAME} Support`
 
 Our sales team has responded to your enquiry ${d.enquiry_id}.
 
-${d.message || 'No message provided.'}
+${renderCustomerMessagePlain(d.message) || 'No message provided.'}
 
 You can continue this conversation by replying to this email or contacting our sales team directly.
 

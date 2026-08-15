@@ -18,6 +18,20 @@ const SEARCH_FIELDS = [
   "source",
 ];
 
+// Unread indicator (server-derived, never trusted to the browser): a
+// conversation has a new client reply when the client last replied AFTER the
+// admin last read it (adminReadAt). `lastClientReplyAt` is stamped on the
+// initial Get in Touch submission and every inbound email reply; `adminReadAt`
+// is stamped whenever an admin opens the conversation (`/tickets/[id]/read`)
+// or sends a reply / resolution / onboarding / resend email.
+function hasNewClientReply(ticket: any): boolean {
+  if (!ticket.lastClientReplyAt) return false;
+  const lastClient = new Date(ticket.lastClientReplyAt).getTime();
+  if (Number.isNaN(lastClient)) return false;
+  if (!ticket.adminReadAt) return true;
+  return lastClient > new Date(ticket.adminReadAt).getTime();
+}
+
 function buildBaseFilter(user: any): any {
   const filter: any = {};
   if (user.role === "client") {
@@ -75,7 +89,7 @@ export const GET = apiHandler(async ({ db, request, user }) => {
       .limit(pageSize)
       .toArray();
     return json({
-      data: tickets.map((t) => ({ ...t, _id: t._id.toString() })),
+      data: tickets.map((t) => ({ ...t, _id: t._id.toString(), hasNewClientReply: hasNewClientReply(t) })),
       total,
       page,
       pageSize,
@@ -85,7 +99,7 @@ export const GET = apiHandler(async ({ db, request, user }) => {
 
   // Backward-compatible default: full (active) list for existing consumers.
   const tickets = await db.collection("tickets").find(baseFilter).sort({ updatedAt: -1 }).toArray();
-  return json({ data: tickets.map((t) => ({ ...t, _id: t._id.toString() })) });
+  return json({ data: tickets.map((t) => ({ ...t, _id: t._id.toString(), hasNewClientReply: hasNewClientReply(t) })) });
 }, { auth: "required" });
 
 export const POST = apiHandler(async ({ db, request, user }) => {
