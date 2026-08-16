@@ -200,6 +200,7 @@ export interface ResolutionTemplate {
   name: string;
   category: string;
   subject: string;
+  body?: string;
   isActive: boolean;
   isDefault: boolean;
 }

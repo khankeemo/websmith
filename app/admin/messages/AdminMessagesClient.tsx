@@ -43,7 +43,6 @@ import {
   updateTicket,
   updateTicketStatus,
 } from "@/core/services/ticketService";
-import { buildClientPortalGreeting } from "@/core/services/clientPortalGreeting";
 
 const QUERY_INBOX_PAGE_SIZE = 15;
 
@@ -67,6 +66,26 @@ function hasStoredEmail(ticket: Ticket): TicketHistoryEntry | null {
   return [...history].reverse().find((entry) => entry.recipient && entry.emailSubject && entry.emailBody) || null;
 }
 
+// Client-safe greeting renderer for the Greeting Template ▼ dropdown. Mirrors
+// the server-side template rendering ({{#if}}/{{#unless}} blocks + {{tokens}})
+// so the composer auto-fill shows the customer's real name — never a
+// {client_name} token — and can never contain internal greeting markers.
+const TEMPLATE_BLOCK_RE = /\{\{#(if|unless) ([a-z_]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
+const ADMIN_MARKER_LINE_RE = /^\s*--\s*(?:Client Portal Greeting|End Client Portal Greeting)\s*--\s*$/gm;
+
+function renderComposerGreeting(value: string, data: Record<string, string>): string {
+  let out = value;
+  out = out.replace(TEMPLATE_BLOCK_RE, (_match, kind: string, key: string, inner: string) => {
+    const val = data[key] ?? "";
+    const show = kind === "if" ? val !== "" : val === "";
+    return show ? inner : "";
+  });
+  for (const [key, val] of Object.entries(data)) {
+    out = out.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), val ?? "");
+  }
+  return out.replace(ADMIN_MARKER_LINE_RE, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 export default function AdminMessagesClient() {
   // ---- Query Inbox list state (Phase 10: 15 at a time + Load More) ----
   const [scope, setScope] = useState<Scope>("active");
@@ -79,6 +98,9 @@ export default function AdminMessagesClient() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const listSeq = useRef(0);
+  // Reopening a conversation from the Closed tab switches to Active and
+  // re-selects the reopened conversation once the Active list has loaded.
+  const pendingSelectRef = useRef<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
@@ -89,9 +111,10 @@ export default function AdminMessagesClient() {
   const [notice, setNotice] = useState<Notice>(null);
 
   // ---- Resolution templates (database-backed, Phase 9) ----
-  const [templates, setTemplates] = useState<Array<{ key: string; name: string; category: string; isActive: boolean }>>([]);
+  const [templates, setTemplates] = useState<Array<{ key: string; name: string; category: string; subject: string; body?: string; isActive: boolean }>>([]);
   const [defaultTemplateKey, setDefaultTemplateKey] = useState("");
   const [selectedTemplateKey, setSelectedTemplateKey] = useState("");
+  const [greetingTemplateKey, setGreetingTemplateKey] = useState("");
 
   // ---- Client account state (Phase 6) ----
   const [accountState, setAccountState] = useState<TicketClientAccount | null>(null);
@@ -113,7 +136,6 @@ export default function AdminMessagesClient() {
   const [pinnedTicket, setPinnedTicket] = useState<Ticket | null>(null);
 
   // ---- Chat workspace (Phase 16 chat redesign) ----
-  const [threadMenuOpen, setThreadMenuOpen] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const showNotice = useCallback((type: Notice["type"], text: string) => {
@@ -134,6 +156,12 @@ export default function AdminMessagesClient() {
         setPage(result.page);
         setHasMore(result.hasMore);
         setTickets((current) => (opts.append ? [...current, ...result.data] : result.data));
+        // Re-select the conversation that was reopened (scope switch to Active).
+        if (!opts.append && pendingSelectRef.current) {
+          const pending = pendingSelectRef.current;
+          pendingSelectRef.current = null;
+          if (result.data.some((ticketItem) => ticketItem._id === pending)) setSelectedId(pending);
+        }
       } catch (error: any) {
         if (seq !== listSeq.current) return;
         console.error("Load admin tickets error:", error);
@@ -162,7 +190,6 @@ export default function AdminMessagesClient() {
   useEffect(() => {
     setSelectedId(null);
     setMenuFor(null);
-    setThreadMenuOpen(false);
     setAccountState(null);
     setPinnedTicket(null);
     loadPage(1);
@@ -275,18 +302,41 @@ export default function AdminMessagesClient() {
     }
   };
 
-  // ---- Phase 5: Insert professional greeting (no internal markers) ----
-  const insertClientPortalGreeting = () => {
-    if (!selectedTicket) return;
+  // ---- Greeting Template ▼ (database-backed resolution templates): the
+  // selected template auto-fills the reply composer with the client's real
+  // name resolved from the conversation (never a {client_name} token) and
+  // never exposes internal greeting markers. ----
+  const handleGreetingTemplateChange = (templateKey: string) => {
+    setGreetingTemplateKey(templateKey);
+    if (!selectedTicket || !templateKey) return;
+    const template = templates.find((item) => item.key === templateKey);
+    if (!template) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "https://www.websmithdigital.com";
     const requester = getRequester(selectedTicket);
     const name = requester.name && requester.name !== "Public inquiry" ? requester.name : "";
-    const hasPortalAccount = Boolean(
-      typeof selectedTicket.clientId === "object" ? selectedTicket.clientId?._id : selectedTicket.clientId
-    );
-    const greeting = buildClientPortalGreeting({ name, hasPortalAccount, portalUrl: origin });
+    const data: Record<string, string> = {
+      client_name: name || "there",
+      client_email: requester.email || "",
+      client_id: "",
+      project_name: "",
+      query_subject: selectedTicket.subject,
+      query_message: selectedTicket.description,
+      resolution_summary: "",
+      portal_url: `${origin}/login`,
+      temporary_password: "",
+      company_name: "Websmith Digital",
+      admin_name: "",
+      request_id: selectedTicket._id,
+      query_status: selectedTicket.status,
+    };
+    const greeting = renderComposerGreeting(template.body || "", data);
+    if (!greeting) {
+      showNotice("error", "The selected template has no greeting content.");
+      return;
+    }
     setReply((current) => (current.trim() ? `${current.trim()}\n\n${greeting}` : greeting));
-    showNotice("success", "Professional Client Portal greeting inserted. Review and edit it before sending.");
+    setGreetingTemplateKey("");
+    showNotice("success", `${template.name} greeting inserted with the customer's name. Review and edit it before sending.`);
   };
 
   // ---- Status updates ----
@@ -326,7 +376,13 @@ export default function AdminMessagesClient() {
       setCloseTicket(null);
       // Keep the closed conversation open (pinned) so the Resolution Summary
       // editor and Resolution Email remain reachable right after closing.
-      if (selectedId === closeTicket._id) setPinnedTicket(result);
+      if (selectedId === closeTicket._id) {
+        setPinnedTicket(result);
+        // Keep the status control in the thread header in sync with the
+        // persisted state (the pinned ticket shares the same id, so the
+        // selection-change effect would otherwise never re-run).
+        setNextStatus(result.status);
+      }
       await refreshList();
       showNotice("success", "Conversation closed. It remains available under the Closed tab with its full history.");
     } catch (error: any) {
@@ -339,16 +395,24 @@ export default function AdminMessagesClient() {
 
   // ---- Reopen a closed conversation (existing status route, UI addition) ----
   const reopenTicket = async (ticket: Ticket) => {
-    if (ticket.status !== "closed" && ticket.chatStatus !== "closed") return;
+    if (ticket.status !== "closed") return;
     setBusyTicket(ticket._id);
     try {
       const result = await updateTicketStatus(ticket._id, { status: "open" });
       if (selectedId === ticket._id) {
         setPinnedTicket(null);
         setNextStatus(result.status);
-        setThreadMenuOpen(false);
       }
-      await refreshList();
+      // A reopened conversation belongs to the Active scope. If the admin was
+      // viewing the Closed tab, move them to Active (and re-select the
+      // reopened conversation once the list loads) so the UI shows the
+      // reopened conversation with its Close action instead of an empty pane.
+      if (scope === "closed") {
+        if (selectedId === ticket._id) pendingSelectRef.current = ticket._id;
+        setScope("active");
+      } else {
+        await refreshList();
+      }
       showNotice("success", "Conversation reopened.");
     } catch (error: any) {
       console.error("Reopen error:", error);
@@ -531,7 +595,7 @@ export default function AdminMessagesClient() {
     }
   };
 
-  const isClosed = selectedTicket?.chatStatus === "closed" || selectedTicket?.status === "closed";
+  const isClosed = selectedTicket?.status === "closed";
   const isResolvedOrClosed = selectedTicket?.status === "resolved" || selectedTicket?.status === "closed";
 
   return (
@@ -575,7 +639,7 @@ export default function AdminMessagesClient() {
               {tickets.map((ticket) => {
                 const requester = getRequester(ticket);
                 const storedEmail = hasStoredEmail(ticket);
-                const isClosedTicket = ticket.status === "closed" || ticket.chatStatus === "closed";
+                const isClosedTicket = ticket.status === "closed";
                 return (
                   <div key={ticket._id} style={styles.ticketRowWrap}>
                     <div
@@ -583,14 +647,12 @@ export default function AdminMessagesClient() {
                       tabIndex={0}
                       onClick={() => {
                         setPinnedTicket(null);
-                        setThreadMenuOpen(false);
                         setSelectedId(ticket._id);
                       }}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           setPinnedTicket(null);
-                          setThreadMenuOpen(false);
                           setSelectedId(ticket._id);
                         }
                       }}
@@ -669,10 +731,13 @@ export default function AdminMessagesClient() {
                           </div>
                         </div>
                       </div>
-                      <p style={styles.ticketMeta}>
-                        {ticket.hasNewClientReply && <span style={styles.unreadDot} aria-label="New client reply" title="New client reply" />}
-                        {requester.name}
-                      </p>
+                      <div style={styles.ticketMetaRow}>
+                        <p style={styles.ticketMeta}>
+                          {ticket.hasNewClientReply && <span style={styles.unreadDot} aria-label="New client reply" title="New client reply" />}
+                          {requester.name}
+                        </p>
+                        <span style={styles.ticketTime}>{formatDate(ticket.createdAt)}</span>
+                      </div>
                       <p style={styles.ticketMetaMuted}>{requester.email || requester.subtitle}</p>
                     </div>
                   </div>
@@ -734,11 +799,13 @@ export default function AdminMessagesClient() {
                 <button
                   type="button"
                   title="Sync inbound email"
+                  aria-label="Sync inbound email"
                   onClick={handleSyncInbound}
                   disabled={saving || syncing}
                   style={styles.iconBtn}
                 >
                   {syncing ? <Loader2 size={16} className="admin-messages-spin" /> : <Mail size={16} />}
+                  <span style={styles.iconBtnLabel}>Sync Inbound</span>
                 </button>
                 <div style={styles.statusControlCompact}>
                   <select
@@ -781,21 +848,20 @@ export default function AdminMessagesClient() {
                     aria-label="Conversation actions"
                     onClick={(event) => {
                       event.stopPropagation();
-                      setMenuFor(threadMenuOpen ? null : selectedTicket._id);
-                      setThreadMenuOpen(!threadMenuOpen);
+                      setMenuFor((current) => (current === selectedTicket._id ? null : selectedTicket._id));
                     }}
-                    style={{ ...styles.menuButton, ...(threadMenuOpen === selectedTicket._id ? styles.menuButtonActive : {}) }}
+                    style={{ ...styles.menuButton, ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}) }}
                   >
                     <MoreVertical size={16} />
                   </button>
-                  {threadMenuOpen === selectedTicket._id && (
+                  {menuFor === selectedTicket._id && (
                     <>
-                      <div style={styles.menuBackdrop} onClick={() => setThreadMenuOpen(false)} />
+                      <div style={styles.menuBackdrop} onClick={() => setMenuFor(null)} />
                       <div
                         style={styles.menuDropdownChat}
                         onClick={(event) => {
                           event.stopPropagation();
-                          setThreadMenuOpen(false);
+                          setMenuFor(null);
                         }}
                       >
                         <button type="button" style={styles.menuItem} onClick={() => setEditTicket(selectedTicket)}>
@@ -806,7 +872,14 @@ export default function AdminMessagesClient() {
                             <RotateCcw size={14} /> Resend
                           </button>
                         ) : null}
-                        <button type="button" style={styles.menuItem} onClick={() => setPinnedTicket(null); setSelectedId(null)}>
+                        <button
+                          type="button"
+                          style={styles.menuItem}
+                          onClick={() => {
+                            setPinnedTicket(null);
+                            setSelectedId(null);
+                          }}
+                        >
                           <X size={14} /> Close Panel
                         </button>
                         <button type="button" style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => setTicketToDelete(selectedTicket)}>
@@ -921,9 +994,22 @@ export default function AdminMessagesClient() {
               />
               <div style={styles.composerFooter}>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginRight: "auto" }}>
-                  <button type="button" onClick={insertClientPortalGreeting} style={styles.secondaryBtn} disabled={saving || isClosed}>
-                    Insert Client Portal Greeting
-                  </button>
+                  <select
+                    value={greetingTemplateKey}
+                    onChange={(event) => handleGreetingTemplateChange(event.target.value)}
+                    style={styles.greetingSelect}
+                    disabled={saving || isClosed}
+                    aria-label="Greeting Template"
+                  >
+                    <option value="">Greeting Template ▼</option>
+                    {templates
+                      .filter((template) => template.isActive)
+                      .map((template) => (
+                        <option key={template.key} value={template.key}>
+                          {template.name}
+                        </option>
+                      ))}
+                  </select>
                 </div>
                 <button type="button" onClick={handleReply} style={styles.primaryBtn} disabled={saving || !reply.trim() || isClosed}>
                   <Send size={14} />
@@ -1046,15 +1132,15 @@ export default function AdminMessagesClient() {
                     style={styles.secondaryBtn}
                     disabled={saving || !isResolvedOrClosed || !resolution.trim()}
                   >
-                    <FileCheck2 size={14} />
+<FileCheck2 size={14} />
                     Send Resolution Email
                   </button>
                 </div>
 </div>
             </div>
-            </div>
           </>
         )}
+      </div>
       </div>
 
       {/* ============================ MODALS ============================ */}
@@ -1368,7 +1454,7 @@ function ConfirmModal({
 const styles: Record<string, any> = {
   shell: {
     display: "grid",
-    gridTemplateColumns: "360px minmax(0, 1fr)",
+    gridTemplateColumns: "385px minmax(0, 1fr)",
     gap: "24px",
     padding: "24px",
     minHeight: "calc(100vh - 48px)",
@@ -1439,17 +1525,17 @@ const styles: Record<string, any> = {
     flex: 1,
   },
   ticketRowWrap: { position: "relative" },
-  ticketRow: {
+ticketRow: {
     textAlign: "left",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-primary)",
-    borderRadius: "16px",
-    padding: "14px",
+    borderRadius: "14px",
+    padding: "12px",
     width: "100%",
     cursor: "pointer",
     display: "flex",
     flexDirection: "column",
-    gap: "6px",
+    gap: "5px",
   },
   ticketRowActive: {
     borderColor: "#007AFF55",
@@ -1457,9 +1543,10 @@ const styles: Record<string, any> = {
   },
   ticketCardHeader: {
     display: "flex",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: "10px",
+    gap: "8px",
+    minWidth: 0,
   },
   ticketSubject: {
     color: "var(--text-primary)",
@@ -1489,6 +1576,7 @@ const styles: Record<string, any> = {
     backgroundColor: "var(--bg-secondary)",
     color: "var(--text-primary)",
     whiteSpace: "nowrap",
+    transition: "border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease",
   },
   ticketActionClose: {
     color: "#FF3B30",
@@ -1498,13 +1586,40 @@ const styles: Record<string, any> = {
     color: "#0F7B3D",
     borderColor: "#34C75955",
   },
-  ticketMeta: { margin: 0, fontSize: "13px", color: "var(--text-primary)" },
-  ticketMetaMuted: { margin: "4px 0 0 0", fontSize: "12px", color: "var(--text-secondary)" },
+  ticketMetaRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    minWidth: 0,
+  },
+  ticketMeta: {
+    margin: 0,
+    fontSize: "13px",
+    color: "var(--text-primary)",
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  ticketMetaMuted: {
+    margin: 0,
+    fontSize: "12px",
+    color: "var(--text-secondary)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  ticketTime: {
+    fontSize: "11px",
+    color: "var(--text-secondary)",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+  },
   unreadDot: { display: "inline-block", width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#007AFF", marginRight: "6px", verticalAlign: "middle" },
   menuHost: {
-    position: "absolute",
-    top: "10px",
-    right: "12px",
+    position: "relative",
   },
   menuButton: {
     width: "28px",
@@ -1517,12 +1632,13 @@ const styles: Record<string, any> = {
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
+    transition: "border-color 0.15s ease, color 0.15s ease",
   },
   menuButtonActive: { color: "#007AFF", borderColor: "#007AFF55" },
   menuBackdrop: { position: "fixed", inset: 0, zIndex: 40 },
   menuDropdown: {
     position: "absolute",
-    top: "34px",
+    top: "calc(100% + 6px)",
     right: "0",
     zIndex: 50,
     minWidth: "190px",
@@ -1620,7 +1736,7 @@ const styles: Record<string, any> = {
     color: "var(--text-secondary)",
     fontWeight: 600,
   },
-  statusSelectCompact: {
+statusSelectCompact: {
     minWidth: "130px",
     border: "1px solid var(--border-color)",
     borderRadius: "10px",
@@ -1632,18 +1748,37 @@ const styles: Record<string, any> = {
     fontSize: "12px",
     fontWeight: 600,
   },
-  iconBtn: {
+  greetingSelect: {
+    minWidth: "200px",
+    maxWidth: "300px",
+    border: "1px solid var(--border-color)",
+    borderRadius: "10px",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    padding: "8px 10px",
+    outline: "none",
+    fontSize: "12px",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+iconBtn: {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "32px",
+    gap: "6px",
+    width: "auto",
     height: "32px",
+    padding: "0 10px",
     borderRadius: "8px",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-secondary)",
     color: "var(--text-primary)",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    fontSize: "12px",
+    fontWeight: 600,
   },
+  iconBtnLabel: { fontSize: "12px", fontWeight: 600, color: "var(--text-primary)" },
   chatActionBtn: {
     display: "inline-flex",
     alignItems: "center",
