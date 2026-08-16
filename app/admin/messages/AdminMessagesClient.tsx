@@ -66,6 +66,57 @@ function hasStoredEmail(ticket: Ticket): TicketHistoryEntry | null {
   return [...history].reverse().find((entry) => entry.recipient && entry.emailSubject && entry.emailBody) || null;
 }
 
+// Client-safe mirror of lib/tickets/email.ts `renderResolutionTemplate`. Kept local
+// (never imported from the server module) so the client bundle does not pull in
+// bcrypt/crypto/mongodb. One reusable resolver for the whole Internal API email
+// system's template preview. Mirrors the server block-token grammar exactly:
+//   {{var}}        -> literal value (empty string when absent)
+//   {{#if var}}...{{/if}}      -> kept when value is non-empty
+//   {{#unless var}}...{{/unless}} -> kept when value is empty
+const BLOCK_RE = /\{\{#(if|unless) ([a-z_]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
+
+function fillTemplate(template: { subject?: string; body?: string }, data: Record<string, string>): { subject: string; body: string } {
+  const t = { subject: template.subject ?? "", body: template.body ?? "" };
+  const fill = (value: string) => {
+    let out = value.replace(BLOCK_RE, (_match, kind: string, key: string, inner: string) => {
+      const val = data[key] ?? "";
+      return kind === "if" ? (val !== "" ? inner : "") : val === "" ? inner : "";
+    });
+    for (const [key, val] of Object.entries(data)) {
+      out = out.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), val ?? "");
+    }
+    return out;
+  };
+  return { subject: fill(t.subject), body: fill(t.body) };
+}
+
+// Resolves a Ticket's real contact data into the placeholder map the seeded
+// templates expect (must match the keys resolved server-side in
+// app/api/tickets/[id]/send-resolution-email/route.ts so the preview matches the
+// sent email).
+function ticketPlaceholders(ticket: Ticket | null): Record<string, string> {
+  if (!ticket) return {};
+  const client = typeof ticket.clientId === "object" && ticket.clientId ? ticket.clientId : null;
+  const recipient = String(ticket.contactEmail || ticket.clientEmail || client?.email || "").trim();
+  const clientName = String(ticket.contactName || client?.name || "Valued Customer").trim();
+  let projectName = "";
+  if (ticket.projectId && typeof ticket.projectId === "object" && (ticket.projectId as any).name) {
+    projectName = String((ticket.projectId as any).name);
+  }
+  const clientId = getClientIdLabel(ticket) ?? "";
+  return {
+    request_id: ticket._id,
+    client_name: clientName,
+    client_email: recipient,
+    client_id: clientId,
+    query_subject: String(ticket.subject ?? ""),
+    query_message: String(ticket.description ?? ""),
+    resolution_summary: String(ticket.resolution ?? ""),
+    company_name: "Websmith Digital",
+    query_status: String(ticket.status ?? ""),
+  };
+}
+
 /**
  * Dedicated-workspace CSS. This page renders as its own full-viewport Query
  * Inbox (no admin sidebar, no admin shell) — the shell elements are hidden
@@ -530,14 +581,39 @@ export default function AdminMessagesClient() {
   const handleGreetingChange = (key: string) => {
     setGreetingKey(key);
     const template = templates.find((t) => t.key === key);
-    if (template?.body) setReply(template.body);
+    if (template?.body) {
+      const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket));
+      // Editable resolved text (placeholders replaced with real ticket data) —
+      // sent as the reply body, so the customer never sees raw {{tokens}}.
+      setReply(rendered.body);
+    }
   };
+
+  const replyPreview = useMemo(() => {
+    const template = templates.find((t) => t.key === greetingKey);
+    if (!template?.body) return "";
+    return fillTemplate(template, ticketPlaceholders(selectedTicket)).body;
+  }, [greetingKey, templates, selectedTicket]);
 
   const handleResolutionTemplateChange = (key: string) => {
     setResolutionTemplateKey(key);
     const template = templates.find((t) => t.key === key);
-    if (template?.body) setResolution(template.body);
+    if (template?.body) {
+      // Pre-fill the editable summary area with the template's resolution text
+      // so the admin reviews/edits the professional wording before sending.
+      const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket));
+      setResolution(rendered.body);
+    } else if (!key) {
+      setResolution("");
+    }
   };
+
+  const resolutionPreview = useMemo(() => {
+    const template = templates.find((t) => t.key === resolutionTemplateKey);
+    if (!template?.body) return "";
+    const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket));
+    return rendered.body;
+  }, [resolutionTemplateKey, templates, selectedTicket]);
 
   const handlePortalAccess = async () => {
     if (!selectedTicket) return;
@@ -555,11 +631,16 @@ export default function AdminMessagesClient() {
     }
   };
 
-  const handleResolutionEmail = async () => {
+   const handleResolutionEmail = async () => {
     if (!selectedTicket || !resolution.trim()) return;
     setSaving(true);
     try {
-      const result = await sendResolutionEmail(selectedTicket._id, { resolution: resolution.trim() });
+      // templateKey routes the server-side render + send through the SAME global
+      // template (getResolutionTemplates) — no new backend/template API.
+      const result = await sendResolutionEmail(selectedTicket._id, {
+        resolution: resolution.trim(),
+        templateKey: resolutionTemplateKey || undefined,
+      });
       if (result.emailDelivered) showNotice("success", "Resolution email sent.");
       else showNotice("warn", result.emailError || "Resolution email could not be confirmed delivered.");
     } catch (error: any) {
@@ -940,6 +1021,15 @@ export default function AdminMessagesClient() {
                   placeholder={isClosed ? "This query is closed and read-only." : "Write a reply to continue the conversation..."}
                   disabled={isClosed}
                 />
+                {greetingKey && replyPreview && (
+                  <div style={styles.previewCard}>
+                    <div style={styles.previewHeader}>
+                      <span style={styles.previewLabel}>Resolved preview</span>
+                      <span style={styles.previewHint}>Template placeholders are auto-filled with real client data.</span>
+                    </div>
+                    <pre style={styles.previewBody}>{replyPreview}</pre>
+                  </div>
+                )}
                 <div style={styles.composerFooter}>
                   <button type="button" onClick={handleReply} style={styles.primaryBtn} disabled={saving || !reply.trim() || isClosed}>
                     <Send size={14} />
@@ -998,13 +1088,7 @@ export default function AdminMessagesClient() {
             <div style={styles.composerCard}>
               <div style={styles.composerTop}>
                 <label style={styles.sectionLabel}>Resolution Summary</label>
-                <select
-                  value={resolutionTemplateKey}
-                  onChange={(event) => handleResolutionTemplateChange(event.target.value)}
-                  style={styles.greetingSelect}
-                  disabled={templates.length === 0}
-                  title="Use Template"
-                >
+                <select value={resolutionTemplateKey} onChange={(event) => handleResolutionTemplateChange(event.target.value)} style={styles.greetingSelect} disabled={templates.length === 0} title="Use Template">
                   <option value="">Use Template...</option>
                   {templates.map((template) => (
                     <option key={template.key} value={template.key}>
@@ -1012,6 +1096,11 @@ export default function AdminMessagesClient() {
                     </option>
                   ))}
                 </select>
+                {resolutionTemplateKey && (
+                  <span style={styles.activeTemplatePill}>
+                    Active: {templates.find((t) => t.key === resolutionTemplateKey)?.name || resolutionTemplateKey}
+                  </span>
+                )}
               </div>
               <textarea
                 value={resolution}
@@ -1019,6 +1108,15 @@ export default function AdminMessagesClient() {
                 style={styles.resolutionTextarea}
                 placeholder="Document the final answer or delivery outcome..."
               />
+              {resolutionTemplateKey && resolutionPreview && (
+                <div style={styles.previewCard}>
+                  <div style={styles.previewHeader}>
+                    <span style={styles.previewLabel}>Resolved preview</span>
+                    <span style={styles.previewHint}>This is how the customer will receive the selected email template.</span>
+                  </div>
+                  <pre style={styles.previewBody}>{resolutionPreview}</pre>
+                </div>
+              )}
               <div style={styles.composerFooter}>
                 <button
                   type="button"
@@ -1516,4 +1614,38 @@ const styles: Record<string, any> = {
   portalLine: { fontSize: "12px", color: "var(--text-primary)", margin: 0, display: "inline-flex", alignItems: "center", gap: "6px" },
   portalMaskedLine: { fontSize: "11px", color: "var(--text-secondary)", margin: "6px 0 0 0", lineHeight: 1.5 },
   portalHint: { fontSize: "11px", color: "var(--text-secondary)", margin: "6px 0 0 0", lineHeight: 1.5 },
+  activeTemplatePill: {
+    fontSize: "11px",
+    fontWeight: 700,
+    color: "#007AFF",
+    backgroundColor: "rgba(0,122,255,0.08)",
+    border: "1px solid #007aff33",
+    borderRadius: "999px",
+    padding: "3px 9px",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  previewCard: {
+    marginTop: "10px",
+    border: "1px solid var(--border-color)",
+    borderRadius: "12px",
+    backgroundColor: "var(--bg-primary)",
+    overflow: "hidden",
+  },
+  previewHeader: { display: "flex", flexDirection: "column", gap: "2px", padding: "8px 12px", borderBottom: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)" },
+  previewLabel: { fontSize: "11px", fontWeight: 700, color: "var(--text-primary)" },
+  previewHint: { fontSize: "10px", color: "var(--text-secondary)" },
+  previewBody: {
+    margin: 0,
+    padding: "10px 12px",
+    fontSize: "11px",
+    lineHeight: 1.5,
+    color: "var(--text-primary)",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    backgroundColor: "var(--bg-primary)",
+    maxHeight: "140px",
+    overflow: "auto",
+  },
 };
