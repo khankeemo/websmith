@@ -701,38 +701,39 @@ export default function LandingPage() {
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
   ];
 
-  const effectiveProjects = publishedProjects;
-  const publicClients = publishedClients.map((client: any, index: number) => ({
-    id: client._id || client.id || `client-${index}`,
-    name: client.name,
-    company: client.company || "Independent client",
+  const effectiveProjects = (publishedProjects || []).filter(Boolean);
+  const publicClients = (publishedClients || []).filter(Boolean).map((client: any, index: number) => ({
+    id: client?._id || client?.id || `client-${index}`,
+    name: client?.name || "Client",
+    company: client?.company || "Independent client",
     description:
-      client.address ||
-      client.customId ||
-      client.description ||
+      client?.address ||
+      client?.customId ||
+      client?.description ||
       "Partnered with Websmith on product delivery, design quality, and long-term support.",
   }));
 
-  const effectiveDevelopers = publishedDevelopers;
+  const effectiveDevelopers = (publishedDevelopers || []).filter(Boolean);
 
   const publicDevelopers = effectiveDevelopers.map((developer: any, index: number) => ({
-    id: developer._id || developer.id || `dev-${index}`,
-    name: developer.name,
-    role: developer.headline || developer.role || "Software Developer",
-    skills: developer.skills?.length ? developer.skills : ["Engineering", "Delivery"],
-    experience: developer.experienceYears || developer.experience || 0,
-    avatar: developer.avatar || "",
-    bio: developer.bio || "Experienced engineer focused on shipping resilient digital products.",
+    id: developer?._id || developer?.id || `dev-${index}`,
+    name: developer?.name || "Developer",
+    role: developer?.headline || developer?.role || "Software Developer",
+    skills: Array.isArray(developer?.skills) && developer.skills.length ? developer.skills : ["Engineering", "Delivery"],
+    experience: developer?.experienceYears || developer?.experience || 0,
+    avatar: developer?.avatar || "",
+    bio: developer?.bio || "Experienced engineer focused on shipping resilient digital products.",
   }));
 
   const statTargets = {
-    projects: clampStatCount(publishedProjects.length),
-    clients: clampStatCount(publishedClients.length),
-    developers: clampStatCount(publishedDevelopers.length),
+    projects: clampStatCount(effectiveProjects.length),
+    clients: clampStatCount(publicClients.length),
+    developers: clampStatCount(publicDevelopers.length),
     countries: clampStatCount(
       new Set(
-        publishedClients
-          .map((client: any) => String(client.address || "").trim())
+        (publishedClients || [])
+          .filter(Boolean)
+          .map((client: any) => String(client?.address || "").trim())
           .filter(Boolean)
       ).size
     ),
@@ -763,12 +764,12 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, [statTargets.projects, statTargets.clients, statTargets.developers, statTargets.countries]);
 
-  const reviewCards = publishedTestimonials.map((testimonial: any, index: number) => ({
-    id: testimonial.id || `testimonial-${index}`,
-    name: testimonial.name,
-    company: testimonial.company || testimonial.projectName || "Websmith client",
-    quote: testimonial.quote,
-    rating: testimonial.rating || 5,
+  const reviewCards = (publishedTestimonials || []).filter(Boolean).map((testimonial: any, index: number) => ({
+    id: testimonial?._id || testimonial?.id || `testimonial-${index}`,
+    name: testimonial?.name || "Client",
+    company: testimonial?.company || testimonial?.projectName || "Websmith client",
+    quote: testimonial?.quote || "",
+    rating: testimonial?.rating || 5,
   }));
 
 
@@ -849,12 +850,7 @@ export default function LandingPage() {
                   target.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
-              style={{
-                ...styles.featureCard,
-                backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-secondary) 92%, transparent)), url(/images/assets/service_${index % 5 + 1}.png)`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }} 
+              style={styles.featureCard} 
               className="feature-card"
             >
               <div style={styles.featureIcon}>{<feature.icon size={28} />}</div>

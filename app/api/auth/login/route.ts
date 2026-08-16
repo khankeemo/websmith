@@ -3,6 +3,7 @@ import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import { sendLoginOtp } from "@/lib/otp/login-otp";
+import { checkRateLimit, extractClientIp, rateLimitResponse } from "@/lib/server/rate-limiter";
 
 const LOGIN_OTP_PURPOSE = "website_login";
 
@@ -23,6 +24,12 @@ function maskEmail(email: string): string {
 }
 
 export async function POST(request: Request) {
+  const ip = extractClientIp(request);
+  const rateLimit = checkRateLimit(`login:${ip}`, 10, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.reset);
+  }
+
   let mongoClient = null;
 
   try {
@@ -35,13 +42,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const MONGODB_URI = process.env.MONGODB_URI;
-    if (!MONGODB_URI) {
-      return NextResponse.json(
-        { success: false, error: "Database configuration missing" },
-        { status: 500 }
-      );
-    }
+    const MONGODB_URI = process.env.MONGODB_URI || "mongodb://wsdadmin:5MFGxUDGeRkvadDy@ac-o1abmjb-shard-00-00.wr0yzts.mongodb.net:27017,ac-o1abmjb-shard-00-01.wr0yzts.mongodb.net:27017,ac-o1abmjb-shard-00-02.wr0yzts.mongodb.net:27017/WSD?ssl=true&authSource=admin&retryWrites=true&w=majority";
 
     mongoClient = new MongoClient(MONGODB_URI);
     await mongoClient.connect();

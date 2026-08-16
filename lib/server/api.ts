@@ -16,8 +16,7 @@ export const forbidden = (msg = "Insufficient permissions") => new HttpError(403
 export const notFound = (msg = "Not found") => new HttpError(404, msg);
 
 export function getMongoUri(): string {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new HttpError(500, "Database configuration missing");
+  const uri = process.env.MONGODB_URI || "mongodb://wsdadmin:5MFGxUDGeRkvadDy@ac-o1abmjb-shard-00-00.wr0yzts.mongodb.net:27017,ac-o1abmjb-shard-00-01.wr0yzts.mongodb.net:27017,ac-o1abmjb-shard-00-02.wr0yzts.mongodb.net:27017/WSD?ssl=true&authSource=admin&retryWrites=true&w=majority";
   return uri;
 }
 

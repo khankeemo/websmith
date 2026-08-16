@@ -672,26 +672,20 @@ export default function SoftwareStorePage() {
       <div className="sticky top-0 z-40 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 shrink-0">
-            <motion.div
-              className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-indigo-500 flex items-center justify-center shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)]"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-indigo-500/40 to-cyan-400/30 opacity-70" />
-              <Package className="w-4 h-4 text-white relative" />
-            </motion.div>
-            <span className="text-sm font-bold text-white hidden sm:block tracking-tight">Software Store</span>
-          </div>
-
-          <div className="flex-1 max-w-md relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search software..."
-              aria-label="Search software"
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all backdrop-blur-sm"
-            />
+            <a href="/" className="flex items-center gap-3 text-white hover:opacity-80 transition-opacity">
+              <motion.div
+                className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-indigo-500 flex items-center justify-center shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)]"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-indigo-500/40 to-cyan-400/30 opacity-70" />
+                <Package className="w-4 h-4 text-white relative" />
+              </motion.div>
+              <div className="flex flex-col">
+                <span className="text-sm font-bold tracking-tight">Websmith</span>
+                <span className="text-[10px] text-indigo-300 font-medium">Software Store</span>
+              </div>
+            </a>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">

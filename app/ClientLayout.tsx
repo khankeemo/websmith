@@ -13,6 +13,7 @@ import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
 import { PublicThemeProvider, usePublicTheme } from "./providers/PublicThemeProvider";
 import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
+import CookieConsentBanner from "@/components/ui/CookieConsentBanner";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -134,7 +135,8 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const isInternalRoute = pathname?.startsWith("/internal");
   const isCheckoutRoute = Boolean(pathname && isStandaloneCheckoutRoute(pathname));
   const isProductRoute = Boolean(pathname && isStandaloneProductRoute(pathname));
-  const isFocusedStoreRoute = isCheckoutRoute || isProductRoute;
+  const isStoreRoute = Boolean(pathname && isSoftwareStoreRoute(pathname));
+  const isFocusedStoreRoute = isCheckoutRoute || isProductRoute || isStoreRoute;
   const shouldShowSidebar = !isPublicRoute(pathname) && !isInternalRoute;
 
   const user = getStoredUser();
@@ -197,8 +199,9 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
         onLogout={handleForcedPasswordResetLogout}
       />
 
-      {/* ✅ Chat widget only loads on non-internal pages */}
+      {/* ✅ Chat widget & Cookie Consent Banner for public pages */}
       {ChatComponent && <ChatComponent />}
+      <CookieConsentBanner />
 
       <style>{`
         .app-layout-shell {
@@ -264,6 +267,12 @@ const PRODUCT_ROUTE_PREFIX = "/software-store/product";
 
 function isStandaloneProductRoute(pathname: string): boolean {
   return pathname === PRODUCT_ROUTE_PREFIX || pathname.startsWith(`${PRODUCT_ROUTE_PREFIX}/`);
+}
+
+const STORE_ROUTE_PREFIX = "/software-store";
+
+function isSoftwareStoreRoute(pathname: string): boolean {
+  return pathname === STORE_ROUTE_PREFIX || pathname.startsWith(`${STORE_ROUTE_PREFIX}/`);
 }
 
 const styles: any = {

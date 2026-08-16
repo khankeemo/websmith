@@ -2,13 +2,13 @@ import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId, badRequ
 
 export const PUT = apiHandler(async ({ db, request, user, params }) => {
   if (user.role !== "admin" && user.role !== "developer") throw forbidden();
-  const projectId = parseObjectId(params.projectId);
+  const id = parseObjectId(params.id);
   const body = await jsonBody(request);
   const progress = Number(body.progress);
   if (progress === undefined || Number.isNaN(progress)) throw badRequest("Progress is required");
   const clamped = Math.min(100, Math.max(0, progress));
   const result = await db.collection("projects").findOneAndUpdate(
-    { _id: projectId },
+    { _id: id },
     { $set: { progress: clamped, updatedAt: new Date() } },
     { returnDocument: "after" }
   );

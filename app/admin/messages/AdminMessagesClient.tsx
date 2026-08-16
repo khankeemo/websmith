@@ -477,6 +477,7 @@ export default function AdminMessagesClient() {
         templateKey: selectedTemplateKey || defaultTemplateKey || undefined,
         portalUrl: origin,
       });
+      setResolution("");
       await refreshList();
       if (result.emailDelivered) {
         showNotice("success", "Resolution email sent and delivered to the customer.");

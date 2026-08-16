@@ -1,0 +1,1221 @@
+npm notice run websmith@1.0.0 build
+npm notice run next build
+▲ Next.js 16.2.9 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+Turbopack build encountered 13 warnings:
+./app/internal/backend/mailboxes/[id]/sync/route.ts:58:27
+Module not found: Can't resolve 'imap'
+  [90m56 |[0m
+  [90m57 |[0m     [36mtry[0m {
+[31m[1m>[0m [90m58 |[0m       [36mconst[0m [33mImap[0m = ([36mawait[0m [36mimport[0m([32m'imap'[0m)).[36mdefault[0m;
+  [90m   |[0m                           [31m[1m^^^^^^^^^^^^^^[0m
+  [90m59 |[0m       [36mconst[0m { simpleParser } = [36mawait[0m [36mimport[0m([32m'mailparser'[0m);
+  [90m60 |[0m
+  [90m61 |[0m       [36mconst[0m imap = [36mnew[0m [33mImap[0m({
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/[id]/sync/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/mailboxes/[id]/test/route.ts:33:27
+Module not found: Can't resolve 'imap'
+  [90m31 |[0m     [90m// Test IMAP connection[0m
+  [90m32 |[0m     [36mtry[0m {
+[31m[1m>[0m [90m33 |[0m       [36mconst[0m [33mImap[0m = ([36mawait[0m [36mimport[0m([32m'imap'[0m)).[36mdefault[0m;
+  [90m   |[0m                           [31m[1m^^^^^^^^^^^^^^[0m
+  [90m34 |[0m       [36mconst[0m imap = [36mnew[0m [33mImap[0m({
+  [90m35 |[0m         host: mailbox.imap_host,
+  [90m36 |[0m         port: mailbox.imap_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/[id]/test/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/mailboxes/test-connection/route.ts:42:27
+Module not found: Can't resolve 'imap'
+  [90m40 |[0m   [36mconst[0m testImap = [36masync[0m () => {
+  [90m41 |[0m     [36mtry[0m {
+[31m[1m>[0m [90m42 |[0m       [36mconst[0m [33mImap[0m = ([36mawait[0m [36mimport[0m([32m'imap'[0m)).[36mdefault[0m;
+  [90m   |[0m                           [31m[1m^^^^^^^^^^^^^^[0m
+  [90m43 |[0m       [36mawait[0m [36mnew[0m [33mPromise[0m<[36mvoid[0m>((resolve, reject) => {
+  [90m44 |[0m         [36mconst[0m imap = [36mnew[0m [33mImap[0m({
+  [90m45 |[0m           host: imap_host,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/test-connection/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/mailboxes/[id]/sync/route.ts:59:38
+Module not found: Can't resolve 'mailparser'
+  [90m57 |[0m     [36mtry[0m {
+  [90m58 |[0m       [36mconst[0m [33mImap[0m = ([36mawait[0m [36mimport[0m([32m'imap'[0m)).[36mdefault[0m;
+[31m[1m>[0m [90m59 |[0m       [36mconst[0m { simpleParser } = [36mawait[0m [36mimport[0m([32m'mailparser'[0m);
+  [90m   |[0m                                      [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m60 |[0m
+  [90m61 |[0m       [36mconst[0m imap = [36mnew[0m [33mImap[0m({
+  [90m62 |[0m         host: mailbox.imap_host,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/[id]/sync/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/admin/communication/reply/route.ts:178:37
+Module not found: Can't resolve 'nodemailer'
+  [90m176 |[0m         [36mlet[0m messageIdResp = [32m''[0m;
+  [90m177 |[0m         [36mtry[0m {
+[31m[1m>[0m [90m178 |[0m           [36mconst[0m nodemailer = ([36mawait[0m [36mimport[0m([32m'nodemailer'[0m)).[36mdefault[0m;
+  [90m    |[0m                                     [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m179 |[0m           [36mconst[0m transporter = nodemailer.createTransport({
+  [90m180 |[0m             host: mailbox.smtp_host,
+  [90m181 |[0m             port: mailbox.smtp_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/admin/communication/reply/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/admin/communication/send/route.ts:207:35
+Module not found: Can't resolve 'nodemailer'
+  [90m205 |[0m       [36mlet[0m messageId = [32m''[0m;
+  [90m206 |[0m       [36mtry[0m {
+[31m[1m>[0m [90m207 |[0m         [36mconst[0m nodemailer = ([36mawait[0m [36mimport[0m([32m'nodemailer'[0m)).[36mdefault[0m;
+  [90m    |[0m                                   [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m208 |[0m         [36mconst[0m transporter = nodemailer.createTransport({
+  [90m209 |[0m           host: mailbox.smtp_host,
+  [90m210 |[0m           port: mailbox.smtp_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/admin/communication/send/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/communications/queue/process/route.ts:71:35
+Module not found: Can't resolve 'nodemailer'
+  [90m69 |[0m       [36mlet[0m messageId = [32m''[0m;
+  [90m70 |[0m       [36mtry[0m {
+[31m[1m>[0m [90m71 |[0m         [36mconst[0m nodemailer = ([36mawait[0m [36mimport[0m([32m'nodemailer'[0m)).[36mdefault[0m;
+  [90m   |[0m                                   [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m72 |[0m         [36mconst[0m transporter = nodemailer.createTransport({
+  [90m73 |[0m           host: mailbox.smtp_host,
+  [90m74 |[0m           port: mailbox.smtp_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/communications/queue/process/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/mailboxes/[id]/send-test/route.ts:37:33
+Module not found: Can't resolve 'nodemailer'
+  [90m35 |[0m
+  [90m36 |[0m     [36mtry[0m {
+[31m[1m>[0m [90m37 |[0m       [36mconst[0m nodemailer = ([36mawait[0m [36mimport[0m([32m'nodemailer'[0m)).[36mdefault[0m;
+  [90m   |[0m                                 [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m38 |[0m       [36mconst[0m transporter = nodemailer.createTransport({
+  [90m39 |[0m         host: mailbox.smtp_host,
+  [90m40 |[0m         port: mailbox.smtp_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/[id]/send-test/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/mailboxes/[id]/send/route.ts:108:33
+Module not found: Can't resolve 'nodemailer'
+  [90m106 |[0m
+  [90m107 |[0m     [36mtry[0m {
+[31m[1m>[0m [90m108 |[0m       [36mconst[0m nodemailer = ([36mawait[0m [36mimport[0m([32m'nodemailer'[0m)).[36mdefault[0m;
+  [90m    |[0m                                 [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m109 |[0m       [36mconst[0m transporter = nodemailer.createTransport({
+  [90m110 |[0m         host: mailbox.smtp_host,
+  [90m111 |[0m         port: mailbox.smtp_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/[id]/send/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/mailboxes/[id]/sync/route.ts:189:51
+Module not found: Can't resolve 'nodemailer'
+  [90m187 |[0m ...       [36mconst[0m fromAddress = parsed.[36mfrom[0m?.value?.[[35m0[0m]?.address || ([36mfrom[0m.includes([32m'<'[0m) ? ([36m...[0m
+  [90m188 |[0m ...       [36mconst[0m fromLabel = mailbox.display_name ? [32m`"[0m${mailbox.display_name[32m}" <[0m${mailbox....
+[31m[1m>[0m [90m189 |[0m ...       [36mconst[0m nodemailer = ([36mawait[0m [36mimport[0m([32m'nodemailer'[0m)).[36mdefault[0m;
+  [90m    |[0m                                     [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m190 |[0m ...       [36mconst[0m transporter = nodemailer.createTransport({
+  [90m191 |[0m ...         host: mailbox.smtp_host,
+  [90m192 |[0m ...         port: mailbox.smtp_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/[id]/sync/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/mailboxes/[id]/test/route.ts:63:33
+Module not found: Can't resolve 'nodemailer'
+  [90m61 |[0m     [90m// Test SMTP connection[0m
+  [90m62 |[0m     [36mtry[0m {
+[31m[1m>[0m [90m63 |[0m       [36mconst[0m nodemailer = ([36mawait[0m [36mimport[0m([32m'nodemailer'[0m)).[36mdefault[0m;
+  [90m   |[0m                                 [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m64 |[0m       [36mconst[0m transporter = nodemailer.createTransport({
+  [90m65 |[0m         host: mailbox.smtp_host,
+  [90m66 |[0m         port: mailbox.smtp_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/[id]/test/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/backend/mailboxes/test-connection/route.ts:66:33
+Module not found: Can't resolve 'nodemailer'
+  [90m64 |[0m   [36mconst[0m testSmtp = [36masync[0m () => {
+  [90m65 |[0m     [36mtry[0m {
+[31m[1m>[0m [90m66 |[0m       [36mconst[0m nodemailer = ([36mawait[0m [36mimport[0m([32m'nodemailer'[0m)).[36mdefault[0m;
+  [90m   |[0m                                 [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m67 |[0m       [36mconst[0m transporter = nodemailer.createTransport({
+  [90m68 |[0m         host: smtp_host,
+  [90m69 |[0m         port: smtp_port,
+
+
+
+Import trace:
+  App Route:
+    ./app/internal/backend/mailboxes/test-connection/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./next.config.ts
+Encountered unexpected file in NFT list
+A file was traced that indicates that the whole project was traced unintentionally. Somewhere in the import trace below, there are:
+- filesystem operations (like path.join, path.resolve or fs.readFile), or
+- very dynamic requires (like require('./' + foo)).
+To resolve this, you can
+- remove them if possible, or
+- only use them in development, or
+- make sure they are statically scoped to some subfolder: path.join(process.cwd(), 'data', bar), or
+- add ignore comments: path.join(/*turbopackIgnore: true*/ process.cwd(), bar)
+
+Import trace:
+  App Route:
+    ./next.config.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+
+
+> Build error occurred
+Error: Turbopack build failed with 39 errors:
+./lib/public-api/queue.ts:23:1
+Module not found: Can't resolve '@upstash/qstash'
+  [90m21 |[0m
+  [90m22 |[0m [36mimport[0m { getDb } [36mfrom[0m [32m'@/lib/backend-db'[0m;
+[31m[1m>[0m [90m23 |[0m [36mimport[0m { [33mClient[0m } [36mfrom[0m [32m'@upstash/qstash'[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m24 |[0m
+  [90m25 |[0m [90m// ============================================================[0m
+  [90m26 |[0m [90m// CONSTANTS[0m
+
+
+
+Import traces:
+  #1 [App Route]:
+    ./lib/public-api/queue.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  #2 [App Route]:
+    ./lib/public-api/queue.ts
+    ./app/api/internal/publisher/status/[jobId]/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./lib/public-api/rate-limit.ts:6:1
+Module not found: Can't resolve '@upstash/redis'
+  [90m4 |[0m [90m// ============================================================[0m
+  [90m5 |[0m
+[31m[1m>[0m [90m6 |[0m [36mimport[0m { [33mRedis[0m } [36mfrom[0m [32m'@upstash/redis'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m7 |[0m
+  [90m8 |[0m [36mconst[0m redis = [33mRedis[0m.fromEnv();
+  [90m9 |[0m
+
+
+
+Import traces:
+  #1 [App Route]:
+    ./lib/public-api/rate-limit.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  #2 [App Route]:
+    ./lib/public-api/rate-limit.ts
+    ./app/api/v1/trial/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/publisher/zip-builder.ts:30:1
+Module not found: Can't resolve 'archiver'
+  [90m28 |[0m [90m// ✅ FIX: Archiver v8 exports named exports[0m
+  [90m29 |[0m [90m// The Archiver class is the correct export to use[0m
+[31m[1m>[0m [90m30 |[0m [36mimport[0m { [33mZipArchive[0m } [36mfrom[0m [32m'archiver'[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m31 |[0m
+  [90m32 |[0m [36mexport[0m [36minterface[0m [33mZipBuildOptions[0m {
+  [90m33 |[0m   sourcePath: string;
+
+
+
+Import traces:
+  #1 [App Route]:
+    ./app/internal/publisher/zip-builder.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  #2 [App Route]:
+    ./app/internal/publisher/zip-builder.ts
+    ./app/internal/publisher/index.ts
+    ./app/api/internal/publisher/publish-product/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/api/buy/page.tsx:13:1
+Module not found: Can't resolve 'framer-motion'
+  [90m11 |[0m
+  [90m12 |[0m [36mimport[0m { useEffect, useState, useMemo, useCallback } [36mfrom[0m [32m"react"[0m;
+[31m[1m>[0m [90m13 |[0m [36mimport[0m { motion } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m14 |[0m [36mimport[0m {
+  [90m15 |[0m   [33mPackage[0m, [33mLayoutGrid[0m, [33mUser[0m, [33mKeyRound[0m, [33mCreditCard[0m, [33mCheck[0m,
+  [90m16 |[0m   [33mChevronRight[0m, [33mAlertCircle[0m, [33mMail[0m, [33mPhone[0m, [33mShieldCheck[0m, [33mLoader2[0m,
+
+
+
+Import traces:
+  App Route:
+    ./app/internal/api/buy/page.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/internal/api/buy/page.tsx [Client Component Browser]
+    ./app/internal/api/buy/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/internal/api/buy/page.tsx [Client Component SSR]
+    ./app/internal/api/buy/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/api/portal/_ui.tsx:12:1
+Module not found: Can't resolve 'framer-motion'
+  [90m10 |[0m
+  [90m11 |[0m [36mimport[0m { useEffect } [36mfrom[0m [32m"react"[0m;
+[31m[1m>[0m [90m12 |[0m [36mimport[0m { motion, [33mAnimatePresence[0m } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m13 |[0m [36mimport[0m { [33mCheck[0m, [33mX[0m, [33mAlertCircle[0m, [33mShieldCheck[0m, [33mLock[0m } [36mfrom[0m [32m"lucide-react"[0m;
+  [90m14 |[0m
+  [90m15 |[0m [36mexport[0m [36mconst[0m [33mPORTAL_DARK_STYLE[0m = {
+
+
+
+Import traces:
+  App Route:
+    ./app/internal/api/portal/_ui.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/internal/api/portal/_ui.tsx [Client Component Browser]
+    ./app/internal/api/renew/page.tsx [Client Component Browser]
+    ./app/internal/api/renew/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/internal/api/portal/_ui.tsx [Client Component SSR]
+    ./app/internal/api/renew/page.tsx [Client Component SSR]
+    ./app/internal/api/renew/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/internal/api/renew/page.tsx:13:1
+Module not found: Can't resolve 'framer-motion'
+  [90m11 |[0m
+  [90m12 |[0m [36mimport[0m { useEffect, useState, useMemo, useCallback } [36mfrom[0m [32m"react"[0m;
+[31m[1m>[0m [90m13 |[0m [36mimport[0m { motion } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m14 |[0m [36mimport[0m {
+  [90m15 |[0m   [33mKeyRound[0m, [33mLayoutGrid[0m, [33mUser[0m, [33mSmartphone[0m, [33mCreditCard[0m, [33mCheck[0m,
+  [90m16 |[0m   [33mChevronRight[0m, [33mAlertCircle[0m, [33mMail[0m, [33mPhone[0m, [33mShieldCheck[0m, [33mLoader2[0m,
+
+
+
+Import traces:
+  App Route:
+    ./app/internal/api/renew/page.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/internal/api/renew/page.tsx [Client Component Browser]
+    ./app/internal/api/renew/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/internal/api/renew/page.tsx [Client Component SSR]
+    ./app/internal/api/renew/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/software-store/checkout/failed/page.tsx:4:1
+Module not found: Can't resolve 'framer-motion'
+  [90m2 |[0m
+  [90m3 |[0m [36mimport[0m [33mLink[0m [36mfrom[0m [32m"next/link"[0m;
+[31m[1m>[0m [90m4 |[0m [36mimport[0m { motion } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m5 |[0m [36mimport[0m { [33mXCircle[0m, [33mRefreshCw[0m, [33mHeadphonesIcon[0m, [33mShoppingBag[0m, [33mArrowLeft[0m } [36mfrom[0m [32m"lucide-react"[0m;
+  [90m6 |[0m
+  [90m7 |[0m [36mfunction[0m [33mXMarkAnimation[0m() {
+
+
+
+Import traces:
+  App Route:
+    ./app/software-store/checkout/failed/page.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/software-store/checkout/failed/page.tsx [Client Component Browser]
+    ./app/software-store/checkout/failed/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/software-store/checkout/failed/page.tsx [Client Component SSR]
+    ./app/software-store/checkout/failed/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/software-store/checkout/page.tsx:15:1
+Module not found: Can't resolve 'framer-motion'
+  [90m13 |[0m [36mimport[0m { useEffect, useState, useCallback, useMemo, useRef } [36mfrom[0m [32m"react"[0m;
+  [90m14 |[0m [36mimport[0m { useRouter } [36mfrom[0m [32m"next/navigation"[0m;
+[31m[1m>[0m [90m15 |[0m [36mimport[0m { motion, [33mAnimatePresence[0m } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m16 |[0m [36mimport[0m {
+  [90m17 |[0m   [33mShoppingCart[0m, [33mLock[0m, [33mCreditCard[0m, [33mShieldCheck[0m, [33mCheck[0m, [33mX[0m,
+  [90m18 |[0m   [33mChevronRight[0m, [33mAlertCircle[0m, [33mMapPin[0m, [33mBuilding2[0m, [33mGlobe[0m,
+
+
+
+Import traces:
+  App Route:
+    ./app/software-store/checkout/page.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/software-store/checkout/page.tsx [Client Component Browser]
+    ./app/software-store/checkout/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/software-store/checkout/page.tsx [Client Component SSR]
+    ./app/software-store/checkout/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/software-store/checkout/pending/page.tsx:5:1
+Module not found: Can't resolve 'framer-motion'
+  [90m3 |[0m [36mimport[0m { useState, useEffect, useCallback } [36mfrom[0m [32m"react"[0m;
+  [90m4 |[0m [36mimport[0m [33mLink[0m [36mfrom[0m [32m"next/link"[0m;
+[31m[1m>[0m [90m5 |[0m [36mimport[0m { motion } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m6 |[0m [36mimport[0m { [33mClock[0m, [33mRefreshCw[0m, [33mArrowLeft[0m, [33mShoppingBag[0m } [36mfrom[0m [32m"lucide-react"[0m;
+  [90m7 |[0m
+  [90m8 |[0m [36mfunction[0m [33mSpinnerAnimation[0m() {
+
+
+
+Import traces:
+  App Route:
+    ./app/software-store/checkout/pending/page.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/software-store/checkout/pending/page.tsx [Client Component Browser]
+    ./app/software-store/checkout/pending/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/software-store/checkout/pending/page.tsx [Client Component SSR]
+    ./app/software-store/checkout/pending/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/software-store/checkout/success/page.tsx:5:1
+Module not found: Can't resolve 'framer-motion'
+  [90m3 |[0m [36mimport[0m { useEffect, useState } [36mfrom[0m [32m"react"[0m;
+  [90m4 |[0m [36mimport[0m [33mLink[0m [36mfrom[0m [32m"next/link"[0m;
+[31m[1m>[0m [90m5 |[0m [36mimport[0m { motion } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m6 |[0m [36mimport[0m { [33mCheck[0m, [33mDownload[0m, [33mArrowLeft[0m, [33mShoppingBag[0m, [33mArrowRight[0m } [36mfrom[0m [32m"lucide-react"[0m;
+  [90m7 |[0m
+  [90m8 |[0m [36mfunction[0m [33mConfettiBackground[0m() {
+
+
+
+Import traces:
+  App Route:
+    ./app/software-store/checkout/success/page.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/software-store/checkout/success/page.tsx [Client Component Browser]
+    ./app/software-store/checkout/success/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/software-store/checkout/success/page.tsx [Client Component SSR]
+    ./app/software-store/checkout/success/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/software-store/components/store-email-center.tsx:22:1
+Module not found: Can't resolve 'framer-motion'
+  [90m20 |[0m
+  [90m21 |[0m [36mimport[0m { useEffect, useState } [36mfrom[0m [32m"react"[0m;
+[31m[1m>[0m [90m22 |[0m [36mimport[0m { motion } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m23 |[0m [36mimport[0m { [33mMail[0m } [36mfrom[0m [32m"lucide-react"[0m;
+  [90m24 |[0m [36mimport[0m [33mUniversalEmailDialog[0m [36mfrom[0m [32m"@/components/internal-api/UniversalEmailDialog"[0m;
+  [90m25 |[0m [36mimport[0m { [33mSTORAGE_HISTORY_EMAIL_KEY[0m, [33mSTORE_DARK_STYLE[0m } [36mfrom[0m [32m"../store-state"[0m;
+
+
+
+Import traces:
+  App Route:
+    ./app/software-store/components/store-email-center.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/software-store/components/store-email-center.tsx [Client Component Browser]
+    ./app/software-store/page.tsx [Client Component Browser]
+    ./app/software-store/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/software-store/components/store-email-center.tsx [Client Component SSR]
+    ./app/software-store/page.tsx [Client Component SSR]
+    ./app/software-store/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/software-store/components/store-panels.tsx:10:1
+Module not found: Can't resolve 'framer-motion'
+  [90m 8 |[0m
+  [90m 9 |[0m [36mimport[0m { useEffect } [36mfrom[0m [32m"react"[0m;
+[31m[1m>[0m [90m10 |[0m [36mimport[0m { motion, [33mAnimatePresence[0m } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m11 |[0m [36mimport[0m {
+  [90m12 |[0m   [33mShoppingCart[0m, [33mHeart[0m, [33mX[0m, [33mCheck[0m, [33mPlus[0m, [33mMinus[0m, [33mTrash2[0m, [33mArrowRight[0m,
+  [90m13 |[0m   [33mShoppingBag[0m, [33mBookOpen[0m, [33mLifeBuoy[0m, [33mExternalLink[0m, [33mScale[0m, [33mReceipt[0m,
+
+
+
+Import traces:
+  App Route:
+    ./app/software-store/components/store-panels.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/software-store/components/store-panels.tsx [Client Component Browser]
+    ./app/software-store/product/[id]/page.tsx [Client Component Browser]
+    ./app/software-store/product/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/software-store/components/store-panels.tsx [Client Component SSR]
+    ./app/software-store/product/[id]/page.tsx [Client Component SSR]
+    ./app/software-store/product/[id]/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/software-store/page.tsx:14:1
+Module not found: Can't resolve 'framer-motion'
+  [90m12 |[0m [36mimport[0m { useEffect, useMemo, useState, useCallback, useRef } [36mfrom[0m [32m"react"[0m;
+  [90m13 |[0m [36mimport[0m { useRouter } [36mfrom[0m [32m"next/navigation"[0m;
+[31m[1m>[0m [90m14 |[0m [36mimport[0m { motion, [33mAnimatePresence[0m } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m15 |[0m [36mimport[0m {
+  [90m16 |[0m   [33mSearch[0m, [33mShoppingCart[0m, [33mHeart[0m, [33mX[0m, [33mCheck[0m, [33mClock[0m, [33mChevronRight[0m,
+  [90m17 |[0m   [33mStar[0m, [33mLayoutGrid[0m, [33mList[0m, [33mFilter[0m,
+
+
+
+Import traces:
+  App Route:
+    ./app/software-store/page.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/software-store/page.tsx [Client Component Browser]
+    ./app/software-store/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/software-store/page.tsx [Client Component SSR]
+    ./app/software-store/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/software-store/product/[id]/page.tsx:15:1
+Module not found: Can't resolve 'framer-motion'
+  [90m13 |[0m [36mimport[0m { useCallback, useEffect, useState } [36mfrom[0m [32m"react"[0m;
+  [90m14 |[0m [36mimport[0m { useParams, useRouter } [36mfrom[0m [32m"next/navigation"[0m;
+[31m[1m>[0m [90m15 |[0m [36mimport[0m { motion, [33mAnimatePresence[0m } [36mfrom[0m [32m"framer-motion"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m16 |[0m [36mimport[0m {
+  [90m17 |[0m   [33mShoppingCart[0m, [33mHeart[0m, [33mArrowRight[0m, [33mCheck[0m, [33mClock[0m, [33mStar[0m, [33mExternalLink[0m,
+  [90m18 |[0m   [33mBookOpen[0m, [33mLifeBuoy[0m, [33mChevronLeft[0m, [33mShieldCheck[0m, [33mScale[0m, [33mMonitor[0m, [33mTag[0m,
+
+
+
+Import traces:
+  App Route:
+    ./app/software-store/product/[id]/page.tsx
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  Client Component Browser:
+    ./app/software-store/product/[id]/page.tsx [Client Component Browser]
+    ./app/software-store/product/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/software-store/product/[id]/page.tsx [Client Component SSR]
+    ./app/software-store/product/[id]/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/tickets/inbound/route.ts:162:23
+Module not found: Can't resolve 'imap'
+  [90m160 |[0m   [36mconst[0m stats: [33mMailboxSyncStats[0m = { processed: [35m0[0m, matched: [35m0[0m, duplicate: [35m0[0m, senderMismatc...
+  [90m161 |[0m
+[31m[1m>[0m [90m162 |[0m   [36mconst[0m [33mImap[0m = ([36mawait[0m [36mimport[0m([32m"imap"[0m)).[36mdefault[0m;
+  [90m    |[0m                       [31m[1m^^^^^^^^^^^^^^[0m
+  [90m163 |[0m   [36mconst[0m { simpleParser } = [36mawait[0m [36mimport[0m([32m"mailparser"[0m);
+  [90m164 |[0m
+  [90m165 |[0m   [36mconst[0m imap = [36mnew[0m [33mImap[0m({
+
+
+
+Import trace:
+  App Route:
+    ./app/api/tickets/inbound/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./proxy.ts:3:1
+Module not found: Can't resolve 'jose'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+  [90m2 |[0m [36mimport[0m [36mtype[0m { [33mNextRequest[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m3 |[0m [36mimport[0m { jwtVerify } [36mfrom[0m [32m"jose"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m [36mimport[0m { isPublicRoute } [36mfrom[0m [32m"./core/constants/routes"[0m;
+  [90m5 |[0m
+  [90m6 |[0m [36mconst[0m [33mPUBLIC_PATHS[0m = [
+
+
+
+Import trace:
+  App Route:
+    ./proxy.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/tickets/inbound/route.ts:163:34
+Module not found: Can't resolve 'mailparser'
+  [90m161 |[0m
+  [90m162 |[0m   [36mconst[0m [33mImap[0m = ([36mawait[0m [36mimport[0m([32m"imap"[0m)).[36mdefault[0m;
+[31m[1m>[0m [90m163 |[0m   [36mconst[0m { simpleParser } = [36mawait[0m [36mimport[0m([32m"mailparser"[0m);
+  [90m    |[0m                                  [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m164 |[0m
+  [90m165 |[0m   [36mconst[0m imap = [36mnew[0m [33mImap[0m({
+  [90m166 |[0m     host: mailbox.imap_host,
+
+
+
+Import trace:
+  App Route:
+    ./app/api/tickets/inbound/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/auth/change-password/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mMongoClient[0m, [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [36mimport[0m bcrypt [36mfrom[0m [32m"bcryptjs"[0m;
+  [90m4 |[0m [36mimport[0m jwt [36mfrom[0m [32m"jsonwebtoken"[0m;
+  [90m5 |[0m
+
+
+
+Import trace:
+  App Route:
+    ./app/api/auth/change-password/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/auth/forgot-password/reset/route.ts:3:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+  [90m2 |[0m [36mimport[0m { [33mPool[0m } [36mfrom[0m [32m"pg"[0m;
+[31m[1m>[0m [90m3 |[0m [36mimport[0m { [33mMongoClient[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m [36mimport[0m bcrypt [36mfrom[0m [32m"bcryptjs"[0m;
+  [90m5 |[0m
+  [90m6 |[0m [36mconst[0m pool = [36mnew[0m [33mPool[0m({
+
+
+
+Import trace:
+  App Route:
+    ./app/api/auth/forgot-password/reset/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/auth/login/otp/verify/route.ts:8:1
+Module not found: Can't resolve 'mongodb'
+  [90m 6 |[0m
+  [90m 7 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m 8 |[0m [36mimport[0m { [33mMongoClient[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m 9 |[0m [36mimport[0m { [33mPool[0m } [36mfrom[0m [32m"pg"[0m;
+  [90m10 |[0m [36mimport[0m { verifyLoginOtp } [36mfrom[0m [32m"@/lib/otp/login-otp"[0m;
+  [90m11 |[0m [36mimport[0m { toPublicUser, signToken } [36mfrom[0m [32m"@/lib/website-auth"[0m;
+
+
+
+Import trace:
+  App Route:
+    ./app/api/auth/login/otp/verify/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/auth/login/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mMongoClient[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [36mimport[0m bcrypt [36mfrom[0m [32m"bcryptjs"[0m;
+  [90m4 |[0m [36mimport[0m { [33mPool[0m } [36mfrom[0m [32m"pg"[0m;
+  [90m5 |[0m [36mimport[0m { sendLoginOtp } [36mfrom[0m [32m"@/lib/otp/login-otp"[0m;
+
+
+
+Import trace:
+  App Route:
+    ./app/api/auth/login/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/auth/register/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mMongoClient[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [36mimport[0m bcrypt [36mfrom[0m [32m"bcryptjs"[0m;
+  [90m4 |[0m [36mimport[0m jwt [36mfrom[0m [32m"jsonwebtoken"[0m;
+  [90m5 |[0m
+
+
+
+Import trace:
+  App Route:
+    ./app/api/auth/register/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/messages/[peerId]/route.ts:1:98
+Module not found: Can't resolve 'mongodb'
+[31m[1m>[0m [90m1 |[0m ...er, jsonBody, json, badRequest, notFound, forbidden } [36mfrom[0m [32m"@/lib/server/api"[0m;
+  [90m  |[0m                                                                                 [31m[1m^[0m
+[31m[1m>[0m [90m2 |[0m ...[36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m    [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m ...
+  [90m4 |[0m ...piHandler([36masync[0m ({ db, user, params }) => {
+  [90m5 |[0m ...d.toString();
+
+
+
+Import trace:
+  App Route:
+    ./app/api/messages/[peerId]/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/messages/conversations/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { apiHandler, json } [36mfrom[0m [32m"@/lib/server/api"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36mconst[0m [33mGET[0m = apiHandler([36masync[0m ({ db, user }) => {
+  [90m5 |[0m   [36mconst[0m me = user._id.toString();
+
+
+
+Import trace:
+  App Route:
+    ./app/api/messages/conversations/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/messages/send/route.ts:1:87
+Module not found: Can't resolve 'mongodb'
+[31m[1m>[0m [90m1 |[0m ﻿[36mimport[0m { apiHandler, jsonBody, json, badRequest, notFound } [36mfrom[0m [32m"@/lib/server/api"[0m;
+  [90m  |[0m                                                                                    [31m[1m^[0m
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36mconst[0m [33mPOST[0m = apiHandler([36masync[0m ({ db, request, user }) => {
+  [90m5 |[0m   [36mconst[0m body = [36mawait[0m jsonBody(request);
+
+
+
+Import trace:
+  App Route:
+    ./app/api/messages/send/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/payments/[id]/refund/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { apiHandler, jsonBody, json, notFound, parseObjectId, forbidden, badRequest } [36mfrom[0m [32m...[0m
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36mconst[0m [33mPOST[0m = apiHandler([36masync[0m ({ db, request, user, params }) => {
+  [90m5 |[0m   [36mif[0m (user.role !== [32m"admin"[0m) [36mthrow[0m forbidden();
+
+
+
+Import trace:
+  App Route:
+    ./app/api/payments/[id]/refund/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/payments/[id]/route.ts:1:113
+Module not found: Can't resolve 'mongodb'
+[31m[1m>[0m [90m1 |[0m ...Body, json, notFound, parseObjectId, forbidden, badRequest } [36mfrom[0m [32m"@/lib/server/api"[0m;
+  [90m  |[0m                                                                                        [31m[1m^[0m
+[31m[1m>[0m [90m2 |[0m ...[32mngodb"[0m;
+  [90m  |[0m    [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m ...
+  [90m4 |[0m ...[36mnc[0m (db: any, invoiceId: string | [36mnull[0m) => {
+  [90m5 |[0m ...
+
+
+
+Import trace:
+  App Route:
+    ./app/api/payments/[id]/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/payments/route.ts:1:77
+Module not found: Can't resolve 'mongodb'
+[31m[1m>[0m [90m1 |[0m ﻿[36mimport[0m { apiHandler, jsonBody, json, badRequest } [36mfrom[0m [32m"@/lib/server/api"[0m;
+  [90m  |[0m                                                                          [31m[1m^[0m
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36mconst[0m [33mGET[0m = apiHandler([36masync[0m ({ db, user }) => {
+  [90m5 |[0m   [36mconst[0m filter: any = {};
+
+
+
+Import trace:
+  App Route:
+    ./app/api/payments/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/projects/[id]/feedback/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId, badRequest } [36mfrom[0m [32m...[0m
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mconst[0m canViewProject = (user: any, project: any) =>
+  [90m5 |[0m   user.role === [32m"admin"[0m ||
+
+
+
+Import trace:
+  App Route:
+    ./app/api/projects/[id]/feedback/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/projects/bulk-status/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { apiHandler, jsonBody, json, forbidden, badRequest } [36mfrom[0m [32m"@/lib/server/api"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36mconst[0m [33mPOST[0m = apiHandler([36masync[0m ({ db, request, user }) => {
+  [90m5 |[0m   [36mif[0m (user.role !== [32m"admin"[0m) [36mthrow[0m forbidden();
+
+
+
+Import trace:
+  App Route:
+    ./app/api/projects/bulk-status/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/tasks/[id]/route.ts:1:101
+Module not found: Can't resolve 'mongodb'
+[31m[1m>[0m [90m1 |[0m ..., jsonBody, json, forbidden, notFound, parseObjectId } [36mfrom[0m [32m"@/lib/server/api"[0m;
+  [90m  |[0m                                                                                  [31m[1m^[0m
+[31m[1m>[0m [90m2 |[0m ...[36mom[0m [32m"mongodb"[0m;
+  [90m  |[0m    [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m ...
+  [90m4 |[0m ...Handler([36masync[0m ({ db, params }) => {
+  [90m5 |[0m ...ctId(params.id);
+
+
+
+Import trace:
+  App Route:
+    ./app/api/tasks/[id]/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/tasks/bulk-status/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { apiHandler, jsonBody, json, forbidden, badRequest } [36mfrom[0m [32m"@/lib/server/api"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36mconst[0m [33mPOST[0m = apiHandler([36masync[0m ({ db, request, user }) => {
+  [90m5 |[0m   [36mif[0m (user.role === [32m"client"[0m) [36mthrow[0m forbidden();
+
+
+
+Import trace:
+  App Route:
+    ./app/api/tasks/bulk-status/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/tasks/route.ts:1:88
+Module not found: Can't resolve 'mongodb'
+[31m[1m>[0m [90m1 |[0m ﻿[36mimport[0m { apiHandler, jsonBody, json, forbidden, badRequest } [36mfrom[0m [32m"@/lib/server/api"[0m;
+  [90m  |[0m                                                                                     [31m[1m^[0m
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36mconst[0m [33mGET[0m = apiHandler([36masync[0m ({ db, user }) => {
+  [90m5 |[0m   [36mconst[0m filter: any = {};
+
+
+
+Import trace:
+  App Route:
+    ./app/api/tasks/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/tickets/[id]/send-resolution-email/route.ts:1:1
+Module not found: Can't resolve 'mongodb'
+[31m[1m>[0m [90m1 |[0m [36mimport[0m { [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m2 |[0m [36mimport[0m { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId } [36mfrom[0m [32m"@/lib/serve...[0m
+  [90m3 |[0m [36mimport[0m { sendEmail } [36mfrom[0m [32m"@/lib/email/brevo"[0m;
+  [90m4 |[0m [36mimport[0m {
+
+
+
+Import trace:
+  App Route:
+    ./app/api/tickets/[id]/send-resolution-email/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/uploads/[id]/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { parseObjectId, notFound, getMongoUri } [36mfrom[0m [32m"@/lib/server/api"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mMongoClient[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36masync[0m [36mfunction[0m [33mGET[0m(_request: [33mRequest[0m, { params }: { params: [33mPromise[0m<{ id: string }> ...
+  [90m5 |[0m   [36mconst[0m { id } = [36mawait[0m params;
+
+
+
+Import trace:
+  App Route:
+    ./app/api/uploads/[id]/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/users/me/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mMongoClient[0m, [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [36mimport[0m jwt [36mfrom[0m [32m"jsonwebtoken"[0m;
+  [90m4 |[0m
+  [90m5 |[0m [36mfunction[0m toPublicUser(user: any) {
+
+
+
+Import trace:
+  App Route:
+    ./app/api/users/me/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/users/notifications/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mMongoClient[0m, [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [36mimport[0m jwt [36mfrom[0m [32m"jsonwebtoken"[0m;
+  [90m4 |[0m
+  [90m5 |[0m [36mfunction[0m toNotification(doc: any) {
+
+
+
+Import trace:
+  App Route:
+    ./app/api/users/notifications/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/api/users/profile/route.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mMongoClient[0m, [33mObjectId[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [36mimport[0m jwt [36mfrom[0m [32m"jsonwebtoken"[0m;
+  [90m4 |[0m
+  [90m5 |[0m [36mfunction[0m toPublicUser(user: any) {
+
+
+
+Import trace:
+  App Route:
+    ./app/api/users/profile/route.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./lib/server/api.ts:2:1
+Module not found: Can't resolve 'mongodb'
+  [90m1 |[0m [36mimport[0m { [33mNextResponse[0m } [36mfrom[0m [32m"next/server"[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mMongoClient[0m, [33mObjectId[0m, [36mtype[0m [33mDb[0m } [36mfrom[0m [32m"mongodb"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [36mimport[0m jwt [36mfrom[0m [32m"jsonwebtoken"[0m;
+  [90m4 |[0m
+  [90m5 |[0m [36mexport[0m [36mclass[0m [33mHttpError[0m [36mextends[0m [33mError[0m {
+
+
+
+Import traces:
+  #1 [App Route]:
+    ./lib/server/api.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+  #2 [App Route]:
+    ./lib/server/api.ts
+    ./app/api/users/update/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (./lib/public-api/queue.ts:23:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./lib/public-api/rate-limit.ts:6:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/internal/publisher/zip-builder.ts:30:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/internal/api/buy/page.tsx:13:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/internal/api/portal/_ui.tsx:12:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/internal/api/renew/page.tsx:13:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/software-store/checkout/failed/page.tsx:4:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/software-store/checkout/page.tsx:15:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/software-store/checkout/pending/page.tsx:5:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/software-store/checkout/success/page.tsx:5:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/software-store/components/store-email-center.tsx:22:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/software-store/components/store-panels.tsx:10:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/software-store/page.tsx:14:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/software-store/product/[id]/page.tsx:15:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/tickets/inbound/route.ts:162:23)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./proxy.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/tickets/inbound/route.ts:163:34)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/auth/change-password/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/auth/forgot-password/reset/route.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/auth/login/otp/verify/route.ts:8:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/auth/login/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/auth/register/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/messages/[peerId]/route.ts:1:98)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/messages/conversations/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/messages/send/route.ts:1:87)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/payments/[id]/refund/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/payments/[id]/route.ts:1:113)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/payments/route.ts:1:77)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/projects/[id]/feedback/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/projects/bulk-status/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/tasks/[id]/route.ts:1:101)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/tasks/bulk-status/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/tasks/route.ts:1:88)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/tickets/[id]/send-resolution-email/route.ts:1:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/uploads/[id]/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/users/me/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/users/notifications/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/api/users/profile/route.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./lib/server/api.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
