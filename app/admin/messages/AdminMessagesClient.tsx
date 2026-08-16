@@ -37,6 +37,11 @@ import {
   TicketHistoryEntry,
   updateTicketStatus,
 } from "@/core/services/ticketService";
+import { getSiteUrl } from "@/core/config/site";
+
+// Canonical sender identity shown for every admin/outbound message in the
+// Messenger Chat. Replaces any raw "Admin User" string in this component.
+const ADMIN_SENDER_LABEL = "Websmith Support Team";
 
 type Scope = "active" | "closed";
 type Notice = { type: "success" | "error" | "warn"; text: string } | null;
@@ -104,6 +109,12 @@ function ticketPlaceholders(ticket: Ticket | null): Record<string, string> {
     projectName = String((ticket.projectId as any).name);
   }
   const clientId = getClientIdLabel(ticket) ?? "";
+  // portal_url is resolved from the EXISTING application/config source
+  // (core/config/site.ts -> NEXT_PUBLIC_APP_URL, same origin the server route
+  // uses). Never empty / never a raw token: when no origin is resolvable, fall
+  // back to the prescribed customer-facing sentence.
+  const origin = getSiteUrl().replace(/\/$/, "");
+  const portalUrl = origin ? `${origin}/login` : "";
   return {
     request_id: ticket._id,
     client_name: clientName,
@@ -112,6 +123,7 @@ function ticketPlaceholders(ticket: Ticket | null): Record<string, string> {
     query_subject: String(ticket.subject ?? ""),
     query_message: String(ticket.description ?? ""),
     resolution_summary: String(ticket.resolution ?? ""),
+    portal_url: portalUrl || "We will send your Client Portal access details to your email after the conversation is completed.",
     company_name: "Websmith Digital",
     query_status: String(ticket.status ?? ""),
   };
@@ -461,7 +473,16 @@ export default function AdminMessagesClient() {
   const threadMessages = useMemo(() => {
     const list = Array.isArray(selectedTicket?.messages) ? selectedTicket.messages : [];
     if (list.length === 0) return null;
-    return [...list].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const sorted = [...list].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    // Deduplicate by message id: the same inbound reply must never render twice
+    // in the Messenger Chat (requirement: one chronological timeline).
+    const seen = new Set<string>();
+    return sorted.filter((m) => {
+      const key = m.id || m.providerMessageId || `${(m.senderType ?? "unknown")}-${m.createdAt}-${m.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket]);
 
@@ -902,7 +923,7 @@ export default function AdminMessagesClient() {
                         >
                           <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
                             <p style={styles.bubbleSender}>
-                              {m.senderName || (isClient ? "Client" : "Websmith Team")}
+                              {m.senderName || (isClient ? "Client" : ADMIN_SENDER_LABEL)}
                               {m.senderEmail ? ` · ${m.senderEmail}` : ""}
                             </p>
                             <p style={styles.bubbleText}>{m.message}</p>
