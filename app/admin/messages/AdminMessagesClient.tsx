@@ -119,6 +119,16 @@ html.query-inbox-workspace .app-main-scroll {
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
 }
+.qib-conv-subhead {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
 .qib-conv-body {
   flex: 1;
   min-height: 0;
@@ -582,17 +592,17 @@ export default function AdminMessagesClient() {
           }}
           onClick={(event) => event.stopPropagation()}
         >
-          {hasStoredEmail(ticket) && (
-            <button type="button" style={styles.menuItem} onClick={() => { handleResend(ticket); }} disabled={busyId === ticket._id}>
-              <RotateCcw size={13} /> Resend
-            </button>
-          )}
           <button type="button" style={styles.menuItem} onClick={() => handleCardAction(ticket)} disabled={busyId === ticket._id || saving}>
             {isTicketClosed ? "Open" : "Close"}
           </button>
           <button type="button" style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => handleDelete(ticket)} disabled={busyId === ticket._id}>
             <Trash2 size={13} /> Delete
           </button>
+          {hasStoredEmail(ticket) && (
+            <button type="button" style={styles.menuItem} onClick={() => { handleResend(ticket); }} disabled={busyId === ticket._id}>
+              <RotateCcw size={13} /> Resend
+            </button>
+          )}
         </div>
       </>
     );
@@ -743,51 +753,53 @@ export default function AdminMessagesClient() {
         </div>
       </aside>
 
-      <section className="query-inbox-conversation">
-        <header className="qib-topbar">
-          <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
-            <ChevronLeft size={16} />
-            Back to Messages
-          </button>
-          <h2 style={styles.topbarTitle}>Query Conversation</h2>
-        </header>
+       <section className="query-inbox-conversation">
+         <header className="qib-topbar">
+           <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
+             <ChevronLeft size={16} />
+             Back to Messages
+           </button>
+           <h2 style={styles.topbarTitle}>Query Conversation</h2>
+           {selectedTicket && (
+             <>
+               <div style={styles.topbarSpacer} />
+               <span style={selectedTicket.status === "closed" ? styles.topbarDotClosed : styles.topbarDotOpen} />
+               <span style={styles.topbarClient} title={getRequester(selectedTicket).name}>
+                 {getRequester(selectedTicket).name} · {getRequester(selectedTicket).email || getRequester(selectedTicket).subtitle}
+               </span>
+             </>
+           )}
+         </header>
 
-        {!selectedTicket ? (
-          <div style={styles.emptyThread}>
-            <MessageSquare size={40} color="var(--text-secondary)" />
-            <p style={styles.emptyText}>Select a conversation to view the thread.</p>
-          </div>
-        ) : (
+         {!selectedTicket ? (
+           <div style={styles.emptyThread}>
+             <MessageSquare size={40} color="var(--text-secondary)" />
+             <p style={styles.emptyText}>Select a conversation to view the thread.</p>
+           </div>
+         ) : (
            <div className="qib-conv-body" onScroll={closeMenu}>
-            <div style={styles.chatHeader}>
-              <div style={styles.chatTitleBlock}>
-                <h2 style={styles.threadTitle}>{selectedTicket.subject}</h2>
-                <p style={styles.threadSubtitle}>
-                  {getRequester(selectedTicket).name}
-                  {" · "}
-                  {getRequester(selectedTicket).email || getRequester(selectedTicket).subtitle}
-                </p>
-              </div>
-              <div style={styles.chatActions}>
-                {ticketStatusChip(selectedTicket)}
-                <button type="button" onClick={handleSyncInbound} disabled={syncing || saving} style={styles.iconBtn} title="Sync inbound email">
-                  {syncing ? <Loader2 size={15} className="admin-messages-spin" /> : <Mail size={15} />}
-                  <span style={styles.iconBtnLabel}>Sync Inbound</span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="Conversation actions"
-                  onClick={(event) => openCardMenu(event, selectedTicket._id)}
-                  style={{
-                    ...styles.menuButton,
-                    ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}),
-                  }}
-                >
-                  <MoreVertical size={16} />
-                </button>
-                {renderConversationMenu(selectedTicket)}
-              </div>
-            </div>
+             <div className="qib-conv-subhead">
+               <h3 style={styles.convSubject}>{selectedTicket.subject}</h3>
+               <div style={styles.convActions}>
+                 <button type="button" onClick={handleSyncInbound} disabled={syncing || saving} style={styles.iconBtn} title="Sync inbound email">
+                   {syncing ? <Loader2 size={15} className="admin-messages-spin" /> : <Mail size={15} />}
+                   <span style={styles.iconBtnLabel}>Sync Inbound</span>
+                 </button>
+                 <button
+                   type="button"
+                   aria-label="Conversation actions"
+                   onClick={(event) => openCardMenu(event, selectedTicket._id)}
+                   style={{
+                     ...styles.menuButton,
+                     ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}),
+                   }}
+                 >
+                   <MoreVertical size={16} />
+                 </button>
+                 {renderConversationMenu(selectedTicket)}
+               </div>
+             </div>
+
 
             <div style={styles.chatCard}>
               <div className="qib-chat-label-row">
@@ -1059,6 +1071,31 @@ const styles: Record<string, any> = {
     whiteSpace: "nowrap",
   },
   topbarTitle: { margin: 0, fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" },
+  topbarSpacer: { flex: 1, minWidth: 0 },
+  topbarDotOpen: {
+    width: "7px",
+    height: "7px",
+    borderRadius: "999px",
+    backgroundColor: "#34c759",
+    flexShrink: 0,
+  },
+  topbarDotClosed: {
+    width: "7px",
+    height: "7px",
+    borderRadius: "999px",
+    backgroundColor: "#ff3b30",
+    flexShrink: 0,
+  },
+  topbarClient: {
+    fontSize: "13px",
+    color: "var(--text-primary)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    minWidth: 0,
+  },
+  convSubject: { margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", wordBreak: "break-word", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  convActions: { display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 },
   paneHeader: {
     flexShrink: 0,
     padding: "18px 18px 14px",
