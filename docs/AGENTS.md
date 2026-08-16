@@ -883,8 +883,9 @@ Keep `app/page.tsx`'s `FloatingTechnologyBanner` aligned. Never regress:
 
 Keep in sync with the master doc **Progress Tracking ("Admin Messages Query
 Inbox — Fresh Redesign (AWS-01 R01)" + "Admin Messages Query Inbox — Two-Way
-Conversation + Inbound Email + Public Email Branding Cleanup (AWS-01 R01)")
-entries**. Never regress:
+Conversation + Inbound Email + Public Email Branding Cleanup (AWS-01 R01)" +
+"Admin Messages Query Inbox — R01 Phase 2: Workflow + Backend Logic Completion
+(AWS-01 R01, 2026-08-16)") entries**. Never regress:
 
 - **Boundary**: this feature touches ONLY the public admin page
   `app/admin/messages` (client component), its `core/services/ticketService.ts`
@@ -893,16 +894,33 @@ entries**. Never regress:
   and the public Get in Touch → Query Inbox connection. NEVER touch
   `/internal/api/*`, the Communications Center, mailboxes, auth, notifications,
   the storefront, or the public website beyond the Get in Touch form.
+- **Workflow invariants (R01 Phase 2)**: a Get in Touch submission creates ONE
+  ticket with `status:"open"` — it appears under Active, shows Open, is
+  selectable, and nothing ever auto-closes / auto-resolves / auto-mutates it.
+  Close/Open is MANUAL ONLY via `PUT /api/tickets/[id]/status`. The UI derives
+  its Open/Close + read-only state from `status` ONLY (never `chatStatus` —
+  the backend keeps the fields in sync, the UI never reads the second field).
+  The thread renders CLIENT/ADMIN bubbles from `messages[]` (client left, admin
+  right, chronological; green "Sent via email" / red "Email failed" + error
+  title / amber "Stored, not emailed" indicators; `via email` tag on inbound
+  email entries) and falls back to the history timeline only for pre-R01
+  tickets. The Resolution Summary editor stays reachable in the selected
+  conversation at ANY status (incl. right after Close — the pinned ticket keeps
+  the thread + editor open) and the Resolution Email NEVER auto-closes.
 - **Get in Touch never auto-delivers credentials**: the public contact
   submission (`POST /api/tickets/public`) only creates the Query Inbox
-  conversation. The ONLY credential-delivery path is the admin "Send Client
-  Portal Access" action (`POST /api/tickets/[id]/send-client-portal-access`),
+  conversation. The ONLY credential-delivery path is the admin "Send
+  Credentials" button (`POST /api/tickets/[id]/send-client-portal-access`),
   which reuses or creates the client account via `createClientAccount` and
   renders the DB `client-portal-onboarding` template. Temporary passwords are
   securely generated, bcrypt-hashed, NEVER stored/logged, returned once in the
   response, require first-login change, and existing client passwords are never
   overwritten. "Send Resolution Email" NEVER creates accounts and NEVER
-  delivers credentials.
+  delivers credentials. The Send Credentials button (loading + success/error
+  states, "Create Account & Send Credentials" when no account exists) sends
+  ONLY on the explicit admin click and the UI NEVER displays the password —
+  no `send-credentials` endpoint exists (the existing route performs the
+  capability safely; never duplicate it).
 - **No internal markers in customer output**: `-- Client Portal Greeting --` /
   `-- End Client Portal Greeting --` markers exist ONLY as admin-side insertion
   anchors; every customer-bound email body passes through `stripAdminMarkers`.
