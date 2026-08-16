@@ -42,11 +42,11 @@ type Notice = { type: "success" | "error" | "warn"; text: string } | null;
 const formatDate = (value?: string) =>
   value
     ? new Date(value).toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
     : "Just now";
 
 const getStatusLabel = (status: Ticket["status"]) => status.replace("_", " ");
@@ -347,7 +347,7 @@ export default function AdminMessagesClient() {
   };
 
   return (
-    <div className={`query-inbox-shell${selectedTicket ? " query-has-thread" : ""}`} style={styles.shell}>
+    <div className={`query-inbox-shell${selectedTicket ? " query-has-thread" : ""}`} style={styles.shell} data-layout="grid">
       {notice && (
         <div
           role={notice.type === "error" ? "alert" : "status"}
@@ -362,7 +362,7 @@ export default function AdminMessagesClient() {
         </div>
       )}
 
-      <div className="query-inbox-sidebar">
+      <div className="query-inbox-sidebar" style={styles.sidebarContainer}>
         <div style={styles.sidebarHeader}>
           <div>
             <h1 style={styles.title}>Query Inbox</h1>
@@ -504,60 +504,63 @@ export default function AdminMessagesClient() {
           </div>
         ) : (
           <>
-            <div style={styles.chatHeader}>
-              <div style={styles.chatTitleBlock}>
-                <h2 style={styles.threadTitle}>{selectedTicket.subject}</h2>
-                <p style={styles.threadSubtitle}>
-                  {getRequester(selectedTicket).name}
-                  {" · "}
-                  {getRequester(selectedTicket).email || getRequester(selectedTicket).subtitle}
-                </p>
-              </div>
-              <div style={styles.chatActions}>
-                <span style={selectedTicket.status === "closed" ? styles.statusChipClosed : styles.statusChipOpen}>
-                  {getStatusLabel(selectedTicket.status)}
-                </span>
-                <button type="button" onClick={handleSyncInbound} disabled={syncing || saving} style={styles.iconBtn} title="Sync inbound email">
-                  {syncing ? <Loader2 size={15} className="admin-messages-spin" /> : <Mail size={15} />}
-                  <span style={styles.iconBtnLabel}>Sync Inbound</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleStatus(selectedTicket.status === "closed" ? "open" : "closed")}
-                  disabled={saving}
-                  style={selectedTicket.status === "closed" ? styles.chatActionOpen : styles.chatActionClose}
-                >
-                  {selectedTicket.status === "closed" ? "Open" : "Close"}
-                </button>
-                <button
-                  type="button"
-                  aria-label="Conversation actions"
-                  onClick={() => setMenuFor((current) => (current === selectedTicket._id ? null : selectedTicket._id))}
-                  style={{
-                    ...styles.menuButton,
-                    ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}),
-                  }}
-                >
-                  <MoreVertical size={16} />
-                </button>
-                {menuFor === selectedTicket._id && (
-                  <div style={styles.menuHost} onClick={() => setMenuFor(null)}>
-                    <div style={styles.menuDropdown} onClick={(event) => event.stopPropagation()}>
-                      {hasStoredEmail(selectedTicket) && (
-                        <button type="button" style={styles.menuItem} onClick={() => handleResend(selectedTicket)} disabled={busyId === selectedTicket._id}>
-                          <RotateCcw size={13} /> Resend
+            <div style={styles.threadScroller}>
+              <div style={styles.chatHeader}>
+                <div style={styles.chatTitleBlock}>
+                  <h2 style={styles.threadTitle}>{selectedTicket.subject}</h2>
+                  <p style={styles.threadSubtitle}>
+                    {getRequester(selectedTicket).name}
+                    {" · "}
+                    {getRequester(selectedTicket).email || getRequester(selectedTicket).subtitle}
+                  </p>
+                </div>
+                <div style={styles.chatActions}>
+                  <span style={selectedTicket.status === "closed" ? styles.statusChipClosed : styles.statusChipOpen}>
+                    {getStatusLabel(selectedTicket.status)}
+                  </span>
+                  <button type="button" onClick={handleSyncInbound} disabled={syncing || saving} style={styles.iconBtn} title="Sync inbound email">
+                    {syncing ? <Loader2 size={15} className="admin-messages-spin" /> : <Mail size={15} />}
+                    <span style={styles.iconBtnLabel}>Sync Inbound</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStatus(selectedTicket.status === "closed" ? "open" : "closed")}
+                    disabled={saving}
+                    style={selectedTicket.status === "closed" ? styles.chatActionOpen : styles.chatActionClose}
+                  >
+                    {selectedTicket.status === "closed" ? "Open" : "Close"}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Conversation actions"
+                    onClick={() => setMenuFor((current) => (current === selectedTicket._id ? null : selectedTicket._id))}
+                    style={{
+                      ...styles.menuButton,
+                      ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}),
+                    }}
+                  >
+                    <MoreVertical size={16} />
+                  </button>
+                  {menuFor === selectedTicket._id && (
+                    <div style={styles.menuHost} onClick={() => setMenuFor(null)}>
+                      <div style={styles.menuDropdown} onClick={(event) => event.stopPropagation()}>
+                        {hasStoredEmail(selectedTicket) && (
+                          <button type="button" style={styles.menuItem} onClick={() => handleResend(selectedTicket)} disabled={busyId === selectedTicket._id}>
+                            <RotateCcw size={13} /> Resend
+                          </button>
+                        )}
+                        <button type="button" style={styles.menuItem} onClick={() => setSelectedId(null)}>
+                          <X size={13} /> Close Panel
                         </button>
-                      )}
-                      <button type="button" style={styles.menuItem} onClick={() => setSelectedId(null)}>
-                        <X size={13} /> Close Panel
-                      </button>
-                      <button type="button" style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => handleDelete(selectedTicket)} disabled={busyId === selectedTicket._id}>
-                        <Trash2 size={13} /> Delete
-                      </button>
+                        <button type="button" style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => handleDelete(selectedTicket)} disabled={busyId === selectedTicket._id}>
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
+
             </div>
 
             <div style={styles.metaCard}>
@@ -697,41 +700,43 @@ export default function AdminMessagesClient() {
               </div>
             </div>
 
-            <div style={styles.composerCard}>
-              <label style={styles.label}>Client portal / onboarding</label>
-              {accountLoading ? (
-                <p style={styles.portalLine}>
-                  <Loader2 size={13} className="admin-messages-spin" /> Checking account...
-                </p>
-              ) : (
-                <>
-                  <div style={styles.portalRow}>
-                    <span style={styles.portalChip}>{accountStateLabel(account?.state || "not_created")}</span>
-                    {account?.email && <span style={styles.portalLine}>{account.email}</span>}
-                    {account?.clientId && <span style={styles.portalLine}>Client ID: {account.clientId}</span>}
-                    {account?.clientCustomId && <span style={styles.portalLine}>Custom ID: {account.clientCustomId}</span>}
-                    {!account && <span style={styles.portalLine}>No client account linked yet.</span>}
-                  </div>
-                  <p style={styles.portalHint}>
-                    Credentials are emailed only when you click Send Credentials — never automatically.
+            <div style={styles.composerGrid}>
+              <div style={styles.composerCard}>
+                <label style={styles.label}>Client portal / onboarding</label>
+                {accountLoading ? (
+                  <p style={styles.portalLine}>
+                    <Loader2 size={13} className="admin-messages-spin" /> Checking account...
                   </p>
-                  <div style={styles.composerFooter}>
-                    <button
-                      type="button"
-                      onClick={handlePortalAccess}
-                      style={styles.secondaryBtn}
-                      disabled={saving || onboardingBusy}
-                    >
-                      <UserPlus size={14} />
-                      {onboardingBusy
-                        ? "Sending..."
-                        : account?.state === "ready" || account?.state === "existing"
-                          ? "Send Credentials"
-                          : "Create Account & Send Credentials"}
-                    </button>
-                  </div>
-                </>
-              )}
+                ) : (
+                  <>
+                    <div style={styles.portalRow}>
+                      <span style={styles.portalChip}>{accountStateLabel(account?.state || "not_created")}</span>
+                      {account?.email && <span style={styles.portalLine}>{account.email}</span>}
+                      {account?.clientId && <span style={styles.portalLine}>Client ID: {account.clientId}</span>}
+                      {account?.clientCustomId && <span style={styles.portalLine}>Custom ID: {account.clientCustomId}</span>}
+                      {!account && <span style={styles.portalLine}>No client account linked yet.</span>}
+                    </div>
+                    <p style={styles.portalHint}>
+                      Credentials are emailed only when you click Send Credentials — never automatically.
+                    </p>
+                    <div style={styles.composerFooter}>
+                      <button
+                        type="button"
+                        onClick={handlePortalAccess}
+                        style={styles.secondaryBtn}
+                        disabled={saving || onboardingBusy}
+                      >
+                        <UserPlus size={14} />
+                        {onboardingBusy
+                          ? "Sending..."
+                          : account?.state === "ready" || account?.state === "existing"
+                            ? "Send Credentials"
+                            : "Create Account & Send Credentials"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             <div style={styles.composerCard}>
@@ -762,8 +767,13 @@ export default function AdminMessagesClient() {
 
 const styles: Record<string, any> = {
   shell: {
+    display: "grid",
+    gridTemplateColumns: "385px 1fr",
+    gap: "24px",
     padding: "24px",
     minHeight: "calc(100vh - 48px)",
+    maxHeight: "calc(100vh - 48px)",
+    overflow: "hidden",
   },
   notice: {
     position: "fixed",
@@ -790,6 +800,15 @@ const styles: Record<string, any> = {
     flexDirection: "column",
     gap: "14px",
     flexShrink: 0,
+  },
+  sidebarContainer: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    borderRadius: "20px",
+    backgroundColor: "var(--bg-primary)",
+    border: "1px solid var(--border-color)",
+    overflow: "hidden",
   },
   title: { margin: 0, fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" },
   subtitle: { margin: "6px 0 0 0", color: "var(--text-secondary)", fontSize: "13px", lineHeight: 1.5 },
@@ -971,7 +990,28 @@ const styles: Record<string, any> = {
     display: "flex",
     flexDirection: "column",
     gap: "16px",
+    overflow: "hidden",
+    height: "100%",
+  },
+  threadScroller: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
     overflowY: "auto",
+    flex: 1,
+    minHeight: 0,
+  },
+  composerGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "16px",
+    flexShrink: 0,
+  },
+  composerGridFull: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "16px",
+    flexShrink: 0,
   },
   emptyThread: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "12px" },
   chatHeader: { display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" },
@@ -1023,13 +1063,19 @@ const styles: Record<string, any> = {
     border: "1px solid var(--border-color)",
   },
   metaItem: { display: "flex", alignItems: "center", gap: "7px", color: "var(--text-primary)", fontSize: "12px", minWidth: 0 },
-  chatBody: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
+  chatBody: {
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
+    maxHeight: "50%",
+  },
   timeline: {
     display: "flex",
     flexDirection: "column",
     gap: "12px",
     padding: "4px 2px",
-    maxHeight: "340px",
+    maxHeight: "100%",
     overflowY: "auto",
     flex: 1,
   },
@@ -1133,7 +1179,7 @@ const styles: Record<string, any> = {
     flexDirection: "column",
     gap: "10px",
     padding: "4px 2px",
-    maxHeight: "340px",
+    maxHeight: "100%",
     overflowY: "auto",
     flex: 1,
   },
