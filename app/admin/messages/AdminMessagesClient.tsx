@@ -62,7 +62,7 @@ const formatDate = (value?: string) =>
 const getStatusLabel = (status: TicketStatus) => status.replace("_", " ");
 
 function hasStoredEmail(ticket: Ticket): TicketHistoryEntry | null {
-  const history = ticket.history ?? [];
+  const history = Array.isArray(ticket.history) ? ticket.history : [];
   return [...history].reverse().find((entry) => entry.recipient && entry.emailSubject && entry.emailBody) || null;
 }
 
@@ -927,30 +927,30 @@ export default function AdminMessagesClient() {
             {/* ============================ CHAT HISTORY ============================ */}
             <div style={styles.chatBody}>
               <div ref={chatScrollRef} style={styles.chatHistory}>
-                {selectedTicket.messages && selectedTicket.messages.length > 0 ? (
+                {Array.isArray(selectedTicket.messages) && selectedTicket.messages.length > 0 ? (
                   selectedTicket.messages.map((message) => <ThreadBubble key={message.id} message={message} />)
                 ) : (
-                  (selectedTicket.history || []).map((entry, index) => (
+                  (Array.isArray(selectedTicket.history) ? selectedTicket.history : []).map((entry, index) => (
                     <div key={`${entry.createdAt}-${index}`} style={styles.timelineItem}>
                       <div style={styles.timelineDot} />
                       <div style={styles.timelineContent}>
                         <p style={styles.timelineLabel}>
-                          {entry.actorRole.replace("_", " ")} · {entry.action.replace("_", " ")}
+                          {String(entry?.actorRole || "system").replace("_", " ")} · {String(entry?.action || "update").replace("_", " ")}
                         </p>
                         {entry.emailSubject && (
                           <p style={styles.timelineEmailSubject}>
-                            {entry.action === "resend" && entry.originalAction ? `Resent (${entry.originalAction.replace("_", " ")})` : "Email"} — {entry.emailSubject}
+                            {entry.action === "resend" && entry.originalAction ? `Resent (${String(entry.originalAction).replace("_", " ")})` : "Email"} — {entry.emailSubject}
                           </p>
                         )}
                         {entry.message?.trim() ? (
                           <p style={styles.timelineMessage}>{entry.message}</p>
-                        ) : entry.attachments?.length ? null : (
+                        ) : Array.isArray(entry.attachments) && entry.attachments.length ? null : (
                           <p style={styles.timelineMessage}>No message provided.</p>
                         )}
                         {entry.recipient && (
                           <p style={styles.timelineRecipient}>To: {entry.recipient}</p>
                         )}
-                        {entry.attachments && entry.attachments.length > 0 && (
+                        {Array.isArray(entry.attachments) && entry.attachments.length > 0 && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
                             {entry.attachments.map((att, ai) => (
                               <a
