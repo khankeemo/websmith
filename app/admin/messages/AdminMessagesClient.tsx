@@ -656,7 +656,7 @@ export default function AdminMessagesClient() {
                           setSelectedId(ticket._id);
                         }
                       }}
-                      className={ticket._id === selectedTicket?._id ? "query-ticket-active" : ""}
+                      className={ticket._id === selectedTicket?._id ? "query-ticket-row query-ticket-active" : "query-ticket-row"}
                       style={{
                         ...styles.ticketRow,
                         ...(ticket._id === selectedTicket?._id ? styles.ticketRowActive : {}),
@@ -1024,7 +1024,7 @@ export default function AdminMessagesClient() {
               <div style={styles.onboardingCardCompact}>
                 <div style={styles.cardHeaderRow}>
                   <label style={styles.cardHeaderTitle}>
-                    <UserPlus size={15} color="#007AFF" /> Client Portal Access
+                    <UserPlus size={15} color="#007AFF" /> CLIENT PORTAL
                   </label>
                   <span
                     style={{
@@ -1035,9 +1035,18 @@ export default function AdminMessagesClient() {
                     {getAccountLabel(accountState)}
                   </span>
                 </div>
-                <p style={styles.cardHint}>
-                  Send credentials (Client ID, login, temp password, portal URL, first-login instructions).
-                </p>
+                <div style={styles.onboardingInfoRow}>
+                  <span style={styles.onboardingInfo}>
+                    <Hash size={13} color="var(--text-secondary)" />
+                    Client ID: {getClientIdLabel(selectedTicket) || "—"}
+                  </span>
+                  {selectedTicket.contactEmail ? (
+                    <span style={styles.onboardingInfo}>
+                      <Mail size={13} color="var(--text-secondary)" />
+                      {selectedTicket.contactEmail}
+                    </span>
+                  ) : null}
+                </div>
                 <div style={styles.composerFooter}>
                   <button
                     type="button"
@@ -1077,7 +1086,12 @@ export default function AdminMessagesClient() {
 
               {/* Phase 7 + 8: Resolution Summary + Resolution Email */}
               <div style={styles.composerCard}>
-                <label style={styles.label}>Resolution Summary</label>
+                <div style={styles.cardHeaderRow}>
+                  <label style={styles.cardHeaderTitle}>
+                    <FileCheck2 size={15} color="#007AFF" /> RESOLUTION
+                  </label>
+                </div>
+                <label style={{ ...styles.label, marginTop: "12px" }}>Resolution Summary</label>
                 <textarea
                   value={resolution}
                   onChange={(event) => setResolution(event.target.value)}
@@ -1530,12 +1544,12 @@ ticketRow: {
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-primary)",
     borderRadius: "14px",
-    padding: "12px",
+    padding: "12px 14px",
     width: "100%",
     cursor: "pointer",
     display: "flex",
     flexDirection: "column",
-    gap: "5px",
+    gap: "7px",
   },
   ticketRowActive: {
     borderColor: "#007AFF55",
@@ -1622,8 +1636,8 @@ ticketRow: {
     position: "relative",
   },
   menuButton: {
-    width: "28px",
-    height: "28px",
+    width: "32px",
+    height: "32px",
     borderRadius: "8px",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-primary)",
@@ -1672,7 +1686,7 @@ ticketRow: {
     alignItems: "center",
     justifyContent: "center",
     gap: "8px",
-    padding: "10px 14px",
+    padding: "8px 14px",
     borderRadius: "12px",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-secondary)",
@@ -1698,7 +1712,7 @@ ticketRow: {
   chatHeader: {
     display: "flex",
     justifyContent: "space-between",
-    gap: "12px",
+    gap: "10px",
     flexWrap: "wrap",
     alignItems: "flex-start",
   },
@@ -1708,7 +1722,7 @@ ticketRow: {
   },
   chatTitle: {
     margin: 0,
-    fontSize: "18px",
+    fontSize: "16px",
     fontWeight: 600,
     color: "var(--text-primary)",
     overflow: "hidden",
@@ -1716,7 +1730,7 @@ ticketRow: {
     whiteSpace: "nowrap",
   },
   chatSubtitle: {
-    margin: "6px 0 0 0",
+    margin: "3px 0 0 0",
     color: "var(--text-secondary)",
     fontSize: "13px",
   },
@@ -1844,7 +1858,10 @@ iconBtn: {
   // ---- Chat body ----
   chatBody: {
     flex: 1,
-    minHeight: 0,
+    // Floor so the history never collapses to 0 on short viewports (the
+    // thread pane scrolls the remainder; the history keeps its own internal
+    // scroll inside this region).
+    minHeight: 240,
     position: "relative",
     overflow: "hidden",
   },
@@ -1948,6 +1965,8 @@ iconBtn: {
   cardHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" },
   cardHeaderTitle: { display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" },
   cardHint: { margin: "10px 0 0", fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.6 },
+  onboardingInfoRow: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginTop: "8px" },
+  onboardingInfo: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-secondary)" },
   label: { display: "block", marginBottom: "8px", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" },
   textareaCompact: {
     width: "100%",
@@ -2076,7 +2095,7 @@ iconBtn: {
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
     borderRadius: "12px",
-    padding: "10px 14px",
+    padding: "8px 14px",
     fontWeight: 700,
     cursor: "pointer",
   },
@@ -2088,7 +2107,7 @@ iconBtn: {
     backgroundColor: "var(--bg-secondary)",
     color: "var(--text-primary)",
     borderRadius: "12px",
-    padding: "10px 14px",
+    padding: "8px 14px",
     fontWeight: 600,
     cursor: "pointer",
   },
@@ -2100,7 +2119,7 @@ iconBtn: {
     backgroundColor: "#FF3B30",
     color: "#FFFFFF",
     borderRadius: "12px",
-    padding: "10px 14px",
+    padding: "8px 14px",
     fontWeight: 700,
     cursor: "pointer",
   },
@@ -2112,7 +2131,7 @@ iconBtn: {
     backgroundColor: "#34C759",
     color: "#FFFFFF",
     borderRadius: "12px",
-    padding: "10px 14px",
+    padding: "8px 14px",
     fontWeight: 700,
     cursor: "pointer",
   },

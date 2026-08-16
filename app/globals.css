@@ -1101,3 +1101,70 @@ main.app-main-shell[data-shell="panel"] .app-main-scroll {
     height: calc(100vh - 24px);
   }
 }
+
+/* Phase 1 redesign — exact 385px inbox, card states, scoped control polish */
+.query-inbox-sidebar {
+  min-width: 385px;
+  max-width: 385px;
+}
+
+.query-ticket-row {
+  transition:
+    border-color 0.18s ease-out,
+    background-color 0.18s ease-out,
+    box-shadow 0.18s ease-out;
+}
+.query-ticket-row:hover {
+  border-color: #007aff55;
+  background-color: rgba(0, 122, 255, 0.04);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+.query-ticket-row:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.query-ticket-row.query-ticket-active {
+  border-color: #007aff;
+  background-color: rgba(0, 122, 255, 0.08);
+  box-shadow: 0 0 0 1px #007aff33;
+}
+.query-ticket-row.query-ticket-active:hover {
+  background-color: rgba(0, 122, 255, 0.12);
+}
+
+/* Scoped workspace control states — consistent hover/focus/disabled */
+.query-inbox-shell button,
+.query-inbox-shell select,
+.query-inbox-shell textarea,
+.query-inbox-shell input {
+  transition:
+    background-color 0.18s ease-out,
+    border-color 0.18s ease-out,
+    color 0.18s ease-out,
+    box-shadow 0.18s ease-out,
+    filter 0.18s ease-out;
+}
+.query-inbox-shell button:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+.query-inbox-shell button:focus-visible,
+.query-inbox-shell select:focus-visible,
+.query-inbox-shell textarea:focus-visible,
+.query-inbox-shell input:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.query-inbox-shell button:disabled,
+.query-inbox-shell select:disabled,
+.query-inbox-shell textarea:disabled,
+.query-inbox-shell input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 899px) {
+  .query-inbox-sidebar {
+    min-width: 0;
+    max-width: none;
+  }
+}
