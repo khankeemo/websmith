@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
@@ -256,6 +257,29 @@ export default function AdminMessagesClient() {
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [menuRect, setMenuRect] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const menuEstimatedHeight = 170;
+
+  const closeMenu = () => {
+    setMenuFor(null);
+    setMenuRect(null);
+  };
+
+  const openCardMenu = (event: React.MouseEvent<HTMLButtonElement>, ticketId: string) => {
+    event.stopPropagation();
+    if (menuFor === ticketId) {
+      closeMenu();
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const openUp = rect.bottom + menuEstimatedHeight > window.innerHeight;
+    setMenuRect({
+      right: window.innerWidth - rect.right,
+      top: openUp ? undefined : rect.bottom + 6,
+      bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
+    });
+    setMenuFor(ticketId);
+  };
   const [templates, setTemplates] = useState<Array<{ key: string; name: string; body?: string; isDefault?: boolean }>>([]);
   const [greetingKey, setGreetingKey] = useState("");
   const [resolutionTemplateKey, setResolutionTemplateKey] = useState("");
@@ -543,23 +567,44 @@ export default function AdminMessagesClient() {
   };
 
   const renderConversationMenu = (ticket: Ticket) => {
-    if (menuFor !== ticket._id) return null;
+    if (menuFor !== ticket._id || !menuRect) return null;
+    const isTicketClosed = ticket.status === "closed";
     return (
-      <div style={styles.menuHost} onClick={() => setMenuFor(null)}>
-        <div style={styles.menuDropdown} onClick={(event) => event.stopPropagation()}>
+      <>
+        <div style={styles.menuBackdrop} onClick={closeMenu} />
+        <div
+          style={{
+            ...styles.menuDropdown,
+            position: "fixed",
+            right: menuRect.right,
+            top: menuRect.top,
+            bottom: menuRect.bottom,
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
           {hasStoredEmail(ticket) && (
-            <button type="button" style={styles.menuItem} onClick={() => handleResend(ticket)} disabled={busyId === ticket._id}>
+            <button type="button" style={styles.menuItem} onClick={() => { handleResend(ticket); }} disabled={busyId === ticket._id}>
               <RotateCcw size={13} /> Resend
             </button>
           )}
-          <button type="button" style={styles.menuItem} onClick={() => setSelectedTicket(null)}>
-            <X size={13} /> Close Panel
+          <button type="button" style={styles.menuItem} onClick={() => handleCardAction(ticket)} disabled={busyId === ticket._id || saving}>
+            {isTicketClosed ? "Open" : "Close"}
           </button>
           <button type="button" style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => handleDelete(ticket)} disabled={busyId === ticket._id}>
             <Trash2 size={13} /> Delete
           </button>
         </div>
-      </div>
+      </>
+    );
+  };
+
+  const ticketStatusChip = (ticket: Ticket) => {
+    const isTicketClosed = ticket.status === "closed";
+    return (
+      <span style={isTicketClosed ? styles.ticketStatusClosed : styles.ticketStatusOpen}>
+        <span style={isTicketClosed ? styles.statusDotClosed : styles.statusDotOpen} />
+        {isTicketClosed ? "Closed" : ticket.status === "open" ? "Open" : getStatusLabel(ticket.status)}
+      </span>
     );
   };
 
@@ -624,7 +669,7 @@ export default function AdminMessagesClient() {
           </div>
         </div>
 
-        <div className="qib-ticket-list">
+        <div className="qib-ticket-list" onScroll={closeMenu}>
           {loading ? (
             <p style={styles.emptyText}>Loading queries...</p>
           ) : tickets.length === 0 ? (
@@ -640,7 +685,7 @@ export default function AdminMessagesClient() {
                     <button
                       type="button"
                       onClick={() => {
-                        setMenuFor(null);
+                        closeMenu();
                         setSelectedTicket(ticket);
                       }}
                       className={`query-ticket-row${selected ? " query-ticket-active" : ""}`}
@@ -666,24 +711,11 @@ export default function AdminMessagesClient() {
                       </div>
                     </button>
                     <div style={styles.cardActions}>
-                      <span style={isTicketClosed ? styles.ticketStatusClosed : styles.ticketStatusOpen}>
-                        {getStatusLabel(ticket.status)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCardAction(ticket)}
-                        disabled={busyId === ticket._id || saving}
-                        style={isTicketClosed ? styles.chatActionOpen : styles.chatActionClose}
-                      >
-                        {busyId === ticket._id ? <Loader2 size={13} className="admin-messages-spin" /> : isTicketClosed ? "Open" : "Close"}
-                      </button>
+                      {ticketStatusChip(ticket)}
                       <button
                         type="button"
                         aria-label="More actions"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setMenuFor((current) => (current === ticket._id ? null : ticket._id));
-                        }}
+                        onClick={(event) => openCardMenu(event, ticket._id)}
                         style={{
                           ...styles.menuButton,
                           ...(menuFor === ticket._id ? styles.menuButtonActive : {}),
@@ -726,7 +758,7 @@ export default function AdminMessagesClient() {
             <p style={styles.emptyText}>Select a conversation to view the thread.</p>
           </div>
         ) : (
-          <div className="qib-conv-body">
+           <div className="qib-conv-body" onScroll={closeMenu}>
             <div style={styles.chatHeader}>
               <div style={styles.chatTitleBlock}>
                 <h2 style={styles.threadTitle}>{selectedTicket.subject}</h2>
@@ -737,25 +769,15 @@ export default function AdminMessagesClient() {
                 </p>
               </div>
               <div style={styles.chatActions}>
-                <span style={selectedTicket.status === "closed" ? styles.statusChipClosed : styles.statusChipOpen}>
-                  {getStatusLabel(selectedTicket.status)}
-                </span>
+                {ticketStatusChip(selectedTicket)}
                 <button type="button" onClick={handleSyncInbound} disabled={syncing || saving} style={styles.iconBtn} title="Sync inbound email">
                   {syncing ? <Loader2 size={15} className="admin-messages-spin" /> : <Mail size={15} />}
                   <span style={styles.iconBtnLabel}>Sync Inbound</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleStatus(selectedTicket.status === "closed" ? "open" : "closed")}
-                  disabled={saving}
-                  style={selectedTicket.status === "closed" ? styles.chatActionOpen : styles.chatActionClose}
-                >
-                  {selectedTicket.status === "closed" ? "Open" : "Close"}
-                </button>
-                <button
-                  type="button"
                   aria-label="Conversation actions"
-                  onClick={() => setMenuFor((current) => (current === selectedTicket._id ? null : selectedTicket._id))}
+                  onClick={(event) => openCardMenu(event, selectedTicket._id)}
                   style={{
                     ...styles.menuButton,
                     ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}),
@@ -1146,8 +1168,26 @@ const styles: Record<string, any> = {
     WebkitLineClamp: 1,
     WebkitBoxOrient: "vertical",
   },
-  ticketStatusOpen: { textTransform: "capitalize", color: "#007AFF", fontSize: "11px", fontWeight: 700, whiteSpace: "nowrap" },
-  ticketStatusClosed: { textTransform: "capitalize", color: "var(--text-secondary)", fontSize: "11px", fontWeight: 700, whiteSpace: "nowrap" },
+  ticketStatusOpen: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+    color: "#1d7a31",
+    fontSize: "11px",
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+  },
+  ticketStatusClosed: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+    color: "#c81e12",
+    fontSize: "11px",
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+  },
+  statusDotOpen: { width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#34c759", flexShrink: 0 },
+  statusDotClosed: { width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#ff3b30", flexShrink: 0 },
   ticketMeta: { margin: 0, fontSize: "12px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   ticketMetaMuted: { margin: 0, fontSize: "11px", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   ticketRowBottom: { display: "flex", justifyContent: "space-between", gap: "8px", marginTop: "auto", paddingTop: "2px" },
@@ -1205,16 +1245,12 @@ const styles: Record<string, any> = {
     color: "#007AFF",
     backgroundColor: "rgba(0,122,255,0.06)",
   },
-  menuHost: {
+  menuBackdrop: {
     position: "fixed",
     inset: 0,
-    zIndex: 50,
-    backgroundColor: "rgba(0,0,0,0.02)",
+    zIndex: 20,
   },
   menuDropdown: {
-    position: "absolute",
-    top: "8px",
-    right: "8px",
     minWidth: "170px",
     backgroundColor: "var(--bg-primary)",
     border: "1px solid var(--border-color)",
@@ -1223,7 +1259,7 @@ const styles: Record<string, any> = {
     padding: "6px",
     display: "flex",
     flexDirection: "column",
-    zIndex: 60,
+    zIndex: 30,
   },
   menuItem: {
     display: "flex",
