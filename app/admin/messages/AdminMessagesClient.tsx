@@ -1690,7 +1690,7 @@ ticketRow: {
     flexDirection: "column",
     gap: "12px",
     minHeight: "calc(100vh - 48px)",
-    overflow: "hidden",
+    overflowY: "auto",
   },
   emptyThread: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "12px" },
   emptyText: { color: "var(--text-secondary)", fontSize: "14px" },
@@ -1930,8 +1930,6 @@ iconBtn: {
     display: "flex",
     flexDirection: "column",
     gap: "12px",
-    maxHeight: "300px",
-    overflowY: "auto",
     paddingTop: "4px",
   },
   // ---- Composer cards ----
