@@ -636,62 +636,64 @@ export default function AdminMessagesClient() {
               const isTicketClosed = ticket.status === "closed";
               return (
                 <div key={ticket._id} style={styles.cardWrap}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuFor(null);
-                      setSelectedTicket(ticket);
-                    }}
-                    className={`query-ticket-row${selected ? " query-ticket-active" : ""}`}
-                    style={styles.ticketRow}
-                  >
-                    <div style={styles.ticketRowTop}>
-                      <strong style={styles.ticketSubject} title={ticket.subject}>
-                        {ticket.subject}
-                      </strong>
-                      {ticket.hasNewClientReply && (
-                        <span style={styles.unreadDot} title="New client reply" aria-label="New client reply" />
-                      )}
+                  <div style={styles.cardHeader}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuFor(null);
+                        setSelectedTicket(ticket);
+                      }}
+                      className={`query-ticket-row${selected ? " query-ticket-active" : ""}`}
+                      style={styles.ticketRow}
+                    >
+                      <div style={styles.ticketRowTop}>
+                        <strong style={styles.ticketSubject} title={ticket.subject}>
+                          {ticket.subject}
+                        </strong>
+                        {ticket.hasNewClientReply && (
+                          <span style={styles.unreadDot} title="New client reply" aria-label="New client reply" />
+                        )}
+                      </div>
+                      <p style={styles.ticketMeta} title={requester.name}>
+                        {requester.name}
+                      </p>
+                      <p style={styles.ticketMetaMuted} title={requester.email}>
+                        {requester.email || requester.subtitle}
+                      </p>
+                      <div style={styles.ticketRowBottom}>
+                        <span style={styles.ticketTime}>{formatDate(ticket.createdAt)}</span>
+                        <span style={styles.ticketTime}>{getClientIdLabel(ticket) ? `ID: ${getClientIdLabel(ticket)}` : ""}</span>
+                      </div>
+                    </button>
+                    <div style={styles.cardActions}>
                       <span style={isTicketClosed ? styles.ticketStatusClosed : styles.ticketStatusOpen}>
                         {getStatusLabel(ticket.status)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCardAction(ticket)}
+                        disabled={busyId === ticket._id || saving}
+                        style={isTicketClosed ? styles.chatActionOpen : styles.chatActionClose}
+                      >
+                        {busyId === ticket._id ? <Loader2 size={13} className="admin-messages-spin" /> : isTicketClosed ? "Open" : "Close"}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="More actions"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setMenuFor((current) => (current === ticket._id ? null : ticket._id));
+                        }}
+                        style={{
+                          ...styles.menuButton,
+                          ...(menuFor === ticket._id ? styles.menuButtonActive : {}),
+                        }}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
                     </div>
-                    <p style={styles.ticketMeta} title={requester.name}>
-                      {requester.name}
-                    </p>
-                    <p style={styles.ticketMetaMuted} title={requester.email}>
-                      {requester.email || requester.subtitle}
-                    </p>
-                    <div style={styles.ticketRowBottom}>
-                      <span style={styles.ticketTime}>{formatDate(ticket.createdAt)}</span>
-                      <span style={styles.ticketTime}>{getClientIdLabel(ticket) ? `ID: ${getClientIdLabel(ticket)}` : ""}</span>
-                    </div>
-                  </button>
-                  <div style={styles.cardControls}>
-                    <button
-                      type="button"
-                      onClick={() => handleCardAction(ticket)}
-                      disabled={busyId === ticket._id || saving}
-                      style={isTicketClosed ? styles.chatActionOpen : styles.chatActionClose}
-                    >
-                      {busyId === ticket._id ? <Loader2 size={13} className="admin-messages-spin" /> : isTicketClosed ? "Open" : "Close"}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="More actions"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setMenuFor((current) => (current === ticket._id ? null : ticket._id));
-                      }}
-                      style={{
-                        ...styles.menuButton,
-                        ...(menuFor === ticket._id ? styles.menuButtonActive : {}),
-                      }}
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-                    {renderConversationMenu(ticket)}
                   </div>
+                  {renderConversationMenu(ticket)}
                 </div>
               );
             })
@@ -1102,14 +1104,28 @@ const styles: Record<string, any> = {
     fontWeight: 600,
     cursor: "pointer",
   },
-  cardWrap: { position: "relative", flexShrink: 0 },
+  cardWrap: { flexShrink: 0 },
+  cardHeader: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: "10px",
+  },
+  cardActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    flexShrink: 0,
+    paddingTop: "10px",
+  },
   ticketRow: {
     textAlign: "left",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-primary)",
     borderRadius: "14px",
     padding: "10px 12px",
-    width: "100%",
+    flex: "1 1 auto",
+    minWidth: 0,
     minHeight: "100px",
     cursor: "pointer",
     display: "flex",
@@ -1118,6 +1134,8 @@ const styles: Record<string, any> = {
   },
   ticketRowTop: { display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "flex-start" },
   ticketSubject: {
+    flex: 1,
+    minWidth: 0,
     color: "var(--text-primary)",
     fontSize: "13px",
     fontWeight: 700,
@@ -1141,14 +1159,6 @@ const styles: Record<string, any> = {
     backgroundColor: "#ff3b30",
     flexShrink: 0,
     marginTop: "4px",
-  },
-  cardControls: {
-    position: "absolute",
-    top: "10px",
-    right: "8px",
-    display: "flex",
-    gap: "4px",
-    zIndex: 2,
   },
   chatActionClose: {
     display: "inline-flex",
