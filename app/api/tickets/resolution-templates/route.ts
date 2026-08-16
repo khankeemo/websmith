@@ -11,6 +11,7 @@ export const GET = apiHandler(async ({ db, user }) => {
       name: template.name,
       category: template.category,
       subject: template.subject,
+      body: template.body,
       isActive: template.isActive,
       isDefault: template.isDefault,
     })),

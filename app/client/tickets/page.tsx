@@ -55,10 +55,12 @@ export default function ClientTicketsPage() {
     [sortedTickets, selectedId]
   );
 
+  // Single source of truth: `status` is authoritative (the backend status API
+  // keeps `chatStatus` in sync with it). Resolved / closed queries are
+  // read-only for the client.
   const isReadonly =
     selectedTicket?.status === "resolved" ||
-    selectedTicket?.status === "closed" ||
-    selectedTicket?.chatStatus === "closed";
+    selectedTicket?.status === "closed";
 
   const loadData = async () => {
     const [ticketData, projectData] = await Promise.all([getTickets(), getProjects()]);

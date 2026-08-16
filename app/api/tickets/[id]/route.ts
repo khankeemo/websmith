@@ -77,6 +77,7 @@ export const DELETE = apiHandler(async ({ db, user, params }) => {
         deletedAt: now,
         deletedBy: user._id.toString(),
         status: "closed",
+        chatStatus: "closed",
         closedAt: now,
         history,
         updatedAt: now,

@@ -90,7 +90,10 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     update.lastEmailError = emailError || null;
     update.adminReadAt = now;
   }
-  if (ticket.status === "closed") update.status = "in_progress";
+  if (ticket.status === "closed") {
+    update.status = "in_progress";
+    update.chatStatus = "open";
+  }
 
   const result = await db.collection("tickets").findOneAndUpdate({ _id: id }, { $set: update }, { returnDocument: "after" });
   return json({ data: { ...result, _id: result._id.toString(), emailDelivered, emailError: emailError || undefined } });

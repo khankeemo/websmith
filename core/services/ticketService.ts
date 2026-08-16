@@ -1,4 +1,39 @@
 import API from "./apiService";
+import { getToken } from "../../lib/auth";
+
+/**
+ * Resilient same-origin fetch for NON-CRITICAL Query Inbox calls (mark-read,
+ * client-account). The global axios response interceptor (apiService.ts)
+ * REPLACES the whole page with /login?reason=session-expired on any 401 whose
+ * message matches a session failure ("Session invalid. Please log in again.")
+ * — correct for page-lifeline requests, but these two fire on every
+ * conversation selection and must NEVER be able to kill the page: their
+ * failure is best-effort by design and already swallowed by the UI. Same
+ * endpoint, same Authorization header, same response shape — transport only.
+ */
+async function quietFetch(path: string, init?: RequestInit): Promise<any> {
+  const token = typeof window !== "undefined" ? getToken() : "";
+  const response = await fetch(`${window.location.origin}/api${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers || {}),
+    },
+  });
+  let payload: any = null;
+  try {
+    payload = await response.json();
+  } catch {
+    // Non-JSON body (e.g. HTML error page): surface as a transport failure.
+  }
+  if (!response.ok) {
+    const error: any = new Error(payload?.message || `Request failed (${response.status})`);
+    error.response = { status: response.status, data: payload };
+    throw error;
+  }
+  return payload;
+}
 
 /** Resolve stored ticket file paths for <img src> (same-origin `/api` in dev). */
 export const resolveTicketFileUrl = (url: string) => {
@@ -200,6 +235,7 @@ export interface ResolutionTemplate {
   name: string;
   category: string;
   subject: string;
+  body?: string;
   isActive: boolean;
   isDefault: boolean;
 }
@@ -220,8 +256,8 @@ export const getResolutionTemplates = async (): Promise<{ data: ResolutionTempla
 };
 
 export const getTicketClientAccount = async (id: string): Promise<TicketClientAccount> => {
-  const response = await API.get(`/tickets/${id}/client-account`);
-  return response.data.data as TicketClientAccount;
+  const payload = await quietFetch(`/tickets/${id}/client-account`);
+  return payload.data as TicketClientAccount;
 };
 
 export type OnboardingResult = {
@@ -274,8 +310,8 @@ export const resendTicketEmail = async (id: string) => {
 
 /** Mark a conversation read (clears the unread/new-client-reply indicator). */
 export const markTicketRead = async (id: string) => {
-  const response = await API.post(`/tickets/${id}/read`);
-  return response.data.data as Ticket;
+  const payload = await quietFetch(`/tickets/${id}/read`, { method: "POST" });
+  return payload.data as Ticket;
 };
 
 /** Sync inbound client email replies into their tickets (Query Inbox). Admin only. */

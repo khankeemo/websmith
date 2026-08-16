@@ -13,8 +13,14 @@ export const PUT = apiHandler(async ({ db, request, user, params }) => {
   if (!STATUSES.includes(status)) return json({ success: false, error: "Invalid status", message: "Invalid status" }, { status: 400 });
 
   const update: any = { status, updatedAt: new Date() };
+  // Single source of truth: `status` is authoritative for the Active/Closed
+  // scopes. `chatStatus` is kept in sync so the two fields can never disagree
+  // (OPEN = status open + chatStatus open; CLOSED = status closed + chatStatus
+  // closed). The UI derives its Open/Close action from `status` only.
+  update.chatStatus = status === "closed" ? "closed" : "open";
   if (typeof body.resolution === "string") update.resolution = body.resolution;
   if (status === "closed") update.closedAt = new Date();
+  else update.closedAt = null;
 
   const history = ticket.history ?? [];
   history.push({
