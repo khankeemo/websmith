@@ -262,7 +262,7 @@ export default function AdminMessagesClient() {
   // ---- Helper: Client ID label (for meta row) ----
   const getClientIdLabel = (ticket: Ticket): string | null => {
     if (ticket.clientCustomId) return ticket.clientCustomId;
-    if (typeof ticket.clientId === "object" && ticket.clientId._id) return ticket.clientId._id;
+    if (ticket.clientId && typeof ticket.clientId === "object" && ticket.clientId._id) return ticket.clientId._id;
     return null;
   };
 
