@@ -7,8 +7,12 @@ import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import ForcedPasswordResetModal from "@/components/auth/ForcedPasswordResetModal";
+import { default as dynamic } from "next/dynamic";
 import { isPublicRoute } from "../core/constants/routes";
 import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken } from "../lib/auth";
+
+const CookieConsentBanner = dynamic(() => import("../components/ui/CookieConsentBanner"), { ssr: false });
+const AnalyticsTracker = dynamic(() => import("../components/ui/AnalyticsTracker"), { ssr: false });
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
 import { PublicThemeProvider, usePublicTheme } from "./providers/PublicThemeProvider";
 import PublicFooter from "../components/layout/PublicFooter";
@@ -190,6 +194,9 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      <CookieConsentBanner />
+      {!shouldShowSidebar && !isInternalRoute && <AnalyticsTracker />}
 
       <ForcedPasswordResetModal
         isOpen={shouldShowSidebar && showForcedPasswordResetModal}

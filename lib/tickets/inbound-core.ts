@@ -4,12 +4,13 @@ import crypto from "node:crypto";
 // INBOUND EMAIL CORE — Query Inbox (Public Website, AWS-01 R01)
 //
 // Shared, transport-agnostic inbound processing for client email replies. Used
-// by BOTH inbound paths so they behave identically:
-//   1. `POST /api/tickets/inbound`  — IMAP sync of enabled PG mailboxes
-//      (external mailboxes only; support@websmithdigital.com is a native
-//      system account with no IMAP, so it can never be polled).
-//   2. `POST /api/brevo/inbound`    — Brevo inbound parsing webhook (native
-//      support@ mail arrives here via the Brevo receiving domain).
+// by ALL inbound paths so they behave identically:
+//   1. `POST /api/tickets/inbound`  — read-only IMAP sync of enabled PG
+//      mailboxes AND the native support@ mailbox (Namecheap Private Email via
+//      MAIL_SUPPORT_IMAP_* env credentials — the provider's only real inbound
+//      transport; read-only, never marks Seen).
+//   2. `POST /api/brevo/inbound`    — Brevo inbound parsing webhook (optional
+//      external bridge for native mail, requires provider-side configuration).
 //
 // Matching rules (strict, never subject alone):
 //   1. Match by thread: an inbound email whose In-Reply-To / References contain

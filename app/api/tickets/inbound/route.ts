@@ -38,6 +38,21 @@ import {
 // messages (MAX_UNSEEN_BATCH) and overlapping polls are skipped, keeping the
 // 1-second auto-poll light even with a backlog of old unprocessed mail.
 //
+// NATIVE support@ — the real inbound transport (R01 FINAL FIX). The built-in
+// support account is a native/system account: it has NO `mailboxes` row and NO
+// app-stored credentials, so it can never be polled through the table above.
+// Its real mailbox (Namecheap Private Email, Open-Xchange) offers ONLY standard
+// IMAP as an inbound mechanism — no inbound webhook, no message API — so this
+// route also polls it READ-ONLY with provider credentials from env vars
+// (MAIL_SUPPORT_IMAP_HOST/PORT/SECURE/USERNAME/PASSWORD; default host
+// mail.privateemail.com:993). Exactly the same read-only pattern as the
+// configured mailboxes: never marks Seen, never mutates the mailbox, so
+// webmail and the Internal Communications Center are unaffected. The SINGLE
+// provider-side dependency is MAIL_SUPPORT_IMAP_PASSWORD (the support@ mailbox
+// password from the Namecheap Private Email dashboard); without it the native
+// poll is skipped and the sync summary reports the exact missing configuration
+// (see nativeSupportMailbox below).
+//
 // Inbound email bodies are cleaned at STORE time (cleanInboundBody): quoted
 // previous emails, original-message blocks, signatures and reply-header
 // blocks are stripped so the Messenger Chat shows ONLY the client's own words.
@@ -46,7 +61,7 @@ import {
 // The shared inbound processing (ticket matching, body cleaning, attachment
 // handling, Message-ID dedupe, `messages[]` structure) lives in
 // `lib/tickets/inbound-core.ts` and is reused verbatim by the Brevo inbound
-// webhook (`/api/brevo/inbound`) so both inbound paths behave identically.
+// webhook (`/api/brevo/inbound`) so all inbound paths behave identically.
 // ============================================================================
 
 type MailboxSyncStats = {
@@ -195,6 +210,47 @@ async function syncMailbox(db: any, mailbox: any): Promise<MailboxSyncStats> {
   return stats;
 }
 
+// Native support@ mailbox — the built-in system account has no `mailboxes` row
+// and no app-stored credentials, so it is polled here with provider (Namecheap
+// Private Email) credentials from env vars. The provider offers ONLY standard
+// IMAP/POP3 as an inbound mechanism — there is no inbound webhook and no
+// message-reading API (Namecheap's API is DNS/mailbox CRUD only) — and
+// websmithdigital.com MX must stay untouched, so read-only IMAP is the real
+// transport. The single provider-side dependency is the mailbox password:
+// MAIL_SUPPORT_IMAP_PASSWORD. Optional overrides: MAIL_SUPPORT_IMAP_HOST
+// (default mail.privateemail.com), MAIL_SUPPORT_IMAP_PORT (default 993),
+// MAIL_SUPPORT_IMAP_SECURE (default true; set "false" for STARTTLS on 143),
+// MAIL_SUPPORT_IMAP_USERNAME (default MAIL_SUPPORT_ADDRESS, then
+// support@websmithdigital.com).
+function nativeSupportMailbox(): { mailbox: any | null; missing: string | null } {
+  const host = String(process.env.MAIL_SUPPORT_IMAP_HOST || "mail.privateemail.com").trim();
+  const port = Number(process.env.MAIL_SUPPORT_IMAP_PORT || 993) || 993;
+  const secure = String(process.env.MAIL_SUPPORT_IMAP_SECURE ?? "").toLowerCase() !== "false";
+  const username = String(
+    process.env.MAIL_SUPPORT_IMAP_USERNAME || process.env.MAIL_SUPPORT_ADDRESS || "support@websmithdigital.com"
+  ).trim();
+  const password = String(process.env.MAIL_SUPPORT_IMAP_PASSWORD || "").trim();
+  if (!password) {
+    return {
+      mailbox: null,
+      missing:
+        "Native support@ inbound is not configured: set MAIL_SUPPORT_IMAP_PASSWORD to the support@ mailbox password (Namecheap Private Email dashboard) to receive native support@ mail.",
+    };
+  }
+  return {
+    mailbox: {
+      email_address: username,
+      display_name: "Websmith Support Team",
+      imap_host: host,
+      imap_port: port,
+      imap_secure: secure,
+      imap_username: username,
+      imap_password: password,
+    },
+    missing: null,
+  };
+}
+
 export const POST = apiHandler(async ({ db, user }) => {
   if (user.role !== "admin") throw forbidden();
 
@@ -225,6 +281,8 @@ export const POST = apiHandler(async ({ db, user }) => {
 }, { auth: "required" });
 
 async function runInboundSync(db: any): Promise<Response> {
+  const native = nativeSupportMailbox();
+
   // Read-only source of inbound mailboxes: the enabled license-system mailboxes.
   let mailboxes: any[] = [];
   try {
@@ -236,28 +294,51 @@ async function runInboundSync(db: any): Promise<Response> {
     mailboxes = result.rows;
   } catch (error) {
     console.error("Inbound ticket sync: could not read mailboxes:", error);
-    return json({
-      success: true,
-      data: {
-        noMailboxes: true,
-        message:
-          "Inbound email is not configured. Configure an enabled mailbox in the Communications Center, or have clients continue the conversation through the Client Portal.",
-      },
-    });
+    if (!native.mailbox) {
+      return json({
+        success: true,
+        data: {
+          noMailboxes: true,
+          message:
+            "Inbound email is not configured. Configure an enabled mailbox in the Communications Center, or set MAIL_SUPPORT_IMAP_PASSWORD (the support@ mailbox password) to receive native support@ mail. Clients can also continue the conversation through the Client Portal.",
+        },
+      });
+    }
   }
 
-  if (mailboxes.length === 0) {
+  if (mailboxes.length === 0 && !native.mailbox) {
     return json({
       success: true,
       data: {
         noMailboxes: true,
-        message: "No enabled mailboxes are configured for inbound email. Configure a mailbox to receive client replies by email.",
+        message: native.missing ||
+          "No enabled mailboxes are configured for inbound email. Configure a mailbox to receive client replies by email.",
       },
     });
   }
 
   const totals = { processed: 0, matched: 0, duplicate: 0, senderMismatch: 0, unmatched: 0, attachmentsStored: 0 };
   const errors: string[] = [];
+
+  // Native support@ mailbox first — it is the primary inbound receiver for the
+  // built-in support account (same read-only IMAP pattern as the mailboxes).
+  if (native.mailbox) {
+    try {
+      const stats = await syncMailbox(db, native.mailbox);
+      totals.processed += stats.processed;
+      totals.matched += stats.matched;
+      totals.duplicate += stats.duplicate;
+      totals.senderMismatch += stats.senderMismatch;
+      totals.unmatched += stats.unmatched;
+      totals.attachmentsStored += stats.attachmentsStored;
+    } catch (mailboxError: any) {
+      errors.push(`${native.mailbox.email_address} (native): ${mailboxError?.message || "IMAP sync failed"}`);
+    }
+  } else if (native.missing) {
+    // Honest report: the provider-side dependency is missing (never silent).
+    errors.push(native.missing);
+  }
+
   for (const mailbox of mailboxes) {
     try {
       const stats = await syncMailbox(db, mailbox);

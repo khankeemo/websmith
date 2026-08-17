@@ -683,7 +683,7 @@ export default function SoftwareStorePage() {
             <span className="text-sm font-bold text-white hidden sm:block tracking-tight">Software Store</span>
           </div>
 
-          <div className="flex-1 max-w-md relative">
+          <div className="hidden sm:block flex-1 max-w-md relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               value={query}
@@ -812,8 +812,8 @@ export default function SoftwareStorePage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="sticky top-[57px] z-30 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
+      {/* Filter Bar — sticky flush below the nav (nav = 60px content + 1px border) */}
+      <div className="sticky top-[61px] z-30 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 bg-white/[0.04] border border-white/10 rounded-full px-3 py-1.5 backdrop-blur-sm">

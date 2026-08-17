@@ -27,6 +27,7 @@ import {
   getResolutionTemplates,
   getTicketClientAccount,
   getTicketsPaged,
+  getTicketsQuiet,
   markTicketRead,
   resolveTicketFileUrl,
   resendTicketEmail,
@@ -408,7 +409,11 @@ export default function AdminMessagesClient() {
   const [reply, setReply] = useState("");
   const [resolution, setResolution] = useState("");
   const [saving, setSaving] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // Per-action local loading state for the ⋮ menu (Ticket → Resend / Open /
+  // Close / Delete). Only the in-flight action shows a spinner on its own menu
+  // item; the Query Inbox list and the conversation are never blocked by it.
+  const [busyAction, setBusyAction] = useState<{ ticketId: string; action: "open" | "close" | "delete" | "resend" } | null>(null);
+  const busyTicketId = busyAction?.ticketId ?? null;
   const [notice, setNotice] = useState<Notice>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [menuRect, setMenuRect] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
@@ -520,7 +525,11 @@ export default function AdminMessagesClient() {
   const refreshOpenTicket = useCallback(async () => {
     if (!selectedTicket) return;
     try {
-      const res = await getTicketsPaged({
+      // quietFetch transport: the poll runs every 1 s and must never let a
+      // session expiry kill the page (the axios interceptor would replace the
+      // whole page with /login — that is correct for user actions, never for a
+      // silent background poll).
+      const res = await getTicketsQuiet({
         scope,
         page,
         pageSize: QUERY_INBOX_PAGE_SIZE,
@@ -662,14 +671,22 @@ export default function AdminMessagesClient() {
   // fields can never disagree in the rendered state.
   const isClosed = selectedTicket?.status === "closed";
 
+  // In-place card update after an action: replaces ONLY the affected ticket in
+  // the Query Inbox list and (when it is the open one) the conversation — never
+  // reloads the whole list, never resets scroll or layout.
+  const applyTicketUpdate = useCallback((updated: Ticket) => {
+    setTickets((prev) => prev.map((ticket) => (ticket._id === updated._id ? updated : ticket)));
+    setSelectedTicket((prev) => (prev && prev._id === updated._id ? updated : prev));
+  }, []);
+
   const handleReply = async () => {
     if (!selectedTicket || !reply.trim()) return;
     setSaving(true);
     try {
-       await addTicketReply(selectedTicket._id, reply.trim());
-       setReply("");
-       setGreetingKey("");
-       await refresh();
+      const updated = await addTicketReply(selectedTicket._id, reply.trim());
+      setReply("");
+      setGreetingKey("");
+      applyTicketUpdate(updated);
       showNotice("success", "Reply sent.");
     } catch (error: any) {
       showNotice("error", error?.response?.data?.message || "Reply failed.");
@@ -696,22 +713,24 @@ export default function AdminMessagesClient() {
   };
 
   const handleCardAction = async (ticket: Ticket) => {
-    if (busyId) return;
-    setBusyId(ticket._id);
+    if (busyAction) return;
+    const target: "open" | "close" = ticket.status === "closed" ? "open" : "close";
+    const payloadStatus: Ticket["status"] = target === "open" ? "open" : "closed";
+    setBusyAction({ ticketId: ticket._id, action: target });
     try {
-      const target = ticket.status === "closed" ? "open" : "closed";
-      await updateTicketStatus(ticket._id, { status: target });
-      await refresh();
-      showNotice("success", ticket.status === "closed" ? "Query reopened." : "Query closed.");
+      const updated = await updateTicketStatus(ticket._id, { status: payloadStatus });
+      applyTicketUpdate(updated);
+      showNotice("success", target === "open" ? "Query reopened." : "Query closed.");
     } catch (error: any) {
       showNotice("error", error?.response?.data?.message || "Could not update the query.");
     } finally {
-      setBusyId(null);
+      setBusyAction(null);
+      setMenuFor(null);
     }
   };
 
   const handleResend = async (ticket: Ticket) => {
-    setBusyId(ticket._id);
+    setBusyAction({ ticketId: ticket._id, action: "resend" });
     try {
       const result = await resendTicketEmail(ticket._id);
       if (result.emailDelivered) showNotice("success", "Email resent.");
@@ -719,23 +738,26 @@ export default function AdminMessagesClient() {
     } catch (error: any) {
       showNotice("error", error?.response?.data?.message || "Resend failed.");
     } finally {
-      setBusyId(null);
+      setBusyAction(null);
       setMenuFor(null);
     }
   };
 
   const handleDelete = async (ticket: Ticket) => {
     if (!window.confirm(`Delete the conversation "${ticket.subject}"? This cannot be undone.`)) return;
-    setBusyId(ticket._id);
+    setBusyAction({ ticketId: ticket._id, action: "delete" });
     try {
       await deleteTicket(ticket._id);
       if (selectedTicket?._id === ticket._id) setSelectedTicket(null);
-      await refresh();
+      // Remove ONLY this card — the Query Inbox is never reloaded for a single
+      // action (no re-fetch, no scroll reset, no layout/width change).
+      setTickets((prev) => prev.filter((t) => t._id !== ticket._id));
+      setTotal((prev) => Math.max(0, prev - 1));
       showNotice("success", "Conversation deleted.");
     } catch (error: any) {
       showNotice("error", error?.response?.data?.message || "Delete failed.");
     } finally {
-      setBusyId(null);
+      setBusyAction(null);
       setMenuFor(null);
     }
   };
@@ -822,6 +844,8 @@ export default function AdminMessagesClient() {
   const renderConversationMenu = (ticket: Ticket) => {
     if (menuFor !== ticket._id || !menuRect) return null;
     const isTicketClosed = ticket.status === "closed";
+    const busyHere = busyTicketId === ticket._id;
+    const closeAction: "open" | "close" = isTicketClosed ? "open" : "close";
     return (
       <>
         <div style={styles.menuBackdrop} onClick={closeMenu} />
@@ -835,15 +859,25 @@ export default function AdminMessagesClient() {
           }}
           onClick={(event) => event.stopPropagation()}
         >
-          <button type="button" style={styles.menuItem} onClick={() => handleCardAction(ticket)} disabled={busyId === ticket._id || saving}>
+          <button type="button" style={styles.menuItem} onClick={() => handleCardAction(ticket)} disabled={busyHere || saving}>
+            {busyHere && busyAction?.action === closeAction ? (
+              <Loader2 size={13} className="admin-messages-spin" />
+            ) : null}
             {isTicketClosed ? "Open" : "Close"}
           </button>
-          <button type="button" style={{ ...styles.menuItem, ...styles.menuItemDanger }} onClick={() => handleDelete(ticket)} disabled={busyId === ticket._id}>
-            <Trash2 size={13} /> Delete
+          <button
+            type="button"
+            style={{ ...styles.menuItem, ...styles.menuItemDanger }}
+            onClick={() => handleDelete(ticket)}
+            disabled={busyHere}
+          >
+            {busyHere && busyAction?.action === "delete" ? <Loader2 size={13} className="admin-messages-spin" /> : <Trash2 size={13} />}
+            Delete
           </button>
           {hasStoredEmail(ticket) && (
-            <button type="button" style={styles.menuItem} onClick={() => { handleResend(ticket); }} disabled={busyId === ticket._id}>
-              <RotateCcw size={13} /> Resend
+            <button type="button" style={styles.menuItem} onClick={() => { handleResend(ticket); }} disabled={busyHere}>
+              {busyHere && busyAction?.action === "resend" ? <Loader2 size={13} className="admin-messages-spin" /> : <RotateCcw size={13} />}
+              Resend
             </button>
           )}
         </div>
