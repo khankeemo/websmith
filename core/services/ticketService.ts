@@ -79,6 +79,9 @@ export interface ThreadMessage {
   deliveryStatus?: "sent" | "failed" | "not_sent";
   deliveryError?: string;
   providerMessageId?: string;
+  // Query Ticket bridge dedupe key: `cm:<conversation_messages.id>` for client
+  // inbound messages synchronized from the universal email system (R01 Phase 2).
+  sourceRef?: string;
   inReplyTo?: string[];
   references?: string[];
   // Inbound email attachments (Query Inbox). Stored in the shared `uploads`
@@ -346,13 +349,16 @@ export const markTicketRead = async (id: string) => {
   return payload.data as Ticket;
 };
 
-/** Sync inbound client email replies into their tickets (Query Inbox). Admin only. */
 /**
- * Sync inbound client email replies into their tickets (Query Inbox).
- * Runs on the Messenger Chat auto-poll every 1 second while a conversation is
- * open — the transport is quietFetch so the poll is SILENT and can never kill
- * the page (a 401 session expiry is swallowed by the poll, never redirected).
- * Same endpoint, same response shape as the old axios call.
+ * Sync processed universal-email customer messages into their tickets (Query
+ * Inbox). This is a BRIDGE, not a mail receiver: it reads customer messages
+ * ALREADY processed by the universal email system (PostgreSQL
+ * communication_conversations / conversation_messages) and appends each one to
+ * the client's existing ticket (`messages[]`), so Messenger Chat shows the
+ * client's email reply live. Runs on the Messenger Chat auto-poll every 1
+ * second while a conversation is open — the transport is quietFetch so the
+ * poll is SILENT and can never kill the page (a 401 session expiry is swallowed
+ * by the poll, never redirected). Same endpoint, same response shape as always.
  */
 export const syncInboundEmail = async () => {
   const payload = await quietFetch(`/tickets/inbound`, { method: "POST" });

@@ -67,14 +67,15 @@ type Notice = { type: "success" | "error" | "warn"; text: string } | null;
 
 const QUERY_INBOX_PAGE_SIZE = 15;
 
-// Auto-poll interval for inbound email (R01 — FINAL FAST INBOUND CHAT: poll
-// every 1 second so a client email lands in Messenger Chat within ≤1 s and
+// Auto-poll interval for the Query Ticket bridge (R01 PHASE 2 FINAL: poll
+// every 1 second so a client email reply — processed by the UNIVERSAL email
+// system and bridged into the ticket — lands in Messenger Chat within ≤1 s and
 // never later than the 3-second maximum; no manual Sync Inbound button). The
-// poll silently runs the existing IMAP sync on /api/tickets/inbound (external
-// mailboxes) AND the diff-based open-thread refresh, which also surfaces mail
-// delivered by the Brevo inbound webhook (/api/brevo/inbound) for the native
-// support@ account. Polling runs ONLY while a conversation is selected AND not
-// closed, and stops on unmount/deselect.
+// poll silently runs the bridge on /api/tickets/inbound (reads ALREADY
+// processed customer messages from the universal conversations, appends each
+// to the open ticket's messages[]) plus the diff-based open-thread refresh.
+// Polling runs ONLY while a conversation is selected AND not closed, and
+// stops on unmount/deselect.
 const POLL_INTERVAL_MS = 1_000;
 
 // Display-only cleanup mirror for inbound email bodies stored BEFORE the
@@ -449,7 +450,7 @@ export default function AdminMessagesClient() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Guards the auto-poll against overlapping IMAP sweeps (a poll in flight is
+  // Guards the auto-poll against overlapping bridge passes (a poll in flight is
   // never re-entered; the next interval tick picks up the result).
   const pollInFlight = useRef(false);
 
@@ -519,8 +520,8 @@ export default function AdminMessagesClient() {
   // Used by the inbound-email auto-poll to surface new client messages in the
   // Messenger Chat without touching the list's loading state. Diff-based: the
   // poll runs every 1 s, so state is only touched when the ticket actually
-  // changed (new inbound client message via the IMAP sync OR the Brevo inbound
-  // webhook, an admin reply, a status change, ...) — unchanged tickets never
+  // changed (new inbound client message bridged from the universal email
+  // system, an admin reply, a status change, ...) — unchanged tickets never
   // trigger a re-render.
   const refreshOpenTicket = useCallback(async () => {
     if (!selectedTicket) return;
@@ -592,15 +593,14 @@ export default function AdminMessagesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket?._id]);
 
-  // Auto-poll inbound email (R01 — Brevo inbound webhook path: live native
-  // support@ mail → chat within ≤1 s, never beyond the 3-second maximum,
-  // background only). While a conversation is selected AND not closed, the
-  // existing IMAP sync is polled silently every 1 second (first poll shortly
-  // after open), then the open thread is ALWAYS re-checked via the diff-based
-  // refresh — that surfaces BOTH inbound paths: the IMAP sync's matched
-  // messages and the Brevo inbound webhook (`/api/brevo/inbound`), which
-  // writes the ticket directly so it carries no matched-count signal. A new
-  // client message therefore appears in Messenger Chat within ≤1 s. Polling is
+  // Auto-poll the Query Ticket bridge (R01 PHASE 2 FINAL: the platform's ONE
+  // inbound receiver is the universal email system; this bridge only syncs its
+  // already-processed customer messages into the open ticket). While a
+  // conversation is selected AND not closed, the bridge is polled silently
+  // every 1 second (first poll shortly after open), then the open thread is
+  // ALWAYS re-checked via the diff-based refresh (updatedAt/lastClientReplyAt/
+  // messages.length — no state churn when unchanged). A new client message
+  // therefore appears in Messenger Chat within ≤1 s (max 3 s). Polling is
   // fully silent — no toasts, no loaders, no manual Sync button — and stops
   // when the conversation is closed or unmounted.
   useEffect(() => {
