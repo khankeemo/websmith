@@ -1548,6 +1548,25 @@ export default function CommunicationsPage() {
         await Promise.all(enabled.map((m: any) =>
           fetch(`${MB_BASE}/${m.id}/sync`, { method: 'POST', headers }).catch(() => {})
         ));
+
+        // --- NEW: Sync native system accounts (support@ / sales@) ---
+        // These are configured in system_settings.communications.mail_accounts,
+        // NOT in the mailboxes table. The sync route's nativeReceiveAccount handler
+        // reads IMAP credentials from env vars (MAIL_*_IMAP_*) and routes by category.
+        try {
+          const settingsRes = await fetch(`${API_BASE}`, { headers: getAuthHeaders() });
+          const settingsJson = await settingsRes.json();
+          const mailAccounts = (settingsJson?.data?.settings?.communications?.mail_accounts) || [];
+          for (const acct of mailAccounts) {
+            if (acct.type && ['support', 'sales'].includes(acct.type) && acct.is_active) {
+              const syncId = acct.id;
+              if (syncId) {
+                await fetch(`${MB_BASE}/${syncId}/sync`, { method: 'POST', headers }).catch(() => {});
+              }
+            }
+          }
+        } catch {}
+
         fetchStats();
         if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter, accountScope);
         else if (activeFolderDef.kind === 'settings') loadCommsSettings();

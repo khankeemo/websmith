@@ -1240,16 +1240,23 @@ export async function getDb(): Promise<Pool> {
         is_internal BOOLEAN DEFAULT FALSE,
         email_sent BOOLEAN DEFAULT FALSE,
         email_error TEXT,
+        provider_message_id TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     // Migration: add conversation_id column to existing conversation_messages
     try { await client.query(`ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS conversation_id TEXT REFERENCES communication_conversations(id) ON DELETE CASCADE`); } catch (e) {}
     try { await client.query(`ALTER TABLE conversation_messages ALTER COLUMN request_id DROP NOT NULL`); } catch (e) {}
+    // The universal inbound adapters use the provider Message-ID as their
+    // durable idempotency boundary. This applies to every transport that
+    // writes the shared conversation model; NULL stays valid for legacy and
+    // non-email conversation messages.
+    try { await client.query(`ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS provider_message_id TEXT`); } catch (e) {}
     // Indexes
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_request_id ON conversation_messages(request_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id ON conversation_messages(conversation_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_created_at ON conversation_messages(created_at ASC)`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_messages_provider_message_id ON conversation_messages(provider_message_id) WHERE provider_message_id IS NOT NULL`);
 
     // 27d. Create conversation_attachments table for file attachments on messages
     await client.query(`
