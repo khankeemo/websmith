@@ -885,7 +885,8 @@ Keep in sync with the master doc **Progress Tracking ("Admin Messages Query
 Inbox — Fresh Redesign (AWS-01 R01)" + "Admin Messages Query Inbox — Two-Way
 Conversation + Inbound Email + Public Email Branding Cleanup (AWS-01 R01)" +
 "Admin Messages Query Inbox — R01 Phase 2: Workflow + Backend Logic Completion
-(AWS-01 R01, 2026-08-16)") entries**. Never regress:
+(AWS-01 R01, 2026-08-16)" + "Admin Messages Query Inbox — R01 Phase 3: Incoming
+Email → Chat Final Fix (AWS-01 R01, 2026-08-16)") entries**. Never regress:
 
 - **Boundary**: this feature touches ONLY the public admin page
   `app/admin/messages` (client component), its `core/services/ticketService.ts`
@@ -979,4 +980,30 @@ Conversation + Inbound Email + Public Email Branding Cleanup (AWS-01 R01)" +
 - **Resolution stays reachable after Close**: the Query Inbox pins a just-closed
   conversation so the Resolution Summary editor + Resolution Email remain
   enabled and usable right after Resolved/Closed.
-- Keep this rule in sync with the master doc Progress Tracking entry.
+- **Admin Messages Query Inbox — R01 Phase 3: Incoming Email → Chat Final
+  Fix (AWS-01 R01)**: completes the client-email → Messenger Chat direction.
+  (1) **Admin identity**: every displayed admin name that is missing/generic
+  (`"Admin User"`, `"Websmith Team"`, `"Websmith Support Team"`, `"Websmith
+  Support"`, `"Support Team"`, or empty) is normalized at RENDER TIME to
+  **"Websmith Digital Support"** (`ADMIN_SENDER_LABEL` in
+  `app/admin/messages/AdminMessagesClient.tsx`); a real admin name is
+  preserved. This is UI-only — outbound Brevo `from`/`name` (via
+  `lib/email/brevo.ts`) is untouched, so outgoing chat→client email keeps the
+  real receiving-account identity. (2) **Body-only in chat**: the inbound
+  email is stored with `message` = `parsed.text || parsed.html` only — the
+  email envelope/header/signature-auth metadata is never persisted or
+  rendered (existing dedupe by Message-ID + chronological `messages[]`
+  ordering ensure the client reply appears once). (3) **Incoming
+  attachments**: `POST /api/tickets/inbound` reads `parsed.attachments`,
+  stores the attachment BYTES in the shared `uploads` collection
+  (`storeInboundAttachments`, max 10MB, shared `validateAttachmentFiles`
+  policy) and links them to the new `conversation_messages`/`messages` row
+  (`attachments: [{name,url,size,contentType}]`); the ORIGINAL email (with
+  its attachments) stays in the support mailbox untouched (IMAP opened
+  READ-ONLY, never marks Seen / never deletes) so it "reaches
+   `support@websmithdigital.com`" directly, and the stored bytes guarantee
+   the chat rendering can never lose the attachment. The Messenger Chat
+   renders a compact, read-only attachment indicator (name + size +
+   `GET /api/uploads/<id>` download link) — no composer/resend UI for
+   inbound attachments. (4) **Auto-poll for live chat** (`AdminMessagesClient.tsx`): when a conversation is open, a 30-second silent interval polls the existing `/api/tickets/inbound` IMAP sync; if new client messages are matched (`result.matched > 0`), the open thread is refreshed via `refreshOpenTicket()` so the reply appears in Messenger Chat immediately — no manual Sync Inbound click required; the manual button remains for immediate sync. (5) **Reply Thread + Resolved Preview clear on send** (`AdminMessagesClient.tsx`): after `handleReply` succeeds, `setGreetingKey("")` is called alongside `setReply("")` so the "Resolved Preview" card is removed (not left stale); selecting a new template re-generates the preview from ticket data, and the custom-edited textarea content is what gets sent — one reply = one outgoing email. Files: `app/admin/messages/AdminMessagesClient.tsx`. Verified: `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0.
+ - Keep this rule in sync with the master doc Progress Tracking entry.

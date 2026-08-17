@@ -66,6 +66,12 @@ type Notice = { type: "success" | "error" | "warn"; text: string } | null;
 
 const QUERY_INBOX_PAGE_SIZE = 15;
 
+// Auto-poll interval for inbound email sync (R01 Phase 3 — live client email
+// → Messenger Chat without manual refresh). Reuses the existing IMAP sync on
+// /api/tickets/inbound; only refreshes the open conversation when new messages
+// are matched.
+const POLL_INTERVAL_MS = 30_000;
+
 const formatDate = (value?: string) =>
   value
     ? new Date(value).toLocaleString("en-US", {
@@ -450,6 +456,28 @@ export default function AdminMessagesClient() {
     await loadTickets({ page });
   };
 
+  // Lightweight refresh of ONLY the open ticket (no loading-state flicker).
+  // Used by the inbound-email auto-poll to surface new client messages in the
+  // Messenger Chat without touching the list's loading state.
+  const refreshOpenTicket = useCallback(async () => {
+    if (!selectedTicket) return;
+    try {
+      const res = await getTicketsPaged({
+        scope,
+        page,
+        pageSize: QUERY_INBOX_PAGE_SIZE,
+        search: searchTerm,
+      });
+      const fresh = res.data.find((t) => t._id === selectedTicket._id);
+      if (fresh) {
+        setTickets((prev) => prev.map((t) => (t._id === fresh._id ? fresh : t)));
+        setSelectedTicket(fresh);
+      }
+    } catch {
+      // Best-effort; the manual Sync Inbound button still works.
+    }
+  }, [selectedTicket, scope, page, searchTerm]);
+
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -491,6 +519,37 @@ export default function AdminMessagesClient() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket?._id]);
+
+  // Auto-poll inbound email (R01 Phase 3 — live client email → chat, no manual
+  // refresh). When a conversation is open, silently polls the IMAP sync at a
+  // fixed interval; if new client messages were matched, the open thread is
+  // refreshed so the reply appears in Messenger Chat immediately. Polling is
+  // silent (no toasts); the admin can still click "Sync Inbound" for an
+  // immediate manual sync.
+  useEffect(() => {
+    if (!selectedTicket) return;
+
+    let cancelled = false;
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const result = await syncInboundEmail();
+        if (result?.matched > 0 && !cancelled) {
+          await refreshOpenTicket();
+        }
+      } catch {
+        // Silent: auto-poll never disrupts the admin session on transient errors.
+      }
+    };
+
+    const id = setInterval(poll, POLL_INTERVAL_MS);
+    const immediate = setTimeout(poll, 5_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      clearTimeout(immediate);
+    };
+  }, [selectedTicket, refreshOpenTicket]);
 
   // Canonical two-way conversation thread (`messages[]`). Pre-R01 tickets have
   // no messages array — those fall back to the legacy history timeline below.
@@ -536,9 +595,10 @@ export default function AdminMessagesClient() {
     if (!selectedTicket || !reply.trim()) return;
     setSaving(true);
     try {
-      await addTicketReply(selectedTicket._id, reply.trim());
-      setReply("");
-      await refresh();
+       await addTicketReply(selectedTicket._id, reply.trim());
+       setReply("");
+       setGreetingKey("");
+       await refresh();
       showNotice("success", "Reply sent.");
     } catch (error: any) {
       showNotice("error", error?.response?.data?.message || "Reply failed.");
