@@ -1572,7 +1572,7 @@ export default function CommunicationsPage() {
         else if (activeFolderDef.kind === 'settings') loadCommsSettings();
       } catch {}
     };
-    const iv = setInterval(runAutoSync, 45000);
+    const iv = setInterval(runAutoSync, 2000);
     const onVisible = () => { if (typeof document !== 'undefined' && !document.hidden) runAutoSync(); };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
     return () => { clearInterval(iv); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible); };

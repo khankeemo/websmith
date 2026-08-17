@@ -1,0 +1,36 @@
+Vercel CLI 58.9.4 (Node.js 24.12.0)
+Retrieving projectΓÇª
+> Environment Variables found for khankeemos-projects/websmith [328ms]
+
+ name                               value                       type                environments (git branch)           created     
+ MAIL_SUPPORT_IMAP_USERNAME         Hidden                      Sensitive           Production                          9h ago      
+ MAIL_SUPPORT_IMAP_SECURE           Hidden                      Sensitive           Production                          9h ago      
+ MAIL_SUPPORT_IMAP_PORT             Hidden                      Sensitive           Production                          9h ago      
+ MAIL_SUPPORT_IMAP_HOST             Hidden                      Sensitive           Production                          9h ago      
+ MAIL_SUPPORT_IMAP_PASSWORD         Hidden                      Sensitive           Production                          9h ago      
+ NEXT_PUBLIC_APP_URL                eyJ2IjoidjIiLCJjIjΓÇª         Non-sensitive       Production, Preview                 13d ago     
+ NEXT_PUBLIC_API_URL                eyJ2IjoidjIiLCJjIjΓÇª         Non-sensitive       Production, Preview                 13d ago     
+ DATABASE_URL                       Hidden                      Sensitive           Production                          17d ago     
+ MONGODB_URI                        eyJ2IjoidjIiLCJjIjΓÇª         Non-sensitive       Production, Preview                 39d ago     
+ SENDER_EMAIL                       eyJ2IjoidjIiLCJjIjΓÇª         Non-sensitive       Production                          39d ago     
+ CLEANUP_SECRET_KEY                 Hidden                      Sensitive           Production                          41d ago     
+ FAST2SMS_API_KEY                   Hidden                      Sensitive           Production                          41d ago     
+ QSTASH_NEXT_SIGNING_KEY            Hidden                      Sensitive           Production, Preview                 43d ago     
+ UPSTASH_REDIS_REST_TOKEN           Hidden                      Sensitive           Production, Preview                 43d ago     
+ UPSTASH_REDIS_REST_URL             Hidden                      Sensitive           Production, Preview                 43d ago     
+ QSTASH_CURRENT_SIGNING_KEY         Hidden                      Sensitive           Production, Preview                 43d ago     
+ QSTASH_TOKEN                       Hidden                      Sensitive           Production, Preview                 43d ago     
+ QSTASH_URL                         Hidden                      Sensitive           Production, Preview                 43d ago     
+ DATABASE_URL                       Hidden                      Sensitive           Preview                             45d ago     
+ PUBLIC_API_AUDIT_ENABLED           Hidden                      Sensitive           Preview (api-map-fix)               54d ago     
+ PUBLIC_API_SIGNATURE_TTL           Hidden                      Sensitive           Preview (api-map-fix)               54d ago     
+ PUBLIC_API_RATE_LIMIT_DEFAULT      Hidden                      Sensitive           Preview (api-map-fix)               54d ago     
+ PUBLIC_API_ENABLED                 Hidden                      Sensitive           Preview (api-map-fix)               54d ago     
+ BREVO_API_KEY                      Hidden                      Sensitive           Preview (api-map-fix)               54d ago     
+ API_CENTER_JWT_SECRET              Hidden                      Sensitive           Preview (api-map-fix)               54d ago     
+ DATABASE_URL                       eyJ2IjoidjIiLCJjIjΓÇª         Non-sensitive       Development                         54d ago     
+ BREVO_API_KEY                      Hidden                      Sensitive           Production, Preview                 60d ago     
+ API_CENTER_JWT_SECRET              Hidden                      Sensitive           Preview, Production                 61d ago     
+ PORT                               eyJ2IjoidjIiLCJjIjΓÇª         Non-sensitive       Production, Preview, Development    134d ago    
+ JWT_SECRET                         eyJ2IjoidjIiLCJjIjΓÇª         Non-sensitive       Production, Preview, Development    134d ago    
+
