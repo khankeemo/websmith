@@ -1,7 +1,47 @@
 ﻿import { apiHandler, jsonBody, json, badRequest, notFound, parseObjectId } from "@/lib/server/api";
 import { sendEmail } from "@/lib/email/brevo";
 import { stripAdminMarkers } from "@/lib/tickets/email";
+import { getDb } from "@/lib/backend-db";
 import crypto from "node:crypto";
+
+// Resolve the reply's From identity so the client's reply physically loops
+// back to the SAME inbox the Messenger Chat polls. The inbound sync
+// (/api/tickets/inbound) reads ONLY enabled PostgreSQL `mailboxes` — when the
+// resolved support address (Manage Page contact_info.email, env fallback)
+// matches an enabled mailbox, the reply is sent FROM that mailbox's real
+// address, closing the loop: Client reply -> that inbox -> inbound sync ->
+// this ticket -> Messenger Chat. When no enabled mailbox matches, the default
+// support sender is used unchanged (client replies then reach the domain's
+// configured support inbox / forwarding chain).
+async function resolveReplySender(db: any): Promise<{ email: string; name?: string } | null> {
+  try {
+    const contactInfo = await db.collection("settings").findOne({ key: "contact_info" });
+    const supportAddress = String(
+      contactInfo?.value?.email ||
+      process.env.MAIL_SUPPORT_ADDRESS ||
+      process.env.SENDER_EMAIL ||
+      "support@websmithdigital.com"
+    )
+      .trim()
+      .toLowerCase();
+    if (!supportAddress) return null;
+    const pool = await getDb();
+    const result = await pool.query(
+      `SELECT email_address, display_name FROM mailboxes WHERE is_enabled = TRUE`
+    );
+    const match = result.rows.find(
+      (row: any) => String(row.email_address || "").trim().toLowerCase() === supportAddress
+    );
+    if (!match) return null;
+    const email = String(match.email_address || "").trim();
+    if (!email) return null;
+    const name = String(match.display_name || "").trim();
+    return { email, ...(name ? { name } : {}) };
+  } catch (error) {
+    console.error("Reply sender mailbox lookup failed (default sender used):", error);
+    return null;
+  }
+}
 
 export const POST = apiHandler(async ({ db, request, user, params }) => {
   const body = await jsonBody(request);
@@ -30,6 +70,10 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     } else {
       const customerMessage = stripAdminMarkers(message);
       const emailSubject = `Re: ${ticket.subject || "Support Request"}`;
+      // Send FROM the enabled inbound mailbox that the chat polls (when its
+      // address matches the resolved support address) so the client's reply
+      // loops back to the same inbox and appears in Messenger Chat.
+      const fromOverride = await resolveReplySender(db);
       const sendResult = await sendEmail(
         db,
         "support_reply",
@@ -40,7 +84,8 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
           subject: ticket.subject || "Support Request",
           // Admin/editor markers are never sent to the customer.
           message: customerMessage,
-        }
+        },
+        fromOverride ? { from: fromOverride } : {}
       );
       emailDelivered = sendResult.success;
       providerMessageId = sendResult.messageId || "";

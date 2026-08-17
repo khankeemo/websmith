@@ -5,8 +5,9 @@ import crypto from "node:crypto";
 // ============================================================================
 // INBOUND EMAIL SYNC — Query Inbox (Public Website, AWS-01 R01)
 //
-// Admin-only manual sync that pulls customer email replies into their existing
-// Get in Touch / Query Inbox tickets, completing the two-way conversation:
+// Pulls customer email replies into their existing Get in Touch / Query Inbox
+// tickets, completing the two-way conversation. Called silently by the
+// Messenger Chat auto-poll (every 1 s while a conversation is open):
 //
 //   Client reply email  ->  mailbox IMAP  ->  this route  ->  ticket thread
 //
@@ -15,7 +16,9 @@ import crypto from "node:crypto";
 //      the Message-ID of an outbound admin message stored on a ticket
 //      (`messages.providerMessageId`).
 //   2. Fallback: the inbound sender email equals the ticket's contactEmail
-//      (most recently updated non-deleted ticket wins).
+//      (thread identity honored: among the sender's tickets, the one whose
+//      subject matches the inbound subject wins; most recently updated
+//      non-deleted ticket as the tiebreak).
 // Sender is ALWAYS verified against the ticket's contactEmail; a mismatched
 // sender is never attached to a ticket. Duplicates (same inbound Message-ID
 // already stored) are skipped.
@@ -25,11 +28,87 @@ import crypto from "node:crypto";
 // The IMAP mailbox is opened READ-ONLY and messages are NEVER marked Seen, so
 // the internal Communications Center sync of the same mailbox is unaffected.
 // Unmatched emails stay UNSEEN so they can be re-attempted (e.g. after the
-// matching ticket is created).
+// matching ticket is created). Each poll processes only the newest UNSEEN
+// messages (MAX_UNSEEN_BATCH) and overlapping polls are skipped, keeping the
+// 1-second auto-poll light even with a backlog of old unprocessed mail.
+//
+// Inbound email bodies are cleaned at STORE time (cleanInboundBody): quoted
+// previous emails, original-message blocks, signatures and reply-header
+// blocks are stripped so the Messenger Chat shows ONLY the client's own words.
 // ============================================================================
 
 const norm = (value: string) =>
   String(value || "").trim().replace(/^<|>$/g, "").replace(/\s+/g, "").toLowerCase();
+
+// ---------------------------------------------------------------------------
+// Clean inbound email body (R01 Phase 4 — Messenger Chat shows ONLY the
+// client's own words). Strips quoted previous-email blocks, original-message
+// sections, signature blocks and stray reply-header blocks at STORE time so
+// the chat bubble, history entry and any consumer get the same clean body.
+// Conservative: the first quote/signature/header boundary ends the message;
+// legitimate body text before the boundary is preserved verbatim.
+// ---------------------------------------------------------------------------
+function cleanInboundBody(text: string): string {
+  let body = String(text || "");
+  if (!body.trim()) return "";
+  body = body.replace(/\r\n/g, "\n");
+  const lines = body.split("\n");
+  let cut = lines.length;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    // Quoted reply block (every line prefixed with ">").
+    if (trimmed.startsWith(">")) {
+      cut = i;
+      break;
+    }
+    // Outlook / Apple Mail original-message separator.
+    if (/^-----+\s*(original message|forwarded message|reply message|message)\s*-----+$/i.test(trimmed)) {
+      cut = i;
+      break;
+    }
+    // Gmail-style "On <date>, <name> wrote:" quote intro (after a blank line).
+    if (i > 0 && lines[i - 1].trim() === "" && /^on .+ (wrote|said):\s*$/i.test(trimmed)) {
+      cut = i;
+      break;
+    }
+    // Mobile signatures ("Sent from my iPhone/Android/...").
+    if (/^sent from (my )?(iphone|ipad|android|galaxy|blackberry|windows)/i.test(trimmed)) {
+      cut = i;
+      break;
+    }
+    // Signature separator ("-- ").
+    if (trimmed === "--" || trimmed.startsWith("-- ")) {
+      cut = i;
+      break;
+    }
+    // Outlook reply header block ("From: ... / Sent: ... / To: ...").
+    if (
+      i > 0 &&
+      lines[i - 1].trim() === "" &&
+      /^(from|sent|to|cc|bcc|subject|date|reply-to|return-path|message-id|x-[a-z0-9-]+):/i.test(trimmed)
+    ) {
+      cut = i;
+      break;
+    }
+  }
+  return lines
+    .slice(0, cut)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Normalize a subject for thread-identity comparison: strip repeated
+// Re:/Fwd:/Fw:/Aw:/Sv:/VS: prefixes and punctuation, lowercase.
+function normSubject(value: string): string {
+  let s = String(value || "");
+  for (let i = 0; i < 8; i++) {
+    const next = s.replace(/^\s*(?:re|fwd|fw|aw|sv|vs|antwort|antw)\s*:\s*/i, "");
+    if (next === s) break;
+    s = next;
+  }
+  return s.replace(/[^a-z0-9]+/gi, "").toLowerCase();
+}
 
 function collectIds(value: unknown): string[] {
   if (!value) return [];
@@ -110,18 +189,27 @@ async function processInboundEmail(db: any, incoming: InboundMessage): Promise<I
   }
 
   // 2. Fallback: sender email == ticket contactEmail (never subject alone).
+  //    Thread identity is still honored: when the sender has multiple tickets,
+  //    the ticket whose subject matches the inbound subject (Re:/Fwd: stripped)
+  //    wins, newest-updated as the tiebreak.
   if (!ticket) {
     const fromLower = String(incoming.fromAddress || "").trim().toLowerCase();
     if (fromLower) {
-      ticket = await db
+      const candidates = await db
         .collection("tickets")
         .find({
           deletedAt: { $exists: false },
           contactEmail: { $regex: `^${fromLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
         })
         .sort({ updatedAt: -1 })
-        .limit(1)
-        .next();
+        .limit(20)
+        .toArray();
+      if (candidates.length > 0) {
+        const inboundSubject = normSubject(incoming.subject);
+        ticket =
+          (inboundSubject ? candidates.find((c) => normSubject(c.subject) === inboundSubject) : undefined) ||
+          candidates[0];
+      }
     }
   }
 
@@ -144,8 +232,9 @@ async function processInboundEmail(db: any, incoming: InboundMessage): Promise<I
 
   const now = new Date();
   const createdAt = incoming.date && !Number.isNaN(new Date(incoming.date).getTime()) ? new Date(incoming.date) : now;
-  // Body ONLY — never the email envelope/header/signature metadata (Phase R01).
-  const bodyText = String(incoming.text || incoming.html || "(No content)").trim();
+  // Body ONLY — quoted replies / signatures / reply-header blocks are stripped
+  // here so the Messenger Chat shows only the client's own words (R01 Phase 4).
+  const bodyText = cleanInboundBody(incoming.text || incoming.html || "") || "(No content)";
 
   // 5. Persist inbound attachments so they are never lost from the support
   //    email / chat. The original email (with its attachments) stays in the
@@ -209,6 +298,18 @@ type MailboxSyncStats = {
   error?: string;
 };
 
+// Newest UNSEEN messages processed per poll. Keeps the 1-second auto-poll
+// light when a mailbox holds a backlog of old unprocessed mail; every new
+// client reply is always inside this window (dedupe makes re-processing of
+// older mail harmless).
+const MAX_UNSEEN_BATCH = 40;
+
+// Single-instance guard: overlapping polls (auto-poll + any other trigger)
+// never run two IMAP sweeps at once — the second call returns a skipped
+// summary immediately. Serverless instances each keep their own flag, which
+// is fine: the Message-ID dedupe is the real duplicate boundary.
+let syncInflight = false;
+
 async function syncMailbox(db: any, mailbox: any): Promise<MailboxSyncStats> {
   const stats: MailboxSyncStats = { processed: 0, matched: 0, duplicate: 0, senderMismatch: 0, unmatched: 0, attachmentsStored: 0 };
 
@@ -246,8 +347,17 @@ async function syncMailbox(db: any, mailbox: any): Promise<MailboxSyncStats> {
         return resolve();
       }
 
+      // The mailbox is opened READ-ONLY and messages are never marked Seen, so
+      // every poll re-sees ALL unprocessed mail. The auto-poll now runs every
+      // 1 second — cap each pass to the NEWEST messages (highest UIDs) so a
+      // backlog of old UNSEEN mail can never make the poll heavy. New client
+      // replies are always inside the newest batch; older unmatched mail is
+      // still processed as newer mail pushes it through the window (dedupe by
+      // Message-ID keeps re-processing harmless).
+      const batch = Array.isArray(uids) ? uids.slice(-MAX_UNSEEN_BATCH) : uids;
+
       const tasks: Promise<void>[] = [];
-      const fetch = imap.fetch(uids, { bodies: "", struct: true });
+      const fetch = imap.fetch(batch, { bodies: "", struct: true });
 
       fetch.on("message", (msg: any) => {
         const task = new Promise<void>((taskResolve) => {
@@ -327,6 +437,33 @@ async function syncMailbox(db: any, mailbox: any): Promise<MailboxSyncStats> {
 export const POST = apiHandler(async ({ db, user }) => {
   if (user.role !== "admin") throw forbidden();
 
+  // Overlapping syncs are skipped (the poll may overlap a manual or other
+  // instance's run; Message-ID dedupe is the real duplicate boundary).
+  if (syncInflight) {
+    return json({
+      success: true,
+      data: {
+        processed: 0,
+        matched: 0,
+        duplicate: 0,
+        senderMismatch: 0,
+        unmatched: 0,
+        attachmentsStored: 0,
+        errors: [],
+        noMailboxes: false,
+        skipped: true,
+      },
+    });
+  }
+  syncInflight = true;
+  try {
+    return await runInboundSync(db);
+  } finally {
+    syncInflight = false;
+  }
+}, { auth: "required" });
+
+async function runInboundSync(db: any): Promise<Response> {
   // Read-only source of inbound mailboxes: the enabled license-system mailboxes.
   let mailboxes: any[] = [];
   try {
@@ -378,4 +515,4 @@ export const POST = apiHandler(async ({ db, user }) => {
     success: true,
     data: { ...totals, errors, noMailboxes: false },
   });
-}, { auth: "required" });
+}

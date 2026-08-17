@@ -66,11 +66,62 @@ type Notice = { type: "success" | "error" | "warn"; text: string } | null;
 
 const QUERY_INBOX_PAGE_SIZE = 15;
 
-// Auto-poll interval for inbound email sync (R01 Phase 3 — live client email
-// → Messenger Chat without manual refresh). Reuses the existing IMAP sync on
-// /api/tickets/inbound; only refreshes the open conversation when new messages
-// are matched.
-const POLL_INTERVAL_MS = 30_000;
+// Auto-poll interval for inbound email sync (R01 Phase 5 — FINAL FAST INBOUND
+// CHAT: poll every 1 second so a client email lands in Messenger Chat within
+// ≤1 s and never later than the 3-second maximum; no manual Sync Inbound
+// button). Reuses the existing IMAP sync on /api/tickets/inbound silently;
+// only refreshes the open conversation when new messages are matched. Polling
+// runs ONLY while a conversation is selected AND not closed, and stops on
+// unmount/deselect.
+const POLL_INTERVAL_MS = 1_000;
+
+// Display-only cleanup mirror for inbound email bodies stored BEFORE the
+// server-side cleaner existed (R01 Phase 4). The chat never shows quoted
+// previous emails / signatures / reply-header blocks — only the client's own
+// words. Data is never mutated here.
+function cleanClientBody(raw: string): string {
+  let body = String(raw || "");
+  if (!body.trim()) return body;
+  body = body.replace(/\r\n/g, "\n");
+  const lines = body.split("\n");
+  let cut = lines.length;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (t.startsWith(">")) {
+      cut = i;
+      break;
+    }
+    if (t === "--" || t.startsWith("-- ")) {
+      cut = i;
+      break;
+    }
+    if (/^-----+\s*(original message|forwarded message|reply message|message)\s*-----+$/i.test(t)) {
+      cut = i;
+      break;
+    }
+    if (/^sent from (my )?(iphone|ipad|android|galaxy|blackberry|windows)/i.test(t)) {
+      cut = i;
+      break;
+    }
+    if (i > 0 && lines[i - 1].trim() === "" && /^on .+ (wrote|said):\s*$/i.test(t)) {
+      cut = i;
+      break;
+    }
+    if (
+      i > 0 &&
+      lines[i - 1].trim() === "" &&
+      /^(from|sent|to|cc|bcc|subject|date|reply-to|return-path|message-id|x-[a-z0-9-]+):/i.test(t)
+    ) {
+      cut = i;
+      break;
+    }
+  }
+  return lines
+    .slice(0, cut)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 const formatDate = (value?: string) =>
   value
@@ -357,7 +408,6 @@ export default function AdminMessagesClient() {
   const [resolution, setResolution] = useState("");
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [menuRect, setMenuRect] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
@@ -393,6 +443,9 @@ export default function AdminMessagesClient() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards the auto-poll against overlapping IMAP sweeps (a poll in flight is
+  // never re-entered; the next interval tick picks up the result).
+  const pollInFlight = useRef(false);
 
   // Dedicated workspace: hide the admin shell chrome for this page only.
   useEffect(() => {
@@ -474,7 +527,7 @@ export default function AdminMessagesClient() {
         setSelectedTicket(fresh);
       }
     } catch {
-      // Best-effort; the manual Sync Inbound button still works.
+      // Best-effort; the next poll re-attempts automatically.
     }
   }, [selectedTicket, scope, page, searchTerm]);
 
@@ -520,18 +573,21 @@ export default function AdminMessagesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket?._id]);
 
-  // Auto-poll inbound email (R01 Phase 3 — live client email → chat, no manual
-  // refresh). When a conversation is open, silently polls the IMAP sync at a
-  // fixed interval; if new client messages were matched, the open thread is
+  // Auto-poll inbound email (R01 Phase 5 — FINAL FAST INBOUND CHAT: live
+  // client email → chat within ≤1 s, never beyond the 3-second maximum,
+  // background only). While a conversation is selected AND not closed, the
+  // existing IMAP sync is polled silently every 1 second (first poll shortly
+  // after open); when new client messages were matched the open thread is
   // refreshed so the reply appears in Messenger Chat immediately. Polling is
-  // silent (no toasts); the admin can still click "Sync Inbound" for an
-  // immediate manual sync.
+  // fully silent — no toasts, no loaders, no manual Sync button — and stops
+  // when the conversation is closed or unmounted.
   useEffect(() => {
-    if (!selectedTicket) return;
+    if (!selectedTicket || selectedTicket.status === "closed") return;
 
     let cancelled = false;
     const poll = async () => {
-      if (cancelled) return;
+      if (cancelled || pollInFlight.current) return;
+      pollInFlight.current = true;
       try {
         const result = await syncInboundEmail();
         if (result?.matched > 0 && !cancelled) {
@@ -539,15 +595,17 @@ export default function AdminMessagesClient() {
         }
       } catch {
         // Silent: auto-poll never disrupts the admin session on transient errors.
+      } finally {
+        pollInFlight.current = false;
       }
     };
 
+    const first = setTimeout(poll, 800);
     const id = setInterval(poll, POLL_INTERVAL_MS);
-    const immediate = setTimeout(poll, 5_000);
     return () => {
       cancelled = true;
+      clearTimeout(first);
       clearInterval(id);
-      clearTimeout(immediate);
     };
   }, [selectedTicket, refreshOpenTicket]);
 
@@ -666,20 +724,6 @@ export default function AdminMessagesClient() {
     } finally {
       setBusyId(null);
       setMenuFor(null);
-    }
-  };
-
-  const handleSyncInbound = async () => {
-    setSyncing(true);
-    try {
-      const result = await syncInboundEmail();
-      if (result.noMailboxes) showNotice("warn", result.message || "No mailboxes configured.");
-      else showNotice("success", `Inbound sync: ${result.processed} processed, ${result.matched} matched, ${result.unmatched} unmatched${result.attachmentsStored ? `, ${result.attachmentsStored} attachments stored` : ""}.`);
-      await refresh();
-    } catch (error: any) {
-      showNotice("error", error?.response?.data?.message || "Inbound sync failed.");
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -964,14 +1008,10 @@ export default function AdminMessagesClient() {
            </div>
          ) : (
            <div className="qib-conv-body" onScroll={closeMenu}>
-             <div className="qib-conv-subhead">
-               <h3 style={styles.convSubject}>{selectedTicket.subject}</h3>
-               <div style={styles.convActions}>
-                 <button type="button" onClick={handleSyncInbound} disabled={syncing || saving} style={styles.iconBtn} title="Sync inbound email">
-                   {syncing ? <Loader2 size={15} className="admin-messages-spin" /> : <Mail size={15} />}
-                   <span style={styles.iconBtnLabel}>Sync Inbound</span>
-                 </button>
-                 <button
+              <div className="qib-conv-subhead">
+                <h3 style={styles.convSubject}>{selectedTicket.subject}</h3>
+                <div style={styles.convActions}>
+                  <button
                    type="button"
                    aria-label="Conversation actions"
                    onClick={(event) => openCardMenu(event, selectedTicket._id)}
@@ -1008,9 +1048,10 @@ export default function AdminMessagesClient() {
                           <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
                             <p style={styles.bubbleSender}>
                               {isClient ? (m.senderName || "Client") : adminDisplayName(m.senderName)}
-                              {m.senderEmail ? ` · ${m.senderEmail}` : ""}
                             </p>
-                            <p style={styles.bubbleText}>{m.message}</p>
+                            <p style={styles.bubbleText}>
+                              {isClient && m.source === "email" ? cleanClientBody(m.message) : m.message}
+                            </p>
                             {m.attachments && m.attachments.length > 0 && (
                               <div style={styles.bubbleAttachments}>
                                 {m.attachments.map((att) => (
@@ -1030,20 +1071,16 @@ export default function AdminMessagesClient() {
                             )}
                             <div style={styles.bubbleMeta}>
                               <span style={styles.bubbleTime}>{formatDate(m.createdAt)}</span>
-                              {m.source === "email" && (
-                                <span style={styles.bubbleViaEmail}>
-                                  <Mail size={11} /> via email
-                                </span>
-                              )}
-                              {m.direction === "outbound" && m.deliveryStatus === "sent" && (
+                              {!isClient && m.direction === "outbound" && m.deliveryStatus === "sent" && (
                                 <span style={styles.deliverySent}>Sent via email</span>
                               )}
-                              {m.direction === "outbound" && m.deliveryStatus === "failed" && (
+                              {!isClient && m.direction === "outbound" && m.deliveryStatus === "failed" && (
                                 <span style={styles.deliveryFailed} title={m.deliveryError || "Email delivery failed"}>
                                   Email failed
                                 </span>
                               )}
-                              {m.direction === "outbound" &&
+                              {!isClient &&
+                                m.direction === "outbound" &&
                                 (!m.deliveryStatus || m.deliveryStatus === "not_sent") && (
                                   <span style={styles.deliveryStored}>Stored, not emailed</span>
                                 )}

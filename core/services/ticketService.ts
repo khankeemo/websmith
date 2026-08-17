@@ -319,9 +319,16 @@ export const markTicketRead = async (id: string) => {
 };
 
 /** Sync inbound client email replies into their tickets (Query Inbox). Admin only. */
+/**
+ * Sync inbound client email replies into their tickets (Query Inbox).
+ * Runs on the Messenger Chat auto-poll every 1 second while a conversation is
+ * open — the transport is quietFetch so the poll is SILENT and can never kill
+ * the page (a 401 session expiry is swallowed by the poll, never redirected).
+ * Same endpoint, same response shape as the old axios call.
+ */
 export const syncInboundEmail = async () => {
-  const response = await API.post("/tickets/inbound");
-  return response.data.data as {
+  const payload = await quietFetch(`/tickets/inbound`, { method: "POST" });
+  return payload.data as {
     noMailboxes?: boolean;
     message?: string;
     processed: number;
@@ -331,5 +338,6 @@ export const syncInboundEmail = async () => {
     unmatched: number;
     attachmentsStored: number;
     errors?: string[];
+    skipped?: boolean;
   };
 };
