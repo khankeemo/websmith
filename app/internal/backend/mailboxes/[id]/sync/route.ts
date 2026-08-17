@@ -20,9 +20,36 @@ type ReceiveAccount = {
 // Built-in accounts stay in communications.mail_accounts. Their receive
 // configuration is supplied only by the existing secure environment layer;
 // no system account is ever materialized as a mailboxes row.
+const DEFAULT_NATIVE_MAIL_ACCOUNTS = [
+  {
+    id: 'support',
+    name: 'Support',
+    email: process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com',
+    display_name: process.env.MAIL_SUPPORT_NAME || 'Websmith Support Team',
+    type: 'support',
+    is_active: true,
+  },
+  {
+    id: 'sales',
+    name: 'Sales',
+    email: process.env.MAIL_SALES_ADDRESS || 'sales@websmithdigital.com',
+    display_name: process.env.MAIL_SALES_NAME || 'Websmith Sales Team',
+    type: 'sales',
+    is_active: true,
+  },
+];
+
+const DEFAULT_NATIVE_ROUTING = {
+  support_categories: ['support', 'activation', 'renewal', 'reactivation', 'hardware_replacement', 'general'],
+  sales_categories: ['sales'],
+};
+
 function nativeReceiveAccount(settings: any, id: string): ReceiveAccount | null {
   const communications = settings?.communications || {};
-  const accounts = Array.isArray(communications.mail_accounts) ? communications.mail_accounts : [];
+  const routing = { ...DEFAULT_NATIVE_ROUTING, ...(communications.routing || {}) };
+  const accounts = Array.isArray(communications.mail_accounts) && communications.mail_accounts.length > 0
+    ? communications.mail_accounts
+    : DEFAULT_NATIVE_MAIL_ACCOUNTS;
   const account = accounts.find((item: any) => String(item?.id) === id);
   if (!account || account.is_active === false || !['support', 'sales'].includes(String(account.type))) return null;
 
@@ -33,7 +60,6 @@ function nativeReceiveAccount(settings: any, id: string): ReceiveAccount | null 
   const password = read('PASSWORD');
   const port = Number(read('PORT'));
   const secureValue = read('SECURE').toLowerCase();
-  const routing = communications.routing || {};
   const categories = account.type === 'sales' ? routing.sales_categories : routing.support_categories;
   const category = Array.isArray(categories) && categories[0] ? String(categories[0]) : '';
 
