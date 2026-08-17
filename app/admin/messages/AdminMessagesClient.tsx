@@ -66,13 +66,14 @@ type Notice = { type: "success" | "error" | "warn"; text: string } | null;
 
 const QUERY_INBOX_PAGE_SIZE = 15;
 
-// Auto-poll interval for inbound email sync (R01 Phase 5 — FINAL FAST INBOUND
-// CHAT: poll every 1 second so a client email lands in Messenger Chat within
-// ≤1 s and never later than the 3-second maximum; no manual Sync Inbound
-// button). Reuses the existing IMAP sync on /api/tickets/inbound silently;
-// only refreshes the open conversation when new messages are matched. Polling
-// runs ONLY while a conversation is selected AND not closed, and stops on
-// unmount/deselect.
+// Auto-poll interval for inbound email (R01 — FINAL FAST INBOUND CHAT: poll
+// every 1 second so a client email lands in Messenger Chat within ≤1 s and
+// never later than the 3-second maximum; no manual Sync Inbound button). The
+// poll silently runs the existing IMAP sync on /api/tickets/inbound (external
+// mailboxes) AND the diff-based open-thread refresh, which also surfaces mail
+// delivered by the Brevo inbound webhook (/api/brevo/inbound) for the native
+// support@ account. Polling runs ONLY while a conversation is selected AND not
+// closed, and stops on unmount/deselect.
 const POLL_INTERVAL_MS = 1_000;
 
 // Display-only cleanup mirror for inbound email bodies stored BEFORE the
@@ -511,7 +512,11 @@ export default function AdminMessagesClient() {
 
   // Lightweight refresh of ONLY the open ticket (no loading-state flicker).
   // Used by the inbound-email auto-poll to surface new client messages in the
-  // Messenger Chat without touching the list's loading state.
+  // Messenger Chat without touching the list's loading state. Diff-based: the
+  // poll runs every 1 s, so state is only touched when the ticket actually
+  // changed (new inbound client message via the IMAP sync OR the Brevo inbound
+  // webhook, an admin reply, a status change, ...) — unchanged tickets never
+  // trigger a re-render.
   const refreshOpenTicket = useCallback(async () => {
     if (!selectedTicket) return;
     try {
@@ -522,10 +527,15 @@ export default function AdminMessagesClient() {
         search: searchTerm,
       });
       const fresh = res.data.find((t) => t._id === selectedTicket._id);
-      if (fresh) {
-        setTickets((prev) => prev.map((t) => (t._id === fresh._id ? fresh : t)));
-        setSelectedTicket(fresh);
-      }
+      if (!fresh) return;
+      const changed =
+        String(fresh.updatedAt ?? "") !== String(selectedTicket.updatedAt ?? "") ||
+        String(fresh.lastClientReplyAt ?? "") !== String(selectedTicket.lastClientReplyAt ?? "") ||
+        (Array.isArray(fresh.messages) ? fresh.messages.length : 0) !==
+          (Array.isArray(selectedTicket.messages) ? selectedTicket.messages.length : 0);
+      if (!changed) return;
+      setTickets((prev) => prev.map((t) => (t._id === fresh._id ? fresh : t)));
+      setSelectedTicket(fresh);
     } catch {
       // Best-effort; the next poll re-attempts automatically.
     }
@@ -573,12 +583,15 @@ export default function AdminMessagesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket?._id]);
 
-  // Auto-poll inbound email (R01 Phase 5 — FINAL FAST INBOUND CHAT: live
-  // client email → chat within ≤1 s, never beyond the 3-second maximum,
+  // Auto-poll inbound email (R01 — Brevo inbound webhook path: live native
+  // support@ mail → chat within ≤1 s, never beyond the 3-second maximum,
   // background only). While a conversation is selected AND not closed, the
   // existing IMAP sync is polled silently every 1 second (first poll shortly
-  // after open); when new client messages were matched the open thread is
-  // refreshed so the reply appears in Messenger Chat immediately. Polling is
+  // after open), then the open thread is ALWAYS re-checked via the diff-based
+  // refresh — that surfaces BOTH inbound paths: the IMAP sync's matched
+  // messages and the Brevo inbound webhook (`/api/brevo/inbound`), which
+  // writes the ticket directly so it carries no matched-count signal. A new
+  // client message therefore appears in Messenger Chat within ≤1 s. Polling is
   // fully silent — no toasts, no loaders, no manual Sync button — and stops
   // when the conversation is closed or unmounted.
   useEffect(() => {
@@ -589,8 +602,8 @@ export default function AdminMessagesClient() {
       if (cancelled || pollInFlight.current) return;
       pollInFlight.current = true;
       try {
-        const result = await syncInboundEmail();
-        if (result?.matched > 0 && !cancelled) {
+        await syncInboundEmail();
+        if (!cancelled) {
           await refreshOpenTicket();
         }
       } catch {
