@@ -36,6 +36,7 @@ export const PUBLIC_PATHS = [
   "/privacy",
   "/terms",
   "/license",
+  "/unsubscribe_global",
 ] as const;
 
 /**
@@ -68,6 +69,7 @@ export const PUBLIC_EXACT_ROUTES = [
   "/privacy",
   "/terms",
   "/license",
+  "/unsubscribe_global",
 ] as const;
 
 /**

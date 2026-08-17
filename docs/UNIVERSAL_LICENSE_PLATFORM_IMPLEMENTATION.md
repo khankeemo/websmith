@@ -5427,7 +5427,29 @@ Phase 1-14 are fully complete. Phase 15 (Template-First Architecture Refactor) i
 24. ✅ TypeScript template refactored — generator now loads from template/typescript/ (orchestration-only)
     ✅ Multi-runtime template refactoring for remaining 12 runtimes (node, php, java, dotnet, go, rust, cpp, c, javascript, bun, deno)
 25. Fresh multi-runtime SDK generation and full verification
-26. Runtime drift audit for all languages
+  26. Runtime drift audit for all languages
+  27. ✅ Universal Email Unsubscribe System (2026-08-17) — centralized single
+     `email_preferences` table (`lib/backend-db/index.ts`) storing `email`,
+     `email_hash`, `token` (unique, 64-char hex), `is_unsubscribed`,
+     `unsubscribed_at`; `lib/email/unsubscribe.ts` shared service exports
+     `ESSENTIAL_EMAIL_TYPES` (otp_verification, password_reset, license_*,
+     trial_*, device_replacement, subscription_renewal_reminder, payment_*,
+     welcome_customer — always send, no unsubscribe footer), `INTERNAL_EMAIL_TYPES`
+     (admin_notification, new_sales_enquiry, conversation_created — staff-only,
+     no footer), `shouldIncludeUnsubscribe()` (support_reply, sales_reply —
+     customer-facing non-essential), `isUnsubscribed(email)`,
+     `getUnsubscribeLink(email)` (UPSERT token on first send), `recordUnsubscribe(token)`;
+     `sendEmail()` in `lib/email/brevo.ts` checks `isUnsubscribed` before sending
+     non-essential customer emails (skips + logs `status:'skipped'` when unsubscribed)
+     and appends `{{unsubscribe_url}}` footer (HTML + text) only for those types;
+     public route `POST/GET /api/unsubscribe` records the preference (server-verified
+     token, 400 on invalid/missing token); public page
+     `/unsubscribe_global?token=...` (PublicPage layout, confirmed via API) added to
+     `core/constants/routes.ts` (`PUBLIC_PATHS` + `PUBLIC_EXACT_ROUTES`) +
+     `proxy.ts` `PUBLIC_PATHS`; `COMPANY_NAME`/`BRANDING_TAGLINE`/`WEBSITE_URL`
+     extracted to shared `lib/email/branding.ts`; transactional/security emails
+     always send without any unsubscribe link. Verified: `npx tsc --noEmit` EXIT 0,
+     `npm run build` green. Not committed.
 
 ---
 

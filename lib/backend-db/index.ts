@@ -1290,6 +1290,22 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_email_attachments_recipient ON email_attachments(recipient)`);
     try { await client.query(`ALTER TABLE email_attachments ADD COLUMN IF NOT EXISTS content BYTEA`); } catch (e) {}
 
+    // 27e-bis. Create email_preferences table for centralized unsubscribe tracking
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS email_preferences (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL,
+        email_hash TEXT NOT NULL UNIQUE,
+        token TEXT NOT NULL UNIQUE,
+        is_unsubscribed BOOLEAN NOT NULL DEFAULT FALSE,
+        unsubscribed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_preferences_email_hash ON email_preferences(email_hash)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_preferences_token ON email_preferences(token)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_preferences_is_unsubscribed ON email_preferences(is_unsubscribed) WHERE is_unsubscribed = TRUE`);
 
     // 27e. Create message_queue table for email delivery queue and retry logic
     await client.query(`

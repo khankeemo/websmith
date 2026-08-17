@@ -21,6 +21,8 @@ const PUBLIC_PATHS = [
   // Universal Buy & Renew Portal — standalone customer pages, NO admin login gate
   "/internal/api/buy",
   "/internal/api/renew",
+  // Unsubscribe page — public standalone page reachable from email footer links
+  "/unsubscribe_global",
   // Health + public storefront/SDK-facing endpoints
   "/internal/backend/health",
   "/internal/backend/store",
