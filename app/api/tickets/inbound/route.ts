@@ -37,6 +37,12 @@ function collectIds(value: unknown): string[] {
   return [String(value).trim()].filter(Boolean);
 }
 
+type InboundAttachment = {
+  filename: string;
+  contentType: string;
+  content: Buffer;
+};
+
 type InboundMessage = {
   fromAddress: string;
   fromName: string;
@@ -47,12 +53,48 @@ type InboundMessage = {
   html: string;
   date: Date;
   mailboxEmail: string;
+  attachments: InboundAttachment[];
 };
 
 type InboundOutcome = {
   status: "matched" | "duplicate" | "sender_mismatch" | "unmatched";
   ticketId?: string;
+  attachmentsStored?: number;
 };
+
+// Persist inbound email attachments into the shared `uploads` collection (same
+// storage path as /api/tickets/upload + GET /api/uploads/<id>) so they are never
+// lost from the support email and the Messenger Chat can render a compact link.
+// Best-effort: a failed attachment never breaks the client message itself.
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB, mirrors the universal policy.
+type StoredAttachment = { name: string; url: string; size: number; contentType: string };
+async function storeInboundAttachments(db: any, attachments: InboundAttachment[]): Promise<StoredAttachment[]> {
+  const links: StoredAttachment[] = [];
+  if (!Array.isArray(attachments) || attachments.length === 0) return links;
+  for (const att of attachments) {
+    try {
+      if (!att.content || !Buffer.isBuffer(att.content) || att.content.length === 0) continue;
+      if (att.content.length > MAX_ATTACHMENT_SIZE) continue;
+      const doc = {
+        name: att.filename || "attachment",
+        contentType: att.contentType || "application/octet-stream",
+        size: att.content.length,
+        data: att.content.toString("base64"),
+        createdAt: new Date(),
+      };
+      const result = await db.collection("uploads").insertOne(doc);
+      links.push({
+        name: att.filename || "attachment",
+        url: `/api/uploads/${result.insertedId.toString()}`,
+        size: att.content.length,
+        contentType: att.contentType || "application/octet-stream",
+      });
+    } catch (storeError: any) {
+      console.error("Inbound attachment store error:", storeError?.message || storeError);
+    }
+  }
+  return links;
+}
 
 async function processInboundEmail(db: any, incoming: InboundMessage): Promise<InboundOutcome> {
   const normalizedMessageId = norm(incoming.messageId);
@@ -102,7 +144,15 @@ async function processInboundEmail(db: any, incoming: InboundMessage): Promise<I
 
   const now = new Date();
   const createdAt = incoming.date && !Number.isNaN(new Date(incoming.date).getTime()) ? new Date(incoming.date) : now;
+  // Body ONLY — never the email envelope/header/signature metadata (Phase R01).
   const bodyText = String(incoming.text || incoming.html || "(No content)").trim();
+
+  // 5. Persist inbound attachments so they are never lost from the support
+  //    email / chat. The original email (with its attachments) stays in the
+  //    support mailbox untouched (IMAP is opened READ-ONLY), and the attachment
+  //    bytes are linked to this message so the Messenger Chat can render a
+  //    compact indicator. Only the body text is shown in Chat.
+  const storedAttachments = await storeInboundAttachments(db, incoming.attachments || []);
 
   messages.push({
     id: crypto.randomUUID(),
@@ -117,6 +167,7 @@ async function processInboundEmail(db: any, incoming: InboundMessage): Promise<I
     providerMessageId: normalizedMessageId || undefined,
     inReplyTo: refs.length ? refs : undefined,
     references: refs.length ? refs : undefined,
+    attachments: storedAttachments.length ? storedAttachments : undefined,
   });
 
   const history = Array.isArray(ticket.history) ? ticket.history : [];
@@ -128,6 +179,7 @@ async function processInboundEmail(db: any, incoming: InboundMessage): Promise<I
     emailSubject: String(incoming.subject || "").trim(),
     providerMessageId: normalizedMessageId || undefined,
     createdAt,
+    ...(storedAttachments.length ? { attachments: storedAttachments } : {}),
   });
 
   const update: any = {
@@ -144,7 +196,7 @@ async function processInboundEmail(db: any, incoming: InboundMessage): Promise<I
   }
   await db.collection("tickets").updateOne({ _id: ticket._id }, { $set: update });
 
-  return { status: "matched", ticketId: ticket._id.toString() };
+  return { status: "matched", ticketId: ticket._id.toString(), attachmentsStored: storedAttachments.length };
 }
 
 type MailboxSyncStats = {
@@ -153,11 +205,12 @@ type MailboxSyncStats = {
   duplicate: number;
   senderMismatch: number;
   unmatched: number;
+  attachmentsStored: number;
   error?: string;
 };
 
 async function syncMailbox(db: any, mailbox: any): Promise<MailboxSyncStats> {
-  const stats: MailboxSyncStats = { processed: 0, matched: 0, duplicate: 0, senderMismatch: 0, unmatched: 0 };
+  const stats: MailboxSyncStats = { processed: 0, matched: 0, duplicate: 0, senderMismatch: 0, unmatched: 0, attachmentsStored: 0 };
 
   const Imap = (await import("imap")).default;
   const { simpleParser } = await import("mailparser");
@@ -211,6 +264,18 @@ async function syncMailbox(db: any, mailbox: any): Promise<MailboxSyncStats> {
               const fromAddress = parsed.from?.value?.[0]?.address || parsed.from?.text || "";
               const fromName = parsed.from?.value?.[0]?.name || "";
               const refs = collectIds(parsed.inReplyTo).concat(collectIds(parsed.references));
+              // mailparser exposes each inbound attachment as a Buffer in
+              // `content`; normalize to the InboundAttachment shape consumed by
+              // storeInboundAttachments (read-only IMAP, never mutated).
+              const attachments: InboundAttachment[] = Array.isArray(parsed.attachments)
+                ? parsed.attachments
+                    .map((a: any) => ({
+                      filename: typeof a.filename === "string" ? a.filename : "attachment",
+                      contentType: typeof a.contentType === "string" ? a.contentType : "application/octet-stream",
+                      content: Buffer.isBuffer(a.content) ? a.content : Buffer.from(a.content || []),
+                    }))
+                    .filter((a) => a.content && a.content.length > 0)
+                : [];
               const outcome = await processInboundEmail(db, {
                 fromAddress,
                 fromName,
@@ -221,12 +286,14 @@ async function syncMailbox(db: any, mailbox: any): Promise<MailboxSyncStats> {
                 html: parsed.html || "",
                 date: parsed.date || new Date(),
                 mailboxEmail: String(mailbox.email_address || ""),
+                attachments,
               });
               stats.processed += 1;
               if (outcome.status === "matched") stats.matched += 1;
               else if (outcome.status === "duplicate") stats.duplicate += 1;
               else if (outcome.status === "sender_mismatch") stats.senderMismatch += 1;
               else stats.unmatched += 1;
+              if (outcome.attachmentsStored) stats.attachmentsStored += outcome.attachmentsStored;
             } catch (parseError: any) {
               console.error("Inbound ticket email parse error:", parseError?.message || parseError);
               stats.processed += 1;
@@ -291,7 +358,7 @@ export const POST = apiHandler(async ({ db, user }) => {
     });
   }
 
-  const totals = { processed: 0, matched: 0, duplicate: 0, senderMismatch: 0, unmatched: 0 };
+  const totals = { processed: 0, matched: 0, duplicate: 0, senderMismatch: 0, unmatched: 0, attachmentsStored: 0 };
   const errors: string[] = [];
   for (const mailbox of mailboxes) {
     try {
@@ -301,6 +368,7 @@ export const POST = apiHandler(async ({ db, user }) => {
       totals.duplicate += stats.duplicate;
       totals.senderMismatch += stats.senderMismatch;
       totals.unmatched += stats.unmatched;
+      totals.attachmentsStored += stats.attachmentsStored;
     } catch (mailboxError: any) {
       errors.push(`${mailbox.email_address}: ${mailboxError?.message || "IMAP sync failed"}`);
     }

@@ -40,8 +40,26 @@ import {
 import { getSiteUrl } from "@/core/config/site";
 
 // Canonical sender identity shown for every admin/outbound message in the
-// Messenger Chat. Replaces any raw "Admin User" string in this component.
-const ADMIN_SENDER_LABEL = "Websmith Support Team";
+// Messenger Chat. Replaces any raw "Admin User" string (and the generic
+// "Websmith ..." fallbacks persisted by the outgoing routes) with the single
+// professional admin identity. Real admin names are preserved.
+const ADMIN_SENDER_LABEL = "Websmith Digital Support";
+
+// Never surface the raw "Admin User" placeholder or generic fallbacks as the
+// admin sender — always collapse them to the canonical admin identity.
+const GENERIC_ADMIN_NAMES = new Set([
+  "admin user",
+  "websmith team",
+  "websmith support team",
+  "websmith support",
+  "support team",
+]);
+function adminDisplayName(raw?: string | null): string {
+  if (!raw) return ADMIN_SENDER_LABEL;
+  const t = String(raw).trim();
+  if (!t || GENERIC_ADMIN_NAMES.has(t.toLowerCase())) return ADMIN_SENDER_LABEL;
+  return t;
+}
 
 type Scope = "active" | "closed";
 type Notice = { type: "success" | "error" | "warn"; text: string } | null;
@@ -57,6 +75,12 @@ const formatDate = (value?: string) =>
       minute: "2-digit",
     })
     : "Just now";
+
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 const getStatusLabel = (status: Ticket["status"]) => status.replace("_", " ");
 
@@ -590,7 +614,7 @@ export default function AdminMessagesClient() {
     try {
       const result = await syncInboundEmail();
       if (result.noMailboxes) showNotice("warn", result.message || "No mailboxes configured.");
-      else showNotice("success", `Inbound sync: ${result.processed} processed, ${result.matched} matched, ${result.unmatched} unmatched.`);
+      else showNotice("success", `Inbound sync: ${result.processed} processed, ${result.matched} matched, ${result.unmatched} unmatched${result.attachmentsStored ? `, ${result.attachmentsStored} attachments stored` : ""}.`);
       await refresh();
     } catch (error: any) {
       showNotice("error", error?.response?.data?.message || "Inbound sync failed.");
@@ -923,10 +947,27 @@ export default function AdminMessagesClient() {
                         >
                           <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
                             <p style={styles.bubbleSender}>
-                              {m.senderName || (isClient ? "Client" : ADMIN_SENDER_LABEL)}
+                              {isClient ? (m.senderName || "Client") : adminDisplayName(m.senderName)}
                               {m.senderEmail ? ` · ${m.senderEmail}` : ""}
                             </p>
                             <p style={styles.bubbleText}>{m.message}</p>
+                            {m.attachments && m.attachments.length > 0 && (
+                              <div style={styles.bubbleAttachments}>
+                                {m.attachments.map((att) => (
+                                  <a
+                                    key={att.url}
+                                    href={resolveTicketFileUrl(att.url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={styles.attachmentLink}
+                                    title={att.name}
+                                  >
+                                    {att.name}
+                                    {att.size ? ` (${formatFileSize(att.size)})` : ""}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                             <div style={styles.bubbleMeta}>
                               <span style={styles.bubbleTime}>{formatDate(m.createdAt)}</span>
                               {m.source === "email" && (
@@ -1510,6 +1551,16 @@ const styles: Record<string, any> = {
     color: "var(--text-primary)",
   },
   bubbleMeta: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "4px" },
+  bubbleAttachments: { display: "flex", flexWrap: "wrap", gap: "6px 8px", marginTop: "6px" },
+  attachmentLink: {
+    fontSize: "11px",
+    color: "#007AFF",
+    textDecoration: "underline",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: "100%",
+  },
   bubbleTime: { fontSize: "10px", color: "var(--text-muted)" },
   bubbleViaEmail: { display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--text-secondary)" },
   deliverySent: { fontSize: "10px", fontWeight: 700, color: "#1d7a31" },

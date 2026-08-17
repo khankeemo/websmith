@@ -81,6 +81,10 @@ export interface ThreadMessage {
   providerMessageId?: string;
   inReplyTo?: string[];
   references?: string[];
+  // Inbound email attachments (Query Inbox). Stored in the shared `uploads`
+  // collection and linked to the message so the Messenger Chat can render a
+  // compact indicator. Outgoing admin attachments are tracked in `history`.
+  attachments?: Array<{ name: string; url: string; size?: number; contentType?: string }>;
 }
 
 export interface Ticket {
@@ -325,6 +329,7 @@ export const syncInboundEmail = async () => {
     duplicate: number;
     senderMismatch: number;
     unmatched: number;
+    attachmentsStored: number;
     errors?: string[];
   };
 };
