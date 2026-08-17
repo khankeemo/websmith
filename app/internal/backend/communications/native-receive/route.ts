@@ -58,7 +58,16 @@ async function processNativeMessage(
   client: any,
   parsed: any,
   mailbox: ReceiveAccount
-): Promise<{ conversationId: string; isNew: boolean; isUpdated: boolean }> {
+): Promise<{ 
+  conversationId: string; 
+  isNew: boolean; 
+  isUpdated: boolean;
+  customerName: string;
+  customerEmail: string;
+  messageBody: string;
+  messageId: string;
+  createdAt: Date;
+}> {
   const messageId = String(parsed.messageId || '').trim() || null;
   const subject = parsed.subject || '(No Subject)';
   const from = mailbox.is_native ? (parsed.from?.value?.[0]?.address || '') : (parsed.from?.text || '');
@@ -75,7 +84,7 @@ async function processNativeMessage(
       [messageId]
     );
     if (duplicate?.rows.length) {
-      return { conversationId: '', isNew: false, isUpdated: false };
+      return { conversationId: '', isNew: false, isUpdated: false, customerName: '', customerEmail: '', messageBody: '', messageId: '', createdAt: new Date() };
     }
   }
 
@@ -92,7 +101,7 @@ async function processNativeMessage(
       'UPDATE communication_conversations SET updated_at = $1 WHERE id = $2',
       [new Date().toISOString(), conversationId]
     );
-    return { conversationId, isNew: false, isUpdated: true };
+    return { conversationId, isNew: false, isUpdated: true, customerName: parsedName, customerEmail: from, messageBody: text || html || '(No content)', messageId, createdAt: date };
   }
 
   // --- Reuse trashed conversation if exists ---
@@ -108,7 +117,7 @@ async function processNativeMessage(
       'UPDATE communication_conversations SET updated_at = $1 WHERE id = $2 AND deleted_at IS NOT NULL',
       [new Date().toISOString(), conversationId]
     );
-    return { conversationId, isNew: false, isUpdated: true };
+    return { conversationId, isNew: false, isUpdated: true, customerName: parsedName, customerEmail: from, messageBody: text || html || '(No content)', messageId, createdAt: date };
   }
 
   // --- Create new conversation ---
@@ -118,7 +127,7 @@ async function processNativeMessage(
      VALUES ($1, $2, 'open', $3, $4, $5, $6, $7, $7)`,
     [conversationId, mailbox.category, from, parsedName, subject, null, date.toISOString()]
   );
-  return { conversationId, isNew: true, isUpdated: false };
+  return { conversationId, isNew: true, isUpdated: false, customerName: parsedName, customerEmail: from, messageBody: text || html || '(No content)', messageId, createdAt: date };
 }
 
 export async function POST(_request: NextRequest) {
@@ -205,7 +214,7 @@ export async function POST(_request: NextRequest) {
                 }
 
                 // --- Process conversation ---
-                const { conversationId, isNew, isUpdated } = await processNativeMessage(
+                const { conversationId, isNew, isUpdated, customerName, customerEmail, messageBody, messageId, createdAt } = await processNativeMessage(
                   client, parsed, mailbox
                 );
                 if (!conversationId) {
@@ -217,7 +226,7 @@ export async function POST(_request: NextRequest) {
                 const msgInsert = await client?.query(
                   `INSERT INTO conversation_messages (conversation_id, sender_type, sender_name, sender_email, message, is_internal, provider_message_id, created_at)
                    VALUES ($1, 'customer', $2, $3, $4, FALSE, $5, $6) RETURNING id`,
-                  [conversationId, parsedName, from, text || html || '(No content)', messageId, date.toISOString()]
+                  [conversationId, customerName, customerEmail, messageBody, messageId, createdAt.toISOString()]
                 );
                 const customerMessageId = msgInsert?.rows?.[0]?.id;
                 totalNew += isNew ? 1 : 0;
@@ -240,17 +249,12 @@ export async function POST(_request: NextRequest) {
                 console.error('Failed to parse email:', parseError);
               }
             });
-          });
+});
 
-          fetch.once('error', (err: Error) => reject(err));
-          fetch.once('end', () => {
-            imap.end();
-            resolve();
-          });
         });
       });
     }
-
+  
     // 3. Audit log
     await client.query(
       `INSERT INTO audit_logs (event_type, message, timestamp)
