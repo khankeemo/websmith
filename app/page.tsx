@@ -606,6 +606,7 @@ export default function LandingPage() {
   const developersRef = useRef<HTMLElement>(null);
   const clientsRef = useRef<HTMLElement>(null);
   const contactFormRef = useRef<HTMLElement>(null);
+  const diversityVideoRef = useRef<HTMLVideoElement>(null);
   
   // Contact form state
   const [contactState, setContactState] = useState({
@@ -681,6 +682,24 @@ export default function LandingPage() {
         });
       }
     });
+  }, []);
+
+  useEffect(() => {
+    const video = diversityVideoRef.current;
+    if (!video) return;
+    const attemptPlay = () => {
+      if (video.paused) {
+        video.play().catch(() => {});
+      }
+      window.removeEventListener("pointerdown", attemptPlay);
+      window.removeEventListener("keydown", attemptPlay);
+    };
+    window.addEventListener("pointerdown", attemptPlay);
+    window.addEventListener("keydown", attemptPlay);
+    return () => {
+      window.removeEventListener("pointerdown", attemptPlay);
+      window.removeEventListener("keydown", attemptPlay);
+    };
   }, []);
 
   // Smooth scroll function
@@ -926,14 +945,23 @@ export default function LandingPage() {
               <div style={styles.diversityBadge}>Enterprise Grade</div>
               <div style={styles.diversityBadge}>Diverse Talent</div>
             </div>
+            <div style={styles.diversityImageContainer}>
+              <img
+                src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
+                alt="Global Technical Team"
+                style={styles.diversityImage}
+              />
+            </div>
           </div>
-          <div style={styles.diversityImageContainer}>
+          <div style={styles.diversityVideoContainer}>
             <video
+              ref={diversityVideoRef}
               autoPlay
               loop
               playsInline
               controls
-              style={styles.diversityImage}
+              preload="auto"
+              style={styles.diversityVideo}
             >
               <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
             </video>
@@ -2164,6 +2192,18 @@ const styles: any = {
     minWidth: "320px",
   },
   diversityImageContainer: {
+    width: "100%",
+    marginTop: "24px",
+    borderRadius: "24px",
+    overflow: "hidden",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+  },
+  diversityImage: {
+    width: "100%",
+    height: "auto",
+    display: "block",
+  },
+  diversityVideoContainer: {
     flex: 1,
     minWidth: "320px",
     borderRadius: "24px",
@@ -2171,7 +2211,7 @@ const styles: any = {
     boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
     aspectRatio: "16 / 9",
   },
-  diversityImage: {
+  diversityVideo: {
     width: "100%",
     height: "100%",
     display: "block",
