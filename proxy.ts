@@ -25,6 +25,11 @@ const PUBLIC_PATHS = [
   "/unsubscribe_global",
   // Health + public storefront/SDK-facing endpoints
   "/internal/backend/health",
+  // QStash-signed system callback: the native inbound receive adapter is
+  // invoked ONLY by the QStash cron (signed with Upstash-Signature, verified
+  // inside the route via verifySignatureAppRouter) — never by browsers, so it
+  // must pass the session proxy but stays cryptographically gated.
+  "/internal/backend/communications/native-receive",
   "/internal/backend/store",
   "/internal/backend/store/products",
   "/internal/backend/license/status",

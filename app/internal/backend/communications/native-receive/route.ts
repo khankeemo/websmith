@@ -4,6 +4,10 @@ import { getDb } from '@/lib/backend-db';
 import { simpleParser } from 'mailparser';
 import { linkConversationAttachments, storeIncomingAttachment } from '@/lib/communications/attachments';
 
+// IMAP connect + parse + insert cycles need longer than the default 10s
+// serverless budget; QStash is configured with a matching 60s timeout.
+export const maxDuration = 60;
+
 type ReceiveAccount = {
   id: string | null;
   email_address: string;
@@ -219,7 +223,10 @@ const nativeReceiveHandler = async (_request: NextRequest) => {
         });
       });
 
-      // Search UNSEEN
+      // Search UNSEEN then fetch — search alone NEVER emits 'message' events,
+      // so the proven mailboxes/[id]/sync pattern (explicit imap.fetch +
+      // fetch 'end') is required; without it the adapter hangs forever the
+      // moment the inbox holds any UNSEEN mail.
       const searchCriteria = ['UNSEEN'];
       await new Promise<void>((resolve, reject) => {
         imap.search(searchCriteria, async (err: Error | null, uids: number[]) => {
@@ -233,7 +240,9 @@ const nativeReceiveHandler = async (_request: NextRequest) => {
           let messagesNew = 0;
           let messagesUpdated = 0;
 
-          imap.on('message', async (msg: any, seqno: number) => {
+          const fetch = imap.fetch(uids, { bodies: '', struct: true });
+
+          fetch.on('message', async (msg: any, seqno: number) => {
             msg.on('body', async (stream: any) => {
               try {
                 const parsed = await simpleParser(stream);
@@ -284,8 +293,14 @@ const nativeReceiveHandler = async (_request: NextRequest) => {
                 console.error('Failed to parse email:', parseError);
               }
             });
-  });
-});
+          });
+
+          fetch.once('error', (fetchErr: Error) => reject(fetchErr));
+          fetch.once('end', () => {
+            imap.end();
+            resolve();
+          });
+        });
       });
     }
 
