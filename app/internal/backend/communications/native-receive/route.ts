@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySignatureAppRouter } from '@upstash/qstash/nextjs';
 import { getDb } from '@/lib/backend-db';
 import { simpleParser } from 'mailparser';
 import { linkConversationAttachments, storeIncomingAttachment } from '@/lib/communications/attachments';
@@ -156,7 +157,7 @@ async function processNativeMessage(
   return { conversationId, isNew: true, isUpdated: false, customerName: parsedName, customerEmail: from, messageBody: text || html || '(No content)', messageId, createdAt: date };
 }
 
-export async function POST(_request: NextRequest) {
+const nativeReceiveHandler = async (_request: NextRequest) => {
   let client = null;
   try {
     client = await (await getDb()).connect();
@@ -275,12 +276,11 @@ export async function POST(_request: NextRequest) {
                 console.error('Failed to parse email:', parseError);
               }
             });
+  });
 });
-
-        });
       });
     }
-  
+
     // 3. Audit log
     await client.query(
       `INSERT INTO audit_logs (event_type, message, timestamp)
@@ -294,10 +294,10 @@ export async function POST(_request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        new_messages: totalNew,
-        updated_messages: totalUpdated,
-        skipped: totalSkipped,
-        status: 'completed',
+new_messages: totalNew,
+updated_messages: totalUpdated,
+skipped: totalSkipped,
+status: 'completed',
       }
     });
 
@@ -309,4 +309,12 @@ export async function POST(_request: NextRequest) {
       error: { code: 'INTERNAL_ERROR', message: 'Native receive failed.' }
     }, { status: 500 });
   }
-}
+};
+
+export const POST = verifySignatureAppRouter(nativeReceiveHandler, {
+  currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
+  nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
+  url: process.env.NEXT_PUBLIC_APP_URL
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/internal/backend/communications/native-receive`
+    : undefined,
+});
