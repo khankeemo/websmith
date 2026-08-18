@@ -424,55 +424,6 @@ function LanguageRacer() {
   );
 }
 
-/**
- * RIGHT-SIDE MASK BUBBLE — the Websmith Digital2 image locked inside a
- * circular container (border-radius 50% + overflow hidden + cover-fit, image
- * sized 100% of the circle and centered), so it can never escape the circular
- * boundary — not on hover, animation (bob is applied to the CONTAINER only,
- * transform-based) or responsive resizing. The bubble is ~5% smaller than the
- * previous mask (clamp(96px,11vw,150px) → clamp(91px,10.5vw,142px)) and stays
- * fixed at the right side of the stage (desktop right column / mobile strip).
- */
-function MaskBubble() {
-  return (
-    <div className="ws-mask-bubble" style={styles.maskBubble} aria-hidden="true">
-      <img
-        src="/images/Websmith Digital2.png"
-        alt=""
-        style={styles.maskImage}
-        draggable={false}
-        decoding="async"
-      />
-      <style jsx>{`
-        @keyframes wsMaskBob {
-          0%,
-          100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(6px);
-          }
-        }
-        .ws-mask-bubble {
-          animation: wsMaskBob 5s ease-in-out infinite;
-          will-change: transform;
-        }
-        @media (max-width: 900px) {
-          .ws-mask-bubble {
-            width: 72px !important;
-            height: 72px !important;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .ws-mask-bubble {
-            animation: none !important;
-          }
-        }
-      `}</style>
-    </div>
-  );
-}
-
 const styles: Record<string, React.CSSProperties> = {
   // Full-viewport 3-part stage: LEFT Language Racer | CENTER chat card |
   // RIGHT mask bubble. Rows on desktop; below 900px the CSS media rules in the
@@ -510,38 +461,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
   },
-  // RIGHT slot — fixed mask bubble at the right side (desktop only).
-  maskSlot: {
-    flexShrink: 0,
-    width: "170px",
-    height: "100%",
-    minWidth: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 0,
-  },
-  // Mobile variant of the mask bubble — lives inside the top strip; hidden on
-  // desktop via display:none, shown again by the CSS media rule.
-  maskMobile: {
-    display: "none",
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 0,
-  },
-  // The circular mask bubble: fixed circle, image clamped inside (overflow
-  // hidden + 50% radius + cover fit), ~5% smaller than the previous mask.
-  maskBubble: {
-    width: "clamp(91px, 10.5vw, 142px)",
-    height: "clamp(91px, 10.5vw, 142px)",
-    borderRadius: "50%",
-    overflow: "hidden",
-    boxSizing: "border-box",
-    border: "1px solid rgba(20, 156, 234, 0.35)",
-    boxShadow:
-      "0 0 0 4px rgba(20, 156, 234, 0.12), 0 0 24px rgba(20, 156, 234, 0.25), inset 0 0 0 2px rgba(255, 255, 255, 0.06)",
-  },
+  // The circular mask image — always clamped inside its circle (overflow
+  // hidden + 50% radius + cover fit, sized 100% of the circle and centered).
   maskImage: {
     width: "100%",
     height: "100%",
@@ -631,13 +552,19 @@ const styles: Record<string, React.CSSProperties> = {
   header: {
     flexShrink: 0,
     display: "flex",
-    flexDirection: "column",
+    alignItems: "center",
     gap: "10px",
-    padding: "12px 14px 10px",
+    padding: "10px 14px",
     borderBottom: "1px solid var(--border-color)",
     background: "var(--bg-primary)",
   },
-  headerTitleBlock: { minWidth: 0 },
+  headerTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+  },
   headerTitle: {
     margin: 0,
     fontSize: "14px",
@@ -648,49 +575,28 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
   },
   headerSub: {
-    margin: "2px 0 0 0",
+    margin: 0,
     fontSize: "11px",
     color: "var(--text-secondary)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  // Client Login / Home / Open·Closed — SAME SIZE, DIFFERENT COLORS.
-  headerBtns: { flexShrink: 0, display: "flex", alignItems: "center", gap: "8px" },
-  headerBtn: {
-    flex: 1,
-    minWidth: 0,
+  // Right-side header cluster: dynamic status circle + Uiverse Slice buttons
+  // + the Websmith mask circle (top-right inside the chat card).
+  headerRight: {
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  statusWrap: {
+    position: "relative",
     display: "inline-flex",
     alignItems: "center",
-    justifyContent: "center",
-    gap: "5px",
-    height: "32px",
-    borderRadius: "10px",
-    padding: "0 8px",
-    fontSize: "11.5px",
-    fontWeight: 700,
-    cursor: "pointer",
-    textDecoration: "none",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    border: "1px solid transparent",
-  },
-  headerBtnLogin: {
-    backgroundColor: "#007AFF",
-    color: "#ffffff",
-  },
-  headerBtnHome: {
-    backgroundColor: "#34C759",
-    color: "#ffffff",
-  },
-  headerBtnOpen: {
-    backgroundColor: "#FF9F0A",
-    color: "#ffffff",
-  },
-  headerBtnClosed: {
-    backgroundColor: "#FF3B30",
-    color: "#ffffff",
+    flexShrink: 0,
   },
   body: {
     flex: 1,
@@ -985,7 +891,8 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
 
   return (
     <div className="ws-chat-root" style={styles.root}>
-      {/* Responsive layout rules for the 3-part stage (racer | chat | mask). */}
+      {/* Responsive layout rules + header status circle / tooltip / Slice
+          buttons / in-card mask circle. */}
       <style jsx>{`
         @media (max-width: 900px) {
           .ws-chat-root {
@@ -1004,14 +911,143 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
             width: auto !important;
             min-width: 0 !important;
           }
-          .ws-mask-slot {
-            display: none !important;
-          }
-          .ws-mask-mobile {
-            display: flex !important;
-          }
           .ws-chat-card {
             height: min(800px, calc(100dvh - 150px)) !important;
+          }
+        }
+
+        /* ---- Dynamic status circle (open → green, closed → red) ---- */
+        .ws-status-dot {
+          width: 12px;
+          height: 12px;
+          flex-shrink: 0;
+          display: inline-block;
+          border-radius: 50%;
+          cursor: help;
+          outline: none;
+        }
+        .ws-status-dot-open {
+          background: #34c759;
+          box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.16), 0 0 10px rgba(52, 199, 89, 0.45);
+        }
+        .ws-status-dot-closed {
+          background: #ff3b30;
+          box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.16), 0 0 10px rgba(255, 59, 48, 0.4);
+        }
+        .ws-status-dot-pending {
+          background: var(--text-muted);
+        }
+        .ws-status-dot:focus-visible {
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 0 12px rgba(20, 156, 234, 0.6);
+        }
+
+        /* ---- Status tooltip (hover / focus, fade + scale, no layout shift) ---- */
+        .ws-status-tooltip {
+          position: absolute;
+          left: 50%;
+          top: calc(100% + 9px);
+          transform: translateX(-50%) scale(0.85);
+          transform-origin: top center;
+          opacity: 0;
+          pointer-events: none;
+          z-index: 20;
+          white-space: nowrap;
+          text-align: center;
+          background: rgba(12, 18, 28, 0.97);
+          color: #ffffff;
+          font-size: 11px;
+          font-weight: 500;
+          line-height: 1.5;
+          border-radius: 8px;
+          padding: 6px 10px;
+          border: 1px solid rgba(20, 156, 234, 0.28);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+          transition: opacity 180ms ease, transform 180ms cubic-bezier(0.83, 0, 0.17, 1);
+        }
+        .ws-status-tooltip strong {
+          display: block;
+          font-size: 11.5px;
+          font-weight: 700;
+        }
+        .ws-status-wrap:hover .ws-status-tooltip,
+        .ws-status-wrap:focus-within .ws-status-tooltip {
+          opacity: 1;
+          transform: translateX(-50%) scale(1);
+        }
+
+        /* ---- Uiverse Slice buttons (Client Login / Home) ---- */
+        .slice {
+          --c1: #202020;
+          --c2: #00a1b7;
+          --size-letter: 14px;
+          padding: 0.5em 1em;
+          font-size: var(--size-letter);
+          background-color: transparent;
+          border: calc(var(--size-letter) / 6) solid var(--c2);
+          border-radius: 0.2em;
+          cursor: pointer;
+          overflow: hidden;
+          position: relative;
+          transition: 300ms cubic-bezier(0.83, 0, 0.17, 1);
+        }
+        .slice > .text {
+          font-weight: 700;
+          color: var(--c2);
+          position: relative;
+          z-index: 1;
+          transition: color 700ms cubic-bezier(0.83, 0, 0.17, 1);
+        }
+        .slice::after {
+          content: "";
+          width: 0;
+          height: calc(300% + 1em);
+          position: absolute;
+          translate: -50% -50%;
+          inset: 50%;
+          rotate: 30deg;
+          background-color: var(--c2);
+          transition: 1000ms cubic-bezier(0.83, 0, 0.17, 1);
+        }
+        .slice:hover > .text {
+          color: var(--c1);
+        }
+        .slice:hover::after {
+          width: calc(120% + 1em);
+        }
+        .slice:active {
+          scale: 0.98;
+          filter: brightness(0.9);
+        }
+
+        /* ---- Websmith mask circle, top-right INSIDE the chat card header ---- */
+        .ws-header-mask {
+          width: 44px;
+          height: 44px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          overflow: hidden;
+          box-sizing: border-box;
+          background: var(--bg-secondary);
+          border: 1px solid rgba(20, 156, 234, 0.35);
+          box-shadow: 0 0 0 3px rgba(20, 156, 234, 0.12), 0 0 14px rgba(20, 156, 234, 0.22);
+        }
+        @media (max-width: 480px) {
+          .ws-header-mask {
+            width: 36px !important;
+            height: 36px !important;
+          }
+          .slice {
+            --size-letter: 11px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ws-status-tooltip {
+            transition: none;
+          }
+          .slice,
+          .slice::after,
+          .slice > .text {
+            transition: none;
           }
         }
       `}</style>
@@ -1019,9 +1055,6 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
       {/* LEFT: live Language Racer (desktop column; mobile = top strip) */}
       <div className="ws-racer-slot" style={styles.racerSlot}>
         <LanguageRacer />
-        <div className="ws-mask-mobile" style={styles.maskMobile}>
-          <MaskBubble />
-        </div>
       </div>
 
       {/* CENTER: the existing messenger card (unchanged) */}
@@ -1038,39 +1071,43 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
                 : TEAM_NAME}
             </p>
           </div>
-          {/* SAME-SIZE buttons, DIFFERENT colors */}
-          <div style={styles.headerBtns}>
-            <Link
-              href="/login"
-              style={{ ...styles.headerBtn, ...styles.headerBtnLogin }}
-              aria-label="Client login"
-            >
-              Client Login
-            </Link>
-            <Link href="/" style={{ ...styles.headerBtn, ...styles.headerBtnHome }} aria-label="Home">
-              Home
-            </Link>
+          {/* Dynamic status circle + Uiverse Slice buttons + mask circle */}
+          <div style={styles.headerRight}>
             {conversation ? (
-              <span
-                role="status"
-                aria-label={isClosed ? "Conversation closed" : "Conversation open"}
-                style={{
-                  ...styles.headerBtn,
-                  ...(isClosed ? styles.headerBtnClosed : styles.headerBtnOpen),
-                  cursor: "default",
-                }}
-              >
-                {isClosed ? "Closed" : "Open"}
+              <span className="ws-status-wrap" style={styles.statusWrap}>
+                <span
+                  role="status"
+                  tabIndex={0}
+                  aria-label={isClosed ? "Conversation closed" : "Conversation open"}
+                  className={`ws-status-dot ${isClosed ? "ws-status-dot-closed" : "ws-status-dot-open"}`}
+                />
+                <span className="ws-status-tooltip" role="tooltip">
+                  <strong>{isClosed ? "Closed" : "Open"}</strong>
+                  {isClosed ? "Chat is closed" : "Chat is active"}
+                </span>
               </span>
             ) : (
               <span
                 role="status"
                 aria-label="Conversation status pending"
-                style={{ ...styles.headerBtn, backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border-color)", cursor: "default" }}
-              >
-                ...
-              </span>
+                className="ws-status-dot ws-status-dot-pending"
+              />
             )}
+            <a href="https://www.websmithdigital.com/login" className="slice" aria-label="Client login">
+              <span className="text">Client Login</span>
+            </a>
+            <a href="https://www.websmithdigital.com/" className="slice" aria-label="Home">
+              <span className="text">Home</span>
+            </a>
+            <div className="ws-header-mask" aria-hidden="true">
+              <img
+                src="/images/Websmith Digital2.png"
+                alt=""
+                style={styles.maskImage}
+                draggable={false}
+                decoding="async"
+              />
+            </div>
           </div>
         </header>
 
@@ -1092,16 +1129,6 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           </div>
         ) : (
           <div style={styles.body} ref={scrollRef}>
-            <div style={{ position: "absolute", right: 10, top: 10, zIndex: 1 }}>
-              <img
-                src={WEBSCIMITH_LOGO}
-                alt="Websmith"
-                width={48}
-                height={48}
-                style={{ objectFit: "contain" }}
-                decoding="async"
-              />
-            </div>
             {conversation.messages.length === 0 ? (
               <div style={styles.center}>
                 <p style={styles.centerText}>
@@ -1190,11 +1217,6 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           </div>
         )}
         </div>
-      </div>
-
-      {/* RIGHT: fixed circular mask bubble (desktop) */}
-      <div className="ws-mask-slot" style={styles.maskSlot}>
-        <MaskBubble />
       </div>
     </div>
   );
