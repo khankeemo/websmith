@@ -302,6 +302,11 @@ const FOLDERS: FolderDef[] = [
   { key: 'payment', label: 'Payment', icon: CreditCard, section: 'internal', kind: 'list', params: { search: 'payment' } },
   { key: 'sdk', label: 'SDK', icon: Package, section: 'internal', kind: 'list', params: { search: 'sdk' } },
   { key: 'customer', label: 'Customer', icon: Users, section: 'internal', kind: 'list', params: { has_customer: 'true' } },
+  // Sent — a real outbound view over BOTH sources (system + sales + support +
+  // admin-composed mail). It uses the exact same real "Sent" filter as the Mail
+  // Sent folder (conversations carrying a delivered admin email), so it skips
+  // the source restriction the same way.
+  { key: 'sent', label: 'Sent', icon: Send, section: 'internal', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent', noSource: true },
   { key: 'notifications', label: 'Notifications', icon: BellRing, section: 'internal', kind: 'logs' },
   { key: 'email-history', label: 'Universal Email', icon: MailOpen, section: 'internal', kind: 'history' },
   { key: 'int-trash', label: 'Trash', icon: Trash2, section: 'internal', kind: 'list', params: { show_deleted: 'true' }, badgeKey: 'trash' },
@@ -2674,7 +2679,7 @@ export default function CommunicationsPage() {
       .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
       .filter((f): f is FolderDef => !!f);
 
-    const internalFolders = ['all', 'sales', 'support', 'activation', 'renewal', 'reactivation', 'hardware', 'trial', 'payment', 'sdk', 'customer', 'notifications', 'email-history', 'int-trash']
+    const internalFolders = ['all', 'sales', 'support', 'activation', 'renewal', 'reactivation', 'hardware', 'trial', 'payment', 'sdk', 'customer', 'sent', 'notifications', 'email-history', 'int-trash']
       .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
       .filter((f): f is FolderDef => !!f);
 
@@ -2697,9 +2702,15 @@ export default function CommunicationsPage() {
           <div>
             {groupLabel('Categories / Labels')}
             <div className="space-y-0.5">
-              {internalFolders.map(def =>
-                folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, systemStats)
-              )}
+              {internalFolders.map(def => {
+                // Sent spans BOTH sources (system + mailbox mail), so its badge
+                // is the sum of the per-source sent counts — same as the Mail
+                // Sent folder and the Sent status card.
+                const statsFor = def.key === 'sent'
+                  ? { ...systemStats, sent: (systemStats.sent || 0) + (mailboxStats.sent || 0) }
+                  : systemStats;
+                return folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, statsFor);
+              })}
             </div>
           </div>
 

@@ -169,7 +169,7 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   Waiting / Failed / Queued / Spam / Trash, `ext-*` + custom folder rows,
   badges from `Stats`) and **Categories / Labels** (All / Sales / Support /
   Activation / Renewal / Reactivation / Hardware / Trial / Payment / SDK /
-  Customer / Notifications / Universal Email), plus a pinned bottom with
+  Customer / Sent / Notifications / Universal Email), plus a pinned bottom with
   exactly **Communications Setting** + **Manage Folder** (opens the existing
   folder-manager modal). All former nav destinations — Websmith Mail accounts,
   Mailboxes, Templates, Signatures, Auto Reply, Manage Mails — were REMOVED
