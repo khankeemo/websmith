@@ -501,11 +501,12 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   SAME transaction (`insertConversationTombstones`, `ON CONFLICT DO NOTHING`);
   both inbound transports skip tombstoned mail (message-id lookup, plus a
   no-Message-ID variant by sender+subject+mailbox scope). Integration removal
-  intentionally writes no tombstones. (2) **Sent spans BOTH sources** — the
-  `ext-sent` folder def carries `noSource: true` so `loadConversations` skips
+  intentionally writes no tombstones. (2) **Sent spans BOTH sources — SUPERSEDED 2026-08-18 by the STRICT R01
+  "Sent source separation + account filter dropdown" entry below** — the
+  `ext-sent` folder def carried `noSource: true` so `loadConversations` skipped
   the `source=system|mailbox` restriction (outbound system/sales/support/
   admin-composed mail has `mailbox_id IS NULL`); the Sent sidebar badge, chip
-  and status card show `systemStats.sent + mailboxStats.sent`. (3) **Silent
+  and status card showed `systemStats.sent + mailboxStats.sent`. (3) **Silent
   auto-sync** — the 2s receive timer now guards with `autoSyncInFlight` and
   refreshes the list via `{ silent: true }` (no spinner flash every tick, no
   destructive errors); every post-mutation refresh calls `refreshCurrent(true)`.
@@ -516,6 +517,40 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   `app/internal/api/communications/page.tsx`. No SMTP/send/queue/auth/
   notification/storefront changes. Verified: `tsc --noEmit` 0 errors, `npm run
   build` green (296 pages). Not deployed.
+- **Communications Center — STRICT R01: Sent source separation + Mailbox /
+  System-mail account filter dropdown (2026-08-18, see master doc
+  "Communications Center — STRICT R01: Sent source separation + Mailbox /
+  System-mail account filter dropdown" progress entry)**: **(1) Sent never
+  mixes sources** — the old `noSource: true` flag made BOTH Sent folders load
+  the SAME combined record set (system + sales + support + admin-composed
+  mail). It is REMOVED: Categories/Labels → **Sent** now loads `source=system`
+  (system sent mail only, `mailbox_id IS NULL`) and Mail → **Sent** now loads
+  `source=mailbox` (configured mailbox sent mail only, `mailbox_id IS NOT
+  NULL`) via the EXISTING backend (`GET /internal/backend/communications/
+  conversations?sent=true` + the default per-section `source` param — no
+  backend change). Counts are source-scoped too: the Categories/Labels Sent
+  badge shows `systemStats.sent`, the Mail Sent badge/chip shows
+  `mailboxStats.sent`, and the pinned Sent status card reads the section's own
+  stats and opens the section's own Sent folder (`sent` inside Websmith
+  Communications, `ext-sent` inside Mail). The `noSource` field/guard was
+  deleted from `page.tsx`. **(2) Mailbox / System-mail account filter
+  dropdown** — a compact card-style dropdown (matching the Inbox/Waiting/Sent
+  chips) sits directly BEFORE the Search control in the Communication Center
+  toolbar. It lists **All Mail** + every configured account from the REAL
+  backend data (system mail accounts from `commSettings.mail_accounts` grouped
+  under "System Mail Accounts", enabled external `mailboxes` under "Mailbox
+  Accounts" — labels/emails are the real configured values, never hardcoded).
+  Selecting an account sets the existing `accountScope`
+  (`{kind:'system'|'mailbox', id}`), so the current folder list, the Search,
+  the badges/counts (`fetchStats` scopes per source + account) and the detail
+  all stay consistent with the selection; **All Mail** clears it back to the
+  unfiltered behavior. The account pills below the toolbar keep working as
+  before. No Send / Receive / Delete / Restore / Permanent Delete / IMAP /
+  Sales / Support / No-Reply / chat / schema / mailbox logic changed; no
+  backend or other file changed. Files: `app/internal/api/communications/
+  page.tsx` only. Verified: `tsc --noEmit` EXIT 0, `next build` EXIT 0
+  (pre-existing Turbopack NFT warning only). Not deployed; awaits user
+  approval.
 - **Universal / System Trash separation (see master doc "Universal / System
   Trash separation" progress entry)**: the Communication Center has a dedicated
   **Trash for Universal Email / System conversations** (`int-trash`) fully

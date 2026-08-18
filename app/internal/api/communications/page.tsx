@@ -18,6 +18,7 @@ import {
   FileImage, FileArchive, FileSpreadsheet, Presentation, FileJson,
   FileCode, FileAudio, FileVideo, FileType,
   Signature, ExternalLink, EyeOff, StickyNote, PenLine, BookMarked, Zap,
+  ChevronDown,
 } from "lucide-react";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
@@ -272,10 +273,6 @@ interface FolderDef {
   params?: Record<string, string>;
   badgeKey?: keyof Stats;
   emptyNote?: string;
-  // Sent is a REAL outbound-mail view that spans BOTH sources (system mail and
-  // mailbox mail), so it must not be narrowed by the strict source separation
-  // that every other folder applies.
-  noSource?: boolean;
 }
 
 interface FolderRow {
@@ -302,18 +299,18 @@ const FOLDERS: FolderDef[] = [
   { key: 'payment', label: 'Payment', icon: CreditCard, section: 'internal', kind: 'list', params: { search: 'payment' } },
   { key: 'sdk', label: 'SDK', icon: Package, section: 'internal', kind: 'list', params: { search: 'sdk' } },
   { key: 'customer', label: 'Customer', icon: Users, section: 'internal', kind: 'list', params: { has_customer: 'true' } },
-  // Sent — a real outbound view over BOTH sources (system + sales + support +
-  // admin-composed mail). It uses the exact same real "Sent" filter as the Mail
-  // Sent folder (conversations carrying a delivered admin email), so it skips
-  // the source restriction the same way.
-  { key: 'sent', label: 'Sent', icon: Send, section: 'internal', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent', noSource: true },
+  // Sent — a real outbound view STRICTLY scoped to this section: a conversation
+  // qualifies when it carries a delivered admin email (the same real "Sent"
+  // filter as the Mail Sent folder), and the default source restriction applies
+  // so Categories/Labels Sent lists SYSTEM sent mail (mailbox_id IS NULL) only.
+  { key: 'sent', label: 'Sent', icon: Send, section: 'internal', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent' },
   { key: 'notifications', label: 'Notifications', icon: BellRing, section: 'internal', kind: 'logs' },
   { key: 'email-history', label: 'Universal Email', icon: MailOpen, section: 'internal', kind: 'history' },
   { key: 'int-trash', label: 'Trash', icon: Trash2, section: 'internal', kind: 'list', params: { show_deleted: 'true' }, badgeKey: 'trash' },
 
   // External Mailboxes
   { key: 'ext-inbox', label: 'Inbox', icon: Inbox, section: 'external', kind: 'list', params: { status: 'open,waiting_customer' }, badgeKey: 'inbox' },
-  { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent', noSource: true },
+  { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent' },
   { key: 'ext-draft', label: 'Draft', icon: FilePen, section: 'external', kind: 'list', params: { status: 'draft' }, emptyNote: 'Draft support is not wired to the backend yet — outbound emails are sent immediately and tracked in Sent / Universal Email.' },
   { key: 'ext-waiting', label: 'Waiting', icon: Clock3, section: 'external', kind: 'list', params: { status: 'waiting_customer' }, badgeKey: 'waiting' },
   { key: 'ext-failed', label: 'Failed', icon: AlertTriangle, section: 'external', kind: 'list', params: { status: 'waiting_support,waiting_sales' }, badgeKey: 'failed' },
@@ -792,6 +789,11 @@ export default function CommunicationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'ok' | 'err' | 'warn'; text: string } | null>(null);
   const [showFilter, setShowFilter] = useState(false);
+  // Compact account-filter dropdown: narrows the current folder to ONE
+  // configured account (system mail account or mailbox). "All" restores the
+  // existing unfiltered behavior. Reuses accountScope so list/counts/search
+  // stay consistent with the selection.
+  const [accountFilterOpen, setAccountFilterOpen] = useState(false);
 
   const displayConversations = useMemo(() => {
     if (readFilter === 'all') return conversations;
@@ -1103,11 +1105,11 @@ export default function CommunicationsPage() {
       params.set('page', '1');
       params.set('limit', '100');
       // Strict source separation: internal (Websmith Communications) folders
-      // list system mail only; external (Mail) folders list mailbox mail only.
-      // Sent is the ONE exception — it is a real outbound view over BOTH
-      // sources (system + sales + support + admin-composed mail), so it skips
-      // the source restriction entirely.
-      if (!folder.noSource) params.set('source', folder.section === 'external' ? 'mailbox' : 'system');
+      // list system mail only (mailbox_id IS NULL); external (Mail) folders
+      // list configured mailbox mail only (mailbox_id IS NOT NULL). Sent is
+      // NO exception — Categories/Labels Sent lists system sent mail and Mail
+      // Sent lists mailbox sent mail, never mixed or shared.
+      params.set('source', folder.section === 'external' ? 'mailbox' : 'system');
       if (folder.params?.status) params.set('status', folder.params.status);
       if (folder.params?.category) params.set('category', folder.params.category);
       if (folder.params?.search) params.set('search', folder.params.search);
@@ -2495,6 +2497,38 @@ export default function CommunicationsPage() {
         }));
     }, [commSettings, mailboxes, activeFolderDef]);
 
+    // Account filter options for the dropdown — ALL configured accounts
+    // (system mail_accounts + enabled external mailboxes), derived from the
+    // real backend data, never hardcoded. The dropdown is section-agnostic:
+    // selecting any account narrows the current folder to that account's mail.
+    const accountFilterOptions = [
+      ...(commSettings?.mail_accounts || [])
+        .filter((a: any) => a?.id && a.is_active !== false)
+        .map((a: any) => ({
+          id: String(a.id),
+          kind: 'system' as const,
+          label: a.display_name || a.name || a.email || 'System Account',
+          email: a.email || '',
+          is_active: a.is_active !== false,
+        })),
+      ...mailboxes
+        .filter(m => m.is_enabled !== false)
+        .map(m => ({
+          id: m.id,
+          kind: 'mailbox' as const,
+          label: m.display_name || m.email_address || 'Mailbox',
+          email: m.email_address || '',
+          is_active: m.is_enabled !== false,
+        })),
+    ];
+    const systemFilterOptions = accountFilterOptions.filter(o => o.kind === 'system');
+    const mailboxFilterOptions = accountFilterOptions.filter(o => o.kind === 'mailbox');
+
+    const selectAccountFilter = (o: { kind: 'system' | 'mailbox'; id: string } | null) => {
+      setAccountScope(o);
+      setAccountFilterOpen(false);
+    };
+
     return (
       <div className="flex items-center gap-1 flex-wrap rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-2 py-1.5">
         <button onClick={openCompose} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
@@ -2572,6 +2606,73 @@ export default function CommunicationsPage() {
         <button onClick={() => refreshCurrent()} title="Refresh" className={btn}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
+        {/* Account filter dropdown — compact card-style control matching the
+            Inbox/Waiting/Sent chips. "All Mail" restores the unfiltered
+            behavior; selecting a configured account (system mail account or
+            mailbox) narrows the current folder + search to that account only. */}
+        <div className="relative">
+          <button
+            onClick={() => setAccountFilterOpen(o => !o)}
+            title="Filter by email account"
+            className={`flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap border transition-colors ${accountScope ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}
+          >
+            {accountScope
+              ? <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+              : <Users size={11} className="flex-shrink-0" />}
+            <span className="truncate max-w-[140px]">{scopeLabel || 'All Mail'}</span>
+            <ChevronDown size={11} className={`flex-shrink-0 transition-transform ${accountFilterOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {accountFilterOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setAccountFilterOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 w-72 max-h-80 overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] shadow-2xl shadow-black/40 p-1.5 space-y-0.5 scrollbar-thin">
+                <button
+                  onClick={() => selectAccountFilter(null)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-colors ${!accountScope ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400 flex-shrink-0" />
+                  <span className="flex-1 text-left font-medium">All Mail</span>
+                </button>
+                {systemFilterOptions.length > 0 && (
+                  <>
+                    <p className="px-2.5 pt-1.5 pb-0.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">System Mail Accounts</p>
+                    {systemFilterOptions.map(o => (
+                      <button
+                        key={o.id}
+                        onClick={() => selectAccountFilter({ kind: 'system', id: o.id })}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-colors ${accountScope?.kind === 'system' && accountScope.id === o.id ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${o.is_active ? 'bg-green-400' : 'bg-gray-500/30'}`} />
+                        <span className="flex-1 text-left min-w-0">
+                          <span className="block truncate font-medium">{o.label}</span>
+                          {o.email && <span className="block truncate text-[10px] text-[var(--text-muted)]">{o.email}</span>}
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
+                {mailboxFilterOptions.length > 0 && (
+                  <>
+                    <p className="px-2.5 pt-1.5 pb-0.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">Mailbox Accounts</p>
+                    {mailboxFilterOptions.map(o => (
+                      <button
+                        key={o.id}
+                        onClick={() => selectAccountFilter({ kind: 'mailbox', id: o.id })}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-colors ${accountScope?.kind === 'mailbox' && accountScope.id === o.id ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${o.is_active ? 'bg-green-400' : 'bg-gray-500/30'}`} />
+                        <span className="flex-1 text-left min-w-0">
+                          <span className="block truncate font-medium">{o.label}</span>
+                          {o.email && <span className="block truncate text-[10px] text-[var(--text-muted)]">{o.email}</span>}
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
         <div className="relative flex-1 min-w-[140px] max-w-xs ml-auto">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
@@ -2703,13 +2804,10 @@ export default function CommunicationsPage() {
             {groupLabel('Categories / Labels')}
             <div className="space-y-0.5">
               {internalFolders.map(def => {
-                // Sent spans BOTH sources (system + mailbox mail), so its badge
-                // is the sum of the per-source sent counts — same as the Mail
-                // Sent folder and the Sent status card.
-                const statsFor = def.key === 'sent'
-                  ? { ...systemStats, sent: (systemStats.sent || 0) + (mailboxStats.sent || 0) }
-                  : systemStats;
-                return folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, statsFor);
+                // Strict source separation: Categories/Labels Sent shows the
+                // SYSTEM sent count only (systemStats.sent) — mailbox sent
+                // mail lives in the Mail → Sent folder alone.
+                return folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, systemStats);
               })}
             </div>
           </div>
@@ -2719,12 +2817,10 @@ export default function CommunicationsPage() {
             {groupLabel('Mail')}
             <div className="space-y-0.5">
               {mailFolders.map(def => {
-                // Sent spans BOTH sources (system + mailbox mail), so its badge
-                // is the sum of the per-source sent counts.
-                const statsFor = def.key === 'ext-sent'
-                  ? { ...mailboxStats, sent: (systemStats.sent || 0) + (mailboxStats.sent || 0) }
-                  : mailboxStats;
-                return folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, statsFor);
+                // Strict source separation: Mail Sent shows the MAILBOX sent
+                // count only (mailboxStats.sent) — system sent mail lives in
+                // the Categories/Labels → Sent folder alone.
+                return folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, mailboxStats);
               })}
             </div>
           </div>
@@ -2763,7 +2859,6 @@ export default function CommunicationsPage() {
         const active = activeFolder === chip.key;
         const badge = chip.badgeKey ? (
           chip.key === 'all' || chip.key === 'int-trash' ? systemStats[chip.badgeKey]
-            : chip.key === 'ext-sent' ? (systemStats[chip.badgeKey] || 0) + (mailboxStats[chip.badgeKey] || 0)
             : mailboxStats[chip.badgeKey]
         ) : 0;
         return (
@@ -4410,16 +4505,14 @@ export default function CommunicationsPage() {
           const activeStats = activeFolderDef.section === 'external' ? mailboxStats : systemStats;
           return statusCards.map(card => {
             const Icon = card.icon;
-            const cardFolderMap: Record<string, string> = { inbox: 'ext-inbox', waiting: 'ext-waiting', sent: 'ext-sent', failed: 'ext-failed', queued: 'ext-queued', unread: 'all' };
+            const cardFolderMap: Record<string, string> = { inbox: 'ext-inbox', waiting: 'ext-waiting', sent: activeFolderDef.section === 'external' ? 'ext-sent' : 'sent', failed: 'ext-failed', queued: 'ext-queued', unread: 'all' };
             return (
               <button key={card.key} onClick={() => handleFolderChange(cardFolderMap[card.key])}
                 className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-3 py-2 hover:bg-[var(--bg-tertiary)]/20 transition-colors">
                 <span className={`p-1.5 rounded-lg ${card.color}`}><Icon size={13} /></span>
                 <span className="flex-1 text-left min-w-0">
                   <span className="block text-[10px] text-[var(--text-muted)] truncate">{card.label}</span>
-                  <span className="block text-sm font-bold text-[var(--text-primary)] leading-tight">{
-                    card.key === 'sent' ? (systemStats.sent || 0) + (mailboxStats.sent || 0) : activeStats[card.key]
-                  }</span>
+                  <span className="block text-sm font-bold text-[var(--text-primary)] leading-tight">{activeStats[card.key]}</span>
                 </span>
               </button>
             );
