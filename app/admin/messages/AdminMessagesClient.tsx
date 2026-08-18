@@ -33,6 +33,7 @@ import {
   markTicketRead,
   resolveTicketFileUrl,
   resendTicketEmail,
+  revealClientPassword,
   sendClientPortalAccess,
   sendResolutionEmail,
   syncInboundEmail,
@@ -189,8 +190,11 @@ function fillTemplate(template: { subject?: string; body?: string }, data: Recor
 // Resolves a Ticket's real contact data into the placeholder map the seeded
 // templates expect (must match the keys resolved server-side in
 // app/api/tickets/[id]/send-resolution-email/route.ts so the preview matches the
-// sent email).
-function ticketPlaceholders(ticket: Ticket | null): Record<string, string> {
+// sent email). `chatUrl` is the REAL signed secure Messenger Chat link for THIS
+// conversation (resolved via the admin chat-link endpoint, cached per ticket);
+// when unavailable it degrades to the Client Portal login URL so the reply
+// never contains a bare/empty token.
+function ticketPlaceholders(ticket: Ticket | null, chatUrl = ""): Record<string, string> {
   if (!ticket) return {};
   const client = typeof ticket.clientId === "object" && ticket.clientId ? ticket.clientId : null;
   const recipient = String(ticket.contactEmail || ticket.clientEmail || client?.email || "").trim();
@@ -206,6 +210,7 @@ function ticketPlaceholders(ticket: Ticket | null): Record<string, string> {
   // back to the prescribed customer-facing sentence.
   const origin = getSiteUrl().replace(/\/$/, "");
   const portalUrl = origin ? `${origin}/login` : "";
+  const portalFallback = "We will send your Client Portal access details to your email after the conversation is completed.";
   return {
     request_id: ticket._id,
     client_name: clientName,
@@ -214,7 +219,8 @@ function ticketPlaceholders(ticket: Ticket | null): Record<string, string> {
     query_subject: String(ticket.subject ?? ""),
     query_message: String(ticket.description ?? ""),
     resolution_summary: String(ticket.resolution ?? ""),
-    portal_url: portalUrl || "We will send your Client Portal access details to your email after the conversation is completed.",
+    portal_url: portalUrl || portalFallback,
+    chat_url: chatUrl || portalUrl || portalFallback,
     company_name: "Websmith Digital",
     query_status: String(ticket.status ?? ""),
   };
@@ -461,9 +467,25 @@ export default function AdminMessagesClient() {
   const [templates, setTemplates] = useState<Array<{ key: string; name: string; body?: string; isDefault?: boolean }>>([]);
   const [greetingKey, setGreetingKey] = useState("");
   const [resolutionTemplateKey, setResolutionTemplateKey] = useState("");
-  const [account, setAccount] = useState<{ state: string; email: string; name: string; clientId?: string; clientCustomId?: string } | null>(null);
+  const [account, setAccount] = useState<{ state: string; email: string; name: string; clientId?: string; clientCustomId?: string; hasTemporaryPassword?: boolean } | null>(null);
   const [accountLoading, setAccountLoading] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
+  // Phase 3 — Client Onboarding: the temporary password is NEVER shown
+  // automatically. It is revealed ONLY after the logged-in admin enters their
+  // own password (verify on the reveal-password route), displayed temporarily
+  // with an auto-hide timer, and never stored in component state beyond the
+  // brief reveal.
+  const [chatUrl, setChatUrl] = useState("");
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [revealPrompt, setRevealPrompt] = useState(false);
+  const [revealPasswordInput, setRevealPasswordInput] = useState("");
+  const [revealBusy, setRevealBusy] = useState(false);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  // Phase 3 — the "Get in Touch" / priority chips on a ticket card are now
+  // interactive: clicking opens a small info popover with the ticket's existing
+  // source / priority information (no new backend, no duplicate data).
+  const [infoFor, setInfoFor] = useState<{ ticketId: string; kind: "source" | "priority"; rect: { top?: number; bottom?: number; right: number } } | null>(null);
+  const chatUrlCache = useRef(new Map<string, string>());
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -522,9 +544,13 @@ export default function AdminMessagesClient() {
   useEffect(() => {
     loadTickets();
     getResolutionTemplates()
-      .then(({ data, defaultKey }) => {
+      .then(({ data }) => {
         setTemplates(data.filter((template) => template.isActive !== false));
-        setGreetingKey(defaultKey);
+        // Phase 3 — the Resolved Preview starts BLANK. No template is
+        // pre-selected and the previous conversation's reply/template is never
+        // carried over; the Reply Thread only fills when the admin picks a
+        // template themselves.
+        setGreetingKey("");
       })
       .catch(() => showNotice("warn", "Could not load greeting templates."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -798,32 +824,114 @@ export default function AdminMessagesClient() {
     }
   };
 
-  const handleGreetingChange = (key: string) => {
-    setGreetingKey(key);
-    const template = templates.find((t) => t.key === key);
-    if (template?.body) {
-      const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket));
-      // Editable resolved text (placeholders replaced with real ticket data) —
-      // sent as the reply body, so the customer never sees raw {{tokens}}.
-      setReply(rendered.body);
+  // Phase 3 — Resolve (and cache per-ticket) the REAL signed secure Messenger
+  // Chat link used to fill the {{chat_url}} placeholder of the First Welcome
+  // / reply templates. The client has no JWT_SECRET, so it asks the admin
+  // chat-link endpoint once per ticket. Falls back to "" so the caller's
+  // placeholder fallback (Client Portal login URL) takes over — never a bare
+  // token.
+  const ensureChatUrl = useCallback(async (ticket: Ticket | null): Promise<string> => {
+    if (!ticket?._id) return "";
+    const cached = chatUrlCache.current.get(ticket._id);
+    if (cached) return cached;
+    try {
+      const result = await createTicketChatLink(ticket._id, window.location.origin);
+      chatUrlCache.current.set(ticket._id, result.url);
+      setChatUrl(result.url);
+      return result.url;
+    } catch {
+      return "";
     }
+  }, []);
+
+  // Phase 3 — Client Onboarding: load the account state (which now exists the
+  // moment the Get in Touch submission created it) for the OPEN conversation.
+  const loadClientAccount = useCallback(async (ticket: Ticket | null) => {
+    if (!ticket?._id) {
+      setAccount(null);
+      setAccountLoading(false);
+      return;
+    }
+    setAccountLoading(true);
+    try {
+      const accountData = await getTicketClientAccount(ticket._id);
+      setAccount(accountData);
+    } catch {
+      setAccount(null);
+    } finally {
+      setAccountLoading(false);
+    }
+  }, []);
+
+  // Phase 3 — opening a conversation always starts BLANK. The Resolved Preview
+  // never preloads the previous conversation's reply/template/resolution, and
+  // the Client Onboarding reveal state is cleared so a credential can never
+  // linger from another conversation.
+  const handleSelectTicket = (ticket: Ticket) => {
+    closeMenu();
+    const sameTicket = selectedTicket?._id === ticket._id;
+    setSelectedTicket(ticket);
+    if (!sameTicket) {
+      // Phase 3 — opening a conversation always starts BLANK. The Resolved
+      // Preview never preloads the previous conversation's reply/template/
+      // resolution, and the Client Onboarding reveal state is cleared so a
+      // credential can never linger from another conversation. Re-clicking the
+      // SAME already-open card keeps the in-progress draft untouched.
+      setReply("");
+      setGreetingKey("");
+      setResolution("");
+      setResolutionTemplateKey("");
+      setChatUrl("");
+      setRevealedPassword(null);
+      setRevealPrompt(false);
+      setRevealPasswordInput("");
+      setRevealError(null);
+    }
+    loadClientAccount(ticket);
+  };
+
+  const handleGreetingChange = async (key: string) => {
+    setGreetingKey(key);
+    if (!key) {
+      setReply("");
+      return;
+    }
+    const template = templates.find((t) => t.key === key);
+    if (!template?.body) {
+      setReply("");
+      return;
+    }
+    // Resolve the secure chat link BEFORE filling the reply so the filled text
+    // (which is what gets sent) carries a real signed link.
+    const url = await ensureChatUrl(selectedTicket);
+    setChatUrl(url);
+    const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket, url));
+    // Editable resolved text (placeholders replaced with real ticket data) —
+    // sent as the reply body, so the customer never sees raw {{tokens}}.
+    setReply(rendered.body);
   };
 
   const replyPreview = useMemo(() => {
     const template = templates.find((t) => t.key === greetingKey);
     if (!template?.body) return "";
-    return fillTemplate(template, ticketPlaceholders(selectedTicket)).body;
-  }, [greetingKey, templates, selectedTicket]);
+    return fillTemplate(template, ticketPlaceholders(selectedTicket, chatUrl)).body;
+  }, [greetingKey, templates, selectedTicket, chatUrl]);
 
-  const handleResolutionTemplateChange = (key: string) => {
+  const handleResolutionTemplateChange = async (key: string) => {
     setResolutionTemplateKey(key);
+    if (!key) {
+      setResolution("");
+      return;
+    }
     const template = templates.find((t) => t.key === key);
     if (template?.body) {
       // Pre-fill the editable summary area with the template's resolution text
       // so the admin reviews/edits the professional wording before sending.
-      const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket));
+      const url = await ensureChatUrl(selectedTicket);
+      setChatUrl(url);
+      const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket, url));
       setResolution(rendered.body);
-    } else if (!key) {
+    } else {
       setResolution("");
     }
   };
@@ -831,9 +939,64 @@ export default function AdminMessagesClient() {
   const resolutionPreview = useMemo(() => {
     const template = templates.find((t) => t.key === resolutionTemplateKey);
     if (!template?.body) return "";
-    const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket));
+    const rendered = fillTemplate(template, ticketPlaceholders(selectedTicket, chatUrl));
     return rendered.body;
-  }, [resolutionTemplateKey, templates, selectedTicket]);
+  }, [resolutionTemplateKey, templates, selectedTicket, chatUrl]);
+
+  // Phase 3 — reveal the client's temporary password ONLY after the logged-in
+  // admin enters their own password (verified server-side on the reveal-password
+  // route). The password is shown temporarily with an auto-hide timer and can be
+  // copied; it is never shown automatically and never stored beyond the reveal.
+  const handleRevealPassword = async () => {
+    if (!selectedTicket || !revealPasswordInput.trim()) return;
+    setRevealBusy(true);
+    setRevealError(null);
+    try {
+      const result = await revealClientPassword(selectedTicket._id, revealPasswordInput.trim());
+      if (result.temporaryPassword) {
+        setRevealedPassword(result.temporaryPassword);
+        setRevealPasswordInput("");
+        setRevealPrompt(false);
+        window.setTimeout(
+          (current) => setRevealedPassword((value) => (value === current ? null : value)),
+          30000,
+          result.temporaryPassword
+        );
+      } else {
+        setRevealError("No temporary password is available for this client.");
+      }
+    } catch (error: any) {
+      setRevealError(error?.response?.data?.message || "Could not reveal the temporary password.");
+    } finally {
+      setRevealBusy(false);
+    }
+  };
+
+  // Phase 3 — the "Get in Touch" and priority chips open a small info popover
+  // with the ticket's EXISTING source / priority information (never new data,
+  // never a second source of truth).
+  const openInfoMenu = (
+    event: { currentTarget: HTMLElement; stopPropagation: () => void },
+    ticketId: string,
+    kind: "source" | "priority"
+  ) => {
+    event.stopPropagation();
+    if (infoFor?.ticketId === ticketId && infoFor.kind === kind) {
+      setInfoFor(null);
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const openUp = rect.bottom + (kind === "source" ? 225 : 130) > window.innerHeight;
+    setInfoFor({
+      ticketId,
+      kind,
+      rect: {
+        right: window.innerWidth - rect.right,
+        top: openUp ? undefined : rect.bottom + 6,
+        bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
+      },
+    });
+  };
 
   const handlePortalAccess = async () => {
     if (!selectedTicket) return;
@@ -875,6 +1038,86 @@ export default function AdminMessagesClient() {
     if (state === "ready") return "Account ready";
     if (state === "existing") return "Existing account";
     return "No client account yet";
+  };
+
+  // Phase 3 — the First Welcome Message is the primary Reply Thread template:
+  // it sorts FIRST in the Reply Thread dropdown (always, regardless of the
+  // database sort). The Resolution Summary select keeps the plain name order.
+  const replyTemplates = useMemo(() => {
+    return [...templates].sort((a, b) => {
+      if (a.key === "first-welcome") return -1;
+      if (b.key === "first-welcome") return 1;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }, [templates]);
+
+  // Phase 3 — the "Get in Touch" / priority chip info popover (fixed, mirrors
+  // the ⋮ menu). Shows ONLY existing ticket data — never new data, never a
+  // second source of truth, never a duplicate.
+  const renderInfoPopover = (ticket: Ticket) => {
+    if (infoFor?.ticketId !== ticket._id || !infoFor.rect) return null;
+    const sourceLabels: Record<string, string> = {
+      public_contact: "Public website Get in Touch form",
+      client_portal: "Client Portal query",
+    };
+    const priorityInfo: Record<string, string> = {
+      high: "High priority — urgent attention required; handled first.",
+      medium: "Medium priority — standard handling within the normal 24-hour response window.",
+      low: "Low priority — routine handling; can wait.",
+    };
+    const requester = getRequester(ticket);
+    const isSource = infoFor.kind === "source";
+    return (
+      <>
+        <div style={styles.menuBackdrop} onClick={() => setInfoFor(null)} />
+        <div
+          style={{
+            ...styles.menuDropdown,
+            position: "fixed",
+            right: infoFor.rect.right,
+            top: infoFor.rect.top,
+            bottom: infoFor.rect.bottom,
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div style={styles.infoPopTitle}>{isSource ? "Source information" : "Priority information"}</div>
+          {isSource ? (
+            <>
+              <div style={styles.infoPopRow}>
+                <span style={styles.infoPopLabel}>Channel</span>
+                <span style={styles.infoPopValue}>{sourceLabels[ticket.source] || getSourceLabel(ticket)}</span>
+              </div>
+              <div style={styles.infoPopRow}>
+                <span style={styles.infoPopLabel}>Email</span>
+                <span style={styles.infoPopValue}>{requester.email || "—"}</span>
+              </div>
+              {requester.subtitle && (
+                <div style={styles.infoPopRow}>
+                  <span style={styles.infoPopLabel}>Company</span>
+                  <span style={styles.infoPopValue}>{requester.subtitle}</span>
+                </div>
+              )}
+              <div style={styles.infoPopRow}>
+                <span style={styles.infoPopLabel}>Submitted</span>
+                <span style={styles.infoPopValue}>{formatDate(ticket.createdAt)}</span>
+              </div>
+              <div style={styles.infoPopRow}>
+                <span style={styles.infoPopLabel}>Subject</span>
+                <span style={styles.infoPopValue}>{ticket.subject}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={styles.infoPopRow}>
+                <span style={styles.infoPopLabel}>Priority</span>
+                <span style={styles.infoPopValue}>{getPriorityLabel(ticket.priority)}</span>
+              </div>
+              <div style={styles.infoPopText}>{priorityInfo[ticket.priority] || ""}</div>
+            </>
+          )}
+        </div>
+      </>
+    );
   };
 
   const renderConversationMenu = (ticket: Ticket) => {
@@ -1040,10 +1283,7 @@ export default function AdminMessagesClient() {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        closeMenu();
-                        setSelectedTicket(ticket);
-                      }}
+                      onClick={() => handleSelectTicket(ticket)}
                       style={styles.cardBody}
                       aria-label={`Open conversation: ${ticket.subject}`}
                     >
@@ -1061,8 +1301,38 @@ export default function AdminMessagesClient() {
                       </div>
                       <div style={styles.cardStatusRow}>
                         {ticketStatusChip(ticket)}
-                        <span style={styles.cardChip}>{getSourceLabel(ticket)}</span>
-                        <span style={styles.cardChip}>{getPriorityLabel(ticket.priority)}</span>
+                        <span
+                          style={styles.cardChip}
+                          role="button"
+                          tabIndex={0}
+                          onClick={(event) => openInfoMenu(event, ticket._id, "source")}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              openInfoMenu(event, ticket._id, "source");
+                            }
+                          }}
+                          title="View source information"
+                        >
+                          {getSourceLabel(ticket)}
+                        </span>
+                        <span
+                          style={styles.cardChip}
+                          role="button"
+                          tabIndex={0}
+                          onClick={(event) => openInfoMenu(event, ticket._id, "priority")}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              openInfoMenu(event, ticket._id, "priority");
+                            }
+                          }}
+                          title="View priority information"
+                        >
+                          {getPriorityLabel(ticket.priority)}
+                        </span>
                       </div>
                       <div style={styles.cardTitle} title={ticket.subject}>
                         {ticket.subject}
@@ -1094,6 +1364,7 @@ export default function AdminMessagesClient() {
                     </div>
                   </div>
                   {renderConversationMenu(ticket)}
+                  {renderInfoPopover(ticket)}
                 </div>
               );
             })
@@ -1294,7 +1565,8 @@ export default function AdminMessagesClient() {
                 <div style={styles.composerTop}>
                   <label style={styles.sectionLabel}>Reply Thread</label>
                   <select value={greetingKey} onChange={(event) => handleGreetingChange(event.target.value)} style={styles.greetingSelect} disabled={templates.length === 0} title="Greeting Template">
-                    {templates.map((template) => (
+                    <option value="">Select a template...</option>
+                    {replyTemplates.map((template) => (
                       <option key={template.key} value={template.key}>
                         {template.name}
                       </option>
@@ -1347,11 +1619,72 @@ export default function AdminMessagesClient() {
                       {!account && <span style={styles.portalLine}>No client account linked yet.</span>}
                     </div>
                     <p style={styles.portalMaskedLine}>
-                      Temporary credentials: <strong>••••••••</strong> (masked — delivered by email only, never displayed)
+                      Temporary credentials: <strong>••••••••</strong> (masked — revealed only after your password is verified, never automatically)
                     </p>
                     <p style={styles.portalHint}>
                       Credentials are emailed only when you click Send Credentials — never automatically.
                     </p>
+                    {account?.hasTemporaryPassword && (
+                      <div style={styles.portalRevealBox}>
+                        {revealedPassword ? (
+                          <div style={styles.revealResult}>
+                            <span style={styles.revealPasswordText} title="Temporary password">
+                              {revealedPassword}
+                            </span>
+                            <button
+                              type="button"
+                              style={styles.revealCopyBtn}
+                              onClick={() => {
+                                navigator.clipboard
+                                  .writeText(revealedPassword)
+                                  .then(() => showNotice("success", "Temporary password copied."))
+                                  .catch(() => showNotice("error", "Could not copy the temporary password."));
+                              }}
+                            >
+                              Copy
+                            </button>
+                            <button type="button" style={styles.revealCancelBtn} onClick={() => setRevealedPassword(null)}>
+                              Hide
+                            </button>
+                          </div>
+                        ) : revealPrompt ? (
+                          <div style={styles.revealPromptBox}>
+                            <input
+                              type="password"
+                              value={revealPasswordInput}
+                              onChange={(event) => setRevealPasswordInput(event.target.value)}
+                              placeholder="Enter your password to reveal"
+                              style={styles.revealInput}
+                              autoComplete="current-password"
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  handleRevealPassword();
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              style={styles.revealGoBtn}
+                              onClick={handleRevealPassword}
+                              disabled={revealBusy || !revealPasswordInput.trim()}
+                            >
+                              {revealBusy ? <Loader2 size={12} className="admin-messages-spin" /> : null}
+                              Reveal
+                            </button>
+                            <button type="button" style={styles.revealCancelBtn} onClick={() => { setRevealPrompt(false); setRevealPasswordInput(""); setRevealError(null); }}>
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button" style={styles.revealLinkBtn} onClick={() => { setRevealPrompt(true); setRevealError(null); }}>
+                            <ShieldCheck size={12} />
+                            Reveal Temporary Password
+                          </button>
+                        )}
+                        {revealError && <p style={styles.revealError}>{revealError}</p>}
+                      </div>
+                    )}
                     <div style={styles.composerFooter}>
                       <button
                         type="button"
@@ -2004,6 +2337,92 @@ const styles: Record<string, any> = {
   portalLine: { fontSize: "12px", color: "var(--text-primary)", margin: 0, display: "inline-flex", alignItems: "center", gap: "6px" },
   portalMaskedLine: { fontSize: "11px", color: "var(--text-secondary)", margin: "6px 0 0 0", lineHeight: 1.5 },
   portalHint: { fontSize: "11px", color: "var(--text-secondary)", margin: "6px 0 0 0", lineHeight: 1.5 },
+  portalRevealBox: {
+    marginTop: "10px",
+    padding: "10px 12px",
+    borderRadius: "12px",
+    border: "1px solid #ff9f0a44",
+    backgroundColor: "rgba(255,159,10,0.06)",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  revealResult: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" },
+  revealPasswordText: {
+    fontFamily: "monospace",
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "#1d7a31",
+    backgroundColor: "var(--bg-primary)",
+    border: "1px dashed #34c75966",
+    borderRadius: "8px",
+    padding: "4px 10px",
+    wordBreak: "break-all",
+  },
+  revealCopyBtn: {
+    border: "1px solid #34c75955",
+    backgroundColor: "rgba(52,199,89,0.1)",
+    color: "#1d7a31",
+    borderRadius: "8px",
+    padding: "4px 10px",
+    fontSize: "11px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  revealCancelBtn: {
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-secondary)",
+    borderRadius: "8px",
+    padding: "4px 10px",
+    fontSize: "11px",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  revealPromptBox: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" },
+  revealInput: {
+    flex: "1 1 180px",
+    border: "1px solid var(--border-color)",
+    borderRadius: "10px",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    padding: "8px 10px",
+    fontSize: "12px",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  revealGoBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    border: "1px solid #007aff",
+    backgroundColor: "#007AFF",
+    color: "#FFFFFF",
+    borderRadius: "10px",
+    padding: "8px 12px",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  revealLinkBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    alignSelf: "flex-start",
+    border: "none",
+    backgroundColor: "transparent",
+    color: "#007AFF",
+    padding: "2px 0",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  revealError: { margin: 0, fontSize: "11px", fontWeight: 600, color: "#c81e12", lineHeight: 1.5 },
+  infoPopTitle: { fontSize: "11px", fontWeight: 800, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", padding: "4px 8px" },
+  infoPopRow: { display: "flex", flexDirection: "column", gap: "1px", padding: "6px 8px", borderTop: "1px solid var(--border-color)" },
+  infoPopLabel: { fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.4px" },
+  infoPopValue: { fontSize: "12px", fontWeight: 600, color: "var(--text-primary)", wordBreak: "break-word" },
+  infoPopText: { fontSize: "12px", color: "var(--text-primary)", lineHeight: 1.5, padding: "8px", borderTop: "1px solid var(--border-color)" },
   activeTemplatePill: {
     fontSize: "11px",
     fontWeight: 700,

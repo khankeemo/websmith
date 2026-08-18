@@ -1,4 +1,5 @@
 ﻿import { apiHandler, jsonBody, json } from "@/lib/server/api";
+import { createClientAccount } from "@/lib/tickets/email";
 import crypto from "node:crypto";
 
 // Lightweight in-memory per-IP throttle (best-effort guard for a public
@@ -52,9 +53,23 @@ export const POST = apiHandler(async ({ db, request }) => {
   }
 
   const now = new Date();
+
+  // Phase 3 — Client Onboarding: a successful Get in Touch submission
+  // immediately creates (or reuses) the client account so it shows up in
+  // Client Onboarding right away with its Client ID and temporary password —
+  // WITHOUT sending any email and WITHOUT exposing the temporary password to
+  // the public caller. The email is only sent when an admin explicitly clicks
+  // "Send Credentials" in the Query Inbox.
+  const existingAccount = await db.collection("users").findOne({ email: contactEmail, role: "client" });
+  const account = existingAccount ?? (await createClientAccount(db, { name: contactName, email: contactEmail }));
+  const clientAccountCreated = !existingAccount;
+
   const ticket = {
     source: "public_contact",
-    clientId: null,
+    clientId: account._id.toString(),
+    clientCustomId: String(account.customId ?? ""),
+    clientAccountSource: clientAccountCreated ? "created" : "existing",
+    clientAccountEmail: contactEmail,
     contactName,
     contactEmail,
     contactCompany,
@@ -92,5 +107,8 @@ export const POST = apiHandler(async ({ db, request }) => {
     updatedAt: now,
   };
   const result = await db.collection("tickets").insertOne(ticket);
-  return json({ data: { ...ticket, _id: result.insertedId.toString() } }, { status: 201 });
+  return json(
+    { data: { ...ticket, _id: result.insertedId.toString() }, clientId: account._id.toString(), clientAccountCreated },
+    { status: 201 }
+  );
 });

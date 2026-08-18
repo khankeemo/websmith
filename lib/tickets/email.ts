@@ -30,10 +30,35 @@ export type ResolutionTemplate = {
 const COMPANY = "Websmith Digital";
 const SIGN_OFF = "Best regards,\nThe Websmith Digital Team";
 
+// The FIRST / default welcome template used from the Query Inbox Reply Thread
+// (Phase 3): short, scannable, customer identity dynamic, and it carries the
+// decided client communication — Client Portal login link, the customer's
+// login email and the direct secure Messenger Chat link for THIS conversation.
+export const FIRST_WELCOME_TEMPLATE_KEY = "first-welcome";
+
 // The default template is the professional, neutral onboarding message used for
 // normal software/project inquiries. Each template is seeded into the database
 // (never into React) and supports the dynamic variables below.
 export const RESOLUTION_TEMPLATE_SEED: ResolutionTemplate[] = [
+  {
+    key: "first-welcome",
+    name: "First Welcome Message",
+    category: "Client Portal Onboarding",
+    subject: "Welcome to ${COMPANY} - {{request_id}}",
+    body: `Hello {{client_name}},
+
+Thank you for contacting Websmith Digital. Your request has reached the right team.
+
+Client Portal: {{portal_url}}
+Login Email: {{client_email}}
+Continue Chat: {{chat_url}}
+
+You can keep the conversation going anytime through your Client Portal or Secure Chat.
+
+${SIGN_OFF}`,
+    isActive: true,
+    isDefault: true,
+  },
   {
     key: "client-portal-onboarding",
     name: "Client Portal Onboarding",
@@ -362,13 +387,19 @@ ${SIGN_OFF}`,
 
 export async function ensureResolutionTemplates(db: Db): Promise<ResolutionTemplate[]> {
   const collection = db.collection("resolution_templates");
-  const count = await collection.countDocuments({});
-  if (count === 0) {
-    const now = new Date();
-    await collection.insertMany(
-      RESOLUTION_TEMPLATE_SEED.map((template) => ({ ...template, createdAt: now, updatedAt: now }))
-    );
-  }
+  const now = new Date();
+  // Upsert by key so new seed templates (e.g. the First Welcome Message) are
+  // added to existing databases WITHOUT overwriting admin edits to templates
+  // that already exist ($setOnInsert only writes when the key is missing).
+  await collection.bulkWrite(
+    RESOLUTION_TEMPLATE_SEED.map((template) => ({
+      updateOne: {
+        filter: { key: template.key },
+        update: { $setOnInsert: { ...template, createdAt: now, updatedAt: now } },
+        upsert: true,
+      },
+    }))
+  );
   return (await collection.find({}).sort({ name: 1 }).toArray()) as unknown as ResolutionTemplate[];
 }
 
@@ -583,6 +614,59 @@ export type CreatedClientAccount = {
   status: string;
 };
 
+// ============================================================================
+// TEMPORARY PASSWORD AT-REST ENCRYPTION (Phase 3 — Client Onboarding)
+//
+// A client account may be created automatically from a Get in Touch submission
+// (no email sent yet). Its temporary password must therefore be retrievable
+// later — by the "Send Credentials" email AND by the admin "Reveal Password"
+// action — WITHOUT ever being stored in plaintext or leaked into logs, URLs,
+// consoles or unnecessary API responses. The plaintext is encrypted with
+// AES-256-GCM using a key derived from the existing JWT_SECRET (always present
+// in production; no new env var) and stored on the user document as
+// `temporaryPasswordEnc`. The bcrypt hash remains the authoritative password;
+// the encrypted copy only exists to relay the initial one-time credential.
+// ============================================================================
+
+const SECRET_KEY_DOMAIN = "websmith:tickets:temporary-password";
+
+function secretKey(): Buffer {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET environment variable is required for temporary-password encryption");
+  return crypto.createHash("sha256").update(`${SECRET_KEY_DOMAIN}:${secret}`).digest();
+}
+
+/** Encrypt a one-time temporary password at rest (format `enc:iv:tag:data`). */
+export function encryptTemporaryPassword(plain: string): string {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", secretKey(), iv);
+  const enc = Buffer.concat([cipher.update(String(plain), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc:${iv.toString("base64")}:${tag.toString("base64")}:${enc.toString("base64")}`;
+}
+
+/** Decrypt a stored temporary password. Returns "" on any malformed payload. */
+export function decryptTemporaryPassword(payload: string): string {
+  const parts = String(payload || "").split(":");
+  if (parts[0] !== "enc" || parts.length !== 4) return "";
+  try {
+    const iv = Buffer.from(parts[1], "base64");
+    const tag = Buffer.from(parts[2], "base64");
+    const enc = Buffer.from(parts[3], "base64");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", secretKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+/** Resolve a client account's stored temporary password ("" when none). */
+export function resolveStoredTemporaryPassword(account: any): string {
+  if (!account || !account.temporaryPasswordEnc) return "";
+  return decryptTemporaryPassword(account.temporaryPasswordEnc);
+}
+
 // Secure one-off client account creation used by the resolution-email onboarding
 // flow. Mirrors the existing client account contract (same `users` collection,
 // same role/shape as the Admin Clients creation route): bcrypt hash stored,
@@ -622,6 +706,10 @@ export async function createClientAccount(
     setupCompleted: true,
     published: false,
     status: "active",
+    // Encrypted copy of the one-time temporary password so it can be relayed
+    // later by the Send Credentials email / the admin Reveal Password action
+    // WITHOUT ever being stored in plaintext or returned unnecessarily.
+    temporaryPasswordEnc: encryptTemporaryPassword(temporaryPassword),
     createdAt: now,
     updatedAt: now,
     __v: 0,

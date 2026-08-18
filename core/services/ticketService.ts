@@ -283,7 +283,15 @@ export interface TicketClientAccount {
   name: string;
   clientId?: string;
   clientCustomId?: string;
+  /** Phase 3 — the temporary password exists (encrypted at rest) and can be revealed after admin password verify. */
+  hasTemporaryPassword?: boolean;
 }
+
+/** Phase 3 — reveal a client's temporary password after verifying the admin's own password. Never shown automatically. */
+export const revealClientPassword = async (id: string, adminPassword: string) => {
+  const response = await API.post(`/tickets/${id}/reveal-password`, { adminPassword });
+  return response.data as { temporaryPassword?: string };
+};
 
 export const getResolutionTemplates = async (): Promise<{ data: ResolutionTemplate[]; defaultKey: string }> => {
   const response = await API.get("/tickets/resolution-templates");

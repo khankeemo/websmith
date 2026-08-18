@@ -18,7 +18,7 @@ export const GET = apiHandler(async ({ db, user, params }) => {
     return json({ data: { state: "not_created", email, name } });
   }
 
-  const state = ticket.clientAccountSource === "created" ? "ready" : "existing";
+  const state = account.isTemporaryPassword ? "ready" : "existing";
   return json({
     data: {
       state,
@@ -26,6 +26,9 @@ export const GET = apiHandler(async ({ db, user, params }) => {
       name: name || account.name || "",
       clientId: account._id.toString(),
       clientCustomId: String(account.customId ?? ticket.clientCustomId ?? ""),
+      // Phase 3 — Client Onboarding: the temporary password still exists
+      // (encrypted at rest) and can be revealed after admin password verify.
+      hasTemporaryPassword: Boolean(account.isTemporaryPassword && account.temporaryPasswordEnc),
     },
   });
 }, { auth: "required" });

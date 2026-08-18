@@ -68,6 +68,25 @@ export function normalizeChatOrigin(value: unknown, fallback = "https://www.webs
 }
 
 /**
+ * Build a full secure chat URL for a ticket (used to fill the `{{chat_url}}`
+ * placeholder of the First Welcome / reply templates). Returns "" when the
+ * ticket has no resolvable email or no JWT_SECRET — the caller keeps the link
+ * line out of the rendered copy in that case.
+ */
+export function buildChatUrl(ticket: any, origin?: unknown): string {
+  try {
+    const email = resolveTicketClientEmail(ticket);
+    const ticketId = String(ticket?._id ?? "").trim();
+    if (!email || !ticketId) return "";
+    const token = signChatToken(ticketId, email);
+    const base = normalizeChatOrigin(origin);
+    return `${base}/chat/${ticketId}?token=${encodeURIComponent(token)}`;
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Strip a ticket down to ONLY what the customer's own chat may see. No
  * history, no resolution, no delivery status, no provider/source internals, no
  * IDs beyond the link's own ticket, no other customer data.
