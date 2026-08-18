@@ -839,10 +839,25 @@ export default function CommunicationsPage() {
   useEffect(() => { commSettingsRef.current = commSettings; }, [commSettings]);
   useEffect(() => { mailboxesRef.current = mailboxes; }, [mailboxes]);
 
+  // The Settings workspace's Mailbox Status card reads commMailboxes — keep it
+  // in sync with the single live mailboxes source (one fetch, no duplicates).
+  useEffect(() => { setCommMailboxes(mailboxes); }, [mailboxes]);
+
   // Auto-sync in-flight guard: a slow IMAP sweep (mailboxes or native) must
   // never overlap with the next 2s tick — parallel syncs would pile up IMAP
   // connections and make the whole Communications Center feel slow.
   const autoSyncInFlight = useRef(false);
+
+  // Stats in-flight guard: the 2s receive sweep and the 15s poll can overlap
+  // when a sweep is slow — a second overlapping stats request is dropped, the
+  // next tick picks the fresh numbers up anyway.
+  const statsInFlight = useRef(false);
+
+  // Native mail-account cache: the settings document (support/sales/no-reply
+  // config) changes rarely, so the 2s receive sweep reads the cached account
+  // list and only refetches the settings endpoint every 30s — one settings
+  // request instead of one every 2 seconds.
+  const nativeAccountsCacheRef = useRef<{ fetchedAt: number; accounts: any[] }>({ fetchedAt: 0, accounts: [] });
 
   // Communications Setting workspace — section navigation (single destination,
   // no duplicate sidebar entries for templates/signatures/auto-reply/mailboxes).
@@ -1026,6 +1041,12 @@ export default function CommunicationsPage() {
   }, [loadFolders, showToast]);
 
   const fetchStats = useCallback(async () => {
+    // Never run two overlapping stats requests — the 2s receive sweep, the
+    // 15s poll and post-action refreshes all call this; overlapping responses
+    // would race and could render stale counts. Dropped requests are harmless
+    // because the next tick re-polls.
+    if (statsInFlight.current) return;
+    statsInFlight.current = true;
     // Strict source separation: systemStats = Websmith Communications mail only,
     // mailboxStats = configured mailbox mail only. Badges never mix sources.
     const systemScope = accountScope?.kind === 'system' ? accountScope : null;
@@ -1053,7 +1074,9 @@ export default function CommunicationsPage() {
       const [sysJson, mbJson] = await Promise.all([sysRes.json(), mbRes.json()]);
       if (sysJson.success) setSystemStats(sysJson.data);
       if (mbJson.success) setMailboxStats(mbJson.data);
-    } catch {}
+    } catch {} finally {
+      statsInFlight.current = false;
+    }
   }, [accountScope, commSettingsRef, mailboxesRef, showToast]);
 
   const loadConversations = useCallback(async (
@@ -1114,60 +1137,60 @@ export default function CommunicationsPage() {
     }
   }, []);
 
-  const loadQueue = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadQueue = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await internalFetch(`${API_BASE}/queue?limit=100`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setQueue(json.data.queue || []);
     } catch {
-      setError('Failed to load queue');
+      if (!silent) setError('Failed to load queue');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadLogs = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadLogs = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await internalFetch(`${API_BASE}/delivery-logs?limit=100`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setLogs(json.data.logs || []);
     } catch {
-      setError('Failed to load delivery logs');
+      if (!silent) setError('Failed to load delivery logs');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadHistory = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadHistory = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await internalFetch('/internal/backend/admin/communication/history?limit=100', { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setHistory(json.data || []);
-      else setError(json.error || 'Failed to load email history');
+      else if (!silent) setError(json.error || 'Failed to load email history');
     } catch {
-      setError('Failed to load email history');
+      if (!silent) setError('Failed to load email history');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadMailboxes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadMailboxes = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await internalFetch(`${MB_BASE}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setMailboxes(json.data.mailboxes || []);
     } catch {
-      setError('Failed to load mailboxes');
+      if (!silent) setError('Failed to load mailboxes');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -1182,14 +1205,9 @@ export default function CommunicationsPage() {
   const loadCommsSettings = useCallback(async () => {
     setCommSettingsLoading(true);
     try {
-      const [settingsRes, mbRes] = await Promise.all([
-        internalFetch('/internal/backend/communications/settings', { headers: getAuthHeaders() }),
-        internalFetch(`${MB_BASE}`, { headers: getAuthHeaders() }),
-      ]);
-      const settingsJson = await settingsRes.json();
-      if (settingsJson.success) setCommSettings(settingsJson.settings);
-      const mbJson = await mbRes.json();
-      if (mbJson.success) setCommMailboxes(mbJson.data.mailboxes || []);
+      const res = await internalFetch('/internal/backend/communications/settings', { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setCommSettings(json.settings);
     } catch {} finally {
       setCommSettingsLoading(false);
     }
@@ -1569,7 +1587,23 @@ export default function CommunicationsPage() {
         const mbRes = await fetch(`${MB_BASE}`, { headers });
         const mbJson = await mbRes.json();
         const allMailboxes = mbJson.data?.mailboxes || [];
-        setMailboxes(allMailboxes);
+        // Avoid re-rendering the whole Communications Center when the mailbox
+        // list is unchanged — the 2s receive sweep must never churn the UI.
+        setMailboxes(prev => {
+          if (prev.length === allMailboxes.length && prev.every((m, i) => {
+            const n = allMailboxes[i];
+            return m.id === n.id && m.email_address === n.email_address
+              && m.connection_status === n.connection_status
+              && m.sync_status === n.sync_status
+              && m.is_enabled === n.is_enabled
+              && m.is_default_sender === n.is_default_sender
+              && m.last_error === n.last_error
+              && m.last_sync === n.last_sync
+              && m.last_success === n.last_success
+              && m.last_failure === n.last_failure;
+          })) return prev;
+          return allMailboxes;
+        });
         const enabled = allMailboxes.filter((m: any) => m.is_enabled);
         await Promise.all(enabled.map((m: any) =>
           fetch(`${MB_BASE}/${m.id}/sync`, { method: 'POST', headers }).catch(() => {})
@@ -1581,20 +1615,26 @@ export default function CommunicationsPage() {
         // reads IMAP credentials from env vars (MAIL_*_IMAP_*) and routes by
         // category. The settings are read from the REAL settings endpoint
         // (GET /communications/settings returns { success, settings }) — never
-        // the communications index route, which has no settings payload.
-        try {
-          const settingsRes = await fetch(`${API_BASE}/settings`, { headers: getAuthHeaders() });
-          const settingsJson = await settingsRes.json();
-          const mailAccounts = settingsJson?.settings?.mail_accounts || [];
-          for (const acct of mailAccounts) {
-            if (acct.type && ['support', 'sales'].includes(acct.type) && acct.is_active) {
-              const syncId = acct.id;
-              if (syncId) {
-                await fetch(`${MB_BASE}/${syncId}/sync`, { method: 'POST', headers }).catch(() => {});
-              }
+        // the communications index route, which has no settings payload. The
+        // account list is cached for 30s so the sweep does not hammer the
+        // settings endpoint every 2 seconds.
+        let mailAccounts = nativeAccountsCacheRef.current.accounts;
+        if (Date.now() - nativeAccountsCacheRef.current.fetchedAt > 30000) {
+          try {
+            const settingsRes = await fetch(`${API_BASE}/settings`, { headers });
+            const settingsJson = await settingsRes.json();
+            mailAccounts = settingsJson?.settings?.mail_accounts || [];
+            nativeAccountsCacheRef.current = { fetchedAt: Date.now(), accounts: mailAccounts };
+          } catch {}
+        }
+        for (const acct of mailAccounts) {
+          if (acct.type && ['support', 'sales'].includes(acct.type) && acct.is_active) {
+            const syncId = acct.id;
+            if (syncId) {
+              await fetch(`${MB_BASE}/${syncId}/sync`, { method: 'POST', headers }).catch(() => {});
             }
           }
-        } catch {}
+        }
 
         // The receive timer updates the visible list + counts SILENTLY — the
         // list must never flash back to "Loading..." every 2 seconds, and the
@@ -1637,13 +1677,14 @@ export default function CommunicationsPage() {
       : activeFolder === 'signatures' ? SIGNATURES_DEF
       : activeFolder === 'auto-reply' ? AUTO_REPLY_DEF
       : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]));
-    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope, silent ? { silent: true } : undefined);
-    else if (f.kind === 'queue') loadQueue();
-    else if (f.kind === 'logs') loadLogs();
-    else if (f.kind === 'history') loadHistory();
-    else if (f.kind === 'settings') { loadCommsSettings(); loadMailboxes(); loadTemplates(); }
+    const silentOpt = silent ? { silent: true } : undefined;
+    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope, silentOpt);
+    else if (f.kind === 'queue') loadQueue(silentOpt);
+    else if (f.kind === 'logs') loadLogs(silentOpt);
+    else if (f.kind === 'history') loadHistory(silentOpt);
+    else if (f.kind === 'settings') { loadCommsSettings(); loadMailboxes(silentOpt); loadTemplates(); }
     else if (f.kind === 'templates') loadTemplates();
-    else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes();
+    else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes(silentOpt);
     fetchStats();
   }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, accountScope, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, loadCommsSettings, loadTemplates, fetchStats]);
 
@@ -1684,6 +1725,20 @@ export default function CommunicationsPage() {
   }, [fetchStats]);
 
   const handleFolderChange = (key: string) => {
+    // Re-clicking the already-open folder must never double-fetch: clear the
+    // reader/selection and refresh SILENTLY so the same list is not reloaded
+    // twice with a full loading flash.
+    if (key === activeFolder) {
+      setSelectedIds(new Set());
+      setDetail(null);
+      setSelectedQueueItem(null);
+      setSelectedLog(null);
+      setSelectedHistoryItem(null);
+      setError(null);
+      setComposerOpen(false);
+      refreshCurrent(true);
+      return;
+    }
     setActiveFolder(key);
     setSelectedIds(new Set());
     setDetail(null);
@@ -2892,31 +2947,49 @@ export default function CommunicationsPage() {
 
   const renderHistoryList = () => {
     if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
-    if (history.length === 0) return (
-      <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)]">
-        <MailOpen size={32} className="mb-2 opacity-30" />
-        <p className="text-xs">No emails sent yet</p>
-      </div>
-    );
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="divide-y divide-[var(--border-color)]">
-          {history.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setSelectedHistoryItem(item)}
-              className={`w-full text-left px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors ${selectedHistoryItem?.id === item.id ? 'bg-blue-500/10' : ''}`}
-            >
-              <div className="flex items-center gap-2">
-                <Badge className="text-gray-400 bg-gray-500/10">{item.event_type}</Badge>
-                <span className={`text-xs font-medium ${LOG_STATUS_LABELS[item.status]?.color || 'text-gray-400'}`}>{LOG_STATUS_LABELS[item.status]?.label || item.status}</span>
-                {(item.attachments?.length || 0) > 0 && <span className="flex items-center gap-0.5 text-[10px] text-[var(--text-muted)]"><Paperclip size={10} />{item.attachments!.length}</span>}
-                <span className="text-[10px] text-[var(--text-muted)] ml-auto">{new Date(item.created_at).toLocaleString()}</span>
-              </div>
-              <p className="text-xs text-[var(--text-primary)] truncate mt-1">{item.recipient} — {item.subject || '(no subject)'}</p>
-            </button>
-          ))}
+      <div className="flex flex-col min-h-0 h-full">
+        {/* System Email / Universal Email header — the dedicated Send action.
+            Sends through the SAME existing backend (admin/communication/send)
+            with the configured system sender (From dropdown, never no-reply by
+            default); the send is recorded in Sent (email_sent=true) and the
+            history + Sent badge refresh immediately via the dialog onSent. */}
+        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 shrink-0">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Universal Email · System Email History</p>
+            <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">All outbound system emails with delivery status</p>
+          </div>
+          <button onClick={openCompose}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors shrink-0">
+            <Send size={12} /> Send Email
+          </button>
         </div>
+        {history.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)]">
+            <MailOpen size={32} className="mb-2 opacity-30" />
+            <p className="text-xs">No emails sent yet</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
+            <div className="divide-y divide-[var(--border-color)]">
+              {history.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedHistoryItem(item)}
+                  className={`w-full text-left px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors ${selectedHistoryItem?.id === item.id ? 'bg-blue-500/10' : ''}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge className="text-gray-400 bg-gray-500/10">{item.event_type}</Badge>
+                    <span className={`text-xs font-medium ${LOG_STATUS_LABELS[item.status]?.color || 'text-gray-400'}`}>{LOG_STATUS_LABELS[item.status]?.label || item.status}</span>
+                    {(item.attachments?.length || 0) > 0 && <span className="flex items-center gap-0.5 text-[10px] text-[var(--text-muted)]"><Paperclip size={10} />{item.attachments!.length}</span>}
+                    <span className="text-[10px] text-[var(--text-muted)] ml-auto">{new Date(item.created_at).toLocaleString()}</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-primary)] truncate mt-1">{item.recipient} — {item.subject || '(no subject)'}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
