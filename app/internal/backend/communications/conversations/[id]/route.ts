@@ -31,8 +31,12 @@ export async function GET(
               ), '1970-01-01T00:00:00Z'),
               COALESCE(cc.admin_read_at, '1970-01-01T00:00:00Z')
             )) as unread_replies
-       FROM communication_conversations cc
-       WHERE cc.id = $1`,
+        FROM communication_conversations cc
+        WHERE cc.id = $1
+          AND (
+            cc.mailbox_id IS NULL
+            OR EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = cc.mailbox_id AND mb.is_enabled = TRUE)
+          )`,
       [id]
     );
 

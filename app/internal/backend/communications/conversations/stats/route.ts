@@ -38,6 +38,14 @@ export async function GET(request: NextRequest) {
 
     if (sourceClause) whereClauses.push(sourceClause);
 
+    // Active-mailbox filtering — a conversation owned by a DISABLED mailbox is
+    // never counted (mirrors the list route), so badges stay in sync with the
+    // folder contents. System mail (mailbox_id IS NULL) is never affected.
+    whereClauses.push(`(
+      cc.mailbox_id IS NULL
+      OR EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = cc.mailbox_id AND mb.is_enabled = TRUE)
+    )`);
+
     if (mailboxId) {
       whereClauses.push('cc.mailbox_id = $' + paramIndex++);
       params.push(mailboxId);
@@ -81,6 +89,10 @@ export async function GET(request: NextRequest) {
     const trashParams: any[] = [];
     let trashParamIndex = 1;
     if (sourceClause) trashClauses.push(sourceClause);
+    trashClauses.push(`(
+      cc.mailbox_id IS NULL
+      OR EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = cc.mailbox_id AND mb.is_enabled = TRUE)
+    )`);
     if (mailboxId) {
       trashClauses.push('cc.mailbox_id = $' + trashParamIndex++);
       trashParams.push(mailboxId);
@@ -100,15 +112,25 @@ export async function GET(request: NextRequest) {
     let failed = 0;
     let queued = 0;
     try {
+      // Queue stats honor the same active-mailbox rule: rows tied to a
+      // conversation owned by a DISABLED mailbox are never counted, so the
+      // Failed/Queued badges agree with the filtered queue view. Orphaned
+      // queue rows (conversation_id NULL) and system-mail rows stay visible.
       const failedCount = await client.query(`
-        SELECT COUNT(*) as count FROM message_queue 
-        WHERE status = 'failed' OR retry_count >= max_retries
+        SELECT COUNT(*) as count FROM message_queue mq
+        LEFT JOIN communication_conversations cc ON cc.id = mq.conversation_id
+        LEFT JOIN mailboxes mb ON mb.id = cc.mailbox_id
+        WHERE (cc.mailbox_id IS NULL OR mb.is_enabled = TRUE)
+          AND (mq.status = 'failed' OR mq.retry_count >= mq.max_retries)
       `);
       failed = parseInt(failedCount.rows[0].count, 10);
 
       const queueCount = await client.query(`
-        SELECT COUNT(*) as count FROM message_queue 
-        WHERE status IN ('pending', 'sending')
+        SELECT COUNT(*) as count FROM message_queue mq
+        LEFT JOIN communication_conversations cc ON cc.id = mq.conversation_id
+        LEFT JOIN mailboxes mb ON mb.id = cc.mailbox_id
+        WHERE (cc.mailbox_id IS NULL OR mb.is_enabled = TRUE)
+          AND mq.status IN ('pending', 'sending')
       `);
       queued = parseInt(queueCount.rows[0].count, 10);
     } catch (queueError) {
@@ -125,6 +147,10 @@ export async function GET(request: NextRequest) {
     const unreadParams: any[] = [];
     let unreadParamIndex = 1;
     if (sourceClause) unreadClauses.push(sourceClause);
+    unreadClauses.push(`(
+      cc.mailbox_id IS NULL
+      OR EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = cc.mailbox_id AND mb.is_enabled = TRUE)
+    )`);
     if (mailboxId) {
       unreadClauses.push('cc.mailbox_id = $' + unreadParamIndex++);
       unreadParams.push(mailboxId);

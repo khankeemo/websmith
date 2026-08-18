@@ -135,6 +135,28 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   disabled), confirmation `Modal` in the existing style, immediate
   list/detail refresh via `refreshCurrent()` + `fetchStats()`, toasts at
   `z-[100]`. Soft-delete/Trash flow is unchanged.
+- **Mailbox active-account cleanup — disabled mailbox hides its email data (see
+  master doc "Communications — Mailbox Active-Account Cleanup" progress entry)**:
+  `mailboxes.is_enabled` is the source of truth for VISIBILITY. Disabling a
+  mailbox hides its email data from EVERY mailbox view (Inbox / Sent / Draft /
+  Waiting / Failed / Queued / Spam / Trash + `mailbox_id`- and category-scoped
+  lists) WITHOUT deleting any row; re-enabling restores visibility per the
+  existing rules. The filter is `(cc.mailbox_id IS NULL OR EXISTS (SELECT 1
+  FROM mailboxes mb WHERE mb.id = cc.mailbox_id AND mb.is_enabled = TRUE))`
+  applied to the conversation WHERE in the list + stats routes (including the
+  separately-built trash + unread count WHERE lists and the queue `failed`/
+  `queued` counts, which LEFT JOIN `communication_conversations` + `mailboxes`
+  and show rows only when `cc.mailbox_id IS NULL OR mb.is_enabled = TRUE`),
+  plus the detail GET (a disabled mailbox's conversation returns 404). System
+  mail (`mailbox_id IS NULL` — Websmith Communications support/sales/no-reply)
+  is NEVER affected; other active mailboxes are never affected; no email
+  record is deleted; no schema change; no new mailbox system; send/receive/
+  queue-processing architecture unchanged; Delete/Restore/Permanent Delete
+  behavior unchanged. The UIs (`communications/page.tsx` + `manage-mails/`)
+  need NO change — both already read these backend routes. Files:
+  `app/internal/backend/communications/conversations/route.ts`,
+  `conversations/stats/route.ts`, `conversations/[id]/route.ts`,
+  `communications/queue/route.ts`.
 - **Manage Mails — centralized mail workspace** (see master doc SECTION 0.18 /
   Progress Tracking entry): the standalone page `app/internal/api/communications/
   manage-mails/page.tsx` (full-viewport Communications layout, NO app sidebar)

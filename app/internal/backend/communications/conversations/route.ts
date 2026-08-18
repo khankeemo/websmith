@@ -99,6 +99,18 @@ export async function GET(request: NextRequest) {
       whereClauses.push(`cc.mailbox_id IS NOT NULL`);
     }
 
+    // Active-mailbox filtering — the mailboxes.is_enabled flag is the source
+    // of truth. Mailbox-owned conversations are visible ONLY while their owning
+    // mailbox integration is enabled, so disabling a mailbox hides its email
+    // data from EVERY mailbox view (Inbox / Sent / Draft / Waiting / Failed /
+    // Queued / Spam / Trash + account-scoped lists) without deleting any row.
+    // Re-enabling the mailbox restores visibility. System mail (mailbox_id IS
+    // NULL — Websmith Communications support/sales/no-reply) is never affected.
+    whereClauses.push(`(
+      cc.mailbox_id IS NULL
+      OR EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = cc.mailbox_id AND mb.is_enabled = TRUE)
+    )`);
+
     // Real Sent: conversation has an outbound admin email that was delivered.
     if (sent) {
       whereClauses.push(`EXISTS (
