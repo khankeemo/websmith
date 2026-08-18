@@ -2215,12 +2215,13 @@ const styles: any = {
   },
   diversityMediaRow: {
     display: "flex",
-    gap: "16px",
+    gap: "50px",
     flexWrap: "wrap",
+    alignItems: "stretch",
   },
   diversityImageContainer: {
     flex: 1,
-    minWidth: "260px",
+    minWidth: "320px",
     borderRadius: "24px",
     overflow: "hidden",
     boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
@@ -2234,7 +2235,7 @@ const styles: any = {
   },
   diversityVideoContainer: {
     flex: 1,
-    minWidth: "260px",
+    minWidth: "320px",
     borderRadius: "24px",
     overflow: "hidden",
     boxShadow: "0 20px 40px rgba(0,0,0,0.1)",

@@ -11,9 +11,11 @@ import {
   Hash,
   Link2,
   Loader2,
+  Lock,
   Mail,
   MessageSquare,
   MoreVertical,
+  Pencil,
   RotateCcw,
   Search,
   Send,
@@ -70,6 +72,14 @@ type Scope = "active" | "closed";
 type Notice = { type: "success" | "error" | "warn"; text: string } | null;
 
 const QUERY_INBOX_PAGE_SIZE = 15;
+
+// Custom chevron for the priority dropdown (appearance: none kills the native
+// arrow). Websmith brand blue, consistent with the existing UI accents.
+const PRIORITY_SELECT_ARROW =
+  "data:image/svg+xml;charset=utf-8," +
+  encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='#149CEA' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>"
+  );
 
 // Auto-poll interval for the Query Ticket bridge (R01 PHASE 2 FINAL: poll
 // every 1 second so a client email reply — processed by the UNIVERSAL email
@@ -453,6 +463,7 @@ export default function AdminMessagesClient() {
   const closeMenu = () => {
     setMenuFor(null);
     setMenuRect(null);
+    setInfoFor(null);
   };
 
   const openCardMenu = (event: React.MouseEvent<HTMLButtonElement>, ticketId: string) => {
@@ -490,7 +501,11 @@ export default function AdminMessagesClient() {
   // Phase 3 — the "Get in Touch" / priority chips on a ticket card are now
   // interactive: clicking opens a small info popover with the ticket's existing
   // source / priority information (no new backend, no duplicate data).
-  const [infoFor, setInfoFor] = useState<{ ticketId: string; kind: "source" | "priority"; rect: { top?: number; bottom?: number; right?: number; left?: number } } | null>(null);
+  const [infoFor, setInfoFor] = useState<{ ticketId: string; kind: "source" | "priority" } | null>(null);
+  // Priority editing rule: priority is LOCKED on the card until the query
+  // enters Edit mode (⋮ menu → Edit). editModeFor tracks the ticket whose
+  // priority select is enabled; every other card stays read-only.
+  const [editModeFor, setEditModeFor] = useState<string | null>(null);
   const chatUrlCache = useRef(new Map<string, string>());
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -978,11 +993,13 @@ export default function AdminMessagesClient() {
     }
   };
 
-  // Phase 3 — the "Get in Touch" and priority chips open a small info popover
+  // Phase 3 — the "Get in Touch" and priority chips open a small info panel
   // with the ticket's EXISTING source / priority information (never new data,
-  // never a second source of truth).
+  // never a second source of truth). The panel is rendered CENTERED relative to
+  // the viewport (never clipped / off-screen), so the chip's position is no
+  // longer needed.
   const openInfoMenu = (
-    event: { currentTarget: HTMLElement; stopPropagation: () => void },
+    event: { stopPropagation: () => void },
     ticketId: string,
     kind: "source" | "priority"
   ) => {
@@ -991,30 +1008,22 @@ export default function AdminMessagesClient() {
       setInfoFor(null);
       return;
     }
-    const rect = event.currentTarget.getBoundingClientRect();
-    const popoverWidth = 200;
-    const popoverHeight = kind === "source" ? 225 : 130;
-    const roomOnRight = window.innerWidth - rect.right;
-    const roomOnLeft = rect.left;
-    let positionRight = false;
-    if (roomOnRight >= popoverWidth) {
-      positionRight = true;
-    } else if (roomOnLeft >= popoverWidth) {
-      positionRight = false;
-    } else {
-      positionRight = roomOnRight > roomOnLeft;
-    }
-    const openUp = rect.bottom + popoverHeight > window.innerHeight;
-    setInfoFor({
-      ticketId,
-      kind,
-      rect: {
-        ...(positionRight
-          ? { right: window.innerWidth - rect.right, top: openUp ? undefined : rect.bottom + 6 }
-          : { left: rect.left, top: openUp ? undefined : rect.bottom + 6 }),
-        bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
-      },
-    });
+    setInfoFor({ ticketId, kind });
+  };
+
+  // Priority editing rule: clicking Edit in the ⋮ menu toggles edit mode for
+  // that query. While a card is in edit mode its priority select is enabled;
+  // every other card shows a read-only priority chip. No separate priority
+  // flow — the changed value saves through the EXISTING PATCH update.
+  const toggleEditMode = (ticket: Ticket) => {
+    const next = editModeFor === ticket._id ? null : ticket._id;
+    setEditModeFor(next);
+    setMenuFor(null);
+    setInfoFor(null);
+    showNotice(
+      "success",
+      next ? "Edit mode enabled — priority is now editable." : "Edit mode disabled — priority is locked."
+    );
   };
 
   const handlePortalAccess = async () => {
@@ -1070,11 +1079,13 @@ export default function AdminMessagesClient() {
     });
   }, [templates]);
 
-  // Phase 3 — the "Get in Touch" / priority chip info popover (fixed, mirrors
-  // the ⋮ menu). Shows ONLY existing ticket data — never new data, never a
-  // second source of truth, never a duplicate.
+  // Phase 3 — the "Get in Touch" / priority chip info panel (FIXED, centered
+  // relative to the viewport so it can never be clipped or pushed off-screen;
+  // width + height constrained on small screens with internal scroll). Shows
+  // ONLY existing ticket data — never new data, never a second source of
+  // truth, never a duplicate.
   const renderInfoPopover = (ticket: Ticket) => {
-    if (infoFor?.ticketId !== ticket._id || !infoFor.rect) return null;
+    if (infoFor?.ticketId !== ticket._id) return null;
     const sourceLabels: Record<string, string> = {
       public_contact: "Public website Get in Touch form",
       client_portal: "Client Portal query",
@@ -1086,24 +1097,11 @@ export default function AdminMessagesClient() {
     };
     const requester = getRequester(ticket);
     const isSource = infoFor.kind === "source";
-    const { right, left, top, bottom } = infoFor.rect;
-    const rightStyle = right !== undefined ? { right } : undefined;
-    const leftStyle = left !== undefined ? { left } : undefined;
     return (
       <>
         <div style={styles.menuBackdrop} onClick={() => setInfoFor(null)} />
-        <div
-          style={{
-            ...styles.menuDropdown,
-            position: "fixed",
-            ...rightStyle,
-            ...leftStyle,
-            top,
-            bottom,
-          }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div style={styles.infoPopTitle}>{isSource ? "Source information" : "Priority information"}</div>
+        <div style={styles.infoPanel} onClick={(event) => event.stopPropagation()}>
+          <div style={styles.infoPanelTitle}>{isSource ? "Source information" : "Priority information"}</div>
           {isSource ? (
             <>
               <div style={styles.infoPopRow}>
@@ -1169,33 +1167,15 @@ export default function AdminMessagesClient() {
           </button>
           <button
             type="button"
-            style={{ ...styles.menuItem, ...styles.menuItemDanger }}
-            onClick={() => {
-              const token = typeof window !== "undefined" ? getToken() : "";
-              fetch(`/api/tickets/${ticket._id}`, {
-                method: "PATCH",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({ subject: ticket.subject }),
-              })
-                .then(async (res) => {
-                  if (!res.ok) {
-                    return res.json().then((data) => {
-                      throw new Error(data.message || "Edit failed");
-                    });
-                  }
-                  showNotice("success", "Ticket edited.");
-                  await refresh();
-                })
-                .catch((error: any) => {
-                  showNotice("error", error?.message || "Edit failed.");
-                });
+            style={{
+              ...styles.menuItem,
+              ...(editModeFor === ticket._id ? styles.menuItemActive : {}),
             }}
+            onClick={() => toggleEditMode(ticket)}
             disabled={busyHere}
           >
-            Edit
+            <Pencil size={13} />
+            {editModeFor === ticket._id ? "Exit Edit" : "Edit"}
           </button>
           <button
             type="button"
@@ -1355,44 +1335,66 @@ export default function AdminMessagesClient() {
                         >
                           {getSourceLabel(ticket)}
                         </span>
-<select
-                          style={styles.cardChip}
-                          onChange={(event) => {
-                            const newPriority = (event.target.value ?? "").trim().toLowerCase();
-                            const priorityValues = ["low", "medium", "high", "urgent"];
-                            if (!priorityValues.includes(newPriority)) return;
-                            const storedValue = newPriority === "urgent" ? "high" : newPriority;
-                            if (storedValue === String(ticket.priority)) return;
-                            setSaving(true);
-                            const token = typeof window !== "undefined" ? getToken() : "";
-                            fetch(`/api/tickets/${ticket._id}`, {
-                              method: "PATCH",
-                              headers: {
-                                "Content-Type": "application/json",
-                                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                              },
-                              body: JSON.stringify({ priority: storedValue }),
-                            })
-                              .then(async (res) => {
-                                if (!res.ok) {
-                                  return res.json().then((data) => {
-                                    throw new Error(data.message || "Priority update failed");
-                                  });
-                                }
-                                showNotice("success", `Priority updated to ${newPriority === "urgent" ? "High" : newPriority}.`);
-                                await refresh();
+                        {editModeFor === ticket._id ? (
+                          <select
+                            style={styles.prioritySelect}
+                            value={ticket.priority || "medium"}
+                            onChange={(event) => {
+                              const newPriority = (event.target.value ?? "").trim().toLowerCase();
+                              const priorityValues = ["low", "medium", "high", "urgent"];
+                              if (!priorityValues.includes(newPriority)) return;
+                              const storedValue = newPriority === "urgent" ? "high" : newPriority;
+                              if (storedValue === String(ticket.priority)) return;
+                              setSaving(true);
+                              const token = typeof window !== "undefined" ? getToken() : "";
+                              fetch(`/api/tickets/${ticket._id}`, {
+                                method: "PATCH",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                },
+                                body: JSON.stringify({ priority: storedValue }),
                               })
-                              .catch((error: any) => {
-                                showNotice("error", error?.message || "Priority update failed.");
-                              })
-                              .finally(() => setSaving(false));
-                          }}
-                        >
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                          <option value="urgent">Urgent</option>
-                        </select>
+                                .then(async (res) => {
+                                  if (!res.ok) {
+                                    return res.json().then((data) => {
+                                      throw new Error(data.message || "Priority update failed");
+                                    });
+                                  }
+                                  showNotice("success", `Priority updated to ${newPriority === "urgent" ? "High" : newPriority}.`);
+                                  await refresh();
+                                })
+                                .catch((error: any) => {
+                                  showNotice("error", error?.message || "Priority update failed.");
+                                })
+                                .finally(() => setSaving(false));
+                            }}
+                            title="Change priority (Edit mode)"
+                          >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                          </select>
+                        ) : (
+                          <span
+                            style={styles.cardChip}
+                            role="button"
+                            tabIndex={0}
+                            onClick={(event) => openInfoMenu(event, ticket._id, "priority")}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                openInfoMenu(event, ticket._id, "priority");
+                              }
+                            }}
+                            title="Priority is locked — use Edit in the ⋮ menu to change it"
+                          >
+                            <Lock size={9} style={{ marginRight: 3, flexShrink: 0 }} />
+                            {getPriorityLabel(ticket.priority)}
+                          </span>
+                        )}
                       </div>
                       <strong style={styles.cardName} title={requester.name}>
                         {requester.name}
@@ -1426,77 +1428,20 @@ export default function AdminMessagesClient() {
       </aside>
 
 <section className="query-inbox-conversation">
-           <header className="qib-topbar">
-             <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
-               <ChevronLeft size={16} />
-               Back to Messages
-             </button>
-             <h2 style={styles.topbarTitle}>Query Conversation</h2>
-             {selectedTicket && (
-               <>
-                 <div style={styles.topbarSpacer} />
-                 <span style={selectedTicket.status === "closed" ? styles.topbarDotClosed : styles.topbarDotOpen} />
-                 <span style={styles.topbarStatusText}>{selectedTicket.status === "closed" ? "Closed" : "Open"}</span>
-                 &nbsp;
-                 <div style={styles.topbarActions}>
-<button
-                    type="button"
-                    style={styles.iconBtn}
-                    onClick={() => {
-                      const token = typeof window !== "undefined" ? getToken() : "";
-                      fetch(`/api/tickets/${selectedTicket._id}`, {
-                        method: "PATCH",
-                        headers: {
-                          "Content-Type": "application/json",
-                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                        },
-                        body: JSON.stringify({ subject: selectedTicket.subject }),
-                      })
-.then(async (res) => {
-                            if (!res.ok) {
-                              return res.json().then((data) => {
-                                throw new Error(data.message || "Edit failed");
-                              });
-                            }
-                            showNotice("success", "Ticket edited.");
-                            await refresh();
-                          })
-                        .catch((error: any) => {
-                          showNotice("error", error?.message || "Edit failed.");
-                        });
-                    }}
-                    aria-label="Edit ticket"
-                    title="Edit ticket"
-                  >
-                    Edit
-                  </button>
-                   <button
-                     type="button"
-                     style={styles.iconBtn}
-                     onClick={() => handleDelete(selectedTicket)}
-                     aria-label="Delete ticket"
-                     title="Delete ticket"
-                   >
-                     <Trash2 size={13} />
-                     Delete
-                   </button>
-                   <button
-                     type="button"
-                     style={styles.iconBtn}
-                     onClick={() => handleCardAction(selectedTicket)}
-                     aria-label="Close ticket"
-                     title="Close ticket"
-                     disabled={!!(busyAction && busyTicketId === selectedTicket._id)}
-                   >
-                     {busyAction?.action === "close" && busyTicketId === selectedTicket._id ? (
-                       <Loader2 size={13} className="admin-messages-spin" />
-                     ) : null}
-                     {selectedTicket.status === "closed" ? "Open" : "Close"}
-                   </button>
-                 </div>
-               </>
-             )}
-           </header>
+<header className="qib-topbar">
+               <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
+                 <ChevronLeft size={16} />
+                 Back to Messages
+               </button>
+               <h2 style={styles.topbarTitle}>Query Conversation</h2>
+               {selectedTicket && (
+                 <>
+                   <div style={styles.topbarSpacer} />
+                   <span style={selectedTicket.status === "closed" ? styles.topbarDotClosed : styles.topbarDotOpen} />
+                   <span style={styles.topbarStatusText}>{selectedTicket.status === "closed" ? "Closed" : "Open"}</span>
+                 </>
+               )}
+             </header>
 
          {!selectedTicket ? (
            <div style={styles.emptyThread}>
@@ -2048,8 +1993,35 @@ const styles: Record<string, any> = {
     backgroundColor: "var(--bg-secondary)",
     border: "1px solid var(--border-color)",
     borderRadius: "999px",
-    padding: "2px 8px",
+    padding: "5px 10px",
     whiteSpace: "nowrap",
+    marginLeft: "6px",
+  },
+  // Priority dropdown (EDIT MODE ONLY): chip-shaped to match the card chips,
+  // native arrow removed and replaced with the Websmith-blue chevron, fixed
+  // height, readable selected value, consistent with the existing UI.
+  prioritySelect: {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid #007aff66",
+    borderRadius: "999px",
+    padding: "5px 24px 5px 10px",
+    height: "25px",
+    marginLeft: "6px",
+    whiteSpace: "nowrap",
+    appearance: "none",
+    WebkitAppearance: "none",
+    cursor: "pointer",
+    outline: "none",
+    boxSizing: "border-box",
+    backgroundImage: `url("${PRIORITY_SELECT_ARROW}")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 9px center",
+    backgroundSize: "10px 10px",
   },
   cardTitle: {
     color: "var(--text-primary)",
@@ -2222,6 +2194,7 @@ const styles: Record<string, any> = {
     textAlign: "left",
   },
   menuItemDanger: { color: "#ff3b30" },
+  menuItemActive: { backgroundColor: "rgba(0,122,255,0.08)", color: "#007AFF" },
   chatHeader: { display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", alignItems: "flex-start", flexShrink: 0 },
   chatTitleBlock: { minWidth: 0 },
   threadTitle: { margin: 0, fontSize: "22px", fontWeight: 700, color: "var(--text-primary)", wordBreak: "break-word" },
@@ -2518,11 +2491,46 @@ const styles: Record<string, any> = {
     cursor: "pointer",
   },
   revealError: { margin: 0, fontSize: "11px", fontWeight: 600, color: "#c81e12", lineHeight: 1.5 },
-  infoPopTitle: { fontSize: "11px", fontWeight: 800, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", padding: "4px 8px" },
-  infoPopRow: { display: "flex", flexDirection: "column", gap: "1px", padding: "6px 8px", borderTop: "1px solid var(--border-color)" },
+  // Get in Touch / priority info panel — FIXED and CENTERED relative to the
+  // viewport (left/top 50% + translate), so it is always fully inside the
+  // visible screen, never clipped left/right, never off-screen. Width is
+  // capped to the viewport on small screens and height scrolls internally.
+  infoPanel: {
+    position: "fixed",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    width: "min(380px, calc(100vw - 32px))",
+    maxHeight: "min(72dvh, 460px)",
+    overflowY: "auto",
+    backgroundColor: "var(--bg-primary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "14px",
+    boxShadow: "0 24px 60px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.12)",
+    padding: "0 0 10px",
+    display: "flex",
+    flexDirection: "column",
+    zIndex: 30,
+  },
+  infoPanelTitle: {
+    position: "sticky",
+    top: 0,
+    textAlign: "center",
+    fontSize: "11px",
+    fontWeight: 800,
+    color: "var(--text-primary)",
+    textTransform: "uppercase",
+    letterSpacing: "0.6px",
+    backgroundColor: "var(--bg-secondary)",
+    borderBottom: "1px solid var(--border-color)",
+    borderTopLeftRadius: "14px",
+    borderTopRightRadius: "14px",
+    padding: "12px 14px",
+  },
+  infoPopRow: { display: "flex", flexDirection: "column", gap: "3px", padding: "10px 16px", borderTop: "1px solid var(--border-color)" },
   infoPopLabel: { fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.4px" },
-  infoPopValue: { fontSize: "12px", fontWeight: 600, color: "var(--text-primary)", wordBreak: "break-word" },
-  infoPopText: { fontSize: "12px", color: "var(--text-primary)", lineHeight: 1.5, padding: "8px", borderTop: "1px solid var(--border-color)" },
+  infoPopValue: { fontSize: "12.5px", fontWeight: 600, color: "var(--text-primary)", wordBreak: "break-word" },
+  infoPopText: { fontSize: "12px", color: "var(--text-primary)", lineHeight: 1.55, padding: "12px 16px", borderTop: "1px solid var(--border-color)" },
   activeTemplatePill: {
     fontSize: "11px",
     fontWeight: 700,

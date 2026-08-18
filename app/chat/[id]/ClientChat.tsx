@@ -8,18 +8,16 @@
 //          verifies it against the path ticket + the customer's email before ANY
 //          data is returned or stored.
 //
-//          CLIENT CHAT VISUAL UPDATE (2026-08-19, VISUAL ONLY): the chat card is
-//          now width min(550px, 100%) x height min(800px, 92dvh), centered with
-//          clear space above/below. Behind it (z-index 0, pointer-events none,
-//          NEVER covering the card or its controls):
-//            LEFT  — "Lanuage Racer Websmith.png" fills the left decorative band
-//                    (far left edge -> left edge of the chat card), no circular
-//                    mask, no border, no crop, correct aspect ratio.
-//            RIGHT — exactly 60 programming-language bubbles (80px, icons from
-//                    public/wds_icon) floating bottom -> top like balloons at
-//                    random horizontal positions (48-98% of viewport), plus an
-//                    independent RANDOM 3x ZOOM effect (one bubble at a time,
-//                    smooth transform: scale(3), ~1.5s hold, no layout reflow).
+//          LANGUAGE RACER UI (2026-08-19, VISUAL ONLY): the page is a three-part
+//          stage — LEFT  live animated Language Racer (3 vertical tracks,
+//          left/right bottom→top + center top→bottom, 28 technology cars +
+//          a premium Websmith car, CSS-transform loop, glow layers);
+//          CENTER the existing messenger card (unchanged);
+//          RIGHT  the fixed circular Websmith mask bubble (clamped in its
+//          circle, ~5% smaller than the previous mask, never escapes the
+//          boundary). On small screens the racer shrinks (smaller tracks and
+//          cars) and moves into a top strip beside a smaller mask — never
+//          hidden, never overflowing, never covering the messenger.
 //          All logic (token, poll, send, status, contact info, no-executive
 //          message) is unchanged.
 "use client";
@@ -32,37 +30,67 @@ const TEAM_NAME = "Websmith Digital Support";
 const POLL_INTERVAL_MS = 3_000;
 const CONTACT_INFO_URL = "/api/settings/public/contact_info";
 
-// 50 programming-language / technology icons available in public/wds_icon
-// (Devicon collection, viewBox 0 0 128 128). Bubbles render ONLY these real
-// assets — nothing invented.
-const LANG_ICONS: string[] = [
-  "python", "javascript", "typescript", "java", "csharp", "cplusplus",
-  "c", "go", "rust", "php", "ruby", "kotlin", "swift", "dart", "scala",
-  "r", "lua", "perl", "bash", "objectivec", "html5", "css3", "nodejs",
-  "react", "nextjs", "vue", "angular", "svelte", "express", "nestjs",
-  "dotnet", "spring", "laravel", "django", "flask", "fastapi", "flutter",
-  "react-native", "mongodb", "postgresql", "mysql", "redis", "graphql",
-  "firebase", "supabase", "docker", "kubernetes", "aws", "google-cloud",
-  "git",
-];
-
-// Exactly 60 bubbles: the 50 real icons + 10 repeats of the core languages
-// (the only way to reach 60 without inventing icons).
-const LANG_ICONS_60: string[] = [
-  ...LANG_ICONS,
-  "python", "javascript", "typescript", "java", "csharp", "cplusplus",
-  "c", "go", "rust", "php", "ruby",
-];
-
-// Top-right Websmith logo image (compact, keeps aspect ratio, behind chat controls)
+// Top-right Websmith logo image (compact, keeps aspect ratio, inside the card)
 const WEBSCIMITH_LOGO = "/images/Websmith.png";
 
-// Random 3x zoom timing: at random intervals ONE bubble zooms 80px -> 240px
-// (scale(3)), holds ~1.5s, returns. Next selection can begin while the
-// previous bubble is returning (transition-only overlap, never two holds).
-const ZOOM_MIN_DELAY_MS = 2_300;
-const ZOOM_MAX_DELAY_MS = 4_500;
-const ZOOM_DURATION_MS = 3_000; // 0.75s in + 1.5s hold + 0.75s out (CSS 3s)
+// ---- LANGUAGE RACER data ---------------------------------------------------
+// Every car is a real technology with its real Devicon icon from
+// public/wds_icon (all references verified to exist) + its brand color.
+interface RacerCar {
+  id: string;
+  name: string;
+  icon?: string;
+  color: string;
+  websmith?: boolean;
+}
+
+const RACER_CARS: RacerCar[] = [
+  { id: "c", name: "C", icon: "c", color: "#A8B9CC" },
+  { id: "cpp", name: "C++", icon: "cplusplus", color: "#00599C" },
+  { id: "csharp", name: "C#", icon: "csharp", color: "#68217A" },
+  { id: "java", name: "Java", icon: "java", color: "#E76F00" },
+  { id: "javascript", name: "JavaScript", icon: "javascript", color: "#F7DF1E" },
+  { id: "typescript", name: "TypeScript", icon: "typescript", color: "#3178C6" },
+  { id: "python", name: "Python", icon: "python", color: "#3776AB" },
+  { id: "nodejs", name: "Node.js", icon: "nodejs", color: "#339933" },
+  { id: "go", name: "Go", icon: "go", color: "#00ADD8" },
+  { id: "rust", name: "Rust", icon: "rust", color: "#CE422B" },
+  { id: "php", name: "PHP", icon: "php", color: "#777BB4" },
+  { id: "ruby", name: "Ruby", icon: "ruby", color: "#CC342D" },
+  { id: "swift", name: "Swift", icon: "swift", color: "#F05138" },
+  { id: "kotlin", name: "Kotlin", icon: "kotlin", color: "#7F52FF" },
+  { id: "dart", name: "Dart", icon: "dart", color: "#0175C2" },
+  { id: "r", name: "R", icon: "r", color: "#276DC3" },
+  { id: "shell", name: "Shell", icon: "bash", color: "#4EAA25" },
+  { id: "perl", name: "Perl", icon: "perl", color: "#39457E" },
+  { id: "lua", name: "Lua", icon: "lua", color: "#2C4AA0" },
+  { id: "scala", name: "Scala", icon: "scala", color: "#DC322F" },
+  { id: "react", name: "React", icon: "react", color: "#61DAFB" },
+  { id: "vue", name: "Vue", icon: "vue", color: "#42B883" },
+  { id: "angular", name: "Angular", icon: "angular", color: "#DD0031" },
+  { id: "docker", name: "Docker", icon: "docker", color: "#2496ED" },
+  { id: "kubernetes", name: "K8s", icon: "kubernetes", color: "#326CE5" },
+  { id: "postgresql", name: "PostgreSQL", icon: "postgresql", color: "#336791" },
+  { id: "mongodb", name: "MongoDB", icon: "mongodb", color: "#47A248" },
+  { id: "graphql", name: "GraphQL", icon: "graphql", color: "#E10098" },
+  // Dedicated Websmith car — clearly branded, visually premium, races with the
+  // same track system as every other car.
+  { id: "websmith", name: "WEBSMITH", color: "#FFD700", websmith: true },
+];
+
+// 3 vertical tracks: LEFT bottom→top, CENTER top→bottom, RIGHT bottom→top.
+// Adjacent tracks always move in opposite directions.
+const RACER_TRACKS: Array<{ key: string; dir: "Up" | "Down"; cars: RacerCar[] }> = [
+  { key: "left", dir: "Up", cars: RACER_CARS.slice(0, 10) },
+  { key: "center", dir: "Down", cars: RACER_CARS.slice(10, 20) },
+  { key: "right", dir: "Up", cars: RACER_CARS.slice(20) },
+];
+
+// Deterministic pseudo-random (hydration-safe — identical on server + client).
+function racerRand(seed: number): number {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
 
 export interface ChatAttachment {
   name: string;
