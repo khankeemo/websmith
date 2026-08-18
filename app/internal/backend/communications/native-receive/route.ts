@@ -117,6 +117,30 @@ async function processNativeMessage(
     if (duplicate?.rows.length) {
       return { conversationId: '', isNew: false, isUpdated: false, customerName: '', customerEmail: '', messageBody: '', messageId: '', createdAt: new Date() };
     }
+    // Permanently-deleted messages stay deleted: the conversation + its rows
+    // are gone, so the message-id dedupe above can no longer match — the
+    // tombstone is the only durable record against IMAP re-import.
+    const tombstoned = await client?.query(
+      'SELECT 1 FROM conversation_delete_tombstones WHERE provider_message_id = $1 LIMIT 1',
+      [messageId]
+    );
+    if (tombstoned?.rows.length) {
+      return { conversationId: '', isNew: false, isUpdated: false, customerName: '', customerEmail: '', messageBody: '', messageId: '', createdAt: new Date() };
+    }
+  } else {
+    // No Message-ID header: only sender+subject can distinguish mail. If an
+    // equivalent message was permanently deleted, never resurrect it.
+    const tombstoned = await client?.query(
+      `SELECT 1 FROM conversation_delete_tombstones
+       WHERE provider_message_id = ''
+         AND sender_email = $1 AND subject = $2
+         AND mailbox_id IS NULL
+       LIMIT 1`,
+      [from, subject]
+    );
+    if (tombstoned?.rows.length) {
+      return { conversationId: '', isNew: false, isUpdated: false, customerName: '', customerEmail: '', messageBody: '', messageId: '', createdAt: new Date() };
+    }
   }
 
   // --- Find or create conversation (native: mailbox_id IS NULL) ---

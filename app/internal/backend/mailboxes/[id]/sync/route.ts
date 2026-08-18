@@ -206,6 +206,27 @@ export async function POST(
                     [messageId]
                   );
                   if (duplicate?.rows.length) return;
+                  // Permanently-deleted messages stay deleted: the conversation
+                  // + its rows are gone, so the message-id dedupe above can no
+                  // longer match — the tombstone is the only durable record.
+                  const tombstoned = await client?.query(
+                    'SELECT 1 FROM conversation_delete_tombstones WHERE provider_message_id = $1 LIMIT 1',
+                    [messageId]
+                  );
+                  if (tombstoned?.rows.length) return;
+                } else {
+                  // No Message-ID header: the syncs can only distinguish mail by
+                  // sender+subject. If an equivalent message was permanently
+                  // deleted, skip it — never resurrect a hard-deleted thread.
+                  const tombstoned = await client?.query(
+                    `SELECT 1 FROM conversation_delete_tombstones
+                     WHERE provider_message_id = ''
+                       AND sender_email = $1 AND subject = $2
+                       AND (mailbox_id IS NOT DISTINCT FROM $3)
+                     LIMIT 1`,
+                    [from, subject, mailbox.is_native ? null : id]
+                  );
+                  if (tombstoned?.rows.length) return;
                 }
 
                 const existing = mailbox.is_native

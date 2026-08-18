@@ -272,6 +272,10 @@ interface FolderDef {
   params?: Record<string, string>;
   badgeKey?: keyof Stats;
   emptyNote?: string;
+  // Sent is a REAL outbound-mail view that spans BOTH sources (system mail and
+  // mailbox mail), so it must not be narrowed by the strict source separation
+  // that every other folder applies.
+  noSource?: boolean;
 }
 
 interface FolderRow {
@@ -304,7 +308,7 @@ const FOLDERS: FolderDef[] = [
 
   // External Mailboxes
   { key: 'ext-inbox', label: 'Inbox', icon: Inbox, section: 'external', kind: 'list', params: { status: 'open,waiting_customer' }, badgeKey: 'inbox' },
-  { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent' },
+  { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent', noSource: true },
   { key: 'ext-draft', label: 'Draft', icon: FilePen, section: 'external', kind: 'list', params: { status: 'draft' }, emptyNote: 'Draft support is not wired to the backend yet — outbound emails are sent immediately and tracked in Sent / Universal Email.' },
   { key: 'ext-waiting', label: 'Waiting', icon: Clock3, section: 'external', kind: 'list', params: { status: 'waiting_customer' }, badgeKey: 'waiting' },
   { key: 'ext-failed', label: 'Failed', icon: AlertTriangle, section: 'external', kind: 'list', params: { status: 'waiting_support,waiting_sales' }, badgeKey: 'failed' },
@@ -835,6 +839,11 @@ export default function CommunicationsPage() {
   useEffect(() => { commSettingsRef.current = commSettings; }, [commSettings]);
   useEffect(() => { mailboxesRef.current = mailboxes; }, [mailboxes]);
 
+  // Auto-sync in-flight guard: a slow IMAP sweep (mailboxes or native) must
+  // never overlap with the next 2s tick — parallel syncs would pile up IMAP
+  // connections and make the whole Communications Center feel slow.
+  const autoSyncInFlight = useRef(false);
+
   // Communications Setting workspace — section navigation (single destination,
   // no duplicate sidebar entries for templates/signatures/auto-reply/mailboxes).
   type SettingsSection = 'general' | 'accounts' | 'mailboxes' | 'templates' | 'signatures' | 'auto-reply';
@@ -1047,16 +1056,30 @@ export default function CommunicationsPage() {
     } catch {}
   }, [accountScope, commSettingsRef, mailboxesRef, showToast]);
 
-  const loadConversations = useCallback(async (folder: FolderDef, search: string, statusF: string, categoryF: string, scope?: { kind: 'system' | 'mailbox'; id: string } | null) => {
-    setLoading(true);
-    setError(null);
+  const loadConversations = useCallback(async (
+    folder: FolderDef,
+    search: string,
+    statusF: string,
+    categoryF: string,
+    scope?: { kind: 'system' | 'mailbox'; id: string } | null,
+    opts?: { silent?: boolean }
+  ) => {
+    // Silent refreshes (background auto-sync, post-action refresh) update the
+    // list WITHOUT flipping the loading spinner — a mutation already applied
+    // the change optimistically, and the 2s receive timer must never flash the
+    // whole list back to "Loading..." every tick.
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const params = new URLSearchParams();
       params.set('page', '1');
       params.set('limit', '100');
       // Strict source separation: internal (Websmith Communications) folders
       // list system mail only; external (Mail) folders list mailbox mail only.
-      params.set('source', folder.section === 'external' ? 'mailbox' : 'system');
+      // Sent is the ONE exception — it is a real outbound view over BOTH
+      // sources (system + sales + support + admin-composed mail), so it skips
+      // the source restriction entirely.
+      if (!folder.noSource) params.set('source', folder.section === 'external' ? 'mailbox' : 'system');
       if (folder.params?.status) params.set('status', folder.params.status);
       if (folder.params?.category) params.set('category', folder.params.category);
       if (folder.params?.search) params.set('search', folder.params.search);
@@ -1081,13 +1104,13 @@ export default function CommunicationsPage() {
       const json = await res.json();
       if (json.success) {
         setConversations(json.data.conversations || []);
-      } else {
+      } else if (!silent) {
         setError(json.error?.message || 'Failed to load');
       }
     } catch {
-      setError('Failed to load conversations');
+      if (!silent) setError('Failed to load conversations');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -1516,7 +1539,7 @@ export default function CommunicationsPage() {
         setComposerOpen(false);
         setComposerInternal(false);
         await openDetail(convId);
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
       } else {
         const msg = json.error?.message || json.error || 'Failed to add internal note.';
@@ -1538,6 +1561,8 @@ export default function CommunicationsPage() {
   useEffect(() => {
     const runAutoSync = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
+      if (autoSyncInFlight.current) return;
+      autoSyncInFlight.current = true;
       try {
         const headers = getAuthHeaders();
         await fetch(`${API_BASE}/queue/process`, { method: 'POST', headers });
@@ -1571,10 +1596,15 @@ export default function CommunicationsPage() {
           }
         } catch {}
 
+        // The receive timer updates the visible list + counts SILENTLY — the
+        // list must never flash back to "Loading..." every 2 seconds, and the
+        // mailbox/native IMAP sweeps (the receive path) never re-trigger it.
         fetchStats();
-        if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter, accountScope);
+        if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter, accountScope, { silent: true });
         else if (activeFolderDef.kind === 'settings') loadCommsSettings();
-      } catch {}
+      } catch {} finally {
+        autoSyncInFlight.current = false;
+      }
     };
     const iv = setInterval(runAutoSync, 2000);
     const onVisible = () => { if (typeof document !== 'undefined' && !document.hidden) runAutoSync(); };
@@ -1600,14 +1630,14 @@ export default function CommunicationsPage() {
     }
   }, [mailboxes, loadMailboxes, showToast]);
 
-  const refreshCurrent = useCallback(() => {
+  const refreshCurrent = useCallback((silent = false) => {
     const row = folders.find(x => x.id === activeFolder);
     const f = activeFolder === 'settings' ? SETTINGS_DEF
       : activeFolder === 'templates' ? TEMPLATES_DEF
       : activeFolder === 'signatures' ? SIGNATURES_DEF
       : activeFolder === 'auto-reply' ? AUTO_REPLY_DEF
       : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]));
-    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope);
+    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope, silent ? { silent: true } : undefined);
     else if (f.kind === 'queue') loadQueue();
     else if (f.kind === 'logs') loadLogs();
     else if (f.kind === 'history') loadHistory();
@@ -1630,7 +1660,7 @@ export default function CommunicationsPage() {
     } catch {}
     finally {
       setBusy(null);
-      refreshCurrent();
+      refreshCurrent(true);
     }
   }, [refreshCurrent, showToast]);
 
@@ -1725,7 +1755,7 @@ export default function CommunicationsPage() {
           setDetail((prev: DetailData | null) => prev ? { ...prev, conversation: { ...prev.conversation, unread_replies: 0 } } : prev);
           setConversations(prev => prev.map(c => c.id === id ? { ...c, unread_replies: 0 } : c));
           fetchStats();
-          refreshCurrent();
+          refreshCurrent(true);
         }
       } else {
         setError(json.error?.message || 'Failed to load conversation');
@@ -1769,7 +1799,7 @@ export default function CommunicationsPage() {
           // of Trash — the authoritative list re-fetch does the rest.
         }
         if (action === 'archive') setDetail(null);
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
         if (failed > 0) {
           showToast('warn', `${updated} conversation(s) ${okMsg.toLowerCase()}. ${failed} failed.`);
@@ -1818,7 +1848,7 @@ export default function CommunicationsPage() {
       if (doneIds.length > 0) {
         setConversations(prev => prev.filter(c => !doneIds.includes(c.id)));
       }
-      refreshCurrent();
+      refreshCurrent(true);
       fetchStats();
       const failed = ids.length - succeeded;
       if (failed === 0) {
@@ -1854,7 +1884,7 @@ export default function CommunicationsPage() {
         if (updated > 0) {
           setConversations(prev => prev.filter(c => !ids.includes(c.id)));
         }
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
         if (failed > 0) {
           showToast('warn', `${updated} conversation(s) restored successfully. ${failed} failed.`);
@@ -1894,7 +1924,7 @@ export default function CommunicationsPage() {
         setShowTrashConfirm(false);
         setSelectedIds(new Set());
         setDetail(null);
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
       }
       else showToast('err', json.error?.message || 'Failed to empty trash');
@@ -1927,7 +1957,7 @@ export default function CommunicationsPage() {
           return next;
         });
         setConversations(prev => prev.filter(c => !ids.includes(c.id)));
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
       } else {
         showToast('err', json.error?.message || 'Failed to delete conversation');
@@ -2030,7 +2060,7 @@ export default function CommunicationsPage() {
           setDetail(null);
         }
         fetchStats();
-        refreshCurrent();
+        refreshCurrent(true);
       } else {
         showToast('err', json.error?.message || 'Action failed');
       }
@@ -2053,7 +2083,7 @@ export default function CommunicationsPage() {
         setDetail(null);
         setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
         setConversations(prev => prev.filter(c => c.id !== id));
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
       } else {
         showToast('err', json.error?.message || 'Delete failed');
@@ -2479,7 +2509,7 @@ export default function CommunicationsPage() {
           {busy === 'patch:mark_unread' ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
         </button>
         <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
-        <button onClick={refreshCurrent} title="Refresh" className={btn}>
+        <button onClick={() => refreshCurrent()} title="Refresh" className={btn}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
         <div className="relative flex-1 min-w-[140px] max-w-xs ml-auto">
@@ -2622,9 +2652,14 @@ export default function CommunicationsPage() {
           <div>
             {groupLabel('Mail')}
             <div className="space-y-0.5">
-              {mailFolders.map(def =>
-                folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, mailboxStats)
-              )}
+              {mailFolders.map(def => {
+                // Sent spans BOTH sources (system + mailbox mail), so its badge
+                // is the sum of the per-source sent counts.
+                const statsFor = def.key === 'ext-sent'
+                  ? { ...mailboxStats, sent: (systemStats.sent || 0) + (mailboxStats.sent || 0) }
+                  : mailboxStats;
+                return folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, statsFor);
+              })}
             </div>
           </div>
         </div>
@@ -2660,7 +2695,11 @@ export default function CommunicationsPage() {
     <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 shrink-0 overflow-x-auto scrollbar-thin">
       {FOLDER_CHIPS.map(chip => {
         const active = activeFolder === chip.key;
-        const badge = chip.badgeKey ? (chip.key === 'all' || chip.key === 'int-trash' ? systemStats[chip.badgeKey] : mailboxStats[chip.badgeKey]) : 0;
+        const badge = chip.badgeKey ? (
+          chip.key === 'all' || chip.key === 'int-trash' ? systemStats[chip.badgeKey]
+            : chip.key === 'ext-sent' ? (systemStats[chip.badgeKey] || 0) + (mailboxStats[chip.badgeKey] || 0)
+            : mailboxStats[chip.badgeKey]
+        ) : 0;
         return (
           <button key={chip.key} onClick={() => handleFolderChange(chip.key)}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${active ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}>
@@ -4294,7 +4333,9 @@ export default function CommunicationsPage() {
                 <span className={`p-1.5 rounded-lg ${card.color}`}><Icon size={13} /></span>
                 <span className="flex-1 text-left min-w-0">
                   <span className="block text-[10px] text-[var(--text-muted)] truncate">{card.label}</span>
-                  <span className="block text-sm font-bold text-[var(--text-primary)] leading-tight">{activeStats[card.key]}</span>
+                  <span className="block text-sm font-bold text-[var(--text-primary)] leading-tight">{
+                    card.key === 'sent' ? (systemStats.sent || 0) + (mailboxStats.sent || 0) : activeStats[card.key]
+                  }</span>
                 </span>
               </button>
             );
@@ -4344,7 +4385,7 @@ export default function CommunicationsPage() {
         defaultBcc={emailDialog.defaultBcc}
         templates={templates}
         signatures={signatures}
-        onSent={() => { setEmailDialog({ isOpen: false }); refreshCurrent(); fetchStats(); }}
+        onSent={() => { setEmailDialog({ isOpen: false }); refreshCurrent(true); fetchStats(); }}
       />
 
       {/* Folder manager modal */}

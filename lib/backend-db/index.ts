@@ -1278,6 +1278,28 @@ export async function getDb(): Promise<Pool> {
     try { await client.query(`ALTER TABLE conversation_attachments ADD COLUMN IF NOT EXISTS content BYTEA`); } catch (e) {}
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_attachments_message_id ON conversation_attachments(message_id)`);
 
+    // 27d-bis. Conversation delete tombstones — permanent-delete persistence.
+    // When a conversation is permanently deleted its conversation_messages rows
+    // go away, so the read-only IMAP syncs (which NEVER mark Seen) can no longer
+    // dedupe the still-UNSEEN provider message and would re-import it as a NEW
+    // conversation. Each permanently-deleted inbound message records a tombstone
+    // keyed by its identity; every inbound transport skips tombstoned messages.
+    // provider_message_id is '' for messages that carried no Message-ID header
+    // (they are matched by sender+subject instead — consistent with the existing
+    // from+subject dedupe the syncs already use).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversation_delete_tombstones (
+        provider_message_id TEXT NOT NULL,
+        sender_email TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        mailbox_id TEXT,
+        deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (provider_message_id, sender_email, subject)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tombstones_provider_message_id ON conversation_delete_tombstones(provider_message_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tombstones_mailbox_id ON conversation_delete_tombstones(mailbox_id)`);
+
     // 27f. Create email_attachments table — metadata for files attached to outbound emails
     await client.query(`
       CREATE TABLE IF NOT EXISTS email_attachments (
