@@ -935,7 +935,7 @@ export default function LandingPage() {
       {/* Global Diversity & Collaboration */}
       <section style={styles.diversitySection}>
           <div style={styles.diversityContent} className="landing-diversity-content">
-          <div style={styles.diversityText}>
+          <div style={styles.diversityTextColumn} className="ws-diversity-col">
             <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "var(--text-primary)" }}>Global Collaboration & Technical Excellence</h2>
             <p style={{ fontSize: "18px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "24px" }}>
               Our team brings together diverse perspectives and world-class expertise to solve complex challenges. 
@@ -945,34 +945,32 @@ export default function LandingPage() {
               <div style={styles.diversityBadge}>Enterprise Grade</div>
               <div style={styles.diversityBadge}>Diverse Talent</div>
             </div>
+            <div style={styles.diversityImageContainer}>
+              <img
+                src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
+                alt="Global Technical Team"
+                style={styles.diversityImage}
+              />
+            </div>
           </div>
-          <div style={styles.diversityMediaColumn}>
+          <div style={styles.diversityMediaColumn} className="ws-diversity-col">
             <p style={styles.diversityMediaMessage}>
               Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
               One dedicated team that builds faster, ships smarter, and stays by your side long after launch —
               that is why clients choose Websmith, and why they stay.
             </p>
-            <div style={styles.diversityMediaRow} className="landing-diversity-media-row">
-              <div style={styles.diversityImageContainer}>
-                <img
-                  src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
-                  alt="Global Technical Team"
-                  style={styles.diversityImage}
-                />
-              </div>
-              <div style={styles.diversityVideoContainer}>
-                <video
-                  ref={diversityVideoRef}
-                  autoPlay
-                  loop
-                  playsInline
-                  controls
-                  preload="auto"
-                  style={styles.diversityVideo}
-                >
-                  <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
-                </video>
-              </div>
+            <div style={styles.diversityVideoContainer}>
+              <video
+                ref={diversityVideoRef}
+                autoPlay
+                loop
+                playsInline
+                controls
+                preload="auto"
+                style={styles.diversityVideo}
+              >
+                <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+              </video>
             </div>
           </div>
         </div>
@@ -1529,12 +1527,16 @@ export default function LandingPage() {
           }
         }
 
+        @media (max-width: 1100px) {
+          .ws-diversity-col {
+            width: min(480px, 100%) !important;
+            min-width: 0 !important;
+          }
+        }
+
         @media (max-width: 1024px) {
           .landing-hero-title {
             font-size: 46px !important;
-          }
-          .landing-diversity-content {
-            gap: 32px !important;
           }
         }
 
@@ -2192,20 +2194,27 @@ const styles: any = {
     margin: 0,
     padding: "0 clamp(16px, 4vw, 48px)",
     display: "flex",
-    alignItems: "center",
-    gap: "60px",
+    alignItems: "stretch",
+    justifyContent: "center",
+    gap: "40px",
     flexWrap: "wrap",
+    boxSizing: "border-box",
   },
-  diversityText: {
-    flex: 1,
-    minWidth: "320px",
-  },
-  diversityMediaColumn: {
-    flex: 1,
-    minWidth: "320px",
+  // LEFT column — heading / description / badges + image (480 × 270).
+  diversityTextColumn: {
+    width: "480px",
+    minWidth: "480px",
+    flexShrink: 0,
     display: "flex",
     flexDirection: "column",
-    gap: "16px",
+  },
+  // RIGHT column — Websmith explanation + video (480 × 270).
+  diversityMediaColumn: {
+    width: "480px",
+    minWidth: "480px",
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
   },
   diversityMediaMessage: {
     fontSize: "17px",
@@ -2213,19 +2222,17 @@ const styles: any = {
     color: "var(--text-secondary)",
     lineHeight: 1.6,
   },
-  diversityMediaRow: {
-    display: "flex",
-    gap: "50px",
-    flexWrap: "wrap",
-    alignItems: "stretch",
-  },
+  // Image + video cards: exactly 480 × 270, 16:9, aligned at the same
+  // bottom level (marginTop auto pins both to the bottom of equal-height
+  // columns).
   diversityImageContainer: {
-    flex: 1,
-    minWidth: "320px",
+    width: "100%",
+    height: "270px",
+    aspectRatio: "16 / 9",
+    marginTop: "auto",
     borderRadius: "24px",
     overflow: "hidden",
     boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
-    aspectRatio: "16 / 9",
   },
   diversityImage: {
     width: "100%",
@@ -2234,12 +2241,13 @@ const styles: any = {
     objectFit: "cover",
   },
   diversityVideoContainer: {
-    flex: 1,
-    minWidth: "320px",
+    width: "100%",
+    height: "270px",
+    aspectRatio: "16 / 9",
+    marginTop: "auto",
     borderRadius: "24px",
     overflow: "hidden",
     boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
-    aspectRatio: "16 / 9",
   },
   diversityVideo: {
     width: "100%",
