@@ -138,7 +138,8 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const isInternalRoute = pathname?.startsWith("/internal");
   const isCheckoutRoute = Boolean(pathname && isStandaloneCheckoutRoute(pathname));
   const isProductRoute = Boolean(pathname && isStandaloneProductRoute(pathname));
-  const isFocusedStoreRoute = isCheckoutRoute || isProductRoute;
+  const isChatRoute = Boolean(pathname && isStandaloneChatRoute(pathname));
+  const isFocusedStoreRoute = isCheckoutRoute || isProductRoute || isChatRoute;
   const shouldShowSidebar = !isPublicRoute(pathname) && !isInternalRoute;
 
   const user = getStoredUser();
@@ -195,8 +196,8 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <CookieConsentBanner />
-      {!shouldShowSidebar && !isInternalRoute && <AnalyticsTracker />}
+      {!isChatRoute && <CookieConsentBanner />}
+      {!shouldShowSidebar && !isInternalRoute && !isChatRoute && <AnalyticsTracker />}
 
       <ForcedPasswordResetModal
         isOpen={shouldShowSidebar && showForcedPasswordResetModal}
@@ -271,6 +272,12 @@ const PRODUCT_ROUTE_PREFIX = "/software-store/product";
 
 function isStandaloneProductRoute(pathname: string): boolean {
   return pathname === PRODUCT_ROUTE_PREFIX || pathname.startsWith(`${PRODUCT_ROUTE_PREFIX}/`);
+}
+
+const CHAT_ROUTE_PREFIX = "/chat";
+
+function isStandaloneChatRoute(pathname: string): boolean {
+  return pathname === CHAT_ROUTE_PREFIX || pathname.startsWith(`${CHAT_ROUTE_PREFIX}/`);
 }
 
 const styles: any = {

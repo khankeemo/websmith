@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   Clock3,
   Hash,
+  Link2,
   Loader2,
   Mail,
   MessageSquare,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   addTicketReply,
+  createTicketChatLink,
   deleteTicket,
   getResolutionTemplates,
   getTicketClientAccount,
@@ -143,6 +145,11 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const getStatusLabel = (status: Ticket["status"]) => status.replace("_", " ");
+
+const getSourceLabel = (ticket: Ticket) => (ticket.source === "client_portal" ? "Client Portal" : "Get in Touch");
+
+const getPriorityLabel = (priority: Ticket["priority"]) =>
+  priority === "high" ? "High" : priority === "low" ? "Low" : "Medium";
 
 const getClientIdLabel = (ticket: Ticket): string | null => {
   if (ticket.clientCustomId) return ticket.clientCustomId;
@@ -351,6 +358,16 @@ html.query-inbox-workspace .app-main-scroll {
   gap: 16px;
 }
 
+/* ONE ticket = ONE self-contained card: base border/background/shadow live on
+   the .query-ticket-row class (hover + active highlight are already defined in
+   globals.css) so the unified card keeps the same selected/hover states the
+   old two-part row had. */
+.query-ticket-row {
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
 .query-inbox-root button,
 .query-inbox-root select,
 .query-inbox-root textarea,
@@ -411,14 +428,15 @@ export default function AdminMessagesClient() {
   const [resolution, setResolution] = useState("");
   const [saving, setSaving] = useState(false);
   // Per-action local loading state for the ⋮ menu (Ticket → Resend / Open /
-  // Close / Delete). Only the in-flight action shows a spinner on its own menu
-  // item; the Query Inbox list and the conversation are never blocked by it.
-  const [busyAction, setBusyAction] = useState<{ ticketId: string; action: "open" | "close" | "delete" | "resend" } | null>(null);
+  // Close / Delete / Copy Chat Link). Only the in-flight action shows a spinner
+  // on its own menu item; the Query Inbox list and the conversation are never
+  // blocked by it.
+  const [busyAction, setBusyAction] = useState<{ ticketId: string; action: "open" | "close" | "delete" | "resend" | "chat" } | null>(null);
   const busyTicketId = busyAction?.ticketId ?? null;
   const [notice, setNotice] = useState<Notice>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [menuRect, setMenuRect] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
-  const menuEstimatedHeight = 170;
+  const menuEstimatedHeight = 215;
 
   const closeMenu = () => {
     setMenuFor(null);
@@ -743,6 +761,24 @@ export default function AdminMessagesClient() {
     }
   };
 
+  // Secure Public Client Messenger Chat — generates the signed chat link for
+  // THIS ticket (bound to the ticket id + the customer's email) and copies it
+  // to the clipboard so the admin can hand it to the customer. The customer
+  // opens their own conversation directly — no login, no other data exposed.
+  const handleCopyChatLink = async (ticket: Ticket) => {
+    setBusyAction({ ticketId: ticket._id, action: "chat" });
+    try {
+      const result = await createTicketChatLink(ticket._id, window.location.origin);
+      await navigator.clipboard.writeText(result.url);
+      showNotice("success", "Secure chat link copied.");
+    } catch (error: any) {
+      showNotice("error", error?.response?.data?.message || "Could not create the chat link.");
+    } finally {
+      setBusyAction(null);
+      setMenuFor(null);
+    }
+  };
+
   const handleDelete = async (ticket: Ticket) => {
     if (!window.confirm(`Delete the conversation "${ticket.subject}"? This cannot be undone.`)) return;
     setBusyAction({ ticketId: ticket._id, action: "delete" });
@@ -865,6 +901,10 @@ export default function AdminMessagesClient() {
             ) : null}
             {isTicketClosed ? "Open" : "Close"}
           </button>
+          <button type="button" style={styles.menuItem} onClick={() => handleCopyChatLink(ticket)} disabled={busyHere}>
+            {busyHere && busyAction?.action === "chat" ? <Loader2 size={13} className="admin-messages-spin" /> : <Link2 size={13} />}
+            Copy Chat Link
+          </button>
           <button
             type="button"
             style={{ ...styles.menuItem, ...styles.menuItemDanger }}
@@ -966,49 +1006,90 @@ export default function AdminMessagesClient() {
               const requester = getRequester(ticket);
               const selected = ticket._id === selectedTicket?._id;
               const isTicketClosed = ticket.status === "closed";
+              const busyHere = busyTicketId === ticket._id;
+              const quickTarget: "open" | "close" = isTicketClosed ? "open" : "close";
               return (
                 <div key={ticket._id} style={styles.cardWrap}>
-                  <div style={styles.cardHeader}>
+                  {/* ONE ticket = ONE self-contained card. Status, ⋮ menu,
+                      details and actions all live INSIDE the same card — Active
+                      and Closed share the exact same structure (only the status
+                      chip flips Open → Closed). */}
+                  <div
+                    className={`query-ticket-row${selected ? " query-ticket-active" : ""}`}
+                    style={styles.ticketCard}
+                  >
+                    <div style={styles.cardHeaderRow}>
+                      <span style={styles.cardCategory}>Query</span>
+                      <div style={styles.cardHeaderRight}>
+                        {ticket.hasNewClientReply && (
+                          <span style={styles.unreadDot} title="New client reply" aria-label="New client reply" />
+                        )}
+                        <button
+                          type="button"
+                          aria-label="More actions"
+                          onClick={(event) => openCardMenu(event, ticket._id)}
+                          style={{
+                            ...styles.menuButton,
+                            ...(menuFor === ticket._id ? styles.menuButtonActive : {}),
+                          }}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                      </div>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => {
                         closeMenu();
                         setSelectedTicket(ticket);
                       }}
-                      className={`query-ticket-row${selected ? " query-ticket-active" : ""}`}
-                      style={styles.ticketRow}
+                      style={styles.cardBody}
+                      aria-label={`Open conversation: ${ticket.subject}`}
                     >
-                      <div style={styles.ticketRowTop}>
-                        <strong style={styles.ticketSubject} title={ticket.subject}>
-                          {ticket.subject}
+                      <div style={styles.cardIdentity}>
+                        <strong style={styles.cardName} title={requester.name}>
+                          {requester.name}
                         </strong>
-                        {ticket.hasNewClientReply && (
-                          <span style={styles.unreadDot} title="New client reply" aria-label="New client reply" />
-                        )}
+                        <span style={styles.cardEmail} title={requester.email || requester.subtitle}>
+                          {requester.email || requester.subtitle}
+                        </span>
                       </div>
-                      <p style={styles.ticketMeta} title={requester.name}>
-                        {requester.name}
-                      </p>
-                      <p style={styles.ticketMetaMuted} title={requester.email}>
-                        {requester.email || requester.subtitle}
-                      </p>
-                      <div style={styles.ticketRowBottom}>
-                        <span style={styles.ticketTime}>{formatDate(ticket.createdAt)}</span>
-                        <span style={styles.ticketTime}>{getClientIdLabel(ticket) ? `ID: ${getClientIdLabel(ticket)}` : ""}</span>
+                      <div style={styles.cardTimeRow}>
+                        <Clock3 size={11} color="var(--text-muted)" />
+                        <span style={styles.cardTime}>{formatDate(ticket.createdAt)}</span>
                       </div>
+                      <div style={styles.cardStatusRow}>
+                        {ticketStatusChip(ticket)}
+                        <span style={styles.cardChip}>{getSourceLabel(ticket)}</span>
+                        <span style={styles.cardChip}>{getPriorityLabel(ticket.priority)}</span>
+                      </div>
+                      <div style={styles.cardTitle} title={ticket.subject}>
+                        {ticket.subject}
+                      </div>
+                      {ticket.description && (
+                        <p style={styles.cardDesc} title={ticket.description}>
+                          {ticket.description}
+                        </p>
+                      )}
                     </button>
-                    <div style={styles.cardActions}>
-                      {ticketStatusChip(ticket)}
+
+                    <div style={styles.cardFooter}>
+                      <span style={styles.cardFooterInfo}>
+                        {getClientIdLabel(ticket)
+                          ? `Client ID: ${getClientIdLabel(ticket)}`
+                          : `Last activity ${formatDate(ticket.updatedAt)}`}
+                      </span>
                       <button
                         type="button"
-                        aria-label="More actions"
-                        onClick={(event) => openCardMenu(event, ticket._id)}
-                        style={{
-                          ...styles.menuButton,
-                          ...(menuFor === ticket._id ? styles.menuButtonActive : {}),
-                        }}
+                        onClick={() => handleCardAction(ticket)}
+                        disabled={busyHere || saving}
+                        style={isTicketClosed ? styles.cardActionOpen : styles.cardActionClose}
                       >
-                        <MoreVertical size={16} />
+                        {busyHere && busyAction?.action === quickTarget ? (
+                          <Loader2 size={12} className="admin-messages-spin" />
+                        ) : null}
+                        {isTicketClosed ? "Open" : "Close"}
                       </button>
                     </div>
                   </div>
@@ -1468,37 +1549,78 @@ const styles: Record<string, any> = {
     cursor: "pointer",
   },
   cardWrap: { flexShrink: 0 },
-  cardHeader: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: "10px",
-  },
-  cardActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    flexShrink: 0,
-    paddingTop: "10px",
-  },
-  ticketRow: {
-    textAlign: "left",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-primary)",
-    borderRadius: "14px",
-    padding: "10px 12px",
-    flex: "1 1 auto",
-    minWidth: 0,
-    minHeight: "100px",
-    cursor: "pointer",
+  // ONE ticket = ONE self-contained card. Everything — query label, ⋮ menu,
+  // identity, date/time, status, category/details, existing info and actions —
+  // is inside this single bordered container (Active and Closed share it).
+  ticketCard: {
     display: "flex",
     flexDirection: "column",
-    gap: "3px",
+    overflow: "hidden",
+    borderRadius: "14px",
   },
-  ticketRowTop: { display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "flex-start" },
-  ticketSubject: {
-    flex: 1,
+  cardHeaderRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    padding: "8px 10px 6px 12px",
+    borderBottom: "1px solid var(--border-color)",
+  },
+  cardCategory: {
+    fontSize: "10px",
+    fontWeight: 800,
+    color: "var(--text-secondary)",
+    textTransform: "uppercase",
+    letterSpacing: "0.6px",
+  },
+  cardHeaderRight: { display: "flex", alignItems: "center", gap: "6px" },
+  cardBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "5px",
+    textAlign: "left",
+    padding: "10px 12px",
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    width: "100%",
+    flex: "1 1 auto",
     minWidth: 0,
+  },
+  cardIdentity: { display: "flex", flexDirection: "column", gap: "1px", minWidth: 0 },
+  cardName: {
+    color: "var(--text-primary)",
+    fontSize: "13px",
+    fontWeight: 700,
+    lineHeight: 1.3,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  cardEmail: {
+    color: "var(--text-secondary)",
+    fontSize: "11px",
+    lineHeight: 1.3,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  cardTimeRow: { display: "flex", alignItems: "center", gap: "5px" },
+  cardTime: { fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" },
+  cardStatusRow: { display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginTop: "2px" },
+  cardChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "var(--text-secondary)",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "999px",
+    padding: "2px 8px",
+    whiteSpace: "nowrap",
+  },
+  cardTitle: {
     color: "var(--text-primary)",
     fontSize: "13px",
     fontWeight: 700,
@@ -1508,6 +1630,62 @@ const styles: Record<string, any> = {
     display: "-webkit-box",
     WebkitLineClamp: 1,
     WebkitBoxOrient: "vertical",
+  },
+  cardDesc: {
+    margin: 0,
+    color: "var(--text-secondary)",
+    fontSize: "11px",
+    lineHeight: 1.45,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+  },
+  cardFooter: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    padding: "7px 12px",
+    borderTop: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+  },
+  cardFooterInfo: {
+    fontSize: "10px",
+    color: "var(--text-muted)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    minWidth: 0,
+  },
+  cardActionOpen: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    border: "1px solid #34c75955",
+    backgroundColor: "rgba(52,199,89,0.1)",
+    color: "#1d7a31",
+    borderRadius: "8px",
+    padding: "4px 10px",
+    fontSize: "11px",
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  cardActionClose: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    border: "1px solid #ff3b3044",
+    backgroundColor: "rgba(255,59,48,0.08)",
+    color: "#c81e12",
+    borderRadius: "8px",
+    padding: "4px 10px",
+    fontSize: "11px",
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
   },
   ticketStatusOpen: {
     display: "inline-flex",
@@ -1529,10 +1707,6 @@ const styles: Record<string, any> = {
   },
   statusDotOpen: { width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#34c759", flexShrink: 0 },
   statusDotClosed: { width: "8px", height: "8px", borderRadius: "999px", backgroundColor: "#ff3b30", flexShrink: 0 },
-  ticketMeta: { margin: 0, fontSize: "12px", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  ticketMetaMuted: { margin: 0, fontSize: "11px", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  ticketRowBottom: { display: "flex", justifyContent: "space-between", gap: "8px", marginTop: "auto", paddingTop: "2px" },
-  ticketTime: { fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap" },
   unreadDot: {
     width: "8px",
     height: "8px",

@@ -350,6 +350,16 @@ export const markTicketRead = async (id: string) => {
 };
 
 /**
+ * Generate the SECURE PUBLIC CLIENT MESSENGER CHAT link for a ticket (admin
+ * only). The link is a signed token bound to the ticket id + the customer's
+ * email; the customer opens their own conversation directly from it.
+ */
+export const createTicketChatLink = async (id: string, origin?: string) => {
+  const response = await API.post(`/tickets/${id}/chat-link`, origin ? { origin } : {});
+  return response.data as { url: string };
+};
+
+/**
  * Sync processed universal-email customer messages into their tickets (Query
  * Inbox). This is a BRIDGE, not a mail receiver: it reads customer messages
  * ALREADY processed by the universal email system (PostgreSQL

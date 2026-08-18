@@ -88,6 +88,11 @@ export const PUBLIC_ROUTE_PREFIXES = [
   // and must never show the website marketing header. Covers
   // /software-store/product/[id].
   "/software-store/product",
+  // Secure Public Client Messenger Chat — a customer opens their OWN
+  // conversation directly from their secure link (/chat/<ticketId>?token=…).
+  // Public so the session proxy never gates it; every data call is verified
+  // against the signed token server-side.
+  "/chat",
 ] as const;
 
 /**
