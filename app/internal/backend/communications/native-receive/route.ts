@@ -168,8 +168,16 @@ const nativeReceiveHandler = async (_request: NextRequest) => {
     );
     const allSettings = settingsResult.rows[0]?.settings || {};
 
-    // 2. Process each active support/sales native account
-    const mailAccounts = allSettings.communications?.mail_accounts || [];
+    // 2. Process each active support/sales native account. If system settings
+    // have not yet been populated with the native mail configuration, fall back
+    // to the secure environment-backed defaults rather than silently skipping all
+    // native inbound messages.
+    const configuredMailAccounts = Array.isArray(allSettings.communications?.mail_accounts)
+      ? allSettings.communications.mail_accounts
+      : [];
+    const mailAccounts = configuredMailAccounts.length > 0
+      ? configuredMailAccounts
+      : DEFAULT_NATIVE_MAIL_ACCOUNTS;
     const accountsToProcess = mailAccounts.filter(
       (a: any) => a.type && ['support', 'sales'].includes(String(a.type)) && a.is_active !== false
     );
