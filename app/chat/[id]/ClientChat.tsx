@@ -8,13 +8,18 @@
 //          verifies it against the path ticket + the customer's email before ANY
 //          data is returned or stored.
 //
-//          FINAL CHAT UI (2026-08-18, UI-only): the chat is a CENTERED COMPACT
-//          card with balanced spacing. Behind it (z-index 0, pointer-events
-//          none, never covering controls) floats the Websmith Digital2.png logo
-//          in a large circular mask on the LEFT and 60 language circular bubbles
-//          on the RIGHT that continuously drift bottom → top like balloons at
-//          random horizontal positions. Header buttons — Client Login / Home /
-//          Open·Closed — are the SAME SIZE with DIFFERENT colors.
+//          CLIENT CHAT VISUAL UPDATE (2026-08-19, VISUAL ONLY): the chat card is
+//          now width min(550px, 100%) x height min(800px, 92dvh), centered with
+//          clear space above/below. Behind it (z-index 0, pointer-events none,
+//          NEVER covering the card or its controls):
+//            LEFT  — "Lanuage Racer Websmith.png" fills the left decorative band
+//                    (far left edge -> left edge of the chat card), no circular
+//                    mask, no border, no crop, correct aspect ratio.
+//            RIGHT — exactly 60 programming-language bubbles (80px, icons from
+//                    public/wds_icon) floating bottom -> top like balloons at
+//                    random horizontal positions (48-98% of viewport), plus an
+//                    independent RANDOM 3x ZOOM effect (one bubble at a time,
+//                    smooth transform: scale(3), ~1.5s hold, no layout reflow).
 //          All logic (token, poll, send, status, contact info, no-executive
 //          message) is unchanged.
 "use client";
@@ -27,23 +32,37 @@ const TEAM_NAME = "Websmith Digital Support";
 const POLL_INTERVAL_MS = 3_000;
 const CONTACT_INFO_URL = "/api/settings/public/contact_info";
 
-// 60 language bubbles (FINAL CHAT UI). Each bubble is a small circular chip
-// labeled with a language; they float bottom → top like balloons behind the
-// centered chat card at random horizontal positions on the right side.
-const LANGUAGES: string[] = [
-  "English", "Spanish", "French", "German", "Italian", "Portuguese",
-  "Russian", "Chinese", "Japanese", "Korean", "Arabic", "Hindi",
-  "Bengali", "Urdu", "Turkish", "Dutch", "Polish", "Swedish",
-  "Norwegian", "Danish", "Finnish", "Greek", "Hebrew", "Thai",
-  "Vietnamese", "Indonesian", "Malay", "Filipino", "Czech", "Slovak",
-  "Hungarian", "Romanian", "Ukrainian", "Serbian", "Croatian", "Bulgarian",
-  "Lithuanian", "Latvian", "Estonian", "Slovenian", "Persian", "Swahili",
-  "Amharic", "Hausa", "Zulu", "Yoruba", "Tamil", "Telugu",
-  "Kannada", "Marathi", "Gujarati", "Punjabi", "Sinhala", "Nepali",
-  "Burmese", "Khmer", "Mongolian", "Kazakh", "Georgian", "Armenian",
+// 50 programming-language / technology icons available in public/wds_icon
+// (Devicon collection, viewBox 0 0 128 128). Bubbles render ONLY these real
+// assets — nothing invented.
+const LANG_ICONS: string[] = [
+  "python", "javascript", "typescript", "java", "csharp", "cplusplus",
+  "c", "go", "rust", "php", "ruby", "kotlin", "swift", "dart", "scala",
+  "r", "lua", "perl", "bash", "objectivec", "html5", "css3", "nodejs",
+  "react", "nextjs", "vue", "angular", "svelte", "express", "nestjs",
+  "dotnet", "spring", "laravel", "django", "flask", "fastapi", "flutter",
+  "react-native", "mongodb", "postgresql", "mysql", "redis", "graphql",
+  "firebase", "supabase", "docker", "kubernetes", "aws", "google-cloud",
+  "git",
 ];
 
-const BUBBLE_COLORS = ["#007aff", "#34c759", "#ff9f0a", "#af52de", "#ff375f", "#5e5ce6", "#00c7be", "#ff6482"];
+// Exactly 60 bubbles: the 50 real icons + 10 repeats of the core languages
+// (the only way to reach 60 without inventing icons).
+const LANG_ICONS_60: string[] = [
+  ...LANG_ICONS,
+  "python", "javascript", "typescript", "java", "csharp", "cplusplus",
+  "c", "go", "rust", "php", "ruby",
+];
+
+// Top-right Websmith logo image (compact, keeps aspect ratio, behind chat controls)
+const WEBSCIMITH_LOGO = "/images/Websmith.png";
+
+// Random 3x zoom timing: at random intervals ONE bubble zooms 80px -> 240px
+// (scale(3)), holds ~1.5s, returns. Next selection can begin while the
+// previous bubble is returning (transition-only overlap, never two holds).
+const ZOOM_MIN_DELAY_MS = 2_300;
+const ZOOM_MAX_DELAY_MS = 4_500;
+const ZOOM_DURATION_MS = 3_000; // 0.75s in + 1.5s hold + 0.75s out (CSS 3s)
 
 export interface ChatAttachment {
   name: string;
@@ -116,89 +135,124 @@ const formatTime = (value?: string) => {
 };
 
 /**
- * FINAL CHAT UI background layer: the Websmith Digital2.png logo in a large
- * circular mask on the LEFT + 60 language circular bubbles on the RIGHT that
- * continuously float bottom → top like balloons at random horizontal
- * positions. The layer sits at z-index 0 with pointer-events: none, so it is
- * always BEHIND the chat card and can never cover its controls. Data is
- * generated once per mount (useMemo); the animations run purely in CSS.
+ * CLIENT CHAT VISUAL UPDATE — decorative background layer (z-index 0,
+ * pointer-events none, always BEHIND the chat card, never over its controls):
+ *
+ *  LEFT   — "Lanuage Racer Websmith.png": no circular mask, no border, no
+ *           crop; correct aspect ratio; the layer spans from the far left
+ *           edge up to the left edge of the chat card.
+ *  RIGHT  — 60 programming-language bubbles (80px actual size, icons from
+ *           public/wds_icon) that continuously float bottom -> top (~115vh)
+ *           like balloons at random horizontal positions (48-98%), with
+ *           gentle sway and subtle background opacity.
+ *  ZOOM   — independent random 3x zoom: at random intervals ONE bubble
+ *           smoothly scales to 3x (240px), holds ~1.5s, returns to 80px;
+ *           the next zoom may start while the previous is returning
+ *           (transition-only overlap). Transform-based — no layout reflow,
+ *           no chat card size change.
+ *
+ * Data is randomized once per mount (useMemo); animations run in CSS.
  */
-function LanguageBubbles() {
+function DecorativeLayer() {
   const bubbles = useMemo(
     () =>
-      LANGUAGES.map((name, i) => {
-        const size = 42 + ((i * 5) % 18); // 42–59px circles
-        return {
-          id: i,
-          name,
-          size,
-          // Random horizontal position inside the RIGHT band (away from the
-          // centered card), percentage of the viewport width.
-          left: 52 + Math.random() * 46,
-          bottom: -70 - Math.random() * 40,
-          duration: 18 + Math.random() * 18, // 18–36s full float
-          delay: -Math.random() * 36, // negative delay = already mid-flight on load
-          sway: 5 + Math.random() * 8,
-          swayDuration: 4 + Math.random() * 6,
-          color: BUBBLE_COLORS[Math.floor(Math.random() * BUBBLE_COLORS.length)],
-          opacity: 0.08 + Math.random() * 0.16, // subtle: always behind the card
-        };
-      }),
+      LANG_ICONS_60.map((icon, i) => ({
+        id: i,
+        icon,
+        // Random horizontal position inside the RIGHT decorative band
+        // (48-98% of the viewport; the card + left image stay clear).
+        left: 48 + Math.random() * 50,
+        // Start below the viewport so the balloon rises into view.
+        bottom: -90 - Math.random() * 60,
+        // Full balloon travel 18-36s; negative delay = mid-flight on load.
+        duration: 18 + Math.random() * 18,
+        delay: -Math.random() * 36,
+        // Horizontal sway ~±10px.
+        sway: 8 + Math.random() * 2,
+        swayDuration: 3.5 + Math.random() * 3,
+        // Subtle background opacity 0.08-0.24.
+        bgOpacity: 0.08 + Math.random() * 0.16,
+        iconOpacity: 0.85 + Math.random() * 0.15,
+      })),
     []
   );
 
+  // RANDOM 3x ZOOM: exactly one bubble zooms at a time. `key` remounts the
+  // chip so the CSS animation restarts on every new selection.
+  const [zoom, setZoom] = useState<{ idx: number; key: number } | null>(null);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      timer = setTimeout(
+        () => {
+          setZoom((prev) => {
+            let next = Math.floor(Math.random() * LANG_ICONS_60.length);
+            if (prev && next === prev.idx) {
+              next = (next + 1 + Math.floor(Math.random() * (LANG_ICONS_60.length - 1))) % LANG_ICONS_60.length;
+            }
+            return { idx: next, key: (prev?.key ?? 0) + 1 };
+          });
+          schedule();
+        },
+        ZOOM_MIN_DELAY_MS + Math.random() * (ZOOM_MAX_DELAY_MS - ZOOM_MIN_DELAY_MS)
+      );
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div style={styles.bubblesLayer} aria-hidden="true">
-      {/* Websmith Digital2.png — large circular mask on the LEFT */}
-      <div style={styles.logoWrap}>
-        <div className="ws-logo-bob" style={styles.logoCircle}>
-          <img
-            src="/images/Websmith Digital2.png"
-            alt=""
-            style={styles.logoImg}
-            draggable={false}
-          />
-        </div>
+    <div style={styles.decoLayer} aria-hidden="true">
+      {/* LEFT: Lanuage Racer Websmith.png — full left band, no mask, no border */}
+      <div style={styles.leftImageLayer} className="ws-hide-mobile">
+        <img
+          src="/images/Lanuage Racer Websmith.png"
+          alt=""
+          style={styles.leftImage}
+          draggable={false}
+          decoding="async"
+        />
       </div>
 
-      {/* 60 language circular bubbles on the RIGHT */}
-      {bubbles.map((b) => (
-        <div
-          key={b.id}
-          className="ws-bubble"
-          style={{
-            width: b.size,
-            height: b.size,
-            left: `${b.left}%`,
-            bottom: b.bottom,
-            backgroundColor: b.color,
-            color: "#ffffff",
-            opacity: b.opacity,
-            animation: `wsBubbleUp ${b.duration}s linear ${b.delay}s infinite`,
-          }}
-        >
-          <span
-            className="ws-bubble-sway"
+      {/* RIGHT: 60 programming-language bubbles + random 3x zoom */}
+      {bubbles.map((b) => {
+        const isZooming = zoom?.idx === b.id;
+        return (
+          <div
+            key={b.id}
+            className="ws-bubble ws-hide-mobile"
             style={{
-              animation: `wsBubbleSway ${b.swayDuration}s ease-in-out ${b.delay}s infinite`,
+              left: `${b.left}%`,
+              bottom: b.bottom,
+              animation: `wsBubbleUp ${b.duration}s linear ${b.delay}s infinite`,
             }}
           >
-            <span
+            <div
+              className="ws-bubble-sway"
               style={{
-                display: "inline-block",
-                fontSize: b.size > 52 ? 9 : 8,
-                lineHeight: 1.15,
-                padding: "0 3px",
-                textAlign: "center",
-                fontWeight: 700,
-                letterSpacing: "0.2px",
+                animation: `wsBubbleSway ${b.swayDuration}s ease-in-out ${b.delay}s infinite`,
               }}
             >
-              {b.name}
-            </span>
-          </span>
-        </div>
-      ))}
+              <div
+                key={isZooming ? `zoom-${zoom.key}` : undefined}
+                className={isZooming ? "ws-bubble-chip ws-bubble-zoom" : "ws-bubble-chip"}
+                style={{ backgroundColor: `rgba(255,255,255,${b.bgOpacity})` }}
+              >
+                <img
+                  src={`/wds_icon/${b.icon}.svg`}
+                  alt=""
+                  width={66}
+                  height={66}
+                  draggable={false}
+                  decoding="async"
+                  style={{ opacity: b.iconOpacity }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })}
 
       <style jsx>{`
         @keyframes wsBubbleUp {
@@ -226,45 +280,55 @@ function LanguageBubbles() {
             transform: translateX(10px);
           }
         }
-        @keyframes wsLogoBob {
-          0%,
-          100% {
-            transform: translateY(-6px);
+        @keyframes wsBubbleZoom {
+          0% {
+            transform: scale(1);
           }
-          50% {
-            transform: translateY(10px);
+          25% {
+            transform: scale(3);
+          }
+          75% {
+            transform: scale(3);
+          }
+          100% {
+            transform: scale(1);
           }
         }
         .ws-bubble {
           position: absolute;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
           will-change: transform, opacity;
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          box-shadow:
-            inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-            0 4px 14px rgba(0, 0, 0, 0.08);
-          font-family: inherit;
-          user-select: none;
-          -webkit-user-select: none;
         }
         .ws-bubble-sway {
+          will-change: transform;
+        }
+        .ws-bubble-chip {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          text-align: center;
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          box-shadow:
+            inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+            0 4px 14px rgba(0, 0, 0, 0.1);
+          transform-origin: center;
           will-change: transform;
         }
-        .ws-logo-bob {
-          animation: wsLogoBob 7s ease-in-out infinite;
-          will-change: transform;
+        .ws-bubble-zoom {
+          animation: wsBubbleZoom 3s cubic-bezier(0.45, 0, 0.25, 1) forwards;
+        }
+        /* Mobile: decorative elements may hide; chat stays fully usable. */
+        @media (max-width: 767px) {
+          .ws-hide-mobile {
+            display: none !important;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
           .ws-bubble,
           .ws-bubble-sway,
-          .ws-logo-bob {
+          .ws-bubble-chip,
+          .ws-bubble-zoom {
             animation: none !important;
           }
         }
@@ -274,7 +338,8 @@ function LanguageBubbles() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  // Full-viewport stage: the chat card is CENTERED with balanced spacing.
+  // Full-viewport stage: the chat card is CENTERED with clear space above and
+  // below; left/right decorative bands are never reduced or removed.
   root: {
     position: "relative",
     height: "100dvh",
@@ -287,44 +352,39 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--bg-primary)",
     overflow: "hidden",
   },
-  // Balloon/language layer — always BEHIND the chat card, never clickable.
-  bubblesLayer: {
+  // Decorative layer — always BEHIND the chat card, never clickable.
+  decoLayer: {
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
     overflow: "hidden",
     zIndex: 0,
   },
-  // Websmith Digital2.png — large circular mask, LEFT side, vertically centered.
-  logoWrap: {
+  // LEFT decorative band: far left edge -> left edge of the chat card.
+  leftImageLayer: {
     position: "absolute",
-    left: "3vw",
-    top: "50%",
-    transform: "translateY(-50%)",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: "calc(50% - 275px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 0,
   },
-  logoCircle: {
-    width: "clamp(96px, 11vw, 150px)",
-    height: "clamp(96px, 11vw, 150px)",
-    borderRadius: "50%",
-    overflow: "hidden",
-    border: "3px solid rgba(255, 255, 255, 0.55)",
-    boxShadow:
-      "0 10px 30px rgba(0, 0, 0, 0.14), inset 0 0 0 4px rgba(0, 122, 255, 0.08)",
-    background: "#ffffff",
-  },
-  logoImg: {
+  // No circular mask, no border, no crop — correct aspect ratio via contain.
+  leftImage: {
     width: "100%",
     height: "100%",
-    objectFit: "cover",
+    objectFit: "contain",
     display: "block",
   },
-  // THE centered compact chat card (balanced spacing all around).
+  // THE centered chat card (clear space above and below; responsive on mobile).
   card: {
     position: "relative",
     zIndex: 1,
-    width: "min(440px, 100%)",
-    height: "min(620px, 92dvh)",
+    width: "min(550px, 100%)",
+    height: "min(800px, 92dvh)",
     maxHeight: "92dvh",
     display: "flex",
     flexDirection: "column",
@@ -691,10 +751,10 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
 
   return (
     <div style={styles.root}>
-      {/* Balloons + logo layer — always behind the chat card, never over controls */}
-      <LanguageBubbles />
+      {/* Decorative layer — balloons + left image, always behind the card */}
+      <DecorativeLayer />
 
-      {/* Centered compact chat card */}
+      {/* Centered chat card */}
       <div style={styles.card}>
         <header style={styles.header}>
           <div style={styles.headerTitleBlock}>
@@ -761,6 +821,16 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           </div>
         ) : (
           <div style={styles.body} ref={scrollRef}>
+            <div style={{ position: "absolute", right: 10, top: 10, zIndex: 1 }}>
+              <img
+                src={WEBSCIMITH_LOGO}
+                alt="Websmith"
+                width={48}
+                height={48}
+                style={{ objectFit: "contain" }}
+                decoding="async"
+              />
+            </div>
             {conversation.messages.length === 0 ? (
               <div style={styles.center}>
                 <p style={styles.centerText}>

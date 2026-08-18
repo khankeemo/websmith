@@ -928,11 +928,15 @@ export default function LandingPage() {
             </div>
           </div>
           <div style={styles.diversityImageContainer}>
-            <img 
-              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200" 
-              alt="Global Technical Team" 
+            <video
+              autoPlay
+              loop
+              playsInline
+              controls
               style={styles.diversityImage}
-            />
+            >
+              <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+            </video>
           </div>
         </div>
       </section>
@@ -2165,11 +2169,13 @@ const styles: any = {
     borderRadius: "24px",
     overflow: "hidden",
     boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+    aspectRatio: "16 / 9",
   },
   diversityImage: {
     width: "100%",
-    height: "auto",
+    height: "100%",
     display: "block",
+    objectFit: "cover",
   },
   diversityBadge: {
     padding: "8px 16px",

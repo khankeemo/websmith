@@ -41,6 +41,7 @@ import {
   TicketHistoryEntry,
   updateTicketStatus,
 } from "@/core/services/ticketService";
+import { getToken } from "@/lib/auth";
 import { getSiteUrl } from "@/core/config/site";
 
 // Canonical sender identity shown for every admin/outbound message in the
@@ -489,7 +490,7 @@ export default function AdminMessagesClient() {
   // Phase 3 — the "Get in Touch" / priority chips on a ticket card are now
   // interactive: clicking opens a small info popover with the ticket's existing
   // source / priority information (no new backend, no duplicate data).
-  const [infoFor, setInfoFor] = useState<{ ticketId: string; kind: "source" | "priority"; rect: { top?: number; bottom?: number; right: number } } | null>(null);
+  const [infoFor, setInfoFor] = useState<{ ticketId: string; kind: "source" | "priority"; rect: { top?: number; bottom?: number; right?: number; left?: number } } | null>(null);
   const chatUrlCache = useRef(new Map<string, string>());
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -991,13 +992,26 @@ export default function AdminMessagesClient() {
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
-    const openUp = rect.bottom + (kind === "source" ? 225 : 130) > window.innerHeight;
+    const popoverWidth = 200;
+    const popoverHeight = kind === "source" ? 225 : 130;
+    const roomOnRight = window.innerWidth - rect.right;
+    const roomOnLeft = rect.left;
+    let positionRight = false;
+    if (roomOnRight >= popoverWidth) {
+      positionRight = true;
+    } else if (roomOnLeft >= popoverWidth) {
+      positionRight = false;
+    } else {
+      positionRight = roomOnRight > roomOnLeft;
+    }
+    const openUp = rect.bottom + popoverHeight > window.innerHeight;
     setInfoFor({
       ticketId,
       kind,
       rect: {
-        right: window.innerWidth - rect.right,
-        top: openUp ? undefined : rect.bottom + 6,
+        ...(positionRight
+          ? { right: window.innerWidth - rect.right, top: openUp ? undefined : rect.bottom + 6 }
+          : { left: rect.left, top: openUp ? undefined : rect.bottom + 6 }),
         bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
       },
     });
@@ -1072,6 +1086,9 @@ export default function AdminMessagesClient() {
     };
     const requester = getRequester(ticket);
     const isSource = infoFor.kind === "source";
+    const { right, left, top, bottom } = infoFor.rect;
+    const rightStyle = right !== undefined ? { right } : undefined;
+    const leftStyle = left !== undefined ? { left } : undefined;
     return (
       <>
         <div style={styles.menuBackdrop} onClick={() => setInfoFor(null)} />
@@ -1079,9 +1096,10 @@ export default function AdminMessagesClient() {
           style={{
             ...styles.menuDropdown,
             position: "fixed",
-            right: infoFor.rect.right,
-            top: infoFor.rect.top,
-            bottom: infoFor.rect.bottom,
+            ...rightStyle,
+            ...leftStyle,
+            top,
+            bottom,
           }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -1148,6 +1166,36 @@ export default function AdminMessagesClient() {
               <Loader2 size={13} className="admin-messages-spin" />
             ) : null}
             {isTicketClosed ? "Open" : "Close"}
+          </button>
+          <button
+            type="button"
+            style={{ ...styles.menuItem, ...styles.menuItemDanger }}
+            onClick={() => {
+              const token = typeof window !== "undefined" ? getToken() : "";
+              fetch(`/api/tickets/${ticket._id}`, {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ subject: ticket.subject }),
+              })
+                .then(async (res) => {
+                  if (!res.ok) {
+                    return res.json().then((data) => {
+                      throw new Error(data.message || "Edit failed");
+                    });
+                  }
+                  showNotice("success", "Ticket edited.");
+                  await refresh();
+                })
+                .catch((error: any) => {
+                  showNotice("error", error?.message || "Edit failed.");
+                });
+            }}
+            disabled={busyHere}
+          >
+            Edit
           </button>
           <button
             type="button"
@@ -1307,22 +1355,44 @@ export default function AdminMessagesClient() {
                         >
                           {getSourceLabel(ticket)}
                         </span>
-                        <span
+<select
                           style={styles.cardChip}
-                          role="button"
-                          tabIndex={0}
-                          onClick={(event) => openInfoMenu(event, ticket._id, "priority")}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              openInfoMenu(event, ticket._id, "priority");
-                            }
+                          onChange={(event) => {
+                            const newPriority = (event.target.value ?? "").trim().toLowerCase();
+                            const priorityValues = ["low", "medium", "high", "urgent"];
+                            if (!priorityValues.includes(newPriority)) return;
+                            const storedValue = newPriority === "urgent" ? "high" : newPriority;
+                            if (storedValue === String(ticket.priority)) return;
+                            setSaving(true);
+                            const token = typeof window !== "undefined" ? getToken() : "";
+                            fetch(`/api/tickets/${ticket._id}`, {
+                              method: "PATCH",
+                              headers: {
+                                "Content-Type": "application/json",
+                                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                              },
+                              body: JSON.stringify({ priority: storedValue }),
+                            })
+                              .then(async (res) => {
+                                if (!res.ok) {
+                                  return res.json().then((data) => {
+                                    throw new Error(data.message || "Priority update failed");
+                                  });
+                                }
+                                showNotice("success", `Priority updated to ${newPriority === "urgent" ? "High" : newPriority}.`);
+                                await refresh();
+                              })
+                              .catch((error: any) => {
+                                showNotice("error", error?.message || "Priority update failed.");
+                              })
+                              .finally(() => setSaving(false));
                           }}
-                          title="View priority information"
                         >
-                          {getPriorityLabel(ticket.priority)}
-                        </span>
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                          <option value="urgent">Urgent</option>
+                        </select>
                       </div>
                       <strong style={styles.cardName} title={requester.name}>
                         {requester.name}
@@ -1355,40 +1425,78 @@ export default function AdminMessagesClient() {
         </div>
       </aside>
 
-       <section className="query-inbox-conversation">
-          <header className="qib-topbar">
-            <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
-              <ChevronLeft size={16} />
-              Back to Messages
-            </button>
-            <h2 style={styles.topbarTitle}>Query Conversation</h2>
-            {selectedTicket && (
-              <>
-                <div style={styles.topbarSpacer} />
-                <span style={selectedTicket.status === "closed" ? styles.topbarDotClosed : styles.topbarDotOpen} />
-                <span style={styles.topbarStatusText}>{selectedTicket.status === "closed" ? "Closed" : "Open"}</span>
-                &nbsp;
-                <button
-                  type="button"
-                  onClick={() => handleCopyChatLink(selectedTicket)}
-                  aria-label="Copy secure chat link"
-                  style={{
-                    ...styles.iconBtn,
-                    ...(busyAction?.action === "chat" && busyTicketId === selectedTicket._id ? styles.iconBtnBusy : {}),
-                  }}
-                  disabled={!!(busyAction && busyTicketId === selectedTicket._id)}
-                  title="Copy secure chat link for this conversation"
-                >
-                  {busyAction?.action === "chat" && busyTicketId === selectedTicket._id ? (
-                    <Loader2 size={13} className="admin-messages-spin" />
-                  ) : (
-                    <Link2 size={13} />
-                  )}
-                  Copy Chat Link
-                </button>
-              </>
-            )}
-          </header>
+<section className="query-inbox-conversation">
+           <header className="qib-topbar">
+             <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
+               <ChevronLeft size={16} />
+               Back to Messages
+             </button>
+             <h2 style={styles.topbarTitle}>Query Conversation</h2>
+             {selectedTicket && (
+               <>
+                 <div style={styles.topbarSpacer} />
+                 <span style={selectedTicket.status === "closed" ? styles.topbarDotClosed : styles.topbarDotOpen} />
+                 <span style={styles.topbarStatusText}>{selectedTicket.status === "closed" ? "Closed" : "Open"}</span>
+                 &nbsp;
+                 <div style={styles.topbarActions}>
+<button
+                    type="button"
+                    style={styles.iconBtn}
+                    onClick={() => {
+                      const token = typeof window !== "undefined" ? getToken() : "";
+                      fetch(`/api/tickets/${selectedTicket._id}`, {
+                        method: "PATCH",
+                        headers: {
+                          "Content-Type": "application/json",
+                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                        },
+                        body: JSON.stringify({ subject: selectedTicket.subject }),
+                      })
+.then(async (res) => {
+                            if (!res.ok) {
+                              return res.json().then((data) => {
+                                throw new Error(data.message || "Edit failed");
+                              });
+                            }
+                            showNotice("success", "Ticket edited.");
+                            await refresh();
+                          })
+                        .catch((error: any) => {
+                          showNotice("error", error?.message || "Edit failed.");
+                        });
+                    }}
+                    aria-label="Edit ticket"
+                    title="Edit ticket"
+                  >
+                    Edit
+                  </button>
+                   <button
+                     type="button"
+                     style={styles.iconBtn}
+                     onClick={() => handleDelete(selectedTicket)}
+                     aria-label="Delete ticket"
+                     title="Delete ticket"
+                   >
+                     <Trash2 size={13} />
+                     Delete
+                   </button>
+                   <button
+                     type="button"
+                     style={styles.iconBtn}
+                     onClick={() => handleCardAction(selectedTicket)}
+                     aria-label="Close ticket"
+                     title="Close ticket"
+                     disabled={!!(busyAction && busyTicketId === selectedTicket._id)}
+                   >
+                     {busyAction?.action === "close" && busyTicketId === selectedTicket._id ? (
+                       <Loader2 size={13} className="admin-messages-spin" />
+                     ) : null}
+                     {selectedTicket.status === "closed" ? "Open" : "Close"}
+                   </button>
+                 </div>
+               </>
+             )}
+           </header>
 
          {!selectedTicket ? (
            <div style={styles.emptyThread}>
