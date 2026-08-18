@@ -274,8 +274,8 @@ html.query-inbox-workspace .app-main-scroll {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 24px;
+  gap: 10px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
 }
@@ -284,8 +284,8 @@ html.query-inbox-workspace .app-main-scroll {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 24px;
+  gap: 10px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
 }
@@ -294,10 +294,10 @@ html.query-inbox-workspace .app-main-scroll {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 24px 28px;
+  padding: 12px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 .qib-ticket-list {
   flex: 1;
@@ -323,7 +323,7 @@ html.query-inbox-workspace .app-main-scroll {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--bg-secondary);
   overflow: hidden;
 }
@@ -332,36 +332,36 @@ html.query-inbox-workspace .app-main-scroll {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
 }
 .qib-chat-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 .qib-chat-hint {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
 }
 .qib-chat-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 .qib-cards-grid {
   flex-shrink: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 /* ONE ticket = ONE self-contained card: base border/background/shadow live on
@@ -1144,10 +1144,6 @@ export default function AdminMessagesClient() {
             ) : null}
             {isTicketClosed ? "Open" : "Close"}
           </button>
-          <button type="button" style={styles.menuItem} onClick={() => handleCopyChatLink(ticket)} disabled={busyHere}>
-            {busyHere && busyAction?.action === "chat" ? <Loader2 size={13} className="admin-messages-spin" /> : <Link2 size={13} />}
-            Copy Chat Link
-          </button>
           <button
             type="button"
             style={{ ...styles.menuItem, ...styles.menuItemDanger }}
@@ -1253,10 +1249,11 @@ export default function AdminMessagesClient() {
               const quickTarget: "open" | "close" = isTicketClosed ? "open" : "close";
               return (
                 <div key={ticket._id} style={styles.cardWrap}>
-                  {/* ONE ticket = ONE self-contained card. Status, ⋮ menu,
-                      details and actions all live INSIDE the same card — Active
-                      and Closed share the exact same structure (only the status
-                      chip flips Open → Closed). */}
+                  {/* ONE ticket = ONE self-contained compact card: status, source,
+                      customer name, subject, created date/time + ⋮ menu only.
+                      Full client details live in the Client Details section (no
+                      duplicate info). Body/company/email/phone/Client-ID are NOT
+                      in the card. */}
                   <div
                     className={`query-ticket-row${selected ? " query-ticket-active" : ""}`}
                     style={styles.ticketCard}
@@ -1287,18 +1284,6 @@ export default function AdminMessagesClient() {
                       style={styles.cardBody}
                       aria-label={`Open conversation: ${ticket.subject}`}
                     >
-                      <div style={styles.cardIdentity}>
-                        <strong style={styles.cardName} title={requester.name}>
-                          {requester.name}
-                        </strong>
-                        <span style={styles.cardEmail} title={requester.email || requester.subtitle}>
-                          {requester.email || requester.subtitle}
-                        </span>
-                      </div>
-                      <div style={styles.cardTimeRow}>
-                        <Clock3 size={11} color="var(--text-muted)" />
-                        <span style={styles.cardTime}>{formatDate(ticket.createdAt)}</span>
-                      </div>
                       <div style={styles.cardStatusRow}>
                         {ticketStatusChip(ticket)}
                         <span
@@ -1334,34 +1319,17 @@ export default function AdminMessagesClient() {
                           {getPriorityLabel(ticket.priority)}
                         </span>
                       </div>
+                      <strong style={styles.cardName} title={requester.name}>
+                        {requester.name}
+                      </strong>
                       <div style={styles.cardTitle} title={ticket.subject}>
                         {ticket.subject}
                       </div>
-                      {ticket.description && (
-                        <p style={styles.cardDesc} title={ticket.description}>
-                          {ticket.description}
-                        </p>
-                      )}
+                      <div style={styles.cardTimeRow}>
+                        <Clock3 size={11} color="var(--text-muted)" />
+                        <span style={styles.cardTime}>{formatDate(ticket.createdAt)}</span>
+                      </div>
                     </button>
-
-                    <div style={styles.cardFooter}>
-                      <span style={styles.cardFooterInfo}>
-                        {getClientIdLabel(ticket)
-                          ? `Client ID: ${getClientIdLabel(ticket)}`
-                          : `Last activity ${formatDate(ticket.updatedAt)}`}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCardAction(ticket)}
-                        disabled={busyHere || saving}
-                        style={isTicketClosed ? styles.cardActionOpen : styles.cardActionClose}
-                      >
-                        {busyHere && busyAction?.action === quickTarget ? (
-                          <Loader2 size={12} className="admin-messages-spin" />
-                        ) : null}
-                        {isTicketClosed ? "Open" : "Close"}
-                      </button>
-                    </div>
                   </div>
                   {renderConversationMenu(ticket)}
                   {renderInfoPopover(ticket)}
@@ -1383,22 +1351,39 @@ export default function AdminMessagesClient() {
       </aside>
 
        <section className="query-inbox-conversation">
-         <header className="qib-topbar">
-           <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
-             <ChevronLeft size={16} />
-             Back to Messages
-           </button>
-           <h2 style={styles.topbarTitle}>Query Conversation</h2>
-           {selectedTicket && (
-             <>
-               <div style={styles.topbarSpacer} />
-               <span style={selectedTicket.status === "closed" ? styles.topbarDotClosed : styles.topbarDotOpen} />
-               <span style={styles.topbarClient} title={getRequester(selectedTicket).name}>
-                 {getRequester(selectedTicket).name} · {getRequester(selectedTicket).email || getRequester(selectedTicket).subtitle}
-               </span>
-             </>
-           )}
-         </header>
+          <header className="qib-topbar">
+            <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
+              <ChevronLeft size={16} />
+              Back to Messages
+            </button>
+            <h2 style={styles.topbarTitle}>Query Conversation</h2>
+            {selectedTicket && (
+              <>
+                <div style={styles.topbarSpacer} />
+                <span style={selectedTicket.status === "closed" ? styles.topbarDotClosed : styles.topbarDotOpen} />
+                <span style={styles.topbarStatusText}>{selectedTicket.status === "closed" ? "Closed" : "Open"}</span>
+                &nbsp;
+                <button
+                  type="button"
+                  onClick={() => handleCopyChatLink(selectedTicket)}
+                  aria-label="Copy secure chat link"
+                  style={{
+                    ...styles.iconBtn,
+                    ...(busyAction?.action === "chat" && busyTicketId === selectedTicket._id ? styles.iconBtnBusy : {}),
+                  }}
+                  disabled={!!(busyAction && busyTicketId === selectedTicket._id)}
+                  title="Copy secure chat link for this conversation"
+                >
+                  {busyAction?.action === "chat" && busyTicketId === selectedTicket._id ? (
+                    <Loader2 size={13} className="admin-messages-spin" />
+                  ) : (
+                    <Link2 size={13} />
+                  )}
+                  Copy Chat Link
+                </button>
+              </>
+            )}
+          </header>
 
          {!selectedTicket ? (
            <div style={styles.emptyThread}>
@@ -2165,11 +2150,11 @@ const styles: Record<string, any> = {
   iconBtnLabel: { whiteSpace: "nowrap" },
   chatCard: {
     flexShrink: 0,
-    height: "clamp(300px, 50dvh, 640px)",
+    height: "clamp(240px, 42dvh, 500px)",
     display: "flex",
     flexDirection: "column",
     border: "1px solid var(--border-color)",
-    borderRadius: "16px",
+    borderRadius: "12px",
     backgroundColor: "var(--bg-secondary)",
     overflow: "hidden",
   },
@@ -2177,31 +2162,31 @@ const styles: Record<string, any> = {
   bubbleRowClient: { justifyContent: "flex-start" },
   bubbleRowAdmin: { justifyContent: "flex-end" },
   bubbleClient: {
-    maxWidth: "78%",
+    maxWidth: "76%",
     border: "1px solid var(--border-color)",
-    borderRadius: "14px",
+    borderRadius: "12px",
     borderTopLeftRadius: "4px",
-    padding: "10px 12px",
+    padding: "8px 10px",
     backgroundColor: "var(--bg-primary)",
   },
   bubbleAdmin: {
-    maxWidth: "78%",
+    maxWidth: "76%",
     border: "1px solid #007aff33",
-    borderRadius: "14px",
+    borderRadius: "12px",
     borderTopRightRadius: "4px",
-    padding: "10px 12px",
+    padding: "8px 10px",
     backgroundColor: "rgba(0,122,255,0.07)",
   },
-  bubbleSender: { margin: 0, fontSize: "11px", fontWeight: 700, color: "#007AFF" },
+  bubbleSender: { margin: 0, fontSize: "10px", fontWeight: 700, color: "#007AFF" },
   bubbleText: {
-    margin: "6px 0",
-    fontSize: "13px",
-    lineHeight: 1.6,
+    margin: "4px 0",
+    fontSize: "12px",
+    lineHeight: 1.5,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     color: "var(--text-primary)",
   },
-  bubbleMeta: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "4px" },
+  bubbleMeta: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "3px" },
   bubbleAttachments: { display: "flex", flexWrap: "wrap", gap: "6px 8px", marginTop: "6px" },
   attachmentLink: {
     fontSize: "11px",
@@ -2232,97 +2217,112 @@ const styles: Record<string, any> = {
     padding: "12px 14px",
     backgroundColor: "var(--bg-primary)",
   },
-  timelineLabel: { margin: 0, color: "#007AFF", fontSize: "11px", fontWeight: 700, textTransform: "capitalize" },
-  timelineMessage: { margin: "6px 0", color: "var(--text-primary)", fontSize: "13px", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" },
-  timelineRecipient: { margin: "0 0 6px 0", color: "var(--text-secondary)", fontSize: "12px" },
-  timelineTime: { margin: 0, color: "var(--text-secondary)", fontSize: "11px" },
+  timelineLabel: { margin: 0, color: "#007AFF", fontSize: "10px", fontWeight: 700, textTransform: "capitalize" },
+  timelineMessage: { margin: "4px 0", color: "var(--text-primary)", fontSize: "12px", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" },
+  timelineRecipient: { margin: "0 0 4px 0", color: "var(--text-secondary)", fontSize: "11px" },
+  timelineTime: { margin: 0, color: "var(--text-secondary)", fontSize: "10px" },
   metaCard: {
     flexShrink: 0,
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
-    padding: "14px",
-    borderRadius: "14px",
+    gap: "6px",
+    padding: "12px",
+    borderRadius: "12px",
     backgroundColor: "var(--bg-secondary)",
     border: "1px solid var(--border-color)",
   },
-  metaItems: { display: "flex", gap: "12px 18px", flexWrap: "wrap" },
-  metaItem: { display: "flex", alignItems: "center", gap: "7px", color: "var(--text-primary)", fontSize: "12px", minWidth: 0 },
-  sectionLabel: { fontSize: "12px", fontWeight: 700, color: "var(--text-primary)" },
+  metaItems: { display: "flex", gap: "10px 14px", flexWrap: "wrap" },
+  metaItem: { display: "flex", alignItems: "center", gap: "6px", color: "var(--text-primary)", fontSize: "11px", minWidth: 0 },
+  sectionLabel: { fontSize: "11px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.4px" },
   composerCard: {
     flexShrink: 0,
     border: "1px solid var(--border-color)",
-    borderRadius: "16px",
-    padding: "14px",
+    borderRadius: "12px",
+    padding: "12px",
     backgroundColor: "var(--bg-secondary)",
   },
-  composerTop: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "10px" },
+  composerTop: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "8px" },
   greetingSelect: {
     border: "1px solid var(--border-color)",
-    borderRadius: "10px",
+    borderRadius: "8px",
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
-    padding: "7px 10px",
-    fontSize: "12px",
+    padding: "5px 8px",
+    fontSize: "11px",
     fontWeight: 600,
     outline: "none",
   },
   textarea: {
     width: "100%",
-    minHeight: "96px",
+    minHeight: "80px",
     resize: "vertical",
-    borderRadius: "12px",
+    borderRadius: "10px",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
-    padding: "10px 12px",
+    padding: "8px 10px",
     outline: "none",
-    fontSize: "13px",
+    fontSize: "12px",
     lineHeight: 1.5,
     boxSizing: "border-box",
   },
   resolutionTextarea: {
     width: "100%",
-    minHeight: "110px",
+    minHeight: "100px",
     resize: "vertical",
-    borderRadius: "12px",
+    borderRadius: "10px",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
-    padding: "10px 12px",
+    padding: "8px 10px",
     outline: "none",
-    fontSize: "13px",
+    fontSize: "12px",
     lineHeight: 1.5,
     boxSizing: "border-box",
   },
   textareaDisabled: { opacity: 0.6, cursor: "not-allowed" },
-  composerFooter: { display: "flex", justifyContent: "flex-end", marginTop: "10px", gap: "8px" },
+  composerFooter: { display: "flex", justifyContent: "flex-end", marginTop: "8px", gap: "6px" },
   primaryBtn: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "7px",
+    gap: "6px",
     border: "none",
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
-    borderRadius: "10px",
-    padding: "9px 14px",
-    fontSize: "13px",
+    borderRadius: "8px",
+    padding: "7px 12px",
+    fontSize: "12px",
     fontWeight: 700,
     cursor: "pointer",
   },
   secondaryBtn: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "7px",
+    gap: "6px",
     border: "1px solid var(--border-color)",
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
-    borderRadius: "10px",
-    padding: "9px 14px",
-    fontSize: "13px",
+    borderRadius: "8px",
+    padding: "7px 12px",
+    fontSize: "12px",
     fontWeight: 600,
     cursor: "pointer",
   },
+  topbarStatusText: { fontSize: "12px", fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" },
+  iconBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    borderRadius: "8px",
+    padding: "6px 10px",
+    fontSize: "11px",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  iconBtnBusy: { opacity: 0.6, cursor: "wait" },
   portalRow: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" },
   portalChip: {
     fontSize: "11px",

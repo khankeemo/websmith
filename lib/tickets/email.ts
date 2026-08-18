@@ -44,16 +44,23 @@ export const RESOLUTION_TEMPLATE_SEED: ResolutionTemplate[] = [
     key: "first-welcome",
     name: "First Welcome Message",
     category: "Client Portal Onboarding",
-    subject: "Welcome to ${COMPANY} - {{request_id}}",
+    subject: "We've received your request - {{request_id}}",
     body: `Hello {{client_name}},
 
-Thank you for contacting Websmith Digital. Your request has reached the right team.
+Thank you for contacting Websmith Digital. Your request has been received and has reached the right team.
 
-Client Portal: {{portal_url}}
-Login Email: {{client_email}}
-Continue Chat: {{chat_url}}
+We've prepared a secure space for you:
 
-You can keep the conversation going anytime through your Client Portal or Secure Chat.
+Client Portal Login:
+{{portal_url}}
+
+Login Email:
+{{client_email}}
+
+Continue Chat (secure):
+{{chat_url}}
+
+You can keep the conversation going anytime through your Client Portal or Secure Chat. Our team will respond as soon as possible.
 
 ${SIGN_OFF}`,
     isActive: true,
