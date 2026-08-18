@@ -464,6 +464,36 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   errors, `npm run build` green (QStash signing-key env vars are required for
   the local build of the deployed `native-receive` route — set in production),
   `npm test` 6/6 + 13/13. Not deployed.
+- **Communications Center — permanent-delete persistence + Sent spans both
+  sources + silent auto-sync (see master doc "Communications Center — R01: TODO
+  fixes — Permanent-delete persistence + Sent spans both sources + silent
+  auto-sync" progress entry)**: (1) **Permanent delete never resurrects** — the
+  read-only IMAP syncs (`mailboxes/[id]/sync` + `native-receive`) cannot dedupe a
+  still-UNSEEN provider message once a permanent delete removes its
+  `conversation_messages` rows, so it was re-imported as a NEW conversation on
+  the next 2s sweep. New table `conversation_delete_tombstones`
+  (`provider_message_id`/`sender_email`/`subject`/`mailbox_id`/`deleted_at`, PK
+  on the three identity columns; DDL in `lib/backend-db/index.ts`).
+  `permanentlyDeleteConversations()` now captures customer-message identities
+  BEFORE the delete (`collectConversationTombstones`) and inserts them in the
+  SAME transaction (`insertConversationTombstones`, `ON CONFLICT DO NOTHING`);
+  both inbound transports skip tombstoned mail (message-id lookup, plus a
+  no-Message-ID variant by sender+subject+mailbox scope). Integration removal
+  intentionally writes no tombstones. (2) **Sent spans BOTH sources** — the
+  `ext-sent` folder def carries `noSource: true` so `loadConversations` skips
+  the `source=system|mailbox` restriction (outbound system/sales/support/
+  admin-composed mail has `mailbox_id IS NULL`); the Sent sidebar badge, chip
+  and status card show `systemStats.sent + mailboxStats.sent`. (3) **Silent
+  auto-sync** — the 2s receive timer now guards with `autoSyncInFlight` and
+  refreshes the list via `{ silent: true }` (no spinner flash every tick, no
+  destructive errors); every post-mutation refresh calls `refreshCurrent(true)`.
+  Files: `lib/backend-db/index.ts`,
+  `lib/communications/delete-conversations.ts`,
+  `app/internal/backend/mailboxes/[id]/sync/route.ts`,
+  `app/internal/backend/communications/native-receive/route.ts`,
+  `app/internal/api/communications/page.tsx`. No SMTP/send/queue/auth/
+  notification/storefront changes. Verified: `tsc --noEmit` 0 errors, `npm run
+  build` green (296 pages). Not deployed.
 - **Universal / System Trash separation (see master doc "Universal / System
   Trash separation" progress entry)**: the Communication Center has a dedicated
   **Trash for Universal Email / System conversations** (`int-trash`) fully
