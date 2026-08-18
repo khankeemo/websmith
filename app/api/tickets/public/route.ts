@@ -127,7 +127,7 @@ export const POST = apiHandler(async ({ db, client, request }) => {
       contactEmail,
       subject,
       description: message,
-      account,
+      account: { customId: account.customId ?? null, _id: account._id.toString() },
       origin,
       createdAt: now,
     });
@@ -139,7 +139,7 @@ export const POST = apiHandler(async ({ db, client, request }) => {
     { data: { ...ticket, _id: ticketId }, clientId: account._id.toString(), clientAccountCreated },
     { status: 201 }
   );
-}
+});
 
 /** Send the automatic First Welcome Message after a Get In Touch submission.
  * Reuses the database-backed `first-welcome` template (seeded, never
@@ -155,7 +155,7 @@ async function sendWelcomeEmail(
     contactEmail: string;
     subject: string;
     description: string;
-    account: { customId: string | null; _id: string };
+    account: { customId?: string | null; _id: string };
     origin: string;
     createdAt: Date;
   }
@@ -234,6 +234,6 @@ async function sendWelcomeEmail(
         history: historyEntry,
         messages: welcomeMessage,
       },
-    }
+}
   );
-});
+}

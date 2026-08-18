@@ -1,8 +1,8 @@
 // app/chat/[id]/ClientChat.tsx
 // PURPOSE: Client-side Messenger-style chat for the SECURE PUBLIC CLIENT
-//          MESSENGER CHAT (AWS-01 R01 — Phase 2). Compact, mobile-first,
-//          reuse-only UI: it talks to the SAME ticket conversation backend
-//          (`messages[]`) the admin Query Inbox renders — no duplicate chat
+//          MESSENGER CHAT (AWS-01 R01 — Phase 2/Phase 6/Phase 7). Compact,
+//          mobile-first, reuse-only UI: it talks to the SAME ticket conversation
+//          backend (`messages[]`) the admin Query Inbox renders — no duplicate chat
 //          backend, no email dependency. The signed link token is sent as
 //          `Authorization: Bearer <token>` on every call; the server verifies
 //          it against the path ticket + the customer's email before ANY data is
@@ -10,20 +10,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { CheckCircle2, Loader2, Lock, Send, ShieldCheck, XCircle } from "lucide-react";
 
-// Canonical admin identity shown for every team/outbound bubble (mirrors the
-// Query Inbox's ADMIN_SENDER_LABEL so both ends of the conversation agree).
 const TEAM_NAME = "Websmith Digital Support";
-
 const POLL_INTERVAL_MS = 3_000;
+const CONTACT_INFO_URL = "/api/settings/public/contact_info";
 
-interface ChatAttachment {
+export interface ChatAttachment {
   name: string;
   url: string;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   senderType: "client" | "admin";
   senderName: string;
@@ -32,7 +31,7 @@ interface ChatMessage {
   attachments?: ChatAttachment[];
 }
 
-interface ChatConversation {
+export interface ChatConversation {
   ticketId: string;
   subject: string;
   status: string;
@@ -40,6 +39,14 @@ interface ChatConversation {
   contactEmail: string;
   createdAt: string;
   messages: ChatMessage[];
+}
+
+interface ContactInfo {
+  phone?: string;
+  mobile_number?: string;
+  whatsapp_url?: string;
+  email?: string;
+  sales_email?: string;
 }
 
 function readToken(): string {
@@ -80,99 +87,134 @@ const formatTime = (value?: string) => {
   });
 };
 
-const styles: Record<string, any> = {
+const styles: Record<string, React.CSSProperties> = {
   root: {
+    position: "relative",
     height: "100dvh",
     maxHeight: "100dvh",
     display: "flex",
     flexDirection: "column",
-    background: "var(--bg-primary)",
     margin: "0 auto",
     width: "100%",
     maxWidth: "720px",
+    background: "var(--bg-primary)",
     borderLeft: "1px solid var(--border-color)",
     borderRight: "1px solid var(--border-color)",
+    overflow: "hidden",
+  },
+  bgCircles: {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    overflow: "hidden",
+    zIndex: 0,
+  },
+  bgCircle: {
+    position: "absolute",
+    borderRadius: "999px",
+    opacity: 0.12,
+    filter: "blur(60px)",
   },
   header: {
+    position: "relative",
+    zIndex: 2,
     flexShrink: 0,
     display: "flex",
     alignItems: "center",
-    gap: "12px",
-    padding: "14px 16px",
+    gap: "10px",
+    padding: "10px 16px",
     borderBottom: "1px solid var(--border-color)",
     background: "var(--bg-primary)",
   },
-  avatar: {
-    width: "40px",
-    height: "40px",
-    borderRadius: "999px",
+  brand: {
+    flexShrink: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "15px",
+    fontWeight: 700,
+    color: "var(--text-primary)",
+    textDecoration: "none",
+  },
+  brandLogo: {
+    width: "24px",
+    height: "24px",
+    borderRadius: "6px",
     background: "linear-gradient(135deg, #007aff, #1479ea)",
-    color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "16px",
+    fontSize: "13px",
     fontWeight: 800,
-    flexShrink: 0,
+    color: "#fff",
   },
   headerText: { minWidth: 0, flex: 1 },
   headerTitle: {
     margin: 0,
-    fontSize: "15px",
-    fontWeight: 800,
+    fontSize: "14px",
+    fontWeight: 700,
     color: "var(--text-primary)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   headerSub: {
-    margin: "2px 0 0 0",
-    fontSize: "12px",
+    margin: "1px 0 0 0",
+    fontSize: "11px",
     color: "var(--text-secondary)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  statusPillOpen: {
+  headerBtns: { flexShrink: 0, display: "flex", alignItems: "center", gap: "6px" },
+  headerBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    border: "1px solid var(--border-color)",
+    background: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    borderRadius: "8px",
+    padding: "5px 9px",
+    fontSize: "11px",
+    fontWeight: 600,
+    cursor: "pointer",
+    textDecoration: "none",
+  },
+  statusPill: {
     flexShrink: 0,
     display: "inline-flex",
     alignItems: "center",
-    gap: "5px",
-    fontSize: "11px",
+    gap: "4px",
+    fontSize: "10px",
     fontWeight: 700,
+    borderRadius: "999px",
+    padding: "3px 8px",
+    whiteSpace: "nowrap",
+  },
+  statusPillOpen: {
     color: "#1d7a31",
     backgroundColor: "rgba(52,199,89,0.12)",
     border: "1px solid rgba(52,199,89,0.35)",
-    borderRadius: "999px",
-    padding: "4px 10px",
-    whiteSpace: "nowrap",
   },
   statusPillClosed: {
-    flexShrink: 0,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "5px",
-    fontSize: "11px",
-    fontWeight: 700,
     color: "#c81e12",
     backgroundColor: "rgba(255,59,48,0.1)",
     border: "1px solid rgba(255,59,48,0.35)",
-    borderRadius: "999px",
-    padding: "4px 10px",
-    whiteSpace: "nowrap",
   },
-  dotOpen: { width: "7px", height: "7px", borderRadius: "999px", backgroundColor: "#34c759", flexShrink: 0 },
-  dotClosed: { width: "7px", height: "7px", borderRadius: "999px", backgroundColor: "#ff3b30", flexShrink: 0 },
+  dotOpen: { width: "6px", height: "6px", borderRadius: "999px", backgroundColor: "#34c759", flexShrink: 0 },
+  dotClosed: { width: "6px", height: "6px", borderRadius: "999px", backgroundColor: "#ff3b30", flexShrink: 0 },
   body: {
+    position: "relative",
+    zIndex: 1,
     flex: 1,
     minHeight: 0,
     overflowY: "auto",
     overflowX: "hidden",
-    padding: "16px",
+    padding: "14px",
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
-    background: "var(--bg-secondary)",
+    gap: "9px",
   },
   center: {
     flex: 1,
@@ -181,42 +223,50 @@ const styles: Record<string, any> = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: "12px",
-    padding: "24px",
+    gap: "10px",
+    padding: "20px",
     textAlign: "center",
   },
-  centerText: { margin: 0, color: "var(--text-secondary)", fontSize: "14px", lineHeight: 1.6, maxWidth: "420px" },
-  centerTitle: { margin: 0, color: "var(--text-primary)", fontSize: "17px", fontWeight: 800 },
+  centerText: { margin: 0, color: "var(--text-secondary)", fontSize: "13px", lineHeight: 1.6, maxWidth: "420px" },
+  centerTitle: { margin: 0, color: "var(--text-primary)", fontSize: "15px", fontWeight: 700 },
   row: { display: "flex", flexShrink: 0 },
   rowClient: { justifyContent: "flex-start" },
   rowAdmin: { justifyContent: "flex-end" },
+  rowSystem: { justifyContent: "center" },
   bubbleClient: {
-    maxWidth: "78%",
+    maxWidth: "76%",
     border: "1px solid var(--border-color)",
-    borderRadius: "14px",
+    borderRadius: "12px",
     borderTopLeftRadius: "4px",
-    padding: "9px 12px",
-    background: "var(--bg-primary)",
+    padding: "8px 11px",
+    background: "var(--bg-secondary)",
   },
   bubbleAdmin: {
-    maxWidth: "78%",
+    maxWidth: "76%",
     border: "1px solid #007aff33",
-    borderRadius: "14px",
+    borderRadius: "12px",
     borderTopRightRadius: "4px",
-    padding: "9px 12px",
+    padding: "8px 11px",
     background: "rgba(0,122,255,0.07)",
   },
-  bubbleSender: { margin: 0, fontSize: "10px", fontWeight: 700, color: "#007AFF" },
+  bubbleSystem: {
+    maxWidth: "86%",
+    border: "1px dashed var(--border-color)",
+    borderRadius: "12px",
+    padding: "9px 12px",
+    background: "rgba(150,150,150,0.05)",
+  },
+  bubbleSender: { margin: 0, fontSize: "9px", fontWeight: 700, color: "#007AFF" },
   bubbleText: {
-    margin: "5px 0",
-    fontSize: "13.5px",
-    lineHeight: 1.6,
+    margin: "3px 0",
+    fontSize: "13px",
+    lineHeight: 1.55,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     color: "var(--text-primary)",
   },
-  bubbleTime: { margin: 0, fontSize: "10px", color: "var(--text-muted)" },
-  bubbleAttachments: { display: "flex", flexWrap: "wrap", gap: "6px 8px", marginTop: "5px" },
+  bubbleTime: { margin: 0, fontSize: "9px", color: "var(--text-muted)" },
+  bubbleAttachments: { display: "flex", flexWrap: "wrap", gap: "5px 7px", marginTop: "4px" },
   attachmentLink: {
     fontSize: "11px",
     color: "#007AFF",
@@ -226,7 +276,22 @@ const styles: Record<string, any> = {
     textOverflow: "ellipsis",
     maxWidth: "100%",
   },
+  systemMsgText: {
+    margin: 0,
+    fontSize: "12px",
+    lineHeight: 1.55,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    color: "var(--text-secondary)",
+  },
+  systemLink: {
+    color: "#007AFF",
+    textDecoration: "underline",
+    fontSize: "12px",
+  },
   composer: {
+    position: "relative",
+    zIndex: 2,
     flexShrink: 0,
     display: "flex",
     alignItems: "flex-end",
@@ -235,25 +300,40 @@ const styles: Record<string, any> = {
     borderTop: "1px solid var(--border-color)",
     background: "var(--bg-primary)",
   },
+  clientLoginRow: { display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" },
+  clientLoginBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    border: "1px solid #007aff33",
+    background: "rgba(0,122,255,0.08)",
+    color: "#007AFF",
+    borderRadius: "8px",
+    padding: "5px 9px",
+    fontSize: "11px",
+    fontWeight: 600,
+    cursor: "pointer",
+    textDecoration: "none",
+  },
   input: {
     flex: 1,
-    minHeight: "44px",
-    maxHeight: "120px",
+    minHeight: "40px",
+    maxHeight: "110px",
     resize: "none",
-    borderRadius: "14px",
+    borderRadius: "12px",
     border: "1px solid var(--border-color)",
     background: "var(--bg-secondary)",
     color: "var(--text-primary)",
-    padding: "11px 14px",
+    padding: "10px 13px",
     outline: "none",
-    fontSize: "14px",
+    fontSize: "13px",
     lineHeight: 1.5,
     boxSizing: "border-box",
   },
   sendBtn: {
     flexShrink: 0,
-    width: "44px",
-    height: "44px",
+    width: "40px",
+    height: "40px",
     borderRadius: "999px",
     border: "none",
     background: "#007AFF",
@@ -268,28 +348,74 @@ const styles: Record<string, any> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "6px",
+    gap: "5px",
     padding: "6px 12px",
     fontSize: "10.5px",
     color: "var(--text-secondary)",
     borderTop: "1px solid var(--border-color)",
     background: "var(--bg-primary)",
   },
-  linkBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "7px",
-    border: "1px solid #007aff33",
-    background: "rgba(0,122,255,0.08)",
-    color: "#007AFF",
-    borderRadius: "10px",
-    padding: "9px 14px",
-    fontSize: "13px",
-    fontWeight: 700,
-    cursor: "pointer",
-    textDecoration: "none",
-  },
 };
+
+function FloatingBackground() {
+  const circles = useMemo(() => {
+    const arr: { id: number; size: number; left: number; delay: number; duration: number; color: string }[] = [];
+    const colors = ["#007aff33", "#34c75933", "#ff9f0a33", "#af52de33"];
+    for (let i = 0; i < 18; i++) {
+      arr.push({
+        id: i,
+        size: 30 + Math.random() * 70,
+        left: Math.random() * 100,
+        delay: Math.random() * 12,
+        duration: 14 + Math.random() * 12,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      });
+    }
+    return arr;
+  }, []);
+
+  return (
+    <div style={styles.bgCircles} aria-hidden="true">
+      {circles.map((c) => (
+        <div
+          key={c.id}
+          className="chat-float-circle"
+          style={{
+            ...styles.bgCircle,
+            width: c.size,
+            height: c.size,
+            left: `${c.left}%`,
+            ...{
+              animation: `chatFloat ${c.duration}s ease-in-out ${c.delay}s infinite`,
+              backgroundColor: c.color,
+            },
+          }}
+        />
+      ))}
+      <style jsx>{`
+        @keyframes chatFloat {
+          0% {
+            transform: translateY(0) scale(1);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.14;
+          }
+          90% {
+            opacity: 0.1;
+          }
+          100% {
+            transform: translateY(-110vh) scale(0.9);
+            opacity: 0;
+          }
+        }
+        .chat-float-circle {
+          will-change: transform;
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function ClientChat({ ticketId }: { ticketId: string }) {
   const token = useMemo(readToken, []);
@@ -299,6 +425,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [contactInfo, setContactInfo] = useState<ContactInfo>({});
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pollInFlight = useRef(false);
 
@@ -337,9 +464,17 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
     load();
   }, [load]);
 
-  // Silent polling for new team messages — a client message or an admin reply
-  // lands in this thread within a few seconds of either side sending it. The
-  // in-flight ref guard keeps consecutive polls from ever overlapping.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(CONTACT_INFO_URL)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.data) setContactInfo(j.data);
+      })
+      .catch(() => {} );
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (!conversation || error) return;
     let cancelled = false;
@@ -393,13 +528,46 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
   };
 
   const isClosed = conversation?.status === "closed";
+  const hasAdminReply = (conversation?.messages || []).some((m) => m.senderType === "admin");
+
+  const whatsappUrl = contactInfo?.whatsapp_url || contactInfo?.email
+    ? `https://wa.me/${(contactInfo.whatsapp_url || "").replace(/[^\d]/g, "")}`
+    : "";
+  const phoneText = contactInfo?.mobile_number || contactInfo?.phone || "";
+
+  const renderNoExecutiveMessage = () => {
+    if (!conversation || hasAdminReply) return null;
+    return (
+      <div style={{ ...styles.row, ...styles.rowSystem }}>
+        <div style={styles.bubbleSystem}>
+          <p style={styles.systemMsgText}>
+            Sorry, no executive is available right now. We will connect with you shortly.
+          </p>
+          <p style={styles.systemMsgText}>
+            In the meantime, please share your preferred contact details below in the chat (phone or WhatsApp number) and we will reach out as soon as someone is free.
+          </p>
+          {phoneText && <p style={styles.systemMsgText}>Mobile: {phoneText}</p>}
+          <p style={styles.systemMsgText}>
+            Or visit{" "}
+            <Link href="/contact" style={styles.systemLink}>
+              the Websmith Contact page
+            </Link>{" "}
+            to get in touch directly.
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div style={styles.root}>
+      <FloatingBackground />
+
       <header style={styles.header}>
-        <div style={styles.avatar}>
-          {(conversation?.contactName || "C").charAt(0).toUpperCase()}
-        </div>
+        <Link href="/" style={styles.brand} aria-label="Websmith home">
+          <span style={styles.brandLogo}>W</span>
+          Websmith
+        </Link>
         <div style={styles.headerText}>
           <p style={styles.headerTitle} title={conversation?.subject}>
             {conversation?.subject || "Your Conversation"}
@@ -407,15 +575,23 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           <p style={styles.headerSub} title={conversation?.contactEmail}>
             {conversation
               ? `${conversation.contactName || "Valued Customer"}${conversation.contactEmail ? ` · ${conversation.contactEmail}` : ""}`
-              : "Websmith Digital Support"}
+              : TEAM_NAME}
           </p>
         </div>
-        {conversation && (
-          <span style={isClosed ? styles.statusPillClosed : styles.statusPillOpen}>
-            <span style={isClosed ? styles.dotClosed : styles.dotOpen} />
-            {isClosed ? "Closed" : "Open"}
-          </span>
-        )}
+        <div style={styles.headerBtns}>
+          <Link href="/login" style={styles.headerBtn} aria-label="Client login">
+            Client Login
+          </Link>
+          <Link href="/" style={styles.headerBtn} aria-label="Home">
+            Home
+          </Link>
+          {conversation && (
+            <span style={{ ...styles.statusPill, ...(isClosed ? styles.statusPillClosed : styles.statusPillOpen) }}>
+              <span style={isClosed ? styles.dotClosed : styles.dotOpen} />
+              {isClosed ? "Closed" : "Open"}
+            </span>
+          )}
+        </div>
       </header>
 
       {loading ? (
@@ -429,7 +605,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           <Lock size={30} color="var(--text-secondary)" />
           <p style={styles.centerTitle}>Conversation unavailable</p>
           <p style={styles.centerText}>{error || "This conversation link is invalid or has expired."}</p>
-          <a href="https://www.websmithdigital.com" target="_blank" rel="noreferrer" style={styles.linkBtn}>
+          <a href="https://www.websmithdigital.com" target="_blank" rel="noreferrer" style={styles.clientLoginBtn}>
             <ShieldCheck size={15} />
             Visit websmithdigital.com
           </a>
@@ -441,12 +617,14 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
               <p style={styles.centerText}>
                 No messages yet. Say hello — the Websmith team will get back to you right here.
               </p>
+              {renderNoExecutiveMessage()}
             </div>
           ) : (
             conversation.messages.map((m) => {
               const isClient = m.senderType === "client";
+              const rowStyle = isClient ? styles.rowClient : styles.rowAdmin;
               return (
-                <div key={m.id || `${m.senderType}-${m.createdAt}-${m.message}`} style={{ ...styles.row, ...(isClient ? styles.rowClient : styles.rowAdmin) }}>
+                <div key={m.id || `${m.senderType}-${m.createdAt}-${m.message}`} style={{ ...styles.row, ...rowStyle }}>
                   <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
                     <p style={styles.bubbleSender}>{isClient ? m.senderName || "You" : TEAM_NAME}</p>
                     <p style={styles.bubbleText}>{m.message}</p>
@@ -472,6 +650,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
               );
             })
           )}
+          {renderNoExecutiveMessage()}
           {connected && (
             <div style={{ display: "flex", justifyContent: "center", paddingTop: "2px" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "10.5px", color: "var(--text-secondary)" }}>
@@ -492,6 +671,15 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
 
       {conversation && (
         <div style={styles.composer}>
+          <div style={styles.clientLoginRow}>
+            <Lock size={11} color="var(--text-secondary)" />
+            <span style={{ fontSize: "10.5px", color: "var(--text-secondary)" }}>
+              Secure conversation · only you and the Websmith team can see this chat
+            </span>
+            <Link href="/login" style={styles.clientLoginBtn}>
+              Client Login
+            </Link>
+          </div>
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -504,7 +692,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           <button
             type="button"
             onClick={handleSend}
-            disabled={sending || !draft.trim()}
+            disabled={sending || !draft.trim() || isClosed}
             style={styles.sendBtn}
             aria-label="Send message"
           >
@@ -512,11 +700,6 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           </button>
         </div>
       )}
-
-      <div style={styles.securityNote}>
-        <Lock size={11} />
-        Secure conversation · only you and the Websmith team can see this chat
-      </div>
     </div>
   );
 }
