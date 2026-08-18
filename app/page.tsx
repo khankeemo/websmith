@@ -945,26 +945,35 @@ export default function LandingPage() {
               <div style={styles.diversityBadge}>Enterprise Grade</div>
               <div style={styles.diversityBadge}>Diverse Talent</div>
             </div>
-            <div style={styles.diversityImageContainer}>
-              <img
-                src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
-                alt="Global Technical Team"
-                style={styles.diversityImage}
-              />
-            </div>
           </div>
-          <div style={styles.diversityVideoContainer}>
-            <video
-              ref={diversityVideoRef}
-              autoPlay
-              loop
-              playsInline
-              controls
-              preload="auto"
-              style={styles.diversityVideo}
-            >
-              <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
-            </video>
+          <div style={styles.diversityMediaColumn}>
+            <p style={styles.diversityMediaMessage}>
+              Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
+              One dedicated team that builds faster, ships smarter, and stays by your side long after launch —
+              that is why clients choose Websmith, and why they stay.
+            </p>
+            <div style={styles.diversityMediaRow} className="landing-diversity-media-row">
+              <div style={styles.diversityImageContainer}>
+                <img
+                  src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
+                  alt="Global Technical Team"
+                  style={styles.diversityImage}
+                />
+              </div>
+              <div style={styles.diversityVideoContainer}>
+                <video
+                  ref={diversityVideoRef}
+                  autoPlay
+                  loop
+                  playsInline
+                  controls
+                  preload="auto"
+                  style={styles.diversityVideo}
+                >
+                  <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+                </video>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -2191,21 +2200,41 @@ const styles: any = {
     flex: 1,
     minWidth: "320px",
   },
+  diversityMediaColumn: {
+    flex: 1,
+    minWidth: "320px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  diversityMediaMessage: {
+    fontSize: "17px",
+    fontWeight: 500,
+    color: "var(--text-secondary)",
+    lineHeight: 1.6,
+  },
+  diversityMediaRow: {
+    display: "flex",
+    gap: "16px",
+    flexWrap: "wrap",
+  },
   diversityImageContainer: {
-    width: "100%",
-    marginTop: "24px",
+    flex: 1,
+    minWidth: "260px",
     borderRadius: "24px",
     overflow: "hidden",
     boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+    aspectRatio: "16 / 9",
   },
   diversityImage: {
     width: "100%",
-    height: "auto",
+    height: "100%",
     display: "block",
+    objectFit: "cover",
   },
   diversityVideoContainer: {
     flex: 1,
-    minWidth: "320px",
+    minWidth: "260px",
     borderRadius: "24px",
     overflow: "hidden",
     boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
