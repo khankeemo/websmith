@@ -522,7 +522,7 @@ export default function ManageMailsPage() {
       if (convFolder === 'trash') params.set('show_deleted', 'true');
       else if (convFolder === 'inbox') params.set('status', 'open,waiting_customer');
       else if (convFolder === 'waiting') params.set('status', 'waiting_customer');
-      else if (convFolder === 'sent') params.set('status', 'resolved,closed');
+      else if (convFolder === 'sent') params.set('sent', 'true');
       if (search.trim()) params.set('search', search.trim());
 
       const res = await fetch(`${API_BASE}/conversations?${params.toString()}`, { headers: getAuthHeaders() });

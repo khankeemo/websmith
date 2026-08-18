@@ -59,7 +59,12 @@ export async function GET(request: NextRequest) {
     const statusCounts = await client.query(`
       SELECT 
         COUNT(*) FILTER (WHERE status IN ('open', 'waiting_customer')) as inbox_count,
-        COUNT(*) FILTER (WHERE status IN ('resolved', 'closed')) as sent_count,
+        COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM conversation_messages cm
+          WHERE cm.conversation_id = cc.id
+            AND cm.sender_type = 'admin'
+            AND cm.email_sent = true
+        )) as sent_count,
         COUNT(*) FILTER (WHERE status IN ('waiting_support', 'waiting_sales')) as waiting_count
       FROM communication_conversations cc ${whereSQL}
     `, params);

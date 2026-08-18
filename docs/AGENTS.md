@@ -432,6 +432,38 @@ Keep these in sync with the master doc (see its AWS-01 / Phase 3 section):
   supported extensions. No public website / store / public API / SMTP / IMAP /
   queue / auth / notification logic changed. Deployed 2026-08-13, build green
   289 pages.
+- **Communications Center — Real Sent location + native auto-sync fix (see
+  master doc "Communications Center — R01 FINAL: Real Sent location + native
+  auto-sync fix" progress entry)**: **(1) Real "Sent"** — `sent=true` is now a
+  REAL filter on `GET /internal/backend/communications/conversations`: a
+  conversation qualifies when it contains an outbound admin email that was
+  actually delivered (`EXISTS conversation_messages cm WHERE
+  cm.sender_type='admin' AND cm.email_sent=true`). It replaced the old FAKE
+  Sent (`status IN ('resolved','closed')`) in the `ext-sent` FOLDER def
+  (`app/internal/api/communications/page.tsx`), in Manage Mails' `sent` folder,
+  and in the `conversation_folders` seed (`lib/backend-db/index.ts` →
+  `{"sent":"true"}`). The stats `sent` count uses the SAME EXISTS definition so
+  the Sent badge always agrees with the Sent list. Admin sends already stamp
+  `email_sent=true` on both send paths (`admin/communication/send` + `reply`),
+  so Sent reflects genuine outbound mail; delete/restore/permanent/empty-trash
+  are id-based and work unchanged in Sent. **(2) Native-account auto-sync bug
+  fixed** — the Communications Center live auto-sync polled `${API_BASE}` (the
+  `/internal/backend/communications` INDEX route — NO `settings` payload) and
+  read `settingsJson?.data?.settings?.communications?.mail_accounts` (always
+  undefined), so the native support@/sales@ accounts were NEVER auto-synced
+  from the UI. It now fetches the REAL settings endpoint
+  `GET /internal/backend/communications/settings` and reads
+  `settingsJson.settings.mail_accounts`, so native support/sales accounts sync
+  on the same timer as configured mailboxes (the sync route's
+  `nativeReceiveAccount` matches by the same account id). No
+  SMTP/IMAP/queue/schema/auth/notification/storefront changes. Files:
+  `app/internal/api/communications/page.tsx`,
+  `app/internal/api/communications/manage-mails/page.tsx`,
+  `app/internal/backend/communications/conversations/route.ts` +
+  `stats/route.ts`, `lib/backend-db/index.ts`. Verified: `tsc --noEmit` 0
+  errors, `npm run build` green (QStash signing-key env vars are required for
+  the local build of the deployed `native-receive` route — set in production),
+  `npm test` 6/6 + 13/13. Not deployed.
 - **Universal / System Trash separation (see master doc "Universal / System
   Trash separation" progress entry)**: the Communication Center has a dedicated
   **Trash for Universal Email / System conversations** (`int-trash`) fully

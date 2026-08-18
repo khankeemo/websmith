@@ -1437,7 +1437,7 @@ export async function getDb(): Promise<Pool> {
         ('notifications', 'Notifications', 'internal', 'logs', '{}', TRUE, 11),
         ('email-history', 'Universal Email', 'internal', 'history', '{}', TRUE, 12),
         ('ext-inbox', 'Inbox', 'external', 'list', '{"status":"open,waiting_customer"}', TRUE, 13),
-        ('ext-sent', 'Sent', 'external', 'list', '{"status":"resolved,closed"}', TRUE, 14),
+        ('ext-sent', 'Sent', 'external', 'list', '{"sent":"true"}', TRUE, 14),
         ('ext-draft', 'Draft', 'external', 'list', '{"status":"draft"}', TRUE, 15),
         ('ext-waiting', 'Waiting', 'external', 'list', '{"status":"waiting_customer"}', TRUE, 16),
         ('ext-failed', 'Failed', 'external', 'list', '{"status":"waiting_support,waiting_sales"}', TRUE, 17),

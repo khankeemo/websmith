@@ -304,7 +304,7 @@ const FOLDERS: FolderDef[] = [
 
   // External Mailboxes
   { key: 'ext-inbox', label: 'Inbox', icon: Inbox, section: 'external', kind: 'list', params: { status: 'open,waiting_customer' }, badgeKey: 'inbox' },
-  { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { status: 'resolved,closed' }, badgeKey: 'sent' },
+  { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent' },
   { key: 'ext-draft', label: 'Draft', icon: FilePen, section: 'external', kind: 'list', params: { status: 'draft' }, emptyNote: 'Draft support is not wired to the backend yet — outbound emails are sent immediately and tracked in Sent / Universal Email.' },
   { key: 'ext-waiting', label: 'Waiting', icon: Clock3, section: 'external', kind: 'list', params: { status: 'waiting_customer' }, badgeKey: 'waiting' },
   { key: 'ext-failed', label: 'Failed', icon: AlertTriangle, section: 'external', kind: 'list', params: { status: 'waiting_support,waiting_sales' }, badgeKey: 'failed' },
@@ -1062,6 +1062,7 @@ export default function CommunicationsPage() {
       if (folder.params?.search) params.set('search', folder.params.search);
       if (folder.params?.has_customer) params.set('has_customer', 'true');
       if (folder.params?.show_deleted) params.set('show_deleted', 'true');
+      if (folder.params?.sent) params.set('sent', 'true');
       if (statusF) params.set('status', statusF);
       if (categoryF) params.set('category', categoryF);
       if (search) params.set('search', search);
@@ -1549,14 +1550,17 @@ export default function CommunicationsPage() {
           fetch(`${MB_BASE}/${m.id}/sync`, { method: 'POST', headers }).catch(() => {})
         ));
 
-        // --- NEW: Sync native system accounts (support@ / sales@) ---
-        // These are configured in system_settings.communications.mail_accounts,
-        // NOT in the mailboxes table. The sync route's nativeReceiveAccount handler
-        // reads IMAP credentials from env vars (MAIL_*_IMAP_*) and routes by category.
+        // --- Sync native system accounts (support@ / sales@) ---
+        // These are configured in the communication settings document, NOT in
+        // the mailboxes table. The sync route's nativeReceiveAccount handler
+        // reads IMAP credentials from env vars (MAIL_*_IMAP_*) and routes by
+        // category. The settings are read from the REAL settings endpoint
+        // (GET /communications/settings returns { success, settings }) — never
+        // the communications index route, which has no settings payload.
         try {
-          const settingsRes = await fetch(`${API_BASE}`, { headers: getAuthHeaders() });
+          const settingsRes = await fetch(`${API_BASE}/settings`, { headers: getAuthHeaders() });
           const settingsJson = await settingsRes.json();
-          const mailAccounts = (settingsJson?.data?.settings?.communications?.mail_accounts) || [];
+          const mailAccounts = settingsJson?.settings?.mail_accounts || [];
           for (const acct of mailAccounts) {
             if (acct.type && ['support', 'sales'].includes(acct.type) && acct.is_active) {
               const syncId = acct.id;
