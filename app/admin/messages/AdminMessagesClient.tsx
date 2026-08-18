@@ -192,8 +192,9 @@ function fillTemplate(template: { subject?: string; body?: string }, data: Recor
 // app/api/tickets/[id]/send-resolution-email/route.ts so the preview matches the
 // sent email). `chatUrl` is the REAL signed secure Messenger Chat link for THIS
 // conversation (resolved via the admin chat-link endpoint, cached per ticket);
-// when unavailable it degrades to the Client Portal login URL so the reply
-// never contains a bare/empty token.
+// when unavailable it degrades to the prescribed customer-facing sentence —
+// NEVER the Client Portal login URL (Continue Chat must open the Messenger Chat
+// directly, without login).
 function ticketPlaceholders(ticket: Ticket | null, chatUrl = ""): Record<string, string> {
   if (!ticket) return {};
   const client = typeof ticket.clientId === "object" && ticket.clientId ? ticket.clientId : null;
@@ -220,7 +221,11 @@ function ticketPlaceholders(ticket: Ticket | null, chatUrl = ""): Record<string,
     query_message: String(ticket.description ?? ""),
     resolution_summary: String(ticket.resolution ?? ""),
     portal_url: portalUrl || portalFallback,
-    chat_url: chatUrl || portalUrl || portalFallback,
+    // The Continue Chat link must NEVER point to /login: the customer opens
+    // the Messenger Chat directly from the signed /chat/<id>?token= link. When
+    // the secure chat link cannot be resolved, the placeholder degrades to the
+    // prescribed customer-facing sentence (never the portal login URL).
+    chat_url: chatUrl || portalFallback,
     company_name: "Websmith Digital",
     query_status: String(ticket.status ?? ""),
   };
