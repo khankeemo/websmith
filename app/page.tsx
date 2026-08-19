@@ -934,8 +934,8 @@ export default function LandingPage() {
 
       {/* Global Diversity & Collaboration */}
       <section className="relative w-full overflow-hidden" style={styles.section}>
-        <div className="flex flex-wrap items-start justify-center gap-x-10 gap-y-10">
-          <div className="w-[480px] max-w-full flex flex-col items-start">
+        <div className="grid grid-cols-1 min-[1700px]:grid-cols-[780px_40px_780px] justify-center">
+          <div className="flex flex-col items-start">
             <h2 className="text-3xl sm:text-4xl font-bold text-primary mb-4">Global Collaboration & Technical Excellence</h2>
             <p className="text-base text-secondary leading-relaxed mb-6">
               Our team brings together diverse perspectives and world-class expertise to solve complex challenges.
@@ -945,29 +945,31 @@ export default function LandingPage() {
               <span style={styles.diversityBadge}>Enterprise Grade</span>
               <span style={styles.diversityBadge}>Diverse Talent</span>
             </div>
-            <img
-              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
-              alt="Global Technical Team"
-              className="w-full rounded-lg object-cover"
-            />
           </div>
-          <div className="w-[480px] max-w-full flex flex-col items-start">
+          <div className="hidden min-[1700px]:block" aria-hidden="true" />
+          <div className="flex flex-col items-start">
             <p className="text-base text-secondary leading-relaxed mb-6">
               Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
               One dedicated team that builds faster, ships smarter, and stays by your side long after launch —
               that is why clients choose Websmith, and why they stay.
             </p>
-            <video
-              ref={diversityVideoRef}
-              autoPlay
-              loop
-              playsInline
-              preload="auto"
-              className="w-full aspect-[3/2] rounded-lg object-cover"
-            >
-              <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
-            </video>
           </div>
+          <img
+            src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
+            alt="Global Technical Team"
+            className="w-full aspect-square rounded-lg object-cover"
+          />
+          <div className="hidden min-[1700px]:block" aria-hidden="true" />
+          <video
+            ref={diversityVideoRef}
+            autoPlay
+            loop
+            playsInline
+            preload="auto"
+            className="w-full aspect-square rounded-lg object-cover"
+          >
+            <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+          </video>
         </div>
       </section>
 
