@@ -15,13 +15,20 @@
 //                    spans the full left column height and width with EXACTLY
 //                    4 lanes (Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓ — adjacent
 //                    lanes always run in opposite directions), clear dashed
-//                    lane markings and solid road edges. 15 sport/racing cars
-//                    (14 real languages/technologies, each with its brand color
+//                    lane markings and solid road edges. 16 sport/racing cars
+//                    (15 real languages/technologies, each with its brand color
 //                    + real `public/wds_icon` Devicon icon + a dedicated
 //                    premium WEBSMITH car) run continuously: per-car duration,
 //                    negative delay (mid-road on load), lane slot and z-index,
 //                    seamless loop at the top/bottom boundaries (journey
 //                    wrappers travel the full road height, extremes off-screen).
+//                    Websmith Digital branding is INTEGRATED into the asphalt:
+//                    a large blurred websmith_1x1.webp watermark down the road
+//                    centre (screen-blended into the asphalt), vertical
+//                    "WEBSMITH DIGITAL · GRAND PRIX" track prints, an F1-style
+//                    checkered start/finish line, red/white kerbs and a thin
+//                    branded footer strip — all painted onto the dark premium
+//                    racing asphalt (never floating UI, always behind the cars).
 //            CENTER (34%)  MESSENGER ONLY — the existing chat card exactly as
 //                    before: messages, composer, Send, Client Login, Home,
 //                    dynamic Open/Closed status dot + tooltip, secure JWT chat,
@@ -55,6 +62,10 @@ const CONTACT_INFO_URL = "/api/settings/public/contact_info";
 // Top-right Websmith logo image (compact, keeps aspect ratio, inside the card)
 const WEBSCIMITH_LOGO = "/images/Websmith.png";
 
+// Road branding asset — subtle/blurred Websmith branding printed on the asphalt
+// (websmith_1x1.webp, integrated into the road design, never floating UI).
+const ROAD_BRAND_IMG = "/images/websmith_1x1.webp";
+
 // ---- LEFT ZONE — RACING ROAD data ----------------------------------------
 // Every car is a real technology with its real Devicon icon from
 // public/wds_icon (all references verified to exist) + its brand color.
@@ -81,7 +92,7 @@ const RACER_CARS: RacerCar[] = [
   { id: "swift", name: "Swift", icon: "swift", color: "#F05138" },
   { id: "react", name: "React", icon: "react", color: "#61DAFB" },
   { id: "mongodb", name: "MongoDB", icon: "mongodb", color: "#47A248" },
-  { id: "dart", name: "Dart", icon: "dart", color: "#0175C2" },
+  { id: "csharp", name: "C#", icon: "csharp", color: "#68217A" },
   // Dedicated Websmith car — clearly branded, visually premium, races with the
   // same road system as every other car.
   { id: "websmith", name: "WEBSMITH", color: "#FFD700", websmith: true },
@@ -90,12 +101,13 @@ const RACER_CARS: RacerCar[] = [
 const CAR_BY_ID: Record<string, RacerCar> = Object.fromEntries(RACER_CARS.map((c) => [c.id, c]));
 
 // ONE continuous road, EXACTLY 4 lanes: Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓.
-// Adjacent lanes always move in opposite directions. 15 cars total (>= 10).
+// Adjacent lanes always move in opposite directions. 16 cars total (>= 10),
+// evenly distributed 4 / 4 / 4 / 4 so every lane stays busy.
 const ROAD_LANES: Array<{ dir: "Up" | "Down"; cars: RacerCar[] }> = [
   { dir: "Up", cars: ["c", "java", "go", "php"].map((id) => CAR_BY_ID[id]) },
   { dir: "Down", cars: ["cpp", "javascript", "rust", "kotlin"].map((id) => CAR_BY_ID[id]) },
   { dir: "Up", cars: ["python", "typescript", "nodejs", "swift"].map((id) => CAR_BY_ID[id]) },
-  { dir: "Down", cars: ["react", "mongodb", "dart", "websmith"].map((id) => CAR_BY_ID[id]) },
+  { dir: "Down", cars: ["react", "mongodb", "csharp", "websmith"].map((id) => CAR_BY_ID[id]) },
 ];
 
 // ---- RIGHT ZONE — FLYING BUBBLES data -------------------------------------
@@ -212,10 +224,18 @@ const formatTime = (value?: string) => {
  * adjacent lanes always run in opposite directions. Solid road edges + 3
  * glowing dashed lane dividers (one road, no separated road blocks).
  *
- * 15 sport/racing cars (14 real technologies + the dedicated WEBSMITH car):
+ * 16 sport/racing cars (15 real technologies + the dedicated WEBSMITH car):
  * each car is a styled side-profile racer (glowing body in the language's
  * brand color, windshield, rear wing, wheels, direction chevron, language
  * icon on the body, label), NOT a plain rectangle or bare icon.
+ *
+ * Websmith Digital branding is printed INTO the road itself (dark premium
+ * racing asphalt): a large blurred websmith_1x1.webp watermark down the road
+ * centre (screen-blended into the asphalt, behind the cars), vertical
+ * "WEBSMITH DIGITAL · GRAND PRIX" track prints, an F1-style checkered
+ * start/finish line across the road top, red/white kerbs along both road
+ * edges and a thin branded footer strip at the road base — all painted onto
+ * the asphalt (z-index 1-2, always behind the cars), never floating UI.
  *
  * Motion model (GPU-friendly, CSS transforms only):
  *  - Every car sits in its own "journey" wrapper that spans the full road
@@ -252,6 +272,21 @@ function LanguageRoad() {
 
   return (
     <div className="ws-road" style={styles.road} aria-hidden="true">
+      {/* Websmith Digital branding INTEGRATED into the asphalt — a subtle/blurred
+          websmith_1x1.webp watermark layer + F1-style track prints, painted onto
+          the road (behind the cars, part of the asphalt, never floating UI). */}
+      <div className="ws-road-brand">
+        <img src={ROAD_BRAND_IMG} alt="" draggable={false} decoding="async" />
+      </div>
+      <span className="ws-road-print">WEBSMITH DIGITAL · GRAND PRIX</span>
+      <span className="ws-road-print ws-road-print-b">TECHNOLOGY · ENGINEERING · SUPPORT</span>
+
+      {/* F1 racing markings painted on the asphalt: start/finish checkered line
+          across the road + red/white kerbs along both road edges. */}
+      <span className="ws-road-checker" />
+      <span className="ws-road-kerb ws-road-kerb-l" />
+      <span className="ws-road-kerb ws-road-kerb-r" />
+
       {/* Road edges (solid lines) + 3 dashed lane dividers (one continuous road) */}
       <span className="ws-road-edge ws-road-edge-l" />
       <span className="ws-road-edge ws-road-edge-r" />
@@ -330,6 +365,13 @@ function LanguageRoad() {
         </div>
       ))}
 
+      {/* Websmith Digital footer hoarding — a thin branded strip painted onto
+          the road base (part of the asphalt layer, subtle, behind the cars). */}
+      <div className="ws-road-footer">
+        <img src={ROAD_BRAND_IMG} alt="" draggable={false} decoding="async" />
+        <span>WEBSMITH DIGITAL — OFFICIAL TRACK PARTNER</span>
+      </div>
+
       <style jsx>{`
         /* Seamless vertical loops: travel the full road height, both extremes
            are off-screen, so the reset is invisible at the road boundary. */
@@ -354,6 +396,121 @@ function LanguageRoad() {
           --body-h: 30px;
           --icon-s: 20px;
           --label-fs: 7.5px;
+        }
+        /* ---- Websmith Digital branding integrated into the asphalt ---- */
+        /* Large blurred websmith_1x1.webp watermark down the road centre:
+           mixed into the asphalt (screen blend), never over the cars. */
+        .ws-road-brand {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 44%;
+          height: 100%;
+          transform: translate(-50%, -50%);
+          overflow: hidden;
+          pointer-events: none;
+          z-index: 1;
+          opacity: 0.55;
+          filter: blur(6px) saturate(1.1);
+        }
+        .ws-road-brand img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: center;
+          opacity: 0.26;
+          mix-blend-mode: screen;
+        }
+        /* F1-style track print on the asphalt: vertical sponsor text running
+           down the road centre-line (subtle, painted look). */
+        .ws-road-print {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%) rotate(90deg);
+          white-space: nowrap;
+          pointer-events: none;
+          z-index: 1;
+          color: rgba(255, 255, 255, 0.09);
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 9px;
+          text-transform: uppercase;
+          text-shadow: 0 0 10px rgba(20, 156, 234, 0.4);
+        }
+        .ws-road-print-b {
+          top: 82%;
+          font-size: 8.5px;
+          letter-spacing: 5px;
+          color: rgba(255, 255, 255, 0.06);
+        }
+        /* F1 start/finish checkered line painted across the road top. */
+        .ws-road-checker {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 2.5%;
+          height: 24px;
+          pointer-events: none;
+          z-index: 2;
+          opacity: 0.85;
+          background: repeating-conic-gradient(#dde3ec 0% 25%, #151a24 0% 50%) 0 0 / 15px 15px;
+          box-shadow:
+            0 0 10px rgba(20, 156, 234, 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.14);
+          border-radius: 2px;
+        }
+        /* Red/white F1 kerbs along both road edges. */
+        .ws-road-kerb {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 5px;
+          pointer-events: none;
+          z-index: 2;
+          opacity: 0.7;
+        }
+        .ws-road-kerb-l {
+          left: 0;
+          background: repeating-linear-gradient(180deg, #b3261e 0 9px, #e8ecf2 9px 18px);
+        }
+        .ws-road-kerb-r {
+          right: 0;
+          background: repeating-linear-gradient(180deg, #e8ecf2 0 9px, #b3261e 9px 18px);
+        }
+        /* Websmith Digital footer strip — painted onto the road base. */
+        .ws-road-footer {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 26px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          pointer-events: none;
+          z-index: 2;
+          background: linear-gradient(180deg, rgba(8, 11, 17, 0.82), rgba(5, 7, 12, 0.9));
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 0 12px rgba(20, 156, 234, 0.12);
+          opacity: 0.9;
+        }
+        .ws-road-footer img {
+          width: 20px;
+          height: 20px;
+          border-radius: 4px;
+          object-fit: cover;
+          opacity: 0.85;
+        }
+        .ws-road-footer span {
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: 2.2px;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.5);
+          text-shadow: 0 0 8px rgba(20, 156, 234, 0.35);
+          white-space: nowrap;
         }
         /* One continuous asphalt road, full left-zone width and height. */
         .ws-road-edge {
@@ -518,6 +675,24 @@ function LanguageRoad() {
             --body-h: 26px;
             --icon-s: 17px;
             --label-fs: 6.5px;
+          }
+          .ws-road-footer {
+            height: 22px;
+          }
+          .ws-road-footer span {
+            font-size: 6.5px;
+            letter-spacing: 1.6px;
+          }
+          .ws-road-print {
+            font-size: 10px;
+            letter-spacing: 6px;
+          }
+          .ws-road-print-b {
+            font-size: 7px;
+            letter-spacing: 4px;
+          }
+          .ws-road-checker {
+            height: 18px;
           }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -767,11 +942,18 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 0,
   },
   // ---- Racing road layout ----
+  // Dark premium racing asphalt: deep blue-black base, faint horizontal wear
+  // streaks, subtle lengthwise sheen and a neon-blue ambient glow that fades
+  // toward the edges (technical circuit atmosphere, cars stay readable).
   road: {
     position: "absolute",
     inset: 0,
-    background:
-      "linear-gradient(180deg, rgba(9, 13, 21, 0.55) 0%, rgba(12, 17, 27, 0.92) 12%, rgba(12, 17, 27, 0.92) 88%, rgba(9, 13, 21, 0.55) 100%)",
+    background: [
+      "repeating-linear-gradient(90deg, rgba(255,255,255,0.013) 0 2px, transparent 2px 27px)",
+      "repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 96px, transparent 96px 140px)",
+      "radial-gradient(120% 90% at 50% 50%, rgba(20,156,234,0.07) 0%, transparent 62%)",
+      "linear-gradient(180deg, #0a0e15 0%, #0c1220 22%, #080c13 55%, #0b1019 85%, #070a10 100%)",
+    ].join(", "),
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
