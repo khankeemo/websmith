@@ -941,14 +941,10 @@ export default function LandingPage() {
               Our team brings together diverse perspectives and world-class expertise to solve complex challenges.
               We believe in the power of inclusive collaboration to build the next generation of digital products.
             </p>
-            <div className="flex flex-wrap gap-3 mb-8">
-              <span style={styles.diversityBadge}>Enterprise Grade</span>
-              <span style={styles.diversityBadge}>Diverse Talent</span>
-            </div>
             <img
               src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
               alt="Global Technical Team"
-              className="w-full h-[550px] rounded-lg object-cover"
+              className="w-full h-[550px] rounded-lg object-cover mt-auto"
             />
           </div>
           <div className="hidden min-[1700px]:block" aria-hidden="true" />
@@ -962,10 +958,11 @@ export default function LandingPage() {
               ref={diversityVideoRef}
               autoPlay
               loop
+              muted
               playsInline
               controls
               preload="auto"
-              className="w-full h-[600px] rounded-lg object-cover"
+              className="w-full h-[550px] rounded-lg object-cover mt-auto"
             >
               <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
             </video>
