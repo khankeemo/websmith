@@ -1,0 +1,41 @@
+
+> websmith@1.0.0 build
+> next build
+
+Γû▓ Next.js 16.2.9 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Turbopack build encountered 1 warnings:
+./next.config.ts
+Encountered unexpected file in NFT list
+A file was traced that indicates that the whole project was traced unintentionally. Somewhere in the import trace below, there are:
+- filesystem operations (like path.join, path.resolve or fs.readFile), or
+- very dynamic requires (like require('./' + foo)).
+To resolve this, you can
+- remove them if possible, or
+- only use them in development, or
+- make sure they are statically scoped to some subfolder: path.join(process.cwd(), 'data', bar), or
+- add ignore comments: path.join(/*turbopackIgnore: true*/ process.cwd(), bar)
+
+Import trace:
+  App Route:
+    ./next.config.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+
+Γ£ô Compiled successfully in 20.3s
+  Running TypeScript ...
+Failed to type check.
+
+.next/types/validator.ts:1574:39
+Type error: Cannot find module '../../app/api/projects/[projectId]/feedback/[feedbackId]/route.js' or its corresponding type declarations.
+
+  1572 | {
+  1573 |   type __IsExpected<Specific extends RouteHandlerConfig<"/api/projects/[projectId]/feedb...
+> 1574 |   const handler = {} as typeof import("../../app/api/projects/[projectId]/feedback/[feed...
+       |                                       ^
+  1575 |   type __Check = __IsExpected<typeof handler>
+  1576 |   // @ts-ignore
+  1577 |   type __Unused = __Check
+Next.js build worker exited with code: 1 and signal: null

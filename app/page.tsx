@@ -933,41 +933,41 @@ export default function LandingPage() {
 
 
       {/* Global Diversity & Collaboration */}
-      <section style={styles.diversitySection}>
-          <div style={styles.diversityContent} className="landing-diversity-content">
-          <div style={styles.diversityTextColumn} className="ws-diversity-col">
-            <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "var(--text-primary)" }}>Global Collaboration & Technical Excellence</h2>
-            <p style={{ fontSize: "18px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "24px" }}>
-              Our team brings together diverse perspectives and world-class expertise to solve complex challenges. 
+      <section className="relative w-full overflow-hidden">
+        <div className="grid grid-cols-[2.5%_45%_5%_45%_2.5%] gap-0">
+          <div className="flex flex-col items-start rounded-lg overflow-hidden">
+            <h2 className="text-4xl font-bold text-primary mb-4">Global Collaboration & Technical Excellence</h2>
+            <p className="text-base text-secondary leading-relaxed mb-6">
+              Our team brings together diverse perspectives and world-class expertise to solve complex challenges.
               We believe in the power of inclusive collaboration to build the next generation of digital products.
             </p>
-            <div style={{ display: "flex", gap: "16px" }} className="landing-badges-row">
-              <div style={styles.diversityBadge}>Enterprise Grade</div>
-              <div style={styles.diversityBadge}>Diverse Talent</div>
+            <div className="flex gap-2 mb-8">
+              <div className="flex-1">Enterprise Grade</div>
+              <div className="flex-1">Diverse Talent</div>
             </div>
-            <div style={styles.diversityImageContainer}>
+            <div className="relative w-full h-[calc(9*1.25rem)] rounded-lg overflow-hidden mt-8">
               <img
                 src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
                 alt="Global Technical Team"
-                style={styles.diversityImage}
+                className="absolute w-full h-full object-cover"
               />
             </div>
           </div>
-          <div style={styles.diversityMediaColumn} className="ws-diversity-col">
-            <p style={styles.diversityMediaMessage}>
+          <div className="flex flex-col items-start rounded-lg overflow-hidden">
+            <p className="text-base text-secondary leading-relaxed mb-6">
               Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
               One dedicated team that builds faster, ships smarter, and stays by your side long after launch —
               that is why clients choose Websmith, and why they stay.
             </p>
-            <div style={styles.diversityVideoContainer}>
+            <div className="relative w-full h-[calc(9*1.25rem)] rounded-lg overflow-hidden mt-8">
               <video
                 ref={diversityVideoRef}
                 autoPlay
                 loop
                 playsInline
-                controls
+                muted
                 preload="auto"
-                style={styles.diversityVideo}
+                className="absolute w-full h-full object-cover"
               >
                 <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
               </video>

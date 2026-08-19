@@ -1,0 +1,8 @@
+app/page.tsx(936,8): error TS17008: JSX element 'section' has no corresponding closing tag.
+app/page.tsx(1008,19): error TS1005: '}' expected.
+app/page.tsx(1008,27): error TS1003: Identifier expected.
+app/page.tsx(1011,15): error TS17002: Expected corresponding JSX closing tag for 'div'.
+app/page.tsx(1032,7): error TS1005: ')' expected.
+app/page.tsx(1125,7): error TS2657: JSX expressions must have one parent element.
+app/page.tsx(1662,5): error TS1128: Declaration or statement expected.
+app/page.tsx(1663,3): error TS1109: Expression expected.
