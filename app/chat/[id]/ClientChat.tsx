@@ -1396,7 +1396,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         /* ---- Uiverse Slice buttons (Client Login / Home) ---- */
         .slice {
           --c1: #202020;
-          --c2: #00a1b7;
+          --c2: #149CEA;
           --size-letter: 14px;
           padding: 0.5em 1em;
           font-size: var(--size-letter);
@@ -1431,6 +1431,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         }
         .slice:hover::after {
           width: calc(120% + 1em);
+          background-color: #1479EA;
         }
         .slice:active {
           scale: 0.98;
@@ -1519,7 +1520,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
             </a>
             <div className="ws-header-mask" aria-hidden="true">
               <img
-                src="/images/Websmith Digital2.png"
+                src="/images/wsd.png"
                 alt=""
                 style={styles.maskImage}
                 draggable={false}

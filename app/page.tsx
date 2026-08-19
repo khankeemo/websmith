@@ -945,31 +945,31 @@ export default function LandingPage() {
               <span style={styles.diversityBadge}>Enterprise Grade</span>
               <span style={styles.diversityBadge}>Diverse Talent</span>
             </div>
+            <img
+              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
+              alt="Global Technical Team"
+              className="w-full h-[680px] rounded-lg object-cover"
+            />
           </div>
           <div className="hidden min-[1700px]:block" aria-hidden="true" />
           <div className="flex flex-col items-start">
-            <p className="text-base text-secondary leading-relaxed mb-6">
+            <p className="text-base text-secondary leading-relaxed mb-8">
               Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
               One dedicated team that builds faster, ships smarter, and stays by your side long after launch —
               that is why clients choose Websmith, and why they stay.
             </p>
+            <video
+              ref={diversityVideoRef}
+              autoPlay
+              loop
+              playsInline
+              controls
+              preload="auto"
+              className="w-full h-[680px] rounded-lg object-cover"
+            >
+              <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+            </video>
           </div>
-          <img
-            src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
-            alt="Global Technical Team"
-            className="w-full aspect-square rounded-lg object-cover"
-          />
-          <div className="hidden min-[1700px]:block" aria-hidden="true" />
-          <video
-            ref={diversityVideoRef}
-            autoPlay
-            loop
-            playsInline
-            preload="auto"
-            className="w-full aspect-square rounded-lg object-cover"
-          >
-            <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
-          </video>
         </div>
       </section>
 
