@@ -11,11 +11,25 @@
 //          3-ZONE LAYOUT (VISUAL ONLY): the page is a strict desktop split of
 //          EXACTLY 33% / 34% / 33% with NO gaps between the three zones, and
 //          no element may cross into another zone:
-//            LEFT  (33%)  SOCIAL ICON WATER-BUBBLE POPUPS — the left zone now
-//                    hosts the social-icon popup animation: 90px popups that
-//                    POP into existence (0 -> 90px over ~0.5s), live >= 1s,
-//                    then fade; at most 5 coexist and are replaced
-//                    continuously. Every popup uses a RANDOM real
+//            LEFT  (33%)  CHAT-STICKER ATMOSPHERE + SOCIAL ICON WATER-BUBBLE
+//                    POPUPS — the left zone hosts TWO stacked animation layers
+//                    (existing background -> subtle dim/light atmosphere ->
+//                    chat stickers -> social popups on TOP):
+//                     (a) CHAT STICKERS (new, `ChatStickers`): a second layer
+//                    of colorful illustrated speech-bubble stickers that carry
+//                    short Websmith support messages. Each sticker pops in at
+//                    a random SAFE position (measured from the real zone so
+//                    the whole sticker + tail stays inside the left area),
+//                    holds briefly, then shrinks/fades and is replaced —
+//                    max 3 coexist, recycled after their lifetime. Random
+//                    message / color / organic blob shape / speech-tail side /
+//                    rotation / lifetime; thick white outline, soft 3D shadow,
+//                    glossy highlight. A barely-visible slow dim -> light
+//                    atmosphere pulse sits behind the stickers.
+//                     (b) SOCIAL ICON WATER-BUBBLE POPUPS (existing, untouched):
+//                    90px popups that POP into existence (0 -> 90px over
+//                    ~0.5s), live >= 1s, then fade; at most 5 coexist and are
+//                    replaced continuously. Every popup uses a RANDOM real
 //                    `public/social_icon` SVG (all 35 participate) inside a
 //                    random mask shape, placed at a random SAFE position
 //                    (measured from the real zone so the full 90px popup stays
@@ -505,6 +519,327 @@ function SocialIconPops() {
         </div>
       ))}
       <style dangerouslySetInnerHTML={{ __html: SOCIAL_POP_CSS }} />
+    </div>
+  );
+}
+
+// ---- LEFT ZONE — CHAT-STICKER ATMOSPHERE LAYER -----------------------------
+// A second, independent animation layer inside the SAME left 33% zone, BELOW
+// the existing social popups (layer order: background -> dim/light atmosphere
+// -> chat stickers -> social popups on TOP). Colorful illustrated speech-bubble
+// "stickers" carry a short Websmith support message, appear at a random SAFE
+// position, hold briefly, then shrink/fade and are replaced continuously.
+// Every sticker gets a random message / color / organic blob shape / speech-tail
+// side / rotation / lifetime; thick white outline, soft 3D shadow + glossy
+// highlight, compact dimensions, text always contained inside the sticker.
+// Positions are measured from the real zone so the whole sticker (incl. its
+// tail) always stays inside the left 33% area — never into the center/right.
+const STICKER_MESSAGES: string[] = [
+  "Hey! 👋 We are Websmith.",
+  "Hi! How may we assist you?",
+  "Need technical support? 💬",
+  "Looking for a digital solution?",
+  "Our team is here to help. 😊",
+  "Let's build something great!",
+  "Need help with your project?",
+  "Welcome to Websmith! 👋",
+  "Tell us what you are building.",
+  "Looking for developers?",
+];
+
+interface StickerColor {
+  name: string;
+  from: string;
+  to: string;
+}
+
+// Color variety across stickers — green / pink / red / orange / blue / purple
+// + complementary teal / amber / indigo / rose. A vibrant gradient interior.
+const STICKER_COLORS: StickerColor[] = [
+  { name: "green", from: "#66e085", to: "#1faf4f" },
+  { name: "pink", from: "#ff9ecb", to: "#e34d9f" },
+  { name: "red", from: "#ff8a80", to: "#e53935" },
+  { name: "orange", from: "#ffb26b", to: "#f26d1d" },
+  { name: "blue", from: "#6fc3ff", to: "#2f80ed" },
+  { name: "purple", from: "#b394ff", to: "#7b4ff2" },
+  { name: "teal", from: "#5ee6d0", to: "#10a88a" },
+  { name: "amber", from: "#ffd34d", to: "#f0a312" },
+  { name: "indigo", from: "#9da6ff", to: "#5c63e8" },
+  { name: "rose", from: "#ff9aa8", to: "#ef4b68" },
+];
+
+// Organic / irregular rounded bubble shapes (blob-like border-radius, so no
+// two stickers are ever a plain rectangle).
+const STICKER_SHAPES: string[] = [
+  "42% 58% 56% 44% / 48% 42% 58% 52%",
+  "58% 42% 44% 56% / 52% 58% 42% 48%",
+  "50% 56% 46% 50% / 56% 48% 52% 44%",
+  "60% 40% 56% 44% / 44% 60% 40% 56%",
+  "44% 60% 40% 56% / 58% 42% 56% 44%",
+  "52% 48% 62% 38% / 40% 56% 44% 60%",
+];
+
+const STICKER_MAX_ACTIVE = 3; // alive-but-clean — never fills the 33% area
+const STICKER_MAX_WIDTH = 165; // px, compact — text wraps inside the sticker
+const STICKER_SAFE = 8; // px keep-out from the zone edges (whole sticker + tail)
+const STICKER_COLLIDE_MARGIN = 16; // px minimum gap between stickers
+const STICKER_MIN_LIFE_MS = 5_500; // visible-duration range
+const STICKER_MAX_LIFE_MS = 10_000;
+const STICKER_MIN_GAP_MS = 700; // random appearance delay between spawns
+const STICKER_MAX_GAP_MS = 2_200;
+
+interface ChatSticker {
+  id: number;
+  message: string;
+  colorIdx: number;
+  shapeIdx: number;
+  tailSide: "left" | "right";
+  rotate: number;
+  life: number;
+  floatDur: number;
+  floatDelay: number;
+  stage: "pending" | "placed";
+  x: number;
+  y: number;
+}
+
+// CSS is injected via a plain <style dangerouslySetInnerHTML> tag (styled-jsx
+// strips template interpolations — the documented pattern). `scale` / `rotate`
+// / `translate` individual transform properties compose, so the life animation
+// (scale + opacity) and the gentle float never fight each other.
+const STICKER_CSS = `
+.ws-left-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+.ws-atmosphere{position:absolute;inset:0;background:rgba(255,255,255,0.06);animation:wsAtmosphere 10s ease-in-out infinite alternate;}
+@keyframes wsAtmosphere{from{opacity:0.3;}to{opacity:1;}}
+.ws-stickers-layer{position:absolute;inset:0;overflow:hidden;}
+.ws-sticker{position:absolute;pointer-events:none;will-change:left,top,transform;}
+.ws-sticker-anim{will-change:transform,opacity;transform-origin:center;}
+.ws-sticker-bubble{position:relative;box-sizing:border-box;border:4px solid rgba(255,255,255,0.92);padding:14px 16px 18px;box-shadow:0 10px 22px rgba(0,0,0,0.28),0 3px 8px rgba(0,0,0,0.18),inset 0 2px 6px rgba(255,255,255,0.45),inset 0 -6px 12px rgba(0,0,0,0.12);}
+.ws-sticker-bubble::before{content:"";position:absolute;left:12%;top:7%;width:46%;height:36%;background:linear-gradient(180deg,rgba(255,255,255,0.55),rgba(255,255,255,0));border-radius:50%;pointer-events:none;filter:blur(1px);}
+.ws-sticker-text{display:block;font-size:13px;font-weight:700;line-height:1.32;letter-spacing:0.1px;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.28);white-space:normal;text-align:center;}
+.ws-sticker-tail{position:absolute;bottom:-7px;width:24px;height:24px;background:#ffffff;border-radius:4px;transform:rotate(45deg);box-shadow:0 6px 10px rgba(0,0,0,0.22);}
+.ws-sticker-tail-left{left:24%;}
+.ws-sticker-tail-right{left:60%;}
+.ws-sticker-tail-inner{position:absolute;inset:4px;border-radius:3px;}
+@keyframes wsStickerLife{0%{scale:0;opacity:0;}9%{scale:1.08;opacity:1;}13%{scale:1;opacity:1;}84%{scale:1;opacity:1;}93%{scale:0.92;opacity:0.55;}100%{scale:0.6;opacity:0;}}
+@keyframes wsStickerFloat{0%,100%{translate:0 0;}50%{translate:0 -4px;}}
+@media (prefers-reduced-motion:reduce){.ws-atmosphere,.ws-sticker,.ws-sticker-anim{display:none !important;}}
+`;
+
+function ChatStickers() {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const [zone, setZone] = useState<{ w: number; h: number } | null>(null);
+  const [stickers, setStickers] = useState<ChatSticker[]>([]);
+  const nextId = useRef(0);
+  const activeRef = useRef(0);
+  const activeIds = useRef<Set<number>>(new Set());
+  const placedRects = useRef<Map<number, { x: number; y: number; w: number; h: number }>>(new Map());
+  const removalTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const reducedMotion =
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      : false;
+
+  // Measure the real left-zone size. On mobile the zone is display:none -> it
+  // measures 0 -> no stickers are spawned. Only update when the size actually
+  // changes so a no-op ResizeObserver tick never churns the effects below.
+  useEffect(() => {
+    const el = layerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      setZone((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // When the zone becomes too small (or hidden) drop every live sticker and
+  // re-clamp the rest on resize so nothing is ever placed outside the zone.
+  useEffect(() => {
+    if (!zone) return;
+    if (zone.w < 260 || zone.h < 320) {
+      setStickers([]);
+      placedRects.current.clear();
+      activeIds.current.clear();
+      activeRef.current = 0;
+      return;
+    }
+    setStickers((cur) =>
+      cur.map((s) => {
+        if (s.stage !== "placed") return s;
+        const r = placedRects.current.get(s.id);
+        if (!r) return s;
+        const maxX = Math.max(0, zone.w - r.w);
+        const maxY = Math.max(0, zone.h - r.h);
+        const nx = Math.min(s.x, maxX);
+        const ny = Math.min(s.y, maxY);
+        placedRects.current.set(s.id, { x: nx, y: ny, w: r.w, h: r.h });
+        return { ...s, x: nx, y: ny };
+      })
+    );
+  }, [zone]);
+
+  const removeSticker = useCallback((id: number) => {
+    if (!activeIds.current.has(id)) return;
+    activeIds.current.delete(id);
+    placedRects.current.delete(id);
+    activeRef.current -= 1;
+    setStickers((cur) => cur.filter((s) => s.id !== id));
+  }, []);
+
+  // Measure the freshly-mounted pending sticker and place it at a random SAFE
+  // position: clamped inside the zone so the whole sticker + tail always stay
+  // inside, and retried so stickers do not overlap each other.
+  const placeSticker = useCallback(
+    (id: number, life: number, el: HTMLDivElement) => {
+      const layer = layerRef.current;
+      if (!layer || !zone) return;
+      const zoneRect = layer.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const w = elRect.width;
+      const h = elRect.height;
+      if (w <= 0 || h <= 0) {
+        removeSticker(id);
+        return;
+      }
+      const maxX = Math.max(0, zoneRect.width - w);
+      const maxY = Math.max(0, zoneRect.height - h);
+      const usableX = Math.max(0, maxX - STICKER_SAFE);
+      const usableY = Math.max(0, maxY - STICKER_SAFE);
+      const overlaps = (x: number, y: number) =>
+        Array.from(placedRects.current.values()).some(
+          (r) =>
+            x < r.x + r.w + STICKER_COLLIDE_MARGIN &&
+            x + w + STICKER_COLLIDE_MARGIN > r.x &&
+            y < r.y + r.h + STICKER_COLLIDE_MARGIN &&
+            y + h + STICKER_COLLIDE_MARGIN > r.y
+        );
+      let x = STICKER_SAFE + Math.random() * usableX;
+      let y = STICKER_SAFE + Math.random() * usableY;
+      for (let i = 0; i < 12 && overlaps(x, y); i++) {
+        x = STICKER_SAFE + Math.random() * usableX;
+        y = STICKER_SAFE + Math.random() * usableY;
+      }
+      x = Math.min(x, maxX);
+      y = Math.min(y, maxY);
+      placedRects.current.set(id, { x, y, w, h });
+      removalTimers.current.push(setTimeout(() => removeSticker(id), life));
+      setStickers((cur) => cur.map((s) => (s.id === id ? { ...s, stage: "placed", x, y } : s)));
+    },
+    [zone, removeSticker]
+  );
+
+  // Continuous spawn loop: staggered start, then one sticker at a time with a
+  // random appearance delay; never more than STICKER_MAX_ACTIVE at once. Every
+  // sticker is removed (recycled) after its lifetime — bounded elements, no
+  // memory growth. The cleanup ONLY clears this loop's own spawn timers — the
+  // sticker lifecycle state (activeIds / placedRects / removalTimers / activeRef)
+  // is torn down by the unmount-only effect below so a plain resize never
+  // orphans placed stickers or cancels their removal timers.
+  useEffect(() => {
+    if (!zone || zone.w < 260 || zone.h < 320 || reducedMotion) return;
+    let disposed = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const schedule = (delay: number) => {
+      timers.push(
+        setTimeout(() => {
+          if (disposed) return;
+          if (activeRef.current < STICKER_MAX_ACTIVE) {
+            const s: ChatSticker = {
+              id: nextId.current++,
+              message: STICKER_MESSAGES[Math.floor(Math.random() * STICKER_MESSAGES.length)],
+              colorIdx: Math.floor(Math.random() * STICKER_COLORS.length),
+              shapeIdx: Math.floor(Math.random() * STICKER_SHAPES.length),
+              tailSide: Math.random() < 0.5 ? "left" : "right",
+              rotate: Math.round((Math.random() - 0.5) * 14),
+              life: STICKER_MIN_LIFE_MS + Math.random() * (STICKER_MAX_LIFE_MS - STICKER_MIN_LIFE_MS),
+              floatDur: 3.5 + Math.random() * 2.5,
+              floatDelay: Math.random() * 2,
+              stage: "pending",
+              x: 0,
+              y: 0,
+            };
+            activeIds.current.add(s.id);
+            activeRef.current += 1;
+            setStickers((prev) => [...prev, s]);
+          }
+          schedule(STICKER_MIN_GAP_MS + Math.random() * (STICKER_MAX_GAP_MS - STICKER_MIN_GAP_MS));
+        }, delay)
+      );
+    };
+    schedule(500);
+    schedule(1_400);
+    schedule(2_300);
+    return () => {
+      disposed = true;
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, [zone, reducedMotion]);
+
+  // Unmount-only teardown: cancel every pending removal timer and reset all
+  // lifecycle counters so nothing keeps running after this component goes away.
+  useEffect(() => {
+    return () => {
+      activeIds.current.clear();
+      placedRects.current.clear();
+      removalTimers.current.forEach((t) => clearTimeout(t));
+      removalTimers.current = [];
+      activeRef.current = 0;
+    };
+  }, []);
+
+  return (
+    <div className="ws-left-scene" aria-hidden="true">
+      <div className="ws-atmosphere" />
+      <div className="ws-stickers-layer" ref={layerRef}>
+        {stickers.map((s) => {
+          const c = STICKER_COLORS[s.colorIdx];
+          return (
+            <div
+              key={s.id}
+              className="ws-sticker"
+              ref={(el) => {
+                if (el && s.stage === "pending") placeSticker(s.id, s.life, el);
+              }}
+              style={{
+                left: s.x,
+                top: s.y,
+                rotate: `${s.rotate}deg`,
+                visibility: s.stage === "pending" ? "hidden" : "visible",
+              }}
+            >
+              <div
+                className="ws-sticker-anim"
+                style={{
+                  animation:
+                    s.stage === "placed"
+                      ? `wsStickerLife ${s.life}ms cubic-bezier(0.34,1.56,0.64,1) forwards, wsStickerFloat ${s.floatDur}s ease-in-out ${s.floatDelay}s infinite`
+                      : undefined,
+                }}
+              >
+                <div
+                  className="ws-sticker-bubble"
+                  style={{
+                    background: `linear-gradient(145deg, ${c.from}, ${c.to})`,
+                    borderRadius: STICKER_SHAPES[s.shapeIdx],
+                    maxWidth: STICKER_MAX_WIDTH,
+                  }}
+                >
+                  <span className="ws-sticker-text">{s.message}</span>
+                  <div className={`ws-sticker-tail ws-sticker-tail-${s.tailSide}`}>
+                    <div className="ws-sticker-tail-inner" style={{ background: c.to }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <style dangerouslySetInnerHTML={{ __html: STICKER_CSS }} />
     </div>
   );
 }
@@ -1081,10 +1416,13 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         }
       `}</style>
 
-      {/* LEFT 33% — SOCIAL ICON WATER-BUBBLE POPUPS (the car/traffic animation
-          stays removed; the 33% width allocation is preserved so the layout
-          never shifts). Popups are confined to this zone only. */}
+      {/* LEFT 33% — CHAT-STICKER ATMOSPHERE + SOCIAL ICON WATER-BUBBLE POPUPS
+          (the car/traffic animation stays removed; the 33% width allocation is
+          preserved so the layout never shifts). Layer order inside this zone:
+          existing background -> subtle dim/light atmosphere -> chat stickers
+          -> social popups on TOP (social popups stay exactly as they were). */}
       <div className="ws-road-zone" style={styles.roadZone} aria-hidden="true">
+        <ChatStickers />
         <SocialIconPops />
       </div>
 
