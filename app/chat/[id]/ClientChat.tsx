@@ -8,16 +8,38 @@
 //          verifies it against the path ticket + the customer's email before ANY
 //          data is returned or stored.
 //
-//          LANGUAGE RACER UI (2026-08-19, VISUAL ONLY): the page is a three-part
-//          stage — LEFT  live animated Language Racer (3 vertical tracks,
-//          left/right bottom→top + center top→bottom, 28 technology cars +
-//          a premium Websmith car, CSS-transform loop, glow layers);
-//          CENTER the existing messenger card (unchanged);
-//          RIGHT  the fixed circular Websmith mask bubble (clamped in its
-//          circle, ~5% smaller than the previous mask, never escapes the
-//          boundary). On small screens the racer shrinks (smaller tracks and
-//          cars) and moves into a top strip beside a smaller mask — never
-//          hidden, never overflowing, never covering the messenger.
+//          FINAL 3-ZONE LAYOUT (2026-08-19, VISUAL ONLY): the page is a strict
+//          desktop split of EXACTLY 33% / 34% / 33% with NO gaps between the
+//          three zones, and no element may cross into another zone:
+//            LEFT  (33%)  ONE CONTINUOUS RACING ROAD — a single wide road that
+//                    spans the full left column height and width with EXACTLY
+//                    4 lanes (Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓ — adjacent
+//                    lanes always run in opposite directions), clear dashed
+//                    lane markings and solid road edges. 15 sport/racing cars
+//                    (14 real languages/technologies, each with its brand color
+//                    + real `public/wds_icon` Devicon icon + a dedicated
+//                    premium WEBSMITH car) run continuously: per-car duration,
+//                    negative delay (mid-road on load), lane slot and z-index,
+//                    seamless loop at the top/bottom boundaries (journey
+//                    wrappers travel the full road height, extremes off-screen).
+//            CENTER (34%)  MESSENGER ONLY — the existing chat card exactly as
+//                    before: messages, composer, Send, Client Login, Home,
+//                    dynamic Open/Closed status dot + tooltip, secure JWT chat,
+//                    live 3s polling, in-card Websmith mask circle. Vertically
+//                    and horizontally centered in the zone. No cars, no bubbles.
+//            RIGHT  (33%)  THE EXISTING FLYING LANGUAGE BUBBLES — the original
+//                    60 programming-language bubble system (80px circular masks,
+//                    `border-radius: 50%`, `overflow: hidden`, real
+//                    `public/wds_icon` assets, random horizontal positions,
+//                    bottom → top balloon rise, continuous looping, random
+//                    delays, smooth horizontal sway, subtle opacity) INCLUDING
+//                    the independent RANDOM 3× ZOOM (one bubble at a time:
+//                    80px → 240px scale(3), ~1.5s hold, 80px back; transform
+//                    only, no reflow, never covers the messenger). All bubbles
+//                    stay inside the right 33% zone.
+//          Below 900px the road + bubbles hide and the messenger becomes the
+//          full-width centered card (decorations are desktop-only);
+//          `prefers-reduced-motion` stops all animation.
 //          All logic (token, poll, send, status, contact info, no-executive
 //          message) is unchanged.
 "use client";
@@ -33,7 +55,7 @@ const CONTACT_INFO_URL = "/api/settings/public/contact_info";
 // Top-right Websmith logo image (compact, keeps aspect ratio, inside the card)
 const WEBSCIMITH_LOGO = "/images/Websmith.png";
 
-// ---- LANGUAGE RACER data ---------------------------------------------------
+// ---- LEFT ZONE — RACING ROAD data ----------------------------------------
 // Every car is a real technology with its real Devicon icon from
 // public/wds_icon (all references verified to exist) + its brand color.
 interface RacerCar {
@@ -47,44 +69,64 @@ interface RacerCar {
 const RACER_CARS: RacerCar[] = [
   { id: "c", name: "C", icon: "c", color: "#A8B9CC" },
   { id: "cpp", name: "C++", icon: "cplusplus", color: "#00599C" },
-  { id: "csharp", name: "C#", icon: "csharp", color: "#68217A" },
   { id: "java", name: "Java", icon: "java", color: "#E76F00" },
-  { id: "javascript", name: "JavaScript", icon: "javascript", color: "#F7DF1E" },
-  { id: "typescript", name: "TypeScript", icon: "typescript", color: "#3178C6" },
-  { id: "python", name: "Python", icon: "python", color: "#3776AB" },
-  { id: "nodejs", name: "Node.js", icon: "nodejs", color: "#339933" },
   { id: "go", name: "Go", icon: "go", color: "#00ADD8" },
-  { id: "rust", name: "Rust", icon: "rust", color: "#CE422B" },
   { id: "php", name: "PHP", icon: "php", color: "#777BB4" },
-  { id: "ruby", name: "Ruby", icon: "ruby", color: "#CC342D" },
-  { id: "swift", name: "Swift", icon: "swift", color: "#F05138" },
+  { id: "javascript", name: "JavaScript", icon: "javascript", color: "#F7DF1E" },
+  { id: "rust", name: "Rust", icon: "rust", color: "#CE422B" },
   { id: "kotlin", name: "Kotlin", icon: "kotlin", color: "#7F52FF" },
-  { id: "dart", name: "Dart", icon: "dart", color: "#0175C2" },
-  { id: "r", name: "R", icon: "r", color: "#276DC3" },
-  { id: "shell", name: "Shell", icon: "bash", color: "#4EAA25" },
-  { id: "perl", name: "Perl", icon: "perl", color: "#39457E" },
-  { id: "lua", name: "Lua", icon: "lua", color: "#2C4AA0" },
-  { id: "scala", name: "Scala", icon: "scala", color: "#DC322F" },
+  { id: "python", name: "Python", icon: "python", color: "#3776AB" },
+  { id: "typescript", name: "TypeScript", icon: "typescript", color: "#3178C6" },
+  { id: "nodejs", name: "Node.js", icon: "nodejs", color: "#339933" },
+  { id: "swift", name: "Swift", icon: "swift", color: "#F05138" },
   { id: "react", name: "React", icon: "react", color: "#61DAFB" },
-  { id: "vue", name: "Vue", icon: "vue", color: "#42B883" },
-  { id: "angular", name: "Angular", icon: "angular", color: "#DD0031" },
-  { id: "docker", name: "Docker", icon: "docker", color: "#2496ED" },
-  { id: "kubernetes", name: "K8s", icon: "kubernetes", color: "#326CE5" },
-  { id: "postgresql", name: "PostgreSQL", icon: "postgresql", color: "#336791" },
   { id: "mongodb", name: "MongoDB", icon: "mongodb", color: "#47A248" },
-  { id: "graphql", name: "GraphQL", icon: "graphql", color: "#E10098" },
+  { id: "dart", name: "Dart", icon: "dart", color: "#0175C2" },
   // Dedicated Websmith car — clearly branded, visually premium, races with the
-  // same track system as every other car.
+  // same road system as every other car.
   { id: "websmith", name: "WEBSMITH", color: "#FFD700", websmith: true },
 ];
 
-// 3 vertical tracks: LEFT bottom→top, CENTER top→bottom, RIGHT bottom→top.
-// Adjacent tracks always move in opposite directions.
-const RACER_TRACKS: Array<{ key: string; dir: "Up" | "Down"; cars: RacerCar[] }> = [
-  { key: "left", dir: "Up", cars: RACER_CARS.slice(0, 10) },
-  { key: "center", dir: "Down", cars: RACER_CARS.slice(10, 20) },
-  { key: "right", dir: "Up", cars: RACER_CARS.slice(20) },
+const CAR_BY_ID: Record<string, RacerCar> = Object.fromEntries(RACER_CARS.map((c) => [c.id, c]));
+
+// ONE continuous road, EXACTLY 4 lanes: Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓.
+// Adjacent lanes always move in opposite directions. 15 cars total (>= 10).
+const ROAD_LANES: Array<{ dir: "Up" | "Down"; cars: RacerCar[] }> = [
+  { dir: "Up", cars: ["c", "java", "go", "php"].map((id) => CAR_BY_ID[id]) },
+  { dir: "Down", cars: ["cpp", "javascript", "rust", "kotlin"].map((id) => CAR_BY_ID[id]) },
+  { dir: "Up", cars: ["python", "typescript", "nodejs", "swift"].map((id) => CAR_BY_ID[id]) },
+  { dir: "Down", cars: ["react", "mongodb", "dart", "websmith"].map((id) => CAR_BY_ID[id]) },
 ];
+
+// ---- RIGHT ZONE — FLYING BUBBLES data -------------------------------------
+// 50 programming-language / technology icons available in public/wds_icon
+// (Devicon collection, viewBox 0 0 128 128). Bubbles render ONLY these real
+// assets — nothing invented.
+const LANG_ICONS: string[] = [
+  "python", "javascript", "typescript", "java", "csharp", "cplusplus",
+  "c", "go", "rust", "php", "ruby", "kotlin", "swift", "dart", "scala",
+  "r", "lua", "perl", "bash", "objectivec", "html5", "css3", "nodejs",
+  "react", "nextjs", "vue", "angular", "svelte", "express", "nestjs",
+  "dotnet", "spring", "laravel", "django", "flask", "fastapi", "flutter",
+  "react-native", "mongodb", "postgresql", "mysql", "redis", "graphql",
+  "firebase", "supabase", "docker", "kubernetes", "aws", "google-cloud",
+  "git",
+];
+
+// Exactly 60 bubbles: the 50 real icons + 10 repeats of the core languages
+// (the only way to reach 60 without inventing icons).
+const LANG_ICONS_60: string[] = [
+  ...LANG_ICONS,
+  "python", "javascript", "typescript", "java", "csharp", "cplusplus",
+  "c", "go", "rust", "php", "ruby",
+];
+
+// Random 3x zoom timing: at random intervals ONE bubble zooms 80px -> 240px
+// (scale(3)), holds ~1.5s, returns. Next selection can begin while the
+// previous bubble is returning (transition-only overlap, never two holds).
+const ZOOM_MIN_DELAY_MS = 2_300;
+const ZOOM_MAX_DELAY_MS = 4_500;
+const ZOOM_DURATION_MS = 3_000; // 0.75s in + 1.5s hold + 0.75s out (CSS 3s)
 
 // Deterministic pseudo-random (hydration-safe — identical on server + client).
 function racerRand(seed: number): number {
@@ -163,43 +205,45 @@ const formatTime = (value?: string) => {
 };
 
 /**
- * LANGUAGE RACER — live animated racing tracks (the old static
- * "Lanuage Racer Websmith.png" image is gone).
+ * LEFT ZONE — ONE CONTINUOUS RACING ROAD (the old 3-track racer is gone).
  *
- * 3 vertical tracks — LEFT bottom→top, CENTER top→bottom, RIGHT bottom→top —
- * so adjacent tracks always run in opposite directions. Each car is a real
- * technology (28 languages + the dedicated Websmith car) with its brand color
- * and a real Devicon icon from public/wds_icon.
+ * A single wide road fills the entire left 33% zone (full width, full usable
+ * height) with EXACTLY 4 lanes — Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓ — so
+ * adjacent lanes always run in opposite directions. Solid road edges + 3
+ * glowing dashed lane dividers (one road, no separated road blocks).
+ *
+ * 15 sport/racing cars (14 real technologies + the dedicated WEBSMITH car):
+ * each car is a styled side-profile racer (glowing body in the language's
+ * brand color, windshield, rear wing, wheels, direction chevron, language
+ * icon on the body, label), NOT a plain rectangle or bare icon.
  *
  * Motion model (GPU-friendly, CSS transforms only):
- *  - Every car sits in its own "journey" wrapper that spans the full track
- *    height (height:100%) and animates `translateY(100%) -> translateY(-100%)`
+ *  - Every car sits in its own "journey" wrapper that spans the full road
+ *    height (height:100%) and animates `translateY(110%) -> translateY(-110%)`
  *    (up) or the exact reverse (down). The car is positioned at a per-car
- *    `top: slot%` inside the wrapper, so the travel covers the WHOLE track and
- *    both extremes are always OFF-SCREEN — the loop resets at the track
+ *    `top: slot%` inside the wrapper, so the travel covers the WHOLE road and
+ *    both extremes are always OFF-SCREEN — the loop resets at the road
  *    boundary, never with a visible teleport in the middle.
- *  - Per-car duration (9-16s), negative delay (mid-flight on mount), slot,
+ *  - Per-car duration (8-16s), negative delay (mid-road on mount), slot,
  *    z-index and horizontal jitter are deterministic pseudo-random: every car
- *    has its own speed, spacing and pass-over moment (a faster car overtakes
- *    and briefly passes behind/in front of a slower one).
- *  - Layering inside each track: dark track → road glow + glowing dashed lane
- *    → cars → car glow (box-shadow) + motion trail. Cars never leave their
- *    track (overflow hidden).
- *  - Responsive: tracks/cars/badges shrink through CSS custom properties at
- *    smaller widths; `prefers-reduced-motion` stops the animation.
+ *    has its own speed and spacing (a faster car overtakes and briefly passes
+ *    behind/in front of a slower one). Cars never leave their lane (each lane
+ *    is overflow hidden) and never cross into the center zone.
+ *  - Responsive: cars/badges shrink through CSS custom properties at smaller
+ *    widths; `prefers-reduced-motion` stops the animation.
  */
-function LanguageRacer() {
-  const tracks = useMemo(
+function LanguageRoad() {
+  const lanes = useMemo(
     () =>
-      RACER_TRACKS.map((track, tIndex) => ({
-        ...track,
-        cars: track.cars.map((car, cIndex) => {
-          const seed = tIndex * 100 + cIndex;
-          const duration = 9 + racerRand(seed + 1) * 7;
-          const delay = -(duration * (0.15 + racerRand(seed + 2) * 0.75));
-          const slot = 3 + (cIndex / track.cars.length) * 86 + (racerRand(seed + 3) - 0.5) * 6;
-          const zIndex = 1 + Math.floor(racerRand(seed + 4) * 3);
-          const jitter = (racerRand(seed + 5) - 0.5) * 6;
+      ROAD_LANES.map((lane, lIndex) => ({
+        ...lane,
+        cars: lane.cars.map((car, cIndex) => {
+          const seed = lIndex * 40 + cIndex * 7 + 1;
+          const duration = 8 + racerRand(seed) * 8;
+          const delay = -(duration * (0.1 + racerRand(seed + 1) * 0.8));
+          const slot = 2 + (cIndex / lane.cars.length) * 90 + (racerRand(seed + 2) - 0.5) * 10;
+          const zIndex = 1 + Math.floor(racerRand(seed + 3) * 3);
+          const jitter = (racerRand(seed + 4) - 0.5) * 6;
           return { ...car, duration, delay, slot, zIndex, jitter };
         }),
       })),
@@ -207,215 +251,464 @@ function LanguageRacer() {
   );
 
   return (
-    <div className="ws-racer" style={styles.racer}>
-      <div style={styles.racerHead}>
-        <span style={styles.racerTitle}>LANGUAGE RACER</span>
-      </div>
-      <div className="ws-racer-tracks" style={styles.racerTracks}>
-        {tracks.map((track) => (
-          <div key={track.key} className="ws-racer-track" style={styles.racerTrack}>
-            {/* Road glow + glowing dashed lane (under the cars) */}
-            <div className="ws-racer-road" />
-            <div className="ws-racer-lane" />
-            {track.cars.map((car) => (
+    <div className="ws-road" style={styles.road} aria-hidden="true">
+      {/* Road edges (solid lines) + 3 dashed lane dividers (one continuous road) */}
+      <span className="ws-road-edge ws-road-edge-l" />
+      <span className="ws-road-edge ws-road-edge-r" />
+      <span className="ws-road-divider" style={{ left: "25%" }} />
+      <span className="ws-road-divider" style={{ left: "50%" }} />
+      <span className="ws-road-divider" style={{ left: "75%" }} />
+
+      {lanes.map((lane, lIndex) => (
+        <div key={lIndex} className="ws-lane" style={styles.lane}>
+          {lane.cars.map((car) => (
+            <div
+              key={car.id}
+              className="ws-journey"
+              style={{
+                animation: `wsRoad${lane.dir} ${car.duration}s linear ${car.delay}s infinite`,
+              }}
+            >
               <div
-                key={car.id}
-                className="ws-racer-journey"
+                className="ws-car"
                 style={{
-                  animation: `wsRace${track.dir} ${car.duration}s linear ${car.delay}s infinite`,
+                  top: `${car.slot}%`,
+                  zIndex: car.zIndex,
+                  transform: `translateX(${car.jitter}px)`,
                 }}
               >
+                <span
+                  className="ws-car-trail"
+                  style={{ background: `linear-gradient(180deg, ${car.color}bb, transparent)` }}
+                />
                 <div
-                  className="ws-racer-car"
-                  style={{ top: `${car.slot}%`, zIndex: car.zIndex, transform: `translateX(${car.jitter}px)` }}
+                  className={car.websmith ? "ws-car-frame ws-car-frame-websmith" : "ws-car-frame"}
+                  style={car.websmith ? styles.carFrameWebsmith : undefined}
                 >
+                  <span className="ws-car-wing" style={{ borderColor: `${car.color}99` }} />
                   <div
-                    className="ws-racer-badge"
+                    className={car.websmith ? "ws-car-body ws-car-body-websmith" : "ws-car-body"}
                     style={
                       car.websmith
                         ? {
-                            ...styles.racerBadgeWebsmith,
-                            borderColor: "#FFD700cc",
-                            boxShadow: "0 0 16px rgba(255,215,0,0.4), inset 0 0 10px rgba(255,215,0,0.22)",
+                            background: "linear-gradient(180deg, #FFD700, #b8860b)",
+                            borderColor: "#FFD700dd",
+                            boxShadow: "0 0 16px rgba(255,215,0,0.55), inset 0 0 10px rgba(255,215,0,0.28)",
                           }
                         : {
-                            ...styles.racerBadge,
-                            borderColor: `${car.color}aa`,
-                            boxShadow: `0 0 12px ${car.color}55, inset 0 0 8px ${car.color}2e`,
+                            background: `linear-gradient(180deg, ${car.color}, ${car.color}88)`,
+                            borderColor: `${car.color}cc`,
+                            boxShadow: `0 0 14px ${car.color}66, inset 0 0 8px ${car.color}33`,
                           }
                     }
                   >
+                    <span
+                      className="ws-car-glass"
+                      style={{ background: "linear-gradient(180deg, rgba(180,235,255,0.95), rgba(90,150,210,0.6))" }}
+                    />
                     <img
-                      className="ws-racer-icon"
-                      src={car.icon ? `/wds_icon/${car.icon}.svg` : WEBSCIMITH_LOGO}
-                      alt={car.name}
+                      className="ws-car-icon"
+                      src={car.websmith ? WEBSCIMITH_LOGO : `/wds_icon/${car.icon}.svg`}
+                      alt=""
                       draggable={false}
                       decoding="async"
                     />
+                    <span className="ws-car-chevron">{lane.dir === "Up" ? "▲" : "▼"}</span>
                   </div>
-                  <span
-                    className="ws-racer-label"
-                    style={{ color: car.color, ...(car.websmith ? styles.racerLabelWebsmith : {}) }}
-                  >
-                    {car.name}
-                  </span>
-                  <span
-                    className="ws-racer-trail"
-                    style={{ background: `linear-gradient(180deg, ${car.color}cc, transparent)` }}
-                  />
+                  <span className="ws-car-wheel ws-car-wheel-l" />
+                  <span className="ws-car-wheel ws-car-wheel-r" />
                 </div>
+                <span
+                  className="ws-car-label"
+                  style={{ color: car.color, ...(car.websmith ? styles.carLabelWebsmith : {}) }}
+                >
+                  {car.name}
+                </span>
               </div>
-            ))}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      ))}
 
       <style jsx>{`
-        /* Seamless vertical loops: travel the full track height, both extremes
-           are off-screen, so the reset is invisible at the track boundary. */
-        @keyframes wsRaceUp {
+        /* Seamless vertical loops: travel the full road height, both extremes
+           are off-screen, so the reset is invisible at the road boundary. */
+        @keyframes wsRoadUp {
           0% {
-            transform: translateY(100%);
+            transform: translateY(110%);
           }
           100% {
-            transform: translateY(-100%);
+            transform: translateY(-110%);
           }
         }
-        @keyframes wsRaceDown {
+        @keyframes wsRoadDown {
           0% {
-            transform: translateY(-100%);
+            transform: translateY(-110%);
           }
           100% {
-            transform: translateY(100%);
+            transform: translateY(110%);
           }
         }
-        .ws-racer {
-          --track-w: 56px;
-          --badge-w: 46px;
-          --badge-h: 30px;
-          --label-fs: 8.5px;
-          --icon-s: 18px;
+        .ws-road {
+          --car-w: 58px;
+          --body-h: 30px;
+          --icon-s: 20px;
+          --label-fs: 7.5px;
         }
-        .ws-racer-track {
-          position: relative;
-          overflow: hidden;
-          border-radius: 12px;
-          background: rgba(9, 13, 21, 0.6);
-          border: 1px solid rgba(20, 156, 234, 0.22);
-          box-shadow:
-            inset 0 0 14px rgba(20, 156, 234, 0.14),
-            0 0 10px rgba(20, 156, 234, 0.1);
-        }
-        .ws-racer-road {
+        /* One continuous asphalt road, full left-zone width and height. */
+        .ws-road-edge {
           position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            180deg,
-            rgba(20, 156, 234, 0.22) 0%,
-            rgba(20, 156, 234, 0.05) 18%,
-            rgba(20, 156, 234, 0.05) 82%,
-            rgba(20, 156, 234, 0.22) 100%
-          );
+          top: 0;
+          bottom: 0;
+          width: 3px;
+          border-radius: 2px;
+          background: rgba(255, 255, 255, 0.32);
+          box-shadow: 0 0 8px rgba(20, 156, 234, 0.45);
+          z-index: 2;
         }
-        .ws-racer-lane {
+        .ws-road-edge-l {
+          left: 4px;
+        }
+        .ws-road-edge-r {
+          right: 4px;
+        }
+        .ws-road-divider {
           position: absolute;
-          left: 50%;
           top: 0;
           bottom: 0;
           width: 2px;
           transform: translateX(-50%);
           background: repeating-linear-gradient(
             180deg,
-            rgba(20, 156, 234, 0.55) 0 7px,
-            transparent 7px 15px
+            rgba(255, 255, 255, 0.28) 0 8px,
+            transparent 8px 18px
           );
-          box-shadow: 0 0 8px rgba(20, 156, 234, 0.5);
+          box-shadow: 0 0 8px rgba(20, 156, 234, 0.35);
+          z-index: 2;
         }
-        .ws-racer-journey {
+        .ws-lane {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 25%;
+          overflow: hidden;
+        }
+        .ws-journey {
           position: absolute;
           left: 0;
           right: 0;
           top: 0;
           height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
           will-change: transform;
         }
-        .ws-racer-car {
+        /* Sport-car: glowing body (language color), windshield, rear wing,
+           wheels, direction chevron, language icon on the body, label. */
+        .ws-car {
           position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 2px;
           will-change: transform;
         }
-        .ws-racer-badge {
-          width: var(--badge-w);
-          height: var(--badge-h);
-          border-radius: 9px;
+        .ws-car-frame {
+          position: relative;
+          width: var(--car-w);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .ws-car-frame-websmith {
+          width: calc(var(--car-w) + 10px);
+        }
+        .ws-car-wing {
+          position: absolute;
+          top: -5px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: calc(var(--car-w) - 8px);
+          height: 4px;
+          border-radius: 2px;
+          border-top: 2px solid;
+          box-sizing: border-box;
+          background: rgba(10, 15, 24, 0.85);
+          z-index: 3;
+        }
+        .ws-car-body {
+          position: relative;
+          width: 100%;
+          height: var(--body-h);
+          border-radius: 8px 8px 12px 12px;
           border: 1px solid;
           box-sizing: border-box;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(160deg, #131a28, #1b2334);
+          z-index: 2;
         }
-        .ws-racer-icon {
+        .ws-car-glass {
+          position: absolute;
+          top: -8px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 58%;
+          height: 12px;
+          border-radius: 8px 8px 4px 4px;
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          box-sizing: border-box;
+          z-index: 1;
+        }
+        .ws-car-icon {
           width: var(--icon-s);
           height: var(--icon-s);
           object-fit: contain;
           display: block;
+          filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
         }
-        .ws-racer-label {
+        .ws-car-chevron {
+          position: absolute;
+          top: 1px;
+          right: 3px;
+          font-size: 6px;
+          line-height: 1;
+          color: rgba(255, 255, 255, 0.85);
+          text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+        }
+        .ws-car-wheel {
+          position: absolute;
+          bottom: -6px;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #0b0f16;
+          border: 2px solid rgba(235, 240, 248, 0.9);
+          box-sizing: border-box;
+          z-index: 3;
+        }
+        .ws-car-wheel-l {
+          left: 7px;
+        }
+        .ws-car-wheel-r {
+          right: 7px;
+        }
+        .ws-car-trail {
+          position: absolute;
+          top: calc(100% + 3px);
+          width: 2px;
+          height: 34px;
+          border-radius: 2px;
+          opacity: 0.8;
+          z-index: 1;
+        }
+        .ws-car-label {
+          margin-top: 7px;
           font-size: var(--label-fs);
           font-weight: 800;
           letter-spacing: 0.4px;
           text-transform: uppercase;
           white-space: nowrap;
           line-height: 1.1;
-          text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+          text-shadow: 0 0 6px rgba(0, 0, 0, 0.85);
         }
-        .ws-racer-trail {
-          position: absolute;
-          top: calc(100% + 2px);
-          width: 2px;
-          height: 30px;
-          border-radius: 2px;
-          opacity: 0.75;
-        }
-        /* Desktop shrink: 1101-1150px keeps the 3-column stage, smaller cars */
+        /* Desktop shrink: 901-1150px keeps the 3-zone stage, smaller cars */
         @media (max-width: 1150px) and (min-width: 901px) {
-          .ws-racer {
-            --track-w: 46px;
-            --badge-w: 38px;
-            --badge-h: 26px;
-            --label-fs: 7.5px;
-            --icon-s: 15px;
-          }
-        }
-        /* Mobile: the racer becomes a compact strip (smaller tracks/cars,
-           animation intact — never hidden, never overflowing). */
-        @media (max-width: 900px) {
-          .ws-racer {
-            --track-w: 40px;
-            --badge-w: 33px;
-            --badge-h: 22px;
+          .ws-road {
+            --car-w: 48px;
+            --body-h: 26px;
+            --icon-s: 17px;
             --label-fs: 6.5px;
-            --icon-s: 13px;
-          }
-          .ws-racer-head {
-            display: none !important;
-          }
-          .ws-racer-tracks {
-            height: 100% !important;
-          }
-          .ws-racer-track {
-            border-radius: 9px;
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          .ws-racer-journey {
+          .ws-journey {
+            animation: none !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/**
+ * RIGHT ZONE — THE EXISTING FLYING LANGUAGE BUBBLES (60 bubbles + random 3x
+ * zoom, RESTORED from the FINAL CHAT UI version and confined to the right
+ * 33% zone — the bubble system was never to be removed or replaced):
+ *
+ *  60 programming-language bubbles (80px actual size, circular masks with
+ *  `border-radius: 50%` + `overflow: hidden`, icons from public/wds_icon)
+ *  that continuously float bottom -> top (~115vh) like balloons at random
+ *  horizontal positions inside the RIGHT zone (4-80% of the zone), with
+ *  gentle sway and subtle background opacity. Random delays = mid-flight on
+ *  load; continuous looping.
+ *
+ *  ZOOM — independent random 3x zoom: at random intervals ONE bubble
+ *  smoothly scales to 3x (240px), holds ~1.5s, returns to 80px; the next
+ *  zoom may start while the previous is returning (transition-only overlap).
+ *  Transform-based — no layout reflow, never covers the messenger, all
+ *  bubbles stay inside the right 33% zone.
+ *
+ * Data is randomized once per mount (useMemo); animations run in CSS.
+ */
+function FlyingBubbles() {
+  const bubbles = useMemo(
+    () =>
+      LANG_ICONS_60.map((icon, i) => ({
+        id: i,
+        icon,
+        // Random horizontal position INSIDE the right 33% zone only
+        // (4-80% of the zone; the zone clips everything via overflow hidden).
+        left: 4 + Math.random() * 76,
+        // Start below the zone so the balloon rises into view.
+        bottom: -90 - Math.random() * 60,
+        // Full balloon travel 18-36s; negative delay = mid-flight on load.
+        duration: 18 + Math.random() * 18,
+        delay: -Math.random() * 36,
+        // Horizontal sway ~±10px.
+        sway: 8 + Math.random() * 2,
+        swayDuration: 3.5 + Math.random() * 3,
+        // Subtle background opacity 0.08-0.24.
+        bgOpacity: 0.08 + Math.random() * 0.16,
+        iconOpacity: 0.85 + Math.random() * 0.15,
+      })),
+    []
+  );
+
+  // RANDOM 3x ZOOM: exactly one bubble zooms at a time. `key` remounts the
+  // chip so the CSS animation restarts on every new selection.
+  const [zoom, setZoom] = useState<{ idx: number; key: number } | null>(null);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      timer = setTimeout(
+        () => {
+          setZoom((prev) => {
+            let next = Math.floor(Math.random() * LANG_ICONS_60.length);
+            if (prev && next === prev.idx) {
+              next = (next + 1 + Math.floor(Math.random() * (LANG_ICONS_60.length - 1))) % LANG_ICONS_60.length;
+            }
+            return { idx: next, key: (prev?.key ?? 0) + 1 };
+          });
+          schedule();
+        },
+        ZOOM_MIN_DELAY_MS + Math.random() * (ZOOM_MAX_DELAY_MS - ZOOM_MIN_DELAY_MS)
+      );
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div style={styles.bubblesLayer} aria-hidden="true">
+      {bubbles.map((b) => {
+        const isZooming = zoom?.idx === b.id;
+        return (
+          <div
+            key={b.id}
+            className="ws-bubble"
+            style={{
+              left: `${b.left}%`,
+              bottom: b.bottom,
+              animation: `wsBubbleUp ${b.duration}s linear ${b.delay}s infinite`,
+            }}
+          >
+            <div
+              className="ws-bubble-sway"
+              style={{
+                animation: `wsBubbleSway ${b.swayDuration}s ease-in-out ${b.delay}s infinite`,
+              }}
+            >
+              <div
+                key={isZooming ? `zoom-${zoom.key}` : undefined}
+                className={isZooming ? "ws-bubble-chip ws-bubble-zoom" : "ws-bubble-chip"}
+                style={{ backgroundColor: `rgba(255,255,255,${b.bgOpacity})` }}
+              >
+                <img
+                  src={`/wds_icon/${b.icon}.svg`}
+                  alt=""
+                  width={66}
+                  height={66}
+                  draggable={false}
+                  decoding="async"
+                  style={{ opacity: b.iconOpacity }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      <style jsx>{`
+        @keyframes wsBubbleUp {
+          0% {
+            transform: translateY(0);
+            opacity: 0;
+          }
+          6% {
+            opacity: 1;
+          }
+          92% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(-115vh);
+            opacity: 0;
+          }
+        }
+        @keyframes wsBubbleSway {
+          0%,
+          100% {
+            transform: translateX(-10px);
+          }
+          50% {
+            transform: translateX(10px);
+          }
+        }
+        @keyframes wsBubbleZoom {
+          0% {
+            transform: scale(1);
+          }
+          25% {
+            transform: scale(3);
+          }
+          75% {
+            transform: scale(3);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+        .ws-bubble {
+          position: absolute;
+          will-change: transform, opacity;
+        }
+        .ws-bubble-sway {
+          will-change: transform;
+        }
+        .ws-bubble-chip {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          box-shadow:
+            inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+            0 4px 14px rgba(0, 0, 0, 0.1);
+          transform-origin: center;
+          will-change: transform;
+        }
+        .ws-bubble-zoom {
+          animation: wsBubbleZoom 3s cubic-bezier(0.45, 0, 0.25, 1) forwards;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ws-bubble,
+          .ws-bubble-sway,
+          .ws-bubble-chip,
+          .ws-bubble-zoom {
             animation: none !important;
           }
         }
@@ -425,111 +718,78 @@ function LanguageRacer() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  // Full-viewport 3-part stage: LEFT Language Racer | CENTER chat card |
-  // RIGHT mask bubble. Rows on desktop; below 900px the CSS media rules in the
-  // root <style jsx> switch it to a column (racer strip on top, card below).
+  // Full-viewport 3-zone stage: EXACT 33% / 34% / 33% desktop split with NO
+  // gaps; below 900px the CSS media rules hide the road + bubbles and make
+  // the center zone full-width (messenger stays fully usable).
   root: {
     position: "relative",
     height: "100dvh",
     maxHeight: "100dvh",
     width: "100%",
     display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-    padding: "24px",
+    alignItems: "stretch",
+    justifyContent: "stretch",
     background: "var(--bg-primary)",
     overflow: "hidden",
   },
-  // LEFT slot — the live Language Racer (decorative, never interactive).
-  racerSlot: {
-    flexShrink: 0,
-    width: "216px",
+  // LEFT 33% — one continuous racing road (full zone width + height).
+  roadZone: {
+    position: "relative",
+    width: "33%",
     height: "100%",
-    minWidth: 0,
+    flexShrink: 0,
+    overflow: "hidden",
+  },
+  // CENTER 34% — messenger only, vertically + horizontally centered.
+  centerZone: {
+    position: "relative",
+    width: "34%",
+    height: "100%",
+    flexShrink: 0,
+    overflow: "hidden",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+  },
+  // RIGHT 33% — the existing 60 flying language bubbles (zone-clipped).
+  bubbleZone: {
+    position: "relative",
+    width: "33%",
+    height: "100%",
+    flexShrink: 0,
+    overflow: "hidden",
+  },
+  bubblesLayer: {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    overflow: "hidden",
     zIndex: 0,
   },
-  // CENTER slot — the existing messenger card, unchanged, centered.
-  centerSlot: {
-    flex: 1,
-    minWidth: 0,
-    height: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // The circular mask image — always clamped inside its circle (overflow
-  // hidden + 50% radius + cover fit, sized 100% of the circle and centered).
-  maskImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    objectPosition: "center",
-    display: "block",
-  },
-  // ---- Language Racer layout ----
-  racer: {
-    position: "relative",
-    width: "100%",
-    height: "100%",
+  // ---- Racing road layout ----
+  road: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "linear-gradient(180deg, rgba(9, 13, 21, 0.55) 0%, rgba(12, 17, 27, 0.92) 12%, rgba(12, 17, 27, 0.92) 88%, rgba(9, 13, 21, 0.55) 100%)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
-    gap: "10px",
     pointerEvents: "none",
     zIndex: 0,
+    overflow: "hidden",
   },
-  racerHead: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" },
-  racerTitle: {
-    fontSize: "11px",
-    fontWeight: 800,
-    letterSpacing: "1.5px",
-    textTransform: "uppercase",
-    background: "linear-gradient(90deg, #149CEA, #FFD700)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    whiteSpace: "nowrap",
+  lane: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: "25%",
+    overflow: "hidden",
   },
-  racerTracks: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "stretch",
-    justifyContent: "center",
-    gap: "10px",
-    height: "min(68dvh, 600px)",
-    flex: "1 1 auto",
-    minHeight: 0,
+  carFrameWebsmith: {
+    filter: "drop-shadow(0 0 6px rgba(255, 215, 0, 0.35))",
   },
-  racerTrack: {
-    position: "relative",
-    width: "var(--track-w)",
-    height: "100%",
-    flexShrink: 0,
-  },
-  racerBadge: {
-    border: "1px solid",
-    borderColor: "transparent",
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  racerBadgeWebsmith: {
-    border: "1px solid",
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "calc(var(--badge-w) + 10px)",
-    height: "calc(var(--badge-h) + 8px)",
-    borderRadius: "10px",
-    background: "linear-gradient(135deg, #1a2434, #0e1522)",
-  },
-  racerLabelWebsmith: {
+  carLabelWebsmith: {
     fontWeight: 900,
     letterSpacing: "1px",
     textShadow: "0 0 10px rgba(255, 215, 0, 0.55)",
@@ -597,6 +857,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: "inline-flex",
     alignItems: "center",
     flexShrink: 0,
+  },
+  // The circular mask image — always clamped inside its circle (overflow
+  // hidden + 50% radius + cover fit, sized 100% of the circle and centered).
+  maskImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center",
+    display: "block",
   },
   body: {
     flex: 1,
@@ -894,25 +1163,18 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
       {/* Responsive layout rules + header status circle / tooltip / Slice
           buttons / in-card mask circle. */}
       <style jsx>{`
+        /* Below 900px: decorations hide, messenger becomes the full-width
+           centered card (desktop-only 33/34/33 split). */
         @media (max-width: 900px) {
-          .ws-chat-root {
-            flex-direction: column !important;
-            padding: 10px !important;
-            gap: 8px !important;
+          .ws-road-zone,
+          .ws-bubble-zone {
+            display: none !important;
           }
-          .ws-racer-slot {
+          .ws-center-zone {
             width: 100% !important;
-            height: 120px !important;
-            flex-direction: row !important;
-            gap: 8px !important;
           }
-          .ws-racer {
-            flex: 1 1 0 !important;
-            width: auto !important;
-            min-width: 0 !important;
-          }
-          .ws-chat-card {
-            height: min(800px, calc(100dvh - 150px)) !important;
+          .ws-chat-root {
+            padding: 10px !important;
           }
         }
 
@@ -1052,13 +1314,13 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         }
       `}</style>
 
-      {/* LEFT: live Language Racer (desktop column; mobile = top strip) */}
-      <div className="ws-racer-slot" style={styles.racerSlot}>
-        <LanguageRacer />
+      {/* LEFT 33% — ONE CONTINUOUS RACING ROAD (4 lanes, ↑ ↓ ↑ ↓) */}
+      <div className="ws-road-zone" style={styles.roadZone}>
+        <LanguageRoad />
       </div>
 
-      {/* CENTER: the existing messenger card (unchanged) */}
-      <div className="ws-center-slot" style={styles.centerSlot}>
+      {/* CENTER 34% — the existing messenger card, unchanged */}
+      <div className="ws-center-zone" style={styles.centerZone}>
         <div className="ws-chat-card" style={styles.card}>
         <header style={styles.header}>
           <div style={styles.headerTitleBlock}>
@@ -1217,6 +1479,11 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           </div>
         )}
         </div>
+      </div>
+
+      {/* RIGHT 33% — the existing 60 flying language bubbles + random 3x zoom */}
+      <div className="ws-bubble-zone" style={styles.bubbleZone}>
+        <FlyingBubbles />
       </div>
     </div>
   );
