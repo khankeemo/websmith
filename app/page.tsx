@@ -934,38 +934,57 @@ export default function LandingPage() {
 
       {/* Global Diversity & Collaboration */}
       <section className="relative w-full overflow-hidden" style={styles.section}>
-        <div className="grid grid-cols-1 min-[1700px]:grid-cols-[810px_40px_810px] justify-center">
-          <div className="flex flex-col items-start">
-            <h2 className="text-3xl sm:text-4xl font-bold text-primary mb-4">Global Collaboration & Technical Excellence</h2>
-            <p className="text-base text-secondary leading-relaxed mb-6">
-              Our team brings together diverse perspectives and world-class expertise to solve complex challenges.
-              We believe in the power of inclusive collaboration to build the next generation of digital products.
-            </p>
-            <img
-              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
-              alt="Global Technical Team"
-              className="w-full h-[550px] rounded-lg object-cover mt-auto"
-            />
-          </div>
-          <div className="hidden min-[1700px]:block" aria-hidden="true" />
-          <div className="flex flex-col items-start">
-            <p className="text-base text-secondary leading-relaxed mb-8">
-              Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
-              One dedicated team that builds faster, ships smarter, and stays by your side long after launch —
-              that is why clients choose Websmith, and why they stay.
-            </p>
-            <video
-              ref={diversityVideoRef}
-              autoPlay
-              loop
-              muted
-              playsInline
-              controls
-              preload="auto"
-              className="w-full h-[550px] rounded-lg object-cover mt-auto"
-            >
-              <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
-            </video>
+        <div className="flex justify-center">
+          <div
+            className="w-full max-w-[1700px] rounded-[20px]"
+            style={{
+              backgroundColor: "var(--bg-primary)",
+              border: "1px solid var(--border-color)",
+              boxShadow: "var(--card-shadow)",
+              padding: "clamp(16px, 1.5vw, 20px)",
+              boxSizing: "border-box",
+              overflow: "hidden",
+            }}
+          >
+            <div className="flex flex-col min-[1700px]:flex-row items-start justify-center gap-10">
+              <div className="flex flex-col items-start w-full max-w-[810px]">
+                <h2 className="text-3xl sm:text-4xl font-bold text-primary mb-4">Global Collaboration & Technical Excellence</h2>
+                <p className="text-base text-secondary leading-relaxed mb-6">
+                  Our team brings together diverse perspectives and world-class expertise to solve complex challenges.
+                  We believe in the power of inclusive collaboration to build the next generation of digital products.
+                </p>
+              </div>
+              <div className="flex flex-col items-start w-full max-w-[810px]">
+                <p className="text-base text-secondary leading-relaxed mb-8">
+                  Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
+                  One dedicated team that builds faster, ships smarter, and stays by your side long after launch —
+                  that is why clients choose Websmith, and why they stay.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col min-[1700px]:flex-row items-start justify-center gap-10">
+              <div className="flex flex-col items-start w-full max-w-[810px]">
+                <img
+                  src="/images/photo-1552664730-d307ca884978.jpg"
+                  alt="Global Technical Team"
+                  className="w-full h-[550px] rounded-lg object-cover"
+                />
+              </div>
+              <div className="flex flex-col items-start w-full max-w-[810px]">
+                <video
+                  ref={diversityVideoRef}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  controls
+                  preload="auto"
+                  className="w-full h-[550px] rounded-lg object-cover"
+                >
+                  <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+                </video>
+              </div>
+            </div>
           </div>
         </div>
       </section>
