@@ -42,7 +42,8 @@
 //                    messages, composer, Send, Client Login, Home, dynamic
 //                    Open/Closed status dot + tooltip, secure JWT chat, live 3s
 //                    polling, in-card Websmith mask circle. Elegant visual skin
-//                    only (gradient border, blue-tinted header/body/bubbles,
+//                    only (skin = branded header band INSIDE the card, blue-tinted
+//                    header/body/bubbles,
 //                    focused composer ring, gradient Send) — ALL messenger logic
 //                    unchanged. Vertically and horizontally centered.
 //            RIGHT  (33%)  THE FLYING LANGUAGE BUBBLES — EXACTLY 30 bubbles
@@ -1049,44 +1050,60 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     zIndex: 0,
   },
-  // THE Websmith Messenger skin — a 1px gradient-border wrapper around the
-  // chat card (radius 23px outer / 22px inner). Visual only: the card keeps
-  // its exact layout and behavior (clear space above/below, responsive).
-  cardSkin: {
-    position: "relative",
-    width: "min(550px, 100%)",
-    height: "min(800px, 92dvh)",
-    maxHeight: "92dvh",
-    padding: "1px",
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-    borderRadius: "23px",
-    background:
-      "linear-gradient(145deg, rgba(20,156,234,0.65), rgba(20,122,234,0.12) 38%, rgba(20,156,234,0.5) 100%)",
-    boxShadow:
-      "0 30px 80px rgba(0, 0, 0, 0.30), 0 12px 32px rgba(20, 156, 234, 0.14)",
-  },
-  // THE centered chat card (clear space above and below; responsive on mobile).
+  // THE actual Messenger container — the Websmith skin is the branded header
+  // band INSIDE this card (see `header`/`skinBrand` below), never a wrapper or
+  // page-level background behind it. Clear space above/below, responsive.
   card: {
     position: "relative",
     zIndex: 1,
-    height: "100%",
+    width: "min(550px, 100%)",
+    height: "min(800px, 92dvh)",
+    maxHeight: "92dvh",
     display: "flex",
     flexDirection: "column",
     borderRadius: "22px",
+    border: "1px solid rgba(20, 156, 234, 0.35)",
     background: "var(--bg-primary)",
+    boxShadow:
+      "0 30px 80px rgba(0, 0, 0, 0.30), 0 12px 32px rgba(20, 156, 234, 0.14)",
     overflow: "hidden",
   },
+  // THE Websmith skin band — the branded header INSIDE the Messenger card
+  // (gradient panel + brand pill). Always part of the card, never behind it.
   header: {
     flexShrink: 0,
     display: "flex",
     alignItems: "center",
     gap: "10px",
     padding: "10px 14px",
-    borderBottom: "1px solid rgba(20, 156, 234, 0.22)",
-    background: "linear-gradient(180deg, rgba(20, 156, 234, 0.10), rgba(20, 156, 234, 0.02))",
+    borderBottom: "1px solid rgba(20, 156, 234, 0.25)",
+    background:
+      "linear-gradient(135deg, rgba(20, 156, 234, 0.16), rgba(20, 122, 234, 0.05) 55%, rgba(20, 156, 234, 0.10))",
     boxShadow: "inset 0 2px 0 rgba(20, 156, 234, 0.85)",
+  },
+  // Compact Websmith brand pill inside the skin band (visible in the chat box).
+  skinBrand: {
+    flexShrink: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "3px 10px 3px 8px",
+    borderRadius: "999px",
+    background: "linear-gradient(135deg, #149CEA, #1479EA)",
+    color: "#ffffff",
+    fontSize: "10px",
+    fontWeight: 800,
+    letterSpacing: "0.7px",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+    boxShadow: "0 2px 8px rgba(20, 156, 234, 0.35)",
+  },
+  skinBrandDot: {
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    background: "rgba(255, 255, 255, 0.95)",
+    flexShrink: 0,
   },
   headerTitleBlock: {
     flex: 1,
@@ -1597,6 +1614,9 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           .slice {
             --size-letter: 11px;
           }
+          .ws-skin-brand {
+            display: none !important;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
           .ws-status-tooltip {
@@ -1620,12 +1640,16 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         <LeftZoneVisuals />
       </div>
 
-      {/* CENTER 34% — the Websmith-skinned messenger card (visual skin only;
-          every message/composer/status/poll/send behavior is unchanged) */}
+      {/* CENTER 34% — the Websmith Messenger card. The Websmith skin is the
+          branded header band INSIDE the card (never a wrapper behind it);
+          every message/composer/status/poll/send behavior is unchanged. */}
       <div className="ws-center-zone" style={styles.centerZone}>
-        <div className="ws-chat-card" style={styles.cardSkin}>
-        <div style={styles.card}>
+        <div className="ws-chat-card" style={styles.card}>
         <header style={styles.header}>
+          <div className="ws-skin-brand" style={styles.skinBrand} aria-hidden="true">
+            <span style={styles.skinBrandDot} />
+            Websmith · Digital Support
+          </div>
           <div style={styles.headerTitleBlock}>
             <p style={styles.headerTitle} title={conversation?.subject}>
               {conversation?.subject || "Your Conversation"}
@@ -1783,7 +1807,6 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
             </div>
           </div>
         )}
-        </div>
         </div>
       </div>
 
