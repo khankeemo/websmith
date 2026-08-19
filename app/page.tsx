@@ -1527,7 +1527,7 @@ export default function LandingPage() {
           }
         }
 
-        @media (max-width: 1100px) {
+        @media (max-width: 1120px) {
           .ws-diversity-col {
             width: min(480px, 100%) !important;
             min-width: 0 !important;
@@ -2200,7 +2200,7 @@ const styles: any = {
     flexWrap: "wrap",
     boxSizing: "border-box",
   },
-  // LEFT column — heading / description / badges + image (480 × 270).
+  // LEFT column — heading / description / badges + image (480 × 270, 16:9).
   diversityTextColumn: {
     width: "480px",
     minWidth: "480px",
@@ -2208,7 +2208,7 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
   },
-  // RIGHT column — Websmith explanation + video (480 × 270).
+  // RIGHT column — Websmith explanation + video (480 × 270, 16:9).
   diversityMediaColumn: {
     width: "480px",
     minWidth: "480px",
@@ -2222,12 +2222,11 @@ const styles: any = {
     color: "var(--text-secondary)",
     lineHeight: 1.6,
   },
-  // Image + video cards: exactly 480 × 270, 16:9, aligned at the same
-  // bottom level (marginTop auto pins both to the bottom of equal-height
-  // columns).
+  // Image + video cards: exactly 480 × 270 (16:9), equal size, aligned on the
+  // same bottom line (marginTop auto pins both to the bottom of the columns).
   diversityImageContainer: {
     width: "100%",
-    height: "270px",
+    height: "auto",
     aspectRatio: "16 / 9",
     marginTop: "auto",
     borderRadius: "24px",
@@ -2242,7 +2241,7 @@ const styles: any = {
   },
   diversityVideoContainer: {
     width: "100%",
-    height: "270px",
+    height: "auto",
     aspectRatio: "16 / 9",
     marginTop: "auto",
     borderRadius: "24px",
@@ -2256,10 +2255,10 @@ const styles: any = {
     objectFit: "cover",
   },
   diversityBadge: {
-    padding: "8px 16px",
+    padding: "10px 18px",
     backgroundColor: "var(--bg-primary)",
     borderRadius: "20px",
-    fontSize: "14px",
+    fontSize: "15px",
     fontWeight: 600,
     color: "#007AFF",
     boxShadow: "var(--card-shadow)",
