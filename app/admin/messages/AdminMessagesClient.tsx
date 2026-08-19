@@ -1345,7 +1345,6 @@ export default function AdminMessagesClient() {
                               if (!priorityValues.includes(newPriority)) return;
                               const storedValue = newPriority === "urgent" ? "high" : newPriority;
                               if (storedValue === String(ticket.priority)) return;
-                              if (!window.confirm(`Change priority to ${newPriority === "urgent" ? "Urgent" : newPriority.charAt(0).toUpperCase() + newPriority.slice(1)}?`)) return;
                               setSaving(true);
                               const token = typeof window !== "undefined" ? getToken() : "";
                               fetch(`/api/tickets/${ticket._id}`, {
@@ -1363,8 +1362,13 @@ export default function AdminMessagesClient() {
                                     });
                                   }
                                   showNotice("success", `Priority updated to ${newPriority === "urgent" ? "High" : newPriority}.`);
+                                  // Start 3-second auto-lock timer
+                                  const timer = setTimeout(() => {
+                                    setEditModeFor(null); // Exit edit mode after 3 seconds
+                                  }, 3000);
                                   await refresh();
-                                  setEditModeFor(null);
+                                  // Cleanup timer on unmount
+                                  return () => clearTimeout(timer);
                                 })
                                 .catch((error: any) => {
                                   showNotice("error", error?.message || "Priority update failed.");

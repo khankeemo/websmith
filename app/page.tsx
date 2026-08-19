@@ -2188,33 +2188,31 @@ const styles: any = {
     padding: "clamp(56px, 8vw, 100px) 0",
     width: "100%",
   },
-  diversityContent: {
+  // Main content grid: 2.5% | 45% LEFT CARD | 5% GAP | 45% RIGHT CARD | 2.5%
+  diversityGrid: {
+    display: "grid",
+    gridTemplateColumns: "2.5% 45% 5% 45% 2.5%",
     width: "100%",
-    maxWidth: "100%",
-    margin: 0,
-    padding: "0 clamp(16px, 4vw, 48px)",
-    display: "flex",
     alignItems: "stretch",
-    justifyContent: "center",
-    gap: "40px",
-    flexWrap: "wrap",
     boxSizing: "border-box",
   },
-  // LEFT column — heading / description / badges + image (480 × 270, 16:9).
-  diversityTextColumn: {
-    width: "480px",
-    minWidth: "480px",
-    flexShrink: 0,
+  // LEFT card — 45% width, contains text + image
+  diversityLeftCard: {
+    gridColumn: "2 / 3",
     display: "flex",
     flexDirection: "column",
+    alignItems: "flex-start",
+    padding: "2% 0 0 0",
+    boxSizing: "border-box",
   },
-  // RIGHT column — Websmith explanation + video (480 × 270, 16:9).
-  diversityMediaColumn: {
-    width: "480px",
-    minWidth: "480px",
-    flexShrink: 0,
+  // RIGHT card — 45% width, contains text + video
+  diversityRightCard: {
+    gridColumn: "4 / 5",
     display: "flex",
     flexDirection: "column",
+    alignItems: "flex-start",
+    padding: "2% 0 0 0",
+    boxSizing: "border-box",
   },
   diversityMediaMessage: {
     fontSize: "17px",
@@ -2222,32 +2220,7 @@ const styles: any = {
     color: "var(--text-secondary)",
     lineHeight: 1.6,
   },
-  // Image + video cards: exactly 480 × 270 (16:9), equal size, aligned on the
-  // same bottom line (marginTop auto pins both to the bottom of the columns).
-  diversityImageContainer: {
-    width: "100%",
-    height: "auto",
-    aspectRatio: "16 / 9",
-    marginTop: "auto",
-    borderRadius: "24px",
-    overflow: "hidden",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
-  },
-  diversityImage: {
-    width: "100%",
-    height: "100%",
-    display: "block",
-    objectFit: "cover",
-  },
-  diversityVideoContainer: {
-    width: "100%",
-    height: "auto",
-    aspectRatio: "16 / 9",
-    marginTop: "auto",
-    borderRadius: "24px",
-    overflow: "hidden",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
-  },
+
   diversityVideo: {
     width: "100%",
     height: "100%",
@@ -2263,6 +2236,32 @@ const styles: any = {
     color: "#007AFF",
     boxShadow: "var(--card-shadow)",
     display: "inline-block",
+  },
+  // Main frame — 90% of card height, both image and video must be identical in size/position
+  diversityMainFrame: {
+    width: "100%",
+    height: "90%",
+    borderRadius: "24px",
+    overflow: "hidden",
+    boxShadow: "var(--card-shadow)",
+  },
+  diversityImageContainer: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "24px",
+    objectFit: "cover",
+  },
+  diversityImage: {
+    width: "100%",
+    height: "100%",
+    display: "block",
+    objectFit: "cover",
+  },
+  diversityVideoContainer: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "24px",
+    objectFit: "cover",
   },
 
   // Contact Section Styles
