@@ -975,7 +975,6 @@ export default function LandingPage() {
                   ref={diversityVideoRef}
                   autoPlay
                   loop
-                  muted
                   playsInline
                   controls
                   preload="auto"
