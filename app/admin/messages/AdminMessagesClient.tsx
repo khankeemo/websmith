@@ -23,6 +23,7 @@ import {
   Trash2,
   UserPlus,
   X,
+  Copy,
 } from "lucide-react";
 import {
   addTicketReply,
@@ -302,6 +303,7 @@ html.query-inbox-workspace .app-main-scroll {
   justify-content: space-between;
   gap: 10px;
   padding: 10px 20px;
+  margin: 15px 0;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
 }
@@ -1439,7 +1441,18 @@ export default function AdminMessagesClient() {
                  <ChevronLeft size={16} />
                  Back to Messages
                </button>
-               <h2 style={styles.topbarTitle}>Query Conversation</h2>
+               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                 <img
+                   src="/images/wsd.png"
+                   alt="Websmith"
+                   style={{
+                     height: "28px",
+                     width: "auto",
+                     display: "block",
+                   }}
+                 />
+                 <h2 style={styles.topbarTitle}>Query Conversation</h2>
+               </div>
                {selectedTicket && (
                  <>
                    <div style={styles.topbarSpacer} />
@@ -1460,19 +1473,31 @@ export default function AdminMessagesClient() {
                 <h3 style={styles.convSubject}>{selectedTicket.subject}</h3>
                 <div style={styles.convActions}>
                   <button
-                   type="button"
-                   aria-label="Conversation actions"
-                   onClick={(event) => openCardMenu(event, selectedTicket._id)}
-                   style={{
-                     ...styles.menuButton,
-                     ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}),
-                   }}
-                 >
-                   <MoreVertical size={16} />
-                 </button>
-                 {renderConversationMenu(selectedTicket)}
-               </div>
-             </div>
+                    type="button"
+                    aria-label="Copy chat link"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleCopyChatLink(selectedTicket);
+                    }}
+                    disabled={busyAction?.ticketId === selectedTicket._id && busyAction?.action === "chat"}
+                    style={styles.copyLinkBtn}
+                  >
+                    <Copy size={14} /> Copy Chat Link
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Conversation actions"
+                    onClick={(event) => openCardMenu(event, selectedTicket._id)}
+                    style={{
+                      ...styles.menuButton,
+                      ...(menuFor === selectedTicket._id ? styles.menuButtonActive : {}),
+                    }}
+                  >
+                    <MoreVertical size={16} />
+                  </button>
+                  {renderConversationMenu(selectedTicket)}
+                </div>
+              </div>
 
 
             <div style={styles.chatCard}>
@@ -1863,6 +1888,20 @@ const styles: Record<string, any> = {
   },
   convSubject: { margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", wordBreak: "break-word", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   convActions: { display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 },
+  copyLinkBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "6px 10px",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    backgroundColor: "var(--bg-secondary)",
+    border: "1px solid var(--border-color)",
+    borderRadius: "6px",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
   paneHeader: {
     flexShrink: 0,
     padding: "18px 18px 14px",
@@ -2229,7 +2268,7 @@ const styles: Record<string, any> = {
   iconBtnLabel: { whiteSpace: "nowrap" },
   chatCard: {
     flexShrink: 0,
-    height: "clamp(240px, 42dvh, 500px)",
+    height: "clamp(260px, 42dvh, 520px)",
     display: "flex",
     flexDirection: "column",
     border: "1px solid var(--border-color)",
