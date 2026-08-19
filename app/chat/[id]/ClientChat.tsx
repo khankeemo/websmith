@@ -11,46 +11,53 @@
 //          3-ZONE LAYOUT (VISUAL ONLY): the page is a strict desktop split of
 //          EXACTLY 33% / 34% / 33% with NO gaps between the three zones, and
 //          no element may cross into another zone:
-//            LEFT  (33%)  CHAT-STICKER ATMOSPHERE + SOCIAL ICON WATER-BUBBLE
-//                    POPUPS — the left zone hosts TWO stacked animation layers
-//                    (existing background -> subtle dim/light atmosphere ->
-//                    chat stickers -> social popups on TOP):
-//                     (a) CHAT STICKERS (new, `ChatStickers`): a second layer
-//                    of colorful illustrated speech-bubble stickers that carry
-//                    short Websmith support messages. Each sticker pops in at
-//                    a random SAFE position (measured from the real zone so
-//                    the whole sticker + tail stays inside the left area),
-//                    holds briefly, then shrinks/fades and is replaced —
-//                    max 3 coexist, recycled after their lifetime. Random
-//                    message / color / organic blob shape / speech-tail side /
-//                    rotation / lifetime; thick white outline, soft 3D shadow,
-//                    glossy highlight. A barely-visible slow dim -> light
-//                    atmosphere pulse sits behind the stickers.
-//                     (b) SOCIAL ICON WATER-BUBBLE POPUPS (existing, untouched):
-//                    90px popups that POP into existence (0 -> 90px over
-//                    ~0.5s), live >= 1s, then fade; at most 5 coexist and are
-//                    replaced continuously. Every popup uses a RANDOM real
-//                    `public/social_icon` SVG (all 35 participate) inside a
-//                    random mask shape, placed at a random SAFE position
-//                    (measured from the real zone so the full 90px popup stays
-//                    inside the left area — never in the center/right). The
-//                    car/traffic animation is NOT re-added; the 33% width
-//                    allocation is preserved so the page layout never shifts.
-//            CENTER (34%)  MESSENGER ONLY — the existing chat card exactly as
-//                    before: messages, composer, Send, Client Login, Home,
-//                    dynamic Open/Closed status dot + tooltip, secure JWT chat,
-//                    live 3s polling, in-card Websmith mask circle. Vertically
-//                    and horizontally centered in the zone. No cars, no bubbles.
-//            RIGHT  (33%)  THE EXISTING FLYING LANGUAGE BUBBLES — the original
-//                    60 programming-language bubble system (80px circular masks,
-//                    `border-radius: 50%`, `overflow: hidden`, real
-//                    `public/wds_icon` assets, random horizontal positions,
-//                    bottom → top balloon rise, continuous looping, random
-//                    delays, smooth horizontal sway, subtle opacity) INCLUDING
-//                    the independent RANDOM 3× ZOOM (one bubble at a time:
-//                    80px → 240px scale(3), ~1.5s hold, 80px back; transform
-//                    only, no reflow, never covers the messenger). All bubbles
-//                    stay inside the right 33% zone.
+//            LEFT  (33%)  ATMOSPHERE + SOCIAL POPUPS + CHAT STICKERS — the left
+//                    zone hosts THREE stacked layers that COORDINATE through a
+//                    shared occupancy map (zero overlap by construction):
+//                    layer order (bottom -> top): subtle dim/light atmosphere
+//                    -> social icon water-bubble popups -> chat stickers on TOP:
+//                     (a) SOCIAL ICON WATER-BUBBLE POPUPS: 90px popups that POP
+//                    into existence (0 -> 90px over ~0.5s), live >= 1s, then
+//                    fade; at most 5 coexist and are replaced continuously. Every
+//                    popup uses a RANDOM real `public/social_icon` SVG (all 35
+//                    participate) inside a random mask shape. Each popup CLAIMS a
+//                    rotation-safe bounding rect in the shared occupancy map and
+//                    only spawns when a non-overlapping spot exists (otherwise it
+//                    WAITS and retries — never a blank/overlapping popup).
+//                     (b) CHAT STICKERS (`ChatStickers`): colorful illustrated
+//                    speech-bubble stickers that carry short Websmith support
+//                    messages. Each sticker SLOWLY zooms in, holds for a long
+//                    readable time, then slowly zooms/fades out and is replaced
+//                    (max 2 coexist; life 10-16s; gaps 2.5-5s). Every sticker is
+//                    measured against the SAME shared occupancy map and retried
+//                    up to 24 times before being removed (never blank, never
+//                    overlapping popups or other stickers). Random message /
+//                    color / organic blob shape / speech-tail side / rotation /
+//                    lifetime; thick white outline, soft 3D shadow, glossy
+//                    highlight. A barely-visible slow dim -> light atmosphere
+//                    pulse sits behind the popups. The car/traffic animation is
+//                    NOT re-added; the 33% width allocation is preserved so the
+//                    page layout never shifts.
+//            CENTER (34%)  MESSENGER ONLY — the Websmith-skinned chat card:
+//                    messages, composer, Send, Client Login, Home, dynamic
+//                    Open/Closed status dot + tooltip, secure JWT chat, live 3s
+//                    polling, in-card Websmith mask circle. Elegant visual skin
+//                    only (gradient border, blue-tinted header/body/bubbles,
+//                    focused composer ring, gradient Send) — ALL messenger logic
+//                    unchanged. Vertically and horizontally centered.
+//            RIGHT  (33%)  THE FLYING LANGUAGE BUBBLES — EXACTLY 30 bubbles
+//                    (the first 30 real `public/wds_icon` assets), arranged in
+//                    5 phase-locked columns x 6 rows so bubbles NEVER overlap:
+//                    each column owns a fixed horizontal slot (10/30/50/70/90%),
+//                    shares ONE duration, and rows are staggered by exactly
+//                    duration/6 — constant vertical separation forever. Bubble
+//                    size is responsive (clamp(30px, 4vw, 64px)) and NEVER
+//                    larger than the original 80px; gentle +-4px sway; subtle
+//                    opacity; continuous bottom -> top looping. The independent
+//                    RANDOM 3× ZOOM is preserved (one bubble at a time: scale(3),
+//                    ~1.5s hold, back; transform only, no reflow, zone-clipped,
+//                    never covers the messenger). All bubbles stay inside the
+//                    right 33% zone.
 //          Below 900px the left zone + bubbles hide and the messenger becomes
 //          the full-width centered card (decorations are desktop-only);
 //          `prefers-reduced-motion` stops all animation.
@@ -81,20 +88,33 @@ const LANG_ICONS: string[] = [
   "git",
 ];
 
-// Exactly 60 bubbles: the 50 real icons + 10 repeats of the core languages
-// (the only way to reach 60 without inventing icons).
-const LANG_ICONS_60: string[] = [
-  ...LANG_ICONS,
-  "python", "javascript", "typescript", "java", "csharp", "cplusplus",
-  "c", "go", "rust", "php", "ruby",
-];
+// EXACTLY 30 flying bubbles — the first 30 real icons (5 columns x 6 rows,
+// phase-locked so they never touch; see FlyingBubbles). Only real
+// public/wds_icon assets participate — nothing invented.
+const LANG_ICONS_30: string[] = LANG_ICONS.slice(0, 30);
 
-// Random 3x zoom timing: at random intervals ONE bubble zooms 80px -> 240px
-// (scale(3)), holds ~1.5s, returns. Next selection can begin while the
-// previous bubble is returning (transition-only overlap, never two holds).
+// Random 3x zoom timing: at random intervals ONE bubble zooms to 3x its
+// responsive size (scale(3)), holds ~1.5s, returns. Next selection can begin
+// while the previous bubble is returning (transition-only overlap, never two
+// holds).
 const ZOOM_MIN_DELAY_MS = 2_300;
 const ZOOM_MAX_DELAY_MS = 4_500;
 const ZOOM_DURATION_MS = 3_000; // 0.75s in + 1.5s hold + 0.75s out (CSS 3s)
+
+// Bubble field layout: exactly 30 bubbles = 5 phase-locked columns x 6 rows.
+// Column slots [10,30,50,70,90]% keep columns far apart; each column shares
+// ONE duration and rows are staggered by exactly duration/6, so every bubble
+// in a column keeps a constant vertical separation forever — zero overlap by
+// construction (columns never collide horizontally either, the slots + the
+// 64px max size leave ~40px gaps). Bubble size is responsive and NEVER larger
+// than the original 80px. The random 3x zoom stays (transient, zone-clipped).
+const BUBBLE_COLUMNS = 5;
+const BUBBLE_ROWS = 6;
+const BUBBLE_COUNT = BUBBLE_COLUMNS * BUBBLE_ROWS; // 30
+const BUBBLE_SLOTS = [10, 30, 50, 70, 90];
+const BUBBLE_MIN_DURATION = 20; // seconds for the full 115vh travel
+const BUBBLE_MAX_DURATION = 32;
+const BUBBLE_SWAY_MAX_PX = 4; // gentle +-4px sway (was +-10px)
 
 // ---- LEFT ZONE — SOCIAL ICON WATER-BUBBLE POPUPS ---------------------------
 // Every REAL social-icon SVG in public/social_icon (35 files — the README also
@@ -191,48 +211,74 @@ const formatTime = (value?: string) => {
 };
 
 /**
- * RIGHT ZONE — THE EXISTING FLYING LANGUAGE BUBBLES (60 bubbles + random 3x
- * zoom, RESTORED from the FINAL CHAT UI version and confined to the right
- * 33% zone — the bubble system was never to be removed or replaced):
+ * RIGHT ZONE — THE FLYING LANGUAGE BUBBLES (EXACTLY 30, ZERO OVERLAP):
  *
- *  60 programming-language bubbles (80px actual size, circular masks with
- *  `border-radius: 50%` + `overflow: hidden`, icons from public/wds_icon)
- *  that continuously float bottom -> top (~115vh) like balloons at random
- *  horizontal positions inside the RIGHT zone (4-80% of the zone), with
- *  gentle sway and subtle background opacity. Random delays = mid-flight on
- *  load; continuous looping.
+ *  30 programming-language bubbles (the first 30 REAL public/wds_icon assets,
+ *  circular masks with `border-radius: 50%` + `overflow: hidden`) arranged in
+ *  a deterministic 5-column x 6-row grid so they NEVER overlap:
+ *    - each column owns a fixed horizontal slot (10/30/50/70/90% of the zone);
+ *    - each column shares ONE travel duration and rows are staggered by exactly
+ *      duration/6 (negative delay = rowIndex * duration / 6), so every bubble
+ *      in a column keeps a CONSTANT vertical separation forever (phase-locked);
+ *    - the slot gaps (~105px at 1600px) exceed the bubble's max 64px width, so
+ *      columns never collide horizontally either.
+ *  Bubble size is responsive (`clamp(30px, 4vw, 64px)`) and NEVER larger than
+ *  the original 80px; gentle +-4px sway; subtle background opacity; continuous
+ *  bottom -> top (~115vh) looping with negative delays = mid-flight on load.
  *
- *  ZOOM — independent random 3x zoom: at random intervals ONE bubble
- *  smoothly scales to 3x (240px), holds ~1.5s, returns to 80px; the next
- *  zoom may start while the previous is returning (transition-only overlap).
- *  Transform-based — no layout reflow, never covers the messenger, all
- *  bubbles stay inside the right 33% zone.
+ *  ZOOM (preserved) — independent random 3x zoom: at random intervals ONE
+ *  bubble smoothly scales to 3x its size, holds ~1.5s, returns; the next zoom
+ *  may start while the previous is returning (transition-only overlap).
+ *  Transform-based — no layout reflow, zone-clipped, never covers the
+ *  messenger. All bubbles stay inside the right 33% zone.
  *
  * Data is randomized once per mount (useMemo); animations run in CSS.
  */
 function FlyingBubbles() {
-  const bubbles = useMemo(
-    () =>
-      LANG_ICONS_60.map((icon, i) => ({
-        id: i,
-        icon,
-        // Random horizontal position INSIDE the right 33% zone only
-        // (4-80% of the zone; the zone clips everything via overflow hidden).
-        left: 4 + Math.random() * 76,
-        // Start below the zone so the balloon rises into view.
-        bottom: -90 - Math.random() * 60,
-        // Full balloon travel 18-36s; negative delay = mid-flight on load.
-        duration: 18 + Math.random() * 18,
-        delay: -Math.random() * 36,
-        // Horizontal sway ~±10px.
-        sway: 8 + Math.random() * 2,
-        swayDuration: 3.5 + Math.random() * 3,
-        // Subtle background opacity 0.08-0.24.
-        bgOpacity: 0.08 + Math.random() * 0.16,
-        iconOpacity: 0.85 + Math.random() * 0.15,
-      })),
-    []
-  );
+  const bubbles = useMemo(() => {
+    const list: Array<{
+      id: number;
+      icon: string;
+      col: number;
+      row: number;
+      left: number;
+      bottom: number;
+      duration: number;
+      delay: number;
+      sway: number;
+      swayDuration: number;
+      bgOpacity: number;
+      iconOpacity: number;
+    }> = [];
+    for (let col = 0; col < BUBBLE_COLUMNS; col++) {
+      const duration = BUBBLE_MIN_DURATION + Math.random() * (BUBBLE_MAX_DURATION - BUBBLE_MIN_DURATION);
+      for (let row = 0; row < BUBBLE_ROWS; row++) {
+        const idx = col * BUBBLE_ROWS + row;
+        list.push({
+          id: idx,
+          icon: LANG_ICONS_30[idx],
+          col,
+          row,
+          // Fixed per-column slot — bubbles in different columns can never meet.
+          left: BUBBLE_SLOTS[col],
+          // Start below the zone so the balloon rises into view (stable — never
+          // recomputed on re-render, so zoom state changes never move bubbles).
+          bottom: -96 - Math.random() * 32,
+          duration,
+          // Phase-lock: row r is delayed by r/6 of the column travel, so rows
+          // keep a constant gap. Mid-flight on load (negative delay).
+          delay: -(row / BUBBLE_ROWS) * duration,
+          // Gentle +-4px sway (reduced from the old +-10px).
+          sway: BUBBLE_SWAY_MAX_PX + Math.random() * 1.2,
+          swayDuration: 3.5 + Math.random() * 3,
+          // Subtle background opacity 0.08-0.24.
+          bgOpacity: 0.08 + Math.random() * 0.16,
+          iconOpacity: 0.85 + Math.random() * 0.15,
+        });
+      }
+    }
+    return list;
+  }, []);
 
   // RANDOM 3x ZOOM: exactly one bubble zooms at a time. `key` remounts the
   // chip so the CSS animation restarts on every new selection.
@@ -244,9 +290,9 @@ function FlyingBubbles() {
       timer = setTimeout(
         () => {
           setZoom((prev) => {
-            let next = Math.floor(Math.random() * LANG_ICONS_60.length);
+            let next = Math.floor(Math.random() * BUBBLE_COUNT);
             if (prev && next === prev.idx) {
-              next = (next + 1 + Math.floor(Math.random() * (LANG_ICONS_60.length - 1))) % LANG_ICONS_60.length;
+              next = (next + 1 + Math.floor(Math.random() * (BUBBLE_COUNT - 1))) % BUBBLE_COUNT;
             }
             return { idx: next, key: (prev?.key ?? 0) + 1 };
           });
@@ -276,6 +322,7 @@ function FlyingBubbles() {
             <div
               className="ws-bubble-sway"
               style={{
+                ...({ "--ws-sway": `${b.sway}px` } as React.CSSProperties),
                 animation: `wsBubbleSway ${b.swayDuration}s ease-in-out ${b.delay}s infinite`,
               }}
             >
@@ -287,8 +334,8 @@ function FlyingBubbles() {
                 <img
                   src={`/wds_icon/${b.icon}.svg`}
                   alt=""
-                  width={66}
-                  height={66}
+                  width={64}
+                  height={64}
                   draggable={false}
                   decoding="async"
                   style={{ opacity: b.iconOpacity }}
@@ -319,10 +366,10 @@ function FlyingBubbles() {
         @keyframes wsBubbleSway {
           0%,
           100% {
-            transform: translateX(-10px);
+            transform: translateX(calc(-1 * var(--ws-sway, 4px)));
           }
           50% {
-            transform: translateX(10px);
+            transform: translateX(var(--ws-sway, 4px));
           }
         }
         @keyframes wsBubbleZoom {
@@ -342,13 +389,15 @@ function FlyingBubbles() {
         .ws-bubble {
           position: absolute;
           will-change: transform, opacity;
+          --ws-bubble-size: clamp(30px, 4vw, 64px);
         }
         .ws-bubble-sway {
           will-change: transform;
+          --ws-sway: 4px;
         }
         .ws-bubble-chip {
-          width: 80px;
-          height: 80px;
+          width: var(--ws-bubble-size);
+          height: var(--ws-bubble-size);
           border-radius: 50%;
           overflow: hidden;
           display: flex;
@@ -360,6 +409,10 @@ function FlyingBubbles() {
             0 4px 14px rgba(0, 0, 0, 0.1);
           transform-origin: center;
           will-change: transform;
+        }
+        .ws-bubble-chip img {
+          width: calc(var(--ws-bubble-size) * 0.82);
+          height: calc(var(--ws-bubble-size) * 0.82);
         }
         .ws-bubble-zoom {
           animation: wsBubbleZoom 3s cubic-bezier(0.45, 0, 0.25, 1) forwards;
@@ -377,6 +430,40 @@ function FlyingBubbles() {
   );
 }
 
+// ---- LEFT ZONE — SHARED OCCUPANCY MAP -------------------------------------
+// BOTH left-zone animation layers (social popups + chat stickers) claim their
+// bounding rects in ONE shared map, so they can never overlap each other (or
+// their own kind) — zero blank popups, zero collisions, by construction.
+// Keys are namespaced (`sticker:<id>` / `popup:<id>`). Claims are made
+// SYNCHRONOUSLY (ref mutation during render/effects) so React batching can
+// never race two placements into the same spot.
+interface OccRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+type Occupancy = Map<string, OccRect>;
+
+const OCC_MARGIN = 12; // px minimum visual gap between any two left-zone items
+
+// True when the rect (x,y,w,h) collides with any OTHER claimed rect. `key` is
+// the caller's own map key and is skipped so a re-check never sees itself.
+const occOverlaps = (occ: Occupancy, key: string, x: number, y: number, w: number, h: number): boolean => {
+  for (const [k, r] of occ) {
+    if (k === key) continue;
+    if (
+      x < r.x + r.w + OCC_MARGIN &&
+      x + w + OCC_MARGIN > r.x &&
+      y < r.y + r.h + OCC_MARGIN &&
+      y + h + OCC_MARGIN > r.y
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
 // ---- LEFT ZONE — SOCIAL ICON WATER-BUBBLE POPUPS --------------------------
 // Water-bubble popups confined to the LEFT zone ONLY (the 33% `roadZone` —
 // even narrower than the documented "left 39%", so a popup can never reach the
@@ -387,6 +474,11 @@ function FlyingBubbles() {
 // shape (circle / squircle / hexagon / blob / oval — icons stay recognizable),
 // a random safe x/y (measured from the real zone so the full 90px popup always
 // stays inside), a small random rotation and a random lifetime.
+// ZERO OVERLAP / ZERO BLANK POPUPS: each popup CLAIMS a rotation-safe rect in
+// the shared occupancy map BEFORE it is shown; a spawn attempt that cannot
+// find a non-overlapping spot is skipped and the ticker WAITS and retries on
+// the next tick — a popup is never rendered blank, off-screen or on top of
+// another item.
 interface SocialPop {
   id: number;
   icon: string;
@@ -398,6 +490,10 @@ interface SocialPop {
 }
 
 const POP_SHAPES = ["circle", "squircle", "hexagon", "blob", "oval"];
+
+// The claimed rect is slightly larger than the 90px bubble so a rotated popup
+// (+-12deg -> ~107px bounding box) can never visually touch its neighbors.
+const POP_CLAIM = 108;
 
 const SOCIAL_POP_CSS = `
 .ws-social-pops-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
@@ -415,7 +511,7 @@ const SOCIAL_POP_CSS = `
 @media (prefers-reduced-motion:reduce){.ws-social-pop{display:none !important;}}
 `;
 
-function SocialIconPops() {
+function SocialIconPops({ occupancy }: { occupancy: React.MutableRefObject<Occupancy> }) {
   const layerRef = useRef<HTMLDivElement | null>(null);
   const [zone, setZone] = useState<{ w: number; h: number } | null>(null);
   const [pops, setPops] = useState<SocialPop[]>([]);
@@ -435,18 +531,35 @@ function SocialIconPops() {
     return () => ro.disconnect();
   }, []);
 
+  // Spawn attempts to find a non-overlapping spot (against the SHARED occupancy
+  // map, so it never lands on another popup or a chat sticker) and CLAIMS the
+  // rotation-safe rect before returning. If no spot exists after 24 tries it
+  // returns null — the ticker WAITS and retries on the next tick. A popup is
+  // therefore never blank, never off-screen, never overlapping.
   const spawn = useCallback((): SocialPop | null => {
     if (!zone || zone.w < POP_FULL_SIZE + POP_SAFE * 2 || zone.h < POP_FULL_SIZE + POP_SAFE * 2) return null;
-    return {
-      id: nextId.current++,
-      icon: SOCIAL_ICONS[Math.floor(Math.random() * SOCIAL_ICONS.length)],
-      x: POP_SAFE + Math.random() * (zone.w - POP_FULL_SIZE - POP_SAFE * 2),
-      y: POP_SAFE + Math.random() * (zone.h - POP_FULL_SIZE - POP_SAFE * 2),
-      shape: POP_SHAPES[Math.floor(Math.random() * POP_SHAPES.length)],
-      rotate: Math.round((Math.random() - 0.5) * 24),
-      life: POP_MIN_LIFE_MS + Math.random() * (POP_MAX_LIFE_MS - POP_MIN_LIFE_MS),
-    };
-  }, [zone]);
+    const halfPad = (POP_CLAIM - POP_FULL_SIZE) / 2;
+    for (let attempt = 0; attempt < 24; attempt++) {
+      const x = POP_SAFE + Math.random() * (zone.w - POP_FULL_SIZE - POP_SAFE * 2);
+      const y = POP_SAFE + Math.random() * (zone.h - POP_FULL_SIZE - POP_SAFE * 2);
+      const pop: SocialPop = {
+        id: nextId.current++,
+        icon: SOCIAL_ICONS[Math.floor(Math.random() * SOCIAL_ICONS.length)],
+        x,
+        y,
+        shape: POP_SHAPES[Math.floor(Math.random() * POP_SHAPES.length)],
+        rotate: Math.round((Math.random() - 0.5) * 24),
+        life: POP_MIN_LIFE_MS + Math.random() * (POP_MAX_LIFE_MS - POP_MIN_LIFE_MS),
+      };
+      const key = `popup:${pop.id}`;
+      const cx = Math.max(0, x - halfPad);
+      const cy = Math.max(0, y - halfPad);
+      if (occOverlaps(occupancy.current, key, cx, cy, POP_CLAIM, POP_CLAIM)) continue;
+      occupancy.current.set(key, { x: cx, y: cy, w: POP_CLAIM, h: POP_CLAIM });
+      return pop;
+    }
+    return null;
+  }, [zone, occupancy]);
 
   // Continuous pool: staggered initial burst (not all 5 at once), then a
   // ticker tops the pool back up to POP_MAX_ACTIVE whenever a popup expires.
@@ -471,6 +584,7 @@ function SocialIconPops() {
       created.forEach((p) => {
         timers.push(
           setTimeout(() => {
+            occupancy.current.delete(`popup:${p.id}`);
             activeRef.current -= 1;
             setPops((cur) => cur.filter((q) => q.id !== p.id));
           }, p.life)
@@ -484,8 +598,11 @@ function SocialIconPops() {
       clearInterval(id);
       timers.forEach((t) => clearTimeout(t));
       activeRef.current = 0;
+      for (const k of [...occupancy.current.keys()]) {
+        if (k.startsWith("popup:")) occupancy.current.delete(k);
+      }
     };
-  }, [zone, spawn]);
+  }, [zone, spawn, occupancy]);
 
   return (
     <div className="ws-social-pops-layer" ref={layerRef} aria-hidden="true">
@@ -524,14 +641,21 @@ function SocialIconPops() {
 }
 
 // ---- LEFT ZONE — CHAT-STICKER ATMOSPHERE LAYER -----------------------------
-// A second, independent animation layer inside the SAME left 33% zone, BELOW
-// the existing social popups (layer order: background -> dim/light atmosphere
-// -> chat stickers -> social popups on TOP). Colorful illustrated speech-bubble
-// "stickers" carry a short Websmith support message, appear at a random SAFE
-// position, hold briefly, then shrink/fade and are replaced continuously.
-// Every sticker gets a random message / color / organic blob shape / speech-tail
-// side / rotation / lifetime; thick white outline, soft 3D shadow + glossy
-// highlight, compact dimensions, text always contained inside the sticker.
+// The TOP-most animation layer inside the SAME left 33% zone (layer order:
+// background -> dim/light atmosphere -> social popups -> chat stickers ON TOP).
+// Colorful illustrated speech-bubble "stickers" carry a short Websmith support
+// message, SLOWLY zoom in, hold for a long READABLE time, then slowly
+// zoom/fade out and are replaced. SLOWER pacing: max 2 coexist, visible life
+// 10-16s, random appearance gaps 2.5-5s. Every sticker gets a random message /
+// color / organic blob shape / speech-tail side / rotation / lifetime; thick
+// white outline, soft 3D shadow + glossy highlight, compact dimensions, text
+// always contained inside the sticker.
+// ZERO OVERLAP / ZERO BLANK: each sticker is measured against the SHARED
+// occupancy map (social popups + other stickers) and retried up to 24 times;
+// if no safe spot exists it is removed (never rendered blank or overlapping)
+// and a later loop tick retries. A sticker is removed by its lifetime timer and
+// a NEW element is created for the next one — it always fully disappears
+// (fades out) before any fresh sticker appears elsewhere (no teleporting).
 // Positions are measured from the real zone so the whole sticker (incl. its
 // tail) always stays inside the left 33% area — never into the center/right.
 const STICKER_MESSAGES: string[] = [
@@ -579,14 +703,16 @@ const STICKER_SHAPES: string[] = [
   "52% 48% 62% 38% / 40% 56% 44% 60%",
 ];
 
-const STICKER_MAX_ACTIVE = 3; // alive-but-clean — never fills the 33% area
+// SLOW pacing — a sticker SLOWLY zooms in, holds for a long readable time,
+// then slowly fades out; at most 2 coexist and there is a long gap (2.5-5s)
+// before the next one appears.
+const STICKER_MAX_ACTIVE = 2; // max coexisting — the left zone never feels busy
 const STICKER_MAX_WIDTH = 165; // px, compact — text wraps inside the sticker
 const STICKER_SAFE = 8; // px keep-out from the zone edges (whole sticker + tail)
-const STICKER_COLLIDE_MARGIN = 16; // px minimum gap between stickers
-const STICKER_MIN_LIFE_MS = 5_500; // visible-duration range
-const STICKER_MAX_LIFE_MS = 10_000;
-const STICKER_MIN_GAP_MS = 700; // random appearance delay between spawns
-const STICKER_MAX_GAP_MS = 2_200;
+const STICKER_MIN_LIFE_MS = 10_000; // visible-duration range (slow, readable)
+const STICKER_MAX_LIFE_MS = 16_000;
+const STICKER_MIN_GAP_MS = 2_500; // random appearance delay between spawns
+const STICKER_MAX_GAP_MS = 5_000;
 
 interface ChatSticker {
   id: number;
@@ -606,12 +732,13 @@ interface ChatSticker {
 // CSS is injected via a plain <style dangerouslySetInnerHTML> tag (styled-jsx
 // strips template interpolations — the documented pattern). `scale` / `rotate`
 // / `translate` individual transform properties compose, so the life animation
-// (scale + opacity) and the gentle float never fight each other.
+// (scale + opacity) and the gentle float never fight each other. Layer order
+// is enforced here: the atmosphere (bottom, z-index 0) sits below the social
+// popup layer, and the sticker layer (z-index 1) paints ON TOP of the popups.
 const STICKER_CSS = `
-.ws-left-scene{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
-.ws-atmosphere{position:absolute;inset:0;background:rgba(255,255,255,0.06);animation:wsAtmosphere 10s ease-in-out infinite alternate;}
+.ws-atmosphere{position:absolute;inset:0;background:rgba(255,255,255,0.06);animation:wsAtmosphere 10s ease-in-out infinite alternate;z-index:0;}
 @keyframes wsAtmosphere{from{opacity:0.3;}to{opacity:1;}}
-.ws-stickers-layer{position:absolute;inset:0;overflow:hidden;}
+.ws-stickers-layer{position:absolute;inset:0;overflow:hidden;z-index:1;}
 .ws-sticker{position:absolute;pointer-events:none;will-change:left,top,transform;}
 .ws-sticker-anim{will-change:transform,opacity;transform-origin:center;}
 .ws-sticker-bubble{position:relative;box-sizing:border-box;border:4px solid rgba(255,255,255,0.92);padding:14px 16px 18px;box-shadow:0 10px 22px rgba(0,0,0,0.28),0 3px 8px rgba(0,0,0,0.18),inset 0 2px 6px rgba(255,255,255,0.45),inset 0 -6px 12px rgba(0,0,0,0.12);}
@@ -621,19 +748,18 @@ const STICKER_CSS = `
 .ws-sticker-tail-left{left:24%;}
 .ws-sticker-tail-right{left:60%;}
 .ws-sticker-tail-inner{position:absolute;inset:4px;border-radius:3px;}
-@keyframes wsStickerLife{0%{scale:0;opacity:0;}9%{scale:1.08;opacity:1;}13%{scale:1;opacity:1;}84%{scale:1;opacity:1;}93%{scale:0.92;opacity:0.55;}100%{scale:0.6;opacity:0;}}
-@keyframes wsStickerFloat{0%,100%{translate:0 0;}50%{translate:0 -4px;}}
+@keyframes wsStickerLife{0%{scale:0;opacity:0;}12%{scale:1.04;opacity:1;}16%{scale:1;opacity:1;}86%{scale:1;opacity:1;}94%{scale:0.95;opacity:0.7;}100%{scale:0.7;opacity:0;}}
+@keyframes wsStickerFloat{0%,100%{translate:0 0;}50%{translate:0 -3px;}}
 @media (prefers-reduced-motion:reduce){.ws-atmosphere,.ws-sticker,.ws-sticker-anim{display:none !important;}}
 `;
 
-function ChatStickers() {
+function ChatStickers({ occupancy }: { occupancy: React.MutableRefObject<Occupancy> }) {
   const layerRef = useRef<HTMLDivElement | null>(null);
   const [zone, setZone] = useState<{ w: number; h: number } | null>(null);
   const [stickers, setStickers] = useState<ChatSticker[]>([]);
   const nextId = useRef(0);
   const activeRef = useRef(0);
   const activeIds = useRef<Set<number>>(new Set());
-  const placedRects = useRef<Map<number, { x: number; y: number; w: number; h: number }>>(new Map());
   const removalTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const reducedMotion =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -659,11 +785,15 @@ function ChatStickers() {
 
   // When the zone becomes too small (or hidden) drop every live sticker and
   // re-clamp the rest on resize so nothing is ever placed outside the zone.
+  // Only the sticker claims are touched — social popup claims stay owned by
+  // the popups component.
   useEffect(() => {
     if (!zone) return;
     if (zone.w < 260 || zone.h < 320) {
       setStickers([]);
-      placedRects.current.clear();
+      for (const k of [...occupancy.current.keys()]) {
+        if (k.startsWith("sticker:")) occupancy.current.delete(k);
+      }
       activeIds.current.clear();
       activeRef.current = 0;
       return;
@@ -671,29 +801,36 @@ function ChatStickers() {
     setStickers((cur) =>
       cur.map((s) => {
         if (s.stage !== "placed") return s;
-        const r = placedRects.current.get(s.id);
+        const r = occupancy.current.get(`sticker:${s.id}`);
         if (!r) return s;
         const maxX = Math.max(0, zone.w - r.w);
         const maxY = Math.max(0, zone.h - r.h);
         const nx = Math.min(s.x, maxX);
         const ny = Math.min(s.y, maxY);
-        placedRects.current.set(s.id, { x: nx, y: ny, w: r.w, h: r.h });
+        occupancy.current.set(`sticker:${s.id}`, { x: nx, y: ny, w: r.w, h: r.h });
         return { ...s, x: nx, y: ny };
       })
     );
-  }, [zone]);
+  }, [zone, occupancy]);
 
-  const removeSticker = useCallback((id: number) => {
-    if (!activeIds.current.has(id)) return;
-    activeIds.current.delete(id);
-    placedRects.current.delete(id);
-    activeRef.current -= 1;
-    setStickers((cur) => cur.filter((s) => s.id !== id));
-  }, []);
+  const removeSticker = useCallback(
+    (id: number) => {
+      if (!activeIds.current.has(id)) return;
+      activeIds.current.delete(id);
+      occupancy.current.delete(`sticker:${id}`);
+      activeRef.current -= 1;
+      setStickers((cur) => cur.filter((s) => s.id !== id));
+    },
+    [occupancy]
+  );
 
   // Measure the freshly-mounted pending sticker and place it at a random SAFE
   // position: clamped inside the zone so the whole sticker + tail always stay
-  // inside, and retried so stickers do not overlap each other.
+  // inside, and checked against the SHARED occupancy map (social popups + other
+  // stickers) with up to 24 retries. If no safe spot exists the sticker is
+  // REMOVED (never blank, never overlapping) and a later loop tick retries —
+  // this also guarantees the sticker fully disappears before any fresh one
+  // appears elsewhere (no teleporting: a placed sticker never moves).
   const placeSticker = useCallback(
     (id: number, life: number, el: HTMLDivElement) => {
       const layer = layerRef.current;
@@ -710,36 +847,36 @@ function ChatStickers() {
       const maxY = Math.max(0, zoneRect.height - h);
       const usableX = Math.max(0, maxX - STICKER_SAFE);
       const usableY = Math.max(0, maxY - STICKER_SAFE);
-      const overlaps = (x: number, y: number) =>
-        Array.from(placedRects.current.values()).some(
-          (r) =>
-            x < r.x + r.w + STICKER_COLLIDE_MARGIN &&
-            x + w + STICKER_COLLIDE_MARGIN > r.x &&
-            y < r.y + r.h + STICKER_COLLIDE_MARGIN &&
-            y + h + STICKER_COLLIDE_MARGIN > r.y
-        );
+      const key = `sticker:${id}`;
+      const overlaps = (x: number, y: number) => occOverlaps(occupancy.current, key, x, y, w, h);
       let x = STICKER_SAFE + Math.random() * usableX;
       let y = STICKER_SAFE + Math.random() * usableY;
-      for (let i = 0; i < 12 && overlaps(x, y); i++) {
+      for (let i = 0; i < 24 && overlaps(x, y); i++) {
         x = STICKER_SAFE + Math.random() * usableX;
         y = STICKER_SAFE + Math.random() * usableY;
       }
+      if (overlaps(x, y)) {
+        // No safe spot right now — wait for a later loop tick to retry; never
+        // render a blank or overlapping sticker.
+        removeSticker(id);
+        return;
+      }
       x = Math.min(x, maxX);
       y = Math.min(y, maxY);
-      placedRects.current.set(id, { x, y, w, h });
+      occupancy.current.set(key, { x, y, w, h });
       removalTimers.current.push(setTimeout(() => removeSticker(id), life));
       setStickers((cur) => cur.map((s) => (s.id === id ? { ...s, stage: "placed", x, y } : s)));
     },
-    [zone, removeSticker]
+    [zone, removeSticker, occupancy]
   );
 
   // Continuous spawn loop: staggered start, then one sticker at a time with a
-  // random appearance delay; never more than STICKER_MAX_ACTIVE at once. Every
-  // sticker is removed (recycled) after its lifetime — bounded elements, no
-  // memory growth. The cleanup ONLY clears this loop's own spawn timers — the
-  // sticker lifecycle state (activeIds / placedRects / removalTimers / activeRef)
-  // is torn down by the unmount-only effect below so a plain resize never
-  // orphans placed stickers or cancels their removal timers.
+  // long random appearance delay (2.5-5s); never more than STICKER_MAX_ACTIVE
+  // at once. Every sticker is removed (recycled) after its lifetime — bounded
+  // elements, no memory growth. The cleanup ONLY clears this loop's own spawn
+  // timers — the sticker lifecycle state (activeIds / occupancy / removalTimers
+  // / activeRef) is torn down by the unmount-only effect below so a plain
+  // resize never orphans placed stickers or cancels their removal timers.
   useEffect(() => {
     if (!zone || zone.w < 260 || zone.h < 320 || reducedMotion) return;
     let disposed = false;
@@ -782,65 +919,81 @@ function ChatStickers() {
 
   // Unmount-only teardown: cancel every pending removal timer and reset all
   // lifecycle counters so nothing keeps running after this component goes away.
+  // Only sticker claims are released — popup claims stay owned by popups.
   useEffect(() => {
     return () => {
       activeIds.current.clear();
-      placedRects.current.clear();
+      for (const k of [...occupancy.current.keys()]) {
+        if (k.startsWith("sticker:")) occupancy.current.delete(k);
+      }
       removalTimers.current.forEach((t) => clearTimeout(t));
       removalTimers.current = [];
       activeRef.current = 0;
     };
-  }, []);
+  }, [occupancy]);
 
   return (
-    <div className="ws-left-scene" aria-hidden="true">
-      <div className="ws-atmosphere" />
-      <div className="ws-stickers-layer" ref={layerRef}>
-        {stickers.map((s) => {
-          const c = STICKER_COLORS[s.colorIdx];
-          return (
+    <div className="ws-stickers-layer" ref={layerRef} aria-hidden="true">
+      {stickers.map((s) => {
+        const c = STICKER_COLORS[s.colorIdx];
+        return (
+          <div
+            key={s.id}
+            className="ws-sticker"
+            ref={(el) => {
+              if (el && s.stage === "pending") placeSticker(s.id, s.life, el);
+            }}
+            style={{
+              left: s.x,
+              top: s.y,
+              rotate: `${s.rotate}deg`,
+              visibility: s.stage === "pending" ? "hidden" : "visible",
+            }}
+          >
             <div
-              key={s.id}
-              className="ws-sticker"
-              ref={(el) => {
-                if (el && s.stage === "pending") placeSticker(s.id, s.life, el);
-              }}
+              className="ws-sticker-anim"
               style={{
-                left: s.x,
-                top: s.y,
-                rotate: `${s.rotate}deg`,
-                visibility: s.stage === "pending" ? "hidden" : "visible",
+                animation:
+                  s.stage === "placed"
+                    ? `wsStickerLife ${s.life}ms cubic-bezier(0.33,1,0.68,1) forwards, wsStickerFloat ${s.floatDur}s ease-in-out ${s.floatDelay}s infinite`
+                    : undefined,
               }}
             >
               <div
-                className="ws-sticker-anim"
+                className="ws-sticker-bubble"
                 style={{
-                  animation:
-                    s.stage === "placed"
-                      ? `wsStickerLife ${s.life}ms cubic-bezier(0.34,1.56,0.64,1) forwards, wsStickerFloat ${s.floatDur}s ease-in-out ${s.floatDelay}s infinite`
-                      : undefined,
+                  background: `linear-gradient(145deg, ${c.from}, ${c.to})`,
+                  borderRadius: STICKER_SHAPES[s.shapeIdx],
+                  maxWidth: STICKER_MAX_WIDTH,
                 }}
               >
-                <div
-                  className="ws-sticker-bubble"
-                  style={{
-                    background: `linear-gradient(145deg, ${c.from}, ${c.to})`,
-                    borderRadius: STICKER_SHAPES[s.shapeIdx],
-                    maxWidth: STICKER_MAX_WIDTH,
-                  }}
-                >
-                  <span className="ws-sticker-text">{s.message}</span>
-                  <div className={`ws-sticker-tail ws-sticker-tail-${s.tailSide}`}>
-                    <div className="ws-sticker-tail-inner" style={{ background: c.to }} />
-                  </div>
+                <span className="ws-sticker-text">{s.message}</span>
+                <div className={`ws-sticker-tail ws-sticker-tail-${s.tailSide}`}>
+                  <div className="ws-sticker-tail-inner" style={{ background: c.to }} />
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
       <style dangerouslySetInnerHTML={{ __html: STICKER_CSS }} />
     </div>
+  );
+}
+
+// LEFT ZONE VISUALS — the three coordinated layers (bottom -> top): subtle
+// dim/light atmosphere -> social icon water-bubble popups -> chat stickers on
+// TOP. A SINGLE shared occupancy map (`occupancyRef`) is passed to both
+// animation components so a sticker can never overlap a popup (or another
+// sticker) and vice versa — zero blank popups, zero collisions, guaranteed.
+function LeftZoneVisuals() {
+  const occupancyRef = useRef<Occupancy>(new Map());
+  return (
+    <>
+      <div className="ws-atmosphere" />
+      <SocialIconPops occupancy={occupancyRef} />
+      <ChatStickers occupancy={occupancyRef} />
+    </>
   );
 }
 
@@ -859,9 +1012,10 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--bg-primary)",
     overflow: "hidden",
   },
-  // LEFT 33% — social icon water-bubble popups (the car/traffic animation was
-  // removed; the 33% width allocation is preserved so the page layout never
-  // shifts). Overflow hidden keeps every 90px popup inside this zone only.
+  // LEFT 33% — atmosphere + social popups + chat stickers (coordinated via the
+  // shared occupancy map; the car/traffic animation was removed; the 33% width
+  // allocation is preserved so the page layout never shifts). Overflow hidden
+  // keeps every 90px popup + sticker inside this zone only.
   roadZone: {
     position: "relative",
     width: "33%",
@@ -880,7 +1034,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
   },
-  // RIGHT 33% — the existing 60 flying language bubbles (zone-clipped).
+  // RIGHT 33% — the 30 flying language bubbles (phase-locked, zone-clipped).
   bubbleZone: {
     position: "relative",
     width: "33%",
@@ -895,18 +1049,32 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     zIndex: 0,
   },
+  // THE Websmith Messenger skin — a 1px gradient-border wrapper around the
+  // chat card (radius 23px outer / 22px inner). Visual only: the card keeps
+  // its exact layout and behavior (clear space above/below, responsive).
+  cardSkin: {
+    position: "relative",
+    width: "min(550px, 100%)",
+    height: "min(800px, 92dvh)",
+    maxHeight: "92dvh",
+    padding: "1px",
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    borderRadius: "23px",
+    background:
+      "linear-gradient(145deg, rgba(20,156,234,0.65), rgba(20,122,234,0.12) 38%, rgba(20,156,234,0.5) 100%)",
+    boxShadow:
+      "0 30px 80px rgba(0, 0, 0, 0.30), 0 12px 32px rgba(20, 156, 234, 0.14)",
+  },
   // THE centered chat card (clear space above and below; responsive on mobile).
   card: {
     position: "relative",
     zIndex: 1,
-    width: "min(550px, 100%)",
-    height: "min(800px, 92dvh)",
-    maxHeight: "92dvh",
+    height: "100%",
     display: "flex",
     flexDirection: "column",
     borderRadius: "22px",
-    border: "1px solid var(--border-color)",
-    boxShadow: "0 24px 60px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08)",
     background: "var(--bg-primary)",
     overflow: "hidden",
   },
@@ -916,8 +1084,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "10px",
     padding: "10px 14px",
-    borderBottom: "1px solid var(--border-color)",
-    background: "var(--bg-primary)",
+    borderBottom: "1px solid rgba(20, 156, 234, 0.22)",
+    background: "linear-gradient(180deg, rgba(20, 156, 234, 0.10), rgba(20, 156, 234, 0.02))",
+    boxShadow: "inset 0 2px 0 rgba(20, 156, 234, 0.85)",
   },
   headerTitleBlock: {
     flex: 1,
@@ -977,7 +1146,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "9px",
-    background: "var(--bg-secondary)",
+    background:
+      "radial-gradient(1100px 480px at 50% -12%, rgba(20, 156, 234, 0.12), transparent 62%), var(--bg-secondary)",
   },
   center: {
     flex: 1,
@@ -998,28 +1168,28 @@ const styles: Record<string, React.CSSProperties> = {
   rowSystem: { justifyContent: "center" },
   bubbleClient: {
     maxWidth: "78%",
-    border: "1px solid var(--border-color)",
+    border: "1px solid rgba(20, 156, 234, 0.28)",
     borderRadius: "14px",
     borderTopLeftRadius: "4px",
     padding: "8px 11px",
-    background: "var(--bg-primary)",
+    background: "rgba(20, 156, 234, 0.06)",
   },
   bubbleAdmin: {
     maxWidth: "78%",
-    border: "1px solid #007aff33",
+    border: "1px solid rgba(20, 156, 234, 0.38)",
     borderRadius: "14px",
     borderTopRightRadius: "4px",
     padding: "8px 11px",
-    background: "rgba(0,122,255,0.07)",
+    background: "linear-gradient(135deg, rgba(20, 156, 234, 0.16), rgba(20, 122, 234, 0.08))",
   },
   bubbleSystem: {
     maxWidth: "88%",
-    border: "1px dashed var(--border-color)",
+    border: "1px dashed rgba(20, 156, 234, 0.35)",
     borderRadius: "12px",
     padding: "9px 12px",
-    background: "rgba(150,150,150,0.05)",
+    background: "rgba(20, 156, 234, 0.04)",
   },
-  bubbleSender: { margin: 0, fontSize: "9px", fontWeight: 700, color: "#007AFF" },
+  bubbleSender: { margin: 0, fontSize: "9px", fontWeight: 700, color: "#149CEA" },
   bubbleText: {
     margin: "3px 0",
     fontSize: "13px",
@@ -1058,8 +1228,8 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: "8px",
     padding: "10px 12px",
-    borderTop: "1px solid var(--border-color)",
-    background: "var(--bg-primary)",
+    borderTop: "1px solid rgba(20, 156, 234, 0.18)",
+    background: "linear-gradient(180deg, rgba(20, 156, 234, 0.03), var(--bg-primary))",
   },
   composerRow: { display: "flex", alignItems: "flex-end", gap: "8px" },
   clientLoginRow: { display: "flex", alignItems: "center", gap: "6px" },
@@ -1083,7 +1253,7 @@ const styles: Record<string, React.CSSProperties> = {
     maxHeight: "110px",
     resize: "none",
     borderRadius: "12px",
-    border: "1px solid var(--border-color)",
+    border: "1px solid rgba(20, 156, 234, 0.25)",
     background: "var(--bg-secondary)",
     color: "var(--text-primary)",
     padding: "10px 13px",
@@ -1098,12 +1268,13 @@ const styles: Record<string, React.CSSProperties> = {
     height: "40px",
     borderRadius: "999px",
     border: "none",
-    background: "#007AFF",
+    background: "linear-gradient(135deg, #149CEA, #1479EA)",
     color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
+    boxShadow: "0 4px 14px rgba(20, 156, 234, 0.35)",
   },
   connectedRow: { display: "flex", justifyContent: "center", paddingTop: "2px" },
   connectedPill: {
@@ -1395,6 +1566,29 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           border: 1px solid rgba(20, 156, 234, 0.35);
           box-shadow: 0 0 0 3px rgba(20, 156, 234, 0.12), 0 0 14px rgba(20, 156, 234, 0.22);
         }
+        /* ---- Websmith Messenger skin — composer + Send refinements ---- */
+        .ws-skin-input {
+          transition: border-color 180ms ease, box-shadow 180ms ease;
+        }
+        .ws-skin-input:focus {
+          border-color: rgba(20, 156, 234, 0.65) !important;
+          box-shadow: 0 0 0 3px rgba(20, 156, 234, 0.16) !important;
+        }
+        .ws-skin-send {
+          transition: filter 180ms ease, box-shadow 180ms ease, transform 120ms ease;
+        }
+        .ws-skin-send:hover:not(:disabled) {
+          filter: brightness(1.08);
+          box-shadow: 0 6px 18px rgba(20, 156, 234, 0.45);
+        }
+        .ws-skin-send:active:not(:disabled) {
+          transform: scale(0.96);
+        }
+        .ws-skin-send:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
         @media (max-width: 480px) {
           .ws-header-mask {
             width: 36px !important;
@@ -1416,19 +1610,21 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         }
       `}</style>
 
-      {/* LEFT 33% — CHAT-STICKER ATMOSPHERE + SOCIAL ICON WATER-BUBBLE POPUPS
-          (the car/traffic animation stays removed; the 33% width allocation is
-          preserved so the layout never shifts). Layer order inside this zone:
-          existing background -> subtle dim/light atmosphere -> chat stickers
-          -> social popups on TOP (social popups stay exactly as they were). */}
+      {/* LEFT 33% — ATMOSPHERE + SOCIAL POPUPS + CHAT STICKERS (coordinated via
+          a shared occupancy map — zero overlap, zero blank popups; the
+          car/traffic animation stays removed; the 33% width allocation is
+          preserved so the layout never shifts). Layer order (bottom -> top):
+          subtle dim/light atmosphere -> social icon water-bubble popups ->
+          chat stickers ON TOP (stickers supersede the old popup-on-top order). */}
       <div className="ws-road-zone" style={styles.roadZone} aria-hidden="true">
-        <ChatStickers />
-        <SocialIconPops />
+        <LeftZoneVisuals />
       </div>
 
-      {/* CENTER 34% — the existing messenger card, unchanged */}
+      {/* CENTER 34% — the Websmith-skinned messenger card (visual skin only;
+          every message/composer/status/poll/send behavior is unchanged) */}
       <div className="ws-center-zone" style={styles.centerZone}>
-        <div className="ws-chat-card" style={styles.card}>
+        <div className="ws-chat-card" style={styles.cardSkin}>
+        <div style={styles.card}>
         <header style={styles.header}>
           <div style={styles.headerTitleBlock}>
             <p style={styles.headerTitle} title={conversation?.subject}>
@@ -1571,6 +1767,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
                 placeholder="Write a message..."
                 rows={1}
                 style={styles.input}
+                className="ws-skin-input"
                 aria-label="Message"
               />
               <button
@@ -1578,6 +1775,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
                 onClick={handleSend}
                 disabled={sending || !draft.trim() || isClosed}
                 style={styles.sendBtn}
+                className="ws-skin-send"
                 aria-label="Send message"
               >
                 {sending ? <Loader2 size={17} className="admin-messages-spin" /> : <Send size={17} />}
@@ -1586,9 +1784,10 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           </div>
         )}
         </div>
+        </div>
       </div>
 
-      {/* RIGHT 33% — the existing 60 flying language bubbles + random 3x zoom */}
+      {/* RIGHT 33% — the 30 flying language bubbles (phase-locked) + random 3x zoom */}
       <div className="ws-bubble-zone" style={styles.bubbleZone}>
         <FlyingBubbles />
       </div>
