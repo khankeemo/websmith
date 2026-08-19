@@ -24,18 +24,62 @@ Import trace:
     ./app/api/v1/communication/[id]/attach/route.ts
 
 
-Γ£ô Compiled successfully in 20.3s
+Γ£ô Compiled successfully in 19.3s
   Running TypeScript ...
-Failed to type check.
+  Finished TypeScript in 18.5s ...
+  Collecting page data using 7 workers ...
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash QStash] client token is not set. Either pass a token or set QSTASH_TOKEN env variable.
+[Upstash QStash] client token is not set. Either pass a token or set QSTASH_TOKEN env variable.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+Error: currentSigningKey and nextSigningKey are required, either in the config or as env variables (QSTASH_CURRENT_SIGNING_KEY and QSTASH_NEXT_SIGNING_KEY)
+    at <unknown> (D:\websmith\.next\server\chunks\_0_eiolo._.js:1:331)
+    at <unknown> (D:\websmith\.next\server\chunks\_0_eiolo._.js:8:495)
+    at Context.asyncModule [as a] (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:525:5)
+    at module evaluation (D:\websmith\.next\server\chunks\_0_eiolo._.js:1:1085)
+    at instantiateModule (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:853:9)
+    at getOrInstantiateModuleFromParent (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:877:12)
+    at Context.esmImport [as i] (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:281:20)
+    at <unknown> (D:\websmith\.next\server\chunks\_0_eiolo._.js:8:1088)
+    at Context.asyncModule [as a] (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:525:5)
+    at module evaluation (D:\websmith\.next\server\chunks\_0_eiolo._.js:8:809)
 
-.next/types/validator.ts:1574:39
-Type error: Cannot find module '../../app/api/projects/[projectId]/feedback/[feedbackId]/route.js' or its corresponding type declarations.
-
-  1572 | {
-  1573 |   type __IsExpected<Specific extends RouteHandlerConfig<"/api/projects/[projectId]/feedb...
-> 1574 |   const handler = {} as typeof import("../../app/api/projects/[projectId]/feedback/[feed...
-       |                                       ^
-  1575 |   type __Check = __IsExpected<typeof handler>
-  1576 |   // @ts-ignore
-  1577 |   type __Unused = __Check
-Next.js build worker exited with code: 1 and signal: null
+> Build error occurred
+Error: Failed to collect page data for /internal/backend/communications/native-receive
+    at ignore-listed frames {
+  type: 'Error'
+}

@@ -11,17 +11,19 @@
 //          FINAL 3-ZONE LAYOUT (2026-08-19, VISUAL ONLY): the page is a strict
 //          desktop split of EXACTLY 33% / 34% / 33% with NO gaps between the
 //          three zones, and no element may cross into another zone:
-//            LEFT  (33%)  ONE CONTINUOUS RACING ROAD — a single wide road that
-//                    spans the full left column height and width with EXACTLY
-//                    4 lanes (Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓ — adjacent
-//                    lanes always run in opposite directions), clear dashed
-//                    lane markings and solid road edges. 16 sport/racing cars
-//                    (15 real languages/technologies, each with its brand color
-//                    + real `public/wds_icon` Devicon icon + a dedicated
-//                    premium WEBSMITH car) run continuously: per-car duration,
-//                    negative delay (mid-road on load), lane slot and z-index,
-//                    seamless loop at the top/bottom boundaries (journey
-//                    wrappers travel the full road height, extremes off-screen).
+//            LEFT  (33%)  ONE CONTINUOUS RACING ROAD with WEBSMITH TRAFFIC —
+//                    a single wide road spans the full left column height and
+//                    width with EXACTLY 4 lanes (Lane 1 ↑, Lane 2 ↓, Lane 3 ↑,
+//                    Lane 4 ↓ — adjacent lanes always run in opposite
+//                    directions), clear dashed lane markings and solid road
+//                    edges. 48 Websmith cars (12 per lane × 4 lanes) run as a
+//                    live traffic stream: every car carries the Websmith logo
+//                    + "WEBSMITH" text EMBEDDED ON its body, with its own
+//                    duration, phase, slot and one of 6 speed profiles so cars
+//                    occasionally speed up / slow down smoothly (ease-in-out,
+//                    never sudden jumps, never one constant speed), keep
+//                    natural spacing (pass-over z-index + jitter, no stacking)
+//                    and loop seamlessly with both journey extremes off-screen.
 //                    Websmith Digital branding is INTEGRATED into the asphalt:
 //                    a large blurred websmith_1x1.webp watermark down the road
 //                    centre (screen-blended into the asphalt), vertical
@@ -66,49 +68,50 @@ const WEBSCIMITH_LOGO = "/images/Websmith.png";
 // (websmith_1x1.webp, integrated into the road design, never floating UI).
 const ROAD_BRAND_IMG = "/images/websmith_1x1.webp";
 
-// ---- LEFT ZONE — RACING ROAD data ----------------------------------------
-// Every car is a real technology with its real Devicon icon from
-// public/wds_icon (all references verified to exist) + its brand color.
-interface RacerCar {
-  id: string;
-  name: string;
-  icon?: string;
-  color: string;
-  websmith?: boolean;
+// ---- LEFT ZONE — WEBSMITH TRAFFIC data ------------------------------------
+// 4 lanes × 12 Websmith cars = 48 cars total. Every car is a branded Websmith
+// racer: the Websmith logo + "WEBSMITH" text are EMBEDDED ON the car body
+// itself (never floating separately on the track). Lane 1 ↑ / Lane 2 ↓ /
+// Lane 3 ↑ / Lane 4 ↓ (adjacent lanes always opposite, lane directions and
+// track design preserved).
+const TRAFFIC_LANE_COUNT = 4;
+const TRAFFIC_CARS_PER_LANE = 12;
+
+// 6 deterministic speed profiles: each profile is a list of [time %, travel %]
+// keyframe stops for UP lanes (DOWN lanes mirror them). Segment lengths differ
+// so every car occasionally moves faster through long segments and slower
+// through short ones — live-traffic rhythm with smooth ease-in-out changes
+// (never sudden jumps, never one identical constant speed for every car).
+const TRAFFIC_PROFILES: Array<Array<[number, number]>> = [
+  [[0, 110], [20, 35], [45, -5], [70, -60], [100, -110]],
+  [[0, 110], [32, 60], [55, 10], [80, -45], [100, -110]],
+  [[0, 110], [16, 85], [42, -30], [72, -85], [100, -110]],
+  [[0, 110], [26, 30], [52, 0], [78, -35], [100, -110]],
+  [[0, 110], [36, 70], [56, 42], [84, -70], [100, -110]],
+  [[0, 110], [18, 92], [40, 22], [62, -12], [86, -95], [100, -110]],
+];
+
+function trafficKeyframes(name: string, stops: Array<[number, number]>): string {
+  const frames = stops
+    .map(([pct, y]) => `  ${pct}% { transform: translateY(${y}%); }`)
+    .join("\n");
+  return `@keyframes ${name} {\n${frames}\n}`;
 }
 
-const RACER_CARS: RacerCar[] = [
-  { id: "c", name: "C", icon: "c", color: "#A8B9CC" },
-  { id: "cpp", name: "C++", icon: "cplusplus", color: "#00599C" },
-  { id: "java", name: "Java", icon: "java", color: "#E76F00" },
-  { id: "go", name: "Go", icon: "go", color: "#00ADD8" },
-  { id: "php", name: "PHP", icon: "php", color: "#777BB4" },
-  { id: "javascript", name: "JavaScript", icon: "javascript", color: "#F7DF1E" },
-  { id: "rust", name: "Rust", icon: "rust", color: "#CE422B" },
-  { id: "kotlin", name: "Kotlin", icon: "kotlin", color: "#7F52FF" },
-  { id: "python", name: "Python", icon: "python", color: "#3776AB" },
-  { id: "typescript", name: "TypeScript", icon: "typescript", color: "#3178C6" },
-  { id: "nodejs", name: "Node.js", icon: "nodejs", color: "#339933" },
-  { id: "swift", name: "Swift", icon: "swift", color: "#F05138" },
-  { id: "react", name: "React", icon: "react", color: "#61DAFB" },
-  { id: "mongodb", name: "MongoDB", icon: "mongodb", color: "#47A248" },
-  { id: "csharp", name: "C#", icon: "csharp", color: "#68217A" },
-  // Dedicated Websmith car — clearly branded, visually premium, races with the
-  // same road system as every other car.
-  { id: "websmith", name: "WEBSMITH", color: "#FFD700", websmith: true },
-];
-
-const CAR_BY_ID: Record<string, RacerCar> = Object.fromEntries(RACER_CARS.map((c) => [c.id, c]));
-
-// ONE continuous road, EXACTLY 4 lanes: Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓.
-// Adjacent lanes always move in opposite directions. 16 cars total (>= 10),
-// evenly distributed 4 / 4 / 4 / 4 so every lane stays busy.
-const ROAD_LANES: Array<{ dir: "Up" | "Down"; cars: RacerCar[] }> = [
-  { dir: "Up", cars: ["c", "java", "go", "php"].map((id) => CAR_BY_ID[id]) },
-  { dir: "Down", cars: ["cpp", "javascript", "rust", "kotlin"].map((id) => CAR_BY_ID[id]) },
-  { dir: "Up", cars: ["python", "typescript", "nodejs", "swift"].map((id) => CAR_BY_ID[id]) },
-  { dir: "Down", cars: ["react", "mongodb", "csharp", "websmith"].map((id) => CAR_BY_ID[id]) },
-];
+// Pre-built keyframes for every profile × direction (deterministic, static).
+const TRAFFIC_CSS = (() => {
+  const parts: string[] = [];
+  TRAFFIC_PROFILES.forEach((stops, p) => {
+    parts.push(trafficKeyframes(`wsTrafficUp${p}`, stops));
+    parts.push(
+      trafficKeyframes(
+        `wsTrafficDown${p}`,
+        stops.map(([t, y]) => [t, -y] as [number, number])
+      )
+    );
+  });
+  return parts.join("\n");
+})();
 
 // ---- RIGHT ZONE — FLYING BUBBLES data -------------------------------------
 // 50 programming-language / technology icons available in public/wds_icon
@@ -217,17 +220,32 @@ const formatTime = (value?: string) => {
 };
 
 /**
- * LEFT ZONE — ONE CONTINUOUS RACING ROAD (the old 3-track racer is gone).
+ * LEFT ZONE — ONE CONTINUOUS RACING ROAD with WEBSMITH TRAFFIC.
  *
  * A single wide road fills the entire left 33% zone (full width, full usable
  * height) with EXACTLY 4 lanes — Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓ — so
  * adjacent lanes always run in opposite directions. Solid road edges + 3
  * glowing dashed lane dividers (one road, no separated road blocks).
  *
- * 16 sport/racing cars (15 real technologies + the dedicated WEBSMITH car):
- * each car is a styled side-profile racer (glowing body in the language's
- * brand color, windshield, rear wing, wheels, direction chevron, language
- * icon on the body, label), NOT a plain rectangle or bare icon.
+ * TRAFFIC: 48 Websmith cars total — 12 cars per lane × 4 lanes. Every car is
+ * a branded Websmith racer: the Websmith logo + "WEBSMITH" text are EMBEDDED
+ * ON the car body itself (never floating separately on the track). Each car
+ * has its own traffic speed profile:
+ *  - per-car loop duration (16-26s) and negative delay (mid-road on mount),
+ *  - one of 6 deterministic speed profiles whose keyframe segments differ in
+ *    length — every car occasionally moves faster through long segments and
+ *    slows down through short ones (live-traffic rhythm; NEVER one constant
+ *    identical speed for every car),
+ *  - `ease-in-out` timing on every segment makes all speed changes smooth,
+ *    never sudden jumps,
+ *  - per-car slot, z-index (pass-over) and horizontal jitter keep natural
+ *    spacing — cars never stack together and a faster car overtakes briefly
+ *    behind/in front of a slower one,
+ *  - both journey extremes are always OFF-SCREEN, so the loop reset is
+ *    invisible — traffic continues seamlessly forever.
+ * Cars never leave their lane (each lane is overflow hidden) and never cross
+ * into the center zone. The track layout (road, edges, dividers, F1
+ * markings, branding layers) is untouched.
  *
  * Websmith Digital branding is printed INTO the road itself (dark premium
  * racing asphalt): a large blurred websmith_1x1.webp watermark down the road
@@ -239,34 +257,38 @@ const formatTime = (value?: string) => {
  *
  * Motion model (GPU-friendly, CSS transforms only):
  *  - Every car sits in its own "journey" wrapper that spans the full road
- *    height (height:100%) and animates `translateY(110%) -> translateY(-110%)`
- *    (up) or the exact reverse (down). The car is positioned at a per-car
- *    `top: slot%` inside the wrapper, so the travel covers the WHOLE road and
- *    both extremes are always OFF-SCREEN — the loop resets at the road
- *    boundary, never with a visible teleport in the middle.
- *  - Per-car duration (8-16s), negative delay (mid-road on mount), slot,
- *    z-index and horizontal jitter are deterministic pseudo-random: every car
- *    has its own speed and spacing (a faster car overtakes and briefly passes
- *    behind/in front of a slower one). Cars never leave their lane (each lane
- *    is overflow hidden) and never cross into the center zone.
+ *    height (height:100%) and animates through its profile's keyframes:
+ *    `translateY(110%) -> translateY(-110%)` (up) or the exact reverse
+ *    (down). The car is positioned at a per-car `top: slot%` inside the
+ *    wrapper, so the travel covers the WHOLE road and both extremes are
+ *    always OFF-SCREEN — the loop resets at the road boundary, never with a
+ *    visible teleport in the middle.
  *  - Responsive: cars/badges shrink through CSS custom properties at smaller
  *    widths; `prefers-reduced-motion` stops the animation.
  */
 function LanguageRoad() {
   const lanes = useMemo(
     () =>
-      ROAD_LANES.map((lane, lIndex) => ({
-        ...lane,
-        cars: lane.cars.map((car, cIndex) => {
-          const seed = lIndex * 40 + cIndex * 7 + 1;
-          const duration = 8 + racerRand(seed) * 8;
-          const delay = -(duration * (0.1 + racerRand(seed + 1) * 0.8));
-          const slot = 2 + (cIndex / lane.cars.length) * 90 + (racerRand(seed + 2) - 0.5) * 10;
-          const zIndex = 1 + Math.floor(racerRand(seed + 3) * 3);
-          const jitter = (racerRand(seed + 4) - 0.5) * 6;
-          return { ...car, duration, delay, slot, zIndex, jitter };
-        }),
-      })),
+      Array.from({ length: TRAFFIC_LANE_COUNT }, (_, lIndex) => {
+        const dir: "Up" | "Down" = lIndex % 2 === 0 ? "Up" : "Down";
+        return {
+          dir,
+          cars: Array.from({ length: TRAFFIC_CARS_PER_LANE }, (_, cIndex) => {
+            // Deterministic pseudo-random (hydration-safe — identical on
+            // server + client): every car gets its own duration, phase,
+            // slot, speed profile, z-index and horizontal jitter so the
+            // traffic keeps natural spacing and never stacks together.
+            const seed = lIndex * 40 + cIndex * 7 + 1;
+            const duration = 16 + racerRand(seed) * 10;
+            const delay = -(duration * (0.08 + racerRand(seed + 1) * 0.85));
+            const slot = 2 + (cIndex / TRAFFIC_CARS_PER_LANE) * 88 + (racerRand(seed + 2) - 0.5) * 8;
+            const profile = Math.floor(racerRand(seed + 3) * TRAFFIC_PROFILES.length);
+            const zIndex = 1 + Math.floor(racerRand(seed + 4) * 3);
+            const jitter = (racerRand(seed + 5) - 0.5) * 14;
+            return { id: `${lIndex}-${cIndex}`, duration, delay, slot, profile, zIndex, jitter };
+          }),
+        };
+      }),
     []
   );
 
@@ -301,7 +323,7 @@ function LanguageRoad() {
               key={car.id}
               className="ws-journey"
               style={{
-                animation: `wsRoad${lane.dir} ${car.duration}s linear ${car.delay}s infinite`,
+                animation: `wsTraffic${lane.dir}${car.profile} ${car.duration}s ease-in-out ${car.delay}s infinite`,
               }}
             >
               <div
@@ -309,56 +331,36 @@ function LanguageRoad() {
                 style={{
                   top: `${car.slot}%`,
                   zIndex: car.zIndex,
-                  transform: `translateX(${car.jitter}px)`,
+                  transform: `translateX(calc(-50% + ${car.jitter}px))`,
                 }}
               >
                 <span
                   className="ws-car-trail"
-                  style={{ background: `linear-gradient(180deg, ${car.color}bb, transparent)` }}
+                  style={{ background: "linear-gradient(180deg, #ffd700bb, transparent)" }}
                 />
-                <div
-                  className={car.websmith ? "ws-car-frame ws-car-frame-websmith" : "ws-car-frame"}
-                  style={car.websmith ? styles.carFrameWebsmith : undefined}
-                >
-                  <span className="ws-car-wing" style={{ borderColor: `${car.color}99` }} />
+                <div className="ws-car-frame ws-car-frame-websmith">
+                  <span className="ws-car-wing" style={{ borderColor: "#FFD70099" }} />
                   <div
-                    className={car.websmith ? "ws-car-body ws-car-body-websmith" : "ws-car-body"}
-                    style={
-                      car.websmith
-                        ? {
-                            background: "linear-gradient(180deg, #FFD700, #b8860b)",
-                            borderColor: "#FFD700dd",
-                            boxShadow: "0 0 16px rgba(255,215,0,0.55), inset 0 0 10px rgba(255,215,0,0.28)",
-                          }
-                        : {
-                            background: `linear-gradient(180deg, ${car.color}, ${car.color}88)`,
-                            borderColor: `${car.color}cc`,
-                            boxShadow: `0 0 14px ${car.color}66, inset 0 0 8px ${car.color}33`,
-                          }
-                    }
+                    className="ws-car-body ws-car-body-websmith"
+                    style={{
+                      background: "linear-gradient(180deg, #FFD700, #b8860b)",
+                      borderColor: "#FFD700dd",
+                      boxShadow: "0 0 16px rgba(255,215,0,0.55), inset 0 0 10px rgba(255,215,0,0.28)",
+                    }}
                   >
-                    <span
-                      className="ws-car-glass"
-                      style={{ background: "linear-gradient(180deg, rgba(180,235,255,0.95), rgba(90,150,210,0.6))" }}
-                    />
                     <img
                       className="ws-car-icon"
-                      src={car.websmith ? WEBSCIMITH_LOGO : `/wds_icon/${car.icon}.svg`}
+                      src={WEBSCIMITH_LOGO}
                       alt=""
                       draggable={false}
                       decoding="async"
                     />
+                    <span className="ws-car-brand">Websmith</span>
                     <span className="ws-car-chevron">{lane.dir === "Up" ? "▲" : "▼"}</span>
                   </div>
                   <span className="ws-car-wheel ws-car-wheel-l" />
                   <span className="ws-car-wheel ws-car-wheel-r" />
                 </div>
-                <span
-                  className="ws-car-label"
-                  style={{ color: car.color, ...(car.websmith ? styles.carLabelWebsmith : {}) }}
-                >
-                  {car.name}
-                </span>
               </div>
             </div>
           ))}
@@ -372,30 +374,20 @@ function LanguageRoad() {
         <span>WEBSMITH DIGITAL — OFFICIAL TRACK PARTNER</span>
       </div>
 
+      {/* Traffic keyframes injected as raw global CSS (a plain <style> tag —
+          styled-jsx strips template interpolations, this tag guarantees the
+          wsTrafficUp / wsTrafficDown keyframes reach the browser). */}
+      <style dangerouslySetInnerHTML={{ __html: TRAFFIC_CSS }} />
+
       <style jsx>{`
-        /* Seamless vertical loops: travel the full road height, both extremes
-           are off-screen, so the reset is invisible at the road boundary. */
-        @keyframes wsRoadUp {
-          0% {
-            transform: translateY(110%);
-          }
-          100% {
-            transform: translateY(-110%);
-          }
-        }
-        @keyframes wsRoadDown {
-          0% {
-            transform: translateY(-110%);
-          }
-          100% {
-            transform: translateY(110%);
-          }
-        }
+        /* Traffic keyframes: 6 speed profiles × 2 directions, pre-built
+           deterministically (long segments = faster, short = slower; the
+           ease-in-out timing smooths every speed change). Both extremes of
+           every journey are off-screen so the loop reset is invisible. */
         .ws-road {
           --car-w: 58px;
           --body-h: 30px;
-          --icon-s: 20px;
-          --label-fs: 7.5px;
+          --icon-s: 16px;
         }
         /* ---- Websmith Digital branding integrated into the asphalt ---- */
         /* Large blurred websmith_1x1.webp watermark down the road centre:
@@ -558,12 +550,11 @@ function LanguageRoad() {
           height: 100%;
           will-change: transform;
         }
-        /* Sport-car: glowing body (language color), windshield, rear wing,
-           wheels, direction chevron, language icon on the body, label. */
+        /* Sport-car: glowing gold Websmith body (logo + "WEBSMITH" text
+           embedded ON the car), rear wing, wheels, direction chevron. */
         .ws-car {
           position: absolute;
           left: 50%;
-          transform: translateX(-50%);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -602,26 +593,28 @@ function LanguageRoad() {
           display: flex;
           align-items: center;
           justify-content: center;
+          gap: 3px;
+          padding: 0 5px;
           z-index: 2;
-        }
-        .ws-car-glass {
-          position: absolute;
-          top: -8px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 58%;
-          height: 12px;
-          border-radius: 8px 8px 4px 4px;
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          box-sizing: border-box;
-          z-index: 1;
         }
         .ws-car-icon {
           width: var(--icon-s);
           height: var(--icon-s);
+          flex-shrink: 0;
           object-fit: contain;
           display: block;
           filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+        }
+        /* "Websmith" brand text printed ON the car body. */
+        .ws-car-brand {
+          font-size: 6px;
+          font-weight: 900;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+          white-space: nowrap;
+          line-height: 1;
+          color: #4a3200;
+          text-shadow: 0 0 4px rgba(255, 255, 255, 0.25);
         }
         .ws-car-chevron {
           position: absolute;
@@ -658,23 +651,12 @@ function LanguageRoad() {
           opacity: 0.8;
           z-index: 1;
         }
-        .ws-car-label {
-          margin-top: 7px;
-          font-size: var(--label-fs);
-          font-weight: 800;
-          letter-spacing: 0.4px;
-          text-transform: uppercase;
-          white-space: nowrap;
-          line-height: 1.1;
-          text-shadow: 0 0 6px rgba(0, 0, 0, 0.85);
-        }
         /* Desktop shrink: 901-1150px keeps the 3-zone stage, smaller cars */
         @media (max-width: 1150px) and (min-width: 901px) {
           .ws-road {
             --car-w: 48px;
             --body-h: 26px;
-            --icon-s: 17px;
-            --label-fs: 6.5px;
+            --icon-s: 14px;
           }
           .ws-road-footer {
             height: 22px;
@@ -967,14 +949,6 @@ const styles: Record<string, React.CSSProperties> = {
     bottom: 0,
     width: "25%",
     overflow: "hidden",
-  },
-  carFrameWebsmith: {
-    filter: "drop-shadow(0 0 6px rgba(255, 215, 0, 0.35))",
-  },
-  carLabelWebsmith: {
-    fontWeight: 900,
-    letterSpacing: "1px",
-    textShadow: "0 0 10px rgba(255, 215, 0, 0.55)",
   },
   // THE centered chat card (clear space above and below; responsive on mobile).
   card: {
