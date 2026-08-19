@@ -8,29 +8,20 @@
 //          verifies it against the path ticket + the customer's email before ANY
 //          data is returned or stored.
 //
-//          FINAL 3-ZONE LAYOUT (2026-08-19, VISUAL ONLY): the page is a strict
-//          desktop split of EXACTLY 33% / 34% / 33% with NO gaps between the
-//          three zones, and no element may cross into another zone:
-//            LEFT  (33%)  ONE CONTINUOUS RACING ROAD with WEBSMITH TRAFFIC —
-//                    a single wide road spans the full left column height and
-//                    width with EXACTLY 4 lanes (Lane 1 ↑, Lane 2 ↓, Lane 3 ↑,
-//                    Lane 4 ↓ — adjacent lanes always run in opposite
-//                    directions), clear dashed lane markings and solid road
-//                    edges. 48 Websmith cars (12 per lane × 4 lanes) run as a
-//                    live traffic stream: every car carries the Websmith logo
-//                    + "WEBSMITH" text EMBEDDED ON its body, with its own
-//                    duration, phase, slot and one of 6 speed profiles so cars
-//                    occasionally speed up / slow down smoothly (ease-in-out,
-//                    never sudden jumps, never one constant speed), keep
-//                    natural spacing (pass-over z-index + jitter, no stacking)
-//                    and loop seamlessly with both journey extremes off-screen.
-//                    Websmith Digital branding is INTEGRATED into the asphalt:
-//                    a large blurred websmith_1x1.webp watermark down the road
-//                    centre (screen-blended into the asphalt), vertical
-//                    "WEBSMITH DIGITAL · GRAND PRIX" track prints, an F1-style
-//                    checkered start/finish line, red/white kerbs and a thin
-//                    branded footer strip — all painted onto the dark premium
-//                    racing asphalt (never floating UI, always behind the cars).
+//          3-ZONE LAYOUT (VISUAL ONLY): the page is a strict desktop split of
+//          EXACTLY 33% / 34% / 33% with NO gaps between the three zones, and
+//          no element may cross into another zone:
+//            LEFT  (33%)  SOCIAL ICON WATER-BUBBLE POPUPS — the left zone now
+//                    hosts the social-icon popup animation: 90px popups that
+//                    POP into existence (0 -> 90px over ~0.5s), live >= 1s,
+//                    then fade; at most 5 coexist and are replaced
+//                    continuously. Every popup uses a RANDOM real
+//                    `public/social_icon` SVG (all 35 participate) inside a
+//                    random mask shape, placed at a random SAFE position
+//                    (measured from the real zone so the full 90px popup stays
+//                    inside the left area — never in the center/right). The
+//                    car/traffic animation is NOT re-added; the 33% width
+//                    allocation is preserved so the page layout never shifts.
 //            CENTER (34%)  MESSENGER ONLY — the existing chat card exactly as
 //                    before: messages, composer, Send, Client Login, Home,
 //                    dynamic Open/Closed status dot + tooltip, secure JWT chat,
@@ -46,8 +37,8 @@
 //                    80px → 240px scale(3), ~1.5s hold, 80px back; transform
 //                    only, no reflow, never covers the messenger). All bubbles
 //                    stay inside the right 33% zone.
-//          Below 900px the road + bubbles hide and the messenger becomes the
-//          full-width centered card (decorations are desktop-only);
+//          Below 900px the left zone + bubbles hide and the messenger becomes
+//          the full-width centered card (decorations are desktop-only);
 //          `prefers-reduced-motion` stops all animation.
 //          All logic (token, poll, send, status, contact info, no-executive
 //          message) is unchanged.
@@ -60,58 +51,6 @@ import { CheckCircle2, Loader2, Lock, Send, ShieldCheck, XCircle } from "lucide-
 const TEAM_NAME = "Websmith Digital Support";
 const POLL_INTERVAL_MS = 3_000;
 const CONTACT_INFO_URL = "/api/settings/public/contact_info";
-
-// Top-right Websmith logo image (compact, keeps aspect ratio, inside the card)
-const WEBSCIMITH_LOGO = "/images/Websmith.png";
-
-// Road branding asset — subtle/blurred Websmith branding printed on the asphalt
-// (websmith_1x1.webp, integrated into the road design, never floating UI).
-const ROAD_BRAND_IMG = "/images/websmith_1x1.webp";
-
-// ---- LEFT ZONE — WEBSMITH TRAFFIC data ------------------------------------
-// 4 lanes × 12 Websmith cars = 48 cars total. Every car is a branded Websmith
-// racer: the Websmith logo + "WEBSMITH" text are EMBEDDED ON the car body
-// itself (never floating separately on the track). Lane 1 ↑ / Lane 2 ↓ /
-// Lane 3 ↑ / Lane 4 ↓ (adjacent lanes always opposite, lane directions and
-// track design preserved).
-const TRAFFIC_LANE_COUNT = 4;
-const TRAFFIC_CARS_PER_LANE = 12;
-
-// 6 deterministic speed profiles: each profile is a list of [time %, travel %]
-// keyframe stops for UP lanes (DOWN lanes mirror them). Segment lengths differ
-// so every car occasionally moves faster through long segments and slower
-// through short ones — live-traffic rhythm with smooth ease-in-out changes
-// (never sudden jumps, never one identical constant speed for every car).
-const TRAFFIC_PROFILES: Array<Array<[number, number]>> = [
-  [[0, 110], [20, 35], [45, -5], [70, -60], [100, -110]],
-  [[0, 110], [32, 60], [55, 10], [80, -45], [100, -110]],
-  [[0, 110], [16, 85], [42, -30], [72, -85], [100, -110]],
-  [[0, 110], [26, 30], [52, 0], [78, -35], [100, -110]],
-  [[0, 110], [36, 70], [56, 42], [84, -70], [100, -110]],
-  [[0, 110], [18, 92], [40, 22], [62, -12], [86, -95], [100, -110]],
-];
-
-function trafficKeyframes(name: string, stops: Array<[number, number]>): string {
-  const frames = stops
-    .map(([pct, y]) => `  ${pct}% { transform: translateY(${y}%); }`)
-    .join("\n");
-  return `@keyframes ${name} {\n${frames}\n}`;
-}
-
-// Pre-built keyframes for every profile × direction (deterministic, static).
-const TRAFFIC_CSS = (() => {
-  const parts: string[] = [];
-  TRAFFIC_PROFILES.forEach((stops, p) => {
-    parts.push(trafficKeyframes(`wsTrafficUp${p}`, stops));
-    parts.push(
-      trafficKeyframes(
-        `wsTrafficDown${p}`,
-        stops.map(([t, y]) => [t, -y] as [number, number])
-      )
-    );
-  });
-  return parts.join("\n");
-})();
 
 // ---- RIGHT ZONE — FLYING BUBBLES data -------------------------------------
 // 50 programming-language / technology icons available in public/wds_icon
@@ -143,11 +82,29 @@ const ZOOM_MIN_DELAY_MS = 2_300;
 const ZOOM_MAX_DELAY_MS = 4_500;
 const ZOOM_DURATION_MS = 3_000; // 0.75s in + 1.5s hold + 0.75s out (CSS 3s)
 
-// Deterministic pseudo-random (hydration-safe — identical on server + client).
-function racerRand(seed: number): number {
-  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
-  return x - Math.floor(x);
-}
+// ---- LEFT ZONE — SOCIAL ICON WATER-BUBBLE POPUPS ---------------------------
+// Every REAL social-icon SVG in public/social_icon (35 files — the README also
+// lists WeChat but no wechat.svg exists, so only the 35 real files participate).
+// Nothing invented, nothing external.
+const SOCIAL_ICONS: string[] = [
+  "behance", "bluesky", "discord", "dribbble", "facebook-messenger", "facebook",
+  "flickr", "github", "gitlab", "instagram", "linkedin", "mastodon", "medium",
+  "patreon", "pinterest", "quora", "reddit", "skype", "slack", "snapchat",
+  "soundcloud", "spotify", "stackoverflow", "telegram", "threads", "tiktok",
+  "tumblr", "twitch", "twitter", "vimeo", "vk", "whatsapp", "x-twitter", "x",
+  "youtube",
+];
+
+// Water-bubble POP rules: a popup POPS into existence (0 -> 90px growth over
+// ~0.5s, springy overshoot), lives >= 1s, then fades out; max/target
+// POP_MAX_ACTIVE (5) popups are on screen at once — one dies, another pops.
+const POP_MAX_ACTIVE = 5;
+const POP_ICON_BASE = 50; // the icon itself is 50x50
+const POP_FULL_SIZE = 90; // the popup bubble grows to 90px
+const POP_GROW_MS = 520; // 0 -> 90px growth time (~0.5s)
+const POP_MIN_LIFE_MS = 1_000; // minimum popup lifetime (>= 1s)
+const POP_MAX_LIFE_MS = 2_600; // max popup lifetime
+const POP_SAFE = 6; // px keep-out so the full 90px popup stays inside the zone
 
 export interface ChatAttachment {
   name: string;
@@ -218,474 +175,6 @@ const formatTime = (value?: string) => {
     minute: "2-digit",
   });
 };
-
-/**
- * LEFT ZONE — ONE CONTINUOUS RACING ROAD with WEBSMITH TRAFFIC.
- *
- * A single wide road fills the entire left 33% zone (full width, full usable
- * height) with EXACTLY 4 lanes — Lane 1 ↑, Lane 2 ↓, Lane 3 ↑, Lane 4 ↓ — so
- * adjacent lanes always run in opposite directions. Solid road edges + 3
- * glowing dashed lane dividers (one road, no separated road blocks).
- *
- * TRAFFIC: 48 Websmith cars total — 12 cars per lane × 4 lanes. Every car is
- * a branded Websmith racer: the Websmith logo + "WEBSMITH" text are EMBEDDED
- * ON the car body itself (never floating separately on the track). Each car
- * has its own traffic speed profile:
- *  - per-car loop duration (16-26s) and negative delay (mid-road on mount),
- *  - one of 6 deterministic speed profiles whose keyframe segments differ in
- *    length — every car occasionally moves faster through long segments and
- *    slows down through short ones (live-traffic rhythm; NEVER one constant
- *    identical speed for every car),
- *  - `ease-in-out` timing on every segment makes all speed changes smooth,
- *    never sudden jumps,
- *  - per-car slot, z-index (pass-over) and horizontal jitter keep natural
- *    spacing — cars never stack together and a faster car overtakes briefly
- *    behind/in front of a slower one,
- *  - both journey extremes are always OFF-SCREEN, so the loop reset is
- *    invisible — traffic continues seamlessly forever.
- * Cars never leave their lane (each lane is overflow hidden) and never cross
- * into the center zone. The track layout (road, edges, dividers, F1
- * markings, branding layers) is untouched.
- *
- * Websmith Digital branding is printed INTO the road itself (dark premium
- * racing asphalt): a large blurred websmith_1x1.webp watermark down the road
- * centre (screen-blended into the asphalt, behind the cars), vertical
- * "WEBSMITH DIGITAL · GRAND PRIX" track prints, an F1-style checkered
- * start/finish line across the road top, red/white kerbs along both road
- * edges and a thin branded footer strip at the road base — all painted onto
- * the asphalt (z-index 1-2, always behind the cars), never floating UI.
- *
- * Motion model (GPU-friendly, CSS transforms only):
- *  - Every car sits in its own "journey" wrapper that spans the full road
- *    height (height:100%) and animates through its profile's keyframes:
- *    `translateY(110%) -> translateY(-110%)` (up) or the exact reverse
- *    (down). The car is positioned at a per-car `top: slot%` inside the
- *    wrapper, so the travel covers the WHOLE road and both extremes are
- *    always OFF-SCREEN — the loop resets at the road boundary, never with a
- *    visible teleport in the middle.
- *  - Responsive: cars/badges shrink through CSS custom properties at smaller
- *    widths; `prefers-reduced-motion` stops the animation.
- */
-function LanguageRoad() {
-  const lanes = useMemo(
-    () =>
-      Array.from({ length: TRAFFIC_LANE_COUNT }, (_, lIndex) => {
-        const dir: "Up" | "Down" = lIndex % 2 === 0 ? "Up" : "Down";
-        return {
-          dir,
-          cars: Array.from({ length: TRAFFIC_CARS_PER_LANE }, (_, cIndex) => {
-            // Deterministic pseudo-random (hydration-safe — identical on
-            // server + client): every car gets its own duration, phase,
-            // slot, speed profile, z-index and horizontal jitter so the
-            // traffic keeps natural spacing and never stacks together.
-            const seed = lIndex * 40 + cIndex * 7 + 1;
-            const duration = 16 + racerRand(seed) * 10;
-            const delay = -(duration * (0.08 + racerRand(seed + 1) * 0.85));
-            const slot = 2 + (cIndex / TRAFFIC_CARS_PER_LANE) * 88 + (racerRand(seed + 2) - 0.5) * 8;
-            const profile = Math.floor(racerRand(seed + 3) * TRAFFIC_PROFILES.length);
-            const zIndex = 1 + Math.floor(racerRand(seed + 4) * 3);
-            const jitter = (racerRand(seed + 5) - 0.5) * 14;
-            return { id: `${lIndex}-${cIndex}`, duration, delay, slot, profile, zIndex, jitter };
-          }),
-        };
-      }),
-    []
-  );
-
-  return (
-    <div className="ws-road" style={styles.road} aria-hidden="true">
-      {/* Websmith Digital branding INTEGRATED into the asphalt — a subtle/blurred
-          websmith_1x1.webp watermark layer + F1-style track prints, painted onto
-          the road (behind the cars, part of the asphalt, never floating UI). */}
-      <div className="ws-road-brand">
-        <img src={ROAD_BRAND_IMG} alt="" draggable={false} decoding="async" />
-      </div>
-      <span className="ws-road-print">WEBSMITH DIGITAL · GRAND PRIX</span>
-      <span className="ws-road-print ws-road-print-b">TECHNOLOGY · ENGINEERING · SUPPORT</span>
-
-      {/* F1 racing markings painted on the asphalt: start/finish checkered line
-          across the road + red/white kerbs along both road edges. */}
-      <span className="ws-road-checker" />
-      <span className="ws-road-kerb ws-road-kerb-l" />
-      <span className="ws-road-kerb ws-road-kerb-r" />
-
-      {/* Road edges (solid lines) + 3 dashed lane dividers (one continuous road) */}
-      <span className="ws-road-edge ws-road-edge-l" />
-      <span className="ws-road-edge ws-road-edge-r" />
-      <span className="ws-road-divider" style={{ left: "25%" }} />
-      <span className="ws-road-divider" style={{ left: "50%" }} />
-      <span className="ws-road-divider" style={{ left: "75%" }} />
-
-      {lanes.map((lane, lIndex) => (
-        <div key={lIndex} className="ws-lane" style={styles.lane}>
-          {lane.cars.map((car) => (
-            <div
-              key={car.id}
-              className="ws-journey"
-              style={{
-                animation: `wsTraffic${lane.dir}${car.profile} ${car.duration}s ease-in-out ${car.delay}s infinite`,
-              }}
-            >
-              <div
-                className="ws-car"
-                style={{
-                  top: `${car.slot}%`,
-                  zIndex: car.zIndex,
-                  transform: `translateX(calc(-50% + ${car.jitter}px))`,
-                }}
-              >
-                <span
-                  className="ws-car-trail"
-                  style={{ background: "linear-gradient(180deg, #ffd700bb, transparent)" }}
-                />
-                <div className="ws-car-frame ws-car-frame-websmith">
-                  <span className="ws-car-wing" style={{ borderColor: "#FFD70099" }} />
-                  <div
-                    className="ws-car-body ws-car-body-websmith"
-                    style={{
-                      background: "linear-gradient(180deg, #FFD700, #b8860b)",
-                      borderColor: "#FFD700dd",
-                      boxShadow: "0 0 16px rgba(255,215,0,0.55), inset 0 0 10px rgba(255,215,0,0.28)",
-                    }}
-                  >
-                    <img
-                      className="ws-car-icon"
-                      src={WEBSCIMITH_LOGO}
-                      alt=""
-                      draggable={false}
-                      decoding="async"
-                    />
-                    <span className="ws-car-brand">Websmith</span>
-                    <span className="ws-car-chevron">{lane.dir === "Up" ? "▲" : "▼"}</span>
-                  </div>
-                  <span className="ws-car-wheel ws-car-wheel-l" />
-                  <span className="ws-car-wheel ws-car-wheel-r" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-
-      {/* Websmith Digital footer hoarding — a thin branded strip painted onto
-          the road base (part of the asphalt layer, subtle, behind the cars). */}
-      <div className="ws-road-footer">
-        <img src={ROAD_BRAND_IMG} alt="" draggable={false} decoding="async" />
-        <span>WEBSMITH DIGITAL — OFFICIAL TRACK PARTNER</span>
-      </div>
-
-      {/* Traffic keyframes injected as raw global CSS (a plain <style> tag —
-          styled-jsx strips template interpolations, this tag guarantees the
-          wsTrafficUp / wsTrafficDown keyframes reach the browser). */}
-      <style dangerouslySetInnerHTML={{ __html: TRAFFIC_CSS }} />
-
-      <style jsx>{`
-        /* Traffic keyframes: 6 speed profiles × 2 directions, pre-built
-           deterministically (long segments = faster, short = slower; the
-           ease-in-out timing smooths every speed change). Both extremes of
-           every journey are off-screen so the loop reset is invisible. */
-        .ws-road {
-          --car-w: 58px;
-          --body-h: 30px;
-          --icon-s: 16px;
-        }
-        /* ---- Websmith Digital branding integrated into the asphalt ---- */
-        /* Large blurred websmith_1x1.webp watermark down the road centre:
-           mixed into the asphalt (screen blend), never over the cars. */
-        .ws-road-brand {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 44%;
-          height: 100%;
-          transform: translate(-50%, -50%);
-          overflow: hidden;
-          pointer-events: none;
-          z-index: 1;
-          opacity: 0.55;
-          filter: blur(6px) saturate(1.1);
-        }
-        .ws-road-brand img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          object-position: center;
-          opacity: 0.26;
-          mix-blend-mode: screen;
-        }
-        /* F1-style track print on the asphalt: vertical sponsor text running
-           down the road centre-line (subtle, painted look). */
-        .ws-road-print {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%) rotate(90deg);
-          white-space: nowrap;
-          pointer-events: none;
-          z-index: 1;
-          color: rgba(255, 255, 255, 0.09);
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: 9px;
-          text-transform: uppercase;
-          text-shadow: 0 0 10px rgba(20, 156, 234, 0.4);
-        }
-        .ws-road-print-b {
-          top: 82%;
-          font-size: 8.5px;
-          letter-spacing: 5px;
-          color: rgba(255, 255, 255, 0.06);
-        }
-        /* F1 start/finish checkered line painted across the road top. */
-        .ws-road-checker {
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 2.5%;
-          height: 24px;
-          pointer-events: none;
-          z-index: 2;
-          opacity: 0.85;
-          background: repeating-conic-gradient(#dde3ec 0% 25%, #151a24 0% 50%) 0 0 / 15px 15px;
-          box-shadow:
-            0 0 10px rgba(20, 156, 234, 0.35),
-            inset 0 1px 0 rgba(255, 255, 255, 0.14);
-          border-radius: 2px;
-        }
-        /* Red/white F1 kerbs along both road edges. */
-        .ws-road-kerb {
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          width: 5px;
-          pointer-events: none;
-          z-index: 2;
-          opacity: 0.7;
-        }
-        .ws-road-kerb-l {
-          left: 0;
-          background: repeating-linear-gradient(180deg, #b3261e 0 9px, #e8ecf2 9px 18px);
-        }
-        .ws-road-kerb-r {
-          right: 0;
-          background: repeating-linear-gradient(180deg, #e8ecf2 0 9px, #b3261e 9px 18px);
-        }
-        /* Websmith Digital footer strip — painted onto the road base. */
-        .ws-road-footer {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          height: 26px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          pointer-events: none;
-          z-index: 2;
-          background: linear-gradient(180deg, rgba(8, 11, 17, 0.82), rgba(5, 7, 12, 0.9));
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 0 12px rgba(20, 156, 234, 0.12);
-          opacity: 0.9;
-        }
-        .ws-road-footer img {
-          width: 20px;
-          height: 20px;
-          border-radius: 4px;
-          object-fit: cover;
-          opacity: 0.85;
-        }
-        .ws-road-footer span {
-          font-size: 8px;
-          font-weight: 800;
-          letter-spacing: 2.2px;
-          text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.5);
-          text-shadow: 0 0 8px rgba(20, 156, 234, 0.35);
-          white-space: nowrap;
-        }
-        /* One continuous asphalt road, full left-zone width and height. */
-        .ws-road-edge {
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          width: 3px;
-          border-radius: 2px;
-          background: rgba(255, 255, 255, 0.32);
-          box-shadow: 0 0 8px rgba(20, 156, 234, 0.45);
-          z-index: 2;
-        }
-        .ws-road-edge-l {
-          left: 4px;
-        }
-        .ws-road-edge-r {
-          right: 4px;
-        }
-        .ws-road-divider {
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          width: 2px;
-          transform: translateX(-50%);
-          background: repeating-linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0.28) 0 8px,
-            transparent 8px 18px
-          );
-          box-shadow: 0 0 8px rgba(20, 156, 234, 0.35);
-          z-index: 2;
-        }
-        .ws-lane {
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          width: 25%;
-          overflow: hidden;
-        }
-        .ws-journey {
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 0;
-          height: 100%;
-          will-change: transform;
-        }
-        /* Sport-car: glowing gold Websmith body (logo + "WEBSMITH" text
-           embedded ON the car), rear wing, wheels, direction chevron. */
-        .ws-car {
-          position: absolute;
-          left: 50%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          will-change: transform;
-        }
-        .ws-car-frame {
-          position: relative;
-          width: var(--car-w);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-        .ws-car-frame-websmith {
-          width: calc(var(--car-w) + 10px);
-        }
-        .ws-car-wing {
-          position: absolute;
-          top: -5px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: calc(var(--car-w) - 8px);
-          height: 4px;
-          border-radius: 2px;
-          border-top: 2px solid;
-          box-sizing: border-box;
-          background: rgba(10, 15, 24, 0.85);
-          z-index: 3;
-        }
-        .ws-car-body {
-          position: relative;
-          width: 100%;
-          height: var(--body-h);
-          border-radius: 8px 8px 12px 12px;
-          border: 1px solid;
-          box-sizing: border-box;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
-          padding: 0 5px;
-          z-index: 2;
-        }
-        .ws-car-icon {
-          width: var(--icon-s);
-          height: var(--icon-s);
-          flex-shrink: 0;
-          object-fit: contain;
-          display: block;
-          filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
-        }
-        /* "Websmith" brand text printed ON the car body. */
-        .ws-car-brand {
-          font-size: 6px;
-          font-weight: 900;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-          white-space: nowrap;
-          line-height: 1;
-          color: #4a3200;
-          text-shadow: 0 0 4px rgba(255, 255, 255, 0.25);
-        }
-        .ws-car-chevron {
-          position: absolute;
-          top: 1px;
-          right: 3px;
-          font-size: 6px;
-          line-height: 1;
-          color: rgba(255, 255, 255, 0.85);
-          text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
-        }
-        .ws-car-wheel {
-          position: absolute;
-          bottom: -6px;
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          background: #0b0f16;
-          border: 2px solid rgba(235, 240, 248, 0.9);
-          box-sizing: border-box;
-          z-index: 3;
-        }
-        .ws-car-wheel-l {
-          left: 7px;
-        }
-        .ws-car-wheel-r {
-          right: 7px;
-        }
-        .ws-car-trail {
-          position: absolute;
-          top: calc(100% + 3px);
-          width: 2px;
-          height: 34px;
-          border-radius: 2px;
-          opacity: 0.8;
-          z-index: 1;
-        }
-        /* Desktop shrink: 901-1150px keeps the 3-zone stage, smaller cars */
-        @media (max-width: 1150px) and (min-width: 901px) {
-          .ws-road {
-            --car-w: 48px;
-            --body-h: 26px;
-            --icon-s: 14px;
-          }
-          .ws-road-footer {
-            height: 22px;
-          }
-          .ws-road-footer span {
-            font-size: 6.5px;
-            letter-spacing: 1.6px;
-          }
-          .ws-road-print {
-            font-size: 10px;
-            letter-spacing: 6px;
-          }
-          .ws-road-print-b {
-            font-size: 7px;
-            letter-spacing: 4px;
-          }
-          .ws-road-checker {
-            height: 18px;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .ws-journey {
-            animation: none !important;
-          }
-        }
-      `}</style>
-    </div>
-  );
-}
 
 /**
  * RIGHT ZONE — THE EXISTING FLYING LANGUAGE BUBBLES (60 bubbles + random 3x
@@ -874,10 +363,156 @@ function FlyingBubbles() {
   );
 }
 
+// ---- LEFT ZONE — SOCIAL ICON WATER-BUBBLE POPUPS --------------------------
+// Water-bubble popups confined to the LEFT zone ONLY (the 33% `roadZone` —
+// even narrower than the documented "left 39%", so a popup can never reach the
+// center column). Each popup POPS into existence (grows 0 -> 90px over ~0.5s
+// with a springy overshoot), lives >= 1s, then fades away; max POP_MAX_ACTIVE
+// (5) coexist — one dies, a replacement pops elsewhere. Every popup uses a
+// RANDOM real `public/social_icon` SVG (all 35 participate), a random mask
+// shape (circle / squircle / hexagon / blob / oval — icons stay recognizable),
+// a random safe x/y (measured from the real zone so the full 90px popup always
+// stays inside), a small random rotation and a random lifetime.
+interface SocialPop {
+  id: number;
+  icon: string;
+  x: number; // px, left (safe boundary applied)
+  y: number; // px, top  (safe boundary applied)
+  shape: string;
+  rotate: number;
+  life: number; // ms lifetime (>= 1s)
+}
+
+const POP_SHAPES = ["circle", "squircle", "hexagon", "blob", "oval"];
+
+const SOCIAL_POP_CSS = `
+.ws-social-pops-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+.ws-social-pop{position:absolute;width:90px;height:90px;opacity:0;will-change:transform,opacity;}
+.ws-social-pop-inner{position:relative;width:100%;height:100%;will-change:transform;transform-origin:center;}
+.ws-social-bubble{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 32% 26%,rgba(255,255,255,0.6),rgba(255,255,255,0.1) 46%,rgba(255,255,255,0.03) 72%);border:1px solid rgba(255,255,255,0.35);box-shadow:inset 0 0 14px rgba(255,255,255,0.18),0 6px 18px rgba(0,0,0,0.14);}
+.ws-pop-shape-circle{border-radius:50%;}
+.ws-pop-shape-squircle{border-radius:26%;}
+.ws-pop-shape-hexagon{clip-path:polygon(25% 6.7%,75% 6.7%,98.3% 50%,75% 93.3%,25% 93.3%,1.7% 50%);}
+.ws-pop-shape-blob{border-radius:58% 42% 52% 48% / 48% 56% 44% 52%;}
+.ws-pop-shape-oval{border-radius:50% / 36%;}
+.ws-social-icon{display:block;width:50px;height:50px;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.25));}
+@keyframes wsSocialGrow{0%{transform:scale(0);opacity:0;}60%{transform:scale(1.1);opacity:1;}100%{transform:scale(1);opacity:1;}}
+@keyframes wsSocialFade{0%{opacity:0;}8%{opacity:1;}82%{opacity:1;}100%{opacity:0;}}
+@media (prefers-reduced-motion:reduce){.ws-social-pop{display:none !important;}}
+`;
+
+function SocialIconPops() {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const [zone, setZone] = useState<{ w: number; h: number } | null>(null);
+  const [pops, setPops] = useState<SocialPop[]>([]);
+  const nextId = useRef(0);
+  const activeRef = useRef(0);
+
+  // Measure the real left-zone size so every 90px popup is placed with a safe
+  // boundary (never clipped, never crossing into the center column). When the
+  // zone is hidden on mobile it measures 0 -> no popups are spawned.
+  useEffect(() => {
+    const el = layerRef.current;
+    if (!el) return;
+    const measure = () => setZone({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const spawn = useCallback((): SocialPop | null => {
+    if (!zone || zone.w < POP_FULL_SIZE + POP_SAFE * 2 || zone.h < POP_FULL_SIZE + POP_SAFE * 2) return null;
+    return {
+      id: nextId.current++,
+      icon: SOCIAL_ICONS[Math.floor(Math.random() * SOCIAL_ICONS.length)],
+      x: POP_SAFE + Math.random() * (zone.w - POP_FULL_SIZE - POP_SAFE * 2),
+      y: POP_SAFE + Math.random() * (zone.h - POP_FULL_SIZE - POP_SAFE * 2),
+      shape: POP_SHAPES[Math.floor(Math.random() * POP_SHAPES.length)],
+      rotate: Math.round((Math.random() - 0.5) * 24),
+      life: POP_MIN_LIFE_MS + Math.random() * (POP_MAX_LIFE_MS - POP_MIN_LIFE_MS),
+    };
+  }, [zone]);
+
+  // Continuous pool: staggered initial burst (not all 5 at once), then a
+  // ticker tops the pool back up to POP_MAX_ACTIVE whenever a popup expires.
+  // `activeRef` is the synchronous source of truth (incremented/decremented
+  // immediately) so the burst + ticker can never overshoot the max of 5.
+  useEffect(() => {
+    if (!zone) return;
+    let disposed = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const loop = () => {
+      if (disposed) return;
+      const need = POP_MAX_ACTIVE - activeRef.current;
+      if (need <= 0) return;
+      const created: SocialPop[] = [];
+      for (let i = 0; i < need; i++) {
+        const p = spawn();
+        if (p) created.push(p);
+      }
+      if (!created.length) return;
+      activeRef.current += created.length;
+      setPops((prev) => [...prev, ...created]);
+      created.forEach((p) => {
+        timers.push(
+          setTimeout(() => {
+            activeRef.current -= 1;
+            setPops((cur) => cur.filter((q) => q.id !== p.id));
+          }, p.life)
+        );
+      });
+    };
+    for (let i = 0; i < POP_MAX_ACTIVE; i++) timers.push(setTimeout(loop, i * 140));
+    const id = setInterval(loop, 250);
+    return () => {
+      disposed = true;
+      clearInterval(id);
+      timers.forEach((t) => clearTimeout(t));
+      activeRef.current = 0;
+    };
+  }, [zone, spawn]);
+
+  return (
+    <div className="ws-social-pops-layer" ref={layerRef} aria-hidden="true">
+      {pops.map((p) => (
+        <div
+          key={p.id}
+          className="ws-social-pop"
+          style={{
+            left: p.x,
+            top: p.y,
+            transform: `rotate(${p.rotate}deg)`,
+            animation: `wsSocialFade ${p.life}ms ease-out forwards`,
+          }}
+        >
+          <div
+            className="ws-social-pop-inner"
+            style={{ animation: `wsSocialGrow ${POP_GROW_MS}ms cubic-bezier(0.34,1.56,0.64,1) forwards` }}
+          >
+            <div className={`ws-social-bubble ws-pop-shape-${p.shape}`}>
+              <img
+                className="ws-social-icon"
+                src={`/social_icon/${p.icon}.svg`}
+                alt=""
+                width={POP_ICON_BASE}
+                height={POP_ICON_BASE}
+                draggable={false}
+                decoding="async"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+      <style dangerouslySetInnerHTML={{ __html: SOCIAL_POP_CSS }} />
+    </div>
+  );
+}
+
 const styles: Record<string, React.CSSProperties> = {
   // Full-viewport 3-zone stage: EXACT 33% / 34% / 33% desktop split with NO
-  // gaps; below 900px the CSS media rules hide the road + bubbles and make
-  // the center zone full-width (messenger stays fully usable).
+  // gaps; below 900px the CSS media rules hide the left zone + bubbles and
+  // make the center zone full-width (messenger stays fully usable).
   root: {
     position: "relative",
     height: "100dvh",
@@ -889,7 +524,9 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--bg-primary)",
     overflow: "hidden",
   },
-  // LEFT 33% — one continuous racing road (full zone width + height).
+  // LEFT 33% — social icon water-bubble popups (the car/traffic animation was
+  // removed; the 33% width allocation is preserved so the page layout never
+  // shifts). Overflow hidden keeps every 90px popup inside this zone only.
   roadZone: {
     position: "relative",
     width: "33%",
@@ -922,33 +559,6 @@ const styles: Record<string, React.CSSProperties> = {
     pointerEvents: "none",
     overflow: "hidden",
     zIndex: 0,
-  },
-  // ---- Racing road layout ----
-  // Dark premium racing asphalt: deep blue-black base, faint horizontal wear
-  // streaks, subtle lengthwise sheen and a neon-blue ambient glow that fades
-  // toward the edges (technical circuit atmosphere, cars stay readable).
-  road: {
-    position: "absolute",
-    inset: 0,
-    background: [
-      "repeating-linear-gradient(90deg, rgba(255,255,255,0.013) 0 2px, transparent 2px 27px)",
-      "repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 96px, transparent 96px 140px)",
-      "radial-gradient(120% 90% at 50% 50%, rgba(20,156,234,0.07) 0%, transparent 62%)",
-      "linear-gradient(180deg, #0a0e15 0%, #0c1220 22%, #080c13 55%, #0b1019 85%, #070a10 100%)",
-    ].join(", "),
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    pointerEvents: "none",
-    zIndex: 0,
-    overflow: "hidden",
-  },
-  lane: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: "25%",
-    overflow: "hidden",
   },
   // THE centered chat card (clear space above and below; responsive on mobile).
   card: {
@@ -1471,9 +1081,11 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         }
       `}</style>
 
-      {/* LEFT 33% — ONE CONTINUOUS RACING ROAD (4 lanes, ↑ ↓ ↑ ↓) */}
-      <div className="ws-road-zone" style={styles.roadZone}>
-        <LanguageRoad />
+      {/* LEFT 33% — SOCIAL ICON WATER-BUBBLE POPUPS (the car/traffic animation
+          stays removed; the 33% width allocation is preserved so the layout
+          never shifts). Popups are confined to this zone only. */}
+      <div className="ws-road-zone" style={styles.roadZone} aria-hidden="true">
+        <SocialIconPops />
       </div>
 
       {/* CENTER 34% — the existing messenger card, unchanged */}

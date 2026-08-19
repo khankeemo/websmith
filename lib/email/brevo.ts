@@ -668,7 +668,7 @@ This is an automated administrative notification. Please review and take appropr
   // ================================================================
   support_reply: {
     subject: 'Re: Your Support Request - {{request_id}}',
-    defaultBody: (d) => wrapHtml('Support Reply', `
+    defaultBody: (d) => wrapHtml('Support Team', `
       <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
       <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">We have received a response to your support request <strong>{{request_id}}</strong>.</p>
       <div style="background:#f8f9fa;border-left:4px solid #4a90d9;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
@@ -780,7 +780,7 @@ ${COMPANY_NAME} Support`
   // ================================================================
   sales_reply: {
     subject: 'Re: Your Sales Enquiry - {{enquiry_id}}',
-    defaultBody: (d) => wrapHtml('Sales Reply', `
+    defaultBody: (d) => wrapHtml('Sales Team', `
       <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
       <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Our sales team has responded to your enquiry <strong>{{enquiry_id}}</strong>.</p>
       <div style="background:#f8f9fa;border-left:4px solid #10b981;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">

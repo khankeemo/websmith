@@ -31,9 +31,12 @@ const COMPANY = "Websmith Digital";
 const SIGN_OFF = "Best regards,\nThe Websmith Digital Team";
 
 // The FIRST / default welcome template used from the Query Inbox Reply Thread
-// (Phase 3): short, scannable, customer identity dynamic, and it carries the
-// decided client communication — Client Portal login link, the customer's
-// login email and the direct secure Messenger Chat link for THIS conversation.
+// (Phase 3): professional, compact and easy to scan, customer identity dynamic,
+// and it carries the decided client communication — Client Portal login link,
+// the customer's login email and the direct secure Messenger Chat link for
+// THIS conversation. The Portal + Chat links are written as `[label](url)`
+// tokens so the shared HTML renderer turns them into clickable <a> links with
+// the secure chat JWT hidden behind the link text (never displayed raw).
 export const FIRST_WELCOME_TEMPLATE_KEY = "first-welcome";
 
 // The default template is the professional, neutral onboarding message used for
@@ -45,22 +48,26 @@ export const RESOLUTION_TEMPLATE_SEED: ResolutionTemplate[] = [
     name: "First Welcome Message",
     category: "Client Portal Onboarding",
     subject: "We've received your request - {{request_id}}",
-    body: `Hello {{client_name}},
+    body: `Welcome to Websmith Digital
 
-Thank you for contacting Websmith Digital. Your request has been received and has reached the right team.
+Hello {{client_name}},
 
-We've prepared a secure space for you:
+Thank you for contacting Websmith Digital. Your request has reached the right team, and we are pleased to connect with you.
 
-Client Portal Login:
-{{portal_url}}
+If you are an existing client, you can access your Client Portal here:
+
+Client Portal:
+[Client Portal]({{portal_url}})
 
 Login Email:
 {{client_email}}
 
-Continue Chat (secure):
-{{chat_url}}
+If you have a question or need assistance, you can connect directly with our support team through your secure chat. Our team will respond as soon as possible, and you can continue the conversation at a time that is convenient for you.
 
-You can keep the conversation going anytime through your Client Portal or Secure Chat. Our team will respond as soon as possible.
+{{#if chat_url}}Continue Chat:
+[Continue Chat]({{chat_url}})
+{{/if}}
+You can keep the conversation going anytime through your Client Portal or Secure Chat.
 
 ${SIGN_OFF}`,
     isActive: true,
@@ -534,6 +541,35 @@ function buildTableHtml(header: string[], body: string[][]): string {
 }
 
 // Renders customer message text (Markdown tables + paragraphs) as email HTML.
+// Inline link handling for customer-facing email text:
+//   - `[label](url)` tokens render as a clickable <a> whose visible text is the
+//     label — the URL (and any signed JWT it carries) stays inside the href and
+//     is never shown as raw text.
+//   - Bare http(s) URLs render as clickable <a> links too.
+// Only http/https schemes are accepted; labels are HTML-escaped so no markup
+// can ever be injected. Used by renderCustomerMessageHtml for every
+// customer-bound email (First Welcome, replies, resolution templates).
+const EMAIL_INLINE_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s()<>"']+)\)|(https?:\/\/[^\s()<>"']+)/g;
+
+function renderInlineEmailText(line: string): string {
+  const out: string[] = [];
+  let last = 0;
+  EMAIL_INLINE_LINK_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = EMAIL_INLINE_LINK_RE.exec(line)) !== null) {
+    out.push(escapeHtml(line.slice(last, m.index)));
+    const url = m[2] || m[3];
+    const label = m[1] !== undefined ? m[1] : url;
+    const href = escapeHtml(url).replace(/"/g, "&quot;");
+    out.push(
+      `<a href="${href}" style="color:#4a90d9;text-decoration:underline">${escapeHtml(label)}</a>`
+    );
+    last = m.index + m[0].length;
+  }
+  out.push(escapeHtml(line.slice(last)));
+  return out.join("");
+}
+
 export function renderCustomerMessageHtml(text: string): string {
   if (!text) return "";
   const lines = text.replace(/\r\n/g, "\n").split("\n");
@@ -555,7 +591,7 @@ export function renderCustomerMessageHtml(text: string): string {
       continue;
     }
     out.push(
-      `<p style="margin:0 0 10px;font-size:14px;color:#333;line-height:1.7">${escapeHtml(lines[i])}</p>`
+      `<p style="margin:0 0 10px;font-size:14px;color:#333;line-height:1.7">${renderInlineEmailText(lines[i])}</p>`
     );
     i++;
   }
@@ -563,11 +599,14 @@ export function renderCustomerMessageHtml(text: string): string {
 }
 
 // Renders customer message text for plain-text emails: strips Markdown table
-// separator (alignment) rows; everything else stays verbatim.
+// separator (alignment) rows and unwraps `[label](url)` tokens into
+// `label: url` so plain-text recipients still see a usable link without raw
+// markdown; everything else stays verbatim.
 export function renderCustomerMessagePlain(text: string): string {
   if (!text) return "";
   return text
     .replace(/\r\n/g, "\n")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s()<>"']+)\)/g, (_match, label: string, url: string) => `${label}: ${url}`)
     .split("\n")
     .filter((line) => !isSeparatorRow(line))
     .join("\n")

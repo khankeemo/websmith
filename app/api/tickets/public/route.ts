@@ -1,6 +1,6 @@
 ﻿import { ObjectId } from "mongodb";
 import { apiHandler, jsonBody, json } from "@/lib/server/api";
-import { createClientAccount, ensureResolutionTemplates, findDefaultTemplate, renderResolutionTemplate, resolutionHtmlBody, stripAdminMarkers, FIRST_WELCOME_TEMPLATE_KEY } from "@/lib/tickets/email";
+import { createClientAccount, ensureResolutionTemplates, findDefaultTemplate, renderResolutionTemplate, renderCustomerMessagePlain, resolutionHtmlBody, stripAdminMarkers, FIRST_WELCOME_TEMPLATE_KEY } from "@/lib/tickets/email";
 import { buildChatUrl } from "@/lib/tickets/chat";
 import { sendEmail } from "@/lib/email/brevo";
 import crypto from "node:crypto";
@@ -188,7 +188,7 @@ async function sendWelcomeEmail(
     "support_reply",
     { email: input.contactEmail, name: input.contactName },
     data,
-    { custom: { subject, html: resolutionHtmlBody(subject, bodyText), plainText: bodyText } }
+    { custom: { subject, html: resolutionHtmlBody(subject, bodyText), plainText: renderCustomerMessagePlain(bodyText) } }
   );
 
   const now = new Date();
