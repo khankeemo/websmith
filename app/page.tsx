@@ -934,7 +934,7 @@ export default function LandingPage() {
 
       {/* Global Diversity & Collaboration */}
       <section className="relative w-full overflow-hidden" style={styles.section}>
-        <div className="grid grid-cols-1 min-[1700px]:grid-cols-[780px_40px_780px] justify-center">
+        <div className="grid grid-cols-1 min-[1700px]:grid-cols-[810px_40px_810px] justify-center">
           <div className="flex flex-col items-start">
             <h2 className="text-3xl sm:text-4xl font-bold text-primary mb-4">Global Collaboration & Technical Excellence</h2>
             <p className="text-base text-secondary leading-relaxed mb-6">
@@ -948,7 +948,7 @@ export default function LandingPage() {
             <img
               src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
               alt="Global Technical Team"
-              className="w-full h-[680px] rounded-lg object-cover"
+              className="w-full h-[550px] rounded-lg object-cover"
             />
           </div>
           <div className="hidden min-[1700px]:block" aria-hidden="true" />
@@ -965,7 +965,7 @@ export default function LandingPage() {
               playsInline
               controls
               preload="auto"
-              className="w-full h-[680px] rounded-lg object-cover"
+              className="w-full h-[600px] rounded-lg object-cover"
             >
               <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
             </video>
