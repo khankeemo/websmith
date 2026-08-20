@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import API from '../../../core/services/apiService';
-import { Save, Mail, Phone, Smartphone, PhoneCall, MapPin } from 'lucide-react';
+import { Save, Mail, Phone, Smartphone, PhoneCall, MapPin, Upload, Film, Image as ImageIcon } from 'lucide-react';
 import {
   DEFAULT_SITE_SETTINGS,
   SOCIAL_URL_FIELDS,
@@ -14,6 +14,8 @@ import {
   type SiteSettings,
 } from '../../../lib/site-settings';
 import { SOCIAL_PLATFORM_META } from '../../../lib/social-platforms';
+import { MEDIA_SLOTS, MAX_MEDIA_FILE_SIZE, type MediaAsset } from '../../../lib/media';
+import { refreshMediaAssets } from '../../../hooks/useMediaAsset';
 
 const EMAIL_FIELDS: Array<{ key: 'email' | 'sales_email' | 'no_reply_email' | 'hr_email'; label: string; placeholder: string }> = [
   { key: 'email', label: 'Contact Email', placeholder: 'e.g. support@websmithdigital.com' },
@@ -266,6 +268,166 @@ export default function ManagePage() {
           </div>
         </form>
       )}
+
+      <WebsiteMediaCard />
+    </div>
+  );
+}
+
+function WebsiteMediaCard() {
+  const [mediaMap, setMediaMap] = useState<Record<string, MediaAsset>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Record<string, { type: 'success' | 'error', text: string }>>({});
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  useEffect(() => {
+    fetchMedia();
+  }, []);
+
+  const fetchMedia = async () => {
+    try {
+      setIsLoading(true);
+      const res = await API.get('/settings/public/media');
+      if (res.data && res.data.success && res.data.data) {
+        const map: Record<string, MediaAsset> = {};
+        for (const slot of MEDIA_SLOTS) {
+          const record = res.data.data[slot.key];
+          map[slot.key] = record
+            ? { ...record, managed: true }
+            : { url: slot.fallback, fileName: '', contentType: '', fileSize: 0, updatedAt: '', managed: false };
+        }
+        setMediaMap(map);
+      }
+    } catch (error) {
+      console.error('Failed to fetch website media', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileChange = async (slotKey: string, file: File | null) => {
+    if (!file) return;
+    setMessages((prev) => ({ ...prev, [slotKey]: { type: 'error', text: '' } }));
+    if (file.size > MAX_MEDIA_FILE_SIZE) {
+      setMessages((prev) => ({
+        ...prev,
+        [slotKey]: { type: 'error', text: `File exceeds the ${Math.floor(MAX_MEDIA_FILE_SIZE / 1024 / 1024)}MB limit.` },
+      }));
+      return;
+    }
+    try {
+      setUploadingKey(slotKey);
+      const form = new FormData();
+      form.append('slotKey', slotKey);
+      form.append('file', file);
+      const res = await API.post('/settings/public/media', form);
+      if (res.data && res.data.success && res.data.data) {
+        const record = res.data.data;
+        setMediaMap((prev) => ({ ...prev, [slotKey]: { ...record, managed: true } }));
+        refreshMediaAssets();
+        setMessages((prev) => ({
+          ...prev,
+          [slotKey]: { type: 'success', text: `Uploaded successfully. The new media is now live on every page.` },
+        }));
+      } else {
+        setMessages((prev) => ({
+          ...prev,
+          [slotKey]: { type: 'error', text: res.data?.error || 'Upload failed.' },
+        }));
+      }
+    } catch (error: any) {
+      console.error('Failed to upload media', error);
+      setMessages((prev) => ({
+        ...prev,
+        [slotKey]: { type: 'error', text: error?.response?.data?.error || 'Upload failed. Please try again.' },
+      }));
+    } finally {
+      setUploadingKey(null);
+      if (fileInputs.current[slotKey]) fileInputs.current[slotKey].value = '';
+    }
+  };
+
+  const renderPreview = (slot: (typeof MEDIA_SLOTS)[number], asset: MediaAsset | undefined) => {
+    if (!asset || !asset.managed || !asset.url) {
+      return (
+        <div style={styles.mediaEmptyPreview}>
+          <span style={styles.mediaEmptyText}>Using default asset</span>
+          <span style={styles.mediaEmptyHint}>{slot.fallback}</span>
+        </div>
+      );
+    }
+    const common = { width: '100%', height: '100%', objectFit: 'cover' as const, borderRadius: '10px' };
+    if (slot.type === 'video') {
+      return <video src={asset.url} controls muted preload="metadata" style={common} />;
+    }
+    return <img src={asset.url} alt={slot.label} style={common} />;
+  };
+
+  return (
+    <div style={styles.card}>
+      <div style={styles.cardHeader}>
+        <h2 style={styles.cardTitle}>Website Media</h2>
+        <p style={styles.cardSubtitle}>
+          Upload the background videos, images and logos used across the public website and the
+          panel sidebar. Uploads apply immediately — every page switches to the new media without
+          a refresh.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div style={styles.loading}>Loading...</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {MEDIA_SLOTS.map((slot) => {
+            const asset = mediaMap[slot.key];
+            const message = messages[slot.key];
+            const isUploading = uploadingKey === slot.key;
+            const Icon = slot.type === 'video' ? Film : ImageIcon;
+            return (
+              <div key={slot.key} style={styles.mediaRow}>
+                <div style={styles.mediaInfo}>
+                  <div style={styles.fieldLabelRow}>
+                    <Icon size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                    <label style={styles.label}>{slot.label}</label>
+                  </div>
+                  <span style={styles.mediaUsage}>{slot.usage}</span>
+                  {asset?.managed && asset.fileName && (
+                    <span style={styles.mediaMeta}>
+                      {asset.fileName} · {Math.round(asset.fileSize / 1024)} KB
+                      {asset.updatedAt ? ` · ${new Date(asset.updatedAt).toLocaleString()}` : ''}
+                    </span>
+                  )}
+                  {message?.text && (
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: message.type === 'success' ? '#34C759' : '#FF3B30' }}>
+                      {message.text}
+                    </span>
+                  )}
+                </div>
+                <div style={styles.mediaPreview}>{renderPreview(slot, asset)}</div>
+                <div style={styles.mediaActions}>
+                  <button
+                    type="button"
+                    style={{ ...styles.uploadButton, opacity: isUploading ? 0.6 : 1 }}
+                    disabled={isUploading}
+                    onClick={() => fileInputs.current[slot.key]?.click()}
+                  >
+                    <Upload size={14} />
+                    {isUploading ? 'Uploading...' : 'Upload'}
+                  </button>
+                  <input
+                    ref={(el) => { fileInputs.current[slot.key] = el; }}
+                    type="file"
+                    accept={slot.accept}
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileChange(slot.key, e.target.files?.[0] ?? null)}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -424,5 +586,82 @@ const styles: any = {
     textAlign: 'center',
     color: 'var(--text-secondary)',
     fontSize: '15px',
-  }
+  },
+  mediaRow: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(220px, 1.4fr) 180px 110px',
+    gap: '16px',
+    alignItems: 'center',
+    padding: '14px 16px',
+    border: '1px solid var(--border-color)',
+    borderRadius: '12px',
+    backgroundColor: 'var(--bg-primary)',
+  },
+  mediaInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    minWidth: 0,
+  },
+  mediaUsage: {
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
+    opacity: 0.9,
+  },
+  mediaMeta: {
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+    opacity: 0.8,
+  },
+  mediaPreview: {
+    width: '180px',
+    height: '100px',
+    borderRadius: '10px',
+    overflow: 'hidden',
+    backgroundColor: 'var(--bg-secondary)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1px solid var(--border-color)',
+  },
+  mediaEmptyPreview: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '4px',
+    padding: '8px',
+    textAlign: 'center',
+  },
+  mediaEmptyText: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+  },
+  mediaEmptyHint: {
+    fontSize: '11px',
+    color: 'var(--text-secondary)',
+    opacity: 0.7,
+    wordBreak: 'break-all',
+  },
+  mediaActions: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: '8px',
+  },
+  uploadButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    padding: '10px 14px',
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
 };

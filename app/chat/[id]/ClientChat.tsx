@@ -69,6 +69,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, Lock, Send, ShieldCheck, XCircle } from "lucide-react";
+import { renderMessageHtml } from "@/core/services/messageRender";
 
 const TEAM_NAME = "Websmith Digital Support";
 const POLL_INTERVAL_MS = 3_000;
@@ -1606,6 +1607,11 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           cursor: not-allowed;
           box-shadow: none;
         }
+        .ws-msg-text a {
+          color: #149CEA;
+          text-decoration: underline;
+          word-break: break-all;
+        }
         @media (max-width: 480px) {
           .ws-header-mask {
             width: 36px !important;
@@ -1733,7 +1739,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
                   <div key={m.id || `${m.senderType}-${m.createdAt}-${m.message}`} style={{ ...styles.row, ...rowStyle }}>
                     <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
                       <p style={styles.bubbleSender}>{isClient ? m.senderName || "You" : TEAM_NAME}</p>
-                      <p style={styles.bubbleText}>{m.message}</p>
+                      <p className="ws-msg-text" style={styles.bubbleText} dangerouslySetInnerHTML={{ __html: renderMessageHtml(m.message) }} />
                       {m.attachments && m.attachments.length > 0 && (
                         <div style={styles.bubbleAttachments}>
                           {m.attachments.map((att, ai) => (

@@ -46,6 +46,7 @@ import {
 } from "@/core/services/ticketService";
 import { getToken } from "@/lib/auth";
 import { getSiteUrl } from "@/core/config/site";
+import { renderMessageHtml } from "@/core/services/messageRender";
 
 // Canonical sender identity shown for every admin/outbound message in the
 // Messenger Chat. Replaces any raw "Admin User" string (and the generic
@@ -374,6 +375,15 @@ html.query-inbox-workspace .app-main-scroll {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+/* Stored message text may contain "[label](url)" link tokens (First Welcome's
+   Client Portal / Direct Secure Chat links). Labels render as clickable links
+   (the URL, incl. the signed chat JWT, lives only in the href — never as
+   visible text). */
+.qib-chat-scroll .qib-msg-text a {
+  color: #007aff;
+  text-decoration: underline;
+  word-break: break-all;
 }
 .qib-cards-grid {
   flex-shrink: 0;
@@ -1522,9 +1532,13 @@ export default function AdminMessagesClient() {
                             <p style={styles.bubbleSender}>
                               {isClient ? (m.senderName || "Client") : adminDisplayName(m.senderName)}
                             </p>
-                            <p style={styles.bubbleText}>
-                              {isClient && m.source === "email" ? cleanClientBody(m.message) : m.message}
-                            </p>
+                            <p
+                              className="qib-msg-text"
+                              style={styles.bubbleText}
+                              dangerouslySetInnerHTML={{
+                                __html: renderMessageHtml(isClient && m.source === "email" ? cleanClientBody(m.message) : m.message),
+                              }}
+                            />
                             {m.attachments && m.attachments.length > 0 && (
                               <div style={styles.bubbleAttachments}>
                                 {m.attachments.map((att) => (

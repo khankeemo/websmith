@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import API from "../../core/services/apiService";
 import { getUnreadCount } from "../../core/services/notificationService";
+import { useMediaAsset } from "../../hooks/useMediaAsset";
 
 export default function Sidebar({
   mobileOpen = false,
@@ -38,6 +39,7 @@ export default function Sidebar({
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const sidebarLogo = useMediaAsset("manage_page_mask_logo");
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -227,7 +229,7 @@ export default function Sidebar({
       <div style={styles.logoContainer}>
         <div style={styles.maskCircle} className="logo-image-hover">
           <Image
-            src="/images/websmith_1x1.jpg"
+            src={sidebarLogo.managed ? sidebarLogo.url : "/images/websmith_1x1.jpg"}
             alt="Websmith Digital Logo"
             width={72}
             height={72}

@@ -8,6 +8,7 @@
 import { Pool } from 'pg';
 import { runMigrations } from '@/lib/migrations/runner';
 import { COUNTRY_CODES } from '@/lib/data/country-codes';
+import { seedMigratedMedia } from '@/lib/media/storage';
 
 let pool: Pool | null = null;
 
@@ -1552,6 +1553,23 @@ export async function getDb(): Promise<Pool> {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // 30. Create media_assets table (website media migrated from MongoDB to Neon)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS media_assets (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        slot_key TEXT NOT NULL UNIQUE,
+        file_name TEXT NOT NULL DEFAULT '',
+        content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+        file_size BIGINT NOT NULL DEFAULT 0,
+        data BYTEA NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Preserve the single valid record migrated from the previous media store
+    await seedMigratedMedia(client);
 
     // ============================================================
     // INSERT DEFAULT SYSTEM SETTINGS

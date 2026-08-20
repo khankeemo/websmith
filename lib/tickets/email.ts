@@ -48,26 +48,25 @@ export const RESOLUTION_TEMPLATE_SEED: ResolutionTemplate[] = [
     name: "First Welcome Message",
     category: "Client Portal Onboarding",
     subject: "Welcome to Websmith Digital - {{request_id}}",
-    body: `Welcome to Websmith Digital
+    body: `Websmith Digital Support
 
 Hello {{client_name}},
 
-Thank you for contacting Websmith Digital. Your request has reached the right team, and we are pleased to connect with you.
+Thank you for contacting Websmith Digital. Your request has reached the right team.
 
-If you are an existing client, you can access your Client Portal here:
+If you are an existing customer, please log in through your Client Portal to continue the conversation regarding your product, account, license, or service.
+
+If you are interested in any Websmith Digital product or want to become part of our business, please use the Client Portal to create/login to your account. You may be asked for your Client ID when continuing with our team.
 
 Client Portal:
 [Client Portal]({{portal_url}})
 
-Login Email:
-{{client_email}}
+If you have a question and want to continue through our direct encrypted chat, use the secure chat option below.
 
-If you have a question or need assistance, you can connect directly with our support team through your secure chat. Our team will respond as soon as possible, and you can continue the conversation at a time that is convenient for you.
-
-{{#if chat_url}}Continue Chat:
-[Continue Chat]({{chat_url}})
+{{#if chat_url}}Direct Secure Chat:
+[Continue in Secure Chat]({{chat_url}})
 {{/if}}
-You can keep the conversation going anytime through your Client Portal or Secure Chat.
+You can continue the conversation anytime through your Client Portal or Direct Secure Chat.
 
 ${SIGN_OFF}`,
     isActive: true,
@@ -436,6 +435,20 @@ export async function ensureResolutionTemplates(db: Db): Promise<ResolutionTempl
       },
     ]
   );
+  // One-time content migration for the First Welcome Message: production rows
+  // were seeded BEFORE the message structure was rewritten (short text + the
+  // raw `[Continue Chat](...token=...)` link). `$setOnInsert` never touches an
+  // existing row, so rows whose body lacks the canonical "Direct Secure Chat"
+  // marker are re-seeded with the current subject + body exactly once (they
+  // must contain the NEW structure; the marker check is self-terminating and
+  // leaves any later admin edits untouched).
+  const welcomeSeed = RESOLUTION_TEMPLATE_SEED.find((template) => template.key === "first-welcome");
+  if (welcomeSeed) {
+    await collection.updateOne(
+      { key: "first-welcome", body: { $not: { $regex: /Direct Secure Chat/ } } },
+      { $set: { subject: welcomeSeed.subject, body: welcomeSeed.body, updatedAt: now } }
+    );
+  }
   return (await collection.find({}).sort({ name: 1 }).toArray()) as unknown as ResolutionTemplate[];
 }
 
@@ -627,12 +640,17 @@ export function renderCustomerMessageHtml(text: string): string {
 // Renders customer message text for plain-text emails: strips Markdown table
 // separator (alignment) rows and unwraps `[label](url)` tokens into
 // `label: url` so plain-text recipients still see a usable link without raw
-// markdown; everything else stays verbatim.
+// markdown; everything else stays verbatim. Token-bearing URLs (e.g. the
+// signed secure-chat link `...?token=<jwt>`) are rendered as label ONLY —
+// the sensitive URL is never exposed as visible plain-text.
 export function renderCustomerMessagePlain(text: string): string {
   if (!text) return "";
   return text
     .replace(/\r\n/g, "\n")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s()<>"']+)\)/g, (_match, label: string, url: string) => `${label}: ${url}`)
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s()<>"']+)\)/g,
+      (_match, label: string, url: string) => (/[?&]token=/.test(url) ? label : `${label}: ${url}`)
+    )
     .split("\n")
     .filter((line) => !isSeparatorRow(line))
     .join("\n")
