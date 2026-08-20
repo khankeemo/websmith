@@ -1,0 +1,49 @@
+Vercel CLI 58.9.4 (Node.js 24.12.0)
+> [debug] [2026-08-20T05:15:55.336Z] Agent/TTY/nonInteractive: isAgent=false agentName=none stdin.isTTY=undefined --non-interactive=false explicitFalse=false => nonInteractive=false
+> [debug] [2026-08-20T05:15:55.338Z] user supplied known subcommand: "deploy"
+> [debug] [2026-08-20T05:15:55.490Z] Setting target to production
+> [debug] [2026-08-20T05:15:55.492Z] Found ".vercel\repo.json" - detected "D:\websmith" as repo root
+> [debug] [2026-08-20T05:15:55.741Z] Spinner invoked (Deploying websmith) with a 0ms delay
+> [debug] [2026-08-20T05:15:55.743Z] Valid access token, skipping token refresh.
+[client-debug] 2026-08-20T05:15:55.743Z Creating deployment...
+[client-debug] 2026-08-20T05:15:55.744Z Provided 'path' is a directory.
+> [debug] [2026-08-20T05:15:55.774Z] #1 ΓåÆ GET https://api.vercel.com/v9/projects/prj_CNhte1zNigxkBLMKtNaBokTAKTcM?teamId=team_OvG36gtavJt6fA42jb4NWyuJ
+[client-debug] 2026-08-20T05:15:55.777Z Found 26 rules in .vercelignore
+[client-debug] 2026-08-20T05:15:55.777Z Building file tree...
+[client-debug] 2026-08-20T05:15:55.839Z Found 953 files in the specified directory
+[client-debug] 2026-08-20T05:15:56.016Z Yielding a 'hashes-calculated' event with 902 hashes
+[client-debug] 2026-08-20T05:15:56.018Z Using provided API URL: https://api.vercel.com
+[client-debug] 2026-08-20T05:15:56.019Z Using provided user agent: vercel 58.9.4 node-v24.12.0 win32 (x64)
+[client-debug] 2026-08-20T05:15:56.019Z Setting platform version to harcoded value 2
+[client-debug] 2026-08-20T05:15:56.019Z Creating the deployment and starting upload...
+[client-debug] 2026-08-20T05:15:56.020Z Determining necessary files for upload...
+[client-debug] 2026-08-20T05:15:56.020Z Creating deployment
+[client-debug] 2026-08-20T05:15:56.026Z Sending deployment creation API request
+> [debug] [2026-08-20T05:15:56.672Z] #1 ΓåÉ 200 OK: sfo1::w6dvw-1787202956477-d21bc40f56e6 [897ms]
+[client-debug] 2026-08-20T05:15:57.387Z Deployment response: {"error":{"code":"invalid_root_directory","message":"If defined, the Root Directory must be a relative path not starting with `./` and not including `../` or other special characters."}}
+[client-debug] 2026-08-20T05:15:57.387Z Error: Deployment request status is 400
+[client-debug] 2026-08-20T05:15:57.388Z Yielding a 'error' event
+> [debug] [2026-08-20T05:15:57.390Z] Error: Error: If defined, the Root Directory must be a relative path not starting with `./` and not including `../` or other special characters.
+Error: If defined, the Root Directory must be a relative path not starting with `./` and not including `../` or other special characters.
+    at Now.handleDeploymentError (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/chunks/chunk-5OWYFCOQ.js:1631:19)
+    at processDeployment (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/chunks/chunk-5OWYFCOQ.js:1422:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Now.create (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/chunks/chunk-5OWYFCOQ.js:1547:24)
+    at async createDeploy (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/commands/deploy/index.js:197:12)
+    at async handleDefaultDeploy (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/commands/deploy/index.js:1646:18)
+    at async _Span.trace (C:\Users\Admin\AppData\Roaming\npm\node_modules\vercel\node_modules\@vercel\build-utils\dist\index.js:36311:14)
+    at async main (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/index.js:2338:18)
+> [debug] [2026-08-20T05:15:57.390Z] handling error: Error: If defined, the Root Directory must be a relative path not starting with `./` and not including `../` or other special characters.
+    at Now.handleDeploymentError (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/chunks/chunk-5OWYFCOQ.js:1631:19)
+    at processDeployment (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/chunks/chunk-5OWYFCOQ.js:1422:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Now.create (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/chunks/chunk-5OWYFCOQ.js:1547:24)
+    at async createDeploy (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/commands/deploy/index.js:197:12)
+    at async handleDefaultDeploy (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/commands/deploy/index.js:1646:18)
+    at async _Span.trace (C:\Users\Admin\AppData\Roaming\npm\node_modules\vercel\node_modules\@vercel\build-utils\dist\index.js:36311:14)
+    at async main (file:///C:/Users/Admin/AppData/Roaming/npm/node_modules/vercel/dist/index.js:2338:18)
+Error: If defined, the Root Directory must be a relative path not starting with `./` and not including `../` or other special characters.
+> [debug] [2026-08-20T05:15:58.098Z] Vercel CLI 58.9.4 (Node.js 24.12.0)
+
+> [debug] [2026-08-20T05:15:59.237Z] Telemetry event tracked
+> [debug] [2026-08-20T05:15:59.258Z] Telemetry subprocess exited with code 0
