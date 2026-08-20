@@ -31,8 +31,8 @@ import {
   deleteTicket,
   getResolutionTemplates,
   getTicketClientAccount,
+  getTicketQuiet,
   getTicketsPaged,
-  getTicketsQuiet,
   markTicketRead,
   resolveTicketFileUrl,
   resendTicketEmail,
@@ -42,6 +42,7 @@ import {
   syncInboundEmail,
   Ticket,
   TicketHistoryEntry,
+  ThreadMessage,
   updateTicketStatus,
 } from "@/core/services/ticketService";
 import { getToken } from "@/lib/auth";
@@ -151,6 +152,37 @@ const formatDate = (value?: string) =>
       minute: "2-digit",
     })
     : "Just now";
+
+// Time-only formatter for the message bottom metadata (`9:46 PM · From Email`).
+// The date is already available in the conversation/details panel — it is never
+// repeated inside every message bubble.
+const formatTimeOnly = (value?: string) =>
+  value
+    ? new Date(value).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : "Just now";
+
+// Ticket-generated client FIRST name (the ONLY identity shown at the top of a
+// client message bubble). Derived from the existing ticket fields — Get in Touch
+// `contactName` or the linked client account name — never a new source. Strips
+// a leading title token so "Dr. Jane Doe" renders "Jane".
+const TITLE_PREFIX_RE = /^(mr|mrs|ms|miss|dr|prof|sir|lady|lord|rev|fr)\.\s*/i;
+function clientFirstName(ticket: Ticket | null): string {
+  if (!ticket) return "Client";
+  const client = typeof ticket.clientId === "object" && ticket.clientId ? ticket.clientId : null;
+  const raw = String(ticket.contactName || client?.name || "").trim();
+  if (!raw) return "Client";
+  const withoutTitle = raw.replace(TITLE_PREFIX_RE, "").trim();
+  const first = withoutTitle.split(/\s+/)[0] || "Client";
+  return first;
+}
+
+// Bottom metadata for client messages — exactly ONE of two labels, derived from
+// the EXISTING backend message `source` field (never guessed from the text):
+//   chat -> "From Chat" (Secure Messenger Chat)
+//   everything else -> "From Email" (Get in Touch form, bridged email, portal)
+function clientSourceLabel(source?: ThreadMessage["source"]): string {
+  return source === "chat" ? "From Chat" : "From Email";
+}
 
 const formatFileSize = (bytes: number): string => {
   if (!bytes || bytes < 1024) return `${bytes} B`;
@@ -526,6 +558,20 @@ export default function AdminMessagesClient() {
   // Guards the auto-poll against overlapping bridge passes (a poll in flight is
   // never re-entered; the next interval tick picks up the result).
   const pollInFlight = useRef(false);
+  // Scroll preservation for the Messenger Chat: `chatScrollRef` is the scroll
+  // container and `nearBottomRef` tracks whether the admin is at/near the
+  // bottom (updated on user scroll). Background 1-second updates never jump the
+  // view — a near-bottom reader stays pinned to the bottom; a reader browsing
+  // older messages is left exactly where they are.
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const nearBottomRef = useRef(true);
+  const CHAT_NEAR_BOTTOM_PX = 120;
+
+  const handleChatScroll = () => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < CHAT_NEAR_BOTTOM_PX;
+  };
 
   // Dedicated workspace: hide the admin shell chrome for this page only.
   useEffect(() => {
@@ -601,19 +647,14 @@ export default function AdminMessagesClient() {
   // system, an admin reply, a status change, ...) — unchanged tickets never
   // trigger a re-render.
   const refreshOpenTicket = useCallback(async () => {
-    if (!selectedTicket) return;
+    if (!selectedTicket?._id) return;
     try {
-      // quietFetch transport: the poll runs every 1 s and must never let a
-      // session expiry kill the page (the axios interceptor would replace the
-      // whole page with /login — that is correct for user actions, never for a
-      // silent background poll).
-      const res = await getTicketsQuiet({
-        scope,
-        page,
-        pageSize: QUERY_INBOX_PAGE_SIZE,
-        search: searchTerm,
-      });
-      const fresh = res.data.find((t) => t._id === selectedTicket._id);
+      // quietFetch transport + single-ticket `ids` fetch: the poll runs every 1 s
+      // and must never let a session expiry kill the page (the axios interceptor
+      // would replace the whole page with /login — correct for user actions,
+      // never for a silent background poll). Fetching ONLY the open conversation
+      // avoids re-downloading the whole 15-ticket page every second.
+      const fresh = await getTicketQuiet(selectedTicket._id);
       if (!fresh) return;
       const changed =
         String(fresh.updatedAt ?? "") !== String(selectedTicket.updatedAt ?? "") ||
@@ -626,7 +667,7 @@ export default function AdminMessagesClient() {
     } catch {
       // Best-effort; the next poll re-attempts automatically.
     }
-  }, [selectedTicket, scope, page, searchTerm]);
+  }, [selectedTicket]);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -725,6 +766,36 @@ export default function AdminMessagesClient() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket]);
+
+  // ---- Messenger Chat scroll behavior (background 1-second updates) ----
+  // The auto-poll appends messages into the open conversation but must NEVER
+  // disorient the reader: a fresh open jumps to the bottom (new thread), and a
+  // background append pins a near-bottom reader to the bottom while leaving a
+  // reader inspecting older messages exactly where they are.
+  const scrollToBottom = () => {
+    const el = chatScrollRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+      nearBottomRef.current = true;
+    }
+  };
+
+  // Opening a conversation (or switching between conversations): scroll to the
+  // bottom so the latest message is visible immediately.
+  useEffect(() => {
+    scrollToBottom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTicket?._id]);
+
+  // Background message append (auto-poll detected a new Email/Chat message):
+  // only re-pin to the bottom if the admin was already near it. `threadMessages`
+  // is the deduped, sorted thread; its length is the only signal needed.
+  useEffect(() => {
+    if (nearBottomRef.current) {
+      scrollToBottom();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadMessages?.length]);
 
   const getRequester = (ticket: Ticket) => {
     if (ticket.source === "public_contact") {
@@ -1515,7 +1586,7 @@ export default function AdminMessagesClient() {
                 <span className="qib-chat-label">Messenger Chat</span>
                 <span className="qib-chat-hint">Client messages · Admin messages</span>
               </div>
-              <div className="qib-chat-scroll">
+              <div className="qib-chat-scroll" ref={chatScrollRef} onScroll={() => { closeMenu(); handleChatScroll(); }}>
                 {threadMessages ? (
                   <>
                     {threadMessages.map((m) => {
@@ -1529,9 +1600,9 @@ export default function AdminMessagesClient() {
                           }}
                         >
                           <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
-                            <p style={styles.bubbleSender}>
-                              {isClient ? (m.senderName || "Client") : adminDisplayName(m.senderName)}
-                            </p>
+                              <p style={styles.bubbleSender}>
+                               {isClient ? clientFirstName(selectedTicket) : adminDisplayName(m.senderName)}
+                              </p>
                             <p
                               className="qib-msg-text"
                               style={styles.bubbleText}
@@ -1556,22 +1627,30 @@ export default function AdminMessagesClient() {
                                 ))}
                               </div>
                             )}
-                            <div style={styles.bubbleMeta}>
-                              <span style={styles.bubbleTime}>{formatDate(m.createdAt)}</span>
-                              {!isClient && m.direction === "outbound" && m.deliveryStatus === "sent" && (
-                                <span style={styles.deliverySent}>Sent via email</span>
-                              )}
-                              {!isClient && m.direction === "outbound" && m.deliveryStatus === "failed" && (
-                                <span style={styles.deliveryFailed} title={m.deliveryError || "Email delivery failed"}>
-                                  Email failed
+                            {isClient ? (
+                              <div style={styles.bubbleMeta}>
+                                <span style={styles.bubbleTime}>
+                                  {formatTimeOnly(m.createdAt)} · {clientSourceLabel(m.source)}
                                 </span>
-                              )}
-                              {!isClient &&
-                                m.direction === "outbound" &&
-                                (!m.deliveryStatus || m.deliveryStatus === "not_sent") && (
-                                  <span style={styles.deliveryStored}>Stored, not emailed</span>
+                              </div>
+                            ) : (
+                              <div style={styles.bubbleMeta}>
+                                <span style={styles.bubbleTime}>{formatDate(m.createdAt)}</span>
+                                {!isClient && m.direction === "outbound" && m.deliveryStatus === "sent" && (
+                                  <span style={styles.deliverySent}>Sent via email</span>
                                 )}
-                            </div>
+                                {!isClient && m.direction === "outbound" && m.deliveryStatus === "failed" && (
+                                  <span style={styles.deliveryFailed} title={m.deliveryError || "Email delivery failed"}>
+                                    Email failed
+                                  </span>
+                                )}
+                                {!isClient &&
+                                  m.direction === "outbound" &&
+                                  (!m.deliveryStatus || m.deliveryStatus === "not_sent") && (
+                                    <span style={styles.deliveryStored}>Stored, not emailed</span>
+                                  )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

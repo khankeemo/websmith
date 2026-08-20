@@ -75,7 +75,7 @@ export interface ThreadMessage {
   recipientEmail?: string;
   message: string;
   createdAt: string;
-  source?: "public_contact" | "portal" | "email" | "admin_reply" | "resolution_email" | "onboarding_email" | "resend";
+  source?: "public_contact" | "portal" | "email" | "admin_reply" | "resolution_email" | "onboarding_email" | "resend" | "chat" | "welcome_email";
   deliveryStatus?: "sent" | "failed" | "not_sent";
   deliveryError?: string;
   providerMessageId?: string;
@@ -188,7 +188,7 @@ export const getTicketsQuiet = async (params: {
     page: String(params.page || 1),
     pageSize: String(params.pageSize || 15),
   });
-  if (params.search) query.set("search", params.search);
+   if (params.search) query.set("search", params.search);
   const payload = await quietFetch(`/tickets?${query.toString()}`);
   return payload.data as {
     data: Ticket[];
@@ -197,6 +197,18 @@ export const getTicketsQuiet = async (params: {
     pageSize: number;
     hasMore: boolean;
   };
+};
+
+/**
+ * Lightweight refresh of ONLY one ticket (the open conversation) via the
+ * existing list endpoint's `ids` filter — the Messenger Chat auto-poll uses
+ * this every 1 second instead of re-downloading the whole 15-ticket page.
+ * quietFetch transport (never page-lifeline), same Ticket shape as the list.
+ */
+export const getTicketQuiet = async (id: string): Promise<Ticket | null> => {
+  const payload = await quietFetch(`/tickets?ids=${encodeURIComponent(id)}`);
+  const list = Array.isArray(payload.data) ? (payload.data as Ticket[]) : [];
+  return list.find((t) => t._id === id) || null;
 };
 
 export const createTicket = async (payload: {

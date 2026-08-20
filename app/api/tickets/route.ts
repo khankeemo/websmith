@@ -1,4 +1,5 @@
 ﻿import { apiHandler, jsonBody, json, badRequest } from "@/lib/server/api";
+import { ObjectId } from "mongodb";
 
 // Maximum conversations rendered in the initial Query Inbox view (Phase 10).
 // The client-side list loads 15 at a time and exposes a "Load More" button;
@@ -71,6 +72,31 @@ export const GET = apiHandler(async ({ db, request, user }) => {
     }
     andClauses.push({ $or: searchOr });
     baseFilter.$and = [...(baseFilter.$and || []), ...andClauses];
+  }
+
+  // Optional `ids` filter (comma-separated) — lets the Messenger Chat auto-poll
+  // re-fetch ONLY the open conversation each second instead of the whole
+  // 15-ticket page (lighter payload, same response shape). Applies after the
+  // role scope / deletedAt / status scope so it can never widen access. Absent
+  // when not provided — fully backward compatible.
+  const idsRaw = String(url.searchParams.get("ids") || "").trim();
+  if (idsRaw) {
+    const oids: ObjectId[] = [];
+    for (const rawId of idsRaw.split(",")) {
+      const id = rawId.trim();
+      if (!id) continue;
+      try {
+        oids.push(new ObjectId(id));
+      } catch {
+        // Invalid id: skip (the row simply won't match).
+      }
+    }
+    if (oids.length > 0) {
+      baseFilter._id = { $in: oids };
+    } else {
+      // Every provided id was invalid — return an empty result set.
+      baseFilter._id = { $in: [] };
+    }
   }
 
   const hasPagination = url.searchParams.get("page") !== null || url.searchParams.get("pageSize") !== null || url.searchParams.get("limit") !== null;

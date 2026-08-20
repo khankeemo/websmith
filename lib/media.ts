@@ -91,6 +91,14 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "image/png,image/jpeg,image/webp,image/gif,image/svg+xml",
   },
   {
+    key: "manage_page_android_chrome",
+    type: "logo",
+    label: "Android Chrome Logo",
+    usage: "app/admin/manage-page Android Chrome favicon upload",
+    fallback: "/images/websmith_1x1.jpg",
+    accept: "image/png,image/jpeg,image/webp,image/gif,image/svg+xml",
+  },
+  {
     key: "landing_service_bg_1",
     type: "image",
     label: "Landing Feature Card Background 1",
