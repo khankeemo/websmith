@@ -31,6 +31,7 @@ import {
   deleteTicket,
   getResolutionTemplates,
   getTicketClientAccount,
+  getTicketMessages,
   getTicketQuiet,
   getTicketsPaged,
   markTicketRead,
@@ -76,6 +77,29 @@ type Scope = "active" | "closed";
 type Notice = { type: "success" | "error" | "warn"; text: string } | null;
 
 const QUERY_INBOX_PAGE_SIZE = 15;
+
+// Lean-card fields returned by the list endpoint (`fields=card`). Used to merge
+// refreshed card metadata onto the open conversation without ever dropping its
+// full thread (messages/history are never part of the card payload).
+const CARD_FIELDS: readonly string[] = [
+  "source",
+  "clientId",
+  "clientCustomId",
+  "clientEmail",
+  "contactName",
+  "contactEmail",
+  "contactCompany",
+  "subject",
+  "priority",
+  "status",
+  "chatStatus",
+  "lastClientReplyAt",
+  "adminReadAt",
+  "createdAt",
+  "updatedAt",
+  "hasNewClientReply",
+  "hasStoredEmail",
+];
 
 // Custom chevron for the priority dropdown (appearance: none kills the native
 // arrow). Websmith brand blue, consistent with the existing UI accents.
@@ -204,9 +228,13 @@ const getClientIdLabel = (ticket: Ticket): string | null => {
   return null;
 };
 
-function hasStoredEmail(ticket: Ticket): TicketHistoryEntry | null {
+function hasStoredEmail(ticket: Ticket): boolean {
+  // Lean card list items (`fields=card`) carry the server-computed flag — the
+  // full history array (email bodies) is NOT downloaded with the card. Full
+  // tickets (open conversation) fall back to scanning their history array.
+  if (typeof ticket.hasStoredEmail === "boolean") return ticket.hasStoredEmail;
   const history = Array.isArray(ticket.history) ? ticket.history : [];
-  return [...history].reverse().find((entry) => entry.recipient && entry.emailSubject && entry.emailBody) || null;
+  return Boolean([...history].reverse().find((entry) => entry.recipient && entry.emailSubject && entry.emailBody));
 }
 
 // Client-safe mirror of lib/tickets/email.ts `renderResolutionTemplate`. Kept local
@@ -489,6 +517,10 @@ export default function AdminMessagesClient() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  // One-time full-thread loader for the OPEN conversation: the card list is
+  // lean (fields=card), so the thread (messages[]) is fetched once on select.
+  // Never touched by the 1-second auto-poll — the poll is fully silent.
+  const [threadLoading, setThreadLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [scope, setScope] = useState<Scope>("active");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -560,6 +592,29 @@ export default function AdminMessagesClient() {
   // Guards the auto-poll against overlapping bridge passes (a poll in flight is
   // never re-entered; the next interval tick picks up the result).
   const pollInFlight = useRef(false);
+  // The poll is the ONE Messenger real-time mechanism: a single interval created
+  // on mount that reads the CURRENT selection through refs (never restarted by
+  // state updates, never duplicated) and incrementally fetches only delta
+  // messages. `selectedRef` mirrors the open conversation (id + status),
+  // `cursorRef` is the last-seen message timestamp for that conversation, and
+  // `cancelledRef` stops a pending tick on unmount.
+  const selectedRef = useRef<{ id: string; status: Ticket["status"] } | null>(null);
+  const cursorRef = useRef(0);
+  const cancelledRef = useRef(false);
+  // Mirror of the current list state for the silent card refresh (kept in a ref
+  // so the poll effect itself never depends on scope/page/search state).
+  const listStateRef = useRef({ scope, page, searchTerm });
+  useEffect(() => {
+    listStateRef.current = { scope, page, searchTerm };
+  }, [scope, page, searchTerm]);
+  // Mirror the open conversation (id + status) for the single auto-poll
+  // interval. The cursor is NOT reset here on message appends (same id) — the
+  // append path advances it; only an actual conversation switch resets it.
+  useEffect(() => {
+    selectedRef.current = selectedTicket
+      ? { id: selectedTicket._id, status: selectedTicket.status }
+      : null;
+  }, [selectedTicket?._id, selectedTicket?.status]);
   // Scroll preservation for the Messenger Chat: `chatScrollRef` is the scroll
   // container and `nearBottomRef` tracks whether the admin is at/near the
   // bottom (updated on user scroll). Background 1-second updates never jump the
@@ -599,6 +654,7 @@ export default function AdminMessagesClient() {
           page: effectivePage,
           pageSize: QUERY_INBOX_PAGE_SIZE,
           search: effectiveSearch,
+          fields: "card",
         });
         setTickets((prev) => (opts?.append ? [...prev, ...res.data] : res.data));
         setTotal(res.total);
@@ -606,10 +662,17 @@ export default function AdminMessagesClient() {
         setHasMore(res.hasMore);
         // Keep the open conversation fresh if it is part of this page, and
         // never blank an already-open conversation when it scrolls off-page.
+        // The list is LEAN (fields=card): merge only the card fields onto the
+        // open conversation so its full thread (messages/history) is never lost.
         setSelectedTicket((prev) => {
           if (!prev) return prev;
           const fresh = res.data.find((ticket) => ticket._id === prev._id);
-          return fresh ?? prev;
+          if (!fresh) return prev;
+          const merged: any = { ...prev };
+          for (const key of CARD_FIELDS) {
+            if (key in fresh) merged[key] = (fresh as any)[key];
+          }
+          return merged;
         });
       } catch (error: any) {
         console.error("Load admin tickets error:", error);
@@ -648,28 +711,127 @@ export default function AdminMessagesClient() {
   // changed (new inbound client message bridged from the universal email
   // system, an admin reply, a status change, ...) — unchanged tickets never
   // trigger a re-render.
-  const refreshOpenTicket = useCallback(async () => {
-    if (!selectedTicket?._id) return;
+  const maxMessageTime = (messages?: ThreadMessage[]): number =>
+    (Array.isArray(messages) ? messages : []).reduce(
+      (max, m) => Math.max(max, new Date(m.createdAt || 0).getTime()),
+      0
+    );
+
+  // Append ONLY newly-fetched messages to the open conversation. Idempotent by
+  // the EXISTING message `id`: a new id is appended once, an existing id is
+  // never re-appended, a changed existing message is updated in place. Also
+  // refreshes the matching card's metadata without touching other cards.
+  const applyIncremental = useCallback(
+    (
+      ticketId: string,
+      newMessages: ThreadMessage[],
+      meta: {
+        updatedAt?: string;
+        lastClientReplyAt?: string | null;
+        hasNewClientReply?: boolean;
+        status?: Ticket["status"];
+      }
+    ) => {
+      if (!Array.isArray(newMessages) || newMessages.length === 0) return;
+      const newest = newMessages.reduce(
+        (max, m) => Math.max(max, new Date(m.createdAt || 0).getTime()),
+        cursorRef.current
+      );
+      cursorRef.current = Math.max(cursorRef.current, newest);
+      setSelectedTicket((prev) => {
+        if (!prev || prev._id !== ticketId) return prev;
+        const known = new Map<string, ThreadMessage>((prev.messages || []).map((m) => [m.id, m]));
+        let changed = false;
+        for (const msg of newMessages) {
+          if (!msg.id) continue;
+          const existing = known.get(msg.id);
+          if (!existing) {
+            known.set(msg.id, msg);
+            changed = true;
+          } else if (JSON.stringify(existing) !== JSON.stringify(msg)) {
+            known.set(msg.id, msg);
+            changed = true;
+          }
+        }
+        if (!changed) return prev;
+        const messages = Array.from(known.values()).sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        return {
+          ...prev,
+          messages,
+          ...(meta.updatedAt !== undefined ? { updatedAt: meta.updatedAt } : {}),
+          ...(meta.lastClientReplyAt !== undefined ? { lastClientReplyAt: meta.lastClientReplyAt } : {}),
+          ...(meta.hasNewClientReply !== undefined ? { hasNewClientReply: meta.hasNewClientReply } : {}),
+          ...(meta.status !== undefined ? { status: meta.status } : {}),
+        };
+      });
+      setTickets((prev) =>
+        prev.map((t) =>
+          t._id === ticketId
+            ? {
+                ...t,
+                ...(meta.updatedAt !== undefined ? { updatedAt: meta.updatedAt } : {}),
+                ...(meta.lastClientReplyAt !== undefined ? { lastClientReplyAt: meta.lastClientReplyAt } : {}),
+                ...(meta.hasNewClientReply !== undefined ? { hasNewClientReply: meta.hasNewClientReply } : {}),
+                ...(meta.status !== undefined ? { status: meta.status } : {}),
+              }
+            : t
+        )
+      );
+    },
+    []
+  );
+
+  // The admin is viewing the open conversation: a newly arrived client message
+  // is read by definition. Mark it read best-effort (quietFetch, never
+  // page-lifeline) and clear the unread dot locally.
+  const markReadSelected = useCallback((ticketId: string) => {
+    markTicketRead(ticketId).catch(() => {});
+    setTickets((prev) =>
+      prev.map((t) =>
+        t._id === ticketId ? { ...t, hasNewClientReply: false, adminReadAt: new Date().toISOString() } : t
+      )
+    );
+    setSelectedTicket((prev) =>
+      prev && prev._id === ticketId
+        ? { ...prev, hasNewClientReply: false, adminReadAt: new Date().toISOString() }
+        : prev
+    );
+  }, []);
+
+  // Silent lean-card list refresh (used when the email bridge reports new
+  // matches): updates the OTHER conversations' metadata (unread dot, status,
+  // lastClientReplyAt) without ever re-downloading their threads, and never
+  // replaces the open conversation's thread. Reads the current list state from
+  // a ref so the poll effect stays stable (never restarted by state updates).
+  const refreshCardsSilently = useCallback(async () => {
     try {
-      // quietFetch transport + single-ticket `ids` fetch: the poll runs every 1 s
-      // and must never let a session expiry kill the page (the axios interceptor
-      // would replace the whole page with /login — correct for user actions,
-      // never for a silent background poll). Fetching ONLY the open conversation
-      // avoids re-downloading the whole 15-ticket page every second.
-      const fresh = await getTicketQuiet(selectedTicket._id);
-      if (!fresh) return;
-      const changed =
-        String(fresh.updatedAt ?? "") !== String(selectedTicket.updatedAt ?? "") ||
-        String(fresh.lastClientReplyAt ?? "") !== String(selectedTicket.lastClientReplyAt ?? "") ||
-        (Array.isArray(fresh.messages) ? fresh.messages.length : 0) !==
-          (Array.isArray(selectedTicket.messages) ? selectedTicket.messages.length : 0);
-      if (!changed) return;
-      setTickets((prev) => prev.map((t) => (t._id === fresh._id ? fresh : t)));
-      setSelectedTicket(fresh);
+      const { scope: s, page: p, searchTerm: q } = listStateRef.current;
+      const res = await getTicketsPaged({
+        scope: s,
+        page: p,
+        pageSize: QUERY_INBOX_PAGE_SIZE,
+        search: q,
+        fields: "card",
+      });
+      const byId = new Map(res.data.map((t) => [t._id, t]));
+      setTickets((prev) => prev.map((t) => byId.get(t._id) ?? t));
+      setTotal(res.total);
+      setPage(res.page);
+      setHasMore(res.hasMore);
+      setSelectedTicket((prev) => {
+        if (!prev) return prev;
+        const fresh = byId.get(prev._id);
+        if (!fresh) return prev;
+        const merged: any = { ...prev };
+        for (const key of CARD_FIELDS) if (key in fresh) merged[key] = (fresh as any)[key];
+        return merged;
+      });
     } catch {
-      // Best-effort; the next poll re-attempts automatically.
+      // Silent: the next poll re-attempts automatically.
     }
-  }, [selectedTicket]);
+  }, []);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -713,43 +875,64 @@ export default function AdminMessagesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket?._id]);
 
-  // Auto-poll the Query Ticket bridge (R01 PHASE 2 FINAL: the platform's ONE
-  // inbound receiver is the universal email system; this bridge only syncs its
-  // already-processed customer messages into the open ticket). While a
-  // conversation is selected AND not closed, the bridge is polled silently
-  // every 1 second (first poll shortly after open), then the open thread is
-  // ALWAYS re-checked via the diff-based refresh (updatedAt/lastClientReplyAt/
-  // messages.length — no state churn when unchanged). A new client message
-  // therefore appears in Messenger Chat within ≤1 s (max 3 s). Polling is
-  // fully silent — no toasts, no loaders, no manual Sync button — and stops
-  // when the conversation is closed or unmounted.
+  // AUTO-POLL — the ONE Messenger real-time update mechanism (AWS-01 R01 — FIX
+  // /admin/messages REAL-TIME). The interval is created ONCE on mount and reads
+  // the current selection through refs, so it NEVER restarts on state updates
+  // and never creates duplicate intervals. Each 1-second tick (first run ~800ms
+  // after mount):
+  //   1. Bridges processed universal email into tickets (existing silent API).
+  //   2. Incrementally fetches ONLY messages newer than the last-seen cursor for
+  //      the open conversation (Secure Chat + already-bridged Email) — the full
+  //      thread is fetched once on open, never re-downloaded every second.
+  //   3. Runs a catch-up fetch after the bridge so a just-bridged email is
+  //      picked up in the same cycle.
+  //   4. Refreshes the lean card list when the bridge reported new matches
+  //      (other conversations' metadata) — never the open thread.
+  // Fully silent (quietFetch transport): no reload, no remount, no spinner, no
+  // scroll reset, no selection change. Stops on unmount.
   useEffect(() => {
-    if (!selectedTicket || selectedTicket.status === "closed") return;
-
-    let cancelled = false;
-    const poll = async () => {
-      if (cancelled || pollInFlight.current) return;
+    cancelledRef.current = false;
+    const tick = async () => {
+      const sel = selectedRef.current;
+      if (!sel?.id || sel.status === "closed") return;
+      if (pollInFlight.current) return;
       pollInFlight.current = true;
       try {
-        await syncInboundEmail();
-        if (!cancelled) {
-          await refreshOpenTicket();
+        const cursorIso = cursorRef.current > 0 ? new Date(cursorRef.current).toISOString() : "";
+        const [bridge, first] = await Promise.all([
+          syncInboundEmail().catch(() => null),
+          getTicketMessages(sel.id, cursorIso).catch(() => null),
+        ]);
+        if (cancelledRef.current) return;
+        if (first?.messages && first.messages.length > 0) {
+          applyIncremental(sel.id, first.messages, first);
+          if (first.hasNewClientReply) markReadSelected(sel.id);
         }
-      } catch {
-        // Silent: auto-poll never disrupts the admin session on transient errors.
+        if (bridge) {
+          const catchCursor = cursorRef.current > 0 ? new Date(cursorRef.current).toISOString() : "";
+          const catchUp = await getTicketMessages(sel.id, catchCursor).catch(() => null);
+          if (cancelledRef.current) return;
+          if (catchUp?.messages && catchUp.messages.length > 0) {
+            applyIncremental(sel.id, catchUp.messages, catchUp);
+            if (catchUp.hasNewClientReply) markReadSelected(sel.id);
+          }
+          if ((bridge as { matched?: number })?.matched && (bridge as { matched?: number }).matched! > 0) {
+            await refreshCardsSilently();
+          }
+        }
       } finally {
         pollInFlight.current = false;
       }
     };
 
-    const first = setTimeout(poll, 800);
-    const id = setInterval(poll, POLL_INTERVAL_MS);
+    const first = setTimeout(tick, 800);
+    const id = setInterval(tick, POLL_INTERVAL_MS);
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       clearTimeout(first);
       clearInterval(id);
     };
-  }, [selectedTicket, refreshOpenTicket]);
+  }, [applyIncremental, markReadSelected, refreshCardsSilently]);
 
   // Canonical two-way conversation thread (`messages[]`). Pre-R01 tickets have
   // no messages array — those fall back to the legacy history timeline below.
@@ -973,10 +1156,14 @@ export default function AdminMessagesClient() {
   // never preloads the previous conversation's reply/template/resolution, and
   // the Client Onboarding reveal state is cleared so a credential can never
   // linger from another conversation.
-  const handleSelectTicket = (ticket: Ticket) => {
+  // The card list is LEAN (fields=card), so the full thread (messages[]) is
+  // fetched once from the existing single-ticket endpoint on open; the 1-second
+  // auto-poll then only fetches delta messages. Re-clicking the SAME already
+  // open card keeps the in-progress draft untouched and does not re-fetch.
+  const handleSelectTicket = async (ticket: Ticket) => {
     closeMenu();
     const sameTicket = selectedTicket?._id === ticket._id;
-    setSelectedTicket(ticket);
+    const needsFullThread = !sameTicket || !Array.isArray(selectedTicket?.messages);
     if (!sameTicket) {
       // Phase 3 — opening a conversation always starts BLANK. The Resolved
       // Preview never preloads the previous conversation's reply/template/
@@ -993,7 +1180,30 @@ export default function AdminMessagesClient() {
       setRevealPasswordInput("");
       setRevealError(null);
     }
+    if (needsFullThread) {
+      setThreadLoading(true);
+      // Cursor starts at "now" so the auto-poll only picks up genuinely NEW
+      // messages while the full thread is loading (and after); all existing
+      // messages arrive with the full fetch below.
+      cursorRef.current = Date.now();
+    }
+    setSelectedTicket(ticket);
     loadClientAccount(ticket);
+    if (needsFullThread) {
+      try {
+        const full = await getTicketQuiet(ticket._id);
+        if (!cancelledRef.current && selectedRef.current?.id === ticket._id) {
+          if (full) {
+            setSelectedTicket(full);
+            cursorRef.current = Math.max(maxMessageTime(full.messages), cursorRef.current);
+          }
+        }
+      } catch {
+        // Keep the card data; the next auto-poll/refresh re-attempts the thread.
+      } finally {
+        if (selectedRef.current?.id === ticket._id) setThreadLoading(false);
+      }
+    }
   };
 
   const handleGreetingChange = async (key: string) => {
@@ -1589,7 +1799,11 @@ export default function AdminMessagesClient() {
                 <span className="qib-chat-hint">Client messages · Admin messages</span>
               </div>
               <div className="qib-chat-scroll" ref={chatScrollRef} onScroll={() => { closeMenu(); handleChatScroll(); }}>
-                {threadMessages ? (
+                {threadLoading && !threadMessages ? (
+                  <p style={styles.emptyText}>
+                    <Loader2 size={13} className="admin-messages-spin" /> Loading messages...
+                  </p>
+                ) : threadMessages ? (
                   <>
                     {threadMessages.map((m) => {
                       const isClient = m.senderType === "client";

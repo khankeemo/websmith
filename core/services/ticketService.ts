@@ -140,6 +140,10 @@ export interface Ticket {
   updatedAt?: string;
   emailDelivered?: boolean;
   emailError?: string;
+  /** Server-computed Resend flag on lean card list items (`fields=card`): the
+   *  full history array is NOT downloaded with the card, so the presence of a
+   *  stored email snapshot is computed server-side instead. */
+  hasStoredEmail?: boolean;
 }
 
 export const getTickets = async () => {
@@ -147,12 +151,15 @@ export const getTickets = async () => {
   return response.data.data as Ticket[];
 };
 
-/** Paged Query Inbox list (Phase 10: max 15 initial + Load More). */
+/** Paged Query Inbox list (Phase 10: max 15 initial + Load More). Pass
+ *  `fields: "card"` to receive ONLY the lean card fields (fast initial load —
+ *  the full messages/history payload is fetched per-conversation on open). */
 export const getTicketsPaged = async (params: {
   scope?: "active" | "closed";
   page?: number;
   pageSize?: number;
   search?: string;
+  fields?: "card";
 } = {}) => {
   const response = await API.get("/tickets", {
     params: {
@@ -160,6 +167,7 @@ export const getTicketsPaged = async (params: {
       page: params.page || 1,
       pageSize: params.pageSize || 15,
       ...(params.search ? { search: params.search } : {}),
+      ...(params.fields ? { fields: params.fields } : {}),
     },
   });
   return response.data as {
@@ -209,6 +217,38 @@ export const getTicketQuiet = async (id: string): Promise<Ticket | null> => {
   const payload = await quietFetch(`/tickets?ids=${encodeURIComponent(id)}`);
   const list = Array.isArray(payload.data) ? (payload.data as Ticket[]) : [];
   return list.find((t) => t._id === id) || null;
+};
+
+/**
+ * INCREMENTAL message fetch for the open conversation (AWS-01 R01 — FIX
+ * /admin/messages REAL-TIME): returns ONLY the messages newer than the cursor
+ * (`?after=<ISO timestamp>`) plus lightweight ticket metadata. The Messenger
+ * Chat 1-second auto-poll calls this instead of re-downloading the whole
+ * conversation every second — the full thread is fetched once on open via
+ * getTicketQuiet, deltas only thereafter. quietFetch transport (never
+ * page-lifeline). Response shape:
+ *   { messages: ThreadMessage[], updatedAt?, lastClientReplyAt?, hasNewClientReply?, status? }
+ */
+export const getTicketMessages = async (
+  id: string,
+  after?: string
+): Promise<{
+  messages: ThreadMessage[];
+  updatedAt?: string;
+  lastClientReplyAt?: string | null;
+  hasNewClientReply?: boolean;
+  status?: TicketStatus;
+}> => {
+  const query = new URLSearchParams();
+  if (after) query.set("after", after);
+  const payload = await quietFetch(`/tickets/${encodeURIComponent(id)}/messages?${query.toString()}`);
+  return payload.data as {
+    messages: ThreadMessage[];
+    updatedAt?: string;
+    lastClientReplyAt?: string | null;
+    hasNewClientReply?: boolean;
+    status?: TicketStatus;
+  };
 };
 
 export const createTicket = async (payload: {
