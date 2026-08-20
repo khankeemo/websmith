@@ -1738,7 +1738,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
                 return (
                   <div key={m.id || `${m.senderType}-${m.createdAt}-${m.message}`} style={{ ...styles.row, ...rowStyle }}>
                     <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
-                      <p style={styles.bubbleSender}>{isClient ? m.senderName || "You" : TEAM_NAME}</p>
+                      <p style={styles.bubbleSender}>{isClient ? conversation.contactName || m.senderName || "You" : TEAM_NAME}</p>
                       <p className="ws-msg-text" style={styles.bubbleText} dangerouslySetInnerHTML={{ __html: renderMessageHtml(m.message) }} />
                       {m.attachments && m.attachments.length > 0 && (
                         <div style={styles.bubbleAttachments}>

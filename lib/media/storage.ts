@@ -84,32 +84,53 @@ export async function upsertMediaAsset(
   return toMediaRecord(result.rows[0]);
 }
 
-// One-time preservation of the valid record migrated from the previous media
+// One-time preservation of the valid records migrated from the previous media
 // store (slot global_collaboration_video, id 92ffc061-5cbd-4a6d-b165-e36c1a80f0ed,
-// file API-Center.mp4 — byte-identical to public/videos/API-Center.mp4, verified
-// against production). Idempotent: only inserts when the slot is absent, and
-// only when the committed asset file is readable at runtime.
+// file API-Center.mp4 — byte-identical to production, verified against production)
+// and slot global_collaboration_image (fallback image). Idempotent: only inserts
+// when the slot is absent, and only when the committed asset file is readable at runtime.
 export async function seedMigratedMedia(client: PoolClient): Promise<void> {
-  const PRESERVED_SLOT_KEY = "global_collaboration_video";
-  const PRESERVED_ID = "92ffc061-5cbd-4a6d-b165-e36c1a80f0ed";
-  const PRESERVED_FILE = "API-Center.mp4";
-  const PRESERVED_CONTENT_TYPE = "video/mp4";
-  const PRESERVED_UPDATED_AT = "2026-08-19T15:39:42.752Z";
+  // seed global_collaboration_video
+  const PRESERVED_VIDEO_SLOT_KEY = "global_collaboration_video";
+  const PRESERVED_VIDEO_ID = "92ffc061-5cbd-4a6d-b165-e36c1a80f0ed";
+  const PRESERVED_VIDEO_FILE = "API-Center.mp4";
+  const PRESERVED_VIDEO_CONTENT_TYPE = "video/mp4";
+  const PRESERVED_VIDEO_UPDATED_AT = "2026-08-19T15:39:42.752Z";
 
-  const existing = await client.query(
+  const videoExisting = await client.query(
     `SELECT 1 FROM media_assets WHERE slot_key = $1`,
-    [PRESERVED_SLOT_KEY]
+    [PRESERVED_VIDEO_SLOT_KEY]
   );
-  if (existing.rows.length > 0) return;
+  if (videoExisting.rows.length === 0) {
+    const videoFilePath = join(process.cwd(), "public", "videos", PRESERVED_VIDEO_FILE);
+    if (existsSync(videoFilePath)) {
+      const videoData = readFileSync(videoFilePath);
+      await client.query(
+        `INSERT INTO media_assets (id, slot_key, file_name, content_type, file_size, data, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $7::timestamptz)
+         ON CONFLICT (slot_key) DO NOTHING`,
+        [PRESERVED_VIDEO_ID, PRESERVED_VIDEO_SLOT_KEY, PRESERVED_VIDEO_FILE, PRESERVED_VIDEO_CONTENT_TYPE, videoData.length, videoData, PRESERVED_VIDEO_UPDATED_AT]
+      );
+    }
+  }
 
-  const filePath = join(process.cwd(), "public", "videos", PRESERVED_FILE);
-  if (!existsSync(filePath)) return;
-
-  const data = readFileSync(filePath);
-  await client.query(
-    `INSERT INTO media_assets (id, slot_key, file_name, content_type, file_size, data, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $7::timestamptz)
-     ON CONFLICT (slot_key) DO NOTHING`,
-    [PRESERVED_ID, PRESERVED_SLOT_KEY, PRESERVED_FILE, PRESERVED_CONTENT_TYPE, data.length, data, PRESERVED_UPDATED_AT]
+  // seed global_collaboration_image
+  const PRESERVED_IMAGE_SLOT_KEY = "global_collaboration_image";
+  const PRESERVED_IMAGE_FALLBACK = "/images/photo-1552664730-d307ca884978.jpg";
+  const imageExisting = await client.query(
+    `SELECT 1 FROM media_assets WHERE slot_key = $1`,
+    [PRESERVED_IMAGE_SLOT_KEY]
   );
+  if (imageExisting.rows.length === 0) {
+    const imageFallbackPath = join(process.cwd(), "public", "images", "photo-1552664730-d307ca884978.jpg");
+    if (existsSync(imageFallbackPath)) {
+      const imageFallbackData = readFileSync(imageFallbackPath);
+      await client.query(
+        `INSERT INTO media_assets (id, slot_key, file_name, content_type, file_size, data, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, 'image/jpeg', $3, $4, now(), now())
+         ON CONFLICT (slot_key) DO NOTHING`,
+        [PRESERVED_IMAGE_SLOT_KEY, "photo-1552664730-d307ca884978.jpg", imageFallbackData.length, imageFallbackData]
+      );
+    }
+  }
 }
