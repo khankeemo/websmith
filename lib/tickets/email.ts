@@ -47,7 +47,7 @@ export const RESOLUTION_TEMPLATE_SEED: ResolutionTemplate[] = [
     key: "first-welcome",
     name: "First Welcome Message",
     category: "Client Portal Onboarding",
-    subject: "We've received your request - {{request_id}}",
+    subject: "Welcome to Websmith Digital - {{request_id}}",
     body: `Welcome to Websmith Digital
 
 Hello {{client_name}},
@@ -113,7 +113,7 @@ ${SIGN_OFF}`,
     key: "new-project-discussion",
     name: "New Project Discussion",
     category: "New Project Discussion",
-    subject: "Your New Project Discussion with ${COMPANY} - {{request_id}}",
+    subject: `Your New Project Discussion with ${COMPANY} - {{request_id}}`,
     body: `Hello {{client_name}},
 
 Thank you for reaching out to ${COMPANY} about a new project. We have reviewed your requirements and are ready to take the next steps.
@@ -273,7 +273,7 @@ ${SIGN_OFF}`,
     key: "website-web-application",
     name: "Website / Web Application",
     category: "Website / Web Application",
-    subject: "Your Web Project with ${COMPANY} - {{request_id}}",
+    subject: `Your Web Project with ${COMPANY} - {{request_id}}`,
     body: `Hello {{client_name}},
 
 Thank you for your website / web application inquiry. Our team has reviewed your requirements and confirmed the next steps.
@@ -414,6 +414,28 @@ export async function ensureResolutionTemplates(db: Db): Promise<ResolutionTempl
       },
     }))
   );
+  // Heal legacy rows that were seeded (or edited) with the literal JS-style
+  // `${COMPANY}` placeholder: it is NEVER a valid template token (templates
+  // use `{{...}}`), so a stored row carrying it sends the raw literal to
+  // customers (production subject "Welcome to ${COMPANY} - <ticket_id>").
+  // The pure string replace keeps every other admin-edited value intact and
+  // only touches rows that actually contain the broken placeholder.
+  await collection.updateMany(
+    {
+      $or: [
+        { subject: { $regex: /\$\{COMPANY\}/ } },
+        { body: { $regex: /\$\{COMPANY\}/ } },
+      ],
+    },
+    [
+      {
+        $set: {
+          subject: { $replaceAll: { input: { $ifNull: ["$subject", ""] }, find: "${COMPANY}", replacement: COMPANY } },
+          body: { $replaceAll: { input: { $ifNull: ["$body", ""] }, find: "${COMPANY}", replacement: COMPANY } },
+        },
+      },
+    ]
+  );
   return (await collection.find({}).sort({ name: 1 }).toArray()) as unknown as ResolutionTemplate[];
 }
 
@@ -467,6 +489,10 @@ export function renderResolutionTemplate(
     for (const [key, val] of Object.entries(data)) {
       out = out.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), val ?? "");
     }
+    // Defensive: a literal `${COMPANY}` placeholder is never a valid template
+    // token (the renderer only knows `{{...}}`), so it can never be sent to a
+    // customer — always resolve it to the company name.
+    out = out.replace(/\$\{COMPANY\}/g, data.company_name || COMPANY);
     return out;
   };
   return { subject: fill(template.subject), body: fill(template.body) };
