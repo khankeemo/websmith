@@ -1578,9 +1578,89 @@ export async function getDb(): Promise<Pool> {
     await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS data BYTEA`);
     await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP`);
     await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP`);
+    // Production's migrated media_assets table also carries columns this
+    // implementation does not use (live evidence: `asset_key` is NOT NULL with
+    // no default, so every INSERT that omits it fails with "null value in
+    // column \"asset_key\" ... violates not-null constraint" — the seed AND the
+    // upload upsert). Any NOT NULL column with no default that this
+    // implementation does not populate is relaxed to NULL so those INSERTs
+    // succeed; columns this implementation always supplies are left untouched.
+    // Idempotent: after the first run no such column remains.
+    await client.query(`
+      DO $$
+      DECLARE
+        r record;
+      BEGIN
+        FOR r IN
+          SELECT a.attname
+          FROM pg_attribute a
+          WHERE a.attrelid = 'media_assets'::regclass
+            AND a.attnum > 0
+            AND NOT a.attisdropped
+            AND a.attnotnull
+            AND NOT EXISTS (
+              SELECT 1 FROM pg_attrdef d WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum
+            )
+            AND a.attname NOT IN
+              ('slot_key','file_name','content_type','file_size','data','created_at','updated_at')
+        LOOP
+          EXECUTE format('ALTER TABLE media_assets ALTER COLUMN %I DROP NOT NULL', r.attname);
+        END LOOP;
+      END $$;
+    `);
+    // The original migrated media_assets table was created WITHOUT a unique
+    // constraint on slot_key (live evidence: "there is no unique or exclusion
+    // constraint matching the ON CONFLICT specification" on every upload POST),
+    // which makes every ON CONFLICT (slot_key) — the upload upsert AND the
+    // seed below — fail. CREATE TABLE IF NOT EXISTS can never add it, so add
+    // the constraint idempotently here (skipped when any single-column unique
+    // index/constraint already covers slot_key). Production also holds DUPLICATE
+    // slot_key rows (live evidence: ADD CONSTRAINT UNIQUE aborted with 23505
+    // "Key (slot_key)=(global_collaboration_video) is duplicated."), so the
+    // duplicates are removed FIRST — keeping, per slot_key, the row that has
+    // bytes (data IS NOT NULL) else the lowest id (each media slot must hold
+    // exactly one asset). Idempotent: once the constraint exists no duplicates
+    // exist, so the DELETE is a no-op.
+    await client.query(`
+      DELETE FROM media_assets
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (slot_key) id
+        FROM media_assets
+        ORDER BY slot_key, (data IS NOT NULL) DESC, id ASC
+      )
+    `);
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_index i
+          WHERE i.indrelid = 'media_assets'::regclass
+            AND i.indisunique
+            AND NOT i.indisprimary
+            AND (SELECT count(*) FROM unnest(i.indkey)) = 1
+            AND EXISTS (
+              SELECT 1
+              FROM unnest(i.indkey) AS c(attnum)
+              JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = c.attnum
+              WHERE a.attname = 'slot_key'
+            )
+        ) THEN
+          EXECUTE 'ALTER TABLE media_assets ADD CONSTRAINT media_assets_slot_key_uniq UNIQUE (slot_key)';
+        END IF;
+      END $$;
+    `);
 
-    // Preserve the single valid record migrated from the previous media store
-    await seedMigratedMedia(client);
+    // Preserve the single valid record migrated from the previous media store.
+    // Best-effort repair: a seed failure must never abort getDb's schema init.
+    try {
+      await seedMigratedMedia(client);
+    } catch (seedError) {
+      console.error(
+        'Media seed error:',
+        seedError instanceof Error ? seedError.message : seedError
+      );
+    }
 
     // ============================================================
     // INSERT DEFAULT SYSTEM SETTINGS

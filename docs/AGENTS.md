@@ -902,8 +902,33 @@ FIX + CLEANUP". Never regress:
   column's own default on BOTH serial and uuid-default columns (schema-agnostic).
   The DDL block also runs idempotent `ALTER TABLE media_assets ADD COLUMN IF NOT
   EXISTS data/created_at/updated_at` so an existing production table that predates
-  the `data` column is repaired in place. No MongoDB media reads/writes, no Mongo
-  fallback anywhere.
+  the `data` column is repaired in place, and an idempotent repair that (1)
+  de-duplicates `slot_key` rows, (2) adds a UNIQUE constraint/index on
+  `slot_key` when none exists, and (3) relaxes NOT NULL on any column this
+  implementation does not populate (live production evidence: "there is no
+  unique or exclusion constraint matching the ON CONFLICT specification" on
+  every upload POST — the original migrated table had NO unique constraint on
+  `slot_key`, so every `ON CONFLICT (slot_key)` upsert AND the seed failed with
+  500 — and the ADD CONSTRAINT attempt aborted with 23505 "Key (slot_key)=
+  (global_collaboration_video) is duplicated.", so production ALSO holds
+  duplicate slot_key rows that must be removed FIRST — and the seed/upload
+  INSERTs additionally failed with `null value in column "asset_key" ... violates
+  not-null constraint`, a leftover NOT NULL column from the original table that
+  no repo code references). The dedupe keeps, per slot_key, the row that has
+  bytes (`data IS NOT NULL`) else the lowest id (`DELETE ... WHERE id NOT IN
+  (SELECT DISTINCT ON (slot_key) id ... ORDER BY slot_key, (data IS NOT NULL)
+  DESC, id ASC)`); the NOT-NULL guard walks `pg_attribute` and drops NOT NULL on
+  every no-default column outside the populated set (`slot_key`/`file_name`/
+  `content_type`/`file_size`/`data`/`created_at`/`updated_at`) via
+  `ALTER TABLE ... ALTER COLUMN %I DROP NOT NULL`; the constraint guard then
+  checks `pg_index` for a single-column unique index covering `slot_key` and only
+  when none exists runs `ALTER TABLE media_assets ADD CONSTRAINT
+  media_assets_slot_key_uniq UNIQUE (slot_key)` — all three verified idempotent
+  (2nd run deletes 0 rows / alters 0 columns / leaves one unique index) and
+  verified against a real Postgres that reproduced the production table state
+  (duplicates + no UNIQUE + no `data` column + `asset_key NOT NULL`): seed
+  backfill + upload upsert + fresh-id minting all pass. No MongoDB media
+  reads/writes, no Mongo fallback anywhere.
 - **One authoritative implementation**: `lib/media.ts` (client-safe 14-slot
   `MEDIA_SLOTS`/`MEDIA_SLOT_INDEX`/`fallbackForSlot`/`MediaAsset`),
   `hooks/useMediaAsset.ts` (module cache + `refreshMediaAssets()` +
@@ -937,7 +962,32 @@ FIX + CLEANUP". Never regress:
   (preserving id/file_name/content_type/file_size/created_at/updated_at), and
   never overwrites rows that already have bytes. It is a data-preservation seed
   + repair, not a runtime fallback, and only runs when the asset file is readable
-  at runtime.
+  at runtime. The seed call in the DDL block is wrapped in its own try/catch
+  (logs `Media seed error:` and continues) so a seed failure can never abort
+  getDb's whole schema init.
+- **Production upload 500 — ACTUAL root cause (2026-08-20)**: after deploying the
+  UUID fix, Manage Page uploads STILL returned the generic 500. Live Vercel logs
+  (`& vercel logs <deployment-url> --expand --json`) showed
+  `API error (internal): error: there is no unique or exclusion constraint
+  matching the ON CONFLICT specification` — the production `media_assets` table
+  was created by the ORIGINAL implementation WITHOUT a UNIQUE constraint on
+  `slot_key`, so both the upload upsert AND `seedMigratedMedia` failed. Adding
+  the constraint then hit a SECOND blocker: production ALSO holds duplicate
+  `slot_key` rows (`ADD CONSTRAINT UNIQUE` aborted with 23505 "Key
+  (slot_key)=(global_collaboration_video) is duplicated." — the registry map
+  hides them, so the duplicates were only visible in the runtime error), and a
+  THIRD blocker: production ALSO carries an `asset_key` column that is NOT NULL
+  with no default and is referenced nowhere in the repo, so the seed/upload
+  INSERTs failed with `null value in column "asset_key" ... violates not-null
+  constraint`. FIX: the media DDL block now (1) de-duplicates `slot_key` rows
+  (keep the row with bytes, else lowest id), (2) relaxes NOT NULL on any
+  no-default column outside the populated set (drops NOT NULL on `asset_key`),
+  and (3) adds the UNIQUE constraint idempotently (see the bullet above). The
+  id fix was correct but insufficient; the missing constraint + duplicates +
+  the phantom NOT NULL column are the real blockers. Verified against a real
+  PostgreSQL 18 (throwaway instance + temporary trust `pg_hba.conf` line for
+  127.0.0.1, reverted after) reproducing the production table state (duplicates
+  + no UNIQUE + no `data` column + `asset_key NOT NULL`).
 - Keep this rule in sync with the master doc Progress Tracking entry.
 
 ## Internal API Side Nav — License Management (Sidebar Restructure)
