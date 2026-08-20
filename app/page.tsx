@@ -715,6 +715,13 @@ export default function LandingPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const video = diversityVideoRef.current;
+    if (!video) return;
+    video.load();
+    video.play().catch(() => {});
+  }, [globalCollabVideo.url]);
+
   // Smooth scroll function
   const scrollToSection = (ref: React.RefObject<HTMLElement>) => {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -991,10 +998,9 @@ export default function LandingPage() {
                   playsInline
                   controls
                   preload="auto"
+                  src={globalCollabVideo.url}
                   className="w-full h-[550px] rounded-lg object-cover"
-                >
-                  <source src={globalCollabVideo.url} type="video/mp4" />
-                </video>
+                />
               </div>
             </div>
           </div>

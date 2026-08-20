@@ -988,6 +988,19 @@ FIX + CLEANUP". Never regress:
   PostgreSQL 18 (throwaway instance + temporary trust `pg_hba.conf` line for
   127.0.0.1, reverted after) reproducing the production table state (duplicates
   + no UNIQUE + no `data` column + `asset_key NOT NULL`).
+- **Global Collaboration video consumer fix (2026-08-20, UI-only `app/page.tsx`)**: the
+  public landing `global_collaboration_video` consumer is wired to the Neon managed
+  source (`useMediaAsset` → `/api/media/<current asset id>`) and MUST render with a
+  DIRECT `src={...}` attribute on the `<video>` element — never a `<source>` child.
+  A changed `<source>` src does NOT run the browser media load algorithm, so the slot
+  fallback (`/videos/WDS_UAC.mp4`) keeps playing the stale bytes after the async
+  registry fetch resolves (root cause of "different video shown"). A
+  `useEffect([globalCollabVideo.url])` calling `video.load()` + `video.play()` ensures
+  the element reloads the current managed URL whenever it resolves or changes (every
+  upload mints a NEW asset id). The fallback is used ONLY while the managed asset is
+  unavailable (initial render / registry failure); no hardcoded video path remains in
+  the consumer. Never regress to a `<source>` child for managed media; never alter the
+  Neon schema / `media_assets` / upload API / MongoDB / auth / 413 / Manage Page.
 - Keep this rule in sync with the master doc Progress Tracking entry.
 
 ## Internal API Side Nav — License Management (Sidebar Restructure)
