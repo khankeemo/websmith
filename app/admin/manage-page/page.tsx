@@ -338,9 +338,14 @@ function WebsiteMediaCard() {
       }
     } catch (error: any) {
       console.error('Failed to upload media', error);
+      const errorMessage = typeof error?.response?.data?.error === 'string'
+        ? error.response.data.error
+        : error?.message
+          ? String(error.message)
+          : 'Upload failed. Please try again.';
       setMessages((prev) => ({
         ...prev,
-        [slotKey]: { type: 'error', text: error?.response?.data?.error || 'Upload failed. Please try again.' },
+        [slotKey]: { type: 'error', text: errorMessage },
       }));
     } finally {
       setUploadingKey(null);

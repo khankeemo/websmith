@@ -173,4 +173,4 @@ export function emptyMediaAsset(key: string): MediaAsset {
 // without a page reload.
 export const MEDIA_UPDATED_EVENT = "media-updated";
 
-export const MAX_MEDIA_FILE_SIZE = 10 * 1024 * 1024;
+export const MAX_MEDIA_FILE_SIZE = 4 * 1024 * 1024;
