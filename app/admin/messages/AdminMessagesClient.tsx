@@ -48,6 +48,7 @@ import {
 import { getToken } from "@/lib/auth";
 import { getSiteUrl } from "@/core/config/site";
 import { renderMessageHtml } from "@/core/services/messageRender";
+import { useMediaAsset } from "@/hooks/useMediaAsset";
 
 // Canonical sender identity shown for every admin/outbound message in the
 // Messenger Chat. Replaces any raw "Admin User" string (and the generic
@@ -484,6 +485,7 @@ html.query-inbox-workspace .app-main-scroll {
 
 export default function AdminMessagesClient() {
   const router = useRouter();
+  const chatLogo = useMediaAsset("chat_messenger_logo");
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1523,9 +1525,9 @@ export default function AdminMessagesClient() {
                  Back to Messages
                </button>
                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                 <img
-                   src="/images/wsd.png"
-                   alt="Websmith"
+<img
+                  src={chatLogo.url}
+                  alt="Websmith"
                    style={{
                      height: "28px",
                      width: "auto",

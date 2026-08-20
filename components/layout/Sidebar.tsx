@@ -39,7 +39,7 @@ export default function Sidebar({
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const sidebarLogo = useMediaAsset("manage_page_mask_logo");
+  const sidebarLogo = useMediaAsset("panel_sidebar_logo");
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {

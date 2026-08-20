@@ -18,9 +18,11 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { isValidEmail } from "@/lib/validation";
+import { useMediaAsset } from "@/hooks/useMediaAsset";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const forgotBackground = useMediaAsset("internal_api_forgot_password_background");
   const [step, setStep] = useState<"email" | "otp" | "reset">("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -255,7 +257,7 @@ export default function ForgotPasswordPage() {
         playsInline
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       >
-        <source src="/videos/API-Center.mp4" type="video/mp4" />
+        <source src={forgotBackground.url} type="video/mp4" />
       </video>
 
       <div className="absolute inset-0 z-10 bg-gradient-to-br from-[#0B1120]/90 via-[#0B1120]/60 to-[#0B1120]/80" />

@@ -43,7 +43,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "video/mp4,video/webm,video/ogg",
   },
   {
-    key: "internal_api_login_media",
+    key: "internal_api_login_background",
     type: "video",
     label: "Internal API Login Background",
     usage: "app/internal/api/auth/login background",
@@ -51,7 +51,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "video/mp4,video/webm,video/ogg",
   },
   {
-    key: "internal_api_register_media",
+    key: "internal_api_register_background",
     type: "video",
     label: "Internal API Register Background",
     usage: "app/internal/api/auth/register background",
@@ -59,7 +59,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "video/mp4,video/webm,video/ogg",
   },
   {
-    key: "internal_api_forgot_password_media",
+    key: "internal_api_forgot_password_background",
     type: "video",
     label: "Internal API Forgot Password Background",
     usage: "app/internal/api/auth/forgot-password background",
@@ -67,7 +67,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "video/mp4,video/webm,video/ogg",
   },
   {
-    key: "internal_api_reset_password_media",
+    key: "internal_api_reset_password_background",
     type: "video",
     label: "Internal API Reset Password Background",
     usage: "app/internal/api/auth/reset-password background",
@@ -75,7 +75,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "video/mp4,video/webm,video/ogg",
   },
   {
-    key: "chat_mask_logo",
+    key: "chat_messenger_logo",
     type: "logo",
     label: "Chat Messenger Logo",
     usage: "app/chat/[id] masked circular logo",
@@ -83,7 +83,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "image/png,image/jpeg,image/webp,image/gif,image/svg+xml",
   },
   {
-    key: "manage_page_mask_logo",
+    key: "panel_sidebar_logo",
     type: "logo",
     label: "Panel Sidebar Logo",
     usage: "components/layout/Sidebar.tsx (all panel pages incl. Manage Page)",
@@ -91,7 +91,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "image/png,image/jpeg,image/webp,image/gif,image/svg+xml",
   },
   {
-    key: "manage_page_android_chrome",
+    key: "android_chrome_logo",
     type: "logo",
     label: "Android Chrome Logo",
     usage: "app/admin/manage-page Android Chrome favicon upload",
@@ -99,7 +99,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "image/png,image/jpeg,image/webp,image/gif,image/svg+xml",
   },
   {
-    key: "landing_service_bg_1",
+    key: "landing_feature_card_background_1",
     type: "image",
     label: "Landing Feature Card Background 1",
     usage: "app/page.tsx 'Why Choose Websmith' feature card 1",
@@ -107,7 +107,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "image/png,image/jpeg,image/webp,image/gif",
   },
   {
-    key: "landing_service_bg_2",
+    key: "landing_feature_card_background_2",
     type: "image",
     label: "Landing Feature Card Background 2",
     usage: "app/page.tsx 'Why Choose Websmith' feature card 2",
@@ -115,7 +115,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "image/png,image/jpeg,image/webp,image/gif",
   },
   {
-    key: "landing_service_bg_3",
+    key: "landing_feature_card_background_3",
     type: "image",
     label: "Landing Feature Card Background 3",
     usage: "app/page.tsx 'Why Choose Websmith' feature card 3",
@@ -123,7 +123,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "image/png,image/jpeg,image/webp,image/gif",
   },
   {
-    key: "landing_service_bg_4",
+    key: "landing_feature_card_background_4",
     type: "image",
     label: "Landing Feature Card Background 4",
     usage: "app/page.tsx 'Why Choose Websmith' feature card 4",
@@ -131,7 +131,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     accept: "image/png,image/jpeg,image/webp,image/gif",
   },
   {
-    key: "landing_service_bg_5",
+    key: "landing_feature_card_background_5",
     type: "image",
     label: "Landing Feature Card Background 5",
     usage: "app/page.tsx 'Why Choose Websmith' feature card 5",

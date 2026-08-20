@@ -20,9 +20,11 @@ import {
   Shield,
 } from "lucide-react";
 import { isValidEmail } from "@/lib/validation";
+import { useMediaAsset } from "@/hooks/useMediaAsset";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const registerBackground = useMediaAsset("internal_api_register_background");
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +127,7 @@ export default function RegisterPage() {
         playsInline
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       >
-        <source src="/videos/API-Center.mp4" type="video/mp4" />
+        <source src={registerBackground.url} type="video/mp4" />
       </video>
 
       {/* Overlay */}

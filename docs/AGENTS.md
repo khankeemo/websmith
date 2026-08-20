@@ -895,8 +895,15 @@ FIX + CLEANUP". Never regress:
 
 - **Neon is the single media source of truth**: website media lives ONLY in the
   PostgreSQL `media_assets` table (created in `lib/backend-db/index.ts` `getDb()`
-  DDL block — never add a duplicate migration file/helper). No MongoDB media
-  reads/writes, no Mongo fallback anywhere.
+  DDL block — never add a duplicate migration file/helper). The id is a **native
+  SERIAL integer** in production (HTTP evidence: registry returns `url
+  "/api/media/3"`); code NEVER forces a UUID into `id` — inserts omit the column
+  and the upsert conflict path uses `id = DEFAULT`, so fresh ids come from the
+  column's own default on BOTH serial and uuid-default columns (schema-agnostic).
+  The DDL block also runs idempotent `ALTER TABLE media_assets ADD COLUMN IF NOT
+  EXISTS data/created_at/updated_at` so an existing production table that predates
+  the `data` column is repaired in place. No MongoDB media reads/writes, no Mongo
+  fallback anywhere.
 - **One authoritative implementation**: `lib/media.ts` (client-safe 14-slot
   `MEDIA_SLOTS`/`MEDIA_SLOT_INDEX`/`fallbackForSlot`/`MediaAsset`),
   `hooks/useMediaAsset.ts` (module cache + `refreshMediaAssets()` +
@@ -904,11 +911,14 @@ FIX + CLEANUP". Never regress:
   persistence + `seedMigratedMedia`), `GET/POST /api/settings/public/media` +
   `GET /api/media/[assetKey]`, and the Manage Page "Website Media" card. Never
   build a second media API, storage, slot list, hook, or manage-page editor.
-- **Uploads always mint a NEW asset id**: `upsertMediaAsset` regenerates the
-  uuid on every upload (`ON CONFLICT (slot_key) DO UPDATE SET id =
-  gen_random_uuid(), …`) so the immutable-cache file route
+- **Uploads always mint a NEW asset id**: `upsertMediaAsset` uses `ON CONFLICT
+  (slot_key) DO UPDATE SET id = DEFAULT, …` (the DB column's own default —
+  `nextval` on serial, `gen_random_uuid()` on uuid-default columns) so the
+  immutable-cache file route
   (`Cache-Control: public, max-age=31536000, immutable`) can never serve stale
   bytes — the URL changes by construction. Never reuse an id for a new upload.
+  (A forced literal `gen_random_uuid()` against production's INTEGER id was the
+  original upload 500 — never regress to forcing a UUID into `id`.)
 - **The SPA updates immediately after upload**: the Manage Page calls
   `refreshMediaAssets()` on success, which invalidates the hook's module cache
   and dispatches `media-updated`; every `useMediaAsset` consumer re-fetches and
@@ -918,11 +928,16 @@ FIX + CLEANUP". Never regress:
   `apiHandler(..., { auth: "required" })` + `user.role !== "admin"` → 401 (the
   existing admin JWT). GET remains public (Neon-only, `force-dynamic`).
   Never add a new auth path; never expose internal endpoints.
-- **Seed preserves the migrated record**: `seedMigratedMedia` inserts only when
-  the slot is absent, keeps the original id `92ffc061-5cbd-4a6d-b165-e36c1a80f0ed`
-  for `global_collaboration_video`, and reads bytes from
-  `public/videos/API-Center.mp4` (byte-identical to production, verified). It is
-  a data-preservation seed, not a runtime fallback.
+- **Seed is a non-destructive seed/repair**: `seedMigratedMedia` inserts the
+  committed seed assets (`global_collaboration_video` from
+  `public/videos/API-Center.mp4` + `global_collaboration_image`) with **DB-native
+  ids only when the slot is absent**; on an existing production table it REPAIRS
+  metadata-only rows (`data IS NULL`) by backfilling bytes from the committed
+  file via `ON CONFLICT (slot_key) DO UPDATE … WHERE media_assets.data IS NULL`
+  (preserving id/file_name/content_type/file_size/created_at/updated_at), and
+  never overwrites rows that already have bytes. It is a data-preservation seed
+  + repair, not a runtime fallback, and only runs when the asset file is readable
+  at runtime.
 - Keep this rule in sync with the master doc Progress Tracking entry.
 
 ## Internal API Side Nav — License Management (Sidebar Restructure)

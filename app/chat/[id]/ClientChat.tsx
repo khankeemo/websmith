@@ -70,6 +70,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, Lock, Send, ShieldCheck, XCircle } from "lucide-react";
 import { renderMessageHtml } from "@/core/services/messageRender";
+import { useMediaAsset } from "@/hooks/useMediaAsset";
 
 const TEAM_NAME = "Websmith Digital Support";
 const POLL_INTERVAL_MS = 3_000;
@@ -1306,6 +1307,7 @@ const styles: Record<string, React.CSSProperties> = {
 
 export default function ClientChat({ ticketId }: { ticketId: string }) {
   const token = useMemo(readToken, []);
+  const chatLogo = useMediaAsset("chat_messenger_logo");
   const [conversation, setConversation] = useState<ChatConversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1696,7 +1698,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
             </a>
             <div className="ws-header-mask" aria-hidden="true">
               <img
-                src="/images/wsd.png"
+                src={chatLogo.url}
                 alt=""
                 style={styles.maskImage}
                 draggable={false}

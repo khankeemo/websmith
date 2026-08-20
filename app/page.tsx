@@ -28,6 +28,7 @@ import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
 import { createPublicTicket } from "../core/services/ticketService";
 import { useLeadFunnel } from "./providers/LeadFunnelProvider";
+import { useMediaAsset } from "../hooks/useMediaAsset";
 
 const defaultContactInfo = {
   headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
@@ -607,6 +608,18 @@ export default function LandingPage() {
   const clientsRef = useRef<HTMLElement>(null);
   const contactFormRef = useRef<HTMLElement>(null);
   const diversityVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Managed media from the Neon media system (public /api/settings/public/media)
+  const heroVideo = useMediaAsset("landing_hero_video");
+  const globalCollabImage = useMediaAsset("global_collaboration_image");
+  const globalCollabVideo = useMediaAsset("global_collaboration_video");
+  const featureCardBgs = [
+    useMediaAsset("landing_feature_card_background_1"),
+    useMediaAsset("landing_feature_card_background_2"),
+    useMediaAsset("landing_feature_card_background_3"),
+    useMediaAsset("landing_feature_card_background_4"),
+    useMediaAsset("landing_feature_card_background_5"),
+  ];
   
   // Contact form state
   const [contactState, setContactState] = useState({
@@ -841,7 +854,7 @@ export default function LandingPage() {
             zIndex: 0,
           }}
         >
-          <source src="/videos/Websmith Digital.mp4" type="video/mp4" />
+          <source src={heroVideo.url} type="video/mp4" />
         </video>
         <div style={styles.heroOverlay} />
         <div style={styles.heroContent} className="landing-hero-content">
@@ -870,7 +883,7 @@ export default function LandingPage() {
               }}
               style={{
                 ...styles.featureCard,
-                backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-secondary) 92%, transparent)), url(/images/assets/service_${index % 5 + 1}.png)`,
+                backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-secondary) 92%, transparent)), url(${featureCardBgs[index % 5].url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }} 
@@ -965,7 +978,7 @@ export default function LandingPage() {
             <div className="flex flex-col min-[1700px]:flex-row items-start justify-center gap-10">
               <div className="flex flex-col items-start w-full max-w-[810px]">
                 <img
-                  src="/images/photo-1552664730-d307ca884978.jpg"
+                  src={globalCollabImage.url}
                   alt="Global Technical Team"
                   className="w-full h-[550px] rounded-lg object-cover"
                 />
@@ -980,7 +993,7 @@ export default function LandingPage() {
                   preload="auto"
                   className="w-full h-[550px] rounded-lg object-cover"
                 >
-                  <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+                  <source src={globalCollabVideo.url} type="video/mp4" />
                 </video>
               </div>
             </div>

@@ -1554,19 +1554,30 @@ export async function getDb(): Promise<Pool> {
       )
     `);
 
-    // 30. Create media_assets table (website media migrated from MongoDB to Neon)
+    // 30. Create media_assets table (website media migrated from MongoDB to Neon).
+    // id is a NATIVE SERIAL in production (HTTP evidence: url /api/media/3).
+    // CREATE TABLE IF NOT EXISTS never alters an existing table, so the
+    // idempotent ADD COLUMN guards below repair tables that predate the
+    // data/created_at/updated_at columns (metadata rows with NULL data are
+    // backfilled by seedMigratedMedia so /api/media/<id> can serve bytes).
+    // Code never forces a UUID into id: inserts omit it and use id = DEFAULT,
+    // so fresh ids come from the column's own default on BOTH serial and
+    // uuid-default columns.
     await client.query(`
       CREATE TABLE IF NOT EXISTS media_assets (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id SERIAL PRIMARY KEY,
         slot_key TEXT NOT NULL UNIQUE,
         file_name TEXT NOT NULL DEFAULT '',
         content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
         file_size BIGINT NOT NULL DEFAULT 0,
-        data BYTEA NOT NULL,
+        data BYTEA,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS data BYTEA`);
+    await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP`);
+    await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP`);
 
     // Preserve the single valid record migrated from the previous media store
     await seedMigratedMedia(client);
