@@ -1,6 +1,6 @@
 ﻿import { ObjectId } from "mongodb";
 import { apiHandler, jsonBody, json } from "@/lib/server/api";
-import { createClientAccount, ensureResolutionTemplates, findDefaultTemplate, renderResolutionTemplate, renderCustomerMessagePlain, resolutionHtmlBody, stripAdminMarkers, FIRST_WELCOME_TEMPLATE_KEY } from "@/lib/tickets/email";
+import { createClientAccount, ensureResolutionTemplates, findDefaultTemplate, renderResolutionTemplate, renderCustomerMessagePlain, resolutionHtmlBody, stripAdminMarkers, generateUniqueRequestId, ticketRequestLabel, FIRST_WELCOME_TEMPLATE_KEY } from "@/lib/tickets/email";
 import { buildChatUrl } from "@/lib/tickets/chat";
 import { sendEmail } from "@/lib/email/brevo";
 import crypto from "node:crypto";
@@ -67,8 +67,14 @@ export const POST = apiHandler(async ({ db, client, request }) => {
   const account = existingAccount ?? (await createClientAccount(db, { name: contactName, email: contactEmail }));
   const clientAccountCreated = !existingAccount;
 
+  // Customer-facing request reference (WSD-XXXXXX) — generated once, stored on
+  // the ticket, and used in every customer-facing email instead of the internal
+  // MongoDB ObjectId.
+  const requestId = await generateUniqueRequestId(db);
+
   const ticket = {
     source: "public_contact",
+    requestId,
     clientId: account._id.toString(),
     clientCustomId: String(account.customId ?? ""),
     clientAccountSource: clientAccountCreated ? "created" : "existing",
@@ -123,6 +129,7 @@ export const POST = apiHandler(async ({ db, client, request }) => {
   try {
     await sendWelcomeEmail(db, client, {
       ticketId,
+      requestId,
       contactName,
       contactEmail,
       subject,
@@ -151,6 +158,7 @@ async function sendWelcomeEmail(
   client: any,
   input: {
     ticketId: string;
+    requestId: string;
     contactName: string;
     contactEmail: string;
     subject: string;
@@ -175,7 +183,7 @@ async function sendWelcomeEmail(
     portal_url: portalUrl,
     chat_url: buildChatUrl({ _id: input.ticketId, contactEmail: input.contactEmail, contactName: input.contactName }, input.origin),
     company_name: "Websmith Digital",
-    request_id: input.ticketId,
+    request_id: input.requestId || ticketRequestLabel({ _id: input.ticketId }),
     query_status: "open",
   };
 

@@ -93,6 +93,10 @@ export interface ThreadMessage {
 export interface Ticket {
   _id: string;
   source?: "client_portal" | "public_contact";
+  /** Customer-facing request reference (WSD-XXXXXX) — shown instead of the
+   *  internal ObjectId everywhere a customer/admin references the request.
+   *  Absent on pre-WSD tickets (those keep their legacy id). */
+  requestId?: string;
   clientId: {
     _id: string;
     name: string;

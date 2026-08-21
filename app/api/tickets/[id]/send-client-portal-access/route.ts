@@ -11,6 +11,7 @@ import {
   resolveStoredTemporaryPassword,
   resolutionHtmlBody,
   stripAdminMarkers,
+  ticketRequestLabel,
 } from "@/lib/tickets/email";
 import crypto from "node:crypto";
 
@@ -104,7 +105,7 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     temporary_password: temporaryPassword ?? "",
     company_name: "Websmith Digital",
     admin_name: String(user.name ?? "Websmith Team"),
-    request_id: ticket._id.toString(),
+      request_id: ticketRequestLabel(ticket),
     query_status: String(ticket.status ?? ""),
   };
 

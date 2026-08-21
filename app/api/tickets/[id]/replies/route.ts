@@ -1,6 +1,6 @@
 ﻿import { apiHandler, jsonBody, json, badRequest, notFound, parseObjectId } from "@/lib/server/api";
 import { sendEmail } from "@/lib/email/brevo";
-import { stripAdminMarkers } from "@/lib/tickets/email";
+import { stripAdminMarkers, ticketRequestLabel } from "@/lib/tickets/email";
 import { getDb } from "@/lib/backend-db";
 import crypto from "node:crypto";
 
@@ -80,7 +80,7 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
         { email: recipient, name: ticket.contactName || "Valued Customer" },
         {
           customer_name: ticket.contactName || "Valued Customer",
-          request_id: ticket._id.toString(),
+          request_id: ticketRequestLabel(ticket),
           subject: ticket.subject || "Support Request",
           // Admin/editor markers are never sent to the customer.
           message: customerMessage,

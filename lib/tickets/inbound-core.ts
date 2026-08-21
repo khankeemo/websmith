@@ -57,6 +57,8 @@ export function cleanInboundBody(text: string): string {
   if (!body.trim()) return "";
   body = body.replace(/\r\n/g, "\n");
   const lines = body.split("\n");
+  const HEADER_LINE_RE = /^(from|sent|to|cc|bcc|subject|date|reply-to|return-path|message-id|x-[a-z0-9-]+):/i;
+  const QUOTE_INTRO_RE = /^on .+ (wrote|said):\s*$/i;
   let cut = lines.length;
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
@@ -70,10 +72,16 @@ export function cleanInboundBody(text: string): string {
       cut = i;
       break;
     }
-    // Gmail-style "On <date>, <name> wrote:" quote intro (after a blank line).
-    if (i > 0 && lines[i - 1].trim() === "" && /^on .+ (wrote|said):\s*$/i.test(trimmed)) {
-      cut = i;
-      break;
+    // Gmail-style "On <date>, <name> wrote:" quote intro. Cut when it follows a
+    // blank line OR when the quoted block starts on the next line (some clients
+    // put no blank line between the intro and the quote).
+    if (QUOTE_INTRO_RE.test(trimmed)) {
+      const prevBlank = i > 0 && lines[i - 1].trim() === "";
+      const nextQuoted = i + 1 < lines.length && lines[i + 1].trim().startsWith(">");
+      if (prevBlank || nextQuoted) {
+        cut = i;
+        break;
+      }
     }
     // Mobile signatures ("Sent from my iPhone/Android/...").
     if (/^sent from (my )?(iphone|ipad|android|galaxy|blackberry|windows)/i.test(trimmed)) {
@@ -85,11 +93,13 @@ export function cleanInboundBody(text: string): string {
       cut = i;
       break;
     }
-    // Outlook reply header block ("From: ... / Sent: ... / To: ...").
+    // Reply-header block ("From: ... / Sent: ... / To: ..."). Detected as a RUN
+    // of >= 2 consecutive header-style lines ANYWHERE (not only after a blank
+    // line) so forwarded headers glued to the client's text are still stripped.
     if (
-      i > 0 &&
-      lines[i - 1].trim() === "" &&
-      /^(from|sent|to|cc|bcc|subject|date|reply-to|return-path|message-id|x-[a-z0-9-]+):/i.test(trimmed)
+      HEADER_LINE_RE.test(trimmed) &&
+      i + 1 < lines.length &&
+      HEADER_LINE_RE.test(lines[i + 1].trim())
     ) {
       cut = i;
       break;

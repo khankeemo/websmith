@@ -30,6 +30,47 @@ export type ResolutionTemplate = {
 const COMPANY = "Websmith Digital";
 const SIGN_OFF = "Best regards,\nThe Websmith Digital Team";
 
+// ---------------------------------------------------------------------------
+// Customer-facing REQUEST ID (WSD-XXXXXX)
+//
+// Every support request carries a short human reference instead of the internal
+// MongoDB ObjectId. The id is generated at ticket creation (Get in Touch AND
+// Client Portal), stored on the ticket document as `requestId`, and used as
+// `{{request_id}}` in EVERY customer-facing email (welcome / reply /
+// resolution / onboarding / resend). The alphabet excludes visually ambiguous
+// characters (0/O, 1/I/L) so the id can be read back over the phone.
+// ---------------------------------------------------------------------------
+const REQUEST_ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+export function generateRequestId(): string {
+  const bytes = crypto.randomBytes(6);
+  let id = "";
+  for (let i = 0; i < 6; i++) id += REQUEST_ID_ALPHABET[bytes[i] % REQUEST_ID_ALPHABET.length];
+  return `WSD-${id}`;
+}
+
+/** Unique WSD-XXXXXX id for a new ticket — retries on the (rare) collision. */
+export async function generateUniqueRequestId(db: Db): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateRequestId();
+    const exists = await db.collection("tickets").findOne({ requestId: candidate }, { projection: { _id: 1 } });
+    if (!exists) return candidate;
+  }
+  // Practically unreachable (31^6 space); fall back to a longer unique suffix.
+  return `WSD-${crypto.randomBytes(9).toString("base64url").replace(/[-_]/g, "").slice(0, 9).toUpperCase()}`;
+}
+
+/**
+ * The customer-facing request label for a ticket: the stored WSD-XXXXXX id when
+ * present, otherwise the legacy ObjectId (pre-WSD tickets keep rendering their
+ * existing references — no data migration).
+ */
+export function ticketRequestLabel(ticket: any): string {
+  const stored = String(ticket?.requestId || "").trim();
+  if (stored) return stored;
+  return String(ticket?._id ?? "").toString();
+}
+
 // The FIRST / default welcome template used from the Query Inbox Reply Thread
 // (Phase 3): professional, compact and easy to scan, customer identity dynamic,
 // and it carries the decided client communication — Client Portal login link,

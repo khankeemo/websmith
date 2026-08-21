@@ -1,5 +1,7 @@
 import { apiHandler, json, forbidden } from "@/lib/server/api";
+import { after } from "next/server";
 import { getDb } from "@/lib/backend-db";
+import { runNativeReceiveCycle } from "@/lib/communications/native-receive-core";
 import {
   BRIDGE_BATCH_LIMIT,
   bridgeConversationMessages,
@@ -64,6 +66,47 @@ type MailboxSyncStats = {
 // is fine: the `sourceRef` dedupe is the real duplicate boundary.
 let syncInflight = false;
 
+// ---------------------------------------------------------------------------
+// ON-DEMAND NATIVE RECEIVE KICK (AWS-01 R01 — FIX email→chat delay)
+//
+// The universal receiver for native support@/sales@ mail runs on a QStash
+// 1-minute cron, so a client email reply could wait up to ~60 s before it even
+// reached PostgreSQL (and only then could this bridge copy it into the ticket
+// — the observed "email takes ~1 minute to appear" delay).
+//
+// While an admin actively watches a conversation, each bridge pass schedules
+// ONE execution of the SAME single receive cycle (`runNativeReceiveCycle`,
+// throttled to one kick per NATIVE_KICK_MIN_MS per serverless instance) via
+// `after()` — it never blocks or fails this response. The IMAP cycle stores
+// new rows in PostgreSQL within seconds and the NEXT 1-second poll tick
+// bridges them, so end-to-end latency drops from ≤60 s to a few seconds.
+//
+// Still exactly ONE receiver / ONE pipeline: this route never touches IMAP or
+// parses mail itself — it only triggers the existing universal cycle. The
+// QStash cron remains the baseline receiver (unchanged); Message-ID dedupe
+// makes overlapping cycles harmless.
+// ---------------------------------------------------------------------------
+const NATIVE_KICK_MIN_MS = 10_000;
+let lastNativeKick = 0;
+
+function scheduleNativeReceiveKick() {
+  const now = Date.now();
+  if (now - lastNativeKick < NATIVE_KICK_MIN_MS) return;
+  lastNativeKick = now;
+  try {
+    after(async () => {
+      try {
+        await runNativeReceiveCycle();
+      } catch (kickError: any) {
+        console.error("Query ticket bridge: native receive kick failed:", kickError?.message || kickError);
+      }
+    });
+  } catch (afterError: any) {
+    // `after()` unavailable in this runtime — the QStash cron still receives.
+    console.error("Query ticket bridge: could not schedule native receive kick:", afterError?.message || afterError);
+  }
+}
+
 export const POST = apiHandler(async ({ db, user }) => {
   if (user.role !== "admin") throw forbidden();
 
@@ -85,6 +128,10 @@ export const POST = apiHandler(async ({ db, user }) => {
   }
   syncInflight = true;
   try {
+    // Trigger the universal native receive cycle (throttled, post-response) so
+    // fresh support@ mail reaches PostgreSQL now instead of at the next cron
+    // fire — the next poll tick bridges it into the open conversation.
+    scheduleNativeReceiveKick();
     return await runInboundSync(db);
   } finally {
     syncInflight = false;

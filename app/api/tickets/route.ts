@@ -1,5 +1,6 @@
 ﻿import { apiHandler, jsonBody, json, badRequest } from "@/lib/server/api";
 import { ObjectId } from "mongodb";
+import { generateUniqueRequestId } from "@/lib/tickets/email";
 
 // Maximum conversations rendered in the initial Query Inbox view (Phase 10).
 // The client-side list loads 15 at a time and exposes a "Load More" button;
@@ -17,6 +18,7 @@ const SEARCH_FIELDS = [
   "contactEmail",
   "contactCompany",
   "source",
+  "requestId",
 ];
 
 // Lean-card projection (`GET /tickets?fields=card`): the Query Inbox list
@@ -30,6 +32,7 @@ const SEARCH_FIELDS = [
 const CARD_PROJECTION: Record<string, 0 | 1> = {
   _id: 1,
   source: 1,
+  requestId: 1,
   clientId: 1,
   clientCustomId: 1,
   clientEmail: 1,
@@ -184,8 +187,11 @@ export const POST = apiHandler(async ({ db, request, user }) => {
   const description = String(body.description ?? "").trim();
   if (!subject || !description) throw badRequest("Subject and description are required");
   const now = new Date();
+  // Customer-facing request reference (WSD-XXXXXX) — same rule as Get in Touch.
+  const requestId = await generateUniqueRequestId(db);
   const doc = {
     source: "client_portal",
+    requestId,
     clientId: user._id.toString(),
     contactName: user.name,
     contactEmail: user.email,

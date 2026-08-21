@@ -83,6 +83,7 @@ const QUERY_INBOX_PAGE_SIZE = 15;
 // full thread (messages/history are never part of the card payload).
 const CARD_FIELDS: readonly string[] = [
   "source",
+  "requestId",
   "clientId",
   "clientCustomId",
   "clientEmail",
@@ -120,6 +121,12 @@ const PRIORITY_SELECT_ARROW =
 // stops on unmount/deselect.
 const POLL_INTERVAL_MS = 1_000;
 
+// Idle-mode list refresh cadence: with no conversation open, the lean card
+// list is silently refreshed every N poll ticks (~5 s) so a brand-new Get in
+// Touch request drops into the inbox live (unread dot + card appear without
+// any manual refresh). Lean payload (`fields=card`) keeps it cheap.
+const LIST_REFRESH_TICKS = 5;
+
 // Display-only cleanup mirror for inbound email bodies stored BEFORE the
 // server-side cleaner existed (R01 Phase 4). The chat never shows quoted
 // previous emails / signatures / reply-header blocks — only the client's own
@@ -129,6 +136,8 @@ function cleanClientBody(raw: string): string {
   if (!body.trim()) return body;
   body = body.replace(/\r\n/g, "\n");
   const lines = body.split("\n");
+  const HEADER_LINE_RE = /^(from|sent|to|cc|bcc|subject|date|reply-to|return-path|message-id|x-[a-z0-9-]+):/i;
+  const QUOTE_INTRO_RE = /^on .+ (wrote|said):\s*$/i;
   let cut = lines.length;
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i].trim();
@@ -148,15 +157,18 @@ function cleanClientBody(raw: string): string {
       cut = i;
       break;
     }
-    if (i > 0 && lines[i - 1].trim() === "" && /^on .+ (wrote|said):\s*$/i.test(t)) {
-      cut = i;
-      break;
+    // Gmail-style quote intro: after a blank line OR directly above a quoted
+    // block (some clients put no blank line between intro and quote).
+    if (QUOTE_INTRO_RE.test(t)) {
+      const prevBlank = i > 0 && lines[i - 1].trim() === "";
+      const nextQuoted = i + 1 < lines.length && lines[i + 1].trim().startsWith(">");
+      if (prevBlank || nextQuoted) {
+        cut = i;
+        break;
+      }
     }
-    if (
-      i > 0 &&
-      lines[i - 1].trim() === "" &&
-      /^(from|sent|to|cc|bcc|subject|date|reply-to|return-path|message-id|x-[a-z0-9-]+):/i.test(t)
-    ) {
+    // Reply-header run (>= 2 consecutive header-style lines) anywhere.
+    if (HEADER_LINE_RE.test(t) && i + 1 < lines.length && HEADER_LINE_RE.test(lines[i + 1].trim())) {
       cut = i;
       break;
     }
@@ -227,6 +239,11 @@ const getClientIdLabel = (ticket: Ticket): string | null => {
   if (ticket.clientId && typeof ticket.clientId === "object" && ticket.clientId._id) return ticket.clientId._id;
   return null;
 };
+
+// Customer-facing request reference (WSD-XXXXXX). Pre-WSD tickets have no
+// stored requestId — they keep rendering their legacy id so nothing is invented.
+const getRequestLabel = (ticket: Ticket): string =>
+  ticket.requestId || ticket._id;
 
 function hasStoredEmail(ticket: Ticket): boolean {
   // Lean card list items (`fields=card`) carry the server-computed flag — the
@@ -413,7 +430,7 @@ html.query-inbox-workspace .app-main-scroll {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
 }
@@ -432,10 +449,10 @@ html.query-inbox-workspace .app-main-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 10px 12px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 /* Stored message text may contain "[label](url)" link tokens (First Welcome's
    Client Portal / Direct Secure Chat links). Labels render as clickable links
@@ -888,13 +905,30 @@ export default function AdminMessagesClient() {
   //      picked up in the same cycle.
   //   4. Refreshes the lean card list when the bridge reported new matches
   //      (other conversations' metadata) — never the open thread.
+  //   5. With NO conversation open (or a closed one), still refreshes the lean
+  //      card list every LIST_REFRESH_TICKS ticks (~5 s) so a brand-new Get in
+  //      Touch request drops into the inbox LIVE — no manual refresh, no page
+  //      reload, no selection change.
   // Fully silent (quietFetch transport): no reload, no remount, no spinner, no
-  // scroll reset, no selection change. Stops on unmount.
+  // scroll reset. Stops on unmount.
   useEffect(() => {
     cancelledRef.current = false;
+    let tickCount = 0;
     const tick = async () => {
+      tickCount += 1;
       const sel = selectedRef.current;
-      if (!sel?.id || sel.status === "closed") return;
+      if (!sel?.id || sel.status === "closed") {
+        // Idle mode: keep the list live for brand-new Get in Touch requests.
+        if (tickCount % LIST_REFRESH_TICKS === 0 && !pollInFlight.current) {
+          pollInFlight.current = true;
+          try {
+            await refreshCardsSilently();
+          } finally {
+            pollInFlight.current = false;
+          }
+        }
+        return;
+      }
       if (pollInFlight.current) return;
       pollInFlight.current = true;
       try {
@@ -1587,7 +1621,14 @@ export default function AdminMessagesClient() {
                     style={styles.ticketCard}
                   >
                     <div style={styles.cardHeaderRow}>
-                      <span style={styles.cardCategory}>Query</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                        <span style={styles.cardCategory}>Query</span>
+                        {ticket.requestId && (
+                          <span style={styles.cardRequestId} title="Request ID">
+                            {getRequestLabel(ticket)}
+                          </span>
+                        )}
+                      </div>
                       <div style={styles.cardHeaderRight}>
                         {ticket.hasNewClientReply && (
                           <span style={styles.unreadDot} title="New client reply" aria-label="New client reply" />
@@ -1762,8 +1803,16 @@ export default function AdminMessagesClient() {
            </div>
          ) : (
            <div className="qib-conv-body" onScroll={closeMenu}>
-              <div className="qib-conv-subhead">
-                <h3 style={styles.convSubject}>{selectedTicket.subject}</h3>
+               <div className="qib-conv-subhead">
+                 <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flexWrap: "wrap" }}>
+                   <h3 style={styles.convSubject}>{selectedTicket.subject}</h3>
+                   <span
+                     style={styles.convRequestId}
+                     title="Request ID (customer-facing reference)"
+                   >
+                     {getRequestLabel(selectedTicket)}
+                   </span>
+                 </div>
                 <div style={styles.convActions}>
                   <button
                     type="button"
@@ -1925,6 +1974,10 @@ export default function AdminMessagesClient() {
                 <div style={styles.metaItem}>
                   <Briefcase size={14} color="#007AFF" />
                   <span>{getRequester(selectedTicket).subtitle}</span>
+                </div>
+                <div style={styles.metaItem}>
+                  <Hash size={14} color="#007AFF" />
+                  <span>Request ID: {getRequestLabel(selectedTicket)}</span>
                 </div>
                 {getClientIdLabel(selectedTicket) && (
                   <div style={styles.metaItem}>
@@ -2303,6 +2356,29 @@ const styles: Record<string, any> = {
     textTransform: "uppercase",
     letterSpacing: "0.6px",
   },
+  cardRequestId: {
+    fontSize: "9px",
+    fontWeight: 700,
+    fontFamily: "var(--font-mono, monospace)",
+    color: "#007AFF",
+    backgroundColor: "rgba(0,122,255,0.08)",
+    border: "1px solid #007aff22",
+    borderRadius: "999px",
+    padding: "1px 7px",
+    whiteSpace: "nowrap",
+  },
+  convRequestId: {
+    flexShrink: 0,
+    fontSize: "11px",
+    fontWeight: 700,
+    fontFamily: "var(--font-mono, monospace)",
+    color: "#007AFF",
+    backgroundColor: "rgba(0,122,255,0.08)",
+    border: "1px solid #007aff33",
+    borderRadius: "999px",
+    padding: "3px 10px",
+    whiteSpace: "nowrap",
+  },
   cardHeaderRight: { display: "flex", alignItems: "center", gap: "6px" },
   cardBody: {
     display: "flex",
@@ -2577,7 +2653,9 @@ const styles: Record<string, any> = {
   iconBtnLabel: { whiteSpace: "nowrap" },
   chatCard: {
     flexShrink: 0,
-    height: "clamp(260px, 42dvh, 520px)",
+    // Compact WhatsApp-style footprint: the thread stays readable but the card
+    // no longer dominates the conversation pane.
+    height: "clamp(220px, 34dvh, 420px)",
     display: "flex",
     flexDirection: "column",
     border: "1px solid var(--border-color)",
@@ -2591,24 +2669,24 @@ const styles: Record<string, any> = {
   bubbleClient: {
     maxWidth: "76%",
     border: "1px solid var(--border-color)",
-    borderRadius: "12px",
+    borderRadius: "10px",
     borderTopLeftRadius: "4px",
-    padding: "8px 10px",
+    padding: "6px 9px",
     backgroundColor: "var(--bg-primary)",
   },
   bubbleAdmin: {
     maxWidth: "76%",
     border: "1px solid #007aff33",
-    borderRadius: "12px",
+    borderRadius: "10px",
     borderTopRightRadius: "4px",
-    padding: "8px 10px",
+    padding: "6px 9px",
     backgroundColor: "rgba(0,122,255,0.07)",
   },
   bubbleSender: { margin: 0, fontSize: "10px", fontWeight: 700, color: "#007AFF" },
   bubbleText: {
-    margin: "4px 0",
+    margin: "3px 0",
     fontSize: "12px",
-    lineHeight: 1.5,
+    lineHeight: 1.45,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     color: "var(--text-primary)",
