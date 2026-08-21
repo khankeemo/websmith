@@ -187,13 +187,16 @@ export const getTicketsPaged = async (params: {
  * Same list fetch as getTicketsPaged but via quietFetch (transport-only, never
  * page-lifeline): the inbound-email auto-poll re-checks the open thread every
  * 1 second, and a session expiry mid-poll must never let the axios interceptor
- * replace the whole page with /login. Response shape identical.
+ * replace the whole page with /login. Response shape identical. R02: accepts
+ * `fields: "card"` too — the every-second card-list sync uses the lean
+ * projection over the quiet transport.
  */
 export const getTicketsQuiet = async (params: {
   scope?: string;
   page?: number;
   pageSize?: number;
   search?: string;
+  fields?: "card";
 } = {}) => {
   const query = new URLSearchParams({
     scope: params.scope || "active",
@@ -201,6 +204,7 @@ export const getTicketsQuiet = async (params: {
     pageSize: String(params.pageSize || 15),
   });
    if (params.search) query.set("search", params.search);
+   if (params.fields) query.set("fields", params.fields);
   const payload = await quietFetch(`/tickets?${query.toString()}`);
   return payload.data as {
     data: Ticket[];

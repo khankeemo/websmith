@@ -39,78 +39,23 @@ import crypto from "node:crypto";
 // Inbound bodies are cleaned at BRIDGE time (cleanInboundBody): quoted
 // previous emails, original-message blocks, signatures and reply-header
 // blocks are stripped so the Messenger Chat shows ONLY the client's own words.
+//
+// R02: the cleaner itself lives in ONE shared pure module
+// (`core/services/inboundBodyCleanup.ts`) that BOTH this server bridge and
+// the admin UI's display mirror import — one canonical rule set, zero drift.
+// The quote-intro boundary there is UNCONDITIONAL (real-world Gmail/Apple
+// replies carry no blank line above "On … wrote:" and often no ">" markers
+// below it), which is what leaked whole quoted emails into chat bubbles.
 // ============================================================================
+
+import { cleanInboundBody } from "@/core/services/inboundBodyCleanup";
+
+// Canonical shared implementation — re-exported so every existing consumer
+// (`app/api/tickets/inbound/route.ts` bridge loop) keeps its exact API.
+export { cleanInboundBody };
 
 export const norm = (value: string) =>
   String(value || "").trim().replace(/^<|>$/g, "").replace(/\s+/g, "").toLowerCase();
-
-// ---------------------------------------------------------------------------
-// Clean inbound email body — Messenger Chat shows ONLY the client's own words.
-// Strips quoted previous-email blocks, original-message sections, signature
-// blocks and stray reply-header blocks when the message is bridged into the
-// ticket so the chat bubble, history entry and any consumer get the same clean
-// body. Conservative: the first quote/signature/header boundary ends the
-// message; legitimate body text before the boundary is preserved verbatim.
-// ---------------------------------------------------------------------------
-export function cleanInboundBody(text: string): string {
-  let body = String(text || "");
-  if (!body.trim()) return "";
-  body = body.replace(/\r\n/g, "\n");
-  const lines = body.split("\n");
-  const HEADER_LINE_RE = /^(from|sent|to|cc|bcc|subject|date|reply-to|return-path|message-id|x-[a-z0-9-]+):/i;
-  const QUOTE_INTRO_RE = /^on .+ (wrote|said):\s*$/i;
-  let cut = lines.length;
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    // Quoted reply block (every line prefixed with ">").
-    if (trimmed.startsWith(">")) {
-      cut = i;
-      break;
-    }
-    // Outlook / Apple Mail original-message separator.
-    if (/^-----+\s*(original message|forwarded message|reply message|message)\s*-----+$/i.test(trimmed)) {
-      cut = i;
-      break;
-    }
-    // Gmail-style "On <date>, <name> wrote:" quote intro. Cut when it follows a
-    // blank line OR when the quoted block starts on the next line (some clients
-    // put no blank line between the intro and the quote).
-    if (QUOTE_INTRO_RE.test(trimmed)) {
-      const prevBlank = i > 0 && lines[i - 1].trim() === "";
-      const nextQuoted = i + 1 < lines.length && lines[i + 1].trim().startsWith(">");
-      if (prevBlank || nextQuoted) {
-        cut = i;
-        break;
-      }
-    }
-    // Mobile signatures ("Sent from my iPhone/Android/...").
-    if (/^sent from (my )?(iphone|ipad|android|galaxy|blackberry|windows)/i.test(trimmed)) {
-      cut = i;
-      break;
-    }
-    // Signature separator ("-- ").
-    if (trimmed === "--" || trimmed.startsWith("-- ")) {
-      cut = i;
-      break;
-    }
-    // Reply-header block ("From: ... / Sent: ... / To: ..."). Detected as a RUN
-    // of >= 2 consecutive header-style lines ANYWHERE (not only after a blank
-    // line) so forwarded headers glued to the client's text are still stripped.
-    if (
-      HEADER_LINE_RE.test(trimmed) &&
-      i + 1 < lines.length &&
-      HEADER_LINE_RE.test(lines[i + 1].trim())
-    ) {
-      cut = i;
-      break;
-    }
-  }
-  return lines
-    .slice(0, cut)
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 // Normalize a subject for thread-identity comparison: strip repeated
 // Re:/Fwd:/Fw:/Aw:/Sv:/VS: prefixes and punctuation, lowercase.

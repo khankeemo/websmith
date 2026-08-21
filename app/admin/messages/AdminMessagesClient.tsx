@@ -34,6 +34,7 @@ import {
   getTicketMessages,
   getTicketQuiet,
   getTicketsPaged,
+  getTicketsQuiet,
   markTicketRead,
   resolveTicketFileUrl,
   resendTicketEmail,
@@ -49,6 +50,7 @@ import {
 import { getToken } from "@/lib/auth";
 import { getSiteUrl } from "@/core/config/site";
 import { renderMessageHtml } from "@/core/services/messageRender";
+import { cleanInboundBody } from "@/core/services/inboundBodyCleanup";
 import { useMediaAsset } from "@/hooks/useMediaAsset";
 
 // Canonical sender identity shown for every admin/outbound message in the
@@ -113,72 +115,31 @@ const PRIORITY_SELECT_ARROW =
 // Auto-poll interval for the Query Ticket bridge (R01 PHASE 2 FINAL: poll
 // every 1 second so a client email reply — processed by the UNIVERSAL email
 // system and bridged into the ticket — lands in Messenger Chat within ≤1 s and
-// never later than the 3-second maximum; no manual Sync Inbound button). The
-// poll silently runs the bridge on /api/tickets/inbound (reads ALREADY
-// processed customer messages from the universal conversations, appends each
-// to the open ticket's messages[]) plus the diff-based open-thread refresh.
-// Polling runs ONLY while a conversation is selected AND not closed, and
-// stops on unmount/deselect.
+// never later than the 3-second maximum; no manual Sync Inbound button).
+//
+// R02 LIVE SYNC — ONE mechanism, ALWAYS on: the single interval runs the SAME
+// silent sync in EVERY UI state (idle AND open conversation):
+//   1. bridge pass on /api/tickets/inbound (email → tickets, cheap when
+//      nothing is new thanks to the server-side seen-set fast path),
+//   2. incremental thread deltas for the OPEN conversation (Secure Chat +
+//      bridged Email messages, `?after=` cursor with a small overlap window),
+//   3. lean card-list refresh EVERY tick so a brand-new Get in Touch request
+//      drops into the inbox live whether or not a conversation is open.
+// There are no secondary timers, no state-dependent gating and no manual
+// buttons. Polling stops only on unmount.
 const POLL_INTERVAL_MS = 1_000;
 
-// Idle-mode list refresh cadence: with no conversation open, the lean card
-// list is silently refreshed every N poll ticks (~5 s) so a brand-new Get in
-// Touch request drops into the inbox live (unread dot + card appear without
-// any manual refresh). Lean payload (`fields=card`) keeps it cheap.
-const LIST_REFRESH_TICKS = 5;
+// Clock-skew safety window for the incremental `?after=` cursor: deltas are
+// re-fetched from slightly BEFORE the last known message time (browser clock
+// vs server clock can differ by seconds). The idempotent merge absorbs any
+// overlap — existing message ids never append twice.
+const CURSOR_OVERLAP_MS = 2_000;
 
-// Display-only cleanup mirror for inbound email bodies stored BEFORE the
-// server-side cleaner existed (R01 Phase 4). The chat never shows quoted
-// previous emails / signatures / reply-header blocks — only the client's own
-// words. Data is never mutated here.
-function cleanClientBody(raw: string): string {
-  let body = String(raw || "");
-  if (!body.trim()) return body;
-  body = body.replace(/\r\n/g, "\n");
-  const lines = body.split("\n");
-  const HEADER_LINE_RE = /^(from|sent|to|cc|bcc|subject|date|reply-to|return-path|message-id|x-[a-z0-9-]+):/i;
-  const QUOTE_INTRO_RE = /^on .+ (wrote|said):\s*$/i;
-  let cut = lines.length;
-  for (let i = 0; i < lines.length; i++) {
-    const t = lines[i].trim();
-    if (t.startsWith(">")) {
-      cut = i;
-      break;
-    }
-    if (t === "--" || t.startsWith("-- ")) {
-      cut = i;
-      break;
-    }
-    if (/^-----+\s*(original message|forwarded message|reply message|message)\s*-----+$/i.test(t)) {
-      cut = i;
-      break;
-    }
-    if (/^sent from (my )?(iphone|ipad|android|galaxy|blackberry|windows)/i.test(t)) {
-      cut = i;
-      break;
-    }
-    // Gmail-style quote intro: after a blank line OR directly above a quoted
-    // block (some clients put no blank line between intro and quote).
-    if (QUOTE_INTRO_RE.test(t)) {
-      const prevBlank = i > 0 && lines[i - 1].trim() === "";
-      const nextQuoted = i + 1 < lines.length && lines[i + 1].trim().startsWith(">");
-      if (prevBlank || nextQuoted) {
-        cut = i;
-        break;
-      }
-    }
-    // Reply-header run (>= 2 consecutive header-style lines) anywhere.
-    if (HEADER_LINE_RE.test(t) && i + 1 < lines.length && HEADER_LINE_RE.test(lines[i + 1].trim())) {
-      cut = i;
-      break;
-    }
-  }
-  return lines
-    .slice(0, cut)
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
+// Display-only cleanup mirror for inbound email bodies stored BEFORE a cleaner
+// fix shipped (legacy rows). R02: this is now the SAME canonical pure cleaner
+// the server bridge uses (`core/services/inboundBodyCleanup.ts`) — one rule
+// set for stored rows and new bridges, zero drift, data never mutated here.
+const cleanClientBody = cleanInboundBody;
 
 const formatDate = (value?: string) =>
   value
@@ -783,8 +744,26 @@ export default function AdminMessagesClient() {
           ...(meta.status !== undefined ? { status: meta.status } : {}),
         };
       });
-      setTickets((prev) =>
-        prev.map((t) =>
+      setTickets((prev) => {
+        const target = prev.find((t) => t._id === ticketId);
+        if (!target) return prev;
+        // Churn guard: identical card metadata keeps the exact previous state
+        // object so React skips the re-render entirely.
+        const nextUpdatedAt = meta.updatedAt !== undefined ? meta.updatedAt : target.updatedAt;
+        const nextLastReply =
+          meta.lastClientReplyAt !== undefined ? meta.lastClientReplyAt : target.lastClientReplyAt;
+        const nextUnread =
+          meta.hasNewClientReply !== undefined ? meta.hasNewClientReply : target.hasNewClientReply;
+        const nextStatus = meta.status !== undefined ? meta.status : target.status;
+        if (
+          nextUpdatedAt === target.updatedAt &&
+          nextLastReply === target.lastClientReplyAt &&
+          nextUnread === target.hasNewClientReply &&
+          nextStatus === target.status
+        ) {
+          return prev;
+        }
+        return prev.map((t) =>
           t._id === ticketId
             ? {
                 ...t,
@@ -794,8 +773,8 @@ export default function AdminMessagesClient() {
                 ...(meta.status !== undefined ? { status: meta.status } : {}),
               }
             : t
-        )
-      );
+        );
+      });
     },
     []
   );
@@ -817,33 +796,61 @@ export default function AdminMessagesClient() {
     );
   }, []);
 
-  // Silent lean-card list refresh (used when the email bridge reports new
-  // matches): updates the OTHER conversations' metadata (unread dot, status,
-  // lastClientReplyAt) without ever re-downloading their threads, and never
-  // replaces the open conversation's thread. Reads the current list state from
-  // a ref so the poll effect stays stable (never restarted by state updates).
+  // Silent lean-card list sync — runs EVERY poll tick (~1 s) in EVERY UI state
+  // (R02): refreshes the OTHER conversations' metadata (unread dot, status,
+  // lastClientReplyAt), INSERTS brand-new tickets (a Get in Touch request lands
+  // live without any manual refresh) and merges card fields onto the open
+  // conversation without ever touching its thread. Reads the current list state
+  // from a ref so the poll effect stays stable (never restarted by state
+  // updates). Churn-free: when the fresh page carries nothing new, the exact
+  // previous state objects are returned so React skips the re-render entirely
+  // (no flicker, no scroll movement). Quiet transport: a session expiry mid-poll
+  // can never page-replace the admin with /login.
   const refreshCardsSilently = useCallback(async () => {
     try {
       const { scope: s, page: p, searchTerm: q } = listStateRef.current;
-      const res = await getTicketsPaged({
+      const res = await getTicketsQuiet({
         scope: s,
         page: p,
         pageSize: QUERY_INBOX_PAGE_SIZE,
         search: q,
         fields: "card",
       });
-      const byId = new Map(res.data.map((t) => [t._id, t]));
-      setTickets((prev) => prev.map((t) => byId.get(t._id) ?? t));
+      const fresh = Array.isArray(res.data) ? res.data : [];
+      if (fresh.length === 0) return;
+      const byId = new Map(fresh.map((t) => [t._id, t]));
+      const cardSignature = (arr: Ticket[]) =>
+        arr
+          .map((t) => `${t._id}:${t.updatedAt || ""}:${t.status || ""}:${t.hasNewClientReply ? 1 : 0}`)
+          .join("|");
+      setTickets((prev) => {
+        // Position-preserving refresh of existing rows + prepend genuinely-new
+        // tickets (the server sorts by updatedAt DESC, so a brand-new ticket
+        // belongs at the top — same place a manual reload would put it).
+        const prevIds = new Set(prev.map((t) => t._id));
+        const inserted = fresh.filter((t) => !prevIds.has(t._id));
+        const merged = prev.map((t) => byId.get(t._id) ?? t);
+        const next = inserted.length ? [...inserted, ...merged] : merged;
+        return cardSignature(next) === cardSignature(prev) ? prev : next;
+      });
       setTotal(res.total);
       setPage(res.page);
       setHasMore(res.hasMore);
       setSelectedTicket((prev) => {
         if (!prev) return prev;
-        const fresh = byId.get(prev._id);
-        if (!fresh) return prev;
+        const freshCard = byId.get(prev._id);
+        if (!freshCard) return prev;
+        let changed = false;
         const merged: any = { ...prev };
-        for (const key of CARD_FIELDS) if (key in fresh) merged[key] = (fresh as any)[key];
-        return merged;
+        for (const key of CARD_FIELDS) {
+          if (!(key in freshCard)) continue;
+          const nextValue = (freshCard as any)[key];
+          if (JSON.stringify(merged[key]) !== JSON.stringify(nextValue)) {
+            merged[key] = nextValue;
+            changed = true;
+          }
+        }
+        return changed ? merged : prev;
       });
     } catch {
       // Silent: the next poll re-attempts automatically.
@@ -892,68 +899,75 @@ export default function AdminMessagesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTicket?._id]);
 
-  // AUTO-POLL — the ONE Messenger real-time update mechanism (AWS-01 R01 — FIX
-  // /admin/messages REAL-TIME). The interval is created ONCE on mount and reads
-  // the current selection through refs, so it NEVER restarts on state updates
-  // and never creates duplicate intervals. Each 1-second tick (first run ~800ms
-  // after mount):
-  //   1. Bridges processed universal email into tickets (existing silent API).
-  //   2. Incrementally fetches ONLY messages newer than the last-seen cursor for
-  //      the open conversation (Secure Chat + already-bridged Email) — the full
-  //      thread is fetched once on open, never re-downloaded every second.
-  //   3. Runs a catch-up fetch after the bridge so a just-bridged email is
-  //      picked up in the same cycle.
-  //   4. Refreshes the lean card list when the bridge reported new matches
-  //      (other conversations' metadata) — never the open thread.
-  //   5. With NO conversation open (or a closed one), still refreshes the lean
-  //      card list every LIST_REFRESH_TICKS ticks (~5 s) so a brand-new Get in
-  //      Touch request drops into the inbox LIVE — no manual refresh, no page
-  //      reload, no selection change.
-  // Fully silent (quietFetch transport): no reload, no remount, no spinner, no
-  // scroll reset. Stops on unmount.
+  // AUTO-POLL — the ONE Messenger real-time update mechanism (R02 LIVE SYNC).
+  // The interval is created ONCE on mount and reads the current selection
+  // through refs, so it NEVER restarts on state updates and never creates
+  // duplicate intervals. There are NO secondary timers and NO state-dependent
+  // gating: EVERY 1-second tick (first run ~800ms after mount) runs the same
+  // silent sync in every UI state:
+  //   1. Bridge pass (/api/tickets/inbound): processed universal email is
+  //      copied into its ticket — ALWAYS, idle or not (unread dots stay live;
+  //      the server-side seen-set fast path makes a no-op pass nearly free).
+  //   2. Open conversation: incremental fetch of ONLY messages newer than the
+  //      last-seen cursor (Secure Chat + bridged Email), with a small overlap
+  //      window to absorb browser/server clock skew — the idempotent merge
+  //      never duplicates. The full thread is fetched once on open, never
+  //      re-downloaded every second.
+  //   3. Catch-up fetch right after a bridge tick that appended something, so a
+  //      just-bridged email lands in the open thread in the SAME cycle.
+  //   4. Lean card-list sync EVERY tick: inserts brand-new Get in Touch tickets
+  //      live and refreshes unread/status metadata — never threads, never the
+  //      draft, never the scroll.
+  // Fully silent (quietFetch transport): no reload, no remount, no spinner.
+  // Stops only on unmount.
   useEffect(() => {
     cancelledRef.current = false;
-    let tickCount = 0;
     const tick = async () => {
-      tickCount += 1;
-      const sel = selectedRef.current;
-      if (!sel?.id || sel.status === "closed") {
-        // Idle mode: keep the list live for brand-new Get in Touch requests.
-        if (tickCount % LIST_REFRESH_TICKS === 0 && !pollInFlight.current) {
-          pollInFlight.current = true;
-          try {
-            await refreshCardsSilently();
-          } finally {
-            pollInFlight.current = false;
-          }
-        }
-        return;
-      }
       if (pollInFlight.current) return;
       pollInFlight.current = true;
       try {
-        const cursorIso = cursorRef.current > 0 ? new Date(cursorRef.current).toISOString() : "";
-        const [bridge, first] = await Promise.all([
-          syncInboundEmail().catch(() => null),
-          getTicketMessages(sel.id, cursorIso).catch(() => null),
-        ]);
-        if (cancelledRef.current) return;
-        if (first?.messages && first.messages.length > 0) {
-          applyIncremental(sel.id, first.messages, first);
-          if (first.hasNewClientReply) markReadSelected(sel.id);
+        const sel = selectedRef.current;
+        const openId = sel?.id && sel.status !== "closed" ? sel.id : null;
+
+        let bridgeMatched = 0;
+        if (openId) {
+          const cursorIso =
+            cursorRef.current > 0
+              ? new Date(cursorRef.current - CURSOR_OVERLAP_MS).toISOString()
+              : "";
+          const [bridge, first] = await Promise.all([
+            syncInboundEmail().catch(() => null),
+            getTicketMessages(openId, cursorIso).catch(() => null),
+          ]);
+          if (cancelledRef.current) return;
+          bridgeMatched = (bridge as { matched?: number } | null)?.matched || 0;
+          if (first?.messages && first.messages.length > 0) {
+            applyIncremental(openId, first.messages, first);
+            if (first.hasNewClientReply) markReadSelected(openId);
+          }
+        } else {
+          // Idle (or a closed conversation selected): email must STILL reach
+          // its ticket live — the bridge runs here too.
+          const bridge = await syncInboundEmail().catch(() => null);
+          if (cancelledRef.current) return;
+          bridgeMatched = (bridge as { matched?: number } | null)?.matched || 0;
         }
-        if (bridge) {
-          const catchCursor = cursorRef.current > 0 ? new Date(cursorRef.current).toISOString() : "";
-          const catchUp = await getTicketMessages(sel.id, catchCursor).catch(() => null);
+
+        if (bridgeMatched > 0 && openId && selectedRef.current?.id === openId) {
+          const catchCursor =
+            cursorRef.current > 0
+              ? new Date(cursorRef.current - CURSOR_OVERLAP_MS).toISOString()
+              : "";
+          const catchUp = await getTicketMessages(openId, catchCursor).catch(() => null);
           if (cancelledRef.current) return;
           if (catchUp?.messages && catchUp.messages.length > 0) {
-            applyIncremental(sel.id, catchUp.messages, catchUp);
-            if (catchUp.hasNewClientReply) markReadSelected(sel.id);
-          }
-          if ((bridge as { matched?: number })?.matched && (bridge as { matched?: number }).matched! > 0) {
-            await refreshCardsSilently();
+            applyIncremental(openId, catchUp.messages, catchUp);
+            if (catchUp.hasNewClientReply) markReadSelected(openId);
           }
         }
+
+        // Every tick: brand-new Get in Touch tickets + metadata stay live.
+        await refreshCardsSilently();
       } finally {
         pollInFlight.current = false;
       }

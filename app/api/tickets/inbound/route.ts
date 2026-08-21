@@ -47,7 +47,16 @@ import {
 //
 // Inbound bodies are cleaned at BRIDGE time (cleanInboundBody) so the
 // Messenger Chat shows ONLY the client's own words. The full email record
-// stays in the universal PostgreSQL tables.
+// stays in the universal PostgreSQL tables. R02: the cleaner lives in ONE
+// shared pure module (`core/services/inboundBodyCleanup.ts`) used by both
+// this bridge and the admin UI's display mirror for legacy stored rows.
+//
+// R02 LIVE SYNC: the auto-poll calls this bridge EVERY tick (~1 s) in EVERY
+// UI state (idle + open conversation), so a repeat pass must be nearly free.
+// A bounded per-instance seen-set of processed PG message ids short-circuits
+// already-bridged rows before any MongoDB work happens (the durable
+// `sourceRef` dedupe remains the real boundary — the set is only a cache;
+// cold serverless instances simply rebuild it from `sourceRef` checks).
 // ============================================================================
 
 type MailboxSyncStats = {
@@ -65,6 +74,30 @@ type MailboxSyncStats = {
 // summary immediately. Serverless instances each keep their own flag, which
 // is fine: the `sourceRef` dedupe is the real duplicate boundary.
 let syncInflight = false;
+
+// ---------------------------------------------------------------------------
+// PER-INSTANCE SEEN-SET (R02) — makes an every-second bridge pass nearly free
+// when nothing is new. Rows whose PG message id was already bridged (or
+// already present as `sourceRef`) on THIS instance skip all MongoDB work.
+// Bounded ring: at most BRIDGE_SEEN_MAX ids are remembered per instance; a
+// recycled id merely re-runs the cheap durable `sourceRef` check once.
+// Only matched/duplicate outcomes are remembered — unmatched rows stay
+// un-remembered so they retry (cheaply) until their ticket exists.
+// ---------------------------------------------------------------------------
+const BRIDGE_SEEN_MAX = 4096;
+const bridgeSeenIds: number[] = [];
+const bridgeSeenSet = new Set<number>();
+
+function rememberBridgedMessage(pgMessageId: number) {
+  if (bridgeSeenSet.has(pgMessageId)) return;
+  bridgeSeenSet.add(pgMessageId);
+  bridgeSeenIds.push(pgMessageId);
+  if (bridgeSeenIds.length > BRIDGE_SEEN_MAX) {
+    for (const dropped of bridgeSeenIds.splice(0, bridgeSeenIds.length - BRIDGE_SEEN_MAX)) {
+      bridgeSeenSet.delete(dropped);
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // ON-DEMAND NATIVE RECEIVE KICK (AWS-01 R01 — FIX email→chat delay)
@@ -208,10 +241,24 @@ async function runInboundSync(db: any): Promise<Response> {
   // chronologically to the ticket thread.
   rows.reverse();
 
+  // R02 fast path: when EVERY row in the window was already bridged on this
+  // instance, skip the attachment read and all MongoDB work — the pass costs
+  // just the two indexed PostgreSQL SELECTs above. `duplicate` is reported for
+  // every skipped row so callers see an honest, unchanged summary shape.
+  const unseenRows = rows.filter((row) => !bridgeSeenSet.has(Number(row.message_id)));
+  if (unseenRows.length === 0) {
+    totals.processed = rows.length;
+    totals.duplicate = rows.length;
+    return json({
+      success: true,
+      data: { ...totals, errors, noMailboxes: false },
+    });
+  }
+
   // Attachment bytes for the whole batch (conversation_attachments.content is
   // the durable BYTEA copy stored by the universal receiver — best-effort,
   // legacy disk-only rows without bytes are skipped).
-  const messageIds = rows.map((r) => r.message_id);
+  const messageIds = unseenRows.map((r) => r.message_id);
   let attachmentRows: any[] = [];
   try {
     const attResult = await pool.query(
@@ -232,7 +279,7 @@ async function runInboundSync(db: any): Promise<Response> {
     attByMessage.set(a.message_id, list);
   }
 
-  for (const row of rows) {
+  for (const row of unseenRows) {
     const attachments: InboundAttachment[] = (attByMessage.get(row.message_id) || [])
       .filter((a) => Buffer.isBuffer(a.content) && a.content.length > 0)
       .map((a) => ({
@@ -255,9 +302,17 @@ async function runInboundSync(db: any): Promise<Response> {
     totals.processed += 1;
     try {
       const outcome = await bridgeConversationMessages(db, item);
-      if (outcome.status === "matched") totals.matched += 1;
-      else if (outcome.status === "duplicate") totals.duplicate += 1;
-      else totals.unmatched += 1;
+      if (outcome.status === "matched") {
+        totals.matched += 1;
+        rememberBridgedMessage(item.pgMessageId);
+      } else if (outcome.status === "duplicate") {
+        totals.duplicate += 1;
+        rememberBridgedMessage(item.pgMessageId);
+      } else {
+        // Unmatched: NOT remembered — retried cheaply on a later pass until
+        // the matching ticket exists.
+        totals.unmatched += 1;
+      }
       if (outcome.attachmentsStored) totals.attachmentsStored += outcome.attachmentsStored;
     } catch (bridgeError: any) {
       console.error("Query ticket bridge error:", bridgeError?.message || bridgeError);
