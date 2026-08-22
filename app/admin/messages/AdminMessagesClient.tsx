@@ -52,6 +52,13 @@ import { getSiteUrl } from "@/core/config/site";
 import { renderMessageHtml } from "@/core/services/messageRender";
 import { cleanInboundBody } from "@/core/services/inboundBodyCleanup";
 import { useMediaAsset } from "@/hooks/useMediaAsset";
+// Shared 10-skin system (single source of truth: app/chat/[id]/chatSkins.ts)
+// + the ONE shared skin-changer UI also used by /chat/[id]. Presentation only:
+// selecting a skin swaps CSS custom properties on the Messenger pane — never
+// tickets, messages, polling, sending, or any admin logic.
+import { ChatSkinPicker } from "@/components/shared/ChatSkinPicker";
+import { CHAT_SURFACE_CSS } from "@/components/shared/chatSurfaceCss";
+import { DEFAULT_SKIN_ID, getChatSkin, readStoredSkinId, storeSkinId } from "@/app/chat/[id]/chatSkins";
 
 // Canonical sender identity shown for every admin/outbound message in the
 // Messenger Chat. Replaces any raw "Admin User" string (and the generic
@@ -392,19 +399,19 @@ html.query-inbox-workspace .app-main-scroll {
   justify-content: space-between;
   gap: 8px;
   padding: 4px 10px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-primary);
+  border-bottom: 1px solid var(--sk-header-border);
+  background: var(--sk-header-bg);
 }
 .qib-chat-label {
   font-size: 11px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--sk-title);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 .qib-chat-hint {
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--sk-subtitle);
 }
 .qib-chat-scroll {
   flex: 1;
@@ -420,7 +427,7 @@ html.query-inbox-workspace .app-main-scroll {
    (the URL, incl. the signed chat JWT, lives only in the href — never as
    visible text). */
 .qib-chat-scroll .qib-msg-text a {
-  color: #007aff;
+  color: var(--sk-link);
   text-decoration: underline;
   word-break: break-all;
 }
@@ -492,6 +499,21 @@ html.query-inbox-workspace .app-main-scroll {
 export default function AdminMessagesClient() {
   const router = useRouter();
   const chatLogo = useMediaAsset("chat_messenger_logo");
+
+  // ---- SKIN STATE (presentation only — swaps CSS variables, never logic) ----
+  // Same shared system as the Direct Secure Client Chat: one list, one picker,
+  // one localStorage key (`ws_chat_skin_id`), instant switching without reload.
+  const [skinId, setSkinId] = useState<string>(DEFAULT_SKIN_ID);
+  const activeSkin = getChatSkin(skinId);
+  useEffect(() => {
+    const stored = readStoredSkinId();
+    if (stored) setSkinId(stored);
+  }, []);
+  const handleSkinSelect = useCallback((id: string) => {
+    setSkinId(id);
+    storeSkinId(id);
+  }, []);
+
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1783,7 +1805,15 @@ export default function AdminMessagesClient() {
         </div>
       </aside>
 
-<section className="query-inbox-conversation">
+<section
+  className="query-inbox-conversation ws-chat-surface"
+  data-ws-skin={activeSkin.id}
+  style={activeSkin.vars as React.CSSProperties}
+>
+  {/* R04 shared messenger polish — the SAME stylesheet the Direct Secure Chat
+      injects (skin transitions, message entrance, Sending… pill styles,
+      scrollbar, placeholder/focus theming); every rule resolves --sk-*. */}
+  <style dangerouslySetInnerHTML={{ __html: CHAT_SURFACE_CSS }} />
 <header className="qib-topbar">
                <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
                  <ChevronLeft size={16} />
@@ -1827,7 +1857,9 @@ export default function AdminMessagesClient() {
                      {getRequestLabel(selectedTicket)}
                    </span>
                  </div>
-                <div style={styles.convActions}>
+                 <div style={styles.convActions}>
+                  {/* Shared skin changer (same 10 skins as /chat/[id]) */}
+                  <ChatSkinPicker activeSkinId={skinId} onSelect={handleSkinSelect} />
                   <button
                     type="button"
                     aria-label="Copy chat link"
@@ -1856,14 +1888,14 @@ export default function AdminMessagesClient() {
               </div>
 
 
-            <div style={styles.chatCard}>
+            <div className="ws-chat-card" style={styles.chatCard}>
               <div className="qib-chat-label-row">
                 <span className="qib-chat-label">Messenger Chat</span>
                 <span className="qib-chat-hint">Client messages · Admin messages</span>
               </div>
-              <div className="qib-chat-scroll" ref={chatScrollRef} onScroll={() => { closeMenu(); handleChatScroll(); }}>
+              <div className="qib-chat-scroll ws-chat-scroll" ref={chatScrollRef} onScroll={() => { closeMenu(); handleChatScroll(); }}>
                 {threadLoading && !threadMessages ? (
-                  <p style={styles.emptyText}>
+                  <p style={{ ...styles.emptyText, color: "var(--sk-subtitle)" }}>
                     <Loader2 size={13} className="admin-messages-spin" /> Loading messages...
                   </p>
                 ) : threadMessages ? (
@@ -1873,12 +1905,16 @@ export default function AdminMessagesClient() {
                       return (
                         <div
                           key={m.id}
+                          className="ws-msg"
                           style={{
                             ...styles.bubbleRow,
                             ...(isClient ? styles.bubbleRowClient : styles.bubbleRowAdmin),
                           }}
                         >
-                          <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
+                          <div
+                            className={isClient ? "ws-bubble-in" : "ws-bubble-out"}
+                            style={isClient ? styles.bubbleClient : styles.bubbleAdmin}
+                          >
                               <p style={styles.bubbleSender}>
                                {isClient ? clientFirstName(selectedTicket) : adminDisplayName(m.senderName)}
                               </p>
@@ -1982,36 +2018,36 @@ export default function AdminMessagesClient() {
               <span style={styles.sectionLabel}>Client Details</span>
               <div style={styles.metaItems}>
                 <div style={styles.metaItem}>
-                  <Mail size={14} color="#007AFF" />
+                  <Mail size={14} color="var(--sk-accent)" />
                   <span>{getRequester(selectedTicket).email || "No email available"}</span>
                 </div>
                 <div style={styles.metaItem}>
-                  <Briefcase size={14} color="#007AFF" />
+                  <Briefcase size={14} color="var(--sk-accent)" />
                   <span>{getRequester(selectedTicket).subtitle}</span>
                 </div>
                 <div style={styles.metaItem}>
-                  <Hash size={14} color="#007AFF" />
+                  <Hash size={14} color="var(--sk-accent)" />
                   <span>Request ID: {getRequestLabel(selectedTicket)}</span>
                 </div>
                 {getClientIdLabel(selectedTicket) && (
                   <div style={styles.metaItem}>
-                    <Hash size={14} color="#007AFF" />
+                    <Hash size={14} color="var(--sk-accent)" />
                     <span>Client ID: {getClientIdLabel(selectedTicket)}</span>
                   </div>
                 )}
                 <div style={styles.metaItem}>
-                  <ShieldCheck size={14} color="#007AFF" />
+                  <ShieldCheck size={14} color="var(--sk-accent)" />
                   <span>{getRequester(selectedTicket).name}</span>
                 </div>
                 <div style={styles.metaItem}>
-                  <Clock3 size={14} color="#007AFF" />
+                  <Clock3 size={14} color="var(--sk-accent)" />
                   <span>{formatDate(selectedTicket.createdAt)}</span>
                 </div>
               </div>
             </div>
 
             <div className="qib-cards-grid">
-              <div style={styles.composerCard}>
+              <div style={{ ...styles.composerCard, border: "1px solid var(--sk-composer-border)", backgroundColor: "var(--sk-composer-bg)" }}>
                 <div style={styles.composerTop}>
                   <label style={styles.sectionLabel}>Reply Thread</label>
                   <select value={greetingKey} onChange={(event) => handleGreetingChange(event.target.value)} style={styles.greetingSelect} disabled={templates.length === 0} title="Greeting Template">
@@ -2244,14 +2280,14 @@ const styles: Record<string, any> = {
     width: "7px",
     height: "7px",
     borderRadius: "999px",
-    backgroundColor: "#34c759",
+    backgroundColor: "var(--sk-status-open)",
     flexShrink: 0,
   },
   topbarDotClosed: {
     width: "7px",
     height: "7px",
     borderRadius: "999px",
-    backgroundColor: "#ff3b30",
+    backgroundColor: "var(--sk-status-closed)",
     flexShrink: 0,
   },
   topbarClient: {
@@ -2386,9 +2422,9 @@ const styles: Record<string, any> = {
     fontSize: "11px",
     fontWeight: 700,
     fontFamily: "var(--font-mono, monospace)",
-    color: "#007AFF",
-    backgroundColor: "rgba(0,122,255,0.08)",
-    border: "1px solid #007aff33",
+    color: "var(--sk-accent)",
+    backgroundColor: "var(--sk-selected-bg)",
+    border: "1px solid var(--sk-divider)",
     borderRadius: "999px",
     padding: "3px 10px",
     whiteSpace: "nowrap",
@@ -2668,13 +2704,14 @@ const styles: Record<string, any> = {
   chatCard: {
     flexShrink: 0,
     // Compact WhatsApp-style footprint: the thread stays readable but the card
-    // no longer dominates the conversation pane.
+    // no longer dominates the conversation pane. Colors come from the shared
+    // chat-skin tokens (set on `.query-inbox-conversation` by the active skin).
     height: "clamp(220px, 34dvh, 420px)",
     display: "flex",
     flexDirection: "column",
-    border: "1px solid var(--border-color)",
+    border: "1px solid var(--sk-card-border)",
     borderRadius: "12px",
-    backgroundColor: "var(--bg-secondary)",
+    backgroundColor: "var(--sk-body-bg)",
     overflow: "hidden",
   },
   bubbleRow: { display: "flex", flexShrink: 0 },
@@ -2682,41 +2719,41 @@ const styles: Record<string, any> = {
   bubbleRowAdmin: { justifyContent: "flex-end" },
   bubbleClient: {
     maxWidth: "76%",
-    border: "1px solid var(--border-color)",
-    borderRadius: "10px",
-    borderTopLeftRadius: "4px",
-    padding: "6px 9px",
-    backgroundColor: "var(--bg-primary)",
+    border: "1px solid var(--sk-client-border)",
+    borderRadius: "13px",
+    borderTopLeftRadius: "5px",
+    padding: "7px 10px",
+    backgroundColor: "var(--sk-client-bg)",
   },
   bubbleAdmin: {
     maxWidth: "76%",
-    border: "1px solid #007aff33",
-    borderRadius: "10px",
-    borderTopRightRadius: "4px",
-    padding: "6px 9px",
-    backgroundColor: "rgba(0,122,255,0.07)",
+    border: "1px solid var(--sk-admin-border)",
+    borderRadius: "13px",
+    borderTopRightRadius: "5px",
+    padding: "7px 10px",
+    backgroundColor: "var(--sk-admin-bg)",
   },
-  bubbleSender: { margin: 0, fontSize: "10px", fontWeight: 700, color: "#007AFF" },
+  bubbleSender: { margin: 0, fontSize: "10px", fontWeight: 700, color: "var(--sk-sender)" },
   bubbleText: {
     margin: "3px 0",
     fontSize: "12px",
     lineHeight: 1.45,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-    color: "var(--text-primary)",
+    color: "var(--sk-text)",
   },
   bubbleMeta: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "3px" },
   bubbleAttachments: { display: "flex", flexWrap: "wrap", gap: "6px 8px", marginTop: "6px" },
   attachmentLink: {
     fontSize: "11px",
-    color: "#007AFF",
+    color: "var(--sk-link)",
     textDecoration: "underline",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
     maxWidth: "100%",
   },
-  bubbleTime: { fontSize: "10px", color: "var(--text-muted)" },
+  bubbleTime: { fontSize: "10px", color: "var(--sk-time)" },
   bubbleViaEmail: { display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--text-secondary)" },
   deliverySent: { fontSize: "10px", fontWeight: 700, color: "#1d7a31" },
   deliveryFailed: { fontSize: "10px", fontWeight: 700, color: "#c81e12", cursor: "help" },
@@ -2728,7 +2765,7 @@ const styles: Record<string, any> = {
     padding: "4px 2px",
   },
   timelineItem: { display: "flex", gap: "12px" },
-  timelineDot: { width: "9px", height: "9px", borderRadius: "999px", backgroundColor: "#007AFF", marginTop: "9px", flexShrink: 0 },
+  timelineDot: { width: "9px", height: "9px", borderRadius: "999px", backgroundColor: "var(--sk-accent)", marginTop: "9px", flexShrink: 0 },
   timelineContent: {
     flex: 1,
     border: "1px solid var(--border-color)",
@@ -2736,7 +2773,7 @@ const styles: Record<string, any> = {
     padding: "12px 14px",
     backgroundColor: "var(--bg-primary)",
   },
-  timelineLabel: { margin: 0, color: "#007AFF", fontSize: "10px", fontWeight: 700, textTransform: "capitalize" },
+  timelineLabel: { margin: 0, color: "var(--sk-accent)", fontSize: "10px", fontWeight: 700, textTransform: "capitalize" },
   timelineMessage: { margin: "4px 0", color: "var(--text-primary)", fontSize: "12px", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" },
   timelineRecipient: { margin: "0 0 4px 0", color: "var(--text-secondary)", fontSize: "11px" },
   timelineTime: { margin: 0, color: "var(--text-secondary)", fontSize: "10px" },
@@ -2762,10 +2799,10 @@ const styles: Record<string, any> = {
   },
   composerTop: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "8px" },
   greetingSelect: {
-    border: "1px solid var(--border-color)",
+    border: "1px solid var(--sk-input-border)",
     borderRadius: "8px",
-    backgroundColor: "var(--bg-primary)",
-    color: "var(--text-primary)",
+    backgroundColor: "var(--sk-input-bg)",
+    color: "var(--sk-text)",
     padding: "5px 8px",
     fontSize: "11px",
     fontWeight: 600,
@@ -2776,9 +2813,9 @@ const styles: Record<string, any> = {
     minHeight: "80px",
     resize: "vertical",
     borderRadius: "10px",
-    border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-primary)",
-    color: "var(--text-primary)",
+    border: "1px solid var(--sk-input-border)",
+    backgroundColor: "var(--sk-input-bg)",
+    color: "var(--sk-text)",
     padding: "8px 10px",
     outline: "none",
     fontSize: "12px",
@@ -2806,13 +2843,14 @@ const styles: Record<string, any> = {
     alignItems: "center",
     gap: "6px",
     border: "none",
-    backgroundColor: "#007AFF",
+    backgroundColor: "var(--sk-send-bg)",
     color: "#FFFFFF",
     borderRadius: "8px",
     padding: "7px 12px",
     fontSize: "12px",
     fontWeight: 700,
     cursor: "pointer",
+    boxShadow: "var(--sk-send-shadow)",
   },
   secondaryBtn: {
     display: "inline-flex",

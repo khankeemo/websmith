@@ -1367,3 +1367,47 @@ See master doc Progress Tracking rows **"R01 — Redis-backed Rate Limiting"**,
   search inputs.
 
 
+
+## R04 — Chat Surface Redesign (Direct Secure Chat + Admin Messenger)
+
+Keep in sync with the master doc Progress Tracking entry **"R04 — CHAT SURFACE
+REDESIGN: shared 10-skin premium Messenger look for Direct Secure Chat + Admin
+Messenger (AWS-01 R01, 2026-08-22)"**. Never regress:
+
+- **UI/UX-only scope**: ONLY `app/chat/[id]/chatSkins.ts`,
+  `components/shared/chatSurfaceCss.ts` (NEW), `app/chat/[id]/ClientChat.tsx`,
+  `app/admin/messages/AdminMessagesClient.tsx`,
+  `components/shared/ChatSkinPicker.tsx`. No backend/API/DB/auth/poll/send/
+  email logic changed; no existing control removed.
+- **One skin architecture**: `chatSkins.ts` = compact `SkinPalette` interface
+  + `defineSkin()` builder + `hexA()` helper; all color roles REQUIRED
+  (TS-enforced); every skin exposes the full `--sk-*` token set including the
+  NEW tokens (`--sk-center-bg`, `--sk-client-text`, `--sk-outgoing-text`,
+  `--sk-placeholder`, `--sk-icon`, `--sk-divider`, `--sk-hover-bg`,
+  `--sk-selected-bg/-text`, `--sk-typing-dot`, `--sk-unread`,
+  `--sk-secondary-*`, `--sk-status-open/closed`, `--sk-scroll-thumb`,
+  `--sk-card-glow`, `--sk-tooltip-bg/text`). All 10 skin ids/names/order
+  unchanged and the exported API is identical (`SKIN_STORAGE_KEY` =
+  `"ws_chat_skin_id"`), so stored preferences keep working. Adding a skin =
+  one palette object — never fork the token set.
+- **ONE shared CSS module**: `CHAT_SURFACE_CSS` from
+  `components/shared/chatSurfaceCss.ts` is injected via
+  `<style dangerouslySetInnerHTML>` on BOTH surfaces; rules scoped under
+  `.ws-chat-surface` resolving only `--sk-*` tokens: `.ws-chat-card/-header/
+  -scroll`, `.ws-msg` (`wsMsgIn` entrance), `.ws-bubble-in/-out`, honest
+  `.ws-send-pill` (Sending… dots, only while the send POST is in flight),
+  themed scrollbar, placeholder/focus theming, `prefers-reduced-motion`
+  guards. Never duplicate these rules inline in either page.
+- **Center zone stays flat**: the CENTER 34% of `/chat/[id]` renders
+  `background: var(--sk-center-bg)` with NO decorative layer (left stickers/
+  social pops + right flying bubbles untouched). Status colors come from
+  `var(--sk-status-open/closed)`, accents/timeline/chips in the Admin
+  Messenger from `var(--sk-accent)`/`var(--sk-divider)`/`var(--sk-selected-bg)`
+  — never hardcode hex in either chat UI.
+- **Verification baseline**: tsc EXIT 0, build green; live headless-Chrome CDP
+  12/12 on `/chat/[id]` (default classic surface, CHAT_SURFACE_CSS injected,
+  picker opens 10 rows with `wsSkinPanelIn`, live midnight-gold switch
+  recomputes center to `#0B0B0C` + persists localStorage, switch-back works).
+  NOTE: live-tree `next start` may abort on the UNRELATED pre-existing route
+  conflict `'id' !== 'projectId'` (`app/api/projects/[projectId]` restored
+  alongside `[id]`) — verify against an isolated copy if present.

@@ -71,6 +71,16 @@ import Link from "next/link";
 import { CheckCircle2, Loader2, Lock, Send, ShieldCheck, XCircle } from "lucide-react";
 import { renderMessageHtml } from "@/core/services/messageRender";
 import { useMediaAsset } from "@/hooks/useMediaAsset";
+import { ChatSkinPicker } from "@/components/shared/ChatSkinPicker";
+import { CHAT_SURFACE_CSS } from "@/components/shared/chatSurfaceCss";
+import {
+  CHAT_SKINS,
+  ChatSkin,
+  DEFAULT_SKIN_ID,
+  getChatSkin,
+  readStoredSkinId,
+  storeSkinId,
+} from "./chatSkins";
 
 const TEAM_NAME = "Websmith Digital Support";
 const POLL_INTERVAL_MS = 3_000;
@@ -1000,6 +1010,13 @@ function LeftZoneVisuals() {
   );
 }
 
+// ---- SKIN PICKER -----------------------------------------------------------
+// The in-messenger gallery for the 10 production skins is the SHARED
+// `ChatSkinPicker` component (`components/shared/ChatSkinPicker.tsx`) — the
+// same picker the Admin Messenger uses. It swaps ONLY CSS custom properties on
+// this existing single chat card; no second chat implementation exists and no
+// chat logic is involved.
+
 const styles: Record<string, React.CSSProperties> = {
   // Full-viewport 3-zone stage: EXACT 33% / 34% / 33% desktop split with NO
   // gaps; below 900px the CSS media rules hide the left zone + bubbles and
@@ -1012,7 +1029,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "stretch",
     justifyContent: "stretch",
-    background: "var(--bg-primary)",
+    background: "var(--sk-backdrop)",
     overflow: "hidden",
   },
   // LEFT 33% — atmosphere + social popups + chat stickers (coordinated via the
@@ -1026,7 +1043,10 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     overflow: "hidden",
   },
-  // CENTER 34% — messenger only, vertically + horizontally centered.
+  // CENTER 34% — messenger only, vertically + horizontally centered. R04: the
+  // decorative/background treatment is REMOVED from this zone — it renders the
+  // skin's flat base color (--sk-center-bg) so the messenger card carries all
+  // visual weight (the left/right zones keep their decoration).
   centerZone: {
     position: "relative",
     width: "34%",
@@ -1036,6 +1056,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    background: "var(--sk-center-bg)",
   },
   // RIGHT 33% — the 30 flying language bubbles (phase-locked, zone-clipped).
   bubbleZone: {
@@ -1064,10 +1085,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     borderRadius: "22px",
-    border: "1px solid rgba(20, 156, 234, 0.35)",
-    background: "var(--bg-primary)",
-    boxShadow:
-      "0 30px 80px rgba(0, 0, 0, 0.30), 0 12px 32px rgba(20, 156, 234, 0.14)",
+    border: "1px solid var(--sk-card-border)",
+    background: "var(--sk-card-bg)",
+    boxShadow: "var(--sk-card-shadow)",
     overflow: "hidden",
   },
   // THE Websmith skin band — the branded header INSIDE the Messenger card
@@ -1078,10 +1098,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "10px",
     padding: "10px 14px",
-    borderBottom: "1px solid rgba(20, 156, 234, 0.25)",
-    background:
-      "linear-gradient(135deg, rgba(20, 156, 234, 0.16), rgba(20, 122, 234, 0.05) 55%, rgba(20, 156, 234, 0.10))",
-    boxShadow: "inset 0 2px 0 rgba(20, 156, 234, 0.85)",
+    borderBottom: "1px solid var(--sk-header-border)",
+    background: "var(--sk-header-bg)",
+    boxShadow: "inset 0 2px 0 var(--sk-header-accent)",
   },
   // Compact Websmith brand pill inside the skin band (visible in the chat box).
   skinBrand: {
@@ -1091,14 +1110,14 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "6px",
     padding: "3px 10px 3px 8px",
     borderRadius: "999px",
-    background: "linear-gradient(135deg, #149CEA, #1479EA)",
+    background: "var(--sk-brand-bg)",
     color: "#ffffff",
     fontSize: "10px",
     fontWeight: 800,
     letterSpacing: "0.7px",
     textTransform: "uppercase",
     whiteSpace: "nowrap",
-    boxShadow: "0 2px 8px rgba(20, 156, 234, 0.35)",
+    boxShadow: "var(--sk-brand-shadow)",
   },
   skinBrandDot: {
     width: "6px",
@@ -1118,7 +1137,7 @@ const styles: Record<string, React.CSSProperties> = {
     margin: 0,
     fontSize: "14px",
     fontWeight: 700,
-    color: "var(--text-primary)",
+    color: "var(--sk-title)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -1126,7 +1145,7 @@ const styles: Record<string, React.CSSProperties> = {
   headerSub: {
     margin: 0,
     fontSize: "11px",
-    color: "var(--text-secondary)",
+    color: "var(--sk-subtitle)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -1165,8 +1184,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "9px",
-    background:
-      "radial-gradient(1100px 480px at 50% -12%, rgba(20, 156, 234, 0.12), transparent 62%), var(--bg-secondary)",
+    background: "var(--sk-body-bg)",
   },
   center: {
     flex: 1,
@@ -1179,49 +1197,49 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "20px",
     textAlign: "center",
   },
-  centerText: { margin: 0, color: "var(--text-secondary)", fontSize: "13px", lineHeight: 1.6, maxWidth: "380px" },
-  centerTitle: { margin: 0, color: "var(--text-primary)", fontSize: "15px", fontWeight: 700 },
+  centerText: { margin: 0, color: "var(--sk-subtitle)", fontSize: "13px", lineHeight: 1.6, maxWidth: "380px" },
+  centerTitle: { margin: 0, color: "var(--sk-title)", fontSize: "15px", fontWeight: 700 },
   row: { display: "flex", flexShrink: 0 },
   rowClient: { justifyContent: "flex-start" },
   rowAdmin: { justifyContent: "flex-end" },
   rowSystem: { justifyContent: "center" },
   bubbleClient: {
     maxWidth: "78%",
-    border: "1px solid rgba(20, 156, 234, 0.28)",
-    borderRadius: "14px",
-    borderTopLeftRadius: "4px",
-    padding: "8px 11px",
-    background: "rgba(20, 156, 234, 0.06)",
+    border: "1px solid var(--sk-client-border)",
+    borderRadius: "16px",
+    borderTopLeftRadius: "5px",
+    padding: "9px 12px",
+    background: "var(--sk-client-bg)",
   },
   bubbleAdmin: {
     maxWidth: "78%",
-    border: "1px solid rgba(20, 156, 234, 0.38)",
-    borderRadius: "14px",
-    borderTopRightRadius: "4px",
-    padding: "8px 11px",
-    background: "linear-gradient(135deg, rgba(20, 156, 234, 0.16), rgba(20, 122, 234, 0.08))",
+    border: "1px solid var(--sk-admin-border)",
+    borderRadius: "16px",
+    borderTopRightRadius: "5px",
+    padding: "9px 12px",
+    background: "var(--sk-admin-bg)",
   },
   bubbleSystem: {
     maxWidth: "88%",
-    border: "1px dashed rgba(20, 156, 234, 0.35)",
+    border: "1px dashed var(--sk-system-border)",
     borderRadius: "12px",
     padding: "9px 12px",
-    background: "rgba(20, 156, 234, 0.04)",
+    background: "var(--sk-system-bg)",
   },
-  bubbleSender: { margin: 0, fontSize: "9px", fontWeight: 700, color: "#149CEA" },
+  bubbleSender: { margin: 0, fontSize: "9px", fontWeight: 700, color: "var(--sk-sender)" },
   bubbleText: {
     margin: "3px 0",
     fontSize: "13px",
     lineHeight: 1.55,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-    color: "var(--text-primary)",
+    color: "var(--sk-text)",
   },
-  bubbleTime: { margin: 0, fontSize: "9px", color: "var(--text-muted)" },
+  bubbleTime: { margin: 0, fontSize: "9px", color: "var(--sk-time)" },
   bubbleAttachments: { display: "flex", flexWrap: "wrap", gap: "5px 7px", marginTop: "4px" },
   attachmentLink: {
     fontSize: "11px",
-    color: "#007AFF",
+    color: "var(--sk-link)",
     textDecoration: "underline",
     whiteSpace: "nowrap",
     overflow: "hidden",
@@ -1234,10 +1252,10 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.55,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-    color: "var(--text-secondary)",
+    color: "var(--sk-system-text)",
   },
   systemLink: {
-    color: "#007AFF",
+    color: "var(--sk-link)",
     textDecoration: "underline",
     fontSize: "12px",
   },
@@ -1247,8 +1265,8 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: "8px",
     padding: "10px 12px",
-    borderTop: "1px solid rgba(20, 156, 234, 0.18)",
-    background: "linear-gradient(180deg, rgba(20, 156, 234, 0.03), var(--bg-primary))",
+    borderTop: "1px solid var(--sk-composer-border)",
+    background: "var(--sk-composer-bg)",
   },
   composerRow: { display: "flex", alignItems: "flex-end", gap: "8px" },
   clientLoginRow: { display: "flex", alignItems: "center", gap: "6px" },
@@ -1256,9 +1274,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: "inline-flex",
     alignItems: "center",
     gap: "4px",
-    border: "1px solid #007aff33",
-    background: "rgba(0,122,255,0.08)",
-    color: "#007AFF",
+    border: "1px solid var(--sk-ghost-border)",
+    background: "var(--sk-ghost-bg)",
+    color: "var(--sk-ghost-text)",
     borderRadius: "8px",
     padding: "5px 9px",
     fontSize: "11px",
@@ -1272,9 +1290,9 @@ const styles: Record<string, React.CSSProperties> = {
     maxHeight: "110px",
     resize: "none",
     borderRadius: "12px",
-    border: "1px solid rgba(20, 156, 234, 0.25)",
-    background: "var(--bg-secondary)",
-    color: "var(--text-primary)",
+    border: "1px solid var(--sk-input-border)",
+    background: "var(--sk-input-bg)",
+    color: "var(--sk-text)",
     padding: "10px 13px",
     outline: "none",
     fontSize: "13px",
@@ -1287,13 +1305,13 @@ const styles: Record<string, React.CSSProperties> = {
     height: "40px",
     borderRadius: "999px",
     border: "none",
-    background: "linear-gradient(135deg, #149CEA, #1479EA)",
+    background: "var(--sk-send-bg)",
     color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
-    boxShadow: "0 4px 14px rgba(20, 156, 234, 0.35)",
+    boxShadow: "var(--sk-send-shadow)",
   },
   connectedRow: { display: "flex", justifyContent: "center", paddingTop: "2px" },
   connectedPill: {
@@ -1301,7 +1319,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "5px",
     fontSize: "10.5px",
-    color: "var(--text-secondary)",
+    color: "var(--sk-subtitle)",
   },
 };
 
@@ -1317,6 +1335,18 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
   const [contactInfo, setContactInfo] = useState<ContactInfo>({});
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pollInFlight = useRef(false);
+
+  // ---- SKIN STATE (presentation only — swaps CSS variables, never logic) ----
+  const [skinId, setSkinId] = useState<string>(DEFAULT_SKIN_ID);
+  const activeSkin = getChatSkin(skinId);
+  useEffect(() => {
+    const stored = readStoredSkinId();
+    if (stored) setSkinId(stored);
+  }, []);
+  const handleSkinSelect = useCallback((id: string) => {
+    setSkinId(id);
+    storeSkinId(id);
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -1451,7 +1481,15 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
   };
 
   return (
-    <div className="ws-chat-root" style={styles.root}>
+    <div
+      className="ws-chat-root ws-chat-surface"
+      data-ws-skin={activeSkin.id}
+      style={{ ...styles.root, ...(activeSkin.vars as React.CSSProperties) }}
+    >
+      {/* R04 shared messenger polish (skin transitions, message entrance,
+          Sending… pill, scrollbar, placeholder/focus theming) — ONE stylesheet
+          shared with the Admin Messenger; every rule resolves --sk-* tokens. */}
+      <style dangerouslySetInnerHTML={{ __html: CHAT_SURFACE_CSS }} />
       {/* Responsive layout rules + header status circle / tooltip / Slice
           buttons / in-card mask circle. */}
       <style jsx>{`
@@ -1470,7 +1508,8 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           }
         }
 
-        /* ---- Dynamic status circle (open → green, closed → red) ---- */
+        /* ---- Dynamic status circle (open → green, closed → red; the exact
+                hues come from the active skin's status tokens) ---- */
         .ws-status-dot {
           width: 12px;
           height: 12px;
@@ -1481,18 +1520,18 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           outline: none;
         }
         .ws-status-dot-open {
-          background: #34c759;
-          box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.16), 0 0 10px rgba(52, 199, 89, 0.45);
+          background: var(--sk-status-open);
+          box-shadow: 0 0 0 3px var(--sk-hover-bg), 0 0 10px var(--sk-status-open);
         }
         .ws-status-dot-closed {
-          background: #ff3b30;
-          box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.16), 0 0 10px rgba(255, 59, 48, 0.4);
+          background: var(--sk-status-closed);
+          box-shadow: 0 0 0 3px var(--sk-hover-bg), 0 0 10px var(--sk-status-closed);
         }
         .ws-status-dot-pending {
           background: var(--text-muted);
         }
         .ws-status-dot:focus-visible {
-          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 0 12px rgba(20, 156, 234, 0.6);
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), var(--sk-focus-ring);
         }
 
         /* ---- Status tooltip (hover / focus, fade + scale, no layout shift) ---- */
@@ -1514,7 +1553,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           line-height: 1.5;
           border-radius: 8px;
           padding: 6px 10px;
-          border: 1px solid rgba(20, 156, 234, 0.28);
+          border: 1px solid var(--sk-tooltip-border);
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
           transition: opacity 180ms ease, transform 180ms cubic-bezier(0.83, 0, 0.17, 1);
         }
@@ -1532,7 +1571,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         /* ---- Uiverse Slice buttons (Client Login / Home) ---- */
         .slice {
           --c1: #202020;
-          --c2: #149CEA;
+          --c2: var(--sk-accent);
           --size-letter: 14px;
           padding: 0.5em 1em;
           font-size: var(--size-letter);
@@ -1567,7 +1606,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         }
         .slice:hover::after {
           width: calc(120% + 1em);
-          background-color: #1479EA;
+          background-color: var(--sk-accent-strong);
         }
         .slice:active {
           scale: 0.98;
@@ -1583,23 +1622,23 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           overflow: hidden;
           box-sizing: border-box;
           background: var(--bg-secondary);
-          border: 1px solid rgba(20, 156, 234, 0.35);
-          box-shadow: 0 0 0 3px rgba(20, 156, 234, 0.12), 0 0 14px rgba(20, 156, 234, 0.22);
+          border: 1px solid var(--sk-mask-ring);
+          box-shadow: var(--sk-mask-glow);
         }
         /* ---- Websmith Messenger skin — composer + Send refinements ---- */
         .ws-skin-input {
           transition: border-color 180ms ease, box-shadow 180ms ease;
         }
         .ws-skin-input:focus {
-          border-color: rgba(20, 156, 234, 0.65) !important;
-          box-shadow: 0 0 0 3px rgba(20, 156, 234, 0.16) !important;
+          border-color: var(--sk-focus-border) !important;
+          box-shadow: var(--sk-focus-ring) !important;
         }
         .ws-skin-send {
           transition: filter 180ms ease, box-shadow 180ms ease, transform 120ms ease;
         }
         .ws-skin-send:hover:not(:disabled) {
           filter: brightness(1.08);
-          box-shadow: 0 6px 18px rgba(20, 156, 234, 0.45);
+          box-shadow: var(--sk-send-hover);
         }
         .ws-skin-send:active:not(:disabled) {
           transform: scale(0.96);
@@ -1610,10 +1649,12 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           box-shadow: none;
         }
         .ws-msg-text a {
-          color: #149CEA;
+          color: var(--sk-link);
           text-decoration: underline;
           word-break: break-all;
         }
+        /* The shared ChatSkinPicker injects its own .ws-skin-* stylesheet
+           (components/shared/ChatSkinPicker.tsx) — no duplicated rules here. */
         @media (max-width: 480px) {
           .ws-header-mask {
             width: 36px !important;
@@ -1653,7 +1694,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           every message/composer/status/poll/send behavior is unchanged. */}
       <div className="ws-center-zone" style={styles.centerZone}>
         <div className="ws-chat-card" style={styles.card}>
-        <header style={styles.header}>
+        <header className="ws-chat-header" style={styles.header}>
           <div className="ws-skin-brand" style={styles.skinBrand} aria-hidden="true">
             <span style={styles.skinBrandDot} />
             Websmith · Digital Support
@@ -1696,6 +1737,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
             <a href="https://www.websmithdigital.com/" className="slice" aria-label="Home">
               <span className="text">Home</span>
             </a>
+            <ChatSkinPicker activeSkinId={skinId} onSelect={handleSkinSelect} />
             <div className="ws-header-mask" aria-hidden="true">
               <img
                 src={chatLogo.url}
@@ -1725,7 +1767,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
             </a>
           </div>
         ) : (
-          <div style={styles.body} ref={scrollRef}>
+          <div className="ws-chat-scroll" style={styles.body} ref={scrollRef}>
             {conversation.messages.length === 0 ? (
               <div style={styles.center}>
                 <p style={styles.centerText}>
@@ -1738,8 +1780,15 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
                 const isClient = m.senderType === "client";
                 const rowStyle = isClient ? styles.rowClient : styles.rowAdmin;
                 return (
-                  <div key={m.id || `${m.senderType}-${m.createdAt}-${m.message}`} style={{ ...styles.row, ...rowStyle }}>
-                    <div style={isClient ? styles.bubbleClient : styles.bubbleAdmin}>
+                  <div
+                    key={m.id || `${m.senderType}-${m.createdAt}-${m.message}`}
+                    className="ws-msg"
+                    style={{ ...styles.row, ...rowStyle }}
+                  >
+                    <div
+                      className={isClient ? "ws-bubble-in" : "ws-bubble-out"}
+                      style={isClient ? styles.bubbleClient : styles.bubbleAdmin}
+                    >
                       <p style={styles.bubbleSender}>{isClient ? conversation.contactName || m.senderName || "You" : TEAM_NAME}</p>
                       <p className="ws-msg-text" style={styles.bubbleText} dangerouslySetInnerHTML={{ __html: renderMessageHtml(m.message) }} />
                       {m.attachments && m.attachments.length > 0 && (
@@ -1765,16 +1814,28 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
               })
             )}
             {renderNoExecutiveMessage()}
+            {/* Honest transient state while the POST is in flight (no fake
+                typing indicator — this pill only shows a real send). */}
+            {sending && (
+              <div style={{ ...styles.row, ...styles.rowAdmin }}>
+                <span className="ws-send-pill">
+                  Sending…
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              </div>
+            )}
             {connected && (
               <div style={styles.connectedRow}>
                 <span style={styles.connectedPill}>
                   {isClosed ? (
                     <>
-                      <XCircle size={11} color="#c81e12" /> This conversation is closed
+                      <XCircle size={11} color="var(--sk-status-closed)" /> This conversation is closed
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 size={11} color="#34c759" /> Connected · updates every few seconds
+                      <CheckCircle2 size={11} color="var(--sk-status-open)" /> Connected · updates every few seconds
                     </>
                   )}
                 </span>
