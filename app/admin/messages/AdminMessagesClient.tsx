@@ -6,6 +6,7 @@ import type React from "react";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
+  ChevronDown,
   ChevronLeft,
   Clock3,
   Hash,
@@ -493,6 +494,51 @@ html.query-inbox-workspace .app-main-scroll {
   .qib-conv-body {
     padding: 14px;
   }
+}
+
+/* ---- Reply Thread — unified messenger skin scope (R04 FINAL) ------------- */
+/* The Reply Thread card carries the SAME active chat-skin token scope as the
+   Messenger Chat above it (ws-chat-surface + data-ws-skin + --sk-* vars), so
+   every surface here follows the selected skin like one messenger system.
+   Only this card is scoped — Client Onboarding / Resolution Summary keep their
+   own admin-theme styles untouched. */
+.qib-reply-thread {
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+.qib-reply-thread select,
+.qib-reply-thread textarea {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+/* Themed dropdown control (closed state): token-driven chevron, no native chrome */
+.qib-reply-thread .qib-reply-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.qib-reply-thread .qib-reply-select-wrap > svg {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  color: var(--sk-accent);
+}
+.qib-reply-thread select.qib-reply-select {
+  appearance: none;
+  -webkit-appearance: none;
+}
+/* Skin-synced focus rings inside the Reply Thread (beats the generic page rule) */
+.qib-reply-thread.ws-chat-surface select:focus-visible,
+.qib-reply-thread.ws-chat-surface textarea:focus-visible {
+  outline: none;
+  border-color: var(--sk-focus-border) !important;
+  box-shadow: var(--sk-focus-ring);
 }
 `;
 
@@ -2052,39 +2098,53 @@ export default function AdminMessagesClient() {
             </div>
 
             <div className="qib-cards-grid">
-              <div style={styles.composerCard}>
-                <div style={styles.composerTop}>
-                  <label style={styles.sectionLabel}>Reply Thread</label>
-                  <select value={greetingKey} onChange={(event) => handleGreetingChange(event.target.value)} style={styles.greetingSelect} disabled={templates.length === 0} title="Greeting Template">
-                    <option value="">Select a template...</option>
-                    {replyTemplates.map((template) => (
-                      <option key={template.key} value={template.key}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
+              {/* R04 FINAL — Reply Thread: carries the SAME active chat-skin
+                  token scope as the Messenger Chat above (ws-chat-surface +
+                  data-ws-skin + --sk-* vars), so it re-themes live with every
+                  skin change — one unified messenger system. Presentation
+                  only; the composer logic/options are unchanged. */}
+              <div
+                className="ws-chat-surface qib-reply-thread"
+                data-ws-skin={activeSkin.id}
+                style={{ ...styles.replyCard, ...(activeSkin.vars as React.CSSProperties) }}
+              >
+                <div style={styles.replyTop}>
+                  <label style={styles.replyLabel}>Reply Thread</label>
+                  <span style={styles.replySelectWrap}>
+                    <select value={greetingKey} onChange={(event) => handleGreetingChange(event.target.value)} className="qib-reply-select" style={styles.replySelect} disabled={templates.length === 0} title="Greeting Template">
+                      <option value="">Select a template...</option>
+                      {replyTemplates.map((template) => (
+                        <option key={template.key} value={template.key}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} aria-hidden="true" />
+                  </span>
                 </div>
-                <textarea
-                  value={reply}
-                  onChange={(event) => setReply(event.target.value)}
-                  style={{ ...styles.textarea, ...(isClosed ? styles.textareaDisabled : {}) }}
-                  placeholder={isClosed ? "This query is closed and read-only." : "Write a reply to continue the conversation..."}
-                  disabled={isClosed}
-                />
-                {greetingKey && replyPreview && (
-                  <div style={styles.previewCard}>
-                    <div style={styles.previewHeader}>
-                      <span style={styles.previewLabel}>Resolved preview</span>
-                      <span style={styles.previewHint}>Template placeholders are auto-filled with real client data.</span>
+                <div style={styles.replyBody}>
+                  <textarea
+                    value={reply}
+                    onChange={(event) => setReply(event.target.value)}
+                    style={{ ...styles.replyTextarea, ...(isClosed ? styles.textareaDisabled : {}) }}
+                    placeholder={isClosed ? "This query is closed and read-only." : "Write a reply to continue the conversation..."}
+                    disabled={isClosed}
+                  />
+                  {greetingKey && replyPreview && (
+                    <div style={styles.replyPreview}>
+                      <div style={styles.replyPreviewHead}>
+                        <span style={styles.replyPreviewLabel}>Resolved preview</span>
+                        <span style={styles.replyPreviewHint}>Template placeholders are auto-filled with real client data.</span>
+                      </div>
+                      <pre className="ws-chat-scroll" style={styles.replyPreviewBody}>{replyPreview}</pre>
                     </div>
-                    <pre style={styles.previewBody}>{replyPreview}</pre>
+                  )}
+                  <div style={styles.replyFooter}>
+                    <button type="button" onClick={handleReply} style={styles.replySendBtn} disabled={saving || !reply.trim() || isClosed}>
+                      <Send size={14} />
+                      Send Reply
+                    </button>
                   </div>
-                )}
-                <div style={styles.composerFooter}>
-                  <button type="button" onClick={handleReply} style={styles.primaryBtn} disabled={saving || !reply.trim() || isClosed}>
-                    <Send size={14} />
-                    Send Reply
-                  </button>
                 </div>
               </div>
 
@@ -2856,6 +2916,111 @@ const styles: Record<string, any> = {
     fontSize: "12px",
     fontWeight: 700,
     cursor: "pointer",
+  },
+  // R04 FINAL — Reply Thread presentation. The card carries the SAME active
+  // chat-skin token scope as the Messenger Chat above (ws-chat-surface +
+  // data-ws-skin + --sk-* vars), so background/border/text/input/dropdown/
+  // button all follow the selected skin live — one unified messenger system.
+  // These dedicated entries are used ONLY here; Client Onboarding and
+  // Resolution Summary keep their own composerCard/greetingSelect/etc styles.
+  replyCard: {
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
+    border: "1px solid var(--sk-card-border)",
+    borderRadius: "13px",
+    backgroundColor: "var(--sk-card-bg)",
+    boxShadow: "var(--sk-card-shadow)",
+    overflow: "hidden",
+  },
+  replyTop: {
+    flexShrink: 0,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+    padding: "9px 12px",
+    borderBottom: "1px solid var(--sk-header-border)",
+    backgroundColor: "var(--sk-header-bg)",
+  },
+  replyLabel: {
+    fontSize: "11px",
+    fontWeight: 800,
+    color: "var(--sk-title)",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  replySelectWrap: { position: "relative", display: "inline-flex", alignItems: "center", flexShrink: 0 },
+  replySelect: {
+    appearance: "none",
+    WebkitAppearance: "none",
+    border: "1px solid var(--sk-input-border)",
+    borderRadius: "8px",
+    backgroundColor: "var(--sk-input-bg)",
+    color: "var(--sk-input-text)",
+    padding: "5px 24px 5px 9px",
+    fontSize: "11px",
+    fontWeight: 600,
+    outline: "none",
+    cursor: "pointer",
+  },
+  replyBody: { display: "flex", flexDirection: "column", gap: "9px", padding: "10px 12px 12px" },
+  replyTextarea: {
+    width: "100%",
+    minHeight: "88px",
+    resize: "vertical",
+    borderRadius: "10px",
+    border: "1px solid var(--sk-input-border)",
+    backgroundColor: "var(--sk-input-bg)",
+    color: "var(--sk-input-text)",
+    padding: "9px 11px",
+    outline: "none",
+    fontSize: "12px",
+    lineHeight: 1.55,
+    boxSizing: "border-box",
+  },
+  replyPreview: {
+    border: "1px solid var(--sk-card-border)",
+    borderRadius: "10px",
+    backgroundColor: "var(--sk-body-bg)",
+    overflow: "hidden",
+  },
+  replyPreviewHead: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    padding: "7px 10px",
+    borderBottom: "1px solid var(--sk-header-border)",
+    backgroundColor: "var(--sk-header-bg)",
+  },
+  replyPreviewLabel: { fontSize: "11px", fontWeight: 700, color: "var(--sk-title)" },
+  replyPreviewHint: { fontSize: "10px", color: "var(--sk-subtitle)" },
+  replyPreviewBody: {
+    margin: 0,
+    padding: "9px 10px",
+    fontSize: "11px",
+    lineHeight: 1.55,
+    color: "var(--sk-text)",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    maxHeight: "140px",
+    overflow: "auto",
+  },
+  replyFooter: { display: "flex", justifyContent: "flex-end" },
+  replySendBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    border: "none",
+    background: "var(--sk-send-bg)",
+    color: "#FFFFFF",
+    borderRadius: "8px",
+    padding: "7px 13px",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "var(--sk-send-shadow)",
   },
   secondaryBtn: {
     display: "inline-flex",
