@@ -1300,6 +1300,59 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
+// ---- R01 FINAL: Uiverse-style directional border on the header buttons ----
+// Client Login / Home / theme trigger. NORMAL = clean chrome, NO visible
+// border (the real border slot stays transparent so nothing ever shifts).
+// As the cursor approaches, JS records the NEAREST side on the element
+// (data-border-side) and the ::before border draws in FROM that side; over
+// the button it fully encircles; on leave it retracts toward that side.
+// Colors resolve ONLY from --sk-* tokens (accent-tinted per skin), so light
+// and dark skins theme it automatically. Scoped under .ws-chat-root — this
+// Direct Chat page only; the shared picker component and the Admin Messenger
+// are untouched. Static string via a plain <style> tag (styled-jsx cannot
+// reach the child ChatSkinPicker trigger DOM).
+const HEADER_BORDER_CSS = `
+.ws-chat-root .ws-nav-btn,
+.ws-chat-root .ws-skin-trigger {
+  position: relative;
+  border-color: transparent !important;
+}
+.ws-chat-root .ws-center-zone .ws-skin-trigger:hover,
+.ws-chat-root .ws-center-zone .ws-skin-trigger[aria-expanded="true"] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.ws-chat-root .ws-nav-btn::before,
+.ws-chat-root .ws-skin-trigger::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid var(--sk-focus-border);
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.32s ease, opacity 0.22s ease;
+  pointer-events: none;
+}
+.ws-chat-root [data-border-side="left"]::before { clip-path: inset(0 100% 0 0); }
+.ws-chat-root [data-border-side="right"]::before { clip-path: inset(0 0 0 100%); }
+.ws-chat-root [data-border-side="top"]::before { clip-path: inset(0 0 100% 0); }
+.ws-chat-root [data-border-side="bottom"]::before { clip-path: inset(100% 0 0 0); }
+.ws-chat-root .ws-nav-btn[data-border-hover="true"]::before,
+.ws-chat-root .ws-skin-trigger[data-border-hover="true"]::before {
+  opacity: 1;
+  clip-path: inset(0 0 0 0);
+}
+.ws-chat-root .ws-skin-trigger[aria-expanded="true"]::before {
+  opacity: 1;
+  clip-path: inset(0 0 0 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-chat-root .ws-nav-btn::before,
+  .ws-chat-root .ws-skin-trigger::before { transition: none; }
+}
+`;
+
 export default function ClientChat({ ticketId }: { ticketId: string }) {
   const token = useMemo(readToken, []);
   const chatLogo = useMediaAsset("chat_messenger_logo");
@@ -1323,6 +1376,53 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
   const handleSkinSelect = useCallback((id: string) => {
     setSkinId(id);
     storeSkinId(id);
+  }, []);
+
+  // ---- Header-button directional border (presentation only) ----------------
+  // Pointer tracking for the Uiverse-style border draw: as the cursor
+  // approaches Client Login / Home / the theme trigger, the NEAREST side is
+  // written to data-border-side and the ::before border forms from that side;
+  // on leave it retracts smoothly toward the same side. Purely visual.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const rootEl = rootRef.current;
+    if (!rootEl) return;
+    const SELECTOR = ".ws-nav-btn, .ws-skin-trigger";
+    const nearestSide = (el: Element, x: number, y: number): string => {
+      const r = el.getBoundingClientRect();
+      const dTop = y - r.top;
+      const dBottom = r.bottom - y;
+      const dLeft = x - r.left;
+      const dRight = r.right - x;
+      const min = Math.min(dTop, dBottom, dLeft, dRight);
+      if (min === dLeft) return "left";
+      if (min === dRight) return "right";
+      if (min === dTop) return "top";
+      return "bottom";
+    };
+    let active: Element | null = null;
+    const onOver = (event: PointerEvent) => {
+      const target = (event.target as Element | null)?.closest?.(SELECTOR) ?? null;
+      if (!target || !rootEl.contains(target)) return;
+      if (active && active !== target) active.removeAttribute("data-border-hover");
+      active = target;
+      target.setAttribute("data-border-side", nearestSide(target, event.clientX, event.clientY));
+      target.setAttribute("data-border-hover", "true");
+    };
+    const onOut = (event: PointerEvent) => {
+      const target = (event.target as Element | null)?.closest?.(SELECTOR) ?? null;
+      if (!target || !rootEl.contains(target)) return;
+      const next = event.relatedTarget as Element | null;
+      if (next && target.contains(next)) return; // still inside this button
+      target.setAttribute("data-border-hover", "false");
+      if (active === target) active = null;
+    };
+    rootEl.addEventListener("pointerover", onOver);
+    rootEl.addEventListener("pointerout", onOut);
+    return () => {
+      rootEl.removeEventListener("pointerover", onOver);
+      rootEl.removeEventListener("pointerout", onOut);
+    };
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -1470,6 +1570,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
 
   return (
     <div
+      ref={rootRef}
       className="ws-chat-root ws-chat-surface"
       data-ws-skin={activeSkin.id}
       style={{ ...styles.root, ...(activeSkin.vars as React.CSSProperties) }}
@@ -1478,6 +1579,9 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           Sending… pill, scrollbar, placeholder/focus theming) — ONE stylesheet
           shared with the Admin Messenger; every rule resolves --sk-* tokens. */}
       <style dangerouslySetInnerHTML={{ __html: CHAT_SURFACE_CSS }} />
+      {/* R01 FINAL: Uiverse-style directional border on the header buttons
+          (Client Login / Home / theme trigger) — skin-token themed. */}
+      <style dangerouslySetInnerHTML={{ __html: HEADER_BORDER_CSS }} />
       {/* Responsive layout rules + header status circle / tooltip / nav
           buttons / in-card mask circle. */}
       <style jsx>{`
@@ -1676,10 +1780,13 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
             </a>
             <ChatSkinPicker activeSkinId={skinId} onSelect={handleSkinSelect} />
           </div>
-          {/* Center identity: live status dot + team name; muted context line
-              below keeps contact/subject info (full text on hover via title). */}
+          {/* Center identity: team name first, then the live status dot
+              (immediately after the support line, before the logo); muted
+              context line below keeps contact/subject info (full text on
+              hover via title). */}
           <div style={styles.headerTitleBlock}>
             <p style={styles.headerTitle}>
+              {TEAM_NAME}
               {conversation ? (
                 <span className="ws-status-wrap" style={styles.statusWrap}>
                   <span
@@ -1700,7 +1807,6 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
                   className="ws-status-dot ws-status-dot-pending"
                 />
               )}
-              {TEAM_NAME}
             </p>
             <p
               style={styles.headerSub}
