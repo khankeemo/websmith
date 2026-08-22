@@ -1426,3 +1426,11 @@ Messenger (AWS-01 R01, 2026-08-22)"**. Never regress:
   NOTE: live-tree `next start` may abort on the UNRELATED pre-existing route
   conflict `'id' !== 'projectId'` (`app/api/projects/[projectId]` restored
   alongside `[id]`) — verify against an isolated copy if present.
+- **No floating chat widget on Direct Secure Chat (2026-08-22)**: the
+  LeadConnector floating widget is EXCLUDED from `/chat/*` — `isStandaloneChatRoute`
+  joined the existing checkout/product exclusions in `ClientLayout.tsx`'s
+  `isPublicFacingPage` gate, so navigating to `/chat/[id]` runs the existing
+  non-public branch (`ChatComponent` null + script removals) and direct loads
+  never import it. The widget stays on ALL other public pages; the shared
+  `components/ui/leadconnectorchat/` component and the Direct Chat itself are
+  untouched.

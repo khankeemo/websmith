@@ -46,7 +46,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Load chat widget only on public-facing pages.
   useEffect(() => {
-    const isPublicFacingPage = Boolean(pathname && isPublicRoute(pathname) && !pathname.startsWith("/internal") && !isStandaloneCheckoutRoute(pathname) && !isStandaloneProductRoute(pathname));
+    const isPublicFacingPage = Boolean(pathname && isPublicRoute(pathname) && !pathname.startsWith("/internal") && !isStandaloneCheckoutRoute(pathname) && !isStandaloneProductRoute(pathname) && !isStandaloneChatRoute(pathname));
 
     if (isPublicFacingPage) {
       import("../components/ui/leadconnectorchat").then((mod) => {
