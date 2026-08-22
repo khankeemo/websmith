@@ -1301,21 +1301,26 @@ const styles: Record<string, React.CSSProperties> = {
 };
 
 // ---- R01 FINAL: Uiverse-style directional border on the header buttons ----
-// Client Login / Home / theme trigger. NORMAL = clean chrome, NO visible
-// border (the real border slot stays transparent so nothing ever shifts).
-// As the cursor approaches, JS records the NEAREST side on the element
-// (data-border-side) and the ::before border draws in FROM that side; over
-// the button it fully encircles; on leave it retracts toward that side.
-// Colors resolve ONLY from --sk-* tokens (accent-tinted per skin), so light
-// and dark skins theme it automatically. Scoped under .ws-chat-root — this
-// Direct Chat page only; the shared picker component and the Admin Messenger
-// are untouched. Static string via a plain <style> tag (styled-jsx cannot
-// reach the child ChatSkinPicker trigger DOM).
+// Client Login / Home / theme trigger. NORMAL = fully transparent chrome — NO
+// background, NO card/container look (the real border slot stays transparent
+// so nothing ever shifts). As the cursor approaches, JS records the NEAREST
+// side on the element (data-border-side) and the ::before border draws in
+// FROM that side; over the button it fully encircles; on leave it retracts
+// toward that side. The draw is deliberately SLOW and premium: a long
+// ease-out-quint clip-path glide (~0.8s) with a soft opacity fade, so motion
+// never feels abrupt in either direction. Colors resolve ONLY from --sk-*
+// tokens (accent-tinted per skin), so light and dark skins theme it
+// automatically. Scoped under .ws-chat-root — this Direct Chat page only;
+// the shared picker component and the Admin Messenger are untouched. Static
+// string via a plain <style> tag (styled-jsx cannot reach the child
+// ChatSkinPicker trigger DOM).
 const HEADER_BORDER_CSS = `
 .ws-chat-root .ws-nav-btn,
 .ws-chat-root .ws-skin-trigger {
   position: relative;
   border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .ws-chat-root .ws-center-zone .ws-skin-trigger:hover,
 .ws-chat-root .ws-center-zone .ws-skin-trigger[aria-expanded="true"] {
@@ -1331,7 +1336,9 @@ const HEADER_BORDER_CSS = `
   border: 1px solid var(--sk-focus-border);
   opacity: 0;
   clip-path: inset(0 100% 0 0);
-  transition: clip-path 0.32s ease, opacity 0.22s ease;
+  transition:
+    clip-path 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.5s ease;
   pointer-events: none;
 }
 .ws-chat-root [data-border-side="left"]::before { clip-path: inset(0 100% 0 0); }
@@ -1661,7 +1668,9 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         }
 
         /* ---- Header nav buttons (Client Login / Home) — clean quiet
-                chrome: skin-owned colors, simple hover, no heavy effects ---- */
+                chrome: NO background / NO card look (transparent in the
+                normal state — only the animated border + text show), skin-
+                owned colors, no heavy effects ---- */
         .ws-nav-btn {
           display: inline-flex;
           align-items: center;
@@ -1670,7 +1679,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           padding: 0 12px;
           border-radius: 8px;
           border: 1px solid var(--sk-btn-border);
-          background: var(--sk-btn-bg);
+          background: transparent;
           color: var(--sk-btn-text);
           font-size: 11.5px;
           font-weight: 700;
@@ -1680,7 +1689,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           transition: background-color 160ms ease, border-color 160ms ease;
         }
         .ws-nav-btn:hover {
-          background: var(--sk-btn-hover-bg);
+          background: transparent;
         }
         .ws-nav-btn:focus-visible {
           outline: 2px solid var(--sk-accent);

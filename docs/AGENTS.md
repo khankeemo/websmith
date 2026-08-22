@@ -1404,6 +1404,21 @@ Messenger (AWS-01 R01, 2026-08-22)"**. Never regress:
   `var(--sk-status-open/closed)`, accents/timeline/chips in the Admin
   Messenger from `var(--sk-accent)`/`var(--sk-divider)`/`var(--sk-selected-bg)`
   — never hardcode hex in either chat UI.
+- **Direct Chat button final UI (transparent chrome + slow premium border,
+  2026-08-22)**: the `/chat/[id]` header buttons (`Client Login` / `Home` /
+  theme trigger) have **NO visible button/card background** — `.ws-nav-btn`
+  is `background: transparent` in the normal AND hover state (the old
+  `--sk-btn-bg`/`--sk-btn-hover-bg` fills were removed), and the shared
+  `ChatSkinPicker` trigger is flattened from THIS page only via the scoped
+  `HEADER_BORDER_CSS` (`background: transparent !important` +
+  `box-shadow: none !important`; the shared component file and the Admin
+  Messenger are untouched). The animated directional hover border stays, and
+  its draw is deliberately smooth/slow — `clip-path 0.8s
+  cubic-bezier(0.22, 1, 0.36, 1)` + `opacity 0.5s ease` (was `0.32s ease`) —
+  never abrupt. Colors keep resolving from `--sk-*` tokens only
+  (`--sk-focus-border` border, `--sk-btn-text` text, `--sk-accent` icon).
+  Layout/animations/chat logic unchanged; `app/chat/[id]/ClientChat.tsx`
+  is the only file.
 - **Verification baseline**: tsc EXIT 0, build green; live headless-Chrome CDP
   12/12 on `/chat/[id]` (default classic surface, CHAT_SURFACE_CSS injected,
   picker opens 10 rows with `wsSkinPanelIn`, live midnight-gold switch
