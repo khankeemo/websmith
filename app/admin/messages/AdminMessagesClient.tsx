@@ -1805,14 +1805,12 @@ export default function AdminMessagesClient() {
         </div>
       </aside>
 
-<section
-  className="query-inbox-conversation ws-chat-surface"
-  data-ws-skin={activeSkin.id}
-  style={activeSkin.vars as React.CSSProperties}
->
-  {/* R04 shared messenger polish — the SAME stylesheet the Direct Secure Chat
-      injects (skin transitions, message entrance, Sending… pill styles,
-      scrollbar, placeholder/focus theming); every rule resolves --sk-*. */}
+<section className="query-inbox-conversation">
+  {/* R01 skin-scope fix: the section NO LONGER carries the chat-skin tokens —
+      the active skin is scoped to the Messenger Chat card ONLY, so the rest of
+      the Query Inbox keeps its own admin theme (pre-R04 values). The shared
+      CHAT_SURFACE_CSS stays injected here; its rules are all scoped under
+      `.ws-chat-surface`, which now lives on the messenger card below. */}
   <style dangerouslySetInnerHTML={{ __html: CHAT_SURFACE_CSS }} />
 <header className="qib-topbar">
                <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
@@ -1888,7 +1886,14 @@ export default function AdminMessagesClient() {
               </div>
 
 
-            <div className="ws-chat-card" style={styles.chatCard}>
+            {/* R01 skin scope: the Messenger Chat card is the ONLY area themed
+                by the active chat skin (class + data-ws-skin + --sk-* vars).
+                Everything outside this div stays on the admin theme. */}
+            <div
+              className="ws-chat-card ws-chat-surface"
+              data-ws-skin={activeSkin.id}
+              style={{ ...styles.chatCard, ...(activeSkin.vars as React.CSSProperties) }}
+            >
               <div className="qib-chat-label-row">
                 <span className="qib-chat-label">Messenger Chat</span>
                 <span className="qib-chat-hint">Client messages · Admin messages</span>
@@ -2018,36 +2023,36 @@ export default function AdminMessagesClient() {
               <span style={styles.sectionLabel}>Client Details</span>
               <div style={styles.metaItems}>
                 <div style={styles.metaItem}>
-                  <Mail size={14} color="var(--sk-accent)" />
+                  <Mail size={14} color="#007AFF" />
                   <span>{getRequester(selectedTicket).email || "No email available"}</span>
                 </div>
                 <div style={styles.metaItem}>
-                  <Briefcase size={14} color="var(--sk-accent)" />
+                  <Briefcase size={14} color="#007AFF" />
                   <span>{getRequester(selectedTicket).subtitle}</span>
                 </div>
                 <div style={styles.metaItem}>
-                  <Hash size={14} color="var(--sk-accent)" />
+                  <Hash size={14} color="#007AFF" />
                   <span>Request ID: {getRequestLabel(selectedTicket)}</span>
                 </div>
                 {getClientIdLabel(selectedTicket) && (
                   <div style={styles.metaItem}>
-                    <Hash size={14} color="var(--sk-accent)" />
+                    <Hash size={14} color="#007AFF" />
                     <span>Client ID: {getClientIdLabel(selectedTicket)}</span>
                   </div>
                 )}
                 <div style={styles.metaItem}>
-                  <ShieldCheck size={14} color="var(--sk-accent)" />
+                  <ShieldCheck size={14} color="#007AFF" />
                   <span>{getRequester(selectedTicket).name}</span>
                 </div>
                 <div style={styles.metaItem}>
-                  <Clock3 size={14} color="var(--sk-accent)" />
+                  <Clock3 size={14} color="#007AFF" />
                   <span>{formatDate(selectedTicket.createdAt)}</span>
                 </div>
               </div>
             </div>
 
             <div className="qib-cards-grid">
-              <div style={{ ...styles.composerCard, border: "1px solid var(--sk-composer-border)", backgroundColor: "var(--sk-composer-bg)" }}>
+              <div style={styles.composerCard}>
                 <div style={styles.composerTop}>
                   <label style={styles.sectionLabel}>Reply Thread</label>
                   <select value={greetingKey} onChange={(event) => handleGreetingChange(event.target.value)} style={styles.greetingSelect} disabled={templates.length === 0} title="Greeting Template">
@@ -2280,14 +2285,14 @@ const styles: Record<string, any> = {
     width: "7px",
     height: "7px",
     borderRadius: "999px",
-    backgroundColor: "var(--sk-status-open)",
+    backgroundColor: "#34c759",
     flexShrink: 0,
   },
   topbarDotClosed: {
     width: "7px",
     height: "7px",
     borderRadius: "999px",
-    backgroundColor: "var(--sk-status-closed)",
+    backgroundColor: "#ff3b30",
     flexShrink: 0,
   },
   topbarClient: {
@@ -2422,9 +2427,9 @@ const styles: Record<string, any> = {
     fontSize: "11px",
     fontWeight: 700,
     fontFamily: "var(--font-mono, monospace)",
-    color: "var(--sk-accent)",
-    backgroundColor: "var(--sk-selected-bg)",
-    border: "1px solid var(--sk-divider)",
+    color: "#007AFF",
+    backgroundColor: "rgba(0,122,255,0.08)",
+    border: "1px solid #007aff33",
     borderRadius: "999px",
     padding: "3px 10px",
     whiteSpace: "nowrap",
@@ -2705,7 +2710,8 @@ const styles: Record<string, any> = {
     flexShrink: 0,
     // Compact WhatsApp-style footprint: the thread stays readable but the card
     // no longer dominates the conversation pane. Colors come from the shared
-    // chat-skin tokens (set on `.query-inbox-conversation` by the active skin).
+    // chat-skin tokens (this card carries the skin scope: ws-chat-surface +
+    // data-ws-skin + --sk-* vars — the ONLY themed area on this page).
     height: "clamp(220px, 34dvh, 420px)",
     display: "flex",
     flexDirection: "column",
@@ -2799,10 +2805,10 @@ const styles: Record<string, any> = {
   },
   composerTop: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "8px" },
   greetingSelect: {
-    border: "1px solid var(--sk-input-border)",
+    border: "1px solid var(--border-color)",
     borderRadius: "8px",
-    backgroundColor: "var(--sk-input-bg)",
-    color: "var(--sk-text)",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
     padding: "5px 8px",
     fontSize: "11px",
     fontWeight: 600,
@@ -2813,9 +2819,9 @@ const styles: Record<string, any> = {
     minHeight: "80px",
     resize: "vertical",
     borderRadius: "10px",
-    border: "1px solid var(--sk-input-border)",
-    backgroundColor: "var(--sk-input-bg)",
-    color: "var(--sk-text)",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-primary)",
+    color: "var(--text-primary)",
     padding: "8px 10px",
     outline: "none",
     fontSize: "12px",
@@ -2843,14 +2849,13 @@ const styles: Record<string, any> = {
     alignItems: "center",
     gap: "6px",
     border: "none",
-    backgroundColor: "var(--sk-send-bg)",
+    backgroundColor: "#007AFF",
     color: "#FFFFFF",
     borderRadius: "8px",
     padding: "7px 12px",
     fontSize: "12px",
     fontWeight: 700,
     cursor: "pointer",
-    boxShadow: "var(--sk-send-shadow)",
   },
   secondaryBtn: {
     display: "inline-flex",

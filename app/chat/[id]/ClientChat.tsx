@@ -1043,10 +1043,10 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     overflow: "hidden",
   },
-  // CENTER 34% — messenger only, vertically + horizontally centered. R04: the
-  // decorative/background treatment is REMOVED from this zone — it renders the
-  // skin's flat base color (--sk-center-bg) so the messenger card carries all
-  // visual weight (the left/right zones keep their decoration).
+  // CENTER 34% — messenger only, vertically + horizontally centered. R01
+  // visual fix: this zone has NO background layer of its own — the ONE unified
+  // window color (--sk-backdrop on the root) shows through continuously across
+  // left + center + right, so the messenger card is the only surface here.
   centerZone: {
     position: "relative",
     width: "34%",
@@ -1056,7 +1056,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "var(--sk-center-bg)",
   },
   // RIGHT 33% — the 30 flying language bubbles (phase-locked, zone-clipped).
   bubbleZone: {
@@ -1073,9 +1072,9 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     zIndex: 0,
   },
-  // THE actual Messenger container — the Websmith skin is the branded header
-  // band INSIDE this card (see `header`/`skinBrand` below), never a wrapper or
-  // page-level background behind it. Clear space above/below, responsive.
+  // THE actual Messenger container — the Websmith skin header lives INSIDE
+  // this card (see `header` below), never as a wrapper or page-level
+  // background behind it. Clear space above/below, responsive.
   card: {
     position: "relative",
     zIndex: 1,
@@ -1090,8 +1089,9 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "var(--sk-card-shadow)",
     overflow: "hidden",
   },
-  // THE Websmith skin band — the branded header INSIDE the Messenger card
-  // (gradient panel + brand pill). Always part of the card, never behind it.
+  // THE Websmith skin header band INSIDE the Messenger card — clean and
+  // professional: nav cluster (left) · team identity with live status (center)
+  // · logo mask (right). Flat skin background, no inset accent layering.
   header: {
     flexShrink: 0,
     display: "flex",
@@ -1100,31 +1100,13 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "10px 14px",
     borderBottom: "1px solid var(--sk-header-border)",
     background: "var(--sk-header-bg)",
-    boxShadow: "inset 0 2px 0 var(--sk-header-accent)",
   },
-  // Compact Websmith brand pill inside the skin band (visible in the chat box).
-  skinBrand: {
+  // Left header cluster: Client Login / Home / theme picker.
+  headerNav: {
     flexShrink: 0,
-    display: "inline-flex",
+    display: "flex",
     alignItems: "center",
     gap: "6px",
-    padding: "3px 10px 3px 8px",
-    borderRadius: "999px",
-    background: "var(--sk-brand-bg)",
-    color: "#ffffff",
-    fontSize: "10px",
-    fontWeight: 800,
-    letterSpacing: "0.7px",
-    textTransform: "uppercase",
-    whiteSpace: "nowrap",
-    boxShadow: "var(--sk-brand-shadow)",
-  },
-  skinBrandDot: {
-    width: "6px",
-    height: "6px",
-    borderRadius: "50%",
-    background: "rgba(255, 255, 255, 0.95)",
-    flexShrink: 0,
   },
   headerTitleBlock: {
     flex: 1,
@@ -1133,8 +1115,12 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: "2px",
   },
+  // Team identity line: live status dot + "Websmith Digital Support".
   headerTitle: {
     margin: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
     fontSize: "14px",
     fontWeight: 700,
     color: "var(--sk-title)",
@@ -1142,6 +1128,7 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  // Muted context line: contact · email · subject (full text on hover/title).
   headerSub: {
     margin: 0,
     fontSize: "11px",
@@ -1149,16 +1136,6 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-  },
-  // Right-side header cluster: dynamic status circle + Uiverse Slice buttons
-  // + the Websmith mask circle (top-right inside the chat card).
-  headerRight: {
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: "8px",
-    flexWrap: "wrap",
   },
   statusWrap: {
     position: "relative",
@@ -1274,9 +1251,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: "inline-flex",
     alignItems: "center",
     gap: "4px",
-    border: "1px solid var(--sk-ghost-border)",
-    background: "var(--sk-ghost-bg)",
-    color: "var(--sk-ghost-text)",
+    border: "1px solid var(--sk-btn-border)",
+    background: "var(--sk-btn-bg)",
+    color: "var(--sk-btn-text)",
     borderRadius: "8px",
     padding: "5px 9px",
     fontSize: "11px",
@@ -1292,7 +1269,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "12px",
     border: "1px solid var(--sk-input-border)",
     background: "var(--sk-input-bg)",
-    color: "var(--sk-text)",
+    color: "var(--sk-input-text)",
     padding: "10px 13px",
     outline: "none",
     fontSize: "13px",
@@ -1449,6 +1426,17 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
   };
 
   const isClosed = conversation?.status === "closed";
+  // Header context line: contact · email · subject (each part omitted when
+  // absent; full string available via the title attribute on hover).
+  const headerContext = conversation
+    ? [
+        conversation.contactName || "Valued Customer",
+        conversation.contactEmail || "",
+        conversation.subject || "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "Your secure support conversation";
   const hasAdminReply = (conversation?.messages || []).some((m) => m.senderType === "admin");
 
   const whatsappUrl = contactInfo?.whatsapp_url || contactInfo?.email
@@ -1490,7 +1478,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           Sending… pill, scrollbar, placeholder/focus theming) — ONE stylesheet
           shared with the Admin Messenger; every rule resolves --sk-* tokens. */}
       <style dangerouslySetInnerHTML={{ __html: CHAT_SURFACE_CSS }} />
-      {/* Responsive layout rules + header status circle / tooltip / Slice
+      {/* Responsive layout rules + header status circle / tooltip / nav
           buttons / in-card mask circle. */}
       <style jsx>{`
         /* Below 900px: decorations hide, messenger becomes the full-width
@@ -1528,7 +1516,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           box-shadow: 0 0 0 3px var(--sk-hover-bg), 0 0 10px var(--sk-status-closed);
         }
         .ws-status-dot-pending {
-          background: var(--text-muted);
+          background: var(--sk-muted);
         }
         .ws-status-dot:focus-visible {
           box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), var(--sk-focus-ring);
@@ -1568,49 +1556,34 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           transform: translateX(-50%) scale(1);
         }
 
-        /* ---- Uiverse Slice buttons (Client Login / Home) ---- */
-        .slice {
-          --c1: #202020;
-          --c2: var(--sk-accent);
-          --size-letter: 14px;
-          padding: 0.5em 1em;
-          font-size: var(--size-letter);
-          background-color: transparent;
-          border: calc(var(--size-letter) / 6) solid var(--c2);
-          border-radius: 0.2em;
-          cursor: pointer;
-          overflow: hidden;
-          position: relative;
-          transition: 300ms cubic-bezier(0.83, 0, 0.17, 1);
-        }
-        .slice > .text {
+        /* ---- Header nav buttons (Client Login / Home) — clean quiet
+                chrome: skin-owned colors, simple hover, no heavy effects ---- */
+        .ws-nav-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 30px;
+          padding: 0 12px;
+          border-radius: 8px;
+          border: 1px solid var(--sk-btn-border);
+          background: var(--sk-btn-bg);
+          color: var(--sk-btn-text);
+          font-size: 11.5px;
           font-weight: 700;
-          color: var(--c2);
-          position: relative;
-          z-index: 1;
-          transition: color 700ms cubic-bezier(0.83, 0, 0.17, 1);
+          text-decoration: none;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: background-color 160ms ease, border-color 160ms ease;
         }
-        .slice::after {
-          content: "";
-          width: 0;
-          height: calc(300% + 1em);
-          position: absolute;
-          translate: -50% -50%;
-          inset: 50%;
-          rotate: 30deg;
-          background-color: var(--c2);
-          transition: 1000ms cubic-bezier(0.83, 0, 0.17, 1);
+        .ws-nav-btn:hover {
+          background: var(--sk-btn-hover-bg);
         }
-        .slice:hover > .text {
-          color: var(--c1);
+        .ws-nav-btn:focus-visible {
+          outline: 2px solid var(--sk-accent);
+          outline-offset: 2px;
         }
-        .slice:hover::after {
-          width: calc(120% + 1em);
-          background-color: var(--sk-accent-strong);
-        }
-        .slice:active {
-          scale: 0.98;
-          filter: brightness(0.9);
+        .ws-nav-btn:active {
+          transform: translateY(1px);
         }
 
         /* ---- Websmith mask circle, top-right INSIDE the chat card header ---- */
@@ -1621,7 +1594,7 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
           border-radius: 50%;
           overflow: hidden;
           box-sizing: border-box;
-          background: var(--bg-secondary);
+          background: var(--sk-secondary-bg);
           border: 1px solid var(--sk-mask-ring);
           box-shadow: var(--sk-mask-glow);
         }
@@ -1660,20 +1633,17 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
             width: 36px !important;
             height: 36px !important;
           }
-          .slice {
-            --size-letter: 11px;
-          }
-          .ws-skin-brand {
-            display: none !important;
+          .ws-nav-btn {
+            height: 28px;
+            padding: 0 9px;
+            font-size: 10.5px;
           }
         }
         @media (prefers-reduced-motion: reduce) {
           .ws-status-tooltip {
             transition: none;
           }
-          .slice,
-          .slice::after,
-          .slice > .text {
+          .ws-nav-btn {
             transition: none;
           }
         }
@@ -1695,70 +1665,71 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
       <div className="ws-center-zone" style={styles.centerZone}>
         <div className="ws-chat-card" style={styles.card}>
         <header className="ws-chat-header" style={styles.header}>
-          <div className="ws-skin-brand" style={styles.skinBrand} aria-hidden="true">
-            <span style={styles.skinBrandDot} />
-            Websmith · Digital Support
-          </div>
-          <div style={styles.headerTitleBlock}>
-            <p style={styles.headerTitle} title={conversation?.subject}>
-              {conversation?.subject || "Your Conversation"}
-            </p>
-            <p style={styles.headerSub} title={conversation?.contactEmail}>
-              {conversation
-                ? `${conversation.contactName || "Valued Customer"}${conversation.contactEmail ? ` · ${conversation.contactEmail}` : ""}`
-                : TEAM_NAME}
-            </p>
-          </div>
-          {/* Dynamic status circle + Uiverse Slice buttons + mask circle */}
-          <div style={styles.headerRight}>
-            {conversation ? (
-              <span className="ws-status-wrap" style={styles.statusWrap}>
-                <span
-                  role="status"
-                  tabIndex={0}
-                  aria-label={isClosed ? "Conversation closed" : "Conversation open"}
-                  className={`ws-status-dot ${isClosed ? "ws-status-dot-closed" : "ws-status-dot-open"}`}
-                />
-                <span className="ws-status-tooltip" role="tooltip">
-                  <strong>{isClosed ? "Closed" : "Open"}</strong>
-                  {isClosed ? "Chat is closed" : "Chat is active"}
-                </span>
-              </span>
-            ) : (
-              <span
-                role="status"
-                aria-label="Conversation status pending"
-                className="ws-status-dot ws-status-dot-pending"
-              />
-            )}
-            <a href="https://www.websmithdigital.com/login" className="slice" aria-label="Client login">
-              <span className="text">Client Login</span>
+          {/* Left cluster: Client Login / Home / theme picker (clean quiet
+              buttons — the old Uiverse slice hover animation was removed). */}
+          <div style={styles.headerNav}>
+            <a href="https://www.websmithdigital.com/login" className="ws-nav-btn" aria-label="Client login">
+              Client Login
             </a>
-            <a href="https://www.websmithdigital.com/" className="slice" aria-label="Home">
-              <span className="text">Home</span>
+            <a href="https://www.websmithdigital.com/" className="ws-nav-btn" aria-label="Home">
+              Home
             </a>
             <ChatSkinPicker activeSkinId={skinId} onSelect={handleSkinSelect} />
-            <div className="ws-header-mask" aria-hidden="true">
-              <img
-                src={chatLogo.url}
-                alt=""
-                style={styles.maskImage}
-                draggable={false}
-                decoding="async"
-              />
-            </div>
+          </div>
+          {/* Center identity: live status dot + team name; muted context line
+              below keeps contact/subject info (full text on hover via title). */}
+          <div style={styles.headerTitleBlock}>
+            <p style={styles.headerTitle}>
+              {conversation ? (
+                <span className="ws-status-wrap" style={styles.statusWrap}>
+                  <span
+                    role="status"
+                    tabIndex={0}
+                    aria-label={isClosed ? "Conversation closed" : "Conversation open"}
+                    className={`ws-status-dot ${isClosed ? "ws-status-dot-closed" : "ws-status-dot-open"}`}
+                  />
+                  <span className="ws-status-tooltip" role="tooltip">
+                    <strong>{isClosed ? "Closed" : "Open"}</strong>
+                    {isClosed ? "Chat is closed" : "Chat is active"}
+                  </span>
+                </span>
+              ) : (
+                <span
+                  role="status"
+                  aria-label="Conversation status pending"
+                  className="ws-status-dot ws-status-dot-pending"
+                />
+              )}
+              {TEAM_NAME}
+            </p>
+            <p
+              style={styles.headerSub}
+              title={headerContext}
+            >
+              {headerContext}
+            </p>
+          </div>
+          {/* Right: the Websmith mask circle stays top-right INSIDE the card. */}
+          <div className="ws-header-mask" aria-hidden="true">
+            <img
+              src={chatLogo.url}
+              alt=""
+              style={styles.maskImage}
+              draggable={false}
+              decoding="async"
+            />
           </div>
         </header>
 
         {loading ? (
           <div style={styles.center}>
-            <Loader2 size={28} className="admin-messages-spin" color="var(--text-secondary)" />
+            <Loader2 size={28} className="admin-messages-spin" color="var(--sk-subtitle)" />
             <p style={styles.centerTitle}>Connecting to your conversation...</p>
             <p style={styles.centerText}>This should only take a moment.</p>
           </div>
         ) : error || !conversation ? (
           <div style={styles.center}>
-            <Lock size={30} color="var(--text-secondary)" />
+            <Lock size={30} color="var(--sk-subtitle)" />
             <p style={styles.centerTitle}>Conversation unavailable</p>
             <p style={styles.centerText}>{error || "This conversation link is invalid or has expired."}</p>
             <a href="https://www.websmithdigital.com" target="_blank" rel="noreferrer" style={styles.clientLoginBtn}>
@@ -1847,8 +1818,8 @@ export default function ClientChat({ ticketId }: { ticketId: string }) {
         {conversation && (
           <div style={styles.composer}>
             <div style={styles.clientLoginRow}>
-              <Lock size={11} color="var(--text-secondary)" />
-              <span style={{ fontSize: "10.5px", color: "var(--text-secondary)" }}>
+              <Lock size={11} color="var(--sk-subtitle)" />
+              <span style={{ fontSize: "10.5px", color: "var(--sk-subtitle)" }}>
                 Secure conversation · only you and the Websmith team can see this chat
               </span>
             </div>
