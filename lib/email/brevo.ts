@@ -638,28 +638,43 @@ The ${COMPANY_NAME} Team`
   // ================================================================
   admin_notification: {
     subject: 'Administrator Notification',
-    defaultBody: (d) => wrapHtml('System Notification', `
-      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello Administrator,</p>
-      <p style="margin:0 0 20px;font-size:14px;color:#555;line-height:1.6">The following system notification requires your attention:</p>
-      <div style="background:#f0f4ff;border-left:4px solid #4a90d9;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
-        ${d.message || 'No details provided.'}
-      </div>
-      ${d.customer_name ? infoTable([
-        { label: 'Customer', value: d.customer_name || 'N/A' },
-        { label: 'Email', value: d.customer_email || 'N/A' },
+    defaultBody: (d) => {
+      const cleanWa = (d.whatsapp_phone || '').replace(/[^\d]/g, '');
+      const cleanCall = (d.calling_phone || d.customer_phone || '').replace(/[^\d+]/g, '');
+      const tableRows = [
+        { label: 'Customer Name', value: d.customer_name || 'N/A' },
+        { label: 'Email Address', value: d.customer_email ? `<a href="mailto:${d.customer_email}" style="color:#007AFF;text-decoration:none">${d.customer_email}</a>` : 'N/A' },
+        { label: 'Calling Phone', value: cleanCall ? `<a href="tel:${cleanCall}" style="color:#007AFF;font-weight:600;text-decoration:none">📞 ${d.calling_phone || d.customer_phone}</a>` : 'N/A' },
+        { label: 'WhatsApp Number', value: cleanWa ? `<a href="https://wa.me/${cleanWa}" target="_blank" style="color:#128c7e;font-weight:600;text-decoration:none">💬 Chat on WhatsApp (${d.whatsapp_phone})</a>` : 'N/A' },
+        { label: 'Preferred Contact Date', value: d.preferred_date ? `📅 <strong>${d.preferred_date}</strong>` : 'N/A' },
+        { label: 'Company / Organization', value: d.company || 'N/A' },
+        { label: 'Subject', value: d.subject || 'N/A' },
         { label: 'Product', value: d.product_name || 'N/A' },
         { label: 'License Key', value: d.license_key || 'N/A' },
-      ].filter(r => r.value !== 'N/A')) : ''}
-      <p style="margin:12px 0 0;font-size:13px;color:#8899aa">This is an automated administrative notification. Please review and take appropriate action if needed.</p>
-    `),
+      ].filter(r => r.value !== 'N/A');
+
+      return wrapHtml('New Contact Inquiry / Notification', `
+        <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello Administrator,</p>
+        <p style="margin:0 0 20px;font-size:14px;color:#555;line-height:1.6">You have received a new inquiry or system notification requiring your attention:</p>
+        <div style="background:#f0f4ff;border-left:4px solid #007AFF;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
+          <strong>Message:</strong><br/>
+          ${renderCustomerMessageHtml(d.message || d.admin_message || 'No details provided.')}
+        </div>
+        ${tableRows.length > 0 ? infoTable(tableRows) : ''}
+        ${d.admin_url ? btn('Open in Admin Messages', d.admin_url) : ''}
+        <p style="margin:16px 0 0;font-size:13px;color:#8899aa">This is an automated administrative notification from Websmith Digital.</p>
+      `);
+    },
     defaultPlainText: (d) => `Hello Administrator,
 
-The following system notification requires your attention:
+You have received a new inquiry / notification:
 
-${d.message || 'No details provided.'}
-${d.customer_name ? `\nCustomer: ${d.customer_name}\nEmail: ${d.customer_email || 'N/A'}\nProduct: ${d.product_name || 'N/A'}\nLicense Key: ${d.license_key || 'N/A'}` : ''}
+${d.message || d.admin_message || 'No details provided.'}
 
-This is an automated administrative notification. Please review and take appropriate action if needed.`
+Customer: ${d.customer_name || 'N/A'}
+Email: ${d.customer_email || 'N/A'}
+${d.calling_phone || d.customer_phone ? `Calling Phone: ${d.calling_phone || d.customer_phone}\n` : ''}${d.whatsapp_phone ? `WhatsApp: ${d.whatsapp_phone} (https://wa.me/${(d.whatsapp_phone || '').replace(/[^\d]/g, '')})\n` : ''}${d.preferred_date ? `Preferred Contact Date: ${d.preferred_date}\n` : ''}${d.company ? `Company: ${d.company}\n` : ''}${d.subject ? `Subject: ${d.subject}\n` : ''}
+This is an automated administrative notification.`
   },
 
   // ================================================================
@@ -925,21 +940,36 @@ async function logEmailDelivery(
   }
 ): Promise<void> {
   try {
-    await client.query(
-      `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, error, license_key, hardware_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
-      [
-        params.emailType,
-        'email',
-        params.recipient,
-        params.subject,
-        params.status,
-        params.response || null,
-        params.error || null,
-        params.licenseKey || null,
-        params.hardwareId || null,
-      ]
-    );
+    if (client && typeof client.query === 'function') {
+      await client.query(
+        `INSERT INTO notification_logs (event_type, channel, recipient, subject, status, response, error, license_key, hardware_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
+        [
+          params.emailType,
+          'email',
+          params.recipient,
+          params.subject,
+          params.status,
+          params.response || null,
+          params.error || null,
+          params.licenseKey || null,
+          params.hardwareId || null,
+        ]
+      );
+    } else if (client && typeof client.collection === 'function') {
+      await client.collection('notification_logs').insertOne({
+        event_type: params.emailType,
+        channel: 'email',
+        recipient: params.recipient,
+        subject: params.subject,
+        status: params.status,
+        response: params.response || null,
+        error: params.error || null,
+        license_key: params.licenseKey || null,
+        hardware_id: params.hardwareId || null,
+        created_at: new Date(),
+      });
+    }
   } catch (logError) {
     console.error(`[Email] Failed to log delivery:`, logError);
   }

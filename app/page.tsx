@@ -18,7 +18,11 @@ import {
   ExternalLink,
   Mail,
   Building2,
+  Phone,
+  MessageSquare,
+  Calendar,
 } from "lucide-react";
+import Link from "next/link";
 import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
 import { getPublishedProjects, getPublishedTestimonials } from "./projects/services/projectService";
@@ -28,6 +32,8 @@ import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
 import { createPublicTicket } from "../core/services/ticketService";
 import { useLeadFunnel } from "./providers/LeadFunnelProvider";
+import { PhoneInputWithCountry } from "@/components/ui/PhoneInputWithCountry";
+import { validatePhoneNumber } from "@/core/utils/phoneValidation";
 
 const defaultContactInfo = {
   headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
@@ -611,9 +617,18 @@ export default function LandingPage() {
   const [contactState, setContactState] = useState({
     name: "",
     email: "",
+    callingPhone: "",
+    callingCountry: "",
+    callingDial: "+91",
+    whatsappPhone: "",
+    whatsappCountry: "",
+    whatsappDial: "+91",
+    sameAsCalling: false,
+    preferredContactDate: "",
     company: "",
     subject: "",
-    message: ""
+    message: "",
+    consent: false,
   });
   const [contactErrors, setContactErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -632,16 +647,45 @@ export default function LandingPage() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Please enter a valid email address.";
     else if (email.length > 200) errors.email = "Email must be 200 characters or fewer.";
     if (contactState.company.trim().length > 200) errors.company = "Company must be 200 characters or fewer.";
+    if (contactState.callingPhone.trim()) {
+      const callCheck = validatePhoneNumber(contactState.callingPhone, contactState.callingCountry);
+      if (!callCheck.valid) {
+        errors.callingPhone = callCheck.error || "Please enter a valid calling phone number.";
+      }
+    }
+    if (contactState.whatsappPhone.trim()) {
+      const waCheck = validatePhoneNumber(contactState.whatsappPhone, contactState.whatsappCountry);
+      if (!waCheck.valid) {
+        errors.whatsappPhone = waCheck.error || "Please enter a valid WhatsApp number.";
+      }
+    }
     if (!subject) errors.subject = "Please enter a subject.";
     else if (subject.length > 300) errors.subject = "Subject must be 300 characters or fewer.";
     if (!message) errors.message = "Please enter your message.";
     else if (message.length > 20000) errors.message = "Message must be 20,000 characters or fewer.";
+    if (!contactState.consent) {
+      errors.consent = "Please agree to the privacy policy before submitting.";
+    }
     setContactErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleContactChange = (field: keyof typeof contactState, value: string) => {
-    setContactState((prev) => ({ ...prev, [field]: value }));
+  const handleContactChange = (field: keyof typeof contactState, value: any) => {
+    setContactState((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "sameAsCalling" && value === true) {
+        next.whatsappPhone = prev.callingPhone;
+        next.whatsappCountry = prev.callingCountry;
+        next.whatsappDial = prev.callingDial;
+      } else if (field === "callingPhone" && prev.sameAsCalling) {
+        next.whatsappPhone = value;
+      } else if (field === "callingCountry" && prev.sameAsCalling) {
+        next.whatsappCountry = value;
+      } else if (field === "callingDial" && prev.sameAsCalling) {
+        next.whatsappDial = value;
+      }
+      return next;
+    });
     setContactErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
   };
   
@@ -1121,15 +1165,40 @@ export default function LandingPage() {
                     if (!validateContactForm()) return;
                     setIsSubmitting(true);
                     try {
+                      const callingNumberFull = contactState.callingPhone.trim()
+                        ? `${contactState.callingDial || "+91"} ${contactState.callingPhone.trim()}`
+                        : "";
+                      const whatsappNumberFull = contactState.whatsappPhone.trim()
+                        ? `${contactState.whatsappDial || "+91"} ${contactState.whatsappPhone.trim()}`
+                        : "";
+
                       await createPublicTicket({
                         name: contactState.name.trim(),
                         email: contactState.email.trim().toLowerCase(),
+                        callingPhone: callingNumberFull,
+                        whatsappPhone: whatsappNumberFull,
+                        preferredContactDate: contactState.preferredContactDate.trim(),
                         company: contactState.company.trim(),
                         subject: contactState.subject.trim(),
                         message: contactState.message.trim(),
                       });
                       setSubmitStatus("success");
-                      setContactState({ name: "", email: "", company: "", subject: "", message: "" });
+                      setContactState({
+                        name: "",
+                        email: "",
+                        callingPhone: "",
+                        callingCountry: "",
+                        callingDial: "+91",
+                        whatsappPhone: "",
+                        whatsappCountry: "",
+                        whatsappDial: "+91",
+                        sameAsCalling: false,
+                        preferredContactDate: "",
+                        company: "",
+                        subject: "",
+                        message: "",
+                        consent: false,
+                      });
                       setContactErrors({});
                     } catch (error: any) {
                       console.error("Public inquiry error:", error);
@@ -1184,24 +1253,103 @@ export default function LandingPage() {
                       )}
                     </div>
                   </div>
-                  
-                  <div style={styles.formGroup}>
-                    <label style={styles.formLabel} htmlFor="contact-company">Company <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span></label>
-                    <input 
-                      id="contact-company"
-                      name="company"
-                      type="text" 
-                      placeholder="Company / Organization" 
-                      style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
-                      autoComplete="organization"
-                      aria-invalid={Boolean(contactErrors.company)}
-                      aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
-                      value={contactState.company}
-                      onChange={(e) => handleContactChange("company", e.target.value)}
-                    />
-                    {contactErrors.company && (
-                      <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
-                    )}
+
+                  {/* Calling Number & WhatsApp Number */}
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel} htmlFor="contact-calling-phone">
+                        Calling Number <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span>
+                      </label>
+                      <PhoneInputWithCountry
+                        id="contact-calling-phone"
+                        name="callingPhone"
+                        value={contactState.callingPhone}
+                        countryCode={contactState.callingCountry}
+                        onCountryChange={(country) => {
+                          handleContactChange("callingCountry", country.code);
+                          handleContactChange("callingDial", country.dial);
+                        }}
+                        onChange={(digits) => handleContactChange("callingPhone", digits)}
+                        placeholder="Phone number"
+                        error={contactErrors.callingPhone}
+                        icon={<Phone size={15} />}
+                      />
+                      {contactErrors.callingPhone && (
+                        <p role="alert" style={styles.fieldError}>{contactErrors.callingPhone}</p>
+                      )}
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", minHeight: "20px" }}>
+                        <label style={styles.formLabel} htmlFor="contact-whatsapp-phone">
+                          WhatsApp Number <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span>
+                        </label>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-secondary)", cursor: "pointer", userSelect: "none" }}>
+                          <input
+                            type="checkbox"
+                            checked={contactState.sameAsCalling}
+                            onChange={(e) => handleContactChange("sameAsCalling", e.target.checked)}
+                            style={{ cursor: "pointer" }}
+                          />
+                          Same as calling
+                        </label>
+                      </div>
+                      <PhoneInputWithCountry
+                        id="contact-whatsapp-phone"
+                        name="whatsappPhone"
+                        value={contactState.whatsappPhone}
+                        countryCode={contactState.whatsappCountry}
+                        disabled={contactState.sameAsCalling}
+                        onCountryChange={(country) => {
+                          handleContactChange("whatsappCountry", country.code);
+                          handleContactChange("whatsappDial", country.dial);
+                        }}
+                        onChange={(digits) => handleContactChange("whatsappPhone", digits)}
+                        placeholder="WhatsApp number"
+                        error={contactErrors.whatsappPhone}
+                        icon={<MessageSquare size={15} />}
+                      />
+                      {contactErrors.whatsappPhone && (
+                        <p role="alert" style={styles.fieldError}>{contactErrors.whatsappPhone}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Preferred Contact Date & Company */}
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel} htmlFor="contact-preferred-date">
+                        Preferred Date to be Contacted <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span>
+                      </label>
+                      <input 
+                        id="contact-preferred-date"
+                        name="preferredContactDate"
+                        type="date" 
+                        min={new Date().toISOString().split("T")[0]}
+                        style={styles.formInput}
+                        value={contactState.preferredContactDate}
+                        onChange={(e) => handleContactChange("preferredContactDate", e.target.value)}
+                      />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel} htmlFor="contact-company">Company <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span></label>
+                      <input 
+                        id="contact-company"
+                        name="company"
+                        type="text" 
+                        placeholder="Company / Organization" 
+                        style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
+                        autoComplete="organization"
+                        aria-invalid={Boolean(contactErrors.company)}
+                        aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
+                        value={contactState.company}
+                        onChange={(e) => handleContactChange("company", e.target.value)}
+                      />
+                      {contactErrors.company && (
+                        <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
+                      )}
+                    </div>
                   </div>
                   
                   <div style={styles.formGroup}>
@@ -1239,6 +1387,62 @@ export default function LandingPage() {
                     />
                     {contactErrors.message && (
                       <p id="contact-message-error" role="alert" style={styles.fieldError}>{contactErrors.message}</p>
+                    )}
+                  </div>
+                  
+                  {/* Privacy / Consent Checkbox */}
+                  <div style={{ marginBottom: "20px", marginTop: "4px" }}>
+                    <label
+                      htmlFor="contact-consent"
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "10px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        lineHeight: 1.5,
+                        color: "var(--text-secondary, #86868b)",
+                        userSelect: "none",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        id="contact-consent"
+                        name="consent"
+                        checked={contactState.consent}
+                        onChange={(e) => handleContactChange("consent", e.target.checked)}
+                        aria-invalid={Boolean(contactErrors.consent)}
+                        aria-describedby={contactErrors.consent ? "contact-consent-error" : undefined}
+                        style={{
+                          marginTop: "3px",
+                          width: "16px",
+                          height: "16px",
+                          accentColor: "#007AFF",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span>
+                        I consent to WebSmith Digital collecting and processing my contact details to respond to my inquiry in accordance with the{" "}
+                        <Link
+                          href="/privacy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "#007AFF",
+                            textDecoration: "underline",
+                            textUnderlineOffset: "3px",
+                          }}
+                        >
+                          Privacy Policy
+                        </Link>
+                        .
+                      </span>
+                    </label>
+                    {contactErrors.consent && (
+                      <p id="contact-consent-error" role="alert" style={styles.fieldError}>
+                        {contactErrors.consent}
+                      </p>
                     )}
                   </div>
                   

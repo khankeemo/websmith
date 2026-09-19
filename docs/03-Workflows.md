@@ -173,6 +173,14 @@ sequenceDiagram
   (`[id]/attach` — MIME whitelist, 5 files × 10 MB).
 - Admins reply inside the Communications Center; delivery is queued if SMTP fails.
 
+## 9. Public contact form workflow
+
+- Visitor submits `POST /api/tickets/public` with `name`, `email`, `callingPhone`, `whatsappPhone`, `preferredContactDate`, `company`, `subject`, and `message`.
+- Browser auto-detects country code via `Intl.DateTimeFormat().resolvedOptions().timeZone` and locale; provides searchable country code picker and "Same as calling" toggle for WhatsApp.
+- Route sanitizes fields and persists `contactCallingPhone`, `contactWhatsappPhone`, and `preferredContactDate` in MongoDB `tickets`.
+- Instant Brevo alert email (`admin_notification`) is dispatched to the admin with direct `tel:` (call), `https://wa.me/` (WhatsApp chat), and admin panel `/admin/messages` links.
+- Admin Messages panel (`AdminMessagesClient.tsx`) displays calling number, WhatsApp chat link, and preferred contact date badge under Client Details and thread header.
+
 ## Related docs
 
 - `02-Architecture.md`

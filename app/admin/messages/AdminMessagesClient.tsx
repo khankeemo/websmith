@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
+  Calendar,
   ChevronLeft,
   Clock3,
   Hash,
@@ -12,6 +13,7 @@ import {
   Mail,
   MessageSquare,
   MoreVertical,
+  Phone,
   RotateCcw,
   Search,
   Send,
@@ -385,6 +387,9 @@ export default function AdminMessagesClient() {
       return {
         name: ticket.contactName || "Public inquiry",
         email: ticket.contactEmail || "",
+        callingPhone: ticket.contactCallingPhone || ticket.contactPhone || "",
+        whatsappPhone: ticket.contactWhatsappPhone || "",
+        preferredContactDate: ticket.preferredContactDate || "",
         subtitle: ticket.contactCompany || "Website contact form",
       };
     }
@@ -393,6 +398,9 @@ export default function AdminMessagesClient() {
     return {
       name: client?.name || "Client",
       email: client?.email || "",
+      callingPhone: (client as any)?.phone || "",
+      whatsappPhone: "",
+      preferredContactDate: "",
       subtitle: "Client portal",
     };
   };
@@ -733,6 +741,30 @@ export default function AdminMessagesClient() {
                   {getRequester(selectedTicket).name}
                   {" · "}
                   {getRequester(selectedTicket).email || getRequester(selectedTicket).subtitle}
+                  {getRequester(selectedTicket).callingPhone && (
+                    <>
+                      {" · "}
+                      <a href={`tel:${getRequester(selectedTicket).callingPhone.replace(/[^\d+]/g, "")}`} style={{ color: "#007AFF", textDecoration: "none", fontWeight: 500 }}>
+                        📞 {getRequester(selectedTicket).callingPhone}
+                      </a>
+                    </>
+                  )}
+                  {getRequester(selectedTicket).whatsappPhone && (
+                    <>
+                      {" · "}
+                      <a href={`https://wa.me/${getRequester(selectedTicket).whatsappPhone.replace(/[^\d]/g, "")}`} target="_blank" rel="noopener noreferrer" style={{ color: "#128C7E", textDecoration: "none", fontWeight: 500 }}>
+                        💬 WhatsApp
+                      </a>
+                    </>
+                  )}
+                  {getRequester(selectedTicket).preferredContactDate && (
+                    <>
+                      {" · "}
+                      <span style={{ color: "#FF9500", fontWeight: 600 }}>
+                        📅 Preferred: {getRequester(selectedTicket).preferredContactDate}
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
               <div style={styles.chatActions}>
@@ -865,6 +897,43 @@ export default function AdminMessagesClient() {
                   <Mail size={14} color="#007AFF" />
                   <span>{getRequester(selectedTicket).email || "No email available"}</span>
                 </div>
+                {getRequester(selectedTicket).callingPhone && (
+                  <div style={styles.metaItem}>
+                    <Phone size={14} color="#007AFF" />
+                    <a
+                      href={`tel:${getRequester(selectedTicket).callingPhone.replace(/[^\d+]/g, "")}`}
+                      style={{ color: "inherit", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      title="Call client"
+                    >
+                      <span style={{ fontWeight: 600 }}>{getRequester(selectedTicket).callingPhone}</span>
+                      <span style={{ fontSize: "11px", color: "#007AFF" }}>(Call)</span>
+                    </a>
+                  </div>
+                )}
+                {getRequester(selectedTicket).whatsappPhone && (
+                  <div style={styles.metaItem}>
+                    <MessageSquare size={14} color="#25D366" />
+                    <a
+                      href={`https://wa.me/${getRequester(selectedTicket).whatsappPhone.replace(/[^\d]/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#128C7E", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}
+                      title="Open WhatsApp chat"
+                    >
+                      <span>{getRequester(selectedTicket).whatsappPhone}</span>
+                      <span style={{ fontSize: "11px", backgroundColor: "rgba(37, 211, 102, 0.12)", color: "#128C7E", padding: "1px 6px", borderRadius: "4px" }}>WhatsApp</span>
+                    </a>
+                  </div>
+                )}
+                {getRequester(selectedTicket).preferredContactDate && (
+                  <div style={styles.metaItem}>
+                    <Calendar size={14} color="#FF9500" />
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <span>Preferred Contact:</span>
+                      <strong style={{ color: "var(--text-primary)" }}>{getRequester(selectedTicket).preferredContactDate}</strong>
+                    </span>
+                  </div>
+                )}
                 <div style={styles.metaItem}>
                   <Briefcase size={14} color="#007AFF" />
                   <span>{getRequester(selectedTicket).subtitle}</span>

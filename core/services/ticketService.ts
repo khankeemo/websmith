@@ -95,6 +95,10 @@ export interface Ticket {
   contactName?: string;
   contactEmail?: string;
   contactCompany?: string;
+  contactPhone?: string;
+  contactCallingPhone?: string;
+  contactWhatsappPhone?: string;
+  preferredContactDate?: string;
   developerId?: {
     _id: string;
     name: string;
@@ -178,6 +182,10 @@ export const createTicket = async (payload: {
 export const createPublicTicket = async (payload: {
   name: string;
   email: string;
+  callingPhone?: string;
+  whatsappPhone?: string;
+  preferredContactDate?: string;
+  phone?: string;
   company?: string;
   subject: string;
   message: string;

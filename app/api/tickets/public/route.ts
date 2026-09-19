@@ -1,4 +1,6 @@
-﻿import { apiHandler, jsonBody, json } from "@/lib/server/api";
+import { apiHandler, jsonBody, json } from "@/lib/server/api";
+import { sendEmail } from "@/lib/email/brevo";
+import { validatePhoneNumber } from "@/core/utils/phoneValidation";
 import crypto from "node:crypto";
 
 // Lightweight in-memory per-IP throttle (best-effort guard for a public
@@ -40,6 +42,9 @@ export const POST = apiHandler(async ({ db, request }) => {
   const contactName = sanitize(String(body.name ?? "")).trim();
   const contactEmail = sanitize(String(body.email ?? "")).trim().toLowerCase();
   const contactCompany = sanitize(String(body.company ?? "")).trim();
+  const contactCallingPhone = sanitize(String(body.callingPhone ?? body.phone ?? body.mobile ?? "")).trim();
+  const contactWhatsappPhone = sanitize(String(body.whatsappPhone ?? body.whatsapp ?? "")).trim();
+  const preferredContactDate = sanitize(String(body.preferredContactDate ?? body.preferredDate ?? "")).trim();
 
   if (!subject || !message || !contactName || !contactEmail) {
     return json({ success: false, error: "Name, email, subject and message are required", message: "Name, email, subject and message are required" }, { status: 400 });
@@ -47,8 +52,31 @@ export const POST = apiHandler(async ({ db, request }) => {
   if (!EMAIL_RE.test(contactEmail)) {
     return json({ success: false, error: "Please enter a valid email address", message: "Please enter a valid email address" }, { status: 400 });
   }
-  if (contactName.length > 200 || contactEmail.length > 200 || contactCompany.length > 200 || subject.length > 300 || message.length > 20000) {
+  if (
+    contactName.length > 200 ||
+    contactEmail.length > 200 ||
+    contactCompany.length > 200 ||
+    contactCallingPhone.length > 50 ||
+    contactWhatsappPhone.length > 50 ||
+    preferredContactDate.length > 50 ||
+    subject.length > 300 ||
+    message.length > 20000
+  ) {
     return json({ success: false, error: "One or more fields are too long", message: "One or more fields are too long" }, { status: 400 });
+  }
+
+  // Server-side phone anti-spam & format validation
+  if (contactCallingPhone) {
+    const callCheck = validatePhoneNumber(contactCallingPhone);
+    if (!callCheck.valid) {
+      return json({ success: false, error: callCheck.error || "Invalid calling phone number", message: callCheck.error || "Invalid calling phone number" }, { status: 400 });
+    }
+  }
+  if (contactWhatsappPhone) {
+    const waCheck = validatePhoneNumber(contactWhatsappPhone);
+    if (!waCheck.valid) {
+      return json({ success: false, error: waCheck.error || "Invalid WhatsApp phone number", message: waCheck.error || "Invalid WhatsApp phone number" }, { status: 400 });
+    }
   }
 
   const now = new Date();
@@ -58,6 +86,10 @@ export const POST = apiHandler(async ({ db, request }) => {
     contactName,
     contactEmail,
     contactCompany,
+    contactPhone: contactCallingPhone || contactWhatsappPhone || "",
+    contactCallingPhone,
+    contactWhatsappPhone,
+    preferredContactDate,
     developerId: null,
     projectId: null,
     subject,
@@ -92,5 +124,45 @@ export const POST = apiHandler(async ({ db, request }) => {
     updatedAt: now,
   };
   const result = await db.collection("tickets").insertOne(ticket);
+
+  // Send admin alert notification (asynchronous, non-blocking for response)
+  try {
+    const settingsDoc = await db.collection("settings").findOne({ key: "contact_info" });
+    const settingsContact = settingsDoc?.value || {};
+    const adminEmail =
+      process.env.ADMIN_ALERT_EMAIL ||
+      settingsContact.email ||
+      settingsContact.sales_email ||
+      process.env.SUPPORT_EMAIL ||
+      process.env.MAIL_SUPPORT_ADDRESS ||
+      "digitalwebsmith@gmail.com";
+
+    const origin =
+      request.headers.get("origin") ||
+      request.headers.get("referer") ||
+      process.env.WEBSITE_URL ||
+      "https://websmithdigital.com";
+    const adminUrl = `${origin.replace(/\/+$/, "")}/admin/messages`;
+
+    await sendEmail(
+      db,
+      "admin_notification",
+      { email: adminEmail, name: "Administrator" },
+      {
+        customer_name: contactName,
+        customer_email: contactEmail,
+        calling_phone: contactCallingPhone,
+        whatsapp_phone: contactWhatsappPhone,
+        preferred_date: preferredContactDate,
+        company: contactCompany,
+        subject: `New Inquiry: ${subject}`,
+        message: message,
+        admin_url: adminUrl,
+      }
+    );
+  } catch (emailErr) {
+    console.error("[Tickets/Public] Failed to send admin alert email:", emailErr);
+  }
+
   return json({ data: { ...ticket, _id: result.insertedId.toString() } }, { status: 201 });
 });
