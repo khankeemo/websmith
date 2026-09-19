@@ -994,6 +994,70 @@ export interface EmailSendOptions {
   bcc?: { email: string; name?: string }[];
 }
 
+async function sendViaMailboxSmtp(
+  to: { email: string; name?: string },
+  subject: string,
+  htmlBody: string,
+  plainText: string,
+  options: EmailSendOptions = {}
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      return { success: false, error: 'DATABASE_URL not configured for mailbox fallback' };
+    }
+
+    const { Client } = await import('pg');
+    const pgClient = new Client({ connectionString: databaseUrl });
+    await pgClient.connect();
+    const res = await pgClient.query(
+      'SELECT * FROM mailboxes WHERE is_enabled = TRUE ORDER BY is_default_sender DESC, created_at DESC LIMIT 1'
+    );
+    await pgClient.end();
+
+    const mailbox = res.rows[0];
+    if (!mailbox) {
+      return { success: false, error: 'No active mailbox configured in database' };
+    }
+
+    const nodemailer = (await import('nodemailer')).default;
+    const transporter = nodemailer.createTransport({
+      host: mailbox.smtp_host,
+      port: Number(mailbox.smtp_port) || 465,
+      secure: Boolean(mailbox.smtp_secure),
+      auth: { user: mailbox.smtp_username, pass: mailbox.smtp_password },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 20000,
+    });
+
+    const senderDisplayName = mailbox.display_name || 'Websmith Digital';
+    const info = await transporter.sendMail({
+      from: `"${senderDisplayName}" <${mailbox.email_address}>`,
+      to: to.name ? `"${to.name}" <${to.email}>` : to.email,
+      ...(options.cc && options.cc.length > 0 ? { cc: options.cc.map((c) => c.email) } : {}),
+      ...(options.bcc && options.bcc.length > 0 ? { bcc: options.bcc.map((b) => b.email) } : {}),
+      subject,
+      text: plainText,
+      html: htmlBody,
+      ...(options.attachments && options.attachments.length > 0
+        ? {
+            attachments: options.attachments.map((a) => ({
+              filename: a.name,
+              content: Buffer.from(a.content, 'base64'),
+              contentType: a.type,
+            })),
+          }
+        : {}),
+    });
+
+    console.log(`[Email] Delivered via Mailbox SMTP (${mailbox.email_address}) to ${to.email} (messageId: ${info.messageId})`);
+    return { success: true, messageId: String(info.messageId || '') };
+  } catch (err: any) {
+    console.error('[Email] Mailbox SMTP sending failed:', err?.message || err);
+    return { success: false, error: err?.message || 'Mailbox SMTP error' };
+  }
+}
+
 export async function sendEmail(
   client: any,
   emailType: string,
@@ -1001,10 +1065,6 @@ export async function sendEmail(
   data: Record<string, string> = {},
   options: EmailSendOptions = {}
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  if (!BREVO_API_KEY) {
-    console.warn(`BREVO_API_KEY not set — skipping email: ${emailType} to ${to.email}`);
-    return { success: false, error: 'BREVO_API_KEY not configured' };
-  }
 
   // Resolve sender addresses from Manage Page contact info (falls back to env vars)
   const fromAddress = await getFromAddress(client);
@@ -1080,6 +1140,25 @@ export async function sendEmail(
       plainText = plainText + UNSUBSCRIBE_FOOTER_TEXT.replace(/{{unsubscribe_url}}/g, unsubscribeUrl);
     }
 
+    // If BREVO_API_KEY is not configured, deliver directly via the active Mailbox SMTP
+    if (!BREVO_API_KEY) {
+      console.log(`[Email] BREVO_API_KEY not set — delivering ${emailType} to ${to.email} via Mailbox SMTP`);
+      const smtpRes = await sendViaMailboxSmtp(to, subject, htmlBody, plainText, options);
+      await logEmailDelivery(client, {
+        emailType,
+        sender: senderEmail,
+        recipient: to.email,
+        subject,
+        status: smtpRes.success ? 'sent' : 'failed',
+        response: smtpRes.messageId,
+        error: smtpRes.error,
+        licenseKey: data.license_key,
+        hardwareId: data.hardware_id,
+        supportRequestId: data.request_id,
+      });
+      return smtpRes;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -1126,7 +1205,23 @@ export async function sendEmail(
 
     if (!response || !response.ok) {
       const err = lastError || 'Failed to send email after 3 retries';
-      console.error(`Brevo send failed [${emailType} -> ${to.email}]: ${err}`);
+      console.warn(`Brevo send failed (${err}) — attempting Mailbox SMTP fallback for ${emailType} -> ${to.email}`);
+      const smtpRes = await sendViaMailboxSmtp(to, subject, htmlBody, plainText, options);
+      if (smtpRes.success) {
+        await logEmailDelivery(client, {
+          emailType,
+          sender: senderEmail,
+          recipient: to.email,
+          subject,
+          status: 'sent',
+          response: smtpRes.messageId,
+          licenseKey: data.license_key,
+          hardwareId: data.hardware_id,
+          supportRequestId: data.request_id,
+        });
+        return smtpRes;
+      }
+      console.error(`Brevo and Mailbox SMTP send both failed [${emailType} -> ${to.email}]: ${err}`);
       await logEmailDelivery(client, {
         emailType,
         sender: senderEmail,

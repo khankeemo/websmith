@@ -155,10 +155,6 @@ export const POST = apiHandler(async ({ db, client, request }) => {
     const settingsContact = settingsDoc?.value || {};
     const adminEmail =
       process.env.ADMIN_ALERT_EMAIL ||
-      settingsContact.email ||
-      settingsContact.sales_email ||
-      process.env.SUPPORT_EMAIL ||
-      process.env.MAIL_SUPPORT_ADDRESS ||
       "digitalwebsmith@gmail.com";
 
     const originHeader =
