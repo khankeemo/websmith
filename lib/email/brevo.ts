@@ -1,4 +1,12 @@
 import { renderCustomerMessageHtml, renderCustomerMessagePlain } from "@/lib/tickets/email";
+import {
+  isUnsubscribed,
+  getUnsubscribeLink,
+  shouldIncludeUnsubscribe,
+  UNSUBSCRIBE_FOOTER_HTML,
+  UNSUBSCRIBE_FOOTER_TEXT,
+} from "@/lib/email/unsubscribe";
+import { COMPANY_NAME, BRANDING_TAGLINE, WEBSITE_URL } from "@/lib/email/branding";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const MAIL_FROM_ADDRESS = process.env.MAIL_FROM_ADDRESS || process.env.SENDER_EMAIL || 'no-reply@websmithdigital.com';
@@ -7,13 +15,6 @@ const MAIL_SALES_ADDRESS = process.env.MAIL_SALES_ADDRESS || 'sales@websmithdigi
 const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || process.env.BREVO_SENDER_NAME || 'Websmith Support';
 const MAIL_SUPPORT_NAME = process.env.MAIL_SUPPORT_NAME || 'Websmith Support Team';
 const MAIL_SALES_NAME = process.env.MAIL_SALES_NAME || 'Websmith Sales Team';
-const COMPANY_NAME = process.env.BRANDING_COMPANY_NAME || 'Websmith Digital';
-// Generic brand tagline for the email header/footer. The public website's email
-// branding must never hardcode a product-specific line (e.g. "License
-// Management") because the same shared email layout serves the public website
-// (Get in Touch / Query Inbox / client communication) too.
-const BRANDING_TAGLINE = process.env.BRANDING_TAGLINE || 'Software Development & Client Support';
-const WEBSITE_URL = process.env.BRANDING_WEBSITE_URL || 'https://websmithdigital.com';
 
 async function getContactInfo(client: any) {
   try {
@@ -682,7 +683,7 @@ This is an automated administrative notification.`
   // ================================================================
   support_reply: {
     subject: 'Re: Your Support Request - {{request_id}}',
-    defaultBody: (d) => wrapHtml('Support Reply', `
+    defaultBody: (d) => wrapHtml('Support Team', `
       <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
       <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">We have received a response to your support request <strong>{{request_id}}</strong>.</p>
       <div style="background:#f8f9fa;border-left:4px solid #4a90d9;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
@@ -794,7 +795,7 @@ ${COMPANY_NAME} Support`
   // ================================================================
   sales_reply: {
     subject: 'Re: Your Sales Enquiry - {{enquiry_id}}',
-    defaultBody: (d) => wrapHtml('Sales Reply', `
+    defaultBody: (d) => wrapHtml('Sales Team', `
       <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello ${d.customer_name || 'there'},</p>
       <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Our sales team has responded to your enquiry <strong>{{enquiry_id}}</strong>.</p>
       <div style="background:#f8f9fa;border-left:4px solid #10b981;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
@@ -1050,6 +1051,33 @@ export async function sendEmail(
     if (senderEmail === fromAddress) {
       const disclaimer = '<p style="margin:16px 0 0;font-size:12px;color:#8899aa;font-style:italic;border-top:1px solid #e8ecf1;padding-top:12px">This is an automated email. Please do not reply.</p>';
       htmlBody = htmlBody.replace('</body>', `${disclaimer}</body>`);
+    }
+
+    // Send guard + unsubscribe footer for non-essential customer-facing emails
+    const includeFooter = shouldIncludeUnsubscribe(emailType);
+    if (includeFooter) {
+      const recipientEmail = to.email.toLowerCase().trim();
+      if (await isUnsubscribed(recipientEmail)) {
+        await logEmailDelivery(client, {
+          emailType,
+          sender: senderEmail,
+          recipient: to.email,
+          subject,
+          status: 'skipped',
+          error: 'Recipient has unsubscribed',
+          licenseKey: data.license_key,
+          hardwareId: data.hardware_id,
+          supportRequestId: data.request_id,
+        });
+        return { success: false, error: 'Recipient has unsubscribed' };
+      }
+
+      const unsubscribeUrl = await getUnsubscribeLink(recipientEmail);
+      htmlBody = htmlBody.replace(
+        '</body>',
+        UNSUBSCRIBE_FOOTER_HTML.replace(/{{unsubscribe_url}}/g, unsubscribeUrl) + '</body>'
+      );
+      plainText = plainText + UNSUBSCRIBE_FOOTER_TEXT.replace(/{{unsubscribe_url}}/g, unsubscribeUrl);
     }
 
     const controller = new AbortController();

@@ -1,0 +1,24 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^npx vercel deployments ls --debug 2>&1 \\| Select-Object -First 200$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx vercel --help 2>&1 \\| Select-Object -First 200$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^echo https://qstash-us-east-1\\.upstash\\.io \\| npx vercel env add QSTASH_URL production --force 2>&1 \\| Select-Object -First 100$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx vercel --prod --debug 2>&1 \\| Select-Object -First 200$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx vercel inspect https://websmith-p22kyo7l8-khankeemos-projects\\.vercel\\.app 2>&1 \\| Select-Object -First 120$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

@@ -12,6 +12,21 @@ export const PATCH = apiHandler(async ({ db, request, user, params }) => {
   const update: any = {};
   const changes: string[] = [];
 
+  const applyPriority = (field: "priority", label: string) => {
+    if (body[field] === undefined) return;
+    const priorityValues = ["low", "medium", "high", "urgent"];
+    const value = String(body[field] ?? "").trim().toLowerCase();
+    if (!priorityValues.includes(value)) {
+      throw badRequest(`${label} must be one of: low, medium, high, urgent`);
+    }
+    // Map "urgent" to "high" for backend storage
+    const storedValue = value === "urgent" ? "high" : value;
+    if (String(ticket[field] ?? "") !== storedValue) {
+      update[field] = storedValue;
+      changes.push(`${label}: ${storedValue || "(empty)"}`);
+    }
+  };
+
   const apply = (field: "subject" | "contactName" | "contactEmail" | "contactCompany", label: string) => {
     if (body[field] === undefined) return;
     const value = String(body[field] ?? "").trim();
@@ -24,6 +39,7 @@ export const PATCH = apiHandler(async ({ db, request, user, params }) => {
     }
   };
 
+  applyPriority("priority", "Priority");
   apply("subject", "Subject");
   apply("contactName", "Name");
   apply("contactEmail", "Email");

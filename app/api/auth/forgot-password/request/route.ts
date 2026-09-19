@@ -1,13 +1,33 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
+import { redis } from "@/lib/redis-client";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
+const PASSWORD_RESET_RATE_LIMIT = 3;
+const PASSWORD_RESET_WINDOW_SECONDS = 3600;
+
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function rateLimitedPasswordReset(ip: string): Promise<{ allowed: boolean; error?: string }> {
+  try {
+    const key = `pwd_reset:${ip}`;
+    const current = await redis.incr(key);
+    if (current === 1) {
+      await redis.expire(key, PASSWORD_RESET_WINDOW_SECONDS);
+    }
+    if (current > PASSWORD_RESET_RATE_LIMIT) {
+      return { allowed: false, error: 'Too many password reset requests. Please try again later.' };
+    }
+  } catch {
+    // Fail open
+  }
+  return { allowed: true };
 }
 
 async function sendOTPEmail(email: string, otp: string): Promise<{ sent: boolean; error?: string }> {
@@ -78,6 +98,17 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: "Valid email is required" },
         { status: 400 }
+      );
+    }
+
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+                      request.headers.get("x-real-ip") || "unknown";
+
+    const rateResult = await rateLimitedPasswordReset(ipAddress);
+    if (!rateResult.allowed) {
+      return NextResponse.json(
+        { success: false, error: rateResult.error },
+        { status: 429 }
       );
     }
 

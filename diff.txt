@@ -1,0 +1,118 @@
+warning: in the working copy of 'app/page.tsx', LF will be replaced by CRLF the next time Git touches it
+diff --git a/app/page.tsx b/app/page.tsx
+index 1a44753..983b6fe 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -933,41 +933,96 @@ export default function LandingPage() {
+ 
+ 
+       {/* Global Diversity & Collaboration */}
+-      <section style={styles.diversitySection}>
+-          <div style={styles.diversityContent} className="landing-diversity-content">
+-          <div style={styles.diversityTextColumn} className="ws-diversity-col">
+-            <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "var(--text-primary)" }}>Global Collaboration & Technical Excellence</h2>
+-            <p style={{ fontSize: "18px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "24px" }}>
+-              Our team brings together diverse perspectives and world-class expertise to solve complex challenges. 
++      <section style={{ position: "relative", width: "100%" }}>
++        <div style={{
++          position: "relative",
++          width: "100%",
++          maxWidth: "1200px",
++          margin: "0 auto",
++          padding: "0 2.5%",
++          display: "flex",
++          justifyContent: "space-between",
++          alignItems: "center",
++          gap: "5%",
++          boxSizing: "border-box"
++        }}>
++          <div style={{
++            position: "relative",
++            width: "45%",
++            display: "flex",
++            flexDirection: "column",
++            justifyContent: "flex-start",
++            alignItems: "flex-start",
++            gap: "4%",
++            boxSizing: "border-box"
++          }}>
++            <h2 style={{
++              fontSize: "32px", fontWeight: 700, marginBottom: "20px",
++              color: "var(--text-primary)", width: "100%"
++            }}>Global Collaboration & Technical Excellence</h2>
++            <p style={{
++              fontSize: "18px", color: "var(--text-secondary)", lineHeight: 1.6,
++              marginBottom: "24px", width: "100%"
++            }}>
++              Our team brings together diverse perspectives and world-class expertise to solve complex challenges.
+               We believe in the power of inclusive collaboration to build the next generation of digital products.
+             </p>
+-            <div style={{ display: "flex", gap: "16px" }} className="landing-badges-row">
+-              <div style={styles.diversityBadge}>Enterprise Grade</div>
+-              <div style={styles.diversityBadge}>Diverse Talent</div>
++            <div style={{ display: "flex", gap: "16px" }} className="landing-badges-row" style={{ width: "100%" }}>
++              <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "8px" }}>Enterprise Grade</div>
++              <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "8px" }}>Diverse Talent</div>
+             </div>
+-            <div style={styles.diversityImageContainer}>
++            <div style={{
++              position: "relative",
++              width: "100%",
++              aspectRatio: "16/9",
++              borderRadius: "8px",
++              overflow: "hidden",
++              marginTop: "auto",
++              marginBottom: "auto"
++            }}>
+               <img
+                 src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200"
+                 alt="Global Technical Team"
+-                style={styles.diversityImage}
++                style={{
++                  position: "absolute",
++                  width: "100%", height: "100%",
++                  objectFit: "cover"
++                }}
+               />
+             </div>
+           </div>
+-          <div style={styles.diversityMediaColumn} className="ws-diversity-col">
+-            <p style={styles.diversityMediaMessage}>
++          <div style={{
++            position: "relative",
++            width: "45%",
++            display: "flex",
++            flexDirection: "column",
++            justifyContent: "flex-start",
++            alignItems: "flex-start",
++            gap: "4%",
++            boxSizing: "border-box"
++          }}>
++            <p style={{{
++              fontSize: "18px", color: "var(--text-secondary)", lineHeight: 1.6,
++              marginBottom: "24px", width: "100%"
++            }}>
+               Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
+               One dedicated team that builds faster, ships smarter, and stays by your side long after launch ΓÇö
+               that is why clients choose Websmith, and why they stay.
+             </p>
+-            <div style={styles.diversityVideoContainer}>
++            <div style={{ width: "100%" }}>
+               <video
+                 ref={diversityVideoRef}
+                 autoPlay
+                 loop
+                 playsInline
+-                controls
++                muted
++                style={{
++                  position: "absolute",
++                  width: "100%", height: "100%",
++                  objectFit: "cover",
++                  borderRadius: "8px"
++                }}
+                 preload="auto"
+-                style={styles.diversityVideo}
+               >
+                 <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+               </video>

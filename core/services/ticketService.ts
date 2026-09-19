@@ -75,17 +75,28 @@ export interface ThreadMessage {
   recipientEmail?: string;
   message: string;
   createdAt: string;
-  source?: "public_contact" | "portal" | "email" | "admin_reply" | "resolution_email" | "onboarding_email" | "resend";
+  source?: "public_contact" | "portal" | "email" | "admin_reply" | "resolution_email" | "onboarding_email" | "resend" | "chat" | "welcome_email";
   deliveryStatus?: "sent" | "failed" | "not_sent";
   deliveryError?: string;
   providerMessageId?: string;
+  // Query Ticket bridge dedupe key: `cm:<conversation_messages.id>` for client
+  // inbound messages synchronized from the universal email system (R01 Phase 2).
+  sourceRef?: string;
   inReplyTo?: string[];
   references?: string[];
+  // Inbound email attachments (Query Inbox). Stored in the shared `uploads`
+  // collection and linked to the message so the Messenger Chat can render a
+  // compact indicator. Outgoing admin attachments are tracked in `history`.
+  attachments?: Array<{ name: string; url: string; size?: number; contentType?: string }>;
 }
 
 export interface Ticket {
   _id: string;
   source?: "client_portal" | "public_contact";
+  /** Customer-facing request reference (WSD-XXXXXX) — shown instead of the
+   *  internal ObjectId everywhere a customer/admin references the request.
+   *  Absent on pre-WSD tickets (those keep their legacy id). */
+  requestId?: string;
   clientId: {
     _id: string;
     name: string;
@@ -137,6 +148,10 @@ export interface Ticket {
   updatedAt?: string;
   emailDelivered?: boolean;
   emailError?: string;
+  /** Server-computed Resend flag on lean card list items (`fields=card`): the
+   *  full history array is NOT downloaded with the card, so the presence of a
+   *  stored email snapshot is computed server-side instead. */
+  hasStoredEmail?: boolean;
 }
 
 export const getTickets = async () => {
@@ -144,12 +159,15 @@ export const getTickets = async () => {
   return response.data.data as Ticket[];
 };
 
-/** Paged Query Inbox list (Phase 10: max 15 initial + Load More). */
+/** Paged Query Inbox list (Phase 10: max 15 initial + Load More). Pass
+ *  `fields: "card"` to receive ONLY the lean card fields (fast initial load —
+ *  the full messages/history payload is fetched per-conversation on open). */
 export const getTicketsPaged = async (params: {
   scope?: "active" | "closed";
   page?: number;
   pageSize?: number;
   search?: string;
+  fields?: "card";
 } = {}) => {
   const response = await API.get("/tickets", {
     params: {
@@ -157,6 +175,7 @@ export const getTicketsPaged = async (params: {
       page: params.page || 1,
       pageSize: params.pageSize || 15,
       ...(params.search ? { search: params.search } : {}),
+      ...(params.fields ? { fields: params.fields } : {}),
     },
   });
   return response.data as {
@@ -165,6 +184,82 @@ export const getTicketsPaged = async (params: {
     page: number;
     pageSize: number;
     hasMore: boolean;
+  };
+};
+
+/**
+ * Same list fetch as getTicketsPaged but via quietFetch (transport-only, never
+ * page-lifeline): the inbound-email auto-poll re-checks the open thread every
+ * 1 second, and a session expiry mid-poll must never let the axios interceptor
+ * replace the whole page with /login. Response shape identical. R02: accepts
+ * `fields: "card"` too — the every-second card-list sync uses the lean
+ * projection over the quiet transport.
+ */
+export const getTicketsQuiet = async (params: {
+  scope?: string;
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  fields?: "card";
+} = {}) => {
+  const query = new URLSearchParams({
+    scope: params.scope || "active",
+    page: String(params.page || 1),
+    pageSize: String(params.pageSize || 15),
+  });
+   if (params.search) query.set("search", params.search);
+   if (params.fields) query.set("fields", params.fields);
+  const payload = await quietFetch(`/tickets?${query.toString()}`);
+  return payload.data as {
+    data: Ticket[];
+    total: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+  };
+};
+
+/**
+ * Lightweight refresh of ONLY one ticket (the open conversation) via the
+ * existing list endpoint's `ids` filter — the Messenger Chat auto-poll uses
+ * this every 1 second instead of re-downloading the whole 15-ticket page.
+ * quietFetch transport (never page-lifeline), same Ticket shape as the list.
+ */
+export const getTicketQuiet = async (id: string): Promise<Ticket | null> => {
+  const payload = await quietFetch(`/tickets?ids=${encodeURIComponent(id)}`);
+  const list = Array.isArray(payload.data) ? (payload.data as Ticket[]) : [];
+  return list.find((t) => t._id === id) || null;
+};
+
+/**
+ * INCREMENTAL message fetch for the open conversation (AWS-01 R01 — FIX
+ * /admin/messages REAL-TIME): returns ONLY the messages newer than the cursor
+ * (`?after=<ISO timestamp>`) plus lightweight ticket metadata. The Messenger
+ * Chat 1-second auto-poll calls this instead of re-downloading the whole
+ * conversation every second — the full thread is fetched once on open via
+ * getTicketQuiet, deltas only thereafter. quietFetch transport (never
+ * page-lifeline). Response shape:
+ *   { messages: ThreadMessage[], updatedAt?, lastClientReplyAt?, hasNewClientReply?, status? }
+ */
+export const getTicketMessages = async (
+  id: string,
+  after?: string
+): Promise<{
+  messages: ThreadMessage[];
+  updatedAt?: string;
+  lastClientReplyAt?: string | null;
+  hasNewClientReply?: boolean;
+  status?: TicketStatus;
+}> => {
+  const query = new URLSearchParams();
+  if (after) query.set("after", after);
+  const payload = await quietFetch(`/tickets/${encodeURIComponent(id)}/messages?${query.toString()}`);
+  return payload.data as {
+    messages: ThreadMessage[];
+    updatedAt?: string;
+    lastClientReplyAt?: string | null;
+    hasNewClientReply?: boolean;
+    status?: TicketStatus;
   };
 };
 
@@ -256,7 +351,15 @@ export interface TicketClientAccount {
   name: string;
   clientId?: string;
   clientCustomId?: string;
+  /** Phase 3 — the temporary password exists (encrypted at rest) and can be revealed after admin password verify. */
+  hasTemporaryPassword?: boolean;
 }
+
+/** Phase 3 — reveal a client's temporary password after verifying the admin's own password. Never shown automatically. */
+export const revealClientPassword = async (id: string, adminPassword: string) => {
+  const response = await API.post(`/tickets/${id}/reveal-password`, { adminPassword });
+  return response.data as { temporaryPassword?: string };
+};
 
 export const getResolutionTemplates = async (): Promise<{ data: ResolutionTemplate[]; defaultKey: string }> => {
   const response = await API.get("/tickets/resolution-templates");
@@ -322,10 +425,30 @@ export const markTicketRead = async (id: string) => {
   return payload.data as Ticket;
 };
 
-/** Sync inbound client email replies into their tickets (Query Inbox). Admin only. */
+/**
+ * Generate the SECURE PUBLIC CLIENT MESSENGER CHAT link for a ticket (admin
+ * only). The link is a signed token bound to the ticket id + the customer's
+ * email; the customer opens their own conversation directly from it.
+ */
+export const createTicketChatLink = async (id: string, origin?: string) => {
+  const response = await API.post(`/tickets/${id}/chat-link`, origin ? { origin } : {});
+  return response.data as { url: string };
+};
+
+/**
+ * Sync processed universal-email customer messages into their tickets (Query
+ * Inbox). This is a BRIDGE, not a mail receiver: it reads customer messages
+ * ALREADY processed by the universal email system (PostgreSQL
+ * communication_conversations / conversation_messages) and appends each one to
+ * the client's existing ticket (`messages[]`), so Messenger Chat shows the
+ * client's email reply live. Runs on the Messenger Chat auto-poll every 1
+ * second while a conversation is open — the transport is quietFetch so the
+ * poll is SILENT and can never kill the page (a 401 session expiry is swallowed
+ * by the poll, never redirected). Same endpoint, same response shape as always.
+ */
 export const syncInboundEmail = async () => {
-  const response = await API.post("/tickets/inbound");
-  return response.data.data as {
+  const payload = await quietFetch(`/tickets/inbound`, { method: "POST" });
+  return payload.data as {
     noMailboxes?: boolean;
     message?: string;
     processed: number;
@@ -333,6 +456,8 @@ export const syncInboundEmail = async () => {
     duplicate: number;
     senderMismatch: number;
     unmatched: number;
+    attachmentsStored: number;
     errors?: string[];
+    skipped?: boolean;
   };
 };

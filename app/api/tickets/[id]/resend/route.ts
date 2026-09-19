@@ -1,6 +1,6 @@
 import { apiHandler, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
 import { sendEmail } from "@/lib/email/brevo";
-import { resolutionHtmlBody } from "@/lib/tickets/email";
+import { resolutionHtmlBody, ticketRequestLabel } from "@/lib/tickets/email";
 import crypto from "node:crypto";
 
 // ============================================================================
@@ -39,7 +39,7 @@ export const POST = apiHandler(async ({ db, user, params }) => {
     { email: recipient, name: clientName },
     {
       customer_name: clientName,
-      request_id: ticket._id.toString(),
+      request_id: ticketRequestLabel(ticket),
       subject,
       message: bodyText,
     },

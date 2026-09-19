@@ -18,6 +18,7 @@ import {
   FileImage, FileArchive, FileSpreadsheet, Presentation, FileJson,
   FileCode, FileAudio, FileVideo, FileType,
   Signature, ExternalLink, EyeOff, StickyNote, PenLine, BookMarked, Zap,
+  ChevronDown,
 } from "lucide-react";
 import UniversalEmailDialog from "@/components/internal-api/UniversalEmailDialog";
 
@@ -298,13 +299,18 @@ const FOLDERS: FolderDef[] = [
   { key: 'payment', label: 'Payment', icon: CreditCard, section: 'internal', kind: 'list', params: { search: 'payment' } },
   { key: 'sdk', label: 'SDK', icon: Package, section: 'internal', kind: 'list', params: { search: 'sdk' } },
   { key: 'customer', label: 'Customer', icon: Users, section: 'internal', kind: 'list', params: { has_customer: 'true' } },
+  // Sent — a real outbound view STRICTLY scoped to this section: a conversation
+  // qualifies when it carries a delivered admin email (the same real "Sent"
+  // filter as the Mail Sent folder), and the default source restriction applies
+  // so Categories/Labels Sent lists SYSTEM sent mail (mailbox_id IS NULL) only.
+  { key: 'sent', label: 'Sent', icon: Send, section: 'internal', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent' },
   { key: 'notifications', label: 'Notifications', icon: BellRing, section: 'internal', kind: 'logs' },
   { key: 'email-history', label: 'Universal Email', icon: MailOpen, section: 'internal', kind: 'history' },
   { key: 'int-trash', label: 'Trash', icon: Trash2, section: 'internal', kind: 'list', params: { show_deleted: 'true' }, badgeKey: 'trash' },
 
   // External Mailboxes
   { key: 'ext-inbox', label: 'Inbox', icon: Inbox, section: 'external', kind: 'list', params: { status: 'open,waiting_customer' }, badgeKey: 'inbox' },
-  { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { status: 'resolved,closed' }, badgeKey: 'sent' },
+  { key: 'ext-sent', label: 'Sent', icon: Send, section: 'external', kind: 'list', params: { sent: 'true' }, badgeKey: 'sent' },
   { key: 'ext-draft', label: 'Draft', icon: FilePen, section: 'external', kind: 'list', params: { status: 'draft' }, emptyNote: 'Draft support is not wired to the backend yet — outbound emails are sent immediately and tracked in Sent / Universal Email.' },
   { key: 'ext-waiting', label: 'Waiting', icon: Clock3, section: 'external', kind: 'list', params: { status: 'waiting_customer' }, badgeKey: 'waiting' },
   { key: 'ext-failed', label: 'Failed', icon: AlertTriangle, section: 'external', kind: 'list', params: { status: 'waiting_support,waiting_sales' }, badgeKey: 'failed' },
@@ -783,6 +789,11 @@ export default function CommunicationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'ok' | 'err' | 'warn'; text: string } | null>(null);
   const [showFilter, setShowFilter] = useState(false);
+  // Compact account-filter dropdown: narrows the current folder to ONE
+  // configured account (system mail account or mailbox). "All" restores the
+  // existing unfiltered behavior. Reuses accountScope so list/counts/search
+  // stay consistent with the selection.
+  const [accountFilterOpen, setAccountFilterOpen] = useState(false);
 
   const displayConversations = useMemo(() => {
     if (readFilter === 'all') return conversations;
@@ -834,6 +845,26 @@ export default function CommunicationsPage() {
   const mailboxesRef = useRef<Mailbox[]>([]);
   useEffect(() => { commSettingsRef.current = commSettings; }, [commSettings]);
   useEffect(() => { mailboxesRef.current = mailboxes; }, [mailboxes]);
+
+  // The Settings workspace's Mailbox Status card reads commMailboxes — keep it
+  // in sync with the single live mailboxes source (one fetch, no duplicates).
+  useEffect(() => { setCommMailboxes(mailboxes); }, [mailboxes]);
+
+  // Auto-sync in-flight guard: a slow IMAP sweep (mailboxes or native) must
+  // never overlap with the next 2s tick — parallel syncs would pile up IMAP
+  // connections and make the whole Communications Center feel slow.
+  const autoSyncInFlight = useRef(false);
+
+  // Stats in-flight guard: the 2s receive sweep and the 15s poll can overlap
+  // when a sweep is slow — a second overlapping stats request is dropped, the
+  // next tick picks the fresh numbers up anyway.
+  const statsInFlight = useRef(false);
+
+  // Native mail-account cache: the settings document (support/sales/no-reply
+  // config) changes rarely, so the 2s receive sweep reads the cached account
+  // list and only refetches the settings endpoint every 30s — one settings
+  // request instead of one every 2 seconds.
+  const nativeAccountsCacheRef = useRef<{ fetchedAt: number; accounts: any[] }>({ fetchedAt: 0, accounts: [] });
 
   // Communications Setting workspace — section navigation (single destination,
   // no duplicate sidebar entries for templates/signatures/auto-reply/mailboxes).
@@ -1017,6 +1048,12 @@ export default function CommunicationsPage() {
   }, [loadFolders, showToast]);
 
   const fetchStats = useCallback(async () => {
+    // Never run two overlapping stats requests — the 2s receive sweep, the
+    // 15s poll and post-action refreshes all call this; overlapping responses
+    // would race and could render stale counts. Dropped requests are harmless
+    // because the next tick re-polls.
+    if (statsInFlight.current) return;
+    statsInFlight.current = true;
     // Strict source separation: systemStats = Websmith Communications mail only,
     // mailboxStats = configured mailbox mail only. Badges never mix sources.
     const systemScope = accountScope?.kind === 'system' ? accountScope : null;
@@ -1044,24 +1081,41 @@ export default function CommunicationsPage() {
       const [sysJson, mbJson] = await Promise.all([sysRes.json(), mbRes.json()]);
       if (sysJson.success) setSystemStats(sysJson.data);
       if (mbJson.success) setMailboxStats(mbJson.data);
-    } catch {}
+    } catch {} finally {
+      statsInFlight.current = false;
+    }
   }, [accountScope, commSettingsRef, mailboxesRef, showToast]);
 
-  const loadConversations = useCallback(async (folder: FolderDef, search: string, statusF: string, categoryF: string, scope?: { kind: 'system' | 'mailbox'; id: string } | null) => {
-    setLoading(true);
-    setError(null);
+  const loadConversations = useCallback(async (
+    folder: FolderDef,
+    search: string,
+    statusF: string,
+    categoryF: string,
+    scope?: { kind: 'system' | 'mailbox'; id: string } | null,
+    opts?: { silent?: boolean }
+  ) => {
+    // Silent refreshes (background auto-sync, post-action refresh) update the
+    // list WITHOUT flipping the loading spinner — a mutation already applied
+    // the change optimistically, and the 2s receive timer must never flash the
+    // whole list back to "Loading..." every tick.
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const params = new URLSearchParams();
       params.set('page', '1');
       params.set('limit', '100');
       // Strict source separation: internal (Websmith Communications) folders
-      // list system mail only; external (Mail) folders list mailbox mail only.
+      // list system mail only (mailbox_id IS NULL); external (Mail) folders
+      // list configured mailbox mail only (mailbox_id IS NOT NULL). Sent is
+      // NO exception — Categories/Labels Sent lists system sent mail and Mail
+      // Sent lists mailbox sent mail, never mixed or shared.
       params.set('source', folder.section === 'external' ? 'mailbox' : 'system');
       if (folder.params?.status) params.set('status', folder.params.status);
       if (folder.params?.category) params.set('category', folder.params.category);
       if (folder.params?.search) params.set('search', folder.params.search);
       if (folder.params?.has_customer) params.set('has_customer', 'true');
       if (folder.params?.show_deleted) params.set('show_deleted', 'true');
+      if (folder.params?.sent) params.set('sent', 'true');
       if (statusF) params.set('status', statusF);
       if (categoryF) params.set('category', categoryF);
       if (search) params.set('search', search);
@@ -1080,70 +1134,70 @@ export default function CommunicationsPage() {
       const json = await res.json();
       if (json.success) {
         setConversations(json.data.conversations || []);
-      } else {
+      } else if (!silent) {
         setError(json.error?.message || 'Failed to load');
       }
     } catch {
-      setError('Failed to load conversations');
+      if (!silent) setError('Failed to load conversations');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadQueue = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadQueue = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await internalFetch(`${API_BASE}/queue?limit=100`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setQueue(json.data.queue || []);
     } catch {
-      setError('Failed to load queue');
+      if (!silent) setError('Failed to load queue');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadLogs = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadLogs = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await internalFetch(`${API_BASE}/delivery-logs?limit=100`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setLogs(json.data.logs || []);
     } catch {
-      setError('Failed to load delivery logs');
+      if (!silent) setError('Failed to load delivery logs');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadHistory = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadHistory = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await internalFetch('/internal/backend/admin/communication/history?limit=100', { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setHistory(json.data || []);
-      else setError(json.error || 'Failed to load email history');
+      else if (!silent) setError(json.error || 'Failed to load email history');
     } catch {
-      setError('Failed to load email history');
+      if (!silent) setError('Failed to load email history');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadMailboxes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadMailboxes = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const res = await internalFetch(`${MB_BASE}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) setMailboxes(json.data.mailboxes || []);
     } catch {
-      setError('Failed to load mailboxes');
+      if (!silent) setError('Failed to load mailboxes');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -1158,14 +1212,9 @@ export default function CommunicationsPage() {
   const loadCommsSettings = useCallback(async () => {
     setCommSettingsLoading(true);
     try {
-      const [settingsRes, mbRes] = await Promise.all([
-        internalFetch('/internal/backend/communications/settings', { headers: getAuthHeaders() }),
-        internalFetch(`${MB_BASE}`, { headers: getAuthHeaders() }),
-      ]);
-      const settingsJson = await settingsRes.json();
-      if (settingsJson.success) setCommSettings(settingsJson.settings);
-      const mbJson = await mbRes.json();
-      if (mbJson.success) setCommMailboxes(mbJson.data.mailboxes || []);
+      const res = await internalFetch('/internal/backend/communications/settings', { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setCommSettings(json.settings);
     } catch {} finally {
       setCommSettingsLoading(false);
     }
@@ -1515,7 +1564,7 @@ export default function CommunicationsPage() {
         setComposerOpen(false);
         setComposerInternal(false);
         await openDetail(convId);
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
       } else {
         const msg = json.error?.message || json.error || 'Failed to add internal note.';
@@ -1537,23 +1586,74 @@ export default function CommunicationsPage() {
   useEffect(() => {
     const runAutoSync = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
+      if (autoSyncInFlight.current) return;
+      autoSyncInFlight.current = true;
       try {
         const headers = getAuthHeaders();
         await fetch(`${API_BASE}/queue/process`, { method: 'POST', headers });
         const mbRes = await fetch(`${MB_BASE}`, { headers });
         const mbJson = await mbRes.json();
         const allMailboxes = mbJson.data?.mailboxes || [];
-        setMailboxes(allMailboxes);
+        // Avoid re-rendering the whole Communications Center when the mailbox
+        // list is unchanged — the 2s receive sweep must never churn the UI.
+        setMailboxes(prev => {
+          if (prev.length === allMailboxes.length && prev.every((m, i) => {
+            const n = allMailboxes[i];
+            return m.id === n.id && m.email_address === n.email_address
+              && m.connection_status === n.connection_status
+              && m.sync_status === n.sync_status
+              && m.is_enabled === n.is_enabled
+              && m.is_default_sender === n.is_default_sender
+              && m.last_error === n.last_error
+              && m.last_sync === n.last_sync
+              && m.last_success === n.last_success
+              && m.last_failure === n.last_failure;
+          })) return prev;
+          return allMailboxes;
+        });
         const enabled = allMailboxes.filter((m: any) => m.is_enabled);
         await Promise.all(enabled.map((m: any) =>
           fetch(`${MB_BASE}/${m.id}/sync`, { method: 'POST', headers }).catch(() => {})
         ));
+
+        // --- Sync native system accounts (support@ / sales@) ---
+        // These are configured in the communication settings document, NOT in
+        // the mailboxes table. The sync route's nativeReceiveAccount handler
+        // reads IMAP credentials from env vars (MAIL_*_IMAP_*) and routes by
+        // category. The settings are read from the REAL settings endpoint
+        // (GET /communications/settings returns { success, settings }) — never
+        // the communications index route, which has no settings payload. The
+        // account list is cached for 30s so the sweep does not hammer the
+        // settings endpoint every 2 seconds.
+        let mailAccounts = nativeAccountsCacheRef.current.accounts;
+        if (Date.now() - nativeAccountsCacheRef.current.fetchedAt > 30000) {
+          try {
+            const settingsRes = await fetch(`${API_BASE}/settings`, { headers });
+            const settingsJson = await settingsRes.json();
+            mailAccounts = settingsJson?.settings?.mail_accounts || [];
+            nativeAccountsCacheRef.current = { fetchedAt: Date.now(), accounts: mailAccounts };
+          } catch {}
+        }
+        for (const acct of mailAccounts) {
+          if (acct.type && ['support', 'sales'].includes(acct.type) && acct.is_active) {
+            const syncId = acct.id;
+            if (syncId) {
+              await fetch(`${MB_BASE}/${syncId}/sync`, { method: 'POST', headers }).catch(() => {});
+            }
+          }
+        }
+
+        // The receive timer updates the visible list + counts SILENTLY — the
+        // list must never flash back to "Loading..." every 2 seconds, and the
+        // mailbox/native IMAP sweeps (the receive path) never re-trigger it.
         fetchStats();
-        if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter, accountScope);
+        if (activeFolderDef.kind === 'list') loadConversations(activeFolderDef, searchQuery, statusFilter, categoryFilter, accountScope, { silent: true });
         else if (activeFolderDef.kind === 'settings') loadCommsSettings();
-      } catch {}
+      } catch {} finally {
+        autoSyncInFlight.current = false;
+      }
     };
-    const iv = setInterval(runAutoSync, 45000);
+    const iv = setInterval(runAutoSync, 2000);
     const onVisible = () => { if (typeof document !== 'undefined' && !document.hidden) runAutoSync(); };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
     return () => { clearInterval(iv); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible); };
@@ -1577,20 +1677,21 @@ export default function CommunicationsPage() {
     }
   }, [mailboxes, loadMailboxes, showToast]);
 
-  const refreshCurrent = useCallback(() => {
+  const refreshCurrent = useCallback((silent = false) => {
     const row = folders.find(x => x.id === activeFolder);
     const f = activeFolder === 'settings' ? SETTINGS_DEF
       : activeFolder === 'templates' ? TEMPLATES_DEF
       : activeFolder === 'signatures' ? SIGNATURES_DEF
       : activeFolder === 'auto-reply' ? AUTO_REPLY_DEF
       : (row ? folderDefFor(row) : (FOLDERS.find(x => x.key === activeFolder) || FOLDERS[0]));
-    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope);
-    else if (f.kind === 'queue') loadQueue();
-    else if (f.kind === 'logs') loadLogs();
-    else if (f.kind === 'history') loadHistory();
-    else if (f.kind === 'settings') { loadCommsSettings(); loadMailboxes(); loadTemplates(); }
+    const silentOpt = silent ? { silent: true } : undefined;
+    if (f.kind === 'list') loadConversations(f, searchQuery, statusFilter, categoryFilter, accountScope, silentOpt);
+    else if (f.kind === 'queue') loadQueue(silentOpt);
+    else if (f.kind === 'logs') loadLogs(silentOpt);
+    else if (f.kind === 'history') loadHistory(silentOpt);
+    else if (f.kind === 'settings') { loadCommsSettings(); loadMailboxes(silentOpt); loadTemplates(); }
     else if (f.kind === 'templates') loadTemplates();
-    else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes();
+    else if (f.kind === 'auto-reply' || f.kind === 'signatures') loadMailboxes(silentOpt);
     fetchStats();
   }, [activeFolder, folders, folderDefFor, searchQuery, statusFilter, categoryFilter, accountScope, loadConversations, loadQueue, loadLogs, loadHistory, loadMailboxes, loadCommsSettings, loadTemplates, fetchStats]);
 
@@ -1607,7 +1708,7 @@ export default function CommunicationsPage() {
     } catch {}
     finally {
       setBusy(null);
-      refreshCurrent();
+      refreshCurrent(true);
     }
   }, [refreshCurrent, showToast]);
 
@@ -1631,6 +1732,20 @@ export default function CommunicationsPage() {
   }, [fetchStats]);
 
   const handleFolderChange = (key: string) => {
+    // Re-clicking the already-open folder must never double-fetch: clear the
+    // reader/selection and refresh SILENTLY so the same list is not reloaded
+    // twice with a full loading flash.
+    if (key === activeFolder) {
+      setSelectedIds(new Set());
+      setDetail(null);
+      setSelectedQueueItem(null);
+      setSelectedLog(null);
+      setSelectedHistoryItem(null);
+      setError(null);
+      setComposerOpen(false);
+      refreshCurrent(true);
+      return;
+    }
     setActiveFolder(key);
     setSelectedIds(new Set());
     setDetail(null);
@@ -1702,7 +1817,7 @@ export default function CommunicationsPage() {
           setDetail((prev: DetailData | null) => prev ? { ...prev, conversation: { ...prev.conversation, unread_replies: 0 } } : prev);
           setConversations(prev => prev.map(c => c.id === id ? { ...c, unread_replies: 0 } : c));
           fetchStats();
-          refreshCurrent();
+          refreshCurrent(true);
         }
       } else {
         setError(json.error?.message || 'Failed to load conversation');
@@ -1746,7 +1861,7 @@ export default function CommunicationsPage() {
           // of Trash — the authoritative list re-fetch does the rest.
         }
         if (action === 'archive') setDetail(null);
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
         if (failed > 0) {
           showToast('warn', `${updated} conversation(s) ${okMsg.toLowerCase()}. ${failed} failed.`);
@@ -1795,7 +1910,7 @@ export default function CommunicationsPage() {
       if (doneIds.length > 0) {
         setConversations(prev => prev.filter(c => !doneIds.includes(c.id)));
       }
-      refreshCurrent();
+      refreshCurrent(true);
       fetchStats();
       const failed = ids.length - succeeded;
       if (failed === 0) {
@@ -1831,7 +1946,7 @@ export default function CommunicationsPage() {
         if (updated > 0) {
           setConversations(prev => prev.filter(c => !ids.includes(c.id)));
         }
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
         if (failed > 0) {
           showToast('warn', `${updated} conversation(s) restored successfully. ${failed} failed.`);
@@ -1871,7 +1986,7 @@ export default function CommunicationsPage() {
         setShowTrashConfirm(false);
         setSelectedIds(new Set());
         setDetail(null);
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
       }
       else showToast('err', json.error?.message || 'Failed to empty trash');
@@ -1904,7 +2019,7 @@ export default function CommunicationsPage() {
           return next;
         });
         setConversations(prev => prev.filter(c => !ids.includes(c.id)));
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
       } else {
         showToast('err', json.error?.message || 'Failed to delete conversation');
@@ -2007,7 +2122,7 @@ export default function CommunicationsPage() {
           setDetail(null);
         }
         fetchStats();
-        refreshCurrent();
+        refreshCurrent(true);
       } else {
         showToast('err', json.error?.message || 'Action failed');
       }
@@ -2030,7 +2145,7 @@ export default function CommunicationsPage() {
         setDetail(null);
         setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
         setConversations(prev => prev.filter(c => c.id !== id));
-        refreshCurrent();
+        refreshCurrent(true);
         fetchStats();
       } else {
         showToast('err', json.error?.message || 'Delete failed');
@@ -2382,6 +2497,38 @@ export default function CommunicationsPage() {
         }));
     }, [commSettings, mailboxes, activeFolderDef]);
 
+    // Account filter options for the dropdown — ALL configured accounts
+    // (system mail_accounts + enabled external mailboxes), derived from the
+    // real backend data, never hardcoded. The dropdown is section-agnostic:
+    // selecting any account narrows the current folder to that account's mail.
+    const accountFilterOptions = [
+      ...(commSettings?.mail_accounts || [])
+        .filter((a: any) => a?.id && a.is_active !== false)
+        .map((a: any) => ({
+          id: String(a.id),
+          kind: 'system' as const,
+          label: a.display_name || a.name || a.email || 'System Account',
+          email: a.email || '',
+          is_active: a.is_active !== false,
+        })),
+      ...mailboxes
+        .filter(m => m.is_enabled !== false)
+        .map(m => ({
+          id: m.id,
+          kind: 'mailbox' as const,
+          label: m.display_name || m.email_address || 'Mailbox',
+          email: m.email_address || '',
+          is_active: m.is_enabled !== false,
+        })),
+    ];
+    const systemFilterOptions = accountFilterOptions.filter(o => o.kind === 'system');
+    const mailboxFilterOptions = accountFilterOptions.filter(o => o.kind === 'mailbox');
+
+    const selectAccountFilter = (o: { kind: 'system' | 'mailbox'; id: string } | null) => {
+      setAccountScope(o);
+      setAccountFilterOpen(false);
+    };
+
     return (
       <div className="flex items-center gap-1 flex-wrap rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-2 py-1.5">
         <button onClick={openCompose} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors">
@@ -2456,9 +2603,76 @@ export default function CommunicationsPage() {
           {busy === 'patch:mark_unread' ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
         </button>
         <div className="w-px h-5 bg-[var(--border-color)] mx-1" />
-        <button onClick={refreshCurrent} title="Refresh" className={btn}>
+        <button onClick={() => refreshCurrent()} title="Refresh" className={btn}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
+        {/* Account filter dropdown — compact card-style control matching the
+            Inbox/Waiting/Sent chips. "All Mail" restores the unfiltered
+            behavior; selecting a configured account (system mail account or
+            mailbox) narrows the current folder + search to that account only. */}
+        <div className="relative">
+          <button
+            onClick={() => setAccountFilterOpen(o => !o)}
+            title="Filter by email account"
+            className={`flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap border transition-colors ${accountScope ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}
+          >
+            {accountScope
+              ? <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+              : <Users size={11} className="flex-shrink-0" />}
+            <span className="truncate max-w-[140px]">{scopeLabel || 'All Mail'}</span>
+            <ChevronDown size={11} className={`flex-shrink-0 transition-transform ${accountFilterOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {accountFilterOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setAccountFilterOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 w-72 max-h-80 overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] shadow-2xl shadow-black/40 p-1.5 space-y-0.5 scrollbar-thin">
+                <button
+                  onClick={() => selectAccountFilter(null)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-colors ${!accountScope ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400 flex-shrink-0" />
+                  <span className="flex-1 text-left font-medium">All Mail</span>
+                </button>
+                {systemFilterOptions.length > 0 && (
+                  <>
+                    <p className="px-2.5 pt-1.5 pb-0.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">System Mail Accounts</p>
+                    {systemFilterOptions.map(o => (
+                      <button
+                        key={o.id}
+                        onClick={() => selectAccountFilter({ kind: 'system', id: o.id })}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-colors ${accountScope?.kind === 'system' && accountScope.id === o.id ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${o.is_active ? 'bg-green-400' : 'bg-gray-500/30'}`} />
+                        <span className="flex-1 text-left min-w-0">
+                          <span className="block truncate font-medium">{o.label}</span>
+                          {o.email && <span className="block truncate text-[10px] text-[var(--text-muted)]">{o.email}</span>}
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
+                {mailboxFilterOptions.length > 0 && (
+                  <>
+                    <p className="px-2.5 pt-1.5 pb-0.5 text-[9px] font-bold tracking-widest text-[var(--text-muted)] uppercase">Mailbox Accounts</p>
+                    {mailboxFilterOptions.map(o => (
+                      <button
+                        key={o.id}
+                        onClick={() => selectAccountFilter({ kind: 'mailbox', id: o.id })}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-colors ${accountScope?.kind === 'mailbox' && accountScope.id === o.id ? 'bg-blue-500/15 text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${o.is_active ? 'bg-green-400' : 'bg-gray-500/30'}`} />
+                        <span className="flex-1 text-left min-w-0">
+                          <span className="block truncate font-medium">{o.label}</span>
+                          {o.email && <span className="block truncate text-[10px] text-[var(--text-muted)]">{o.email}</span>}
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
         <div className="relative flex-1 min-w-[140px] max-w-xs ml-auto">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
@@ -2566,7 +2780,7 @@ export default function CommunicationsPage() {
       .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
       .filter((f): f is FolderDef => !!f);
 
-    const internalFolders = ['all', 'sales', 'support', 'activation', 'renewal', 'reactivation', 'hardware', 'trial', 'payment', 'sdk', 'customer', 'notifications', 'email-history', 'int-trash']
+    const internalFolders = ['all', 'sales', 'support', 'activation', 'renewal', 'reactivation', 'hardware', 'trial', 'payment', 'sdk', 'customer', 'sent', 'notifications', 'email-history', 'int-trash']
       .map(k => folders.find(f => f.id === k) ? folderDefFor(folders.find(f => f.id === k)!) : (FOLDERS.find(f => f.key === k) || null))
       .filter((f): f is FolderDef => !!f);
 
@@ -2589,9 +2803,12 @@ export default function CommunicationsPage() {
           <div>
             {groupLabel('Categories / Labels')}
             <div className="space-y-0.5">
-              {internalFolders.map(def =>
-                folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, systemStats)
-              )}
+              {internalFolders.map(def => {
+                // Strict source separation: Categories/Labels Sent shows the
+                // SYSTEM sent count only (systemStats.sent) — mailbox sent
+                // mail lives in the Mail → Sent folder alone.
+                return folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, systemStats);
+              })}
             </div>
           </div>
 
@@ -2599,9 +2816,12 @@ export default function CommunicationsPage() {
           <div>
             {groupLabel('Mail')}
             <div className="space-y-0.5">
-              {mailFolders.map(def =>
-                folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, mailboxStats)
-              )}
+              {mailFolders.map(def => {
+                // Strict source separation: Mail Sent shows the MAILBOX sent
+                // count only (mailboxStats.sent) — system sent mail lives in
+                // the Categories/Labels → Sent folder alone.
+                return folderBtn(def, def.badgeKey as keyof Stats | undefined, undefined, mailboxStats);
+              })}
             </div>
           </div>
         </div>
@@ -2637,7 +2857,10 @@ export default function CommunicationsPage() {
     <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 shrink-0 overflow-x-auto scrollbar-thin">
       {FOLDER_CHIPS.map(chip => {
         const active = activeFolder === chip.key;
-        const badge = chip.badgeKey ? (chip.key === 'all' || chip.key === 'int-trash' ? systemStats[chip.badgeKey] : mailboxStats[chip.badgeKey]) : 0;
+        const badge = chip.badgeKey ? (
+          chip.key === 'all' || chip.key === 'int-trash' ? systemStats[chip.badgeKey]
+            : mailboxStats[chip.badgeKey]
+        ) : 0;
         return (
           <button key={chip.key} onClick={() => handleFolderChange(chip.key)}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${active ? 'bg-blue-500/20 text-blue-400' : 'text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)]/40 hover:text-[var(--text-primary)]'}`}>
@@ -2830,31 +3053,49 @@ export default function CommunicationsPage() {
 
   const renderHistoryList = () => {
     if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 text-blue-400 animate-spin" /></div>;
-    if (history.length === 0) return (
-      <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)]">
-        <MailOpen size={32} className="mb-2 opacity-30" />
-        <p className="text-xs">No emails sent yet</p>
-      </div>
-    );
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="divide-y divide-[var(--border-color)]">
-          {history.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setSelectedHistoryItem(item)}
-              className={`w-full text-left px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors ${selectedHistoryItem?.id === item.id ? 'bg-blue-500/10' : ''}`}
-            >
-              <div className="flex items-center gap-2">
-                <Badge className="text-gray-400 bg-gray-500/10">{item.event_type}</Badge>
-                <span className={`text-xs font-medium ${LOG_STATUS_LABELS[item.status]?.color || 'text-gray-400'}`}>{LOG_STATUS_LABELS[item.status]?.label || item.status}</span>
-                {(item.attachments?.length || 0) > 0 && <span className="flex items-center gap-0.5 text-[10px] text-[var(--text-muted)]"><Paperclip size={10} />{item.attachments!.length}</span>}
-                <span className="text-[10px] text-[var(--text-muted)] ml-auto">{new Date(item.created_at).toLocaleString()}</span>
-              </div>
-              <p className="text-xs text-[var(--text-primary)] truncate mt-1">{item.recipient} — {item.subject || '(no subject)'}</p>
-            </button>
-          ))}
+      <div className="flex flex-col min-h-0 h-full">
+        {/* System Email / Universal Email header — the dedicated Send action.
+            Sends through the SAME existing backend (admin/communication/send)
+            with the configured system sender (From dropdown, never no-reply by
+            default); the send is recorded in Sent (email_sent=true) and the
+            history + Sent badge refresh immediately via the dialog onSent. */}
+        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]/20 shrink-0">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Universal Email · System Email History</p>
+            <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">All outbound system emails with delivery status</p>
+          </div>
+          <button onClick={openCompose}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors shrink-0">
+            <Send size={12} /> Send Email
+          </button>
         </div>
+        {history.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)]">
+            <MailOpen size={32} className="mb-2 opacity-30" />
+            <p className="text-xs">No emails sent yet</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
+            <div className="divide-y divide-[var(--border-color)]">
+              {history.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedHistoryItem(item)}
+                  className={`w-full text-left px-3 py-2.5 hover:bg-[var(--bg-tertiary)]/20 transition-colors ${selectedHistoryItem?.id === item.id ? 'bg-blue-500/10' : ''}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge className="text-gray-400 bg-gray-500/10">{item.event_type}</Badge>
+                    <span className={`text-xs font-medium ${LOG_STATUS_LABELS[item.status]?.color || 'text-gray-400'}`}>{LOG_STATUS_LABELS[item.status]?.label || item.status}</span>
+                    {(item.attachments?.length || 0) > 0 && <span className="flex items-center gap-0.5 text-[10px] text-[var(--text-muted)]"><Paperclip size={10} />{item.attachments!.length}</span>}
+                    <span className="text-[10px] text-[var(--text-muted)] ml-auto">{new Date(item.created_at).toLocaleString()}</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-primary)] truncate mt-1">{item.recipient} — {item.subject || '(no subject)'}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -4264,7 +4505,7 @@ export default function CommunicationsPage() {
           const activeStats = activeFolderDef.section === 'external' ? mailboxStats : systemStats;
           return statusCards.map(card => {
             const Icon = card.icon;
-            const cardFolderMap: Record<string, string> = { inbox: 'ext-inbox', waiting: 'ext-waiting', sent: 'ext-sent', failed: 'ext-failed', queued: 'ext-queued', unread: 'all' };
+            const cardFolderMap: Record<string, string> = { inbox: 'ext-inbox', waiting: 'ext-waiting', sent: activeFolderDef.section === 'external' ? 'ext-sent' : 'sent', failed: 'ext-failed', queued: 'ext-queued', unread: 'all' };
             return (
               <button key={card.key} onClick={() => handleFolderChange(cardFolderMap[card.key])}
                 className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/5 px-3 py-2 hover:bg-[var(--bg-tertiary)]/20 transition-colors">
@@ -4321,7 +4562,7 @@ export default function CommunicationsPage() {
         defaultBcc={emailDialog.defaultBcc}
         templates={templates}
         signatures={signatures}
-        onSent={() => { setEmailDialog({ isOpen: false }); refreshCurrent(); fetchStats(); }}
+        onSent={() => { setEmailDialog({ isOpen: false }); refreshCurrent(true); fetchStats(); }}
       />
 
       {/* Folder manager modal */}

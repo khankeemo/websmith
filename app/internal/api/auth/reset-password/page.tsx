@@ -19,9 +19,11 @@ import {
   Shield,
 } from "lucide-react";
 import { isValidEmail } from "@/lib/validation";
+import { useMediaAsset } from "@/hooks/useMediaAsset";
 
 // Inner component that uses useSearchParams
 function ResetPasswordContent() {
+  const resetBackground = useMediaAsset("internal_api_reset_password_background");
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email") || "";
@@ -121,7 +123,7 @@ function ResetPasswordContent() {
         playsInline
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       >
-        <source src="/videos/API-Center.mp4" type="video/mp4" />
+        <source src={resetBackground.url} type="video/mp4" />
       </video>
 
       {/* Overlay */}

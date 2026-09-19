@@ -7,13 +7,16 @@ import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
 import ForcedPasswordResetModal from "@/components/auth/ForcedPasswordResetModal";
+import { default as dynamic } from "next/dynamic";
 import { isPublicRoute } from "../core/constants/routes";
 import { clearAuthSession, getDefaultRouteForRole, getStoredUser, getToken } from "../lib/auth";
+
+const CookieConsentBanner = dynamic(() => import("../components/ui/CookieConsentBanner"), { ssr: false });
+const AnalyticsTracker = dynamic(() => import("../components/ui/AnalyticsTracker"), { ssr: false });
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
 import { PublicThemeProvider, usePublicTheme } from "./providers/PublicThemeProvider";
 import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
-import CookieConsentBanner from "@/components/ui/CookieConsentBanner";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -43,7 +46,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Load chat widget only on public-facing pages.
   useEffect(() => {
-    const isPublicFacingPage = Boolean(pathname && isPublicRoute(pathname) && !pathname.startsWith("/internal") && !isStandaloneCheckoutRoute(pathname) && !isStandaloneProductRoute(pathname));
+    const isPublicFacingPage = Boolean(pathname && isPublicRoute(pathname) && !pathname.startsWith("/internal") && !isStandaloneCheckoutRoute(pathname) && !isStandaloneProductRoute(pathname) && !isStandaloneChatRoute(pathname));
 
     if (isPublicFacingPage) {
       import("../components/ui/leadconnectorchat").then((mod) => {
@@ -136,7 +139,8 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const isCheckoutRoute = Boolean(pathname && isStandaloneCheckoutRoute(pathname));
   const isProductRoute = Boolean(pathname && isStandaloneProductRoute(pathname));
   const isStoreRoute = Boolean(pathname && isSoftwareStoreRoute(pathname));
-  const isFocusedStoreRoute = isCheckoutRoute || isProductRoute || isStoreRoute;
+  const isChatRoute = Boolean(pathname && isStandaloneChatRoute(pathname));
+  const isFocusedStoreRoute = isCheckoutRoute || isProductRoute || isStoreRoute || isChatRoute;
   const shouldShowSidebar = !isPublicRoute(pathname) && !isInternalRoute;
 
   const user = getStoredUser();
@@ -192,6 +196,9 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {!isChatRoute && <CookieConsentBanner />}
+      {!shouldShowSidebar && !isInternalRoute && !isChatRoute && <AnalyticsTracker />}
 
       <ForcedPasswordResetModal
         isOpen={shouldShowSidebar && showForcedPasswordResetModal}
@@ -273,6 +280,12 @@ const STORE_ROUTE_PREFIX = "/software-store";
 
 function isSoftwareStoreRoute(pathname: string): boolean {
   return pathname === STORE_ROUTE_PREFIX || pathname.startsWith(`${STORE_ROUTE_PREFIX}/`);
+}
+
+const CHAT_ROUTE_PREFIX = "/chat";
+
+function isStandaloneChatRoute(pathname: string): boolean {
+  return pathname === CHAT_ROUTE_PREFIX || pathname.startsWith(`${CHAT_ROUTE_PREFIX}/`);
 }
 
 const styles: any = {

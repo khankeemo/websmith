@@ -21,8 +21,15 @@ const PUBLIC_PATHS = [
   // Universal Buy & Renew Portal — standalone customer pages, NO admin login gate
   "/internal/api/buy",
   "/internal/api/renew",
+  // Unsubscribe page — public standalone page reachable from email footer links
+  "/unsubscribe_global",
   // Health + public storefront/SDK-facing endpoints
   "/internal/backend/health",
+  // QStash-signed system callback: the native inbound receive adapter is
+  // invoked ONLY by the QStash cron (signed with Upstash-Signature, verified
+  // inside the route via verifySignatureAppRouter) — never by browsers, so it
+  // must pass the session proxy but stays cryptographically gated.
+  "/internal/backend/communications/native-receive",
   "/internal/backend/store",
   "/internal/backend/store/products",
   "/internal/backend/license/status",

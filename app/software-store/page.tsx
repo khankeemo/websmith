@@ -688,6 +688,17 @@ export default function SoftwareStorePage() {
             </a>
           </div>
 
+          <div className="hidden sm:block flex-1 max-w-md relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search software..."
+              aria-label="Search software"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all backdrop-blur-sm"
+            />
+          </div>
+
           <div className="flex items-center gap-2 shrink-0">
             <motion.button
               onClick={() => setShowHistory(true)}
@@ -806,8 +817,8 @@ export default function SoftwareStorePage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="sticky top-[57px] z-30 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
+      {/* Filter Bar — sticky flush below the nav (nav = 60px content + 1px border) */}
+      <div className="sticky top-[61px] z-30 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 bg-white/[0.04] border border-white/10 rounded-full px-3 py-1.5 backdrop-blur-sm">

@@ -1,5 +1,6 @@
 import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
 import { sendEmail } from "@/lib/email/brevo";
+import { buildChatUrl } from "@/lib/tickets/chat";
 import {
   ONBOARDING_TEMPLATE_KEY,
   appendClientIdIfMissing,
@@ -7,8 +8,10 @@ import {
   ensureResolutionTemplates,
   findDefaultTemplate,
   renderResolutionTemplate,
+  resolveStoredTemporaryPassword,
   resolutionHtmlBody,
   stripAdminMarkers,
+  ticketRequestLabel,
 } from "@/lib/tickets/email";
 import crypto from "node:crypto";
 
@@ -31,10 +34,14 @@ function normalizeOrigin(value: unknown): string {
 //
 // Security invariants (Phase 3):
 //   - temporary password is securely generated + bcrypt-hashed (createClientAccount)
-//   - it is NEVER stored in the ticket/history and NEVER logged; it is returned
-//     exactly once in the response so the admin can relay it if delivery fails
+//   - it is ENCRYPTED AT REST (AES-256-GCM, key derived from JWT_SECRET) on the
+//     user document (`temporaryPasswordEnc`) so it can be relayed here or by the
+//     admin "Reveal Password" action — it is NEVER stored in plaintext, never
+//     logged, and never exposed to the public caller
 //   - an existing client's password is NEVER overwritten or regenerated
-//   - onboarding is NEVER triggered by the public Get in Touch submission
+//   - the account may already exist because the public Get in Touch submission
+//     auto-creates it immediately (Client Onboarding); sending the email is a
+//     separate explicit admin action and never required to create the record
 // ============================================================================
 export const POST = apiHandler(async ({ db, request, user, params }) => {
   if (user.role !== "admin") throw forbidden();
@@ -51,12 +58,17 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
 
   // 1. Resolve / create the client account. An existing client account is
   //    reused (never re-created, never its password changed). A new account is
-  //    created with a secure, hashed temporary password.
+  //    created with a secure, hashed temporary password. An account auto-created
+  //    earlier by the Get in Touch submission (still temporary password) is
+  //    resolved the same way; the temporary password is decrypted from rest.
   let account: any = await db.collection("users").findOne({ email: recipient, role: "client" });
   let accountState: "not_created" | "created" | "existing" = "not_created";
   let temporaryPassword: string | undefined;
   if (account) {
-    accountState = "existing";
+    accountState = account.isTemporaryPassword ? "created" : "existing";
+    if (account.isTemporaryPassword) {
+      temporaryPassword = resolveStoredTemporaryPassword(account) || undefined;
+    }
   } else {
     const created = await createClientAccount(db, { name: clientName, email: recipient });
     account = created;
@@ -89,10 +101,11 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     query_message: String(ticket.description ?? ""),
     resolution_summary: "",
     portal_url: portalUrl,
+    chat_url: buildChatUrl(ticket, origin),
     temporary_password: temporaryPassword ?? "",
     company_name: "Websmith Digital",
     admin_name: String(user.name ?? "Websmith Team"),
-    request_id: ticket._id.toString(),
+      request_id: ticketRequestLabel(ticket),
     query_status: String(ticket.status ?? ""),
   };
 

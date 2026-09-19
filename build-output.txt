@@ -1,27 +1,85 @@
-npm warn exec The following package was not found and will be installed: next@16.3.0
-Γû▓ Next.js 16.3.0 (Turbopack)
-Γ£ô Running next.config.ts took 331ms
+
+> websmith@1.0.0 build
+> next build
+
+Γû▓ Next.js 16.2.9 (Turbopack)
+- Environments: .env.local
 
   Creating an optimized production build ...
+Turbopack build encountered 1 warnings:
+./next.config.ts
+Encountered unexpected file in NFT list
+A file was traced that indicates that the whole project was traced unintentionally. Somewhere in the import trace below, there are:
+- filesystem operations (like path.join, path.resolve or fs.readFile), or
+- very dynamic requires (like require('./' + foo)).
+To resolve this, you can
+- remove them if possible, or
+- only use them in development, or
+- make sure they are statically scoped to some subfolder: path.join(process.cwd(), 'data', bar), or
+- add ignore comments: path.join(/*turbopackIgnore: true*/ process.cwd(), bar)
+
+Import trace:
+  App Route:
+    ./next.config.ts
+    ./app/api/v1/communication/[id]/attach/route.ts
+
+
+Γ£ô Compiled successfully in 19.3s
+  Running TypeScript ...
+  Finished TypeScript in 18.5s ...
+  Collecting page data using 7 workers ...
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash QStash] client token is not set. Either pass a token or set QSTASH_TOKEN env variable.
+[Upstash QStash] client token is not set. Either pass a token or set QSTASH_TOKEN env variable.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_URL`
+[Upstash Redis] Unable to find environment variable: `UPSTASH_REDIS_REST_TOKEN`
+[Upstash Redis] The 'url' property is missing or undefined in your Redis config.
+[Upstash Redis] The 'token' property is missing or undefined in your Redis config.
+Error: currentSigningKey and nextSigningKey are required, either in the config or as env variables (QSTASH_CURRENT_SIGNING_KEY and QSTASH_NEXT_SIGNING_KEY)
+    at <unknown> (D:\websmith\.next\server\chunks\_0_eiolo._.js:1:331)
+    at <unknown> (D:\websmith\.next\server\chunks\_0_eiolo._.js:8:495)
+    at Context.asyncModule [as a] (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:525:5)
+    at module evaluation (D:\websmith\.next\server\chunks\_0_eiolo._.js:1:1085)
+    at instantiateModule (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:853:9)
+    at getOrInstantiateModuleFromParent (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:877:12)
+    at Context.esmImport [as i] (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:281:20)
+    at <unknown> (D:\websmith\.next\server\chunks\_0_eiolo._.js:8:1088)
+    at Context.asyncModule [as a] (D:\websmith\.next\server\chunks\[turbopack]_runtime.js:525:5)
+    at module evaluation (D:\websmith\.next\server\chunks\_0_eiolo._.js:8:809)
 
 > Build error occurred
-Error: Turbopack build failed with 1 error:
-./app
-Error: Could not find the Next.js package (next/package.json)
-Resolved from: D:\websmith\app
-Filesystem root used for resolution: D:\websmith
-
-Possible causes:
-  - node_modules is being reorganized by a concurrent install (e.g. pnpm adding a package with a `next` peer dependency). This is transient and should clear once the install completes.
-  - node_modules/next was removed, renamed, or has a broken symlink.
-  - The workspace root is incorrect ΓÇö see turbopack.root in the Next.js config docs for how to configure it.
-  - In a monorepo, the Next.js package may only exist in a directory above the closest directory containing a package manager lockfile. The workspace root is detected by locating the nearest package manager lockfile.
-  - Next.js is installed globally rather than as a project dependency. This is not supported; install it locally.
-
-Note: To ensure a hermetic build and a portable cache, files outside of the workspace root are not compiled.
-
-https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory
-
-
-    at <unknown> (Filesystem root used for resolution: D:\websmith)
-    at <unknown> (https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory)
+Error: Failed to collect page data for /internal/backend/communications/native-receive
+    at ignore-listed frames {
+  type: 'Error'
+}

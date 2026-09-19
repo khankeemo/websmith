@@ -667,19 +667,59 @@ All environment variables are mandatory unless marked optional. Variables must b
 
 #### Universal Email Architecture (Dedicated Email Addresses)
 
-Email routing is centralized through `lib/email/brevo.ts`. No email addresses are hardcoded in business logic. Three dedicated environment variables control all outbound email routing:
+Email routing is centralized through `lib/email/brevo.ts`. No email addresses are hardcoded in business logic. Three dedicated sender-identity variables (plus display names) control ALL outbound email routing, and two dedicated IMAP variable sets control INBOUND receipt (receive-only). The IMAP variables are for receiving only — outbound email is ALWAYS sent via Brevo SMTP, never from the IMAP credentials.
 
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
-| `MAIL_FROM_ADDRESS` | No | `no-reply@websmithdigital.com` | Automated system emails (OTP, activation confirmations, trial started, license created/renewed/expired/revoked, device changes, payment receipts, subscription reminders) |
-| `MAIL_SUPPORT_ADDRESS` | No | `support@websmithdigital.com` | Support-related emails (admin notifications of new support requests, support reply notifications, customer support conversations) |
-| `MAIL_SALES_ADDRESS` | No | `sales@websmithdigital.com` | Sales-related emails (new sales enquiries, sales reply conversations) |
+| `MAIL_FROM_ADDRESS` | No | `no-reply@websmithdigital.com` | NO-REPLY account — automated system emails ONLY (OTP, activation confirmations, trial started, license created/renewed/expired/revoked, device changes, payment receipts, subscription reminders). ONE-WAY: outbound only, never replies, never a conversation, never IMAP-polled. |
+| `MAIL_SUPPORT_ADDRESS` | No | `support@websmithdigital.com` | SUPPORT account — support sender identity (admin notifications of new support requests, support reply notifications, support conversations). |
+| `MAIL_SUPPORT_NAME` | No | `Websmith Support` | SUPPORT sender display name for outbound email. |
+| `MAIL_SALES_ADDRESS` | No | `sales@websmithdigital.com` | SALES account — sales sender identity (new sales enquiries, sales reply conversations). |
+| `MAIL_SALES_NAME` | No | `Websmith Sales` | SALES sender display name for outbound email. |
 
-**Routing rules:**
-- `MAIL_FROM_ADDRESS` sends automated transactional emails only — recipients must not reply to these directly
-- `MAIL_SUPPORT_ADDRESS` sends and receives support conversation emails
-- `MAIL_SALES_ADDRESS` sends and receives sales conversation emails
-- The `BREVO_SENDER_EMAIL` variable may serve as fallback for `MAIL_FROM_ADDRESS` if not explicitly set
+**INBOUND (receive-only) — TWO-WAY accounts only (Sales/Support). No-Reply has NO IMAP variables and NO inbound path:**
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `MAIL_SUPPORT_IMAP_HOST` | No | `mail.privateemail.com` | Support inbound IMAP host (receive-only) |
+| `MAIL_SUPPORT_IMAP_PORT` | No | `993` | Support inbound IMAP port (receive-only) |
+| `MAIL_SUPPORT_IMAP_SECURE` | No | `true` | Support inbound IMAP TLS (set `"false"` for STARTTLS/143) |
+| `MAIL_SUPPORT_IMAP_USERNAME` | No | `MAIL_SUPPORT_ADDRESS` | Support inbound IMAP username (receive-only) |
+| `MAIL_SUPPORT_IMAP_PASSWORD` | No | — | Support inbound IMAP password (receive-only; never stored/logged in SDKs) |
+| `MAIL_SALES_IMAP_HOST` | No | `mail.privateemail.com` | Sales inbound IMAP host (receive-only) |
+| `MAIL_SALES_IMAP_PORT` | No | `993` | Sales inbound IMAP port (receive-only) |
+| `MAIL_SALES_IMAP_SECURE` | No | `true` | Sales inbound IMAP TLS (set `"false"` for STARTTLS/143) |
+| `MAIL_SALES_IMAP_USERNAME` | No | `MAIL_SALES_ADDRESS` | Sales inbound IMAP username (receive-only) |
+| `MAIL_SALES_IMAP_PASSWORD` | No | — | Sales inbound IMAP password (receive-only; never stored/logged in SDKs) |
+
+**Account roles (STRICT):**
+- **NO-REPLY = ONE-WAY** — `MAIL_FROM_ADDRESS` sends automated transactional emails only; recipients must not reply to these directly; there is NO IMAP/inbound/reply path for it. The SDK must never present No-Reply as a contact/reply channel.
+- **SALES = TWO-WAY** — outbound via Brevo (`MAIL_SALES_ADDRESS` + `MAIL_SALES_NAME`); inbound via `MAIL_SALES_IMAP_*` (receive-only) into the existing Communications conversation.
+- **SUPPORT = TWO-WAY** — outbound via Brevo (`MAIL_SUPPORT_ADDRESS` + `MAIL_SUPPORT_NAME`); inbound via `MAIL_SUPPORT_IMAP_*` (receive-only) into the existing Communications conversation.
+- The `BREVO_SENDER_EMAIL` variable may serve as fallback for `MAIL_FROM_ADDRESS` if not explicitly set.
+
+**Required flow (SDK Publisher Email contract):**
+
+```
+NO-REPLY — ONE-WAY (stops at the customer inbox):
+  SDK / System → Internal API → Brevo SMTP (MAIL_FROM_ADDRESS) → Customer Inbox
+  ✗ No IMAP polling   ✗ No inbound   ✗ No reply path   ✗ No conversation
+
+SALES / SUPPORT — TWO-WAY (full loop into the existing Communications conversation):
+  Customer → SDK Universal Communication → POST /api/portal/support-message → Internal API
+        │
+        ▼
+  Brevo SMTP (MAIL_SALES_ADDRESS+NAME / MAIL_SUPPORT_ADDRESS+NAME) → Customer Inbox
+        │
+        ▼
+  Customer reply → Sales/Support mailbox → IMAP receive-only (MAIL_SALES_IMAP_* / MAIL_SUPPORT_IMAP_*)
+        │
+        ▼
+  Universal email receive system → communication_conversations / conversation_messages
+        │
+        ▼
+  Existing Communications conversation (thread continues; admin reply → Brevo → customer)
+```
 
 #### Upstash / QStash (Workflow & Queue — if still used)
 
@@ -723,13 +763,13 @@ Customer Inbox
 
 #### Email Ownership
 
-| Mailbox | Purpose | Accepts Replies? |
-|---------|---------|------------------|
-| `MAIL_FROM_ADDRESS` | Automated system (OTP, trial, activation, renewal, expiry, revocation, payment, notifications) | No |
-| `MAIL_SUPPORT_ADDRESS` | Support requests, customer replies, conversation threads | Yes |
-| `MAIL_SALES_ADDRESS` | Sales enquiries, quote requests, upgrade requests | Yes |
+| Mailbox | Purpose | Accepts Replies? | Inbound Mechanism |
+|---------|---------|------------------|-------------------|
+| `MAIL_FROM_ADDRESS` | Automated system (OTP, trial, activation, renewal, expiry, revocation, payment, notifications) | No | None (ONE-WAY, no IMAP) |
+| `MAIL_SUPPORT_ADDRESS` | Support requests, customer replies, conversation threads | Yes | `MAIL_SUPPORT_IMAP_*` (receive-only) |
+| `MAIL_SALES_ADDRESS` | Sales enquiries, quote requests, upgrade requests | Yes | `MAIL_SALES_IMAP_*` (receive-only) |
 
-Only Support and Sales mailboxes accept customer replies. No-Reply must never accept replies.
+Only Support and Sales mailboxes accept customer replies (TWO-WAY). No-Reply must never accept replies and must never be IMAP-polled.
 
 #### Email Branding
 
@@ -757,6 +797,8 @@ Status tracking in `notification_logs` table (status, response, error, messageId
 - [ ] `MAIL_FROM_ADDRESS` verified sender
 - [ ] `MAIL_SUPPORT_ADDRESS` verified sender
 - [ ] `MAIL_SALES_ADDRESS` verified sender
+- [ ] `MAIL_SUPPORT_IMAP_*` configured (receive-only) if support replies are expected
+- [ ] `MAIL_SALES_IMAP_*` configured (receive-only) if sales replies are expected
 - [ ] No Reply-to address set on automated emails
 - [ ] Production environment variables set
 - [ ] Email failure logging verified (no silent failures)
@@ -3684,23 +3726,23 @@ Examples:
 
 #### MAIL_SUPPORT_ADDRESS
 
-**Purpose:** Support conversations.
+**Purpose:** Support conversations (TWO-WAY).
 
 **Rules:**
 - Customer sends message via SDK
-- Support replies via Internal API
-- Customer replies via SDK
+- Support replies via Internal API (Brevo outbound, sender identity `MAIL_SUPPORT_ADDRESS`/`MAIL_SUPPORT_NAME`)
+- Customer replies via SDK; inbound received via `MAIL_SUPPORT_IMAP_*` (receive-only IMAP)
 - Full threaded conversation
 - Entire history stored in Internal API `communication_conversations` + `conversation_messages`
 
 #### MAIL_SALES_ADDRESS
 
-**Purpose:** Sales conversations.
+**Purpose:** Sales conversations (TWO-WAY).
 
 **Rules:**
 - Customer sends enquiry via SDK
-- Sales replies via Internal API
-- Customer replies via SDK
+- Sales replies via Internal API (Brevo outbound, sender identity `MAIL_SALES_ADDRESS`/`MAIL_SALES_NAME`)
+- Customer replies via SDK; inbound received via `MAIL_SALES_IMAP_*` (receive-only IMAP)
 - Full threaded conversation
 - Entire history stored
 

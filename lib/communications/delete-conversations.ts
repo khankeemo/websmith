@@ -90,6 +90,59 @@ export async function deleteConversationRowsTx(
 }
 
 /**
+ * Capture the identity of the inbound (customer) messages of the given
+ * conversations BEFORE their rows are deleted, so a permanent delete survives
+ * the read-only IMAP re-import: the still-UNSEEN provider message would
+ * otherwise be re-imported as a brand-new conversation on the next sync sweep
+ * (the message-id dedupe has nothing left to match once the rows are gone).
+ * Admin messages are never re-imported, so only customer messages are kept.
+ */
+async function collectConversationTombstones(
+  client: any,
+  ids: string[]
+): Promise<{ provider_message_id: string; sender_email: string; subject: string; mailbox_id: string | null }[]> {
+  try {
+    const result = await client.query(
+      `SELECT cm.provider_message_id, cm.sender_email, cc.subject, cc.mailbox_id
+       FROM conversation_messages cm
+       JOIN communication_conversations cc ON cc.id = cm.conversation_id
+       WHERE cm.conversation_id = ANY($1)
+         AND cm.sender_type = 'customer'`,
+      [ids]
+    );
+    return result.rows.map((r: any) => ({
+      provider_message_id: String(r.provider_message_id || '').trim(),
+      sender_email: String(r.sender_email || '').trim(),
+      subject: String(r.subject || '').trim(),
+      mailbox_id: r.mailbox_id || null,
+    })).filter((t: any) => t.sender_email || t.subject);
+  } catch (e: any) {
+    console.warn('Tombstone collection skipped:', e?.message);
+    return [];
+  }
+}
+
+async function insertConversationTombstones(
+  client: any,
+  tombstones: { provider_message_id: string; sender_email: string; subject: string; mailbox_id: string | null }[]
+) {
+  for (const t of tombstones) {
+    try {
+      await client.query(
+        `INSERT INTO conversation_delete_tombstones (provider_message_id, sender_email, subject, mailbox_id, deleted_at)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (provider_message_id, sender_email, subject) DO NOTHING`,
+        [t.provider_message_id, t.sender_email, t.subject, t.mailbox_id, new Date().toISOString()]
+      );
+    } catch (tombErr: any) {
+      // Non-fatal: the tombstone table may not exist on very old databases —
+      // the deletion itself still commits.
+      console.warn('Tombstone insert skipped:', tombErr?.message);
+    }
+  }
+}
+
+/**
  * Permanently delete conversations in ONE transaction. On any failure the
  * whole operation rolls back and the existing data is left unchanged.
  *
@@ -105,7 +158,12 @@ export async function permanentlyDeleteConversations(
   const now = new Date().toISOString();
   await client.query('BEGIN');
   try {
+    // Capture the inbound message identities BEFORE the rows are deleted so
+    // the tombstones can prevent the read-only IMAP syncs from re-importing
+    // the still-UNSEEN messages as brand-new conversations afterwards.
+    const tombstones = await collectConversationTombstones(client, ids);
     const attachmentPaths = await deleteConversationRowsTx(client, ids);
+    await insertConversationTombstones(client, tombstones);
 
     await client.query(
       `INSERT INTO audit_logs (event_type, message, timestamp)

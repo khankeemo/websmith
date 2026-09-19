@@ -22,6 +22,10 @@ export async function GET(request: NextRequest) {
     const mailboxId = searchParams.get('mailbox_id');
     const hasCustomer = searchParams.get('has_customer') === 'true';
     const showDeleted = searchParams.get('show_deleted') === 'true';
+    // Real "Sent": conversations that contain at least one admin outbound
+    // email (an admin message row whose send actually succeeded). This is the
+    // true sent location — NOT a proxy like status='resolved,closed'.
+    const sent = searchParams.get('sent') === 'true';
     // Strict source separation: 'system' = Websmith Communications mail only
     // (support@/sales@/no-reply@ + system accounts — conversations NOT owned by
     // a mailbox integration), 'mailbox' = configured mailbox mail only.
@@ -93,6 +97,28 @@ export async function GET(request: NextRequest) {
       whereClauses.push(`cc.mailbox_id IS NULL`);
     } else if (source === 'mailbox') {
       whereClauses.push(`cc.mailbox_id IS NOT NULL`);
+    }
+
+    // Active-mailbox filtering — the mailboxes.is_enabled flag is the source
+    // of truth. Mailbox-owned conversations are visible ONLY while their owning
+    // mailbox integration is enabled, so disabling a mailbox hides its email
+    // data from EVERY mailbox view (Inbox / Sent / Draft / Waiting / Failed /
+    // Queued / Spam / Trash + account-scoped lists) without deleting any row.
+    // Re-enabling the mailbox restores visibility. System mail (mailbox_id IS
+    // NULL — Websmith Communications support/sales/no-reply) is never affected.
+    whereClauses.push(`(
+      cc.mailbox_id IS NULL
+      OR EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = cc.mailbox_id AND mb.is_enabled = TRUE)
+    )`);
+
+    // Real Sent: conversation has an outbound admin email that was delivered.
+    if (sent) {
+      whereClauses.push(`EXISTS (
+        SELECT 1 FROM conversation_messages cm
+        WHERE cm.conversation_id = cc.id
+          AND cm.sender_type = 'admin'
+          AND cm.email_sent = true
+      )`);
     }
 
     const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';

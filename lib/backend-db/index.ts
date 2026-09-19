@@ -8,6 +8,7 @@
 import { Pool } from 'pg';
 import { runMigrations } from '@/lib/migrations/runner';
 import { COUNTRY_CODES } from '@/lib/data/country-codes';
+import { seedMigratedMedia } from '@/lib/media/storage';
 
 let pool: Pool | null = null;
 
@@ -1240,16 +1241,23 @@ export async function getDb(): Promise<Pool> {
         is_internal BOOLEAN DEFAULT FALSE,
         email_sent BOOLEAN DEFAULT FALSE,
         email_error TEXT,
+        provider_message_id TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     // Migration: add conversation_id column to existing conversation_messages
     try { await client.query(`ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS conversation_id TEXT REFERENCES communication_conversations(id) ON DELETE CASCADE`); } catch (e) {}
     try { await client.query(`ALTER TABLE conversation_messages ALTER COLUMN request_id DROP NOT NULL`); } catch (e) {}
+    // The universal inbound adapters use the provider Message-ID as their
+    // durable idempotency boundary. This applies to every transport that
+    // writes the shared conversation model; NULL stays valid for legacy and
+    // non-email conversation messages.
+    try { await client.query(`ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS provider_message_id TEXT`); } catch (e) {}
     // Indexes
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_request_id ON conversation_messages(request_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id ON conversation_messages(conversation_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_messages_created_at ON conversation_messages(created_at ASC)`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_messages_provider_message_id ON conversation_messages(provider_message_id) WHERE provider_message_id IS NOT NULL`);
 
     // 27d. Create conversation_attachments table for file attachments on messages
     await client.query(`
@@ -1271,6 +1279,28 @@ export async function getDb(): Promise<Pool> {
     try { await client.query(`ALTER TABLE conversation_attachments ADD COLUMN IF NOT EXISTS content BYTEA`); } catch (e) {}
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conversation_attachments_message_id ON conversation_attachments(message_id)`);
 
+    // 27d-bis. Conversation delete tombstones — permanent-delete persistence.
+    // When a conversation is permanently deleted its conversation_messages rows
+    // go away, so the read-only IMAP syncs (which NEVER mark Seen) can no longer
+    // dedupe the still-UNSEEN provider message and would re-import it as a NEW
+    // conversation. Each permanently-deleted inbound message records a tombstone
+    // keyed by its identity; every inbound transport skips tombstoned messages.
+    // provider_message_id is '' for messages that carried no Message-ID header
+    // (they are matched by sender+subject instead — consistent with the existing
+    // from+subject dedupe the syncs already use).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversation_delete_tombstones (
+        provider_message_id TEXT NOT NULL,
+        sender_email TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        mailbox_id TEXT,
+        deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (provider_message_id, sender_email, subject)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tombstones_provider_message_id ON conversation_delete_tombstones(provider_message_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tombstones_mailbox_id ON conversation_delete_tombstones(mailbox_id)`);
+
     // 27f. Create email_attachments table — metadata for files attached to outbound emails
     await client.query(`
       CREATE TABLE IF NOT EXISTS email_attachments (
@@ -1290,6 +1320,22 @@ export async function getDb(): Promise<Pool> {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_email_attachments_recipient ON email_attachments(recipient)`);
     try { await client.query(`ALTER TABLE email_attachments ADD COLUMN IF NOT EXISTS content BYTEA`); } catch (e) {}
 
+    // 27e-bis. Create email_preferences table for centralized unsubscribe tracking
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS email_preferences (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL,
+        email_hash TEXT NOT NULL UNIQUE,
+        token TEXT NOT NULL UNIQUE,
+        is_unsubscribed BOOLEAN NOT NULL DEFAULT FALSE,
+        unsubscribed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_preferences_email_hash ON email_preferences(email_hash)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_preferences_token ON email_preferences(token)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_email_preferences_is_unsubscribed ON email_preferences(is_unsubscribed) WHERE is_unsubscribed = TRUE`);
 
     // 27e. Create message_queue table for email delivery queue and retry logic
     await client.query(`
@@ -1414,7 +1460,7 @@ export async function getDb(): Promise<Pool> {
         ('notifications', 'Notifications', 'internal', 'logs', '{}', TRUE, 11),
         ('email-history', 'Universal Email', 'internal', 'history', '{}', TRUE, 12),
         ('ext-inbox', 'Inbox', 'external', 'list', '{"status":"open,waiting_customer"}', TRUE, 13),
-        ('ext-sent', 'Sent', 'external', 'list', '{"status":"resolved,closed"}', TRUE, 14),
+        ('ext-sent', 'Sent', 'external', 'list', '{"sent":"true"}', TRUE, 14),
         ('ext-draft', 'Draft', 'external', 'list', '{"status":"draft"}', TRUE, 15),
         ('ext-waiting', 'Waiting', 'external', 'list', '{"status":"waiting_customer"}', TRUE, 16),
         ('ext-failed', 'Failed', 'external', 'list', '{"status":"waiting_support,waiting_sales"}', TRUE, 17),
@@ -1507,6 +1553,114 @@ export async function getDb(): Promise<Pool> {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // 30. Create media_assets table (website media migrated from MongoDB to Neon).
+    // id is a NATIVE SERIAL in production (HTTP evidence: url /api/media/3).
+    // CREATE TABLE IF NOT EXISTS never alters an existing table, so the
+    // idempotent ADD COLUMN guards below repair tables that predate the
+    // data/created_at/updated_at columns (metadata rows with NULL data are
+    // backfilled by seedMigratedMedia so /api/media/<id> can serve bytes).
+    // Code never forces a UUID into id: inserts omit it and use id = DEFAULT,
+    // so fresh ids come from the column's own default on BOTH serial and
+    // uuid-default columns.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS media_assets (
+        id SERIAL PRIMARY KEY,
+        slot_key TEXT NOT NULL UNIQUE,
+        file_name TEXT NOT NULL DEFAULT '',
+        content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+        file_size BIGINT NOT NULL DEFAULT 0,
+        data BYTEA,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS data BYTEA`);
+    await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP`);
+    await client.query(`ALTER TABLE media_assets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP`);
+    // Production's migrated media_assets table also carries columns this
+    // implementation does not use (live evidence: `asset_key` is NOT NULL with
+    // no default, so every INSERT that omits it fails with "null value in
+    // column \"asset_key\" ... violates not-null constraint" — the seed AND the
+    // upload upsert). Any NOT NULL column with no default that this
+    // implementation does not populate is relaxed to NULL so those INSERTs
+    // succeed; columns this implementation always supplies are left untouched.
+    // Idempotent: after the first run no such column remains.
+    await client.query(`
+      DO $$
+      DECLARE
+        r record;
+      BEGIN
+        FOR r IN
+          SELECT a.attname
+          FROM pg_attribute a
+          WHERE a.attrelid = 'media_assets'::regclass
+            AND a.attnum > 0
+            AND NOT a.attisdropped
+            AND a.attnotnull
+            AND NOT EXISTS (
+              SELECT 1 FROM pg_attrdef d WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum
+            )
+            AND a.attname NOT IN
+              ('slot_key','file_name','content_type','file_size','data','created_at','updated_at')
+        LOOP
+          EXECUTE format('ALTER TABLE media_assets ALTER COLUMN %I DROP NOT NULL', r.attname);
+        END LOOP;
+      END $$;
+    `);
+    // The original migrated media_assets table was created WITHOUT a unique
+    // constraint on slot_key (live evidence: "there is no unique or exclusion
+    // constraint matching the ON CONFLICT specification" on every upload POST),
+    // which makes every ON CONFLICT (slot_key) — the upload upsert AND the
+    // seed below — fail. CREATE TABLE IF NOT EXISTS can never add it, so add
+    // the constraint idempotently here (skipped when any single-column unique
+    // index/constraint already covers slot_key). Production also holds DUPLICATE
+    // slot_key rows (live evidence: ADD CONSTRAINT UNIQUE aborted with 23505
+    // "Key (slot_key)=(global_collaboration_video) is duplicated."), so the
+    // duplicates are removed FIRST — keeping, per slot_key, the row that has
+    // bytes (data IS NOT NULL) else the lowest id (each media slot must hold
+    // exactly one asset). Idempotent: once the constraint exists no duplicates
+    // exist, so the DELETE is a no-op.
+    await client.query(`
+      DELETE FROM media_assets
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (slot_key) id
+        FROM media_assets
+        ORDER BY slot_key, (data IS NOT NULL) DESC, id ASC
+      )
+    `);
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_index i
+          WHERE i.indrelid = 'media_assets'::regclass
+            AND i.indisunique
+            AND NOT i.indisprimary
+            AND (SELECT count(*) FROM unnest(i.indkey)) = 1
+            AND EXISTS (
+              SELECT 1
+              FROM unnest(i.indkey) AS c(attnum)
+              JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = c.attnum
+              WHERE a.attname = 'slot_key'
+            )
+        ) THEN
+          EXECUTE 'ALTER TABLE media_assets ADD CONSTRAINT media_assets_slot_key_uniq UNIQUE (slot_key)';
+        END IF;
+      END $$;
+    `);
+
+    // Preserve the single valid record migrated from the previous media store.
+    // Best-effort repair: a seed failure must never abort getDb's schema init.
+    try {
+      await seedMigratedMedia(client);
+    } catch (seedError) {
+      console.error(
+        'Media seed error:',
+        seedError instanceof Error ? seedError.message : seedError
+      );
+    }
 
     // ============================================================
     // INSERT DEFAULT SYSTEM SETTINGS

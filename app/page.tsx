@@ -34,6 +34,7 @@ import { createPublicTicket } from "../core/services/ticketService";
 import { useLeadFunnel } from "./providers/LeadFunnelProvider";
 import { PhoneInputWithCountry } from "@/components/ui/PhoneInputWithCountry";
 import { validatePhoneNumber } from "@/core/utils/phoneValidation";
+import { useMediaAsset } from "../hooks/useMediaAsset";
 
 const defaultContactInfo = {
   headquarters: "T-35, Rajarhat Main Road, Diamond Enclave,kolkata-700157",
@@ -612,6 +613,19 @@ export default function LandingPage() {
   const developersRef = useRef<HTMLElement>(null);
   const clientsRef = useRef<HTMLElement>(null);
   const contactFormRef = useRef<HTMLElement>(null);
+  const diversityVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Managed media from the Neon media system (public /api/settings/public/media)
+  const heroVideo = useMediaAsset("landing_hero_video");
+  const globalCollabImage = useMediaAsset("global_collaboration_image");
+  const globalCollabVideo = useMediaAsset("global_collaboration_video");
+  const featureCardBgs = [
+    useMediaAsset("landing_feature_card_background_1"),
+    useMediaAsset("landing_feature_card_background_2"),
+    useMediaAsset("landing_feature_card_background_3"),
+    useMediaAsset("landing_feature_card_background_4"),
+    useMediaAsset("landing_feature_card_background_5"),
+  ];
   
   // Contact form state
   const [contactState, setContactState] = useState({
@@ -726,6 +740,31 @@ export default function LandingPage() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    const video = diversityVideoRef.current;
+    if (!video) return;
+    const attemptPlay = () => {
+      if (video.paused) {
+        video.play().catch(() => {});
+      }
+      window.removeEventListener("pointerdown", attemptPlay);
+      window.removeEventListener("keydown", attemptPlay);
+    };
+    window.addEventListener("pointerdown", attemptPlay);
+    window.addEventListener("keydown", attemptPlay);
+    return () => {
+      window.removeEventListener("pointerdown", attemptPlay);
+      window.removeEventListener("keydown", attemptPlay);
+    };
+  }, []);
+
+  useEffect(() => {
+    const video = diversityVideoRef.current;
+    if (!video) return;
+    video.load();
+    video.play().catch(() => {});
+  }, [globalCollabVideo.url]);
 
   // Smooth scroll function
   const scrollToSection = (ref: React.RefObject<HTMLElement>) => {
@@ -867,7 +906,7 @@ export default function LandingPage() {
             zIndex: 0,
           }}
         >
-          <source src="/videos/Websmith Digital.mp4" type="video/mp4" />
+          <source src={heroVideo.url} type="video/mp4" />
         </video>
         <div style={styles.heroOverlay} />
         <div style={styles.heroContent} className="landing-hero-content">
@@ -894,7 +933,12 @@ export default function LandingPage() {
                   target.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
-              style={styles.featureCard} 
+              style={{
+                ...styles.featureCard,
+                backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-secondary) 92%, transparent)), url(${featureCardBgs[index % 5].url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
               className="feature-card"
             >
               <div style={styles.featureIcon}>{<feature.icon size={28} />}</div>
@@ -954,25 +998,56 @@ export default function LandingPage() {
 
 
       {/* Global Diversity & Collaboration */}
-      <section style={styles.diversitySection}>
-          <div style={styles.diversityContent} className="landing-diversity-content">
-          <div style={styles.diversityText}>
-            <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "20px", color: "var(--text-primary)" }}>Global Collaboration & Technical Excellence</h2>
-            <p style={{ fontSize: "18px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "24px" }}>
-              Our team brings together diverse perspectives and world-class expertise to solve complex challenges. 
-              We believe in the power of inclusive collaboration to build the next generation of digital products.
-            </p>
-            <div style={{ display: "flex", gap: "16px" }} className="landing-badges-row">
-              <div style={styles.diversityBadge}>Enterprise Grade</div>
-              <div style={styles.diversityBadge}>Diverse Talent</div>
+      <section className="relative w-full overflow-hidden" style={styles.section}>
+        <div className="flex justify-center">
+          <div
+            className="w-full max-w-[1700px] rounded-[20px]"
+            style={{
+              backgroundColor: "var(--bg-primary)",
+              border: "1px solid var(--border-color)",
+              boxShadow: "var(--card-shadow)",
+              padding: "clamp(16px, 1.5vw, 20px)",
+              boxSizing: "border-box",
+              overflow: "hidden",
+            }}
+          >
+            <div className="flex flex-col min-[1700px]:flex-row items-start justify-center gap-10">
+              <div className="flex flex-col items-start w-full max-w-[810px]">
+                <h2 className="text-3xl sm:text-4xl font-bold text-primary mb-4">Global Collaboration & Technical Excellence</h2>
+                <p className="text-base text-secondary leading-relaxed mb-6">
+                  Our team brings together diverse perspectives and world-class expertise to solve complex challenges.
+                  We believe in the power of inclusive collaboration to build the next generation of digital products.
+                </p>
+              </div>
+              <div className="flex flex-col items-start w-full max-w-[810px]">
+                <p className="text-base text-secondary leading-relaxed mb-8">
+                  Why Websmith? Because we pair global talent with enterprise-grade delivery and round-the-clock support.
+                  One dedicated team that builds faster, ships smarter, and stays by your side long after launch —
+                  that is why clients choose Websmith, and why they stay.
+                </p>
+              </div>
             </div>
-          </div>
-          <div style={styles.diversityImageContainer}>
-            <img 
-              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200" 
-              alt="Global Technical Team" 
-              style={styles.diversityImage}
-            />
+            <div className="flex flex-col min-[1700px]:flex-row items-start justify-center gap-10">
+              <div className="flex flex-col items-start w-full max-w-[810px]">
+                <img
+                  src={globalCollabImage.url}
+                  alt="Global Technical Team"
+                  className="w-full h-[550px] rounded-lg object-cover"
+                />
+              </div>
+              <div className="flex flex-col items-start w-full max-w-[810px]">
+                <video
+                  ref={diversityVideoRef}
+                  autoPlay
+                  loop
+                  playsInline
+                  controls
+                  preload="auto"
+                  src={globalCollabVideo.url}
+                  className="w-full h-[550px] rounded-lg object-cover"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1688,12 +1763,16 @@ export default function LandingPage() {
           }
         }
 
+        @media (max-width: 1120px) {
+          .ws-diversity-col {
+            width: min(480px, 100%) !important;
+            min-width: 0 !important;
+          }
+        }
+
         @media (max-width: 1024px) {
           .landing-hero-title {
             font-size: 46px !important;
-          }
-          .landing-diversity-content {
-            gap: 32px !important;
           }
         }
 
@@ -2345,41 +2424,80 @@ const styles: any = {
     padding: "clamp(56px, 8vw, 100px) 0",
     width: "100%",
   },
-  diversityContent: {
+  // Main content grid: 2.5% | 45% LEFT CARD | 5% GAP | 45% RIGHT CARD | 2.5%
+  diversityGrid: {
+    display: "grid",
+    gridTemplateColumns: "2.5% 45% 5% 45% 2.5%",
     width: "100%",
-    maxWidth: "100%",
-    margin: 0,
-    padding: "0 clamp(16px, 4vw, 48px)",
+    alignItems: "stretch",
+    boxSizing: "border-box",
+  },
+  // LEFT card — 45% width, contains text + image
+  diversityLeftCard: {
+    gridColumn: "2 / 3",
     display: "flex",
-    alignItems: "center",
-    gap: "60px",
-    flexWrap: "wrap",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    padding: "2% 0 0 0",
+    boxSizing: "border-box",
   },
-  diversityText: {
-    flex: 1,
-    minWidth: "320px",
+  // RIGHT card — 45% width, contains text + video
+  diversityRightCard: {
+    gridColumn: "4 / 5",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    padding: "2% 0 0 0",
+    boxSizing: "border-box",
   },
-  diversityImageContainer: {
-    flex: 1,
-    minWidth: "320px",
-    borderRadius: "24px",
-    overflow: "hidden",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+  diversityMediaMessage: {
+    fontSize: "17px",
+    fontWeight: 500,
+    color: "var(--text-secondary)",
+    lineHeight: 1.6,
   },
-  diversityImage: {
+
+  diversityVideo: {
     width: "100%",
-    height: "auto",
+    height: "100%",
     display: "block",
+    objectFit: "cover",
   },
   diversityBadge: {
-    padding: "8px 16px",
+    padding: "10px 18px",
     backgroundColor: "var(--bg-primary)",
     borderRadius: "20px",
-    fontSize: "14px",
+    fontSize: "15px",
     fontWeight: 600,
     color: "#007AFF",
     boxShadow: "var(--card-shadow)",
     display: "inline-block",
+  },
+  // Main frame — 90% of card height, both image and video must be identical in size/position
+  diversityMainFrame: {
+    width: "100%",
+    height: "90%",
+    borderRadius: "24px",
+    overflow: "hidden",
+    boxShadow: "var(--card-shadow)",
+  },
+  diversityImageContainer: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "24px",
+    objectFit: "cover",
+  },
+  diversityImage: {
+    width: "100%",
+    height: "100%",
+    display: "block",
+    objectFit: "cover",
+  },
+  diversityVideoContainer: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "24px",
+    objectFit: "cover",
   },
 
   // Contact Section Styles

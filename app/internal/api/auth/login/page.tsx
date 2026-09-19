@@ -33,6 +33,7 @@ import {
 import { isValidEmail } from "@/lib/validation";
 import OtpVerification from "@/components/shared/OtpVerification";
 import type { OtpCallResult } from "@/components/shared/OtpVerification";
+import { useMediaAsset } from "@/hooks/useMediaAsset";
 
 // ==== 60-icon floating language field — inspired by the landing "Built With the Right Technology" banner ====
 type FloatIcon = {
@@ -371,6 +372,7 @@ function FloatIconField() {
 export default function LoginPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const loginBackground = useMediaAsset("internal_api_login_background");
   const [nextPath, setNextPath] = useState("/internal/api/dashboard");
   const [step, setStep] = useState<"credentials" | "otp">("credentials");
   const [email, setEmail] = useState("");
@@ -629,7 +631,7 @@ export default function LoginPage() {
               }
             }}
           >
-            <source src="/videos/WDS_UAC.mp4" type="video/mp4" />
+            <source src={loginBackground.url} type="video/mp4" />
           </video>
         </div>
       </div>

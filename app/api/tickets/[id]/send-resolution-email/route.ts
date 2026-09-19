@@ -1,12 +1,14 @@
 import { ObjectId } from "mongodb";
 import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
 import { sendEmail } from "@/lib/email/brevo";
+import { buildChatUrl } from "@/lib/tickets/chat";
 import {
   ensureResolutionTemplates,
   findDefaultTemplate,
   renderResolutionTemplate,
   resolutionHtmlBody,
   stripAdminMarkers,
+  ticketRequestLabel,
 } from "@/lib/tickets/email";
 import crypto from "node:crypto";
 
@@ -96,10 +98,11 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     query_message: String(ticket.description ?? ""),
     resolution_summary: resolution,
     portal_url: portalUrl,
+    chat_url: buildChatUrl(ticket, origin),
     temporary_password: "",
     company_name: "Websmith Digital",
     admin_name: String(user.name ?? "Websmith Team"),
-    request_id: ticket._id.toString(),
+    request_id: ticketRequestLabel(ticket),
     query_status: String(ticket.status ?? ""),
   };
 

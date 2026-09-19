@@ -9,28 +9,68 @@
 
 import { Pool, PoolClient } from 'pg';
 import { sendEmail } from '@/lib/email/brevo';
+import { redis } from '@/lib/redis-client';
 
 export const LOGIN_OTP_EXPIRY_SECONDS = 5 * 60;
 export const LOGIN_OTP_MAX_ATTEMPTS = 15;
+
+// Rate limits: 5 OTP sends per 10 minutes per IP
+const OTP_SEND_LIMIT = 5;
+const OTP_SEND_WINDOW_SECONDS = 600;
+
+// Rate limits: 15 OTP verify attempts per 15 minutes per email
+const OTP_VERIFY_LIMIT = 15;
+const OTP_VERIFY_WINDOW_SECONDS = 900;
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// In-memory per-IP throttle (best-effort; the DB is the authoritative store).
-const sendWindows = new Map<string, { count: number; resetsAt: number }>();
-const MAX_SENDS_PER_WINDOW = 5;
-const WINDOW_MS = 10 * 60 * 1000;
-
-function rateLimited(key: string): boolean {
-  const now = Date.now();
-  const entry = sendWindows.get(key);
-  if (!entry || entry.resetsAt < now) {
-    sendWindows.set(key, { count: 1, resetsAt: now + WINDOW_MS });
-    return false;
+async function rateLimitedSend(ip: string, email: string): Promise<{ limited: true; error: string } | { limited: false }> {
+  try {
+    const ipKey = `otp_send:${ip}`;
+    const result = await redis.incr(ipKey);
+    if (result === 1) {
+      await redis.expire(ipKey, OTP_SEND_WINDOW_SECONDS);
+    }
+    if (result > OTP_SEND_LIMIT) {
+      return { limited: true, error: 'Too many OTP requests. Please wait a few minutes and try again.' };
+    }
+  } catch {
+    // Fail open
   }
-  entry.count += 1;
-  return entry.count > MAX_SENDS_PER_WINDOW;
+
+  const emailKey = `otp_send_email:${email}`;
+  try {
+    const result = await redis.incr(emailKey);
+    if (result === 1) {
+      await redis.expire(emailKey, OTP_SEND_WINDOW_SECONDS);
+    }
+    if (result > OTP_SEND_LIMIT) {
+      return { limited: true, error: 'Too many OTP requests for this email. Please wait a few minutes and try again.' };
+    }
+  } catch {
+    // Fail open
+  }
+
+  return { limited: false };
+}
+
+async function rateLimitedVerify(email: string): Promise<{ limited: true; error: string } | { limited: false }> {
+  try {
+    const key = `otp_verify:${email}`;
+    const result = await redis.incr(key);
+    if (result === 1) {
+      await redis.expire(key, OTP_VERIFY_WINDOW_SECONDS);
+    }
+    if (result > OTP_VERIFY_LIMIT) {
+      return { limited: true, error: 'Too many verification attempts. Please request a new code.' };
+    }
+  } catch {
+    // Fail open
+  }
+
+  return { limited: false };
 }
 
 export interface SendLoginOtpResult {
@@ -49,8 +89,11 @@ export async function sendLoginOtp(
   if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
     return { success: false, error: 'A valid email address is required' };
   }
-  if (rateLimited(ipAddress || normalized)) {
-    return { success: false, error: 'Too many OTP requests. Please wait a few minutes and try again.' };
+
+  // Rate limiting via Redis
+  const rateResult = await rateLimitedSend(ipAddress || 'unknown', normalized);
+  if (rateResult.limited) {
+    return { success: false, error: rateResult.error };
   }
 
   let client: PoolClient | null = null;
@@ -107,6 +150,12 @@ export async function verifyLoginOtp(
   const normalized = (email || '').trim().toLowerCase();
   if (!normalized || !otpCode) {
     return { success: false, error: 'Email and OTP code are required' };
+  }
+
+  // Rate limiting via Redis
+  const rateResult = await rateLimitedVerify(normalized);
+  if (rateResult.limited) {
+    return { success: false, error: rateResult.error };
   }
 
   let client: PoolClient | null = null;

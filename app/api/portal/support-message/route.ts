@@ -11,11 +11,13 @@
 //          never supply an arbitrary address. Reuses the existing sendEmail +
 //          communication_conversations infrastructure (same pattern as
 //          /api/v1/communication/create and /internal/backend/store/enquiries).
-// SECURITY: server-side validation (name/email/message) + per-IP throttle.
+// SECURITY: server-side validation (name/email/message) + per-IP throttle using
+//          Redis-backed rate limiting for production reliability.
 
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 import { sendEmail } from "@/lib/email/brevo";
+import { redis } from "@/lib/redis-client";
 import {
   linkConversationAttachments,
   linkEmailAttachments,
@@ -35,6 +37,26 @@ const pool = new Pool({
 const MAIL_SALES_ADDRESS = process.env.MAIL_SALES_ADDRESS || "sales@websmithdigital.com";
 const MAIL_SUPPORT_ADDRESS = process.env.MAIL_SUPPORT_ADDRESS || "support@websmithdigital.com";
 
+// Rate limits: 5 messages per 15 minutes per IP (Redis-backed for production)
+const PORTAL_RATE_LIMIT = 5;
+const PORTAL_RATE_WINDOW_SECONDS = 900;
+
+async function isRateAllowed(ip: string): Promise<boolean> {
+  try {
+    const key = `portal_support:${ip}`;
+    const current = await redis.incr(key);
+    if (current === 1) {
+      await redis.expire(key, PORTAL_RATE_WINDOW_SECONDS);
+    }
+    return current <= PORTAL_RATE_LIMIT;
+  } catch {
+    // Fail open on Redis errors
+    return true;
+  }
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // Recipient routing is fixed server-side — never taken from the browser.
 // Buy / Renew / Software Store enquiries always go to the sales team; all
 // other customer requests (Send Email, Activation, Reactivation, Device
@@ -52,30 +74,13 @@ const ACTION_ROUTES: Record<string, { recipient: string; category: string }> = {
 };
 const VALID_ACTIONS = Object.keys(ACTION_ROUTES);
 
-// Lightweight in-memory per-IP throttle (best-effort; not shared across
-// serverless instances — a reasonable guard for a public endpoint).
-const RATE_LIMIT = { max: 5, windowMs: 10 * 60 * 1000 };
-const ipHits = new Map<string, { count: number; resetAt: number }>();
-
-function isRateAllowed(ip: string): boolean {
-  const now = Date.now();
-  const entry = ipHits.get(ip);
-  if (!entry || entry.resetAt < now) {
-    ipHits.set(ip, { count: 1, resetAt: now + RATE_LIMIT.windowMs });
-    return true;
-  }
-  entry.count += 1;
-  return entry.count <= RATE_LIMIT.max;
-}
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export async function POST(request: NextRequest) {
   let client = null;
   try {
-    const ipAddress = request.headers.get("x-forwarded-for") ||
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
                       request.headers.get("x-real-ip") || "unknown";
-    if (!isRateAllowed(ipAddress)) {
+
+    if (!(await isRateAllowed(ipAddress))) {
       return NextResponse.json(
         { success: false, error: { message: "Too many messages. Please try again later." } },
         { status: 429 }
