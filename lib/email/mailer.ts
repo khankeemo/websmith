@@ -1016,7 +1016,7 @@ export async function getSmtpTransporter(): Promise<{ transporter: any; senderNa
   const envSenderEmail = process.env.MAIL_FROM_ADDRESS || process.env.SENDER_EMAIL || envUser;
   const envSenderName = process.env.MAIL_FROM_NAME || 'Websmith Digital';
 
-  if (envHost && envUser && envPass) {
+  if (envHost && envUser && envPass && envPass !== 'YOUR_PRIVATEEMAIL_PASSWORD_HERE' && !envPass.startsWith('YOUR_')) {
     const configKey = `env:${envHost}:${envPort}:${envUser}`;
     if (cachedTransporter && cachedTransporterConfigKey === configKey) {
       return { transporter: cachedTransporter, senderName: envSenderName, senderEmail: envSenderEmail || envUser };
@@ -1116,7 +1116,60 @@ async function sendViaNodemailerSmtp(
     console.log(`[Email] Delivered via Nodemailer SMTP to ${to.email} (messageId: ${info.messageId})`);
     return { success: true, messageId: String(info.messageId || '') };
   } catch (err: any) {
-    console.error('[Email] Nodemailer SMTP sending failed:', err?.message || err);
+    console.error('[Email] Primary Nodemailer SMTP failed:', err?.message || err);
+
+    // If env SMTP failed (e.g. invalid credentials or network error), fallback to DB mailbox
+    try {
+      const db = await getDb();
+      const res = await db.query(
+        'SELECT * FROM mailboxes WHERE is_enabled = TRUE ORDER BY is_default_sender DESC, created_at DESC LIMIT 1'
+      );
+      const mailbox = res.rows[0];
+      if (mailbox) {
+        console.warn(`[Email] Falling back to DB mailbox: ${mailbox.email_address}`);
+        const fallbackTransporter = nodemailer.createTransport({
+          host: mailbox.smtp_host,
+          port: Number(mailbox.smtp_port) || 465,
+          secure: Boolean(mailbox.smtp_secure),
+          pool: true,
+          maxConnections: 3,
+          auth: { user: mailbox.smtp_username, pass: mailbox.smtp_password },
+          tls: { rejectUnauthorized: false },
+          connectionTimeout: 15000,
+        });
+
+        const supportAddress = process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com';
+        const fallbackInfo = await fallbackTransporter.sendMail({
+          from: `"${options.from?.name || mailbox.display_name || 'Websmith Digital'}" <${options.from?.email || mailbox.email_address}>`,
+          replyTo: supportAddress,
+          to: to.name ? `"${to.name}" <${to.email}>` : to.email,
+          ...(options.cc && options.cc.length > 0 ? { cc: options.cc.map((c) => c.email) } : {}),
+          ...(options.bcc && options.bcc.length > 0 ? { bcc: options.bcc.map((b) => b.email) } : {}),
+          subject,
+          text: plainText,
+          html: htmlBody,
+          ...(options.attachments && options.attachments.length > 0
+            ? {
+                attachments: options.attachments.map((a: any) => ({
+                  filename: a.filename || a.name || 'attachment',
+                  content: Buffer.isBuffer(a.content)
+                    ? a.content
+                    : typeof a.content === 'string'
+                      ? Buffer.from(a.content, 'base64')
+                      : a.content,
+                  contentType: a.contentType || a.type,
+                })),
+              }
+            : {}),
+        });
+
+        console.log(`[Email] Delivered via fallback DB mailbox to ${to.email} (messageId: ${fallbackInfo.messageId})`);
+        return { success: true, messageId: String(fallbackInfo.messageId || '') };
+      }
+    } catch (fallbackErr: any) {
+      console.error('[Email] Fallback DB mailbox also failed:', fallbackErr?.message || fallbackErr);
+    }
+
     return { success: false, error: err?.message || 'SMTP delivery failed' };
   }
 }
