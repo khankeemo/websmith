@@ -10,12 +10,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/mailer";
 import {
   linkConversationAttachments,
   linkEmailAttachments,
   storeUploadedFiles,
-  toBrevoAttachments,
+  toMailAttachments,
   toNodemailerAttachments,
   validateAttachmentFiles,
 } from "@/lib/communications/attachments";
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     // stored (best-effort disk + durable DB bytes), and shaped for the email
     // providers below.
     const storedFiles = isMultipart ? await storeUploadedFiles(files) : [];
-    const attachments = toBrevoAttachments(storedFiles);
+    const attachments = toMailAttachments(storedFiles);
 
     client = await pool.connect();
 
@@ -140,7 +140,8 @@ export async function POST(request: NextRequest) {
         const zipData = sdkJob.result?.zipData || sdkJob.result?.zip_path || null;
         if (zipData) {
           const fileName = sdkJob.filename || `WSD_SDKToolkit_${sdkJob.product_name || 'Product'}.zip`;
-          attachments.push({ name: fileName, content: String(zipData), type: 'application/zip' });
+          const buffer = Buffer.isBuffer(zipData) ? zipData : Buffer.from(String(zipData), 'base64');
+          attachments.push({ filename: fileName, content: buffer, contentType: 'application/zip' });
         }
       }
     }
@@ -150,16 +151,7 @@ export async function POST(request: NextRequest) {
     const category = TYPE_CATEGORY[emailType] || 'sales';
 
     // nodemailer payload for the mailbox-SMTP path (uploaded files + SDK zip).
-    const nodemailerAttachments = [
-      ...toNodemailerAttachments(storedFiles),
-      ...(sdkJob && sdkJob.result?.zipData
-        ? [{
-            filename: sdkJob.filename || `WSD_SDKToolkit_${sdkJob.product_name || 'Product'}.zip`,
-            content: Buffer.from(String(sdkJob.result.zipData), 'base64'),
-            contentType: 'application/zip',
-          }]
-        : []),
-    ];
+    const nodemailerAttachments = attachments;
 
     // ---- Mailbox sender: send via the mailbox's SMTP (reuses the exact
     // nodemailer pattern from /mailboxes/[id]/send) so the email leaves FROM
@@ -331,7 +323,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ---- System-account sender (default): Brevo with optional from override ----
+    // ---- System-account sender (default): Nodemailer SMTP with optional from override ----
     const sendResult = await sendEmail(
       client,
       emailType,

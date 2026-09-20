@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { getDb } from '@/lib/backend-db';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 import { validateApiKey } from '@/lib/public-api/auth';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest } from '@/lib/public-api/audit';

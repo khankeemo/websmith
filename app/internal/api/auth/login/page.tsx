@@ -805,7 +805,7 @@ export default function LoginPage() {
             <div className="text-center">
               <p className="text-xs text-slate-500">
                 Contact your administrator for access ·{" "}
-                <span className="text-emerald-400 font-medium">Brevo Secured</span>
+                <span className="text-emerald-400 font-medium">TLS Secured</span>
               </p>
             </div>
           </div>

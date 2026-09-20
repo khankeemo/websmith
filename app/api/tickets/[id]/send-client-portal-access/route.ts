@@ -1,5 +1,5 @@
 import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/mailer";
 import { buildChatUrl } from "@/lib/tickets/chat";
 import {
   ONBOARDING_TEMPLATE_KEY,

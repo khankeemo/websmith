@@ -4,11 +4,11 @@
 //          and the INTERNAL API Center login ('api_login') each have their own
 //          otp_verifications row (UNIQUE(email, purpose)) and never collide
 //          with password-reset ('password_reset') or portal ('purchase') OTPs.
-//          Reuses the existing email service (@/lib/email/brevo) and the shared
+//          Reuses the existing email service (@/lib/email/mailer) and the shared
 //          otp_verifications table — no new OTP implementation.
 
 import { Pool, PoolClient } from 'pg';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 import { redis } from '@/lib/redis-client';
 
 export const LOGIN_OTP_EXPIRY_SECONDS = 5 * 60;
@@ -106,7 +106,7 @@ export async function sendLoginOtp(
       `INSERT INTO otp_verifications (email, phone, otp_code, purpose, expires_at, verified, attempts, max_attempts)
        VALUES ($1, NULL, $2, $3, $4, FALSE, 0, $5)
        ON CONFLICT (email, purpose)
-       DO UPDATE SET otp_code = EXCLUDED.otp_code, expires_at = EXCLUDED.expires_at, verified = FALSE, attempts = 0`,
+       DO UPDATE SET otp_code = EXCLUDED.otp_code, expires_at = EXCLUDED.expires_at, verified = FALSE, attempts = 0, created_at = CURRENT_TIMESTAMP`,
       [normalized, otp, purpose, expiresAt, LOGIN_OTP_MAX_ATTEMPTS]
     );
 
@@ -148,7 +148,8 @@ export async function verifyLoginOtp(
   otpCode: string
 ): Promise<VerifyLoginOtpResult> {
   const normalized = (email || '').trim().toLowerCase();
-  if (!normalized || !otpCode) {
+  const cleanOtp = (otpCode || '').trim();
+  if (!normalized || !cleanOtp) {
     return { success: false, error: 'Email and OTP code are required' };
   }
 
@@ -163,9 +164,10 @@ export async function verifyLoginOtp(
     client = await pool.connect();
 
     const result = await client.query(
-      `SELECT id, otp_code, expires_at, verified, attempts, max_attempts FROM otp_verifications
+      `SELECT id, otp_code, expires_at, verified, attempts, max_attempts, (expires_at < CURRENT_TIMESTAMP) AS is_expired
+       FROM otp_verifications
        WHERE email = $1 AND purpose = $2
-       ORDER BY created_at DESC LIMIT 1`,
+       ORDER BY id DESC LIMIT 1`,
       [normalized, purpose]
     );
 
@@ -175,7 +177,8 @@ export async function verifyLoginOtp(
 
     const record = result.rows[0];
 
-    if (new Date(record.expires_at) < new Date()) {
+    const isExpired = Boolean(record.is_expired) || (record.expires_at && new Date(record.expires_at).getTime() < Date.now());
+    if (isExpired) {
       return { success: false, error: 'The code has expired. Please request a new one.', expired: true };
     }
     if (record.verified) {
@@ -185,7 +188,7 @@ export async function verifyLoginOtp(
     if ((record.attempts || 0) >= maxAttempts) {
       return { success: false, error: 'Too many invalid attempts. Please request a new code.', max_attempts: maxAttempts };
     }
-    if (record.otp_code !== otpCode) {
+    if (String(record.otp_code).trim() !== String(cleanOtp).trim()) {
       const newAttempts = (record.attempts || 0) + 1;
       await client.query(`UPDATE otp_verifications SET attempts = $1 WHERE id = $2`, [newAttempts, record.id]);
       return {

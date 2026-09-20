@@ -4,7 +4,7 @@ import { validateApiKey, validateProductMatch } from '@/lib/public-api/auth';
 import { verifySignature } from '@/lib/public-api/signature';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest, logSecurityViolation } from '@/lib/public-api/audit';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -16,7 +16,6 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,
 });
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
 const SENDER_EMAIL = process.env.MAIL_FROM_ADDRESS || 'no-reply@websmithdigital.com';
 const SENDER_NAME = process.env.MAIL_SENDER_NAME || 'Websmith Support';
 const SUPPORT_EMAIL = process.env.MAIL_SUPPORT_ADDRESS || 'support@websmithdigital.com';
@@ -253,34 +252,32 @@ ${todayDate}
     `.trim();
 
     let emailSent = false;
-    if (BREVO_API_KEY) {
+    try {
+      const emailDbClient = await pool.connect();
       try {
-        const emailDbClient = await pool.connect();
-        try {
-          const emailResult = await sendEmail(emailDbClient, 'admin_notification', {
-            email: SUPPORT_EMAIL,
-            name: 'Support Team',
-          }, {
-            request_type: reqTypeLabel,
-            customer_name: customerName || 'N/A',
-            customer_email: finalEmail || 'N/A',
-            product_name: lic.product_name || 'N/A',
-            plan_name: finalCurrentPlanName || 'N/A',
-            license_key: normalizedLicenseKey,
-            hardware_id: body.hardware_id || 'N/A',
-            message: message || 'N/A',
-            requested_plan: finalRequestedPlanName || 'N/A',
-            company_name: process.env.BRANDING_COMPANY_NAME || 'Websmith Digital',
-            support_email: SUPPORT_EMAIL,
-            website: process.env.BRANDING_WEBSITE_URL || 'https://websmithdigital.com',
-          });
-          emailSent = emailResult.success;
-        } finally {
-          emailDbClient.release();
-        }
-      } catch (emailError) {
-        console.error('Email send error:', emailError);
+        const emailResult = await sendEmail(emailDbClient, 'admin_notification', {
+          email: SUPPORT_EMAIL,
+          name: 'Support Team',
+        }, {
+          request_type: reqTypeLabel,
+          customer_name: customerName || 'N/A',
+          customer_email: finalEmail || 'N/A',
+          product_name: lic.product_name || 'N/A',
+          plan_name: finalCurrentPlanName || 'N/A',
+          license_key: normalizedLicenseKey,
+          hardware_id: body.hardware_id || 'N/A',
+          message: message || 'N/A',
+          requested_plan: finalRequestedPlanName || 'N/A',
+          company_name: process.env.BRANDING_COMPANY_NAME || 'Websmith Digital',
+          support_email: SUPPORT_EMAIL,
+          website: process.env.BRANDING_WEBSITE_URL || 'https://websmithdigital.com',
+        });
+        emailSent = emailResult.success;
+      } finally {
+        emailDbClient.release();
       }
+    } catch (emailError) {
+      console.error('Email send error:', emailError);
     }
 
     await logRequest({

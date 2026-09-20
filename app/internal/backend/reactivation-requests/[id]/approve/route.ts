@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
-import { sendEmail } from '@/lib/email/brevo';
-
-const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
+import { sendEmail } from '@/lib/email/mailer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -143,7 +141,7 @@ export async function POST(request: NextRequest) {
 
       let emailSent = false;
       const recipientEmail = newEmail || req.customer_email;
-      if (recipientEmail && BREVO_API_KEY) {
+      if (recipientEmail) {
         try {
           const emailResult = await sendEmail(client, 'reactivation_approved', {
             email: recipientEmail,

@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { validateApiKey } from '@/lib/public-api/auth';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest } from '@/lib/public-api/audit';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -110,50 +110,48 @@ export async function POST(request: NextRequest) {
     client = null;
 
     // Send email notification - log failures but don't lose the request
-    if (process.env.BREVO_API_KEY) {
-      try {
-        const emailBody = [
-          `Request ID: ${requestId}`,
-          `Type: SUPPORT`,
-          `Customer: ${customer_name || 'Anonymous'}`,
-          `Email: ${customer_email || 'Not provided'}`,
-          `License: ${license_key || 'N/A'}`,
-          `Subject: ${subject || 'Support Request'}`,
-          ``,
-          `Message:`,
-          `${message}`,
-        ].join('\n');
+    try {
+      const emailBody = [
+        `Request ID: ${requestId}`,
+        `Type: SUPPORT`,
+        `Customer: ${customer_name || 'Anonymous'}`,
+        `Email: ${customer_email || 'Not provided'}`,
+        `License: ${license_key || 'N/A'}`,
+        `Subject: ${subject || 'Support Request'}`,
+        ``,
+        `Message:`,
+        `${message}`,
+      ].join('\n');
 
-        const emailResult = await sendEmail(
-          pool,
-          'admin_notification',
-          { email: SUPPORT_EMAIL, name: 'Support' },
-          {
-            request_id: requestId,
-            request_type: 'SUPPORT',
-            customer_name: customer_name || 'Anonymous',
-            customer_email: customer_email || 'Not provided',
-            product_name: product_name || 'N/A',
-            plan_name: plan_name || 'N/A',
-            license_key: license_key || 'N/A',
-            subject: subject || 'Support Request',
-            message: emailBody,
-          }
-        );
-        console.log(`[Support] Email sent for ${requestId}:`, emailResult.success ? 'success' : 'failed', emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
-      } catch (emailError: any) {
-        console.error(`[Support] Email delivery failed for ${requestId}:`, emailError?.message || emailError);
-        try {
-          const auditClient = await pool.connect();
-          await auditClient.query(
-            `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key)
-             VALUES ($1, $2, $3, $4, $5)`,
-            ['email_failed', `Support email delivery failed for request ${requestId}: ${emailError?.message || 'Unknown error'}`, now, ipAddress, license_key || null]
-          );
-          auditClient.release();
-        } catch (auditError) {
-          console.error(`[Support] Failed to write audit log for email failure (request ${requestId}):`, auditError instanceof Error ? auditError.message : auditError);
+      const emailResult = await sendEmail(
+        pool,
+        'admin_notification',
+        { email: SUPPORT_EMAIL, name: 'Support' },
+        {
+          request_id: requestId,
+          request_type: 'SUPPORT',
+          customer_name: customer_name || 'Anonymous',
+          customer_email: customer_email || 'Not provided',
+          product_name: product_name || 'N/A',
+          plan_name: plan_name || 'N/A',
+          license_key: license_key || 'N/A',
+          subject: subject || 'Support Request',
+          message: emailBody,
         }
+      );
+      console.log(`[Support] Email sent for ${requestId}:`, emailResult.success ? 'success' : 'failed', emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
+    } catch (emailError: any) {
+      console.error(`[Support] Email delivery failed for ${requestId}:`, emailError?.message || emailError);
+      try {
+        const auditClient = await pool.connect();
+        await auditClient.query(
+          `INSERT INTO audit_logs (event_type, message, timestamp, ip_address, license_key)
+           VALUES ($1, $2, $3, $4, $5)`,
+          ['email_failed', `Support email delivery failed for request ${requestId}: ${emailError?.message || 'Unknown error'}`, now, ipAddress, license_key || null]
+        );
+        auditClient.release();
+      } catch (auditError) {
+        console.error(`[Support] Failed to write audit log for email failure (request ${requestId}):`, auditError instanceof Error ? auditError.message : auditError);
       }
     }
 

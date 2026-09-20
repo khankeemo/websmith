@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { validateApiKey } from '@/lib/public-api/auth';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest } from '@/lib/public-api/audit';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -152,42 +152,40 @@ export async function POST(
     client = null;
 
     // Send email notification to support team
-    if (process.env.BREVO_API_KEY) {
-      try {
-        const emailBody = [
-          `Customer Reply to Request: ${requestId}`,
-          `Original Subject: ${reqData.subject || 'Support Request'}`,
-          ``,
-          `From: ${customer_name} <${customer_email}>`,
-          `Product: ${reqData.product_name || 'N/A'}`,
-          `Plan: ${reqData.plan_name || 'N/A'}`,
-          `License: ${reqData.license_key || 'N/A'}`,
-          `Hardware: ${hardware_id}`,
-          ``,
-          `Message:`,
-          message,
-        ].join('\n');
+    try {
+      const emailBody = [
+        `Customer Reply to Request: ${requestId}`,
+        `Original Subject: ${reqData.subject || 'Support Request'}`,
+        ``,
+        `From: ${customer_name} <${customer_email}>`,
+        `Product: ${reqData.product_name || 'N/A'}`,
+        `Plan: ${reqData.plan_name || 'N/A'}`,
+        `License: ${reqData.license_key || 'N/A'}`,
+        `Hardware: ${hardware_id}`,
+        ``,
+        `Message:`,
+        message,
+      ].join('\n');
 
-        const emailResult = await sendEmail(
-          pool,
-          'admin_notification',
-          { email: SUPPORT_EMAIL, name: 'Support' },
-          {
-            request_id: requestId,
-            request_type: 'SUPPORT_REPLY',
-            customer_name: customer_name,
-            customer_email: customer_email,
-            product_name: reqData.product_name || 'N/A',
-            plan_name: reqData.plan_name || 'N/A',
-            license_key: reqData.license_key || 'N/A',
-            subject: `Re: ${reqData.subject || 'Support Request'}`,
-            message: emailBody,
-          }
-        );
-        console.log(`[Support Reply] Email notification for ${requestId}: ${emailResult.success ? 'success' : 'failed'}`, emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
-      } catch (emailError: any) {
-        console.error(`[Support Reply] Email notification failed for ${requestId}:`, emailError?.message || emailError);
-      }
+      const emailResult = await sendEmail(
+        pool,
+        'admin_notification',
+        { email: SUPPORT_EMAIL, name: 'Support' },
+        {
+          request_id: requestId,
+          request_type: 'SUPPORT_REPLY',
+          customer_name: customer_name,
+          customer_email: customer_email,
+          product_name: reqData.product_name || 'N/A',
+          plan_name: reqData.plan_name || 'N/A',
+          license_key: reqData.license_key || 'N/A',
+          subject: `Re: ${reqData.subject || 'Support Request'}`,
+          message: emailBody,
+        }
+      );
+      console.log(`[Support Reply] Email notification for ${requestId}: ${emailResult.success ? 'success' : 'failed'}`, emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
+    } catch (emailError: any) {
+      console.error(`[Support Reply] Email notification failed for ${requestId}:`, emailError?.message || emailError);
     }
 
     await logRequest({

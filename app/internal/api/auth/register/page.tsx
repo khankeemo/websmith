@@ -322,7 +322,7 @@ export default function RegisterPage() {
                 </a>
               </p>
               <p className="text-xs text-slate-500/50 mt-2">
-                Secured by Brevo · JWT Authentication
+                Enterprise SMTP · JWT Authentication
               </p>
             </div>
           </div>

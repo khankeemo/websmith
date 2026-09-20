@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
-import { MongoClient } from "mongodb";
+import { MongoClient } from "@/lib/server/api";
 import bcrypt from "bcryptjs";
 
 const pool = new Pool({
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
     const noreplyEmail = email.trim().toLowerCase();
 
-    const MONGODB_URI = process.env.MONGODB_URI;
+    const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL || "";
     if (!MONGODB_URI) {
       pgClient.release();
       pgClient = null;

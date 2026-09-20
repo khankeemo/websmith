@@ -83,14 +83,16 @@ export function storeIncomingAttachment(att: {
   return buildStoredAttachment(att.filename || "attachment", att.contentType || "application/octet-stream", buffer, size);
 }
 
-// Brevo payload shape (base64 content).
-export function toBrevoAttachments(stored: StoredAttachment[]): { name: string; content: string; type?: string }[] {
-  return stored.map((s) => ({ name: s.fileName, content: s.contentBase64, type: s.mimeType }));
-}
-
-// nodemailer payload shape (Buffer content).
+// Standard mailer payload shape (Buffer content) for Nodemailer SMTP.
 export function toNodemailerAttachments(stored: StoredAttachment[]): { filename: string; content: Buffer; contentType: string }[] {
   return stored.map((s) => ({ filename: s.fileName, content: s.content, contentType: s.mimeType }));
+}
+
+export const toMailAttachments = toNodemailerAttachments;
+
+// Backwards-compatibility alias for legacy code
+export function toBrevoAttachments(stored: StoredAttachment[]): { name: string; content: string; type?: string }[] {
+  return stored.map((s) => ({ name: s.fileName, content: s.contentBase64, type: s.mimeType }));
 }
 
 export async function linkConversationAttachments(client: any, messageId: number, stored: StoredAttachment[]): Promise<void> {

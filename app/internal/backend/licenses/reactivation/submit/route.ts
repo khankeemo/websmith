@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'support@websmithdigital.com';
 const SENDER_NAME = 'Websmith Digital';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@websmithdigital.com';
@@ -129,25 +128,23 @@ export async function POST(request: NextRequest) {
       ].filter(Boolean).join('\n');
 
       let emailSent = false;
-      if (BREVO_API_KEY) {
-        try {
-          const emailResult = await sendEmail(client, 'admin_notification', {
-            email: SUPPORT_EMAIL,
-            name: 'Support',
-          }, {}, {
-            custom: {
-              subject: emailSubject,
-              html: `<pre style="font-family:monospace;white-space:pre-wrap">${emailBody}</pre>`,
-              plainText: emailBody,
-            },
-          });
-          emailSent = emailResult.success;
-          if (!emailResult.success) {
-            console.error(`Brevo send failed [reactivation_request]: ${emailResult.error}`);
-          }
-        } catch (emailError) {
-          console.error('Email send error:', emailError);
+      try {
+        const emailResult = await sendEmail(client, 'admin_notification', {
+          email: SUPPORT_EMAIL,
+          name: 'Support',
+        }, {}, {
+          custom: {
+            subject: emailSubject,
+            html: `<pre style="font-family:monospace;white-space:pre-wrap">${emailBody}</pre>`,
+            plainText: emailBody,
+          },
+        });
+        emailSent = emailResult.success;
+        if (!emailResult.success) {
+          console.error(`Email send failed [reactivation_request]: ${emailResult.error}`);
         }
+      } catch (emailError) {
+        console.error('Email send error:', emailError);
       }
 
       client.release();

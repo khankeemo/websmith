@@ -1,5 +1,5 @@
-﻿import { apiHandler, jsonBody, json, badRequest, notFound, parseObjectId } from "@/lib/server/api";
-import { sendEmail } from "@/lib/email/brevo";
+import { apiHandler, jsonBody, json, badRequest, notFound, parseObjectId } from "@/lib/server/api";
+import { sendEmail } from "@/lib/email/mailer";
 import { stripAdminMarkers, ticketRequestLabel } from "@/lib/tickets/email";
 import { getDb } from "@/lib/backend-db";
 import crypto from "node:crypto";
@@ -112,7 +112,7 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
   });
 
   // Canonical thread entry (Query Inbox message bubbles). Admin replies are
-  // outbound email messages (delivery status + Brevo message id for inbound
+  // outbound email messages (delivery status + SMTP message id for inbound
   // thread matching); client/developer replies are inbound local messages.
   messages.push({
     id: crypto.randomUUID(),

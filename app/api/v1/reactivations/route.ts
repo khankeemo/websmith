@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { validateApiKey } from '@/lib/public-api/auth';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest } from '@/lib/public-api/audit';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -121,42 +121,40 @@ export async function POST(request: NextRequest) {
     client.release();
     client = null;
 
-    if (process.env.BREVO_API_KEY) {
-      const emailBody = [
-        `License Key: ${license_key.toUpperCase()}`,
-        `Customer: ${customer_name || lic.customer_name || 'N/A'}`,
-        `Email: ${customer_email || lic.customer_email || 'N/A'}`,
-        `Plan: ${lic.plan || 'N/A'}`,
-        `Status: ${lic.status || 'N/A'}`,
-        `Message: ${message || 'N/A'}`,
-        `Request ID: ${reqId}`,
-      ].join('\n');
+    const emailBody = [
+      `License Key: ${license_key.toUpperCase()}`,
+      `Customer: ${customer_name || lic.customer_name || 'N/A'}`,
+      `Email: ${customer_email || lic.customer_email || 'N/A'}`,
+      `Plan: ${lic.plan || 'N/A'}`,
+      `Status: ${lic.status || 'N/A'}`,
+      `Message: ${message || 'N/A'}`,
+      `Request ID: ${reqId}`,
+    ].join('\n');
 
-      try {
-        const emailResult = await sendEmail(
-          pool,
-          'admin_notification',
-          { email: SUPPORT_EMAIL, name: 'Support' },
-          {
-            request_id: reqId,
-            request_type: 'ACTIVATION',
-            customer_name: customer_name || lic.customer_name || 'N/A',
-            customer_email: customer_email || lic.customer_email || 'N/A',
-            product_name: lic.product_name || 'N/A',
-            plan_name: lic.plan || 'N/A',
-            license_key: license_key.toUpperCase(),
-            subject: 'License Reactivation Request',
-            message: emailBody,
-          }
-        );
-        if (!emailResult.success) {
-          console.error(`[Reactivation] Email delivery failed for request ${reqId}:`, emailResult.error);
-        } else {
-          console.log(`[Reactivation] Admin notification email sent for ${reqId}`, emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
+    try {
+      const emailResult = await sendEmail(
+        pool,
+        'admin_notification',
+        { email: SUPPORT_EMAIL, name: 'Support' },
+        {
+          request_id: reqId,
+          request_type: 'ACTIVATION',
+          customer_name: customer_name || lic.customer_name || 'N/A',
+          customer_email: customer_email || lic.customer_email || 'N/A',
+          product_name: lic.product_name || 'N/A',
+          plan_name: lic.plan || 'N/A',
+          license_key: license_key.toUpperCase(),
+          subject: 'License Reactivation Request',
+          message: emailBody,
         }
-      } catch (emailError) {
-        console.error(`[Reactivation] Email send error for request ${reqId}:`, emailError instanceof Error ? emailError.message : emailError);
+      );
+      if (!emailResult.success) {
+        console.error(`[Reactivation] Email delivery failed for request ${reqId}:`, emailResult.error);
+      } else {
+        console.log(`[Reactivation] Admin notification email sent for ${reqId}`, emailResult.messageId ? `(messageId: ${emailResult.messageId})` : '');
       }
+    } catch (emailError) {
+      console.error(`[Reactivation] Email send error for request ${reqId}:`, emailError instanceof Error ? emailError.message : emailError);
     }
 
     await logRequest({

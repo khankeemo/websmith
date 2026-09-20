@@ -1,5 +1,4 @@
-import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId, badRequest } from "@/lib/server/api";
-import { ObjectId } from "mongodb";
+import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId, badRequest, ObjectId } from "@/lib/server/api";
 
 const canViewProject = (user: any, project: any) =>
   user.role === "admin" ||

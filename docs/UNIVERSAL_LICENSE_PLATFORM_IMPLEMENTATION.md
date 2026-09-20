@@ -1422,7 +1422,7 @@ the Admin **Manage Page** (`/admin/manage-page`, sidebar "Manage Page").
 
 ### Storage
 
-- **Store:** MongoDB database `WSD`, collection `settings`.
+- **Store:** Neon PostgreSQL `portal_settings` table (`_id TEXT PRIMARY KEY`, `data JSONB`).
 - **Document:** single record with `key: "contact_info"` — one reusable record,
   no new collection/table is created for these fields.
 - **Value object fields** (existing + added):
@@ -5235,6 +5235,9 @@ Every future phase must follow this reporting format.
 
 | **R01 — REMOVE CHAT WIDGET FROM DIRECT CHAT ONLY (AWS-01 R01, 2026-08-22)** | ✅ Applied (NOT deployed — awaits user approval). UI-only, one-file diff: the floating LeadConnector chat widget no longer loads on the public Direct Secure Chat `/chat/[id]` — it stays on ALL other public pages. ROOT CAUSE: `app/ClientLayout.tsx` gates widget loading on `isPublicFacingPage = isPublicRoute(pathname) && !internal && !checkout && !product`; since `/chat` was added to `PUBLIC_ROUTE_PREFIXES` (secure client Messenger Chat), the widget mounted there too. FIX: `isStandaloneChatRoute(pathname)` (the existing helper already used to suppress nav/footer/consent-banner/analytics on chat) added to the SAME exclusion list — navigating to any `/chat/*` route now takes the existing non-public branch (`ChatComponent` set to null + `leadconnector-chat-widget` script removals), and direct loads never import it. The Direct Chat itself, its JWT/poll/send logic, all other pages' widgets, and every other UI behavior are untouched; the shared component `components/ui/leadconnectorchat/` is unchanged. Files: `app/ClientLayout.tsx` only. Verified: `npx tsc --noEmit` EXIT 0. |
 
+| **R01 — MONGODB COMPLETE REMOVAL & NEON POSTGRESQL MIGRATION (2026-09-21)** | ✅ Applied (full platform datastore consolidation into Neon PostgreSQL). (1) **Complete Data Preservation**: All 19 collections (98 active documents across users, clients, projects, tickets, resolution_templates, uploads, notifications, settings, services, project_offerings, notification_logs) backed up offline (`scripts/backup/mongo_full_backup_latest.json`) and migrated to Neon PostgreSQL. (2) **Zero Schema Collision**: All migrated collections reside in dedicated PostgreSQL `portal_<collection>` tables (`_id TEXT PRIMARY KEY`, `data JSONB`, `created_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ`, GIN index on `data`), completely avoiding collisions with existing relational tables. (3) **Zero User & Session Invalidation**: 24-character hexadecimal MongoDB `_id`s, bcrypt password hashes, binary base64 uploads, and active JWT sessions (`sub: user._id`) preserved 100%. (4) **In-House PostgreSQL Document Engine**: `lib/server/db.ts` provides a high-performance, drop-in MongoDB-compatible interface (`ObjectId`, `parseObjectId`, `Collection<T>`, `Cursor<T>`, `Db`, `MongoClient`, `getPortalDb()`, with `$set`, `$unset`, `$inc`, `$push`, `$setOnInsert`, `$or`, `$and`, `$in`, `$regex`, and `bulkWrite`). (5) **Clean System**: Removed `mongodb` package from `package.json` and removed `MONGODB_URI` from `.env`. All 25 legacy API route handlers rewired to `@/lib/server/api`. Single unified datastore: Neon PostgreSQL (`DATABASE_URL`). Verified: `npx tsc --noEmit` EXIT 0; `npm test` 13/13; auth login, binary upload streaming, and deep data integrity verified 100%. | 100% |
+
+
 | **Overall** | **All 15 phases + all AWS-01 fixes + Normalized Response Format + ULC Admin Center + SDK Unified License Status Endpoint + ULC Live License Status Fix + Communications Center Module (Phases 1-10 incl. Redesign: Mailboxes nav + Auto Reply + one-sided connection tests + Mail Delete feature with backend-enforced Allow Email Deletion toggle + integration-level Mailbox Removal with mailbox_id ownership + Final Mail Bugs: Trash leaves Inbox [trash count + sync no-resurrect guard] + Gmail Mailbox Creation INSERT fix [column count + queue_size INTEGER cast] + Incoming→Outgoing auto-fill + mailbox-form Add Signature modal) + Public Website Contact & Social Media Settings (SECTION 0.15) + SDK V2 Universal State + SDK Enterprise Enhancement Suite (SECTION 0D) + FINAL UNIVERSAL LICENSE CONTROL FIXES (Phase A — Sidebar & Nav Restructure + Phase B — Renewal Payment-First + UED Consolidation + Template Cleanup) + Validation Message Passthrough (Rule 5) + OPERATIONAL QA (2026-08) — backend expiry auto-recompute, dashboard force-dynamic, device_reset audit parity, multi-runtime SDK parity (getProducts/getTrialStatus in all 13 runtimes) + 13/13 SDK validation + Two-Step Login + Shared OTP + Auth Hardening (SECTION 0.17) + Internal Login as Step 2 — Website Session Gate + Please Login First gate page (ws_session cookie mirror) + Manage Mails Centralized Mail Workspace (SECTION 0.18) — 3-pane system-accounts + mailboxes + conversations page, Manage Mails sidebar leaf + deepest-prefix active-route logic, scoped `.manage-mails-ui` CSS, blank auto-detected mailbox form + Phase 11 Communications mail-client redesign — unified Mail / Websmith Mail / Mailboxes / Internal / Manage Mails sidebar (full-height scrollable, account rows open account-scoped mail in the Mail Inbox), server-side account-scoped conversation filtering (`mailbox_id` param / system-account category routing), receiving-account context in the reader, account-ID From dropdowns in the reply composer + UniversalEmailDialog, sender-override (`from_account_id`/`from_email`/`from_name`/`from_mailbox_id`) honored by the existing send/reply routes (mailbox SMTP or Brevo identity override), no SMTP/IMAP/queue/schema/auth changes + **Phase 13 — Communications Center live fixes** (stats trash-count own-WHERE fix → live inbox/sent/waiting/trash counts, schema-correct IMAP message storage → email bodies render, admin replies delivered to the customer + `{{request_id}}` filled, delete/restore always re-fetch list + stats, one full-width mailbox card per mailbox with dynamic real-DB-id actions — no per-address hardcoding, 400px middle panes)** | **100%** |
 
 ### How much is completed?
@@ -8596,3 +8599,33 @@ Missing mandatory files:
 - Live DB-seeding E2E (`tests/e2e/license-api.e2e.mjs`) remains blocked: no `.env*` files and no `DATABASE_URL` in the shell env.
 
 **Remaining:** Fresh multi-runtime SDK generation verification on the platform is now covered by the committed parity test. **Blockers:** None (live DB E2E needs production credentials). **How much is completed:** ~100% of this QA round. **Next immediate task:** Commit, push to `origin main`, deploy to Vercel (`vercel --prod`), and re-run production endpoint verification on the new build.
+
+---
+
+### Outbound Email Delivery Migration to Pooled Nodemailer SMTP & OTP Verification Hardening (2026-09-21)
+
+**Scope:** Transition all outbound email delivery across WebSmith Digital to exclusively use pooled Nodemailer SMTP, remove all raw Brevo REST API calls, standardize automated no-reply email disclaimers and support reply targets, and ensure 100% reliable login and password reset OTP delivery and verification.
+
+**Fixes applied:**
+
+| File | Change |
+|------|--------|
+| `lib/email/brevo.ts` | Removed raw HTTP Brevo API fetch loop (`api.brevo.com/v3/smtp/email`). Added cached `getSmtpTransporter()` with connection pooling (`pool: true, maxConnections: 3`), checking env vars (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`) first and falling back to Neon PostgreSQL `mailboxes` table (`digitalwebsmith@gmail.com`). All emails now route through `sendViaNodemailerSmtp` with reply-to pointing to support address. Standardized automated email footer: *"This is an automated email. Please do not reply directly to this address. Need help or facing an issue? Contact our support team at support@digitalwebsmith.com"*. |
+| `app/api/auth/forgot-password/request/route.ts` | Replaced legacy raw Brevo API call and dev unencrypted Pool with centralized `sendEmail(db, 'password_reset', ...)` and singleton `getDb()`. |
+| `app/internal/backend/api/auth/forgot-password/route.ts` | Replaced legacy raw Brevo API call with centralized `sendEmail(db, 'password_reset', ...)`. |
+| `lib/backend-db/index.ts` | Updated `otp_verifications` table definition and migration to use `TIMESTAMPTZ` for `expires_at` and `created_at`, resolving local vs UTC timezone drift. |
+| `lib/otp/login-otp.ts` | Added database-side expiration check `(expires_at < CURRENT_TIMESTAMP) AS is_expired` in `verifyLoginOtp` alongside JS millisecond check. |
+| `app/api/auth/login/otp/verify/route.ts` + user profile routes | Added `MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL || ""` fallback so user lookup in MongoDB emulator succeeds against Neon PostgreSQL. |
+| `docs/02-Architecture.md` | Updated tech stack table to reflect Nodemailer SMTP (Pooled) as sole outbound email delivery provider. |
+
+**Verification:**
+- `npx tsc --noEmit` passed with 0 errors.
+- `npm test` passed 13/13 multi-runtime + 6/6 validator tests.
+- E2E HTTP verification test (`scripts/test_otp_smtp_http.mjs`) verified:
+  1. Login OTP resend returned 200 via Nodemailer SMTP.
+  2. `notification_logs` recorded `event_type: 'otp_verification'`, status `'sent'`, with SMTP Message-ID.
+  3. Invalid OTP rejected with 400 Bad Request and attempt tracking.
+  4. Valid OTP verified with 200 OK, generating JWT token and returning authenticated user object.
+  5. `otp_verifications` marked with `verified: true`.
+  6. Forgot password request returned 200 OK, delivering `password_reset` email via Nodemailer SMTP with status `'sent'`.
+

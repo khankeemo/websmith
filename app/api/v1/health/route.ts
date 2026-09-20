@@ -16,7 +16,7 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
     database_url_exists: !!process.env.DATABASE_URL,
-    email_configured: !!process.env.BREVO_API_KEY,
+    email_configured: !!(process.env.SMTP_HOST || process.env.DATABASE_URL),
     sdk_version: sdkMinVersion,
     api_version: "v1",
     publisher_version: process.env.PUBLISHER_VERSION || "1.0.0",

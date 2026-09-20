@@ -325,7 +325,7 @@ function ResetPasswordContent() {
                 </a>
               </p>
               <p className="text-xs text-slate-500/50 mt-2">
-                Secured by Brevo · OTP verification
+                Enterprise SMTP · OTP verification
               </p>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/backend-db";
 import { triggerNotification } from "@/lib/notification/notification-service";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/mailer";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

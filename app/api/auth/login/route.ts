@@ -1,21 +1,11 @@
 import { NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
+import { MongoClient } from "@/lib/server/api";
 import bcrypt from "bcryptjs";
-import { Pool } from "pg";
+import { getDb } from "@/lib/backend-db";
 import { sendLoginOtp } from "@/lib/otp/login-otp";
 import { checkRateLimit, extractClientIp, rateLimitResponse } from "@/lib/server/rate-limiter";
 
 const LOGIN_OTP_PURPOSE = "website_login";
-
-const portalPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -41,8 +31,13 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    const MONGODB_URI = process.env.MONGODB_URI || "mongodb://wsdadmin:5MFGxUDGeRkvadDy@ac-o1abmjb-shard-00-00.wr0yzts.mongodb.net:27017,ac-o1abmjb-shard-00-01.wr0yzts.mongodb.net:27017,ac-o1abmjb-shard-00-02.wr0yzts.mongodb.net:27017/WSD?ssl=true&authSource=admin&retryWrites=true&w=majority";
+    const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL || "";
+    if (!MONGODB_URI) {
+      return NextResponse.json(
+        { success: false, error: "Database configuration missing" },
+        { status: 500 }
+      );
+    }
 
     mongoClient = new MongoClient(MONGODB_URI);
     await mongoClient.connect();
@@ -80,7 +75,7 @@ export async function POST(request: Request) {
 
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
 
-    const otpResult = await sendLoginOtp(portalPool, LOGIN_OTP_PURPOSE, accountEmail, ipAddress);
+    const otpResult = await sendLoginOtp(await getDb(), LOGIN_OTP_PURPOSE, accountEmail, ipAddress);
 
     if (!otpResult.success) {
       console.error("Login OTP send failed:", otpResult.error);

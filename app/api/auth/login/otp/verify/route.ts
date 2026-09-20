@@ -5,22 +5,12 @@
 //          this server-side OTP check — never at the credentials step.
 
 import { NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
-import { Pool } from "pg";
+import { MongoClient } from "@/lib/server/api";
+import { getDb } from "@/lib/backend-db";
 import { verifyLoginOtp } from "@/lib/otp/login-otp";
 import { toPublicUser, signToken } from "@/lib/website-auth";
 
 const LOGIN_OTP_PURPOSE = "website_login";
-
-const portalPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
 
 export async function POST(request: Request) {
   let mongoClient = null;
@@ -43,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     // 1. Verify the login OTP (server-side authoritative check)
-    const otpCheck = await verifyLoginOtp(portalPool, LOGIN_OTP_PURPOSE, email, otp);
+    const otpCheck = await verifyLoginOtp(await getDb(), LOGIN_OTP_PURPOSE, email, otp);
 
     if (!otpCheck.success) {
       return NextResponse.json(
@@ -58,8 +48,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Re-fetch the user from MongoDB (authoritative store)
-    const MONGODB_URI = process.env.MONGODB_URI;
+    // 2. Re-fetch the user from database (authoritative store)
+    const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL || "";
     if (!MONGODB_URI) {
       return NextResponse.json(
         { success: false, error: "Database configuration missing" },

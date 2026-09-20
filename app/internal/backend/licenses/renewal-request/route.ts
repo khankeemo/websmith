@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'support@websmithdigital.com';
 const SENDER_NAME = 'Websmith Digital';
 const SUPPORT_EMAIL = 'support@websmithdigital.com';
@@ -137,25 +136,23 @@ ${todayDate}
       `.trim();
 
       let emailSent = false;
-      if (BREVO_API_KEY) {
-        try {
-          const emailResult = await sendEmail(client, 'admin_notification', {
-            email: SUPPORT_EMAIL,
-            name: 'Websmith Support',
-          }, {}, {
-            custom: {
-              subject: emailSubject,
-              html: `<pre style="font-family: monospace; white-space: pre-wrap;">${emailBody}</pre>`,
-              plainText: emailBody,
-            },
-          });
-          emailSent = emailResult.success;
-          if (!emailResult.success) {
-            console.error(`Brevo send failed [renewal_request -> ${SUPPORT_EMAIL}]: ${emailResult.error}`);
-          }
-        } catch (emailError) {
-          console.error('Email send error:', emailError);
+      try {
+        const emailResult = await sendEmail(client, 'admin_notification', {
+          email: SUPPORT_EMAIL,
+          name: 'Websmith Support',
+        }, {}, {
+          custom: {
+            subject: emailSubject,
+            html: `<pre style="font-family: monospace; white-space: pre-wrap;">${emailBody}</pre>`,
+            plainText: emailBody,
+          },
+        });
+        emailSent = emailResult.success;
+        if (!emailResult.success) {
+          console.error(`Email send failed [renewal_request -> ${SUPPORT_EMAIL}]: ${emailResult.error}`);
         }
+      } catch (emailErr: any) {
+        console.error('Failed to send renewal request email:', emailErr);
       }
 
       client.release();

@@ -1,12 +1,12 @@
 // FILE: lib/portal/otp.ts
 // PURPOSE: OTP issue + verification for the Universal Buy & Renew Portal.
-//          Reuses the existing email service (@/lib/email/brevo) and the
+//          Reuses the existing email service (@/lib/email/mailer) and the
 //          shared otp_verifications table (purpose = 'purchase'), so the
 //          portal uses the SAME OTP mechanism as the rest of the platform —
 //          no new OTP implementation.
 
 import { Pool, PoolClient } from 'pg';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
 const OTP_PURPOSE = 'purchase';
 const OTP_EXPIRY_SECONDS = 5 * 60;

@@ -1,5 +1,4 @@
-import { apiHandler, jsonBody, json, forbidden, badRequest } from "@/lib/server/api";
-import { ObjectId } from "mongodb";
+import { apiHandler, jsonBody, json, forbidden, badRequest, ObjectId } from "@/lib/server/api";
 
 export const POST = apiHandler(async ({ db, request, user }) => {
   if (user.role === "client") throw forbidden();

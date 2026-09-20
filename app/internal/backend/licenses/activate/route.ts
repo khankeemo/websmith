@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
 import { triggerNotification } from '@/lib/notification/notification-service';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 import { resolveGlobalLicenseStatus } from '@/lib/license/serializer';
 
 // Database connection pool
@@ -32,7 +32,7 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Send OTP via the unified email dispatcher (UED) — never a direct Brevo call.
+// Send OTP via the unified email dispatcher (UED) via Nodemailer SMTP.
 async function sendOTPEmail(email: string, otp: string): Promise<boolean> {
   try {
     const client = await pool.connect();

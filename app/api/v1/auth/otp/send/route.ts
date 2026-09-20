@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { validateApiKey } from '@/lib/public-api/auth';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest } from '@/lib/public-api/audit';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

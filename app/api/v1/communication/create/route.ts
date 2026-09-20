@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { validateApiKey } from '@/lib/public-api/auth';
 import { checkRateLimit } from '@/lib/public-api/rate-limit';
 import { logRequest } from '@/lib/public-api/audit';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -136,40 +136,38 @@ export async function POST(request: NextRequest) {
     client = null;
 
     const route = CATEGORY_ROUTES[category];
-    if (process.env.BREVO_API_KEY) {
+    try {
+      const emailResult = await sendEmail(
+        pool,
+        route.template,
+        { email: route.email, name: category === 'sales' ? 'Sales' : 'Support' },
+        {
+          conversation_id: conversationId,
+          customer_name: customer_name || 'N/A',
+          customer_email: normalizedEmail,
+          product_name: product_id || 'N/A',
+          license_key: license_key || 'N/A',
+          hardware_id: hardware_id || 'N/A',
+          subject: subject || `${category} conversation`,
+          message: message,
+          category: category,
+        }
+      );
+      if (!emailResult.success) {
+        console.error(`[Communication] Email delivery failed for ${conversationId}:`, emailResult.error);
+      }
+    } catch (emailError: any) {
+      console.error(`[Communication] Email delivery failed for ${conversationId}:`, emailError?.message || emailError);
       try {
-        const emailResult = await sendEmail(
-          pool,
-          route.template,
-          { email: route.email, name: category === 'sales' ? 'Sales' : 'Support' },
-          {
-            conversation_id: conversationId,
-            customer_name: customer_name || 'N/A',
-            customer_email: normalizedEmail,
-            product_name: product_id || 'N/A',
-            license_key: license_key || 'N/A',
-            hardware_id: hardware_id || 'N/A',
-            subject: subject || `${category} conversation`,
-            message: message,
-            category: category,
-          }
+        const auditClient = await pool.connect();
+        await auditClient.query(
+          `INSERT INTO audit_logs (event_type, message, timestamp, ip_address)
+           VALUES ($1, $2, $3, $4)`,
+          ['email_failed', `Communication email failed for ${conversationId}: ${emailError?.message || 'Unknown error'}`, now, ipAddress]
         );
-        if (!emailResult.success) {
-          console.error(`[Communication] Email delivery failed for ${conversationId}:`, emailResult.error);
-        }
-      } catch (emailError: any) {
-        console.error(`[Communication] Email delivery failed for ${conversationId}:`, emailError?.message || emailError);
-        try {
-          const auditClient = await pool.connect();
-          await auditClient.query(
-            `INSERT INTO audit_logs (event_type, message, timestamp, ip_address)
-             VALUES ($1, $2, $3, $4)`,
-            ['email_failed', `Communication email failed for ${conversationId}: ${emailError?.message || 'Unknown error'}`, now, ipAddress]
-          );
-          auditClient.release();
-        } catch (auditError) {
-          console.error(`[Communication] Failed to write audit log for email failure (conversation ${conversationId}):`, auditError instanceof Error ? auditError.message : auditError);
-        }
+        auditClient.release();
+      } catch (auditError) {
+        console.error(`[Communication] Failed to write audit log for email failure (conversation ${conversationId}):`, auditError instanceof Error ? auditError.message : auditError);
       }
     }
  

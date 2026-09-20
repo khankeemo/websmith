@@ -1,5 +1,5 @@
 import { apiHandler, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/mailer";
 import { resolutionHtmlBody, ticketRequestLabel } from "@/lib/tickets/email";
 import crypto from "node:crypto";
 

@@ -1,5 +1,5 @@
 import { Pool, PoolClient } from 'pg';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 import { sendSMSWithRetry, loadSmsConfig } from '@/lib/sms/fast2sms';
 
 interface NotificationContext {

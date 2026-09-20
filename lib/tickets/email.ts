@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import type { Db } from "mongodb";
+import type { Db } from "@/lib/server/api";
 import { buildClientPortalGreeting } from "@/core/services/clientPortalGreeting";
 
 // ============================================================================
@@ -571,7 +571,7 @@ function escapeHtml(value: string): string {
 //     line is HTML-escaped so no raw markup or scripts can ever be sent.
 //   - Plain: table separator rows (alignment rows) are dropped, everything else
 //     is kept verbatim (plain text needs no escaping).
-// Used by `support_reply` / `sales_reply` (lib/email/brevo.ts) and by
+// Used by `support_reply` / `sales_reply` (lib/email/mailer.ts) and by
 // `resolutionHtmlBody` so every customer-bound email renders cleanly.
 // ============================================================================
 

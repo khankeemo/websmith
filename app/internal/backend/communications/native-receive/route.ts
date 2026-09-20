@@ -31,8 +31,8 @@ const nativeReceiveHandler = async (_request: NextRequest) => {
 };
 
 export const POST = verifySignatureAppRouter(nativeReceiveHandler, {
-  currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
-  nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
+  currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY || 'development_dummy_key_current',
+  nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY || 'development_dummy_key_next',
   url: process.env.NEXT_PUBLIC_APP_URL
     ? `${process.env.NEXT_PUBLIC_APP_URL}/internal/backend/communications/native-receive`
     : undefined,

@@ -267,9 +267,9 @@ export async function getDb(): Promise<Pool> {
         phone TEXT,
         otp_code TEXT NOT NULL,
         purpose TEXT DEFAULT 'activation',
-        expires_at TIMESTAMP NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
         verified BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(email, purpose)
       )
     `);
@@ -1813,6 +1813,8 @@ export async function getDb(): Promise<Pool> {
     // Add attempts tracking to otp_verifications (AWS-01)
     try { await client.query(`ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0`); } catch (e) { }
     try { await client.query(`ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS max_attempts INTEGER DEFAULT 15`); } catch (e) { }
+    try { await client.query(`ALTER TABLE otp_verifications ALTER COLUMN expires_at TYPE TIMESTAMPTZ USING expires_at AT TIME ZONE 'UTC'`); } catch (e) { }
+    try { await client.query(`ALTER TABLE otp_verifications ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC'`); } catch (e) { }
 
     await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_verifications_email ON otp_verifications(email)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_verifications_expires_at ON otp_verifications(expires_at)`);

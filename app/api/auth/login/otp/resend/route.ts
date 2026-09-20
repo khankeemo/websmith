@@ -4,20 +4,10 @@
 //          created.
 
 import { NextResponse } from "next/server";
-import { Pool } from "pg";
+import { getDb } from "@/lib/backend-db";
 import { sendLoginOtp } from "@/lib/otp/login-otp";
 
 const LOGIN_OTP_PURPOSE = "website_login";
-
-const portalPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
 
 export async function POST(request: Request) {
   try {
@@ -32,7 +22,7 @@ export async function POST(request: Request) {
 
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
 
-    const result = await sendLoginOtp(portalPool, LOGIN_OTP_PURPOSE, email, ipAddress);
+    const result = await sendLoginOtp(await getDb(), LOGIN_OTP_PURPOSE, email, ipAddress);
 
     if (!result.success) {
       return NextResponse.json(

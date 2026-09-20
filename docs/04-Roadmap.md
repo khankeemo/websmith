@@ -17,6 +17,7 @@ build is deployed to Vercel and verified.
 | Add-Mailbox verification | ✅ Complete | `test-connection` gate before save; audit events verified in production. |
 | Notification events (22) | ✅ Complete | Email + SMS channels; configurable per event. |
 | SDK Publisher (13 runtimes) | ✅ Complete | Checkpoint/resume via `sdk_jobs`. |
+| MongoDB → Neon PostgreSQL | ✅ Complete | All 19 collections migrated to `portal_*` tables with zero data loss; MongoDB package removed. |
 
 ## Known gaps / future work
 

@@ -82,7 +82,7 @@ export default function EmailTemplatesPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">Email Templates</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Manage automated email templates sent via Brevo</p>
+            <p className="text-sm text-[var(--text-secondary)]">Manage automated email templates sent via Nodemailer SMTP</p>
           </div>
         </div>
         <button onClick={fetchTemplates} className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)]/50 transition-colors">

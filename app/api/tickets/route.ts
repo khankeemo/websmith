@@ -1,5 +1,4 @@
-﻿import { apiHandler, jsonBody, json, badRequest } from "@/lib/server/api";
-import { ObjectId } from "mongodb";
+import { apiHandler, jsonBody, json, badRequest, ObjectId } from "@/lib/server/api";
 import { generateUniqueRequestId } from "@/lib/tickets/email";
 
 // Maximum conversations rendered in the initial Query Inbox view (Phase 10).

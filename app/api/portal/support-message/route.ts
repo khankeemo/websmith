@@ -16,13 +16,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/mailer";
 import { redis } from "@/lib/redis-client";
 import {
   linkConversationAttachments,
   linkEmailAttachments,
   storeUploadedFiles,
-  toBrevoAttachments,
+  toMailAttachments,
   validateAttachmentFiles,
 } from "@/lib/communications/attachments";
 
@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
           html: `<p>${message.replace(/\n/g, '<br/>')}</p>`,
           plainText: message,
         },
-        attachments: toBrevoAttachments(storedFiles),
+        attachments: toMailAttachments(storedFiles),
       }
     );
 

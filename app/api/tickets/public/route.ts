@@ -1,8 +1,7 @@
-import { ObjectId } from "mongodb";
-import { apiHandler, jsonBody, json } from "@/lib/server/api";
+import { apiHandler, jsonBody, json, ObjectId } from "@/lib/server/api";
 import { createClientAccount, ensureResolutionTemplates, findDefaultTemplate, renderResolutionTemplate, renderCustomerMessagePlain, resolutionHtmlBody, stripAdminMarkers, generateUniqueRequestId, ticketRequestLabel, FIRST_WELCOME_TEMPLATE_KEY } from "@/lib/tickets/email";
 import { buildChatUrl } from "@/lib/tickets/chat";
-import { sendEmail } from "@/lib/email/brevo";
+import { sendEmail } from "@/lib/email/mailer";
 import { validatePhoneNumber } from "@/core/utils/phoneValidation";
 import crypto from "node:crypto";
 

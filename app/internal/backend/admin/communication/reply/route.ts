@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/backend-db';
-import { sendEmail } from '@/lib/email/brevo';
+import { sendEmail } from '@/lib/email/mailer';
 import {
   linkConversationAttachments,
   storeUploadedFiles,
-  toBrevoAttachments,
+  toMailAttachments,
   toNodemailerAttachments,
   validateAttachmentFiles,
 } from '@/lib/communications/attachments';
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     // Outgoing attachment files (uploaded with the reply). Flow through the
     // universal attachment service — validated, stored (best-effort disk +
     // durable DB bytes), and shaped for the email providers. Attached to the
-    // real email for BOTH the mailbox-SMTP and Brevo paths.
+    // real email for BOTH the mailbox-SMTP and centralized SMTP paths.
     const storedFiles: Awaited<ReturnType<typeof storeUploadedFiles>> = [];
     if (isMultipart && files.length > 0) {
       const fileValidation = validateAttachmentFiles(files);
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       }
       storedFiles.push(...(await storeUploadedFiles(files)));
     }
-    const attachments = toBrevoAttachments(storedFiles);
+    const attachments = toMailAttachments(storedFiles);
     const nodemailerAttachments = toNodemailerAttachments(storedFiles);
 
     const db = await getDb();
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Honest delivery reporting: the final return must never claim the email
-    // was delivered unless an email actually went out (mailbox SMTP or Brevo).
+    // was delivered unless an email actually went out (mailbox SMTP or centralized SMTP).
     let emailAttempted = false;
 
     // Sender = a configured external mailbox: send via that mailbox's SMTP
@@ -237,12 +237,11 @@ export async function POST(request: NextRequest) {
           warning: smtpDelivered ? undefined : `Reply saved, but the email could not be sent via the mailbox SMTP (${smtpErrorMsg}).`
         });
       }
-      // Mailbox missing/disabled → fall through to the Brevo path below.
+      // Mailbox missing/disabled → fall through to the central SMTP mailer below.
     }
 
-    if (process.env.BREVO_API_KEY) {
-      emailAttempted = true;
-      const emailTemplate = CATEGORY_ROUTE_MAP[conv.category] || 'support_reply';
+    emailAttempted = true;
+    const emailTemplate = CATEGORY_ROUTE_MAP[conv.category] || 'support_reply';
       // The reply is for the CUSTOMER — never the admin/company address.
       const emailResult = await sendEmail(
         db,
@@ -288,18 +287,17 @@ export async function POST(request: NextRequest) {
           warning: `Reply saved, but the email could not be delivered (${emailResult.error || 'provider error'}).`
         });
       }
-    }
 
     client.release();
     client = null;
 
-    // No mail provider available (no mailbox SMTP + no Brevo key): the reply is
+    // No mail provider available: the reply is
     // saved but the email cannot leave — report honestly instead of faking success.
     if (!emailAttempted) {
       return NextResponse.json({
         success: true,
         emailDelivered: false,
-        warning: 'Reply saved, but no email provider is configured (mailbox SMTP or Brevo).'
+        warning: 'Reply saved, but no email provider is configured.'
       });
     }
 

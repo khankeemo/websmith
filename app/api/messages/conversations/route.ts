@@ -1,5 +1,4 @@
-import { apiHandler, json } from "@/lib/server/api";
-import { ObjectId } from "mongodb";
+import { apiHandler, json, ObjectId } from "@/lib/server/api";
 
 export const GET = apiHandler(async ({ db, user }) => {
   const me = user._id.toString();

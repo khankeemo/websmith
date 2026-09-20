@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient, ObjectId } from "@/lib/server/api";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const MONGODB_URI = process.env.MONGODB_URI;
+    const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL || "";
     if (!MONGODB_URI) {
       return NextResponse.json(
         { success: false, error: "Database configuration missing" },

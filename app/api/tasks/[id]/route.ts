@@ -1,5 +1,4 @@
-﻿import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId } from "@/lib/server/api";
-import { ObjectId } from "mongodb";
+import { apiHandler, jsonBody, json, forbidden, notFound, parseObjectId, ObjectId } from "@/lib/server/api";
 
 export const GET = apiHandler(async ({ db, params }) => {
   const id = parseObjectId(params.id);

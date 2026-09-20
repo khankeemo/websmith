@@ -8,9 +8,10 @@
 - **Migrations**: `lib/migrations/runner.ts` executes idempotent SQL —
   `CREATE TABLE IF NOT EXISTS` plus `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` — on
   every `getDb()` call. Never create tables outside this runner.
-- The platform has no other active datastore for business data (Upstash Redis is used
-  only for rate limiting; `better-sqlite3`/`mongodb` are present but not used by the
-  platform flows).
+- The platform has no other active datastore for business data. MongoDB has been
+  completely removed and all collections, documents, and credentials migrated into
+  isolated `portal_*` tables in Neon PostgreSQL (Upstash Redis is used only for rate
+  limiting; `better-sqlite3` is a dormant dependency).
 
 ## Domain map
 
@@ -25,6 +26,7 @@
 | Notifications | `notification_logs`, `notifications`, `event_notification_config`, `email_templates`, `sms_templates`, `sms_config` |
 | Identity & security | `users`, `role`, `otp_verifications`, `developer_api_keys`, `api_request_logs`, `api_key_audit_log`, `public_api_nonces` |
 | System | `system_settings`, `sdk_jobs`, `requests`, `audit_logs`, `trial_audit_logs`, `email_templates` |
+| Agency & Portal (Migrated) | `portal_users`, `portal_tickets`, `portal_projects`, `portal_tasks`, `portal_clients`, `portal_messages`, `portal_uploads`, `portal_services`, `portal_resolution_templates`, `portal_notifications`, `portal_settings`, `portal_project_offerings`, `portal_invoices`, `portal_payments`, `portal_leads`, `portal_notification_logs`, `portal_softwarestorelistings`, `portal_directmessages`, `portal_softwarestoreinquiries`, `portal_paymentwebhookevents` |
 
 ## Key schemas (verified)
 

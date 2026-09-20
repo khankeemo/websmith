@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
-import { MongoClient, ObjectId, type Db } from "mongodb";
 import jwt from "jsonwebtoken";
+import {
+  MongoClient,
+  ObjectId,
+  Db,
+  parseObjectId,
+  getPortalDb,
+} from "./db";
+
+export { MongoClient, ObjectId, Db, parseObjectId, getPortalDb };
 
 export class HttpError extends Error {
   status: number;
@@ -16,8 +24,7 @@ export const forbidden = (msg = "Insufficient permissions") => new HttpError(403
 export const notFound = (msg = "Not found") => new HttpError(404, msg);
 
 export function getMongoUri(): string {
-  const uri = process.env.MONGODB_URI || "mongodb://wsdadmin:5MFGxUDGeRkvadDy@ac-o1abmjb-shard-00-00.wr0yzts.mongodb.net:27017,ac-o1abmjb-shard-00-01.wr0yzts.mongodb.net:27017,ac-o1abmjb-shard-00-02.wr0yzts.mongodb.net:27017/WSD?ssl=true&authSource=admin&retryWrites=true&w=majority";
-  return uri;
+  return process.env.DATABASE_URL || "";
 }
 
 export function serialize(value: any): any {
@@ -59,11 +66,6 @@ export async function authUser(db: Db, request: Request, roles?: string[]) {
   return user;
 }
 
-export function parseObjectId(id: string): ObjectId {
-  if (!ObjectId.isValid(id)) throw badRequest("Invalid ID format");
-  return new ObjectId(id);
-}
-
 export function json(data: any, init?: { status?: number }) {
   return NextResponse.json({ success: true, ...data }, init ?? {});
 }
@@ -88,9 +90,8 @@ export function apiHandler(
   return async (request: Request, routeCtx?: { params: any }) => {
     let client: MongoClient | null = null;
     try {
-      client = new MongoClient(getMongoUri());
-      await client.connect();
-      const db = client.db("WSD");
+      const db = getPortalDb();
+      client = new MongoClient();
       const params = routeCtx?.params ? await routeCtx.params : {};
       let user: any = null;
       if (opts?.auth) {

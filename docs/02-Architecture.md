@@ -7,13 +7,12 @@
 | Framework | Next.js ^16.2.1 (App Router), React 19, TypeScript | Route handlers for API, server/client components. |
 | Database | PostgreSQL on Neon (`@neondatabase/serverless`, `pg`) | Single serverless pool, `ssl rejectUnauthorized:false`. |
 | Queues / cache | Upstash Redis + Upstash QStash + Upstash Workflow | Rate limiting, SDK job queue, background generation. |
-| Email | Brevo transactional API | `api.brevo.com/v3/smtp/email`, template-first. |
+| Email | Nodemailer SMTP (Pooled) | Exclusively delivers all outbound email (OTP, password reset, notifications, invoices) via pooled SMTP. |
 | SMS | Fast2SMS | `https://www.fast2sms.com/dev/bulkV2`, config-gated. |
-| IMAP/SMTP | `imap`, `nodemailer`, `mailparser` | External mailboxes in Communications Center. |
+| IMAP/SMTP | `imap`, `nodemailer`, `mailparser` | Outbound delivery via pooled Nodemailer SMTP; external mailboxes in Communications Center. |
 | Auth | `jose` (JWT verify in proxy), `jsonwebtoken`, `bcryptjs` | API Center sessions. |
 | Packaging | `archiver` | SDK zip creation. |
-| UI | `lucide-react`, `react-icons`, `framer-motion`, `recharts` | Admin console icons/animations/charts. |
-| Misc | `axios`, `mongodb`, `better-sqlite3` | Present in deps; Postgres is the active datastore. |
+| Misc | `axios`, `better-sqlite3` | Present in deps; Neon Postgres is the sole active datastore. |
 
 ## Repository layout
 

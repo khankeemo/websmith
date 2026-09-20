@@ -508,7 +508,7 @@ export default function ForgotPasswordPage() {
 
             <div className="text-center mt-6">
               <p className="text-xs text-slate-500">
-                Secured by Brevo · OTP verification
+                Enterprise SMTP · OTP verification
               </p>
             </div>
           </div>
