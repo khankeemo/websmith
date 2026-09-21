@@ -68,13 +68,44 @@ const CONTACT_SUBJECT_OPTIONS = [
   "Other",
 ] as const;
 
-const CONTACT_TIME_SLOTS = [
-  "Morning (09:00 AM – 12:00 PM)",
-  "Early Afternoon (12:00 PM – 03:00 PM)",
-  "Late Afternoon (03:00 PM – 06:00 PM)",
-  "Evening (06:00 PM – 09:00 PM)",
-  "Anytime / Flexible",
-] as const;
+interface TimeSlotGroup {
+  group: string;
+  slots: string[];
+}
+
+const CONTACT_TIME_SLOT_GROUPS: TimeSlotGroup[] = [
+  {
+    group: "Morning (08:00 AM – 12:00 PM)",
+    slots: [
+      "Early Morning (08:00 AM – 10:00 AM)",
+      "Mid Morning (10:00 AM – 12:00 PM)",
+    ],
+  },
+  {
+    group: "Afternoon (12:00 PM – 06:00 PM)",
+    slots: [
+      "Early Afternoon (12:00 PM – 02:00 PM)",
+      "Mid Afternoon (02:00 PM – 04:00 PM)",
+      "Late Afternoon (04:00 PM – 06:00 PM)",
+    ],
+  },
+  {
+    group: "Evening & Night (06:00 PM – 12:00 AM)",
+    slots: [
+      "Early Evening (06:00 PM – 08:00 PM)",
+      "Late Evening (08:00 PM – 10:00 PM)",
+      "Night / Late Hours (10:00 PM – 12:00 AM)",
+    ],
+  },
+  {
+    group: "Flexible Option",
+    slots: [
+      "Anytime / Flexible (First Available)",
+    ],
+  },
+];
+
+const CONTACT_TIME_SLOTS = CONTACT_TIME_SLOT_GROUPS.flatMap((g) => g.slots);
 
 interface PopularTimeZone {
   value: string;
@@ -117,6 +148,78 @@ const POPULAR_TIMEZONES: PopularTimeZone[] = [
   { value: "America/Sao_Paulo", label: "Brazil (São Paulo, Rio) · BRT", region: "South America" },
 ];
 
+interface TimeZoneGroup {
+  group: string;
+  zones: { value: string; label: string }[];
+}
+
+function buildAllWorldTimeZones(): TimeZoneGroup[] {
+  let allSupported: string[] = [];
+  try {
+    if (typeof Intl !== "undefined" && typeof (Intl as any).supportedValuesOf === "function") {
+      allSupported = (Intl as any).supportedValuesOf("timeZone");
+    }
+  } catch {
+    allSupported = [];
+  }
+
+  if (!allSupported || allSupported.length === 0) {
+    return [
+      {
+        group: "⭐ Popular Business Hubs",
+        zones: POPULAR_TIMEZONES.map((p) => ({ value: p.value, label: p.label })),
+      },
+    ];
+  }
+
+  const groupsMap: Record<string, { value: string; label: string }[]> = {
+    "⭐ Popular Business Hubs": POPULAR_TIMEZONES.map((p) => ({ value: p.value, label: p.label })),
+    "North & Central America": [],
+    "Europe": [],
+    "Asia & Middle East": [],
+    "Australia & Pacific": [],
+    "South America": [],
+    "Africa": [],
+    "Atlantic & Indian Oceans": [],
+    "Other Regions": [],
+  };
+
+  const southAmericaCities = ["Sao_Paulo", "Buenos_Aires", "Bogota", "Lima", "Santiago", "Caracas", "Montevideo", "Asuncion", "La_Paz", "Guyana", "Paramaribo"];
+
+  for (const tz of allSupported) {
+    const parts = tz.split("/");
+    const city = parts[parts.length - 1].replace(/_/g, " ");
+    const label = `${city} (${tz})`;
+
+    if (tz.startsWith("America/") || tz.startsWith("Canada/") || tz.startsWith("US/")) {
+      if (southAmericaCities.some((c) => tz.includes(c))) {
+        groupsMap["South America"].push({ value: tz, label });
+      } else {
+        groupsMap["North & Central America"].push({ value: tz, label });
+      }
+    } else if (tz.startsWith("Europe/")) {
+      groupsMap["Europe"].push({ value: tz, label });
+    } else if (tz.startsWith("Asia/")) {
+      groupsMap["Asia & Middle East"].push({ value: tz, label });
+    } else if (tz.startsWith("Australia/") || tz.startsWith("Pacific/")) {
+      groupsMap["Australia & Pacific"].push({ value: tz, label });
+    } else if (tz.startsWith("Africa/")) {
+      groupsMap["Africa"].push({ value: tz, label });
+    } else if (tz.startsWith("Atlantic/") || tz.startsWith("Indian/")) {
+      groupsMap["Atlantic & Indian Oceans"].push({ value: tz, label });
+    } else {
+      groupsMap["Other Regions"].push({ value: tz, label });
+    }
+  }
+
+  return Object.entries(groupsMap)
+    .filter(([_, list]) => list.length > 0)
+    .map(([group, zones]) => ({ group, zones }));
+}
+
+const ALL_WORLD_TIMEZONE_GROUPS: TimeZoneGroup[] = buildAllWorldTimeZones();
+
+
 function convertSlotHourToIST(dateStr: string, hour: number, minute: number, clientTz: string): string {
   try {
     const baseDate = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : new Date().toISOString().split("T")[0];
@@ -151,25 +254,30 @@ function convertSlotHourToIST(dateStr: string, hour: number, minute: number, cli
   }
 }
 
+function parseSlotHours(slotStr: string): { startHour: number; startMin: number; endHour: number; endMin: number } | null {
+  const m = slotStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*[–-]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!m) return null;
+  let startHour = Number(m[1]), startMin = Number(m[2]), startPeriod = m[3].toUpperCase();
+  let endHour = Number(m[4]), endMin = Number(m[5]), endPeriod = m[6].toUpperCase();
+  if (startPeriod === "PM" && startHour < 12) startHour += 12;
+  if (startPeriod === "AM" && startHour === 12) startHour = 0;
+  if (endPeriod === "PM" && endHour < 12) endHour += 12;
+  if (endPeriod === "AM" && endHour === 12) endHour = 0;
+  return { startHour, startMin, endHour, endMin };
+}
+
 function getSlotISTRange(dateStr: string, slotStr: string, clientTz: string): string {
-  if (!slotStr || slotStr === "Anytime / Flexible") return "Flexible / Anytime";
+  if (!slotStr || slotStr.toLowerCase().includes("flexible") || slotStr.toLowerCase().includes("anytime")) {
+    return "Flexible / Anytime";
+  }
   if (!clientTz) return slotStr;
 
-  let startHour = 9;
-  let endHour = 12;
-  if (slotStr.includes("09:00 AM")) {
-    startHour = 9; endHour = 12;
-  } else if (slotStr.includes("12:00 PM")) {
-    startHour = 12; endHour = 15;
-  } else if (slotStr.includes("03:00 PM")) {
-    startHour = 15; endHour = 18;
-  } else if (slotStr.includes("06:00 PM")) {
-    startHour = 18; endHour = 21;
-  }
+  const parsed = parseSlotHours(slotStr);
+  if (!parsed) return slotStr;
 
   try {
-    const startIST = convertSlotHourToIST(dateStr, startHour, 0, clientTz);
-    const endIST = convertSlotHourToIST(dateStr, endHour, 0, clientTz);
+    const startIST = convertSlotHourToIST(dateStr, parsed.startHour, parsed.startMin, clientTz);
+    const endIST = convertSlotHourToIST(dateStr, parsed.endHour, parsed.endMin, clientTz);
     if (!startIST || !endIST) return slotStr;
     return `${startIST} – ${endIST} IST`;
   } catch {
@@ -797,17 +905,14 @@ export default function LandingPage() {
     }
   }, []);
 
-  const timeZoneOptions = useMemo(() => {
+  const activeTzLabel = useMemo(() => {
     const current = contactState.userTimeZone || userTimeZoneInfo.zone;
-    if (!current) return POPULAR_TIMEZONES;
-    const exists = POPULAR_TIMEZONES.some((item) => item.value === current);
-    if (!exists) {
-      return [
-        { value: current, label: `Detected: ${current}`, region: "Local" },
-        ...POPULAR_TIMEZONES,
-      ];
+    if (!current) return "Detected Local Timezone";
+    for (const grp of ALL_WORLD_TIMEZONE_GROUPS) {
+      const match = grp.zones.find((z) => z.value === current);
+      if (match) return match.label;
     }
-    return POPULAR_TIMEZONES;
+    return current;
   }, [contactState.userTimeZone, userTimeZoneInfo.zone]);
 
   const isUserIST = useMemo(() => {
@@ -1590,11 +1695,11 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  {/* Preferred Date & Timezone */}
+                  {/* Preferred Date, Time Slot & Timezone in ONE row */}
                   <div style={styles.formRow}>
                     <div style={styles.formGroup}>
                       <label style={styles.formLabel} htmlFor="contact-preferred-date">
-                        Preferred Date to be Contacted
+                        Preferred Date
                       </label>
                       <input 
                         id="contact-preferred-date"
@@ -1605,6 +1710,49 @@ export default function LandingPage() {
                         value={contactState.preferredContactDate}
                         onChange={(e) => handleContactChange("preferredContactDate", e.target.value)}
                       />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel} htmlFor="contact-preferred-time">
+                        Preferred Time Slot
+                      </label>
+                      <div style={{ position: "relative", width: "100%" }}>
+                        <select
+                          id="contact-preferred-time"
+                          name="preferredContactTime"
+                          style={{
+                            ...styles.formInput,
+                            ...styles.formSelect,
+                            color: contactState.preferredContactTime ? "var(--text-primary)" : "var(--text-secondary)",
+                          }}
+                          value={contactState.preferredContactTime}
+                          onChange={(e) => handleContactChange("preferredContactTime", e.target.value)}
+                        >
+                          <option value="" style={{ color: "var(--text-secondary)" }}>
+                            Select preferred slot...
+                          </option>
+                          {CONTACT_TIME_SLOT_GROUPS.map((grp) => (
+                            <optgroup key={grp.group} label={grp.group} style={{ fontWeight: 700, color: "var(--text-secondary)", backgroundColor: "var(--bg-secondary)" }}>
+                              {grp.slots.map((slot) => (
+                                <option key={slot} value={slot} style={styles.selectOption}>
+                                  {slot}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                        <ChevronDown 
+                          size={18} 
+                          style={{
+                            position: "absolute",
+                            right: "14px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            pointerEvents: "none",
+                            color: "var(--text-secondary)",
+                          }} 
+                        />
+                      </div>
                     </div>
 
                     <div style={styles.formGroup}>
@@ -1641,10 +1789,14 @@ export default function LandingPage() {
                           value={contactState.userTimeZone || userTimeZoneInfo.zone}
                           onChange={(e) => handleContactChange("userTimeZone", e.target.value)}
                         >
-                          {timeZoneOptions.map((tz) => (
-                            <option key={tz.value} value={tz.value} style={styles.selectOption}>
-                              {tz.label}
-                            </option>
+                          {ALL_WORLD_TIMEZONE_GROUPS.map((grp) => (
+                            <optgroup key={grp.group} label={grp.group} style={{ fontWeight: 700, color: "var(--text-secondary)", backgroundColor: "var(--bg-secondary)" }}>
+                              {grp.zones.map((tz) => (
+                                <option key={tz.value} value={tz.value} style={styles.selectOption}>
+                                  {tz.label}
+                                </option>
+                              ))}
+                            </optgroup>
                           ))}
                         </select>
                         <ChevronDown 
@@ -1659,67 +1811,6 @@ export default function LandingPage() {
                           }} 
                         />
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Preferred Time Slot & Company */}
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel} htmlFor="contact-preferred-time">
-                        Preferred Time Slot
-                      </label>
-                      <div style={{ position: "relative", width: "100%" }}>
-                        <select
-                          id="contact-preferred-time"
-                          name="preferredContactTime"
-                          style={{
-                            ...styles.formInput,
-                            ...styles.formSelect,
-                            color: contactState.preferredContactTime ? "var(--text-primary)" : "var(--text-secondary)",
-                          }}
-                          value={contactState.preferredContactTime}
-                          onChange={(e) => handleContactChange("preferredContactTime", e.target.value)}
-                        >
-                          <option value="" style={{ color: "var(--text-secondary)" }}>
-                            Select preferred slot...
-                          </option>
-                          {CONTACT_TIME_SLOTS.map((slot) => (
-                            <option key={slot} value={slot} style={styles.selectOption}>
-                              {slot}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown 
-                          size={18} 
-                          style={{
-                            position: "absolute",
-                            right: "14px",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            pointerEvents: "none",
-                            color: "var(--text-secondary)",
-                          }} 
-                        />
-                      </div>
-                    </div>
-
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel} htmlFor="contact-company">Company</label>
-                      <input 
-                        id="contact-company"
-                        name="company"
-                        type="text" 
-                        placeholder="Company / Organization" 
-                        style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
-                        autoComplete="organization"
-                        aria-invalid={Boolean(contactErrors.company)}
-                        aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
-                        value={contactState.company}
-                        onChange={(e) => handleContactChange("company", e.target.value)}
-                      />
-                      {contactErrors.company && (
-                        <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
-                      )}
                     </div>
                   </div>
 
@@ -1764,7 +1855,7 @@ export default function LandingPage() {
                             {contactState.preferredContactTime}
                           </span>
                           <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-                            {timeZoneOptions.find((t) => t.value === (contactState.userTimeZone || userTimeZoneInfo.zone))?.label || (contactState.userTimeZone || userTimeZoneInfo.zone)}
+                            {activeTzLabel}
                           </span>
                         </div>
 
@@ -1797,49 +1888,70 @@ export default function LandingPage() {
                     </div>
                   )}
 
-                  
-                  <div style={styles.formGroup}>
-                    <label style={styles.formLabel} htmlFor="contact-subject">Subject</label>
-                    <div style={{ position: "relative", width: "100%" }}>
-                      <select 
-                        id="contact-subject"
-                        name="subject"
-                        style={{ 
-                          ...styles.formInput, 
-                          ...styles.formSelect,
-                          ...(contactErrors.subject ? styles.formInputError : {}),
-                          color: contactState.subject ? "var(--text-primary)" : "var(--text-secondary)",
-                        }}
-                        required
-                        aria-invalid={Boolean(contactErrors.subject)}
-                        aria-describedby={contactErrors.subject ? "contact-subject-error" : undefined}
-                        value={contactState.subject}
-                        onChange={(e) => handleContactChange("subject", e.target.value)}
-                      >
-                        <option value="" disabled style={{ color: "var(--text-secondary)" }}>
-                          Select a subject...
-                        </option>
-                        {CONTACT_SUBJECT_OPTIONS.map((option) => (
-                          <option key={option} value={option} style={styles.selectOption}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown 
-                        size={18} 
-                        style={{
-                          position: "absolute",
-                          right: "14px",
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          pointerEvents: "none",
-                          color: "var(--text-secondary)",
-                        }} 
+                  {/* Company & Subject in ONE row */}
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel} htmlFor="contact-company">Company</label>
+                      <input 
+                        id="contact-company"
+                        name="company"
+                        type="text" 
+                        placeholder="Company / Organization" 
+                        style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
+                        autoComplete="organization"
+                        aria-invalid={Boolean(contactErrors.company)}
+                        aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
+                        value={contactState.company}
+                        onChange={(e) => handleContactChange("company", e.target.value)}
                       />
+                      {contactErrors.company && (
+                        <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
+                      )}
                     </div>
-                    {contactErrors.subject && (
-                      <p id="contact-subject-error" role="alert" style={styles.fieldError}>{contactErrors.subject}</p>
-                    )}
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel} htmlFor="contact-subject">Subject</label>
+                      <div style={{ position: "relative", width: "100%" }}>
+                        <select 
+                          id="contact-subject"
+                          name="subject"
+                          style={{ 
+                            ...styles.formInput, 
+                            ...styles.formSelect,
+                            ...(contactErrors.subject ? styles.formInputError : {}),
+                            color: contactState.subject ? "var(--text-primary)" : "var(--text-secondary)",
+                          }}
+                          required
+                          aria-invalid={Boolean(contactErrors.subject)}
+                          aria-describedby={contactErrors.subject ? "contact-subject-error" : undefined}
+                          value={contactState.subject}
+                          onChange={(e) => handleContactChange("subject", e.target.value)}
+                        >
+                          <option value="" disabled style={{ color: "var(--text-secondary)" }}>
+                            Select a subject...
+                          </option>
+                          {CONTACT_SUBJECT_OPTIONS.map((option) => (
+                            <option key={option} value={option} style={styles.selectOption}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown 
+                          size={18} 
+                          style={{
+                            position: "absolute",
+                            right: "14px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            pointerEvents: "none",
+                            color: "var(--text-secondary)",
+                          }} 
+                        />
+                      </div>
+                      {contactErrors.subject && (
+                        <p id="contact-subject-error" role="alert" style={styles.fieldError}>{contactErrors.subject}</p>
+                      )}
+                    </div>
                   </div>
                   
                   <div style={styles.formGroup}>
