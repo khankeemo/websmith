@@ -3,10 +3,12 @@
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { Menu, X, Search, ShoppingCart, Heart, History as HistoryIcon, Mail } from "lucide-react";
 import { getStoredUser, getToken } from "../../lib/auth";
 import { usePublicTheme } from "../../app/providers/PublicThemeProvider";
 import { useLeadFunnel } from "../../app/providers/LeadFunnelProvider";
+import { useStoreUI } from "../../app/software-store/StoreUIContext";
 import {
   defaultNavbarVisibility,
   getNavbarVisibility,
@@ -48,6 +50,8 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
   const isLogin = pathname === "/login";
   const isAuthLayout = variant === "auth";
   const isStoreRoute = Boolean(pathname?.startsWith("/software-store"));
+  const storeUI = useStoreUI();
+  const isDark = publicTheme === "dark";
 
   useLayoutEffect(() => {
     setNavMounted(true);
@@ -148,15 +152,15 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
     <nav
       style={{
         ...styles.nav,
-        ...(isStoreRoute
-          ? {
-              backgroundColor: "rgba(7, 11, 20, 0.92)",
-              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-              backdropFilter: "blur(16px)",
-            }
-          : {}),
+        backgroundColor: isDark
+          ? "rgba(7, 11, 20, 0.92)"
+          : "rgba(255, 255, 255, 0.92)",
+        borderBottom: isDark
+          ? "1px solid rgba(255, 255, 255, 0.08)"
+          : "1px solid #e2e8f0",
+        backdropFilter: "blur(16px)",
       }}
-      className={`landing-nav-shell public-site-nav ${isStoreRoute ? "store-nav-dark" : ""}`}
+      className="landing-nav-shell public-site-nav"
     >
       <div style={styles.navContent} className="landing-nav-content">
         <div style={styles.leftNavGroup}>
@@ -164,14 +168,13 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             <div
               style={{
                 ...styles.logoCircle,
-                ...(isStoreRoute
-                  ? { backgroundColor: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.12)" }
-                  : {}),
+                backgroundColor: isDark ? "rgba(255, 255, 255, 0.06)" : "var(--bg-secondary)",
+                border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid var(--border-color)",
               }}
             >
               <Image src={brandLogo} alt="Websmith Digital logo" width={36} height={36} style={styles.logoImage} priority />
             </div>
-            <span style={{ ...styles.logoText, ...(isStoreRoute ? { color: "#FFFFFF" } : {}) }}>Websmith</span>
+            <span style={{ ...styles.logoText, color: isDark ? "#FFFFFF" : "#1d1d1f" }}>Websmith</span>
           </a>
           <div style={styles.desktopMenu} className="desktop-menu">
             {visibleNavItems.map((item, index) => {
@@ -186,8 +189,8 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                   href={item.href}
                   style={{
                     ...styles.menuItem,
-                    ...(isStoreRoute ? { color: isCurrent ? "#007AFF" : "#E2E8F0" } : {}),
-                    ...(isCurrent ? { color: "#007AFF", fontWeight: 600 } : {}),
+                    color: isCurrent ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                    ...(isCurrent ? { fontWeight: 600 } : {}),
                   }}
                   className={`menu-item-hover ${isCurrent ? "active-nav-link" : ""}`}
                 >
@@ -198,20 +201,102 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
           </div>
         </div>
 
+        {/* Integrated Store Search in Main Top Navigation */}
+        {isStoreRoute && (
+          <div className="flex-1 max-w-[180px] md:max-w-xs lg:max-w-sm mx-2 relative hidden sm:block">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              value={storeUI?.searchQuery || ""}
+              onChange={(e) => storeUI?.setSearchQuery(e.target.value)}
+              placeholder="Search software..."
+              aria-label="Search software"
+              className={`w-full pl-9 pr-3 py-1.5 rounded-xl text-xs sm:text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/40 ${
+                isDark
+                  ? "bg-white/[0.06] border border-white/10 text-white placeholder-slate-400 focus:border-indigo-400/50"
+                  : "bg-slate-100 border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:bg-white"
+              }`}
+            />
+          </div>
+        )}
+
         <div style={styles.navButtons} className="nav-buttons">
+          {/* Integrated Store Actions in Main Top Navigation */}
+          {isStoreRoute && (
+            <div className="flex items-center gap-1.5 mr-1">
+              <motion.button
+                onClick={() => storeUI?.openHistory()}
+                className={`relative flex items-center justify-center w-8 h-8 rounded-xl border transition-all ${
+                  isDark
+                    ? "border-white/10 bg-white/[0.04] text-emerald-300 hover:bg-white/[0.08]"
+                    : "border-slate-200 bg-slate-100 text-emerald-600 hover:bg-slate-200"
+                }`}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                aria-label="Purchase History"
+                title="Purchase History"
+              >
+                <HistoryIcon className="w-3.5 h-3.5" />
+              </motion.button>
+              <motion.button
+                onClick={() => storeUI?.openWishlist()}
+                className={`relative flex items-center justify-center w-8 h-8 rounded-xl border transition-all ${
+                  isDark
+                    ? "border-white/10 bg-white/[0.04] text-rose-300 hover:bg-white/[0.08]"
+                    : "border-slate-200 bg-slate-100 text-rose-600 hover:bg-slate-200"
+                }`}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                aria-label={`Wishlist (${storeUI?.wishlistCount || 0} items)`}
+                title={`Wishlist (${storeUI?.wishlistCount || 0} items)`}
+              >
+                <Heart className="w-3.5 h-3.5" />
+                {(storeUI?.wishlistCount ?? 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-sm">
+                    {storeUI?.wishlistCount}
+                  </span>
+                )}
+              </motion.button>
+              <motion.button
+                onClick={() => storeUI?.openCart()}
+                className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-sm hover:brightness-110 transition-all"
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                aria-label={`Cart (${storeUI?.cartCount || 0} items)`}
+                title={`Cart (${storeUI?.cartCount || 0} items)`}
+              >
+                <ShoppingCart className="w-3.5 h-3.5" />
+                {(storeUI?.cartCount ?? 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-amber-400 text-amber-950 text-[9px] font-bold flex items-center justify-center leading-none shadow-sm">
+                    {storeUI?.cartCount}
+                  </span>
+                )}
+              </motion.button>
+              <motion.button
+                onClick={() => storeUI?.openEmailCenter()}
+                className={`relative flex items-center justify-center w-8 h-8 rounded-xl border transition-all ${
+                  isDark
+                    ? "border-white/10 bg-white/[0.04] text-indigo-300 hover:bg-white/[0.08]"
+                    : "border-slate-200 bg-slate-100 text-indigo-600 hover:bg-slate-200"
+                }`}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                aria-label="Store Email Center"
+                title="Store Email Center"
+              >
+                <Mail className="w-3.5 h-3.5" />
+              </motion.button>
+            </div>
+          )}
+
           {showGuestThemeToggle && (
             <button
               type="button"
               onClick={togglePublicTheme}
               style={{
                 ...styles.themeToggleBtn,
-                ...(isStoreRoute
-                  ? {
-                      backgroundColor: "rgba(255, 255, 255, 0.06)",
-                      borderColor: "rgba(255, 255, 255, 0.12)",
-                      color: "#FFFFFF",
-                    }
-                  : {}),
+                backgroundColor: isDark ? "rgba(255, 255, 255, 0.06)" : "#f1f5f9",
+                borderColor: isDark ? "rgba(255, 255, 255, 0.12)" : "#e2e8f0",
+                color: isDark ? "#FFFFFF" : "#1d1d1f",
               }}
               aria-label={`Switch to ${publicTheme === "light" ? "dark" : "light"} mode`}
             >
@@ -224,13 +309,9 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
               onClick={() => router.push("/login")}
               style={{
                 ...styles.loginBtn,
-                ...(isStoreRoute
-                  ? {
-                      backgroundColor: "rgba(255, 255, 255, 0.05)",
-                      borderColor: "rgba(255, 255, 255, 0.12)",
-                      color: "#F1F5F9",
-                    }
-                  : {}),
+                backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "transparent",
+                borderColor: isDark ? "rgba(255, 255, 255, 0.12)" : "#e2e8f0",
+                color: isDark ? "#F1F5F9" : "#1d1d1f",
               }}
               className="login-btn-hover"
             >
@@ -247,7 +328,7 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
           onClick={() => setMobileOpen(!mobileOpen)}
           style={{
             ...styles.mobileMenuBtn,
-            ...(isStoreRoute ? { color: "#FFFFFF" } : {}),
+            color: isDark ? "#FFFFFF" : "#1d1d1f",
           }}
           className="mobile-menu-btn"
           aria-expanded={mobileOpen}
@@ -271,15 +352,61 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             id="public-site-navigation"
             style={{
               ...styles.mobileMenu,
-              ...(isStoreRoute
-                ? {
-                    backgroundColor: "#070B14",
-                    borderColor: "rgba(255, 255, 255, 0.08)",
-                  }
-                : {}),
+              backgroundColor: isDark ? "#070B14" : "#ffffff",
+              borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#e2e8f0",
             }}
             className="public-mobile-menu-panel"
           >
+            {isStoreRoute && (
+              <div className={`pb-3 mb-3 border-b ${isDark ? "border-white/10" : "border-slate-200"} flex flex-col gap-2`}>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input
+                    value={storeUI?.searchQuery || ""}
+                    onChange={(e) => storeUI?.setSearchQuery(e.target.value)}
+                    placeholder="Search software..."
+                    aria-label="Search software"
+                    className={`w-full pl-9 pr-3 py-2 rounded-xl text-sm transition-all focus:outline-none ${
+                      isDark
+                        ? "bg-white/[0.06] border border-white/10 text-white placeholder-slate-400"
+                        : "bg-slate-100 border border-slate-200 text-slate-900 placeholder-slate-400"
+                    }`}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => { setMobileOpen(false); storeUI?.openHistory(); }}
+                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border ${
+                      isDark ? "border-white/10 bg-white/[0.04] text-emerald-300" : "border-slate-200 bg-slate-100 text-emerald-700"
+                    }`}
+                  >
+                    <HistoryIcon className="w-3.5 h-3.5" /> History
+                  </button>
+                  <button
+                    onClick={() => { setMobileOpen(false); storeUI?.openWishlist(); }}
+                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border ${
+                      isDark ? "border-white/10 bg-white/[0.04] text-rose-300" : "border-slate-200 bg-slate-100 text-rose-700"
+                    }`}
+                  >
+                    <Heart className="w-3.5 h-3.5" /> Wishlist ({storeUI?.wishlistCount || 0})
+                  </button>
+                  <button
+                    onClick={() => { setMobileOpen(false); storeUI?.openCart(); }}
+                    className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm"
+                  >
+                    <ShoppingCart className="w-3.5 h-3.5" /> Cart ({storeUI?.cartCount || 0})
+                  </button>
+                  <button
+                    onClick={() => { setMobileOpen(false); storeUI?.openEmailCenter(); }}
+                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border ${
+                      isDark ? "border-white/10 bg-white/[0.04] text-indigo-300" : "border-slate-200 bg-slate-100 text-indigo-700"
+                    }`}
+                  >
+                    <Mail className="w-3.5 h-3.5" /> Email Center
+                  </button>
+                </div>
+              </div>
+            )}
             {visibleNavItems.map((item, index) => {
               const isCurrent = item.href === "/"
                 ? pathname === "/"
@@ -292,8 +419,8 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                   href={item.href}
                   style={{
                     ...styles.mobileMenuItem,
-                    ...(isStoreRoute ? { color: isCurrent ? "#007AFF" : "#E2E8F0" } : {}),
-                    ...(isCurrent ? { color: "#007AFF", fontWeight: 600 } : {}),
+                    color: isCurrent ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                    ...(isCurrent ? { fontWeight: 600 } : {}),
                   }}
                   className={`mobile-menu-item ${isCurrent ? "active-mobile-link" : ""}`}
                   onClick={() => setMobileOpen(false)}

@@ -32,6 +32,14 @@ export function PublicThemeProvider({ children }: { children: React.ReactNode })
     setPublicThemeState(readStoredTheme());
   }, []);
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark-theme", publicTheme === "dark");
+      document.documentElement.classList.toggle("light-theme", publicTheme === "light");
+      document.documentElement.setAttribute("data-theme", publicTheme);
+    }
+  }, [publicTheme]);
+
   const setPublicTheme = useCallback((theme: PublicTheme) => {
     setPublicThemeState(theme);
     try {

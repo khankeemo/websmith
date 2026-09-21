@@ -15,13 +15,16 @@ const CookieConsentBanner = dynamic(() => import("../components/ui/CookieConsent
 const AnalyticsTracker = dynamic(() => import("../components/ui/AnalyticsTracker"), { ssr: false });
 import { LeadFunnelProvider } from "./providers/LeadFunnelProvider";
 import { PublicThemeProvider, usePublicTheme } from "./providers/PublicThemeProvider";
+import { StoreUIProvider } from "./software-store/StoreUIContext";
 import PublicFooter from "../components/layout/PublicFooter";
 import PublicSiteNav from "../components/layout/PublicSiteNav";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <PublicThemeProvider>
-      <ClientLayoutInner>{children}</ClientLayoutInner>
+      <StoreUIProvider>
+        <ClientLayoutInner>{children}</ClientLayoutInner>
+      </StoreUIProvider>
     </PublicThemeProvider>
   );
 }
@@ -74,13 +77,8 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
     if (isPublicRoute(pathname)) {
-      const isStore = pathname.startsWith("/software-store");
-      document.documentElement.classList.toggle("dark-theme", isStore || publicTheme === "dark");
-      return () => {
-        if (isStore && publicTheme !== "dark") {
-          document.documentElement.classList.remove("dark-theme");
-        }
-      };
+      document.documentElement.classList.toggle("dark-theme", publicTheme === "dark");
+      return;
     }
 
     if (!token || !user) {

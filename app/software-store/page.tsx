@@ -30,6 +30,8 @@ import {
   StoreToast, CartPanel, WishlistPanel, CompareModal, CompareTray,
 } from "./components/store-panels";
 import StoreEmailCenter from "./components/store-email-center";
+import { usePublicTheme } from "@/app/providers/PublicThemeProvider";
+import { useStoreUI } from "./StoreUIContext";
 
 function Shimmer() {
   return (
@@ -312,7 +314,7 @@ function StarRating() {
   );
 }
 
-function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOpen, onAddToCart }: {
+function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOpen, onAddToCart, isDark = true }: {
   product: StoreProduct;
   cheapestPrice: number | null;
   planCount: number;
@@ -320,6 +322,7 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
   inCart: boolean;
   onOpen: () => void;
   onAddToCart: () => void;
+  isDark?: boolean;
 }) {
   const [spot, setSpot] = useState<{ x: number; y: number } | null>(null);
 
@@ -356,13 +359,14 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
       </div>
 
       <div
-        className="relative flex h-full flex-1 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl
-        shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_50px_-20px_rgba(0,0,0,0.7)]
-        group-hover:border-indigo-400/30 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(129,140,248,0.18),0_30px_80px_-20px_rgba(99,102,241,0.5)]
-        focus-visible:ring-2 focus-visible:ring-indigo-400/50 transition-all duration-500"
+        className={`relative flex h-full flex-1 flex-col overflow-hidden rounded-3xl border transition-all duration-500 focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+          isDark
+            ? "border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_50px_-20px_rgba(0,0,0,0.7)] group-hover:border-indigo-400/30 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(129,140,248,0.18),0_30px_80px_-20px_rgba(99,102,241,0.5)]"
+            : "border-slate-200 bg-white shadow-sm hover:shadow-xl hover:border-indigo-400/40"
+        }`}
       >
         {/* cursor spotlight */}
-        {spot && (
+        {spot && isDark && (
           <div
             className="pointer-events-none absolute z-10 h-72 w-72 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
             style={{
@@ -374,11 +378,13 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
         )}
 
         {/* hover glow orb */}
-        <div className="pointer-events-none absolute -top-20 -right-16 w-56 h-56 rounded-full bg-indigo-500/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        {isDark && (
+          <div className="pointer-events-none absolute -top-20 -right-16 w-56 h-56 rounded-full bg-indigo-500/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        )}
 
         {/* icon header */}
         <div className="relative h-40 shrink-0 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.28),rgba(139,92,246,0.12)_45%,transparent_75%)]" />
+          <div className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.28),rgba(139,92,246,0.12)_45%,transparent_75%)]" : "bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.12),transparent_75%)]"}`} />
           <motion.div
             className="absolute -inset-x-1/4 -inset-y-1/2 opacity-60"
             style={{ background: "linear-gradient(110deg, rgba(99,102,241,0.22), transparent 35%, rgba(34,211,238,0.16) 55%, transparent 75%, rgba(139,92,246,0.2))" }}
@@ -386,18 +392,22 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
             transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
           />
           <div className="absolute inset-0 opacity-35"
-            style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0B1220] via-transparent to-transparent" />
+            style={{ backgroundImage: isDark ? "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)" : "linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+          <div className={`absolute inset-0 bg-gradient-to-t ${isDark ? "from-[#0B1220]" : "from-white"} via-transparent to-transparent`} />
 
           {/* status badges */}
           <div className="absolute top-3.5 right-3.5 z-10 flex items-center gap-1.5">
             {product.featured && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/15 text-amber-300 text-[10px] font-bold border border-amber-400/25 backdrop-blur-sm">
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border backdrop-blur-sm ${
+                isDark ? "bg-amber-400/15 text-amber-300 border-amber-400/25" : "bg-amber-100 text-amber-800 border-amber-200"
+              }`}>
                 <Star className="w-3 h-3 fill-current" /> Featured
               </span>
             )}
             {hasTrial && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-400/15 text-emerald-300 text-[10px] font-bold border border-emerald-400/25 backdrop-blur-sm">
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border backdrop-blur-sm ${
+                isDark ? "bg-emerald-400/15 text-emerald-300 border-emerald-400/25" : "bg-emerald-100 text-emerald-800 border-emerald-200"
+              }`}>
                 <Sparkles className="w-3 h-3" /> Trial
               </span>
             )}
@@ -406,12 +416,16 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
           {/* floating icon */}
           <div className="absolute bottom-4 left-5 right-5 flex items-end gap-4">
             <motion.div
-              className="relative w-16 h-16 rounded-2xl bg-[#0B1220]/85 backdrop-blur-md flex items-center justify-center border border-white/10 shadow-[0_8px_30px_-6px_rgba(99,102,241,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] shrink-0"
+              className={`relative w-16 h-16 rounded-2xl flex items-center justify-center border shrink-0 ${
+                isDark
+                  ? "bg-[#0B1220]/85 backdrop-blur-md border-white/10 shadow-[0_8px_30px_-6px_rgba(99,102,241,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] text-white"
+                  : "bg-white border-slate-200 shadow-md text-slate-900"
+              }`}
               animate={{ y: [0, -5, 0], rotate: [0, 1.5, 0] }}
               transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
             >
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/25 to-cyan-400/20 opacity-80" />
-              <span className="relative text-2xl font-bold text-white">
+              <span className="relative text-2xl font-bold">
                 {product.logo_url ? (
                   <img src={product.logo_url} alt={product.name} className="w-10 h-10 rounded-xl object-contain" />
                 ) : (
@@ -420,11 +434,15 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
               </span>
             </motion.div>
             <div className="min-w-0 flex-1 pb-0.5">
-              <h3 className="font-bold text-base text-white truncate group-hover:text-indigo-200 transition-colors duration-300">{product.name}</h3>
+              <h3 className={`font-bold text-base truncate transition-colors duration-300 ${
+                isDark ? "text-white group-hover:text-indigo-200" : "text-slate-900 group-hover:text-indigo-600"
+              }`}>{product.name}</h3>
               <div className="flex items-center gap-2 mt-0.5">
-                {product.company_name && <p className="text-[11px] text-slate-400 truncate">{product.company_name}</p>}
+                {product.company_name && <p className={`text-[11px] truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>{product.company_name}</p>}
                 {product.version && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/10 text-slate-300 font-medium border border-white/10 shrink-0">v{product.version}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border shrink-0 ${
+                    isDark ? "bg-white/10 text-slate-300 border-white/10" : "bg-slate-100 text-slate-700 border-slate-200"
+                  }`}>v{product.version}</span>
                 )}
               </div>
             </div>
@@ -433,31 +451,37 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
 
         {/* body */}
         <div className="flex flex-1 flex-col p-5 pt-4 space-y-3">
-          <p className="text-xs leading-relaxed text-slate-400 line-clamp-2">
+          <p className={`text-xs leading-relaxed line-clamp-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
             {product.short_description || product.description || "No description available."}
           </p>
 
           {/* chips */}
           <div className="flex flex-wrap gap-1.5">
             {product.product_type && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                isDark ? "bg-indigo-500/10 text-indigo-300 border-indigo-500/20" : "bg-indigo-50 text-indigo-700 border-indigo-200"
+              }`}>
                 <Tag className="w-2.5 h-2.5" />{product.product_type}
               </span>
             )}
             {product.platform && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                isDark ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/20" : "bg-cyan-50 text-cyan-700 border-cyan-200"
+              }`}>
                 <Monitor className="w-2.5 h-2.5" />{product.platform}
               </span>
             )}
             {(product.tags || []).slice(0, 2).map((t) => (
-              <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-slate-400 border border-white/10">{t}</span>
+              <span key={t} className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                isDark ? "bg-white/5 text-slate-400 border-white/10" : "bg-slate-100 text-slate-600 border-slate-200"
+              }`}>{t}</span>
             ))}
           </div>
 
           {/* rating + updated */}
           <div className="flex items-center justify-between">
             <StarRating />
-            <span className="text-[10px] text-slate-500">
+            <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-500"}`}>
               <Clock className="w-2.5 h-2.5 inline mr-0.5" />
               {formatDate((product as any).updated_at) || formatDate((product as any).created_at) || "Recently"}
             </span>
@@ -465,11 +489,11 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
 
           {/* pricing */}
           {planCount > 0 && cheapestPrice !== null && (
-            <div className="flex items-center justify-between pt-3 border-t border-white/10">
-              <span className="flex items-center gap-1 text-xs text-slate-400">
+            <div className={`flex items-center justify-between pt-3 border-t ${isDark ? "border-white/10" : "border-slate-200"}`}>
+              <span className={`flex items-center gap-1 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                 <Layers className="w-3 h-3" /> {planCount} plan{planCount !== 1 ? "s" : ""}
               </span>
-              <span className="text-lg font-extrabold text-white">
+              <span className={`text-lg font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
                 {cheapestPrice === 0 ? "Free" : `${formatPrice(cheapestPrice)}+`}
               </span>
             </div>
@@ -480,7 +504,7 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
             {hasTrial && (
               <button
                 onClick={(e) => { e.stopPropagation(); onOpen(); }}
-                className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.07] text-emerald-300 text-xs font-semibold hover:bg-emerald-500/15 hover:border-emerald-400/40 hover:shadow-[0_0_28px_-8px_rgba(52,211,153,0.5)] active:scale-[0.98] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
+                className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.07] text-emerald-400 text-xs font-semibold hover:bg-emerald-500/15 hover:border-emerald-400/40 active:scale-[0.98] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
               >
                 <Sparkles className="w-3 h-3" /> Free Trial
               </button>
@@ -492,8 +516,8 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
                 aria-label={`Add ${product.name} to cart`}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
                   inCart
-                    ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/25 hover:shadow-[0_0_24px_-6px_rgba(52,211,153,0.5)]"
-                    : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_8px_28px_-8px_rgba(99,102,241,0.6)] hover:brightness-110 hover:shadow-[0_10px_36px_-8px_rgba(99,102,241,0.8)]"
+                    ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/25"
+                    : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md hover:brightness-110"
                 }`}
               >
                 {inCart ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
@@ -501,7 +525,11 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
               </motion.button>
               <button
                 onClick={(e) => { e.stopPropagation(); onOpen(); }}
-                className="group/btn flex-1 flex items-center justify-center gap-1 px-3 py-3 rounded-xl border border-white/10 bg-white/[0.04] text-slate-200 text-xs font-semibold hover:border-indigo-400/40 hover:bg-white/[0.08] hover:text-white active:scale-[0.97] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50"
+                className={`group/btn flex-1 flex items-center justify-center gap-1 px-3 py-3 rounded-xl border text-xs font-semibold active:scale-[0.97] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                  isDark
+                    ? "border-white/10 bg-white/[0.04] text-slate-200 hover:border-indigo-400/40 hover:bg-white/[0.08] hover:text-white"
+                    : "border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-200 hover:border-slate-300"
+                }`}
               >
                 View Details
                 <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5" />
@@ -516,6 +544,10 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
 
 export default function SoftwareStorePage() {
   const router = useRouter();
+  const { publicTheme } = usePublicTheme();
+  const isDark = publicTheme === "dark";
+  const storeUI = useStoreUI();
+  const [showEmailCenter, setShowEmailCenter] = useState(false);
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -535,6 +567,29 @@ export default function SoftwareStorePage() {
   const compare = useCompare();
   const [showCompare, setShowCompare] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    if (storeUI) {
+      storeUI.setDrawerHandlers({
+        openCart: () => setShowCart(true),
+        openWishlist: () => setShowWishlist(true),
+        openHistory: () => setShowHistory(true),
+        openEmailCenter: () => setShowEmailCenter(true),
+      });
+    }
+  }, [storeUI]);
+
+  useEffect(() => {
+    if (storeUI) {
+      storeUI.setCartCount(cart.totalItems);
+    }
+  }, [cart.totalItems, storeUI]);
+
+  useEffect(() => {
+    if (storeUI) {
+      storeUI.setWishlistCount(wishlist.items.length);
+    }
+  }, [wishlist.items.length, storeUI]);
 
   const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -594,8 +649,10 @@ export default function SoftwareStorePage() {
     return Array.from(set).sort();
   }, [products]);
 
+  const effectiveQuery = (storeUI?.searchQuery !== undefined && storeUI.searchQuery !== "" ? storeUI.searchQuery : query).trim().toLowerCase();
+
   const filteredProducts = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = effectiveQuery;
     let result = products.filter((p) => {
       const matchesSearch = !q || [p.name, p.short_description || p.description, p.company_name].filter(Boolean).join(" ").toLowerCase().includes(q);
       const matchesCategory = !categoryFilter || p.product_type === categoryFilter;
@@ -665,110 +722,33 @@ export default function SoftwareStorePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]" style={STORE_DARK_STYLE}>
+    <div className={`min-h-screen transition-colors duration-200 ${isDark ? "bg-[#070B14] text-slate-100" : "bg-[#F8FAFC] text-slate-900"}`}>
       <StoreToast toast={toast} />
-
-      {/* Store Utility Sub-Header */}
-      <div className="sticky top-[65px] z-30 bg-[#070B14]/90 backdrop-blur-xl border-b border-white/[0.08]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5 shrink-0">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-indigo-400/25 bg-indigo-500/10 text-indigo-300 text-xs font-semibold backdrop-blur-sm">
-              <Package className="w-3.5 h-3.5" /> Software Marketplace
-            </span>
-            <span className="text-xs text-slate-400 hidden sm:inline">
-              Instant license delivery · Secure checkout
-            </span>
-          </div>
-
-          <div className="flex-1 max-w-xs sm:max-w-sm md:max-w-md relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search software..."
-              aria-label="Search software"
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-white/10 bg-white/[0.05] text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all backdrop-blur-sm"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <motion.button
-              onClick={() => setShowHistory(true)}
-              className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] text-emerald-300 hover:bg-white/[0.07] hover:border-emerald-400/40 transition-all"
-              whileHover={{ scale: 1.06 }}
-              whileTap={{ scale: 0.94 }}
-              aria-label="Purchase History"
-              title="Purchase History"
-            >
-              <HistoryIcon className="w-4 h-4" />
-            </motion.button>
-            <motion.button
-              onClick={() => setShowWishlist(true)}
-              className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] text-rose-300 hover:bg-white/[0.07] hover:border-rose-400/40 transition-all"
-              whileHover={{ scale: 1.06 }}
-              whileTap={{ scale: 0.94 }}
-              aria-label={`Wishlist (${wishlist.items.length} items)`}
-              title={`Wishlist (${wishlist.items.length} items)`}
-            >
-              <Heart className="w-4 h-4" />
-              {wishlist.items.length > 0 && (
-                <motion.span
-                  key={`wish-${wishlist.items.length}`}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring" as const, stiffness: 500, damping: 16 }}
-                  className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-[0_0_12px_rgba(244,63,94,0.6)]"
-                >
-                  {wishlist.items.length}
-                </motion.span>
-              )}
-            </motion.button>
-            <motion.button
-              onClick={() => setShowCart(true)}
-              className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all"
-              whileHover={{ scale: 1.06 }}
-              whileTap={{ scale: 0.94 }}
-              aria-label={`Cart (${cart.totalItems} items)`}
-              title={`Cart (${cart.totalItems} items)`}
-            >
-              <ShoppingCart className="w-4 h-4" />
-              {cart.totalItems > 0 && (
-                <motion.span
-                  key={`cart-${cart.totalItems}`}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring" as const, stiffness: 500, damping: 16 }}
-                  className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-amber-950 text-[9px] font-bold flex items-center justify-center leading-none shadow-[0_0_12px_rgba(251,191,36,0.7)]"
-                >
-                  {cart.totalItems}
-                </motion.span>
-              )}
-            </motion.button>
-            <StoreEmailCenter />
-          </div>
-        </div>
-      </div>
 
       {/* Hero */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-20%,rgba(99,102,241,0.35),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(34,211,238,0.12),transparent_50%),radial-gradient(ellipse_at_5%_45%,rgba(139,92,246,0.16),transparent_55%)]" />
+        <div className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_-20%,rgba(99,102,241,0.35),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(34,211,238,0.12),transparent_50%),radial-gradient(ellipse_at_5%_45%,rgba(139,92,246,0.16),transparent_55%)]" : "bg-[radial-gradient(ellipse_at_50%_-20%,rgba(99,102,241,0.12),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(34,211,238,0.06),transparent_50%),radial-gradient(ellipse_at_5%_45%,rgba(139,92,246,0.08),transparent_55%)]"}`} />
         <div className="absolute inset-0 opacity-30"
-          style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
-        <motion.div className="absolute -top-24 left-[22%] w-72 h-72 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none"
-          animate={{ y: [0, 22, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} />
-        <motion.div className="absolute top-6 right-[20%] w-56 h-56 rounded-full bg-violet-600/15 blur-3xl pointer-events-none"
-          animate={{ y: [0, -18, 0] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} />
+          style={{ backgroundImage: isDark ? "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)" : "linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
+        {isDark && (
+          <>
+            <motion.div className="absolute -top-24 left-[22%] w-72 h-72 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none"
+              animate={{ y: [0, 22, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} />
+            <motion.div className="absolute top-6 right-[20%] w-56 h-56 rounded-full bg-violet-600/15 blur-3xl pointer-events-none"
+              animate={{ y: [0, -18, 0] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} />
+          </>
+        )}
         <div className="relative max-w-7xl mx-auto px-6 pt-10 pb-8 md:pt-12 md:pb-10 text-center">
           <motion.h1
-            className="text-3xl md:text-5xl font-extrabold text-white tracking-tight"
+            className={`text-3xl md:text-5xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring" as const, stiffness: 260, damping: 24 }}
           >
-            Software <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-300 bg-clip-text text-transparent">Store</span>
+            Software <span className="bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-500 bg-clip-text text-transparent">Store</span>
           </motion.h1>
           <motion.p
-            className="text-base md:text-lg text-slate-400 max-w-xl mx-auto mt-2.5"
+            className={`text-base md:text-lg max-w-xl mx-auto mt-2.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1, duration: 0.35 }}
@@ -779,11 +759,19 @@ export default function SoftwareStorePage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
+      <div className={`backdrop-blur-2xl border-b transition-colors duration-200 ${
+        isDark
+          ? "bg-[#070B14]/85 border-white/[0.08]"
+          : "bg-white/90 border-slate-200 shadow-sm"
+      }`}>
         <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 bg-white/[0.04] border border-white/10 rounded-full px-3 py-1.5 backdrop-blur-sm">
-              <Filter className="w-3.5 h-3.5 text-indigo-300" />
+            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 backdrop-blur-sm ${
+              isDark
+                ? "text-slate-300 bg-white/[0.04] border border-white/10"
+                : "text-slate-700 bg-slate-100 border border-slate-200"
+            }`}>
+              <Filter className={`w-3.5 h-3.5 ${isDark ? "text-indigo-300" : "text-indigo-600"}`} />
               {filteredProducts.length} product{filteredProducts.length !== 1 ? "s" : ""}
             </span>
 
@@ -794,7 +782,11 @@ export default function SoftwareStorePage() {
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 aria-label="Filter by category"
-                className="px-3 py-2 rounded-xl border border-white/10 bg-[#0B1220]/90 text-sm text-slate-200 outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all"
+                className={`px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer backdrop-blur-sm transition-all ${
+                  isDark
+                    ? "border-white/10 bg-[#0B1220]/90 text-slate-200 hover:border-indigo-500/40"
+                    : "border-slate-200 bg-white text-slate-800 hover:border-indigo-500/40 shadow-sm"
+                }`}
               >
                 <option value="">All Categories</option>
                 {categories.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -806,7 +798,11 @@ export default function SoftwareStorePage() {
                 value={platformFilter}
                 onChange={(e) => setPlatformFilter(e.target.value)}
                 aria-label="Filter by platform"
-                className="px-3 py-2 rounded-xl border border-white/10 bg-[#0B1220]/90 text-sm text-slate-200 outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all"
+                className={`px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer backdrop-blur-sm transition-all ${
+                  isDark
+                    ? "border-white/10 bg-[#0B1220]/90 text-slate-200 hover:border-indigo-500/40"
+                    : "border-slate-200 bg-white text-slate-800 hover:border-indigo-500/40 shadow-sm"
+                }`}
               >
                 <option value="">All Platforms</option>
                 {platforms.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -817,7 +813,11 @@ export default function SoftwareStorePage() {
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               aria-label="Sort products"
-              className="px-3 py-2 rounded-xl border border-white/10 bg-[#0B1220]/90 text-sm text-slate-200 outline-none cursor-pointer backdrop-blur-sm hover:border-indigo-500/40 transition-all"
+              className={`px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer backdrop-blur-sm transition-all ${
+                isDark
+                  ? "border-white/10 bg-[#0B1220]/90 text-slate-200 hover:border-indigo-500/40"
+                  : "border-slate-200 bg-white text-slate-800 hover:border-indigo-500/40 shadow-sm"
+              }`}
             >
               <option value="newest">Sort: Newest</option>
               <option value="price-asc">Price: Low to High</option>
@@ -825,24 +825,29 @@ export default function SoftwareStorePage() {
               <option value="name">Name: A-Z</option>
             </select>
 
-            <div className="flex items-center border border-white/10 rounded-xl overflow-hidden bg-white/[0.03]">
-              <motion.button
+            <div className={`flex items-center rounded-xl border p-0.5 ${isDark ? "border-white/10 bg-[#0B1220]/60" : "border-slate-200 bg-slate-100"}`}>
+              <button
                 onClick={() => setViewMode("grid")}
-                whileTap={{ scale: 0.9 }}
                 aria-label="Grid view"
-                className={`p-2 transition-all ${viewMode === "grid" ? "bg-indigo-500/25 text-indigo-300" : "text-slate-400 hover:text-white"}`}
+                className={`p-1.5 rounded-lg transition-all ${
+                  viewMode === "grid"
+                    ? isDark ? "bg-white/10 text-white" : "bg-white text-slate-900 shadow-sm"
+                    : isDark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-900"
+                }`}
               >
                 <LayoutGrid className="w-4 h-4" />
-              </motion.button>
-              <div className="w-px h-4 bg-white/10" />
-              <motion.button
+              </button>
+              <button
                 onClick={() => setViewMode("list")}
-                whileTap={{ scale: 0.9 }}
                 aria-label="List view"
-                className={`p-2 transition-all ${viewMode === "list" ? "bg-indigo-500/25 text-indigo-300" : "text-slate-400 hover:text-white"}`}
+                className={`p-1.5 rounded-lg transition-all ${
+                  viewMode === "list"
+                    ? isDark ? "bg-white/10 text-white" : "bg-white text-slate-900 shadow-sm"
+                    : isDark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-900"
+                }`}
               >
                 <List className="w-4 h-4" />
-              </motion.button>
+              </button>
             </div>
           </div>
         </div>
@@ -867,8 +872,8 @@ export default function SoftwareStorePage() {
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500/10 to-rose-500/10 flex items-center justify-center mb-5 border border-red-500/20">
               <AlertCircle className="w-8 h-8 text-red-400" />
             </div>
-            <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Something went wrong</h3>
-            <p className="text-sm text-[var(--text-secondary)] mb-6 max-w-xs">{error}</p>
+            <h3 className={`text-xl font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>Something went wrong</h3>
+            <p className={`text-sm mb-6 max-w-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>{error}</p>
             <motion.button
               onClick={handleRetry}
               whileHover={{ scale: 1.05 }}
@@ -885,13 +890,20 @@ export default function SoftwareStorePage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: "spring" as const, stiffness: 200, damping: 20 }}
           >
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-6 border border-[var(--border-color)]">
-              <Search className="w-10 h-10 text-[var(--border-color)]" />
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 border ${
+              isDark ? "bg-indigo-500/10 border-white/10" : "bg-indigo-50 border-slate-200"
+            }`}>
+              <Search className={`w-10 h-10 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
             </div>
-            <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">No products found</h3>
-            <p className="text-sm text-[var(--text-secondary)] mb-6 max-w-xs">We couldn't find any products matching your criteria. Try adjusting your search or filters.</p>
+            <h3 className={`text-xl font-semibold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>No products found</h3>
+            <p className={`text-sm mb-6 max-w-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>We couldn't find any products matching your criteria. Try adjusting your search or filters.</p>
             <motion.button
-              onClick={() => { setQuery(""); setCategoryFilter(""); setPlatformFilter(""); }}
+              onClick={() => {
+                setQuery("");
+                if (storeUI) storeUI.setSearchQuery("");
+                setCategoryFilter("");
+                setPlatformFilter("");
+              }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/20 hover:from-indigo-500 hover:to-purple-500 transition-all"
@@ -921,6 +933,7 @@ export default function SoftwareStorePage() {
                     const firstPlan = product.plans?.find((p) => p.is_active);
                     handleAddToCart(product, firstPlan);
                   }}
+                  isDark={isDark}
                 />
               );
             })}
@@ -950,17 +963,25 @@ export default function SoftwareStorePage() {
                       openDetail(product);
                     }
                   }}
-                  className="group relative flex items-center gap-5 p-5 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl cursor-pointer hover:border-indigo-400/30 hover:shadow-[0_0_0_1px_rgba(129,140,248,0.15),0_16px_50px_-16px_rgba(99,102,241,0.35)] transition-all duration-300"
+                  className={`group relative flex items-center gap-5 p-5 rounded-2xl border backdrop-blur-xl cursor-pointer transition-all duration-300 ${
+                    isDark
+                      ? "border-white/10 bg-white/[0.03] hover:border-indigo-400/30 hover:shadow-[0_0_0_1px_rgba(129,140,248,0.15),0_16px_50px_-16px_rgba(99,102,241,0.35)]"
+                      : "border-slate-200 bg-white hover:border-indigo-300 shadow-sm hover:shadow-md"
+                  }`}
                 >
                   {product.featured && (
-                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 text-[10px] font-bold border border-amber-400/25 backdrop-blur-sm">
+                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-500 dark:text-amber-300 text-[10px] font-bold border border-amber-400/25 backdrop-blur-sm">
                       <Star className="w-2.5 h-2.5 fill-current" /> Featured
                     </div>
                   )}
 
-                  <div className="relative w-16 h-16 rounded-2xl bg-[#0B1220]/85 backdrop-blur-md flex items-center justify-center text-2xl border border-white/10 shadow-[0_8px_24px_-6px_rgba(99,102,241,0.4)] shrink-0">
+                  <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center text-2xl border shrink-0 ${
+                    isDark
+                      ? "bg-[#0B1220]/85 border-white/10 shadow-[0_8px_24px_-6px_rgba(99,102,241,0.4)] text-white"
+                      : "bg-slate-50 border-slate-200 text-slate-900"
+                  }`}>
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/25 to-cyan-400/15" />
-                    <span className="relative font-bold text-white">
+                    <span className="relative font-bold">
                       {product.logo_url ? (
                         <img src={product.logo_url} alt={product.name} className="w-11 h-11 rounded-xl object-contain" />
                       ) : (
@@ -971,25 +992,27 @@ export default function SoftwareStorePage() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 mb-1">
-                      <h3 className="font-bold text-base text-white truncate">{product.name}</h3>
+                      <h3 className={`font-bold text-base truncate ${isDark ? "text-white" : "text-slate-900"}`}>{product.name}</h3>
                       {product.version && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300 font-medium border border-white/10 shrink-0">v{product.version}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0 ${
+                          isDark ? "bg-white/10 text-slate-300 border-white/10" : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}>v{product.version}</span>
                       )}
                       {hasTrial && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/25 font-medium shrink-0">Free Trial</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-600 dark:text-emerald-300 border border-emerald-400/25 font-medium shrink-0">Free Trial</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                    <div className={`flex items-center gap-3 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                       {product.company_name && <span>{product.company_name}</span>}
                       {product.platform && <span className="flex items-center gap-1"><Monitor className="w-3 h-3" />{product.platform}</span>}
                       {product.product_type && <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{product.product_type}</span>}
                     </div>
-                    <p className="text-xs text-slate-500 mt-1.5 line-clamp-1">
+                    <p className={`text-xs mt-1.5 line-clamp-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                       {product.short_description || product.description || "No description available."}
                     </p>
                     <div className="flex items-center gap-3 mt-2">
                       <StarRating />
-                      <span className="text-[10px] text-slate-500">
+                      <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                         <Clock className="w-2.5 h-2.5 inline mr-0.5" />
                         {formatDate((product as any).updated_at) || formatDate((product as any).created_at) || "Recently"}
                       </span>
@@ -999,12 +1022,12 @@ export default function SoftwareStorePage() {
                   <div className="text-right shrink-0 flex flex-col items-end gap-2.5">
                     <div>
                       {cheapestPrice !== null && (
-                        <div className="text-2xl font-extrabold text-white">
+                        <div className={`text-2xl font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
                           {cheapestPrice === 0 ? "Free" : `${formatPrice(cheapestPrice)}`}
                         </div>
                       )}
                       {planCount > 0 && (
-                        <div className="text-[10px] text-slate-500">{planCount} plan{planCount !== 1 ? "s" : ""}</div>
+                        <div className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>{planCount} plan{planCount !== 1 ? "s" : ""}</div>
                       )}
                     </div>
                     <div className="flex gap-2">
@@ -1014,7 +1037,7 @@ export default function SoftwareStorePage() {
                         aria-label={`Add ${product.name} to cart`}
                         className={`flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
                           inCart
-                            ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/25"
+                            ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25"
                             : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)] hover:brightness-110"
                         }`}
                       >
@@ -1024,7 +1047,11 @@ export default function SoftwareStorePage() {
                       <motion.button
                         whileTap={{ scale: 0.97 }}
                         onClick={(e) => { e.stopPropagation(); openDetail(product); }}
-                        className="group/btn flex items-center justify-center gap-1 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.04] text-slate-200 text-xs font-semibold hover:border-indigo-400/40 hover:text-white transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50"
+                        className={`group/btn flex items-center justify-center gap-1 px-4 py-3 rounded-xl border text-xs font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                          isDark
+                            ? "border-white/10 bg-white/[0.04] text-slate-200 hover:border-indigo-400/40 hover:text-white"
+                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:text-slate-900"
+                        }`}
                       >
                         Details
                         <ChevronRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5" />
@@ -1039,7 +1066,7 @@ export default function SoftwareStorePage() {
       </div>
 
       {/* Subtle smooth transition into footer */}
-      <div className="h-10 bg-gradient-to-b from-transparent to-[#070B14] pointer-events-none" />
+      <div className={`h-10 pointer-events-none ${isDark ? "bg-gradient-to-b from-transparent to-[#070B14]" : "bg-gradient-to-b from-transparent to-[#F8FAFC]"}`} />
 
       <AnimatePresence>
         {showCart && (
@@ -1094,6 +1121,9 @@ export default function SoftwareStorePage() {
         onClear={() => compare.clear()}
         onOpen={() => compare.items.length >= 2 && setShowCompare(true)}
       />
+
+      {/* Email Center Dialog triggered via StoreUIContext from PublicSiteNav */}
+      <StoreEmailCenter open={showEmailCenter} onOpenChange={setShowEmailCenter} />
     </div>
   );
 }

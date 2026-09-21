@@ -8,12 +8,14 @@ import type { CSSProperties } from "react";
 import { publicFooterConfig } from "../../core/config/publicSite";
 import { SOCIAL_PLATFORM_META, type SocialPlatformMeta } from "../../lib/social-platforms";
 import API from "../../core/services/apiService";
+import { usePublicTheme } from "../../app/providers/PublicThemeProvider";
 
 type SocialItem = SocialPlatformMeta & { href: string };
 
 export default function PublicFooter() {
   const pathname = usePathname();
-  const isStore = Boolean(pathname?.startsWith("/software-store"));
+  const { publicTheme } = usePublicTheme();
+  const isDark = publicTheme === "dark";
   const year = new Date().getFullYear();
   const [socials, setSocials] = useState<SocialItem[]>([]);
 
@@ -42,12 +44,8 @@ export default function PublicFooter() {
     <footer
       style={{
         ...styles.footer,
-        ...(isStore
-          ? {
-              backgroundColor: "#070B14",
-              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-            }
-          : {}),
+        backgroundColor: isDark ? "#070B14" : "var(--bg-secondary)",
+        borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid var(--border-color)",
       }}
     >
       <div style={styles.content} className="landing-footer-content">
@@ -56,12 +54,8 @@ export default function PublicFooter() {
             <span
               style={{
                 ...styles.footerLogoShell,
-                ...(isStore
-                  ? {
-                      backgroundColor: "rgba(255, 255, 255, 0.06)",
-                      border: "1px solid rgba(255, 255, 255, 0.12)",
-                    }
-                  : {}),
+                backgroundColor: isDark ? "rgba(255, 255, 255, 0.06)" : "var(--bg-primary)",
+                border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid var(--border-color)",
               }}
             >
               <Image src="/images/websmith_1x1.jpg" alt="Websmith Digital logo" width={42} height={42} style={styles.footerLogo} />
