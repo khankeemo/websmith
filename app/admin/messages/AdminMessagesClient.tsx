@@ -1108,6 +1108,9 @@ export default function AdminMessagesClient() {
         callingPhone: ticket.contactCallingPhone || ticket.contactPhone || "",
         whatsappPhone: ticket.contactWhatsappPhone || "",
         preferredContactDate: ticket.preferredContactDate || "",
+        preferredContactTime: ticket.preferredContactTime || "",
+        timeZone: ticket.timeZone || ticket.clientTimeZone || "",
+        adminCallTimeIST: ticket.adminCallTimeIST || "",
         subtitle: ticket.contactCompany || "Website contact form",
       };
     }
@@ -1119,6 +1122,9 @@ export default function AdminMessagesClient() {
       callingPhone: (client as any)?.phone || "",
       whatsappPhone: "",
       preferredContactDate: "",
+      preferredContactTime: "",
+      timeZone: "",
+      adminCallTimeIST: "",
       subtitle: "Client portal",
     };
   };
@@ -1935,7 +1941,15 @@ export default function AdminMessagesClient() {
                       <>
                         <span>·</span>
                         <span style={{ color: "#FF9500", fontWeight: 600 }}>
-                          📅 Preferred: {getRequester(selectedTicket).preferredContactDate}
+                          📅 {getRequester(selectedTicket).preferredContactDate}
+                        </span>
+                      </>
+                    )}
+                    {getRequester(selectedTicket).adminCallTimeIST && (
+                      <>
+                        <span>·</span>
+                        <span style={{ color: "#34C759", fontWeight: 700, backgroundColor: "rgba(52, 199, 89, 0.1)", padding: "2px 8px", borderRadius: "6px" }}>
+                          📞 Call at (IST): {getRequester(selectedTicket).adminCallTimeIST}
                         </span>
                       </>
                     )}
@@ -2146,6 +2160,15 @@ export default function AdminMessagesClient() {
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
                       <span>Preferred Contact:</span>
                       <strong style={{ color: "var(--text-primary)" }}>{getRequester(selectedTicket).preferredContactDate}</strong>
+                    </span>
+                  </div>
+                )}
+                {getRequester(selectedTicket).adminCallTimeIST && (
+                  <div style={styles.metaItem}>
+                    <Clock3 size={14} color="#34C759" />
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <span>Call at (IST):</span>
+                      <strong style={{ color: "#34C759" }}>{getRequester(selectedTicket).adminCallTimeIST}</strong>
                     </span>
                   </div>
                 )}

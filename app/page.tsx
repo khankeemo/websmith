@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { 
   ArrowRight, 
   Star, 
@@ -22,6 +22,8 @@ import {
   MessageSquare,
   Calendar,
   ChevronDown,
+  Globe,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import PublicFooter from "../components/layout/PublicFooter";
@@ -73,6 +75,107 @@ const CONTACT_TIME_SLOTS = [
   "Evening (06:00 PM – 09:00 PM)",
   "Anytime / Flexible",
 ] as const;
+
+interface PopularTimeZone {
+  value: string;
+  label: string;
+  region: string;
+}
+
+const POPULAR_TIMEZONES: PopularTimeZone[] = [
+  // North America
+  { value: "America/New_York", label: "US Eastern (New York, Miami, Toronto) · EDT/EST", region: "North America" },
+  { value: "America/Chicago", label: "US Central (Chicago, Dallas, Houston) · CDT/CST", region: "North America" },
+  { value: "America/Denver", label: "US Mountain (Denver, Phoenix, Calgary) · MDT/MST", region: "North America" },
+  { value: "America/Los_Angeles", label: "US Pacific (Los Angeles, SF, Vancouver) · PDT/PST", region: "North America" },
+  { value: "America/Anchorage", label: "US Alaska (Anchorage) · AKDT/AKST", region: "North America" },
+  { value: "Pacific/Honolulu", label: "US Hawaii (Honolulu) · HST", region: "North America" },
+
+  // UK & Europe
+  { value: "Europe/London", label: "UK & Ireland (London, Dublin) · GMT/BST", region: "Europe" },
+  { value: "Europe/Paris", label: "Central Europe (Paris, Berlin, Rome, Madrid) · CET/CEST", region: "Europe" },
+  { value: "Europe/Athens", label: "Eastern Europe (Athens, Bucharest, Helsinki) · EEST", region: "Europe" },
+
+  // Middle East & South Asia
+  { value: "Asia/Dubai", label: "Gulf & UAE (Dubai, Abu Dhabi) · GST (UTC+4)", region: "Middle East" },
+  { value: "Asia/Riyadh", label: "Saudi Arabia (Riyadh) · AST (UTC+3)", region: "Middle East" },
+  { value: "Asia/Kolkata", label: "India & Sri Lanka (Kolkata, Mumbai, New Delhi) · IST (UTC+5:30)", region: "South Asia" },
+  { value: "Asia/Dhaka", label: "Bangladesh (Dhaka) · BST (UTC+6)", region: "South Asia" },
+  { value: "Asia/Karachi", label: "Pakistan (Karachi) · PKT (UTC+5)", region: "South Asia" },
+
+  // Asia Pacific & Australia
+  { value: "Asia/Singapore", label: "Singapore & Malaysia (Singapore, KL) · SGT (UTC+8)", region: "Asia Pacific" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong & China · HKT (UTC+8)", region: "Asia Pacific" },
+  { value: "Asia/Tokyo", label: "Japan (Tokyo, Osaka) · JST (UTC+9)", region: "Asia Pacific" },
+  { value: "Australia/Sydney", label: "Australia Eastern (Sydney, Melbourne) · AEST/AEDT", region: "Australia" },
+  { value: "Australia/Perth", label: "Australia Western (Perth) · AWST (UTC+8)", region: "Australia" },
+  { value: "Pacific/Auckland", label: "New Zealand (Auckland, Wellington) · NZST/NZDT", region: "Pacific" },
+
+  // Africa & South America
+  { value: "Africa/Johannesburg", label: "South Africa (Johannesburg, Cape Town) · SAST", region: "Africa" },
+  { value: "Africa/Lagos", label: "West Africa (Lagos) · WAT (UTC+1)", region: "Africa" },
+  { value: "America/Sao_Paulo", label: "Brazil (São Paulo, Rio) · BRT", region: "South America" },
+];
+
+function convertSlotHourToIST(dateStr: string, hour: number, minute: number, clientTz: string): string {
+  try {
+    const baseDate = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : new Date().toISOString().split("T")[0];
+    const [y, m, d] = baseDate.split("-").map(Number);
+    let utcGuess = new Date(Date.UTC(y, m - 1, d, hour, minute));
+    
+    for (let i = 0; i < 3; i++) {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: clientTz,
+        year: "numeric", month: "numeric", day: "numeric",
+        hour: "numeric", minute: "numeric", hour12: false
+      }).formatToParts(utcGuess);
+      
+      const getP = (type: string) => Number(parts.find((p) => p.type === type)?.value || 0);
+      const pHour = getP("hour") % 24;
+      const pMin = getP("minute");
+      const pDay = getP("day");
+      
+      const diffMin = ((pDay - d) * 24 * 60) + ((pHour - hour) * 60) + (pMin - minute);
+      if (diffMin === 0) break;
+      utcGuess = new Date(utcGuess.getTime() - diffMin * 60000);
+    }
+    
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    }).format(utcGuess);
+  } catch {
+    return "";
+  }
+}
+
+function getSlotISTRange(dateStr: string, slotStr: string, clientTz: string): string {
+  if (!slotStr || slotStr === "Anytime / Flexible") return "Flexible / Anytime";
+  if (!clientTz) return slotStr;
+
+  let startHour = 9;
+  let endHour = 12;
+  if (slotStr.includes("09:00 AM")) {
+    startHour = 9; endHour = 12;
+  } else if (slotStr.includes("12:00 PM")) {
+    startHour = 12; endHour = 15;
+  } else if (slotStr.includes("03:00 PM")) {
+    startHour = 15; endHour = 18;
+  } else if (slotStr.includes("06:00 PM")) {
+    startHour = 18; endHour = 21;
+  }
+
+  try {
+    const startIST = convertSlotHourToIST(dateStr, startHour, 0, clientTz);
+    const endIST = convertSlotHourToIST(dateStr, endHour, 0, clientTz);
+    if (!startIST || !endIST) return slotStr;
+    return `${startIST} – ${endIST} IST`;
+  } catch {
+    return slotStr;
+  }
+}
 
 type HorizontalCardStripProps<T> = {
   items: T[];
@@ -674,7 +777,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
       let shortCode = "";
       try {
         const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date());
@@ -685,11 +788,41 @@ export default function LandingPage() {
       }
       const badge = shortCode ? `${tz} (${shortCode})` : tz;
       setUserTimeZoneInfo({ zone: tz, badge });
-      setContactState((prev) => ({ ...prev, userTimeZone: tz }));
+      setContactState((prev) => ({
+        ...prev,
+        userTimeZone: prev.userTimeZone || tz,
+      }));
     } catch (err) {
       console.error("Timezone detection error:", err);
     }
   }, []);
+
+  const timeZoneOptions = useMemo(() => {
+    const current = contactState.userTimeZone || userTimeZoneInfo.zone;
+    if (!current) return POPULAR_TIMEZONES;
+    const exists = POPULAR_TIMEZONES.some((item) => item.value === current);
+    if (!exists) {
+      return [
+        { value: current, label: `Detected: ${current}`, region: "Local" },
+        ...POPULAR_TIMEZONES,
+      ];
+    }
+    return POPULAR_TIMEZONES;
+  }, [contactState.userTimeZone, userTimeZoneInfo.zone]);
+
+  const isUserIST = useMemo(() => {
+    const tz = contactState.userTimeZone || userTimeZoneInfo.zone || "";
+    return tz === "Asia/Kolkata" || tz === "Asia/Calcutta";
+  }, [contactState.userTimeZone, userTimeZoneInfo.zone]);
+
+  const calculatedISTRange = useMemo(() => {
+    if (!contactState.preferredContactTime) return "";
+    return getSlotISTRange(
+      contactState.preferredContactDate,
+      contactState.preferredContactTime,
+      contactState.userTimeZone || userTimeZoneInfo.zone || "Asia/Kolkata"
+    );
+  }, [contactState.preferredContactDate, contactState.preferredContactTime, contactState.userTimeZone, userTimeZoneInfo.zone]);
 
   const [contactErrors, setContactErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1296,10 +1429,15 @@ export default function LandingPage() {
                         ? `${contactState.whatsappDial || "+91"} ${contactState.whatsappPhone.trim()}`
                         : "";
 
+                      const activeTz = contactState.userTimeZone || userTimeZoneInfo.zone || "Asia/Kolkata";
+                      const istConverted = calculatedISTRange || "";
+
                       const scheduleParts = [
                         contactState.preferredContactDate.trim(),
-                        contactState.preferredContactTime.trim(),
-                        contactState.preferredContactTime && userTimeZoneInfo.badge ? `[${userTimeZoneInfo.badge}]` : "",
+                        contactState.preferredContactTime.trim()
+                          ? `${contactState.preferredContactTime} (${userTimeZoneInfo.badge || activeTz})`
+                          : "",
+                        istConverted && !isUserIST ? `[Call at IST: ${istConverted}]` : "",
                       ].filter(Boolean);
                       const formattedSchedule = scheduleParts.join(" · ");
 
@@ -1310,7 +1448,9 @@ export default function LandingPage() {
                         whatsappPhone: whatsappNumberFull,
                         preferredContactDate: formattedSchedule || contactState.preferredContactDate.trim(),
                         preferredContactTime: contactState.preferredContactTime.trim(),
-                        timeZone: userTimeZoneInfo.zone || contactState.userTimeZone || "",
+                        timeZone: activeTz,
+                        clientTimeZone: activeTz,
+                        adminCallTimeIST: istConverted,
                         company: contactState.company.trim(),
                         subject: contactState.subject.trim(),
                         message: contactState.message.trim(),
@@ -1328,7 +1468,7 @@ export default function LandingPage() {
                         sameAsCalling: false,
                         preferredContactDate: "",
                         preferredContactTime: "",
-                        userTimeZone: userTimeZoneInfo.zone,
+                        userTimeZone: activeTz,
                         company: "",
                         subject: "",
                         message: "",
@@ -1450,7 +1590,7 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  {/* Preferred Date & Preferred Time Slot (Timezone-Aware) */}
+                  {/* Preferred Date & Timezone */}
                   <div style={styles.formRow}>
                     <div style={styles.formGroup}>
                       <label style={styles.formLabel} htmlFor="contact-preferred-date">
@@ -1469,8 +1609,8 @@ export default function LandingPage() {
 
                     <div style={styles.formGroup}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", minHeight: "20px" }}>
-                        <label style={styles.formLabel} htmlFor="contact-preferred-time">
-                          Preferred Time Slot
+                        <label style={styles.formLabel} htmlFor="contact-timezone">
+                          Your Timezone
                         </label>
                         {userTimeZoneInfo.badge && (
                           <span 
@@ -1483,12 +1623,51 @@ export default function LandingPage() {
                               alignItems: "center",
                               gap: "4px"
                             }}
-                            title={`Detected local timezone: ${userTimeZoneInfo.zone}`}
+                            title={`Detected system timezone: ${userTimeZoneInfo.zone}`}
                           >
-                            🕒 {userTimeZoneInfo.badge}
+                            <Globe size={11} /> Detected
                           </span>
                         )}
                       </div>
+                      <div style={{ position: "relative", width: "100%" }}>
+                        <select
+                          id="contact-timezone"
+                          name="userTimeZone"
+                          style={{
+                            ...styles.formInput,
+                            ...styles.formSelect,
+                            color: "var(--text-primary)",
+                          }}
+                          value={contactState.userTimeZone || userTimeZoneInfo.zone}
+                          onChange={(e) => handleContactChange("userTimeZone", e.target.value)}
+                        >
+                          {timeZoneOptions.map((tz) => (
+                            <option key={tz.value} value={tz.value} style={styles.selectOption}>
+                              {tz.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown 
+                          size={18} 
+                          style={{
+                            position: "absolute",
+                            right: "14px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            pointerEvents: "none",
+                            color: "var(--text-secondary)",
+                          }} 
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preferred Time Slot & Company */}
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel} htmlFor="contact-preferred-time">
+                        Preferred Time Slot
+                      </label>
                       <div style={{ position: "relative", width: "100%" }}>
                         <select
                           id="contact-preferred-time"
@@ -1523,27 +1702,101 @@ export default function LandingPage() {
                         />
                       </div>
                     </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel} htmlFor="contact-company">Company</label>
+                      <input 
+                        id="contact-company"
+                        name="company"
+                        type="text" 
+                        placeholder="Company / Organization" 
+                        style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
+                        autoComplete="organization"
+                        aria-invalid={Boolean(contactErrors.company)}
+                        aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
+                        value={contactState.company}
+                        onChange={(e) => handleContactChange("company", e.target.value)}
+                      />
+                      {contactErrors.company && (
+                        <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Company */}
-                  <div style={styles.formGroup}>
-                    <label style={styles.formLabel} htmlFor="contact-company">Company</label>
-                    <input 
-                      id="contact-company"
-                      name="company"
-                      type="text" 
-                      placeholder="Company / Organization" 
-                      style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
-                      autoComplete="organization"
-                      aria-invalid={Boolean(contactErrors.company)}
-                      aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
-                      value={contactState.company}
-                      onChange={(e) => handleContactChange("company", e.target.value)}
-                    />
-                    {contactErrors.company && (
-                      <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
-                    )}
-                  </div>
+                  {/* Dual-Timezone Live Conversion Card */}
+                  {contactState.preferredContactTime && (
+                    <div
+                      style={{
+                        padding: "16px 20px",
+                        borderRadius: "14px",
+                        border: "1px solid rgba(0, 122, 255, 0.25)",
+                        backgroundColor: "rgba(0, 122, 255, 0.05)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                        animation: "fadeIn 0.25s ease-out",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                          gap: "16px",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.5px",
+                              color: "var(--text-secondary)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                            }}
+                          >
+                            <Globe size={13} color="#007AFF" /> Your Local Time
+                          </span>
+                          <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)" }}>
+                            {contactState.preferredContactTime}
+                          </span>
+                          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                            {timeZoneOptions.find((t) => t.value === (contactState.userTimeZone || userTimeZoneInfo.zone))?.label || (contactState.userTimeZone || userTimeZoneInfo.zone)}
+                          </span>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.5px",
+                              color: isUserIST ? "#34C759" : "#FF9500",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                            }}
+                          >
+                            <Clock size={13} color={isUserIST ? "#34C759" : "#FF9500"} />
+                            {isUserIST ? "India HQ Match" : "India Agency Time (IST)"}
+                          </span>
+                          <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)" }}>
+                            {isUserIST ? "Direct Local Time Match (IST)" : calculatedISTRange}
+                          </span>
+                          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                            {isUserIST
+                              ? "You are in the same timezone as our core engineering team."
+                              : "Our team in India will dial you during your selected local window."}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   
                   <div style={styles.formGroup}>
                     <label style={styles.formLabel} htmlFor="contact-subject">Subject</label>

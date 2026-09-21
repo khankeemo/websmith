@@ -110,6 +110,10 @@ export interface Ticket {
   contactCallingPhone?: string;
   contactWhatsappPhone?: string;
   preferredContactDate?: string;
+  preferredContactTime?: string;
+  timeZone?: string;
+  clientTimeZone?: string;
+  adminCallTimeIST?: string;
   developerId?: {
     _id: string;
     name: string;
@@ -282,6 +286,8 @@ export const createPublicTicket = async (payload: {
   preferredContactDate?: string;
   preferredContactTime?: string;
   timeZone?: string;
+  clientTimeZone?: string;
+  adminCallTimeIST?: string;
   phone?: string;
   company?: string;
   subject: string;

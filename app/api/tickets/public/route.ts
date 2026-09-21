@@ -48,7 +48,8 @@ export const POST = apiHandler(async ({ db, client, request }) => {
   const contactWhatsappPhone = sanitize(String(body.whatsappPhone ?? body.whatsapp ?? "")).trim();
   const preferredContactDate = sanitize(String(body.preferredContactDate ?? body.preferredDate ?? "")).trim();
   const preferredContactTime = sanitize(String(body.preferredContactTime ?? body.preferredTime ?? body.preferredSlot ?? "")).trim();
-  const timeZone = sanitize(String(body.timeZone ?? body.timezone ?? "")).trim();
+  const timeZone = sanitize(String(body.timeZone ?? body.timezone ?? body.clientTimeZone ?? "")).trim();
+  const adminCallTimeIST = sanitize(String(body.adminCallTimeIST ?? "")).trim();
 
   if (!subject || !message || !contactName || !contactEmail) {
     return json({ success: false, error: "Name, email, subject and message are required", message: "Name, email, subject and message are required" }, { status: 400 });
@@ -62,9 +63,10 @@ export const POST = apiHandler(async ({ db, client, request }) => {
     contactCompany.length > 200 ||
     contactCallingPhone.length > 50 ||
     contactWhatsappPhone.length > 50 ||
-    preferredContactDate.length > 150 ||
+    preferredContactDate.length > 250 ||
     preferredContactTime.length > 100 ||
     timeZone.length > 100 ||
+    adminCallTimeIST.length > 150 ||
     subject.length > 300 ||
     message.length > 20000
   ) {
@@ -118,6 +120,8 @@ export const POST = apiHandler(async ({ db, client, request }) => {
     preferredContactDate,
     preferredContactTime,
     timeZone,
+    clientTimeZone: timeZone,
+    adminCallTimeIST,
     developerId: null,
     projectId: null,
     subject,
@@ -178,7 +182,8 @@ export const POST = apiHandler(async ({ db, client, request }) => {
         customer_email: contactEmail,
         calling_phone: contactCallingPhone,
         whatsapp_phone: contactWhatsappPhone,
-        preferred_date: preferredContactDate,
+        preferred_date: preferredContactDate + (adminCallTimeIST ? ` [Call at IST: ${adminCallTimeIST}]` : ""),
+        admin_call_time_ist: adminCallTimeIST,
         company: contactCompany,
         subject: `New Inquiry: ${subject}`,
         message: message,
