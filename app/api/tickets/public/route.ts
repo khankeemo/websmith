@@ -195,6 +195,11 @@ export const POST = apiHandler(async ({ db, client, request }) => {
       {
         from: { email: "no-reply@websmithdigital.com", name: "Websmith Digital Alerts" },
         replyTo: "support@websmithdigital.com",
+        custom: {
+          subject: `[New Inquiry Raised - ${requestId}] ${subject} (from ${contactName})`,
+          html: "",
+          plainText: "",
+        },
       }
     );
   } catch (emailErr) {
