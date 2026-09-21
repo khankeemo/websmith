@@ -47,6 +47,7 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
   const { openLeadServicesModal } = useLeadFunnel();
   const isLogin = pathname === "/login";
   const isAuthLayout = variant === "auth";
+  const isStoreRoute = Boolean(pathname?.startsWith("/software-store"));
 
   useLayoutEffect(() => {
     setNavMounted(true);
@@ -144,21 +145,56 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
   }
 
   return (
-    <nav style={styles.nav} className="landing-nav-shell public-site-nav">
+    <nav
+      style={{
+        ...styles.nav,
+        ...(isStoreRoute
+          ? {
+              backgroundColor: "rgba(7, 11, 20, 0.92)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              backdropFilter: "blur(16px)",
+            }
+          : {}),
+      }}
+      className={`landing-nav-shell public-site-nav ${isStoreRoute ? "store-nav-dark" : ""}`}
+    >
       <div style={styles.navContent} className="landing-nav-content">
         <div style={styles.leftNavGroup}>
           <a href="/" style={styles.logo} className="logo-hover" onClick={() => setMobileOpen(false)}>
-            <div style={styles.logoCircle}>
+            <div
+              style={{
+                ...styles.logoCircle,
+                ...(isStoreRoute
+                  ? { backgroundColor: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.12)" }
+                  : {}),
+              }}
+            >
               <Image src={brandLogo} alt="Websmith Digital logo" width={36} height={36} style={styles.logoImage} priority />
             </div>
-            <span style={styles.logoText}>Websmith</span>
+            <span style={{ ...styles.logoText, ...(isStoreRoute ? { color: "#FFFFFF" } : {}) }}>Websmith</span>
           </a>
           <div style={styles.desktopMenu} className="desktop-menu">
-            {visibleNavItems.map((item, index) => (
-              <a key={index} href={item.href} style={styles.menuItem} className="menu-item-hover">
-                {item.name}
-              </a>
-            ))}
+            {visibleNavItems.map((item, index) => {
+              const isCurrent = item.href === "/"
+                ? pathname === "/"
+                : item.href.startsWith("/#")
+                ? false
+                : pathname === item.href || (item.href === "/software-store" && pathname?.startsWith("/software-store"));
+              return (
+                <a
+                  key={index}
+                  href={item.href}
+                  style={{
+                    ...styles.menuItem,
+                    ...(isStoreRoute ? { color: isCurrent ? "#007AFF" : "#E2E8F0" } : {}),
+                    ...(isCurrent ? { color: "#007AFF", fontWeight: 600 } : {}),
+                  }}
+                  className={`menu-item-hover ${isCurrent ? "active-nav-link" : ""}`}
+                >
+                  {item.name}
+                </a>
+              );
+            })}
           </div>
         </div>
 
@@ -167,14 +203,37 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             <button
               type="button"
               onClick={togglePublicTheme}
-              style={styles.themeToggleBtn}
+              style={{
+                ...styles.themeToggleBtn,
+                ...(isStoreRoute
+                  ? {
+                      backgroundColor: "rgba(255, 255, 255, 0.06)",
+                      borderColor: "rgba(255, 255, 255, 0.12)",
+                      color: "#FFFFFF",
+                    }
+                  : {}),
+              }}
               aria-label={`Switch to ${publicTheme === "light" ? "dark" : "light"} mode`}
             >
               <span aria-hidden="true" style={styles.themeEmoji}>{publicTheme === "light" ? "🌙" : "☀️"}</span>
             </button>
           )}
           {!isLogin && (
-            <button type="button" onClick={() => router.push("/login")} style={styles.loginBtn} className="login-btn-hover">
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              style={{
+                ...styles.loginBtn,
+                ...(isStoreRoute
+                  ? {
+                      backgroundColor: "rgba(255, 255, 255, 0.05)",
+                      borderColor: "rgba(255, 255, 255, 0.12)",
+                      color: "#F1F5F9",
+                    }
+                  : {}),
+              }}
+              className="login-btn-hover"
+            >
               Log in
             </button>
           )}
@@ -186,7 +245,10 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          style={styles.mobileMenuBtn}
+          style={{
+            ...styles.mobileMenuBtn,
+            ...(isStoreRoute ? { color: "#FFFFFF" } : {}),
+          }}
           className="mobile-menu-btn"
           aria-expanded={mobileOpen}
           aria-controls="public-site-navigation"
@@ -205,18 +267,41 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             onClick={() => setMobileOpen(false)}
             aria-label="Close navigation menu"
           />
-          <div id="public-site-navigation" style={styles.mobileMenu} className="public-mobile-menu-panel">
-            {visibleNavItems.map((item, index) => (
-              <a
-                key={index}
-                href={item.href}
-                style={styles.mobileMenuItem}
-                className="mobile-menu-item"
-                onClick={() => setMobileOpen(false)}
-              >
-                {item.name}
-              </a>
-            ))}
+          <div
+            id="public-site-navigation"
+            style={{
+              ...styles.mobileMenu,
+              ...(isStoreRoute
+                ? {
+                    backgroundColor: "#070B14",
+                    borderColor: "rgba(255, 255, 255, 0.08)",
+                  }
+                : {}),
+            }}
+            className="public-mobile-menu-panel"
+          >
+            {visibleNavItems.map((item, index) => {
+              const isCurrent = item.href === "/"
+                ? pathname === "/"
+                : item.href.startsWith("/#")
+                ? false
+                : pathname === item.href || (item.href === "/software-store" && pathname?.startsWith("/software-store"));
+              return (
+                <a
+                  key={index}
+                  href={item.href}
+                  style={{
+                    ...styles.mobileMenuItem,
+                    ...(isStoreRoute ? { color: isCurrent ? "#007AFF" : "#E2E8F0" } : {}),
+                    ...(isCurrent ? { color: "#007AFF", fontWeight: 600 } : {}),
+                  }}
+                  className={`mobile-menu-item ${isCurrent ? "active-mobile-link" : ""}`}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.name}
+                </a>
+              );
+            })}
             <div style={styles.mobileMenuDivider} />
             {showGuestThemeToggle && (
               <button type="button" onClick={togglePublicTheme} style={styles.mobileThemeBtn} className="mobile-theme-btn">

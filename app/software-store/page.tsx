@@ -668,34 +668,26 @@ export default function SoftwareStorePage() {
     <div className="min-h-screen bg-[var(--bg-primary)]" style={STORE_DARK_STYLE}>
       <StoreToast toast={toast} />
 
-      {/* Sticky Nav */}
-      <div className="sticky top-0 z-40 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 shrink-0">
-            <a href="/" className="flex items-center gap-3 text-white hover:opacity-80 transition-opacity">
-              <motion.div
-                className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-indigo-500 flex items-center justify-center shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)]"
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-indigo-500/40 to-cyan-400/30 opacity-70" />
-                <Package className="w-4 h-4 text-white relative" />
-              </motion.div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold tracking-tight">Websmith</span>
-                <span className="text-[10px] text-indigo-300 font-medium">Software Store</span>
-              </div>
-            </a>
+      {/* Store Utility Sub-Header */}
+      <div className="sticky top-[65px] z-30 bg-[#070B14]/90 backdrop-blur-xl border-b border-white/[0.08]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-indigo-400/25 bg-indigo-500/10 text-indigo-300 text-xs font-semibold backdrop-blur-sm">
+              <Package className="w-3.5 h-3.5" /> Software Marketplace
+            </span>
+            <span className="text-xs text-slate-400 hidden sm:inline">
+              Instant license delivery · Secure checkout
+            </span>
           </div>
 
-          <div className="hidden sm:block flex-1 max-w-md relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <div className="flex-1 max-w-xs sm:max-w-sm md:max-w-md relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search software..."
               aria-label="Search software"
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all backdrop-blur-sm"
+              className="w-full pl-10 pr-4 py-2 rounded-xl border border-white/10 bg-white/[0.05] text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all backdrop-blur-sm"
             />
           </div>
 
@@ -703,8 +695,8 @@ export default function SoftwareStorePage() {
             <motion.button
               onClick={() => setShowHistory(true)}
               className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] text-emerald-300 hover:bg-white/[0.07] hover:border-emerald-400/40 transition-all"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
               aria-label="Purchase History"
               title="Purchase History"
             >
@@ -713,9 +705,10 @@ export default function SoftwareStorePage() {
             <motion.button
               onClick={() => setShowWishlist(true)}
               className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] text-rose-300 hover:bg-white/[0.07] hover:border-rose-400/40 transition-all"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
               aria-label={`Wishlist (${wishlist.items.length} items)`}
+              title={`Wishlist (${wishlist.items.length} items)`}
             >
               <Heart className="w-4 h-4" />
               {wishlist.items.length > 0 && (
@@ -733,9 +726,10 @@ export default function SoftwareStorePage() {
             <motion.button
               onClick={() => setShowCart(true)}
               className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
               aria-label={`Cart (${cart.totalItems} items)`}
+              title={`Cart (${cart.totalItems} items)`}
             >
               <ShoppingCart className="w-4 h-4" />
               {cart.totalItems > 0 && (
@@ -764,61 +758,28 @@ export default function SoftwareStorePage() {
           animate={{ y: [0, 22, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} />
         <motion.div className="absolute top-6 right-[20%] w-56 h-56 rounded-full bg-violet-600/15 blur-3xl pointer-events-none"
           animate={{ y: [0, -18, 0] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} />
-        <div className="relative max-w-7xl mx-auto px-6 py-16 md:py-20 text-center">
-          <motion.span
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-indigo-400/25 bg-indigo-500/10 text-indigo-300 text-xs font-semibold backdrop-blur-sm"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring" as const, stiffness: 260, damping: 22 }}
-          >
-            <Sparkles className="w-3.5 h-3.5" /> Premium Software Marketplace
-          </motion.span>
+        <div className="relative max-w-7xl mx-auto px-6 pt-10 pb-8 md:pt-12 md:pb-10 text-center">
           <motion.h1
-            className="text-4xl md:text-6xl font-extrabold text-white mt-4 tracking-tight"
-            initial={{ opacity: 0, y: 20 }}
+            className="text-3xl md:text-5xl font-extrabold text-white tracking-tight"
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring" as const, stiffness: 260, damping: 24, delay: 0.05 }}
+            transition={{ type: "spring" as const, stiffness: 260, damping: 24 }}
           >
             Software <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-300 bg-clip-text text-transparent">Store</span>
           </motion.h1>
           <motion.p
-            className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mt-3"
+            className="text-base md:text-lg text-slate-400 max-w-xl mx-auto mt-2.5"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.12, duration: 0.4 }}
+            transition={{ delay: 0.1, duration: 0.35 }}
           >
             Discover production-ready software solutions for your business
           </motion.p>
-          <motion.div
-            className="mt-7 max-w-md mx-auto relative"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search software..."
-              aria-label="Search software"
-              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/10 text-white placeholder-slate-500 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all"
-            />
-          </motion.div>
-          {!loading && products.length > 0 && (
-            <motion.p
-              className="text-xs text-slate-500 mt-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              {products.length} products available · instant license delivery · secure checkout
-            </motion.p>
-          )}
         </div>
       </div>
 
-      {/* Filter Bar — sticky flush below the nav (nav = 60px content + 1px border) */}
-      <div className="sticky top-[61px] z-30 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
+      {/* Filter Bar */}
+      <div className="bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 bg-white/[0.04] border border-white/10 rounded-full px-3 py-1.5 backdrop-blur-sm">
@@ -1076,6 +1037,9 @@ export default function SoftwareStorePage() {
           </motion.div>
         )}
       </div>
+
+      {/* Subtle smooth transition into footer */}
+      <div className="h-10 bg-gradient-to-b from-transparent to-[#070B14] pointer-events-none" />
 
       <AnimatePresence>
         {showCart && (

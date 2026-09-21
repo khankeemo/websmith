@@ -183,8 +183,8 @@ export default function ProductDetailPage() {
     <div className="min-h-screen bg-[var(--bg-primary)]" style={PRODUCT_PAGE_DARK_STYLE}>
       <StoreToast toast={toast} />
 
-      {/* Focused product header — only Back to Store + Cart/Wishlist/Compare */}
-      <header className="sticky top-0 z-40 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
+      {/* Focused product header — Back to Store + Cart/Wishlist/Compare */}
+      <header className="sticky top-[65px] z-30 bg-[#070B14]/85 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
           <button
             onClick={() => router.push("/software-store")}

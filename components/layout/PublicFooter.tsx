@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { CSSProperties } from "react";
 import { publicFooterConfig } from "../../core/config/publicSite";
 import { SOCIAL_PLATFORM_META, type SocialPlatformMeta } from "../../lib/social-platforms";
@@ -11,6 +12,8 @@ import API from "../../core/services/apiService";
 type SocialItem = SocialPlatformMeta & { href: string };
 
 export default function PublicFooter() {
+  const pathname = usePathname();
+  const isStore = Boolean(pathname?.startsWith("/software-store"));
   const year = new Date().getFullYear();
   const [socials, setSocials] = useState<SocialItem[]>([]);
 
@@ -36,11 +39,31 @@ export default function PublicFooter() {
   }, []);
 
   return (
-    <footer style={styles.footer}>
+    <footer
+      style={{
+        ...styles.footer,
+        ...(isStore
+          ? {
+              backgroundColor: "#070B14",
+              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+            }
+          : {}),
+      }}
+    >
       <div style={styles.content} className="landing-footer-content">
         <div style={styles.section}>
           <div style={styles.brandRow}>
-            <span style={styles.footerLogoShell}>
+            <span
+              style={{
+                ...styles.footerLogoShell,
+                ...(isStore
+                  ? {
+                      backgroundColor: "rgba(255, 255, 255, 0.06)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                    }
+                  : {}),
+              }}
+            >
               <Image src="/images/websmith_1x1.jpg" alt="Websmith Digital logo" width={42} height={42} style={styles.footerLogo} />
             </span>
             <h3 style={styles.brandName}>{publicFooterConfig.brand.name}</h3>

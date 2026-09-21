@@ -74,8 +74,13 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
     if (isPublicRoute(pathname)) {
-      document.documentElement.classList.toggle("dark-theme", publicTheme === "dark");
-      return;
+      const isStore = pathname.startsWith("/software-store");
+      document.documentElement.classList.toggle("dark-theme", isStore || publicTheme === "dark");
+      return () => {
+        if (isStore && publicTheme !== "dark") {
+          document.documentElement.classList.remove("dark-theme");
+        }
+      };
     }
 
     if (!token || !user) {
@@ -127,10 +132,8 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
 
   const isInternalRoute = pathname?.startsWith("/internal");
   const isCheckoutRoute = Boolean(pathname && isStandaloneCheckoutRoute(pathname));
-  const isProductRoute = Boolean(pathname && isStandaloneProductRoute(pathname));
-  const isStoreRoute = Boolean(pathname && isSoftwareStoreRoute(pathname));
   const isChatRoute = Boolean(pathname && isStandaloneChatRoute(pathname));
-  const isFocusedStoreRoute = isCheckoutRoute || isProductRoute || isStoreRoute || isChatRoute;
+  const isFocusedStoreRoute = isCheckoutRoute || isChatRoute;
   const shouldShowSidebar = !isPublicRoute(pathname) && !isInternalRoute;
 
   const user = getStoredUser();
