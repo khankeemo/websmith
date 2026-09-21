@@ -95,6 +95,8 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
   onClose: () => void;
   onToast: (message: string, type?: "success" | "error") => void;
 }) {
+  const { publicTheme } = usePublicTheme();
+  const isDark = publicTheme === "dark";
   const [email, setEmail] = useState("");
   const [orders, setOrders] = useState<PurchaseOrder[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -142,13 +144,13 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
 
   const statusBadge = (status: string) => {
     const map: Record<string, { label: string; cls: string }> = {
-      pending: { label: "Pending", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
-      paid: { label: "Paid", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-      completed: { label: "Completed", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-      failed: { label: "Failed", cls: "bg-red-500/15 text-red-300 border-red-500/30" },
-      cancelled: { label: "Cancelled", cls: "bg-white/5 text-slate-400 border-white/10" },
+      pending: { label: "Pending", cls: isDark ? "bg-amber-500/15 text-amber-300 border-amber-500/30" : "bg-amber-50 text-amber-700 border-amber-200" },
+      paid: { label: "Paid", cls: isDark ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-200" },
+      completed: { label: "Completed", cls: isDark ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border-emerald-200" },
+      failed: { label: "Failed", cls: isDark ? "bg-red-500/15 text-red-300 border-red-500/30" : "bg-red-50 text-red-700 border-red-200" },
+      cancelled: { label: "Cancelled", cls: isDark ? "bg-white/5 text-slate-400 border-white/10" : "bg-slate-100 text-slate-500 border-slate-200" },
     };
-    const s = map[status] || { label: status, cls: "bg-white/5 text-slate-400 border-white/10" };
+    const s = map[status] || { label: status, cls: isDark ? "bg-white/5 text-slate-400 border-white/10" : "bg-slate-100 text-slate-500 border-slate-200" };
     return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${s.cls}`}>{s.label}</span>;
   };
 
@@ -169,39 +171,51 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className="fixed inset-0 bg-[#02040A]/70 backdrop-blur-sm" />
+      <div className={`fixed inset-0 backdrop-blur-sm ${isDark ? "bg-[#02040A]/70" : "bg-slate-900/30"}`} />
       <motion.div
         role="dialog"
         aria-modal="true"
         aria-label="Purchase history"
-        className="relative w-full max-w-2xl bg-[var(--bg-secondary)]/95 backdrop-blur-2xl shadow-2xl shadow-black/50 overflow-y-auto border-l border-white/10"
+        className={`relative w-full max-w-2xl backdrop-blur-2xl shadow-2xl overflow-y-auto border-l ${
+          isDark
+            ? "bg-[#0B1220]/95 shadow-black/50 border-white/10 text-slate-100"
+            : "bg-white/95 shadow-slate-400/20 border-slate-200 text-slate-900"
+        }`}
         onClick={(e) => e.stopPropagation()}
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between p-5 border-b border-white/10 bg-[var(--bg-secondary)]/90 backdrop-blur-md">
+        <div className={`sticky top-0 z-10 flex items-center justify-between p-5 border-b backdrop-blur-md ${
+          isDark ? "border-white/10 bg-[#0B1220]/90" : "border-slate-200 bg-white/90"
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/25 to-teal-500/25 flex items-center justify-center border border-emerald-400/20">
-              <HistoryIcon className="w-4 h-4 text-emerald-300" />
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+              isDark ? "bg-emerald-500/20 border-emerald-400/30 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-600"
+            }`}>
+              <HistoryIcon className="w-4 h-4" />
             </div>
-            <h2 className="text-lg font-bold text-white">Purchase History</h2>
+            <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Purchase History</h2>
           </div>
           <motion.button
             onClick={onClose}
             aria-label="Close purchase history"
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+              isDark ? "hover:bg-white/10 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+            }`}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            <X className="w-4 h-4 text-slate-400" />
+            <X className="w-4 h-4" />
           </motion.button>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <p className="text-sm text-slate-400 mb-3">Enter the email you used at checkout to see your orders, payments and license keys.</p>
+            <p className={`text-sm mb-3 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              Enter the email you used at checkout to see your orders, payments and license keys.
+            </p>
             <div className="flex gap-2">
               <input
                 type="email"
@@ -210,7 +224,11 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                 onKeyDown={(e) => e.key === "Enter" && lookup()}
                 placeholder="you@example.com"
                 aria-label="Email used at checkout"
-                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all"
+                className={`flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all ${
+                  isDark
+                    ? "border-white/10 bg-white/[0.04] text-white placeholder-slate-500 focus:border-indigo-500/50"
+                    : "border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:border-indigo-500"
+                }`}
               />
               <motion.button
                 whileHover={{ scale: 1.03 }}
@@ -222,7 +240,7 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />} Lookup
               </motion.button>
             </div>
-            {error && <p className="text-xs text-red-400 mt-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>}
+            {error && <p className="text-xs text-red-500 mt-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>}
           </div>
 
           {orders && orders.length > 0 && (
@@ -230,16 +248,25 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
               {orders.map((order) => {
                 const paid = order.status === "paid" || order.status === "completed" || order.paid_at;
                 return (
-                  <motion.div key={order.id} className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden hover:border-indigo-400/30 transition-all">
-                    <div className="flex items-center justify-between p-4 border-b border-white/10">
+                  <motion.div
+                    key={order.id}
+                    className={`rounded-2xl border overflow-hidden transition-all ${
+                      isDark
+                        ? "border-white/10 bg-white/[0.03] hover:border-indigo-400/30"
+                        : "border-slate-200 bg-slate-50/70 hover:border-indigo-300 shadow-xs"
+                    }`}
+                  >
+                    <div className={`flex items-center justify-between p-4 border-b ${isDark ? "border-white/10" : "border-slate-200"}`}>
                       <div>
-                        <p className="font-bold text-sm text-white">#{order.order_number}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{formatDate(order.created_at)} · {order.payment_gateway || "checkout"}</p>
+                        <p className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>#{order.order_number}</p>
+                        <p className={`text-[11px] mt-0.5 ${isDark ? "text-slate-500" : "text-slate-500"}`}>
+                          {formatDate(order.created_at)} · {order.payment_gateway || "checkout"}
+                        </p>
                       </div>
                       <div className="text-right flex items-center gap-2">
                         {statusBadge(order.status)}
-                        <p className="font-bold text-white">
-                          {formatPrice(order.total)} <span className="text-[10px] text-slate-500 font-normal">{order.currency}</span>
+                        <p className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                          {formatPrice(order.total)} <span className={`text-[10px] font-normal ${isDark ? "text-slate-500" : "text-slate-500"}`}>{order.currency}</span>
                         </p>
                       </div>
                     </div>
@@ -248,9 +275,9 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                         <div className="space-y-1.5">
                           {order.items.map((item: any) => (
                             <div key={item.id} className="flex items-center gap-2 text-xs">
-                              <ShoppingBag className="w-3 h-3 text-slate-500 shrink-0" />
-                              <span className="text-white truncate flex-1">{item.plan_name || item.product_id} × {item.quantity}</span>
-                              <span className="text-slate-400">{formatPrice(Number(item.total_price) || 0)}</span>
+                              <ShoppingBag className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span className={`truncate flex-1 ${isDark ? "text-white" : "text-slate-800"}`}>{item.plan_name || item.product_id} × {item.quantity}</span>
+                              <span className={isDark ? "text-slate-400" : "text-slate-600"}>{formatPrice(Number(item.total_price) || 0)}</span>
                             </div>
                           ))}
                         </div>
@@ -259,10 +286,10 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                         <div className="space-y-1.5">
                           {order.payments.map((p: any) => (
                             <div key={p.id} className="flex items-center gap-2 text-[11px]">
-                              <CreditCard className="w-3 h-3 text-slate-500 shrink-0" />
-                              <span className="text-slate-400">Payment {p.payment_number} · {p.gateway}</span>
-                              <span className={`ml-auto ${p.status === "paid" || p.status === "completed" ? "text-emerald-400" : "text-amber-400"}`}>{p.status}</span>
-                              {p.paid_at && <span className="text-slate-500">{formatDate(p.paid_at)}</span>}
+                              <CreditCard className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span className={isDark ? "text-slate-400" : "text-slate-600"}>Payment {p.payment_number} · {p.gateway}</span>
+                              <span className={`ml-auto font-medium ${p.status === "paid" || p.status === "completed" ? "text-emerald-500" : "text-amber-500"}`}>{p.status}</span>
+                              {p.paid_at && <span className="text-slate-400">{formatDate(p.paid_at)}</span>}
                             </div>
                           ))}
                         </div>
@@ -270,17 +297,24 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                       {order.licenses.length > 0 && (
                         <div className="space-y-1.5">
                           {order.licenses.map((l: any) => (
-                            <div key={l.license_key} className="flex items-center gap-2 text-[11px] rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-2.5 py-1.5">
-                              <BadgeCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-                              <code className="text-emerald-300 font-mono truncate flex-1">{l.license_key}</code>
-                              <span className="text-slate-500">{l.plan_name || ""}{l.status ? ` · ${l.status}` : ""}</span>
-                              {l.expiry_date && <span className="text-slate-500">until {formatDate(l.expiry_date)}</span>}
+                            <div
+                              key={l.license_key}
+                              className={`flex items-center gap-2 text-[11px] rounded-lg border px-2.5 py-1.5 ${
+                                isDark
+                                  ? "border-emerald-400/20 bg-emerald-500/5"
+                                  : "border-emerald-200 bg-emerald-50"
+                              }`}
+                            >
+                              <BadgeCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+                              <code className={`font-mono truncate flex-1 font-semibold ${isDark ? "text-emerald-300" : "text-emerald-800"}`}>{l.license_key}</code>
+                              <span className={isDark ? "text-slate-400" : "text-slate-600"}>{l.plan_name || ""}{l.status ? ` · ${l.status}` : ""}</span>
+                              {l.expiry_date && <span className={isDark ? "text-slate-500" : "text-slate-400"}>until {formatDate(l.expiry_date)}</span>}
                             </div>
                           ))}
                         </div>
                       )}
                       {!paid && order.payments.length === 0 && order.licenses.length === 0 && (
-                        <p className="text-[11px] text-slate-500">No payment captured for this order.</p>
+                        <p className={`text-[11px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>No payment captured for this order.</p>
                       )}
                     </div>
                   </motion.div>
@@ -291,11 +325,13 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
 
           {orders && orders.length === 0 && lookedUp && (
             <div className="flex flex-col items-center justify-center py-14 text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500/10 to-violet-500/10 flex items-center justify-center mb-4 border border-white/10">
-                <Receipt className="w-7 h-7 text-slate-600" />
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 border ${
+                isDark ? "bg-indigo-500/10 border-white/10" : "bg-indigo-50 border-slate-200"
+              }`}>
+                <Receipt className={`w-7 h-7 ${isDark ? "text-slate-600" : "text-slate-400"}`} />
               </div>
-              <p className="text-slate-300 font-semibold">No purchases found</p>
-              <p className="text-sm text-slate-500 mt-1">We couldn't find any orders for this email address.</p>
+              <p className={`font-semibold ${isDark ? "text-slate-300" : "text-slate-800"}`}>No purchases found</p>
+              <p className={`text-sm mt-1 ${isDark ? "text-slate-500" : "text-slate-500"}`}>We couldn't find any orders for this email address.</p>
             </div>
           )}
         </div>
