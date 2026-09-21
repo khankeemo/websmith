@@ -148,71 +148,89 @@ function LoginPageContent() {
             />
           ) : (
             <>
-              {/* Email input */}
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email or Client ID</label>
-            <div style={styles.inputWrapper}>
-              <Mail size={18} style={styles.inputIcon} />
-              <input
-                suppressHydrationWarning
-                type="text"
-                placeholder="Email or CL-0000"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                onKeyPress={handleKeyPress}
-                style={styles.input}
-                disabled={isLoading}
-                className="input-focus"
-              />
-            </div>
-          </div>
-
-          {/* Password input */}
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Password</label>
-            <div style={styles.inputWrapper}>
-              <Lock size={18} style={styles.inputIcon} />
-              <input
-                suppressHydrationWarning
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={handleKeyPress}
-                style={styles.input}
-                disabled={isLoading}
-                className="input-focus"
-              />
-              <button
-                onClick={() => setShowPassword(!showPassword)}
-                style={styles.eyeButton}
-                type="button"
-                className="eye-button-hover"
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleLogin();
+                }}
+                style={{ width: "100%", display: "flex", flexDirection: "column" }}
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              {/* Email input */}
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Email or Client ID</label>
+                <div style={styles.inputWrapper}>
+                  <Mail size={18} style={styles.inputIcon} />
+                  <input
+                    suppressHydrationWarning
+                    type="text"
+                    placeholder="Email or CL-0000"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleLogin();
+                      }
+                    }}
+                    autoComplete="username"
+                    disabled={isLoading}
+                    className="login-input"
+                  />
+                </div>
+              </div>
+
+              {/* Password input */}
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Password</label>
+                <div style={styles.inputWrapper}>
+                  <Lock size={18} style={styles.inputIcon} />
+                  <input
+                    suppressHydrationWarning
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleLogin();
+                      }
+                    }}
+                    autoComplete="current-password"
+                    disabled={isLoading}
+                    className="login-input"
+                  />
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={styles.eyeButton}
+                    type="button"
+                    className="eye-button-hover"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Forgot password link */}
+              <div style={styles.forgotContainer}>
+                <Link href="/forgot-password" style={styles.forgotLink} className="forgot-link-hover">
+                  Forgot password?
+                </Link>
+              </div>
+
+              {/* Sign In button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                style={{
+                  ...styles.signinButton,
+                  ...(isLoading ? styles.signinButtonDisabled : {}),
+                }}
+                className="signin-button"
+              >
+                {isLoading ? <div style={styles.spinner}></div> : "Sign In"}
               </button>
-            </div>
-          </div>
-
-          {/* Forgot password link */}
-          <div style={styles.forgotContainer}>
-            <Link href="/forgot-password" style={styles.forgotLink} className="forgot-link-hover">
-              Forgot password?
-            </Link>
-          </div>
-
-          {/* Sign In button */}
-          <button
-            onClick={handleLogin}
-            disabled={isLoading}
-            style={{
-              ...styles.signinButton,
-              ...(isLoading ? styles.signinButtonDisabled : {}),
-            }}
-            className="signin-button"
-          >
-            {isLoading ? <div style={styles.spinner}></div> : "Sign In"}
-          </button>
+            </form>
 
           {/* Sign up link */}
           <div style={styles.signupContainer}>
@@ -260,10 +278,25 @@ function LoginPageContent() {
           transform: scale(1.05) translateY(-2px);
         }
         
-        /* Input Focus Effect */
-        .input-focus:focus {
+        /* High-specificity Login Input Styling */
+        .login-input {
+          width: 100% !important;
+          height: 50px !important;
+          padding: 14px 16px 14px 44px !important;
+          font-size: 16px !important;
+          border: 1.5px solid var(--border-color) !important;
+          border-radius: 12px !important;
+          background-color: var(--bg-secondary) !important;
+          color: var(--text-primary) !important;
+          outline: none !important;
+          box-sizing: border-box !important;
+          font-family: inherit !important;
+          transition: all 0.2s ease !important;
+        }
+        .login-input:focus {
           border-color: #007AFF !important;
           box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1) !important;
+          background-color: var(--bg-primary) !important;
         }
         
         /* Eye Button Hover */

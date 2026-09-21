@@ -32,7 +32,6 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { publicTheme } = usePublicTheme();
   const [showForcedPasswordResetModal, setShowForcedPasswordResetModal] = useState(false);
-  const [ChatComponent, setChatComponent] = useState<React.ComponentType | null>(null);
   
   const handleForcedPasswordResetCompleted = () => {
     setShowForcedPasswordResetModal(false);
@@ -44,21 +43,12 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   };
 
-  // Load chat widget only on public-facing pages.
+  // LeadConnector chat widget removed — clean up any residual scripts or elements
   useEffect(() => {
-    const isPublicFacingPage = Boolean(pathname && isPublicRoute(pathname) && !pathname.startsWith("/internal") && !isStandaloneCheckoutRoute(pathname) && !isStandaloneProductRoute(pathname) && !isStandaloneChatRoute(pathname));
-
-    if (isPublicFacingPage) {
-      import("../components/ui/leadconnectorchat").then((mod) => {
-        setChatComponent(() => mod.default);
-      });
-    } else {
-      setChatComponent(null);
-      const existingScript = document.getElementById('leadconnector-chat-widget');
-      if (existingScript) existingScript.remove();
-      const headScripts = document.querySelectorAll('head script[src*="leadconnector"]');
-      headScripts.forEach(el => el.remove());
-    }
+    const existingScript = document.getElementById('leadconnector-chat-widget');
+    if (existingScript) existingScript.remove();
+    document.querySelectorAll('head script[src*="leadconnector"]').forEach(el => el.remove());
+    document.querySelectorAll('[data-widget-id="6a01b0940c2994035d498791"]').forEach(el => el.remove());
   }, [pathname]);
 
   useEffect(() => {
@@ -206,8 +196,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
         onLogout={handleForcedPasswordResetLogout}
       />
 
-      {/* ✅ Chat widget & Cookie Consent Banner for public pages */}
-      {ChatComponent && <ChatComponent />}
+      {/* ✅ Cookie Consent Banner for public pages */}
       <CookieConsentBanner />
 
       <style>{`

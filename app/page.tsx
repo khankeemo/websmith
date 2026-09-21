@@ -1040,15 +1040,15 @@ export default function LandingPage() {
                 </p>
               </div>
             </div>
-            <div className="flex flex-col min-[1700px]:flex-row items-start justify-center gap-10">
-              <div className="flex flex-col items-start w-full max-w-[810px]">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 md:gap-8 min-[1700px]:gap-10 w-full items-center justify-center">
+              <div className="w-full">
                 <img
                   src={globalCollabImage.url}
                   alt="Global Technical Team"
-                  className="w-full h-[550px] rounded-lg object-cover"
+                  className="w-full h-[180px] xs:h-[220px] sm:h-[300px] md:h-[400px] lg:h-[480px] min-[1700px]:h-[550px] rounded-lg object-cover"
                 />
               </div>
-              <div className="flex flex-col items-start w-full max-w-[810px]">
+              <div className="w-full">
                 <video
                   ref={diversityVideoRef}
                   autoPlay
@@ -1057,7 +1057,7 @@ export default function LandingPage() {
                   controls
                   preload="auto"
                   src={globalCollabVideo.url}
-                  className="w-full h-[550px] rounded-lg object-cover"
+                  className="w-full h-[180px] xs:h-[220px] sm:h-[300px] md:h-[400px] lg:h-[480px] min-[1700px]:h-[550px] rounded-lg object-cover"
                 />
               </div>
             </div>

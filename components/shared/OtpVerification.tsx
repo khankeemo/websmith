@@ -76,6 +76,41 @@ export default function OtpVerification({
     }
   };
 
+  const executeVerify = async (code: string) => {
+    if (code.length !== OTP_LENGTH || verifying) {
+      if (code.length !== OTP_LENGTH) {
+        setError("Please enter the 6-digit code.");
+      }
+      return;
+    }
+    setError(null);
+    setAllSelected(false);
+    setVerifying(true);
+    try {
+      const result = await onVerify(code);
+      if (!result.success) {
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setUsedAttempts((u) => u + 1);
+          setError(
+            usedAttempts + 1 >= maxAttempts
+              ? "Too many invalid attempts. Request a new code."
+              : "Invalid code. Please try again."
+          );
+        }
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleVerify = () => {
+    executeVerify(digits.join(""));
+  };
+
   const setDigit = (index: number, value: string) => {
     const clean = value.replace(/\D/g, "");
     if (clean.length <= 1) {
@@ -89,13 +124,15 @@ export default function OtpVerification({
         }
         return;
       }
-      setDigits((prev) => {
-        const next = [...prev];
-        next[index] = clean;
-        return next;
-      });
+      const next = [...digits];
+      next[index] = clean;
+      setDigits(next);
       if (clean && index < OTP_LENGTH - 1) {
         inputsRef.current[index + 1]?.focus();
+      }
+      const fullCode = next.join("");
+      if (fullCode.length === OTP_LENGTH && next.every((d) => d !== "")) {
+        executeVerify(fullCode);
       }
     }
   };
@@ -110,9 +147,17 @@ export default function OtpVerification({
     setAllSelected(false);
     inputsRef.current[Math.min(index + pasted.length, OTP_LENGTH - 1)]?.focus();
     setError(null);
+    if (next.every((d) => d !== "") && next.join("").length === OTP_LENGTH) {
+      executeVerify(next.join(""));
+    }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleVerify();
+      return;
+    }
     // While the whole OTP is selected, a digit key replaces the code entirely
     // (the first typed digit becomes the new first digit). Intercepted here
     // because a maxLength=1 box would otherwise swallow the first keystroke.
@@ -144,36 +189,6 @@ export default function OtpVerification({
       inputsRef.current[index - 1]?.focus();
     } else if (e.key === "ArrowRight" && index < OTP_LENGTH - 1) {
       inputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleVerify = async () => {
-    const otp = digits.join("");
-    if (otp.length !== OTP_LENGTH) {
-      setError("Please enter the 6-digit code.");
-      return;
-    }
-    setError(null);
-    setAllSelected(false);
-    setVerifying(true);
-    try {
-      const result = await onVerify(otp);
-      if (!result.success) {
-        if (result.error) {
-          setError(result.error);
-        } else {
-          setUsedAttempts((u) => u + 1);
-          setError(
-            usedAttempts + 1 >= maxAttempts
-              ? "Too many invalid attempts. Request a new code."
-              : "Invalid code. Please try again."
-          );
-        }
-      }
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setVerifying(false);
     }
   };
 
@@ -224,52 +239,59 @@ export default function OtpVerification({
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-2 mb-6">
-        {digits.map((value, index) => (
-          <input
-            key={index}
-            ref={(el) => {
-              inputsRef.current[index] = el;
-            }}
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={1}
-            value={value}
-            disabled={verifying || resending}
-            onChange={(e) => setDigit(index, e.target.value)}
-            onFocus={handleFocus}
-            onKeyDown={(e) => handleKeyDown(index, e)}
-            onPaste={(e) => handlePaste(index, e)}
-            className={`w-12 h-14 text-center text-xl font-bold rounded-xl outline-none transition-all duration-200 ${
-              dark
-                ? "bg-white/5 border border-white/10 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                : "bg-[#F5F5F7] border-2 border-[#E3E3E6] text-[#1C1C1E] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/10"
-            } ${allSelected ? (dark ? "border-blue-500 ring-2 ring-blue-500/50" : "border-[#007AFF] ring-4 ring-[#007AFF]/10") : ""} disabled:opacity-50`}
-            aria-label={`Digit ${index + 1} of ${OTP_LENGTH}`}
-          />
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={handleVerify}
-        disabled={verifying || resending}
-        className={`w-full py-3 px-4 font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 disabled:opacity-60 disabled:cursor-not-allowed ${
-          dark
-            ? "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white focus:ring-blue-500/50"
-            : "bg-[#007AFF] hover:bg-[#0071EB] text-white focus:ring-[#007AFF]/40"
-        }`}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleVerify();
+        }}
+        className="w-full"
       >
-        {verifying ? (
-          <span className="flex items-center justify-center gap-2">
-            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            Verifying...
-          </span>
-        ) : (
-          verifyLabel
-        )}
-      </button>
+        <div className="flex items-center justify-center gap-2 mb-6">
+          {digits.map((value, index) => (
+            <input
+              key={index}
+              ref={(el) => {
+                inputsRef.current[index] = el;
+              }}
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={1}
+              value={value}
+              disabled={verifying || resending}
+              onChange={(e) => setDigit(index, e.target.value)}
+              onFocus={handleFocus}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              onPaste={(e) => handlePaste(index, e)}
+              className={`w-12 h-14 text-center text-xl font-bold rounded-xl outline-none transition-all duration-200 ${
+                dark
+                  ? "bg-white/5 border border-white/10 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                  : "bg-[#F5F5F7] border-2 border-[#E3E3E6] text-[#1C1C1E] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/10"
+              } ${allSelected ? (dark ? "border-blue-500 ring-2 ring-blue-500/50" : "border-[#007AFF] ring-4 ring-[#007AFF]/10") : ""} disabled:opacity-50`}
+              aria-label={`Digit ${index + 1} of ${OTP_LENGTH}`}
+            />
+          ))}
+        </div>
+
+        <button
+          type="submit"
+          disabled={verifying || resending}
+          className={`w-full py-3 px-4 font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+            dark
+              ? "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white focus:ring-blue-500/50"
+              : "bg-[#007AFF] hover:bg-[#0071EB] text-white focus:ring-[#007AFF]/40"
+          }`}
+        >
+          {verifying ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Verifying...
+            </span>
+          ) : (
+            verifyLabel
+          )}
+        </button>
+      </form>
 
       <div className="flex items-center justify-between mt-5 text-sm">
         <button
