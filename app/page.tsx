@@ -21,6 +21,7 @@ import {
   Phone,
   MessageSquare,
   Calendar,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import PublicFooter from "../components/layout/PublicFooter";
@@ -52,6 +53,18 @@ const defaultContactInfo = {
   x_url: "",
   youtube_url: "",
 };
+
+const CONTACT_SUBJECT_OPTIONS = [
+  "Project Inquiry",
+  "Web Development",
+  "Mobile App Development",
+  "Custom Software Development",
+  "Software Store & Licensing",
+  "Technical Support & Maintenance",
+  "Consulting & Architecture",
+  "Partnership & Collaboration",
+  "Other",
+] as const;
 
 type HorizontalCardStripProps<T> = {
   items: T[];
@@ -673,7 +686,7 @@ export default function LandingPage() {
         errors.whatsappPhone = waCheck.error || "Please enter a valid WhatsApp number.";
       }
     }
-    if (!subject) errors.subject = "Please enter a subject.";
+    if (!subject) errors.subject = "Please select a subject.";
     else if (subject.length > 300) errors.subject = "Subject must be 300 characters or fewer.";
     if (!message) errors.message = "Please enter your message.";
     else if (message.length > 20000) errors.message = "Message must be 20,000 characters or fewer.";
@@ -1333,7 +1346,7 @@ export default function LandingPage() {
                   <div style={styles.formRow}>
                     <div style={styles.formGroup}>
                       <label style={styles.formLabel} htmlFor="contact-calling-phone">
-                        Calling Number <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span>
+                        Calling Number
                       </label>
                       <PhoneInputWithCountry
                         id="contact-calling-phone"
@@ -1357,7 +1370,7 @@ export default function LandingPage() {
                     <div style={styles.formGroup}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", minHeight: "20px" }}>
                         <label style={styles.formLabel} htmlFor="contact-whatsapp-phone">
-                          WhatsApp Number <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span>
+                          WhatsApp Number
                         </label>
                         <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-secondary)", cursor: "pointer", userSelect: "none" }}>
                           <input
@@ -1394,7 +1407,7 @@ export default function LandingPage() {
                   <div style={styles.formRow}>
                     <div style={styles.formGroup}>
                       <label style={styles.formLabel} htmlFor="contact-preferred-date">
-                        Preferred Date to be Contacted <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span>
+                        Preferred Date to be Contacted
                       </label>
                       <input 
                         id="contact-preferred-date"
@@ -1408,7 +1421,7 @@ export default function LandingPage() {
                     </div>
 
                     <div style={styles.formGroup}>
-                      <label style={styles.formLabel} htmlFor="contact-company">Company <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span></label>
+                      <label style={styles.formLabel} htmlFor="contact-company">Company</label>
                       <input 
                         id="contact-company"
                         name="company"
@@ -1429,19 +1442,43 @@ export default function LandingPage() {
                   
                   <div style={styles.formGroup}>
                     <label style={styles.formLabel} htmlFor="contact-subject">Subject</label>
-                    <input 
-                      id="contact-subject"
-                      name="subject"
-                      type="text" 
-                      placeholder="Project Inquiry" 
-                      style={{ ...styles.formInput, ...(contactErrors.subject ? styles.formInputError : {}) }}
-                      required
-                      autoComplete="off"
-                      aria-invalid={Boolean(contactErrors.subject)}
-                      aria-describedby={contactErrors.subject ? "contact-subject-error" : undefined}
-                      value={contactState.subject}
-                      onChange={(e) => handleContactChange("subject", e.target.value)}
-                    />
+                    <div style={{ position: "relative", width: "100%" }}>
+                      <select 
+                        id="contact-subject"
+                        name="subject"
+                        style={{ 
+                          ...styles.formInput, 
+                          ...styles.formSelect,
+                          ...(contactErrors.subject ? styles.formInputError : {}),
+                          color: contactState.subject ? "var(--text-primary)" : "var(--text-secondary)",
+                        }}
+                        required
+                        aria-invalid={Boolean(contactErrors.subject)}
+                        aria-describedby={contactErrors.subject ? "contact-subject-error" : undefined}
+                        value={contactState.subject}
+                        onChange={(e) => handleContactChange("subject", e.target.value)}
+                      >
+                        <option value="" disabled style={{ color: "var(--text-secondary)" }}>
+                          Select a subject...
+                        </option>
+                        {CONTACT_SUBJECT_OPTIONS.map((option) => (
+                          <option key={option} value={option} style={styles.selectOption}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown 
+                        size={18} 
+                        style={{
+                          position: "absolute",
+                          right: "14px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          pointerEvents: "none",
+                          color: "var(--text-secondary)",
+                        }} 
+                      />
+                    </div>
                     {contactErrors.subject && (
                       <p id="contact-subject-error" role="alert" style={styles.fieldError}>{contactErrors.subject}</p>
                     )}
@@ -2652,6 +2689,18 @@ const styles: any = {
     fontFamily: "inherit",
     outline: "none",
     transition: "all 0.2s ease",
+    backgroundColor: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+  },
+  formSelect: {
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    cursor: "pointer",
+    paddingRight: "40px",
+    width: "100%",
+  },
+  selectOption: {
     backgroundColor: "var(--bg-secondary)",
     color: "var(--text-primary)",
   },
