@@ -47,6 +47,8 @@ export const POST = apiHandler(async ({ db, client, request }) => {
   const contactCallingPhone = sanitize(String(body.callingPhone ?? body.phone ?? body.mobile ?? "")).trim();
   const contactWhatsappPhone = sanitize(String(body.whatsappPhone ?? body.whatsapp ?? "")).trim();
   const preferredContactDate = sanitize(String(body.preferredContactDate ?? body.preferredDate ?? "")).trim();
+  const preferredContactTime = sanitize(String(body.preferredContactTime ?? body.preferredTime ?? body.preferredSlot ?? "")).trim();
+  const timeZone = sanitize(String(body.timeZone ?? body.timezone ?? "")).trim();
 
   if (!subject || !message || !contactName || !contactEmail) {
     return json({ success: false, error: "Name, email, subject and message are required", message: "Name, email, subject and message are required" }, { status: 400 });
@@ -60,7 +62,9 @@ export const POST = apiHandler(async ({ db, client, request }) => {
     contactCompany.length > 200 ||
     contactCallingPhone.length > 50 ||
     contactWhatsappPhone.length > 50 ||
-    preferredContactDate.length > 50 ||
+    preferredContactDate.length > 150 ||
+    preferredContactTime.length > 100 ||
+    timeZone.length > 100 ||
     subject.length > 300 ||
     message.length > 20000
   ) {
@@ -112,6 +116,8 @@ export const POST = apiHandler(async ({ db, client, request }) => {
     contactCallingPhone,
     contactWhatsappPhone,
     preferredContactDate,
+    preferredContactTime,
+    timeZone,
     developerId: null,
     projectId: null,
     subject,

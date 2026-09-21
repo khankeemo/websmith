@@ -66,6 +66,14 @@ const CONTACT_SUBJECT_OPTIONS = [
   "Other",
 ] as const;
 
+const CONTACT_TIME_SLOTS = [
+  "Morning (09:00 AM – 12:00 PM)",
+  "Early Afternoon (12:00 PM – 03:00 PM)",
+  "Late Afternoon (03:00 PM – 06:00 PM)",
+  "Evening (06:00 PM – 09:00 PM)",
+  "Anytime / Flexible",
+] as const;
+
 type HorizontalCardStripProps<T> = {
   items: T[];
   renderItem: (item: T, index: number) => ReactNode;
@@ -652,11 +660,37 @@ export default function LandingPage() {
     whatsappDial: "+91",
     sameAsCalling: false,
     preferredContactDate: "",
+    preferredContactTime: "",
+    userTimeZone: "",
     company: "",
     subject: "",
     message: "",
     consent: false,
   });
+  const [userTimeZoneInfo, setUserTimeZoneInfo] = useState<{ zone: string; badge: string }>({
+    zone: "",
+    badge: "",
+  });
+
+  useEffect(() => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      let shortCode = "";
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date());
+        const tzPart = parts.find((p) => p.type === "timeZoneName");
+        if (tzPart?.value) shortCode = tzPart.value;
+      } catch {
+        // fallback
+      }
+      const badge = shortCode ? `${tz} (${shortCode})` : tz;
+      setUserTimeZoneInfo({ zone: tz, badge });
+      setContactState((prev) => ({ ...prev, userTimeZone: tz }));
+    } catch (err) {
+      console.error("Timezone detection error:", err);
+    }
+  }, []);
+
   const [contactErrors, setContactErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<null | "success" | "error">(null);
@@ -1256,16 +1290,27 @@ export default function LandingPage() {
                       const callingNumberFull = contactState.callingPhone.trim()
                         ? `${contactState.callingDial || "+91"} ${contactState.callingPhone.trim()}`
                         : "";
-                      const whatsappNumberFull = contactState.whatsappPhone.trim()
+                      const whatsappNumberFull = contactState.sameAsCalling
+                        ? callingNumberFull
+                        : contactState.whatsappPhone.trim()
                         ? `${contactState.whatsappDial || "+91"} ${contactState.whatsappPhone.trim()}`
                         : "";
+
+                      const scheduleParts = [
+                        contactState.preferredContactDate.trim(),
+                        contactState.preferredContactTime.trim(),
+                        contactState.preferredContactTime && userTimeZoneInfo.badge ? `[${userTimeZoneInfo.badge}]` : "",
+                      ].filter(Boolean);
+                      const formattedSchedule = scheduleParts.join(" · ");
 
                       await createPublicTicket({
                         name: contactState.name.trim(),
                         email: contactState.email.trim().toLowerCase(),
                         callingPhone: callingNumberFull,
                         whatsappPhone: whatsappNumberFull,
-                        preferredContactDate: contactState.preferredContactDate.trim(),
+                        preferredContactDate: formattedSchedule || contactState.preferredContactDate.trim(),
+                        preferredContactTime: contactState.preferredContactTime.trim(),
+                        timeZone: userTimeZoneInfo.zone || contactState.userTimeZone || "",
                         company: contactState.company.trim(),
                         subject: contactState.subject.trim(),
                         message: contactState.message.trim(),
@@ -1282,6 +1327,8 @@ export default function LandingPage() {
                         whatsappDial: "+91",
                         sameAsCalling: false,
                         preferredContactDate: "",
+                        preferredContactTime: "",
+                        userTimeZone: userTimeZoneInfo.zone,
                         company: "",
                         subject: "",
                         message: "",
@@ -1403,7 +1450,7 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  {/* Preferred Contact Date & Company */}
+                  {/* Preferred Date & Preferred Time Slot (Timezone-Aware) */}
                   <div style={styles.formRow}>
                     <div style={styles.formGroup}>
                       <label style={styles.formLabel} htmlFor="contact-preferred-date">
@@ -1421,23 +1468,81 @@ export default function LandingPage() {
                     </div>
 
                     <div style={styles.formGroup}>
-                      <label style={styles.formLabel} htmlFor="contact-company">Company</label>
-                      <input 
-                        id="contact-company"
-                        name="company"
-                        type="text" 
-                        placeholder="Company / Organization" 
-                        style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
-                        autoComplete="organization"
-                        aria-invalid={Boolean(contactErrors.company)}
-                        aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
-                        value={contactState.company}
-                        onChange={(e) => handleContactChange("company", e.target.value)}
-                      />
-                      {contactErrors.company && (
-                        <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
-                      )}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", minHeight: "20px" }}>
+                        <label style={styles.formLabel} htmlFor="contact-preferred-time">
+                          Preferred Time Slot
+                        </label>
+                        {userTimeZoneInfo.badge && (
+                          <span 
+                            style={{ 
+                              fontSize: "11px", 
+                              color: "var(--accent-primary, #007AFF)", 
+                              fontWeight: 500,
+                              letterSpacing: "0.2px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}
+                            title={`Detected local timezone: ${userTimeZoneInfo.zone}`}
+                          >
+                            🕒 {userTimeZoneInfo.badge}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ position: "relative", width: "100%" }}>
+                        <select
+                          id="contact-preferred-time"
+                          name="preferredContactTime"
+                          style={{
+                            ...styles.formInput,
+                            ...styles.formSelect,
+                            color: contactState.preferredContactTime ? "var(--text-primary)" : "var(--text-secondary)",
+                          }}
+                          value={contactState.preferredContactTime}
+                          onChange={(e) => handleContactChange("preferredContactTime", e.target.value)}
+                        >
+                          <option value="" style={{ color: "var(--text-secondary)" }}>
+                            Select preferred slot...
+                          </option>
+                          {CONTACT_TIME_SLOTS.map((slot) => (
+                            <option key={slot} value={slot} style={styles.selectOption}>
+                              {slot}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown 
+                          size={18} 
+                          style={{
+                            position: "absolute",
+                            right: "14px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            pointerEvents: "none",
+                            color: "var(--text-secondary)",
+                          }} 
+                        />
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Company */}
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel} htmlFor="contact-company">Company</label>
+                    <input 
+                      id="contact-company"
+                      name="company"
+                      type="text" 
+                      placeholder="Company / Organization" 
+                      style={{ ...styles.formInput, ...(contactErrors.company ? styles.formInputError : {}) }}
+                      autoComplete="organization"
+                      aria-invalid={Boolean(contactErrors.company)}
+                      aria-describedby={contactErrors.company ? "contact-company-error" : undefined}
+                      value={contactState.company}
+                      onChange={(e) => handleContactChange("company", e.target.value)}
+                    />
+                    {contactErrors.company && (
+                      <p id="contact-company-error" role="alert" style={styles.fieldError}>{contactErrors.company}</p>
+                    )}
                   </div>
                   
                   <div style={styles.formGroup}>

@@ -280,6 +280,8 @@ export const createPublicTicket = async (payload: {
   callingPhone?: string;
   whatsappPhone?: string;
   preferredContactDate?: string;
+  preferredContactTime?: string;
+  timeZone?: string;
   phone?: string;
   company?: string;
   subject: string;
