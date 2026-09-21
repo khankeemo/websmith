@@ -182,12 +182,19 @@ export const POST = apiHandler(async ({ db, client, request }) => {
         customer_email: contactEmail,
         calling_phone: contactCallingPhone,
         whatsapp_phone: contactWhatsappPhone,
-        preferred_date: preferredContactDate + (adminCallTimeIST ? ` [Call at IST: ${adminCallTimeIST}]` : ""),
+        timezone: timeZone,
+        client_timezone: timeZone,
+        preferred_date: preferredContactDate,
         admin_call_time_ist: adminCallTimeIST,
         company: contactCompany,
-        subject: `New Inquiry: ${subject}`,
+        subject: subject,
         message: message,
         admin_url: adminUrl,
+        request_id: requestId,
+      },
+      {
+        from: { email: "no-reply@websmithdigital.com", name: "Websmith Digital Alerts" },
+        replyTo: "support@websmithdigital.com",
       }
     );
   } catch (emailErr) {
@@ -265,11 +272,11 @@ async function sendWelcomeEmail(
 
   const rendered = renderResolutionTemplate(template, data);
   const bodyText = stripAdminMarkers(rendered.body);
-  const subject = stripAdminMarkers(rendered.subject) || "We've received your request";
+  const subject = stripAdminMarkers(rendered.subject) || `Thank You for Contacting Websmith Digital - ${input.requestId}`;
 
   const sendResult = await sendEmail(
-    client,
-    "support_reply",
+    db,
+    "welcome_customer",
     { email: input.contactEmail, name: input.contactName },
     data,
     {

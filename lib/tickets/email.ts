@@ -88,26 +88,26 @@ export const RESOLUTION_TEMPLATE_SEED: ResolutionTemplate[] = [
     key: "first-welcome",
     name: "First Welcome Message",
     category: "Client Portal Onboarding",
-    subject: "Welcome to Websmith Digital - {{request_id}}",
+    subject: "Thank You for Contacting Websmith Digital - {{request_id}}",
     body: `Websmith Digital Support
 
 Hello {{client_name}},
 
-Thank you for contacting Websmith Digital. Your request has reached the right team.
+Thank you for contacting Websmith Digital. We have successfully received your inquiry (Reference: {{request_id}}).
 
-If you are an existing customer, please log in through your Client Portal to continue the conversation regarding your product, account, license, or service.
+Our team has received your message regarding "{{query_subject}}" and is reviewing your requirements. We will connect with you during your preferred contact window.
 
-If you are interested in any Websmith Digital product or want to become part of our business, please use the Client Portal to create/login to your account. You may be asked for your Client ID when continuing with our team.
+If you are an existing customer or want to manage your account, licenses, or project updates, you can log in through your Client Portal:
 
 Client Portal:
 [Client Portal]({{portal_url}})
 
-If you have a question and want to continue through our direct encrypted chat, use the secure chat option below.
+If you wish to continue the conversation immediately through our direct encrypted chat, use the link below:
 
 {{#if chat_url}}Direct Secure Chat:
 [Continue in Secure Chat]({{chat_url}})
 {{/if}}
-You can continue the conversation anytime through your Client Portal or Direct Secure Chat.
+You can reach back anytime through your Client Portal or Direct Secure Chat.
 
 ${SIGN_OFF}`,
     isActive: true,
@@ -486,7 +486,13 @@ export async function ensureResolutionTemplates(db: Db): Promise<ResolutionTempl
   const welcomeSeed = RESOLUTION_TEMPLATE_SEED.find((template) => template.key === "first-welcome");
   if (welcomeSeed) {
     await collection.updateOne(
-      { key: "first-welcome", body: { $not: { $regex: /Direct Secure Chat/ } } },
+      {
+        key: "first-welcome",
+        $or: [
+          { subject: { $regex: /^Welcome to Websmith/ } },
+          { body: { $not: { $regex: /successfully received/ } } },
+        ],
+      },
       { $set: { subject: welcomeSeed.subject, body: welcomeSeed.body, updatedAt: now } }
     );
   }

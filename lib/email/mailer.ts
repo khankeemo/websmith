@@ -529,47 +529,36 @@ The ${COMPANY_NAME} Team`
   // 12. WELCOME CUSTOMER (Enquiry Confirmation)
   // ================================================================
   welcome_customer: {
-    subject: 'Thank You for Your Enquiry – {{product}}',
-    defaultBody: (d) => wrapHtml('Enquiry Received', `
-      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Dear ${d.customer_name || 'there'},</p>
-      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Thank you for your interest in <strong style="color:#1a1a2e">${d.product || 'our product'}</strong>. We have received your enquiry and our team will review it shortly.</p>
+    subject: 'Thank You for Contacting Websmith Digital - {{request_id}}',
+    defaultBody: (d) => wrapHtml('Thank You for Contacting Us', `
+      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Dear ${d.client_name || d.customer_name || 'there'},</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6">Thank you for reaching out to ${COMPANY_NAME}. We have successfully received your inquiry (Reference: <strong>${d.request_id || d.order_number || 'N/A'}</strong>) and our team is reviewing your requirements.</p>
       ${infoTable([
-        { label: 'Reference Number', value: `<code style="background:#eef2f7;padding:2px 8px;border-radius:4px;font-size:13px">${d.order_number || 'N/A'}</code>` },
-        { label: 'Product', value: d.product || 'N/A' },
-        { label: 'Selected Plan', value: d.plan_name || 'N/A' },
-        { label: 'Version', value: d.product_version || 'N/A' },
+        { label: 'Reference Number', value: `<code style="background:#eef2f7;padding:2px 8px;border-radius:4px;font-size:13px">${d.request_id || d.order_number || 'N/A'}</code>` },
+        { label: 'Inquiry Subject', value: d.query_subject || d.subject || d.product || 'N/A' },
+        { label: 'Product / Plan', value: d.product ? `${d.product} (${d.plan_name || 'Standard'})` : (d.plan_name || 'N/A') },
       ].filter(r => r.value !== 'N/A'))}
-      <p style="margin:16px 0;font-size:14px;color:#555;line-height:1.6">Our sales team will contact you at <strong>${d.customer_email || 'your email'}</strong> within 24 hours to discuss the next steps and help you get started.</p>
-      <h3 style="margin:20px 0 12px;font-size:15px;color:#1a1a2e;font-weight:600">Next Steps</h3>
-      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px">
-        <tr><td style="padding:6px 12px;font-size:14px;color:#555;vertical-align:top">1.</td><td style="padding:6px 0;font-size:14px;color:#555">Our team reviews your requirements</td></tr>
-        <tr><td style="padding:6px 12px;font-size:14px;color:#555;vertical-align:top">2.</td><td style="padding:6px 0;font-size:14px;color:#555">We contact you with personalized options</td></tr>
-        <tr><td style="padding:6px 12px;font-size:14px;color:#555;vertical-align:top">3.</td><td style="padding:6px 0;font-size:14px;color:#555">License is generated and sent to your email</td></tr>
-        <tr><td style="padding:6px 12px;font-size:14px;color:#555;vertical-align:top">4.</td><td style="padding:6px 0;font-size:14px;color:#555">Activate and start using the software</td></tr>
-      </table>
+      ${d.query_message || d.message ? `
+      <div style="background:#f0f4ff;border-left:4px solid #007AFF;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
+        <strong>Your Message:</strong><br/>
+        ${renderCustomerMessageHtml(d.query_message || d.message || '')}
+      </div>` : ''}
+      <p style="margin:16px 0;font-size:14px;color:#555;line-height:1.6">Our team will connect with you at <strong>${d.client_email || d.customer_email || 'your email'}</strong> during your preferred contact window.</p>
+      ${d.portal_url ? btn('Access Client Portal', d.portal_url) : ''}
       <p style="margin:12px 0;font-size:14px;color:#555;line-height:1.6">If you have any questions in the meantime, please do not hesitate to reach out to our support team at <a href="mailto:{{support_email}}" style="color:#4a90d9;text-decoration:none">{{support_email}}</a>.</p>
-      <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">We look forward to helping you succeed with ${d.product || 'our software'}.</p>
+      <p style="margin:8px 0 0;font-size:13px;color:#8899aa;font-style:italic">We look forward to working with you.</p>
     `),
-    defaultPlainText: (d) => `Dear ${d.customer_name || 'there'},
+    defaultPlainText: (d) => `Dear ${d.client_name || d.customer_name || 'there'},
 
-Thank you for your interest in ${d.product || 'our product'}. We have received your enquiry and our team will review it shortly.
+Thank you for reaching out to ${COMPANY_NAME}. We have successfully received your inquiry (Reference: ${d.request_id || d.order_number || 'N/A'}).
 
-Reference Number: ${d.order_number || 'N/A'}
-Product: ${d.product || 'N/A'}
-Selected Plan: ${d.plan_name || 'N/A'}
-Version: ${d.product_version || 'N/A'}
+Subject: ${d.query_subject || d.subject || d.product || 'N/A'}
+${d.query_message || d.message ? `Message: ${d.query_message || d.message}\n` : ''}
+Client Portal: ${d.portal_url || 'https://websmithdigital.com/login'}
 
-Our sales team will contact you at ${d.customer_email || 'your email'} within 24 hours to discuss the next steps and help you get started.
+Our team will connect with you at ${d.client_email || d.customer_email || 'your email'} shortly.
 
-Next Steps:
-1. Our team reviews your requirements
-2. We contact you with personalized options
-3. License is generated and sent to your email
-4. Activate and start using the software
-
-If you have any questions in the meantime, please do not hesitate to reach out to our support team at {{support_email}}.
-
-We look forward to helping you succeed.
+If you have any questions in the meantime, please reach out to our support team at {{support_email}}.
 
 Best regards,
 The ${COMPANY_NAME} Team`
@@ -639,43 +628,49 @@ The ${COMPANY_NAME} Team`
   // 16. ADMIN NOTIFICATION
   // ================================================================
   admin_notification: {
-    subject: 'Administrator Notification',
+    subject: '[New Inquiry Raised - {{request_id}}] {{subject}} (from {{customer_name}})',
     defaultBody: (d) => {
       const cleanWa = (d.whatsapp_phone || '').replace(/[^\d]/g, '');
       const cleanCall = (d.calling_phone || d.customer_phone || '').replace(/[^\d+]/g, '');
       const tableRows = [
+        { label: 'Request ID', value: d.request_id ? `<strong style="color:#007AFF;font-size:14px">${d.request_id}</strong>` : 'N/A' },
         { label: 'Customer Name', value: d.customer_name || 'N/A' },
         { label: 'Email Address', value: d.customer_email ? `<a href="mailto:${d.customer_email}" style="color:#007AFF;text-decoration:none">${d.customer_email}</a>` : 'N/A' },
         { label: 'Calling Phone', value: cleanCall ? `<a href="tel:${cleanCall}" style="color:#007AFF;font-weight:600;text-decoration:none">📞 ${d.calling_phone || d.customer_phone}</a>` : 'N/A' },
         { label: 'WhatsApp Number', value: cleanWa ? `<a href="https://wa.me/${cleanWa}" target="_blank" style="color:#128c7e;font-weight:600;text-decoration:none">💬 Chat on WhatsApp (${d.whatsapp_phone})</a>` : 'N/A' },
-        { label: 'Preferred Contact Date', value: d.preferred_date ? `📅 <strong>${d.preferred_date}</strong>` : 'N/A' },
+        { label: 'Client Timezone', value: d.timezone || d.client_timezone ? `🌐 <strong>${d.timezone || d.client_timezone}</strong>` : 'N/A' },
+        { label: 'Preferred Schedule', value: d.preferred_date ? `📅 <strong>${d.preferred_date}</strong>` : 'N/A' },
+        { label: 'Admin Call Time (IST)', value: d.admin_call_time_ist ? `⏰ <strong style="color:#d97706;background:#fef3c7;padding:2px 8px;border-radius:4px">${d.admin_call_time_ist}</strong>` : 'N/A' },
         { label: 'Company / Organization', value: d.company || 'N/A' },
         { label: 'Subject', value: d.subject || 'N/A' },
         { label: 'Product', value: d.product_name || 'N/A' },
         { label: 'License Key', value: d.license_key || 'N/A' },
       ].filter(r => r.value !== 'N/A');
 
-      return wrapHtml('New Contact Inquiry / Notification', `
+      return wrapHtml(`New Inquiry Raised${d.request_id ? ` — ${d.request_id}` : ''}`, `
         <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Hello Administrator,</p>
-        <p style="margin:0 0 20px;font-size:14px;color:#555;line-height:1.6">You have received a new inquiry or system notification requiring your attention:</p>
+        <p style="margin:0 0 20px;font-size:14px;color:#555;line-height:1.6">A new customer inquiry or ticket has been raised via the public website:</p>
         <div style="background:#f0f4ff;border-left:4px solid #007AFF;padding:16px 20px;margin:16px 0;border-radius:4px;font-size:14px;color:#333;line-height:1.6">
-          <strong>Message:</strong><br/>
+          <strong>Customer Message:</strong><br/>
           ${renderCustomerMessageHtml(d.message || d.admin_message || 'No details provided.')}
         </div>
         ${tableRows.length > 0 ? infoTable(tableRows) : ''}
         ${d.admin_url ? btn('Open in Admin Messages', d.admin_url) : ''}
-        <p style="margin:16px 0 0;font-size:13px;color:#8899aa">This is an automated administrative notification from Websmith Digital.</p>
+        <p style="margin:16px 0 0;font-size:13px;color:#8899aa">This is an automated administrative alert from Websmith Digital.</p>
       `);
     },
     defaultPlainText: (d) => `Hello Administrator,
 
-You have received a new inquiry / notification:
+A new inquiry has been raised via the public website [${d.request_id || 'N/A'}]:
 
 ${d.message || d.admin_message || 'No details provided.'}
 
+Request ID: ${d.request_id || 'N/A'}
 Customer: ${d.customer_name || 'N/A'}
 Email: ${d.customer_email || 'N/A'}
-${d.calling_phone || d.customer_phone ? `Calling Phone: ${d.calling_phone || d.customer_phone}\n` : ''}${d.whatsapp_phone ? `WhatsApp: ${d.whatsapp_phone} (https://wa.me/${(d.whatsapp_phone || '').replace(/[^\d]/g, '')})\n` : ''}${d.preferred_date ? `Preferred Contact Date: ${d.preferred_date}\n` : ''}${d.company ? `Company: ${d.company}\n` : ''}${d.subject ? `Subject: ${d.subject}\n` : ''}
+${d.calling_phone || d.customer_phone ? `Calling Phone: ${d.calling_phone || d.customer_phone}\n` : ''}${d.whatsapp_phone ? `WhatsApp: ${d.whatsapp_phone} (https://wa.me/${(d.whatsapp_phone || '').replace(/[^\d]/g, '')})\n` : ''}${d.timezone || d.client_timezone ? `Client Timezone: ${d.timezone || d.client_timezone}\n` : ''}${d.preferred_date ? `Preferred Schedule: ${d.preferred_date}\n` : ''}${d.admin_call_time_ist ? `Admin Call Time (IST): ${d.admin_call_time_ist}\n` : ''}${d.company ? `Company: ${d.company}\n` : ''}${d.subject ? `Subject: ${d.subject}\n` : ''}
+Open Admin Dashboard: ${d.admin_url || 'https://websmithdigital.com/admin/messages'}
+
 This is an automated administrative notification.`
   },
 
@@ -1208,11 +1203,12 @@ export async function sendEmail(
 
     if (!data.support_email && supportAddress) data.support_email = supportAddress;
 
-    const subject = options.custom?.subject || template?.subject || config?.subject || '';
+    let subject = options.custom?.subject || template?.subject || config?.subject || '';
     let htmlBody = options.custom?.html || template?.body || config?.defaultBody(data) || '';
     let plainText = options.custom?.plainText || template?.plain_text || config?.defaultPlainText(data) || '';
 
     for (const [key, val] of Object.entries(data)) {
+      subject = subject.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val || '');
       htmlBody = htmlBody.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val || '');
       plainText = plainText.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val || '');
     }
