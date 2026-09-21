@@ -634,6 +634,7 @@ The ${COMPANY_NAME} Team`
       const cleanCall = (d.calling_phone || d.customer_phone || '').replace(/[^\d+]/g, '');
       const tableRows = [
         { label: 'Request ID', value: d.request_id ? `<strong style="color:#007AFF;font-size:14px">${d.request_id}</strong>` : 'N/A' },
+        { label: 'Lead Source', value: d.source ? `🎯 <strong>${d.source}</strong>` : 'N/A' },
         { label: 'Customer Name', value: d.customer_name || 'N/A' },
         { label: 'Email Address', value: d.customer_email ? `<a href="mailto:${d.customer_email}" style="color:#007AFF;text-decoration:none">${d.customer_email}</a>` : 'N/A' },
         { label: 'Calling Phone', value: cleanCall ? `<a href="tel:${cleanCall}" style="color:#007AFF;font-weight:600;text-decoration:none">📞 ${d.calling_phone || d.customer_phone}</a>` : 'N/A' },
@@ -641,6 +642,11 @@ The ${COMPANY_NAME} Team`
         { label: 'Client Timezone', value: d.timezone || d.client_timezone ? `🌐 <strong>${d.timezone || d.client_timezone}</strong>` : 'N/A' },
         { label: 'Preferred Schedule', value: d.preferred_date ? `📅 <strong>${d.preferred_date}</strong>` : 'N/A' },
         { label: 'Admin Call Time (IST)', value: d.admin_call_time_ist ? `⏰ <strong style="color:#d97706;background:#fef3c7;padding:2px 8px;border-radius:4px">${d.admin_call_time_ist}</strong>` : 'N/A' },
+        { label: 'Selected Services', value: d.services ? `🛠️ <strong>${d.services}</strong>` : 'N/A' },
+        { label: 'Estimated Budget', value: d.budget ? `💰 <strong style="color:#16a34a;background:#dcfce7;padding:2px 8px;border-radius:4px">${d.budget}</strong>` : 'N/A' },
+        { label: 'Target Timeline', value: d.timeline ? `⏱️ <strong>${d.timeline}</strong>` : 'N/A' },
+        { label: 'App Platform', value: d.app_platform ? `📱 <strong>${d.app_platform}</strong>` : 'N/A' },
+        { label: 'CMS Requirement', value: d.cms_requirement ? `📝 <strong>${d.cms_requirement}</strong>` : 'N/A' },
         { label: 'Company / Organization', value: d.company || 'N/A' },
         { label: 'Subject', value: d.subject || 'N/A' },
         { label: 'Product', value: d.product_name || 'N/A' },
@@ -666,9 +672,9 @@ A new inquiry has been raised via the public website [${d.request_id || 'N/A'}]:
 ${d.message || d.admin_message || 'No details provided.'}
 
 Request ID: ${d.request_id || 'N/A'}
-Customer: ${d.customer_name || 'N/A'}
+${d.source ? `Lead Source: ${d.source}\n` : ''}Customer: ${d.customer_name || 'N/A'}
 Email: ${d.customer_email || 'N/A'}
-${d.calling_phone || d.customer_phone ? `Calling Phone: ${d.calling_phone || d.customer_phone}\n` : ''}${d.whatsapp_phone ? `WhatsApp: ${d.whatsapp_phone} (https://wa.me/${(d.whatsapp_phone || '').replace(/[^\d]/g, '')})\n` : ''}${d.timezone || d.client_timezone ? `Client Timezone: ${d.timezone || d.client_timezone}\n` : ''}${d.preferred_date ? `Preferred Schedule: ${d.preferred_date}\n` : ''}${d.admin_call_time_ist ? `Admin Call Time (IST): ${d.admin_call_time_ist}\n` : ''}${d.company ? `Company: ${d.company}\n` : ''}${d.subject ? `Subject: ${d.subject}\n` : ''}
+${d.calling_phone || d.customer_phone ? `Calling Phone: ${d.calling_phone || d.customer_phone}\n` : ''}${d.whatsapp_phone ? `WhatsApp: ${d.whatsapp_phone} (https://wa.me/${(d.whatsapp_phone || '').replace(/[^\d]/g, '')})\n` : ''}${d.timezone || d.client_timezone ? `Client Timezone: ${d.timezone || d.client_timezone}\n` : ''}${d.preferred_date ? `Preferred Schedule: ${d.preferred_date}\n` : ''}${d.admin_call_time_ist ? `Admin Call Time (IST): ${d.admin_call_time_ist}\n` : ''}${d.services ? `Selected Services: ${d.services}\n` : ''}${d.budget ? `Estimated Budget: ${d.budget}\n` : ''}${d.timeline ? `Target Timeline: ${d.timeline}\n` : ''}${d.app_platform ? `App Platform: ${d.app_platform}\n` : ''}${d.cms_requirement ? `CMS Requirement: ${d.cms_requirement}\n` : ''}${d.company ? `Company: ${d.company}\n` : ''}${d.subject ? `Subject: ${d.subject}\n` : ''}
 Open Admin Dashboard: ${d.admin_url || 'https://websmithdigital.com/admin/messages'}
 
 This is an automated administrative notification.`

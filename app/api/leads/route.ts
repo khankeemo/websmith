@@ -195,6 +195,12 @@ export const POST = apiHandler(async ({ db, client, request }) => {
         message: formattedMessage,
         admin_url: adminUrl,
         request_id: requestId,
+        source: "Lead Funnel (Get Started)",
+        services: services.length ? services.join(", ") : undefined,
+        budget: budget != null ? `$${budget.toLocaleString()}` : undefined,
+        timeline: timeline || undefined,
+        app_platform: appPlatform || undefined,
+        cms_requirement: cmsRequirement || undefined,
       },
       {
         from: { email: "no-reply@websmithdigital.com", name: "Websmith Digital Alerts" },

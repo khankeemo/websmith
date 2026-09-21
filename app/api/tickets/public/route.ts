@@ -106,6 +106,29 @@ export const POST = apiHandler(async ({ db, client, request }) => {
   const requestId = await generateUniqueRequestId(db);
   const source = body.source ? sanitize(String(body.source)).trim() : "public_contact";
 
+  const budgetNum = body.budget != null && body.budget !== "" ? Number(body.budget) : null;
+  const timelineVal = body.timeline ? sanitize(String(body.timeline)) : null;
+  const servicesList = Array.isArray(body.services) ? body.services.map(String).filter(Boolean) : [];
+  const cmsReqVal = body.cmsRequirement ? sanitize(String(body.cmsRequirement)) : null;
+  const platformVal = body.appPlatform ? sanitize(String(body.appPlatform)) : null;
+
+  const hasScoping = servicesList.length > 0 || budgetNum != null || !!timelineVal || !!cmsReqVal || !!platformVal;
+
+  let formattedDescription = message;
+  if (hasScoping || source === "lead_funnel") {
+    const scopingLines = [
+      servicesList.length > 0 ? `Selected Services: ${servicesList.join(", ")}` : null,
+      budgetNum != null ? `Estimated Budget: $${budgetNum.toLocaleString()}` : null,
+      timelineVal ? `Target Timeline: ${timelineVal}` : null,
+      platformVal ? `Preferred Platform: ${platformVal}` : null,
+      cmsReqVal ? `CMS Requirement: ${cmsReqVal}` : null,
+      message ? `Project Notes & Message:\n${message}` : null,
+    ].filter(Boolean);
+    if (scopingLines.length > 0) {
+      formattedDescription = scopingLines.join("\n\n");
+    }
+  }
+
   const ticket = {
     source,
     requestId,
@@ -124,15 +147,15 @@ export const POST = apiHandler(async ({ db, client, request }) => {
     timeZone,
     clientTimeZone: timeZone,
     adminCallTimeIST,
-    budget: body.budget != null ? Number(body.budget) : null,
-    timeline: body.timeline ? sanitize(String(body.timeline)) : null,
-    services: Array.isArray(body.services) ? body.services.map(String) : [],
-    cmsRequirement: body.cmsRequirement ? sanitize(String(body.cmsRequirement)) : null,
-    appPlatform: body.appPlatform ? sanitize(String(body.appPlatform)) : null,
+    budget: budgetNum,
+    timeline: timelineVal,
+    services: servicesList,
+    cmsRequirement: cmsReqVal,
+    appPlatform: platformVal,
     developerId: null,
     projectId: null,
     subject,
-    description: message,
+    description: formattedDescription,
     priority: "medium",
     status: "open",
     chatStatus: "open",
@@ -151,7 +174,7 @@ export const POST = apiHandler(async ({ db, client, request }) => {
         senderEmail: contactEmail,
         senderName: contactName,
         recipientEmail: "",
-        message,
+        message: formattedDescription,
         createdAt: now,
         source,
       },
@@ -166,7 +189,7 @@ export const POST = apiHandler(async ({ db, client, request }) => {
   const ticketId = result.insertedId.toString();
 
   // If this ticket is from lead funnel or carries scoping data, also record in leads collection
-  if (source === "lead_funnel" || body.services || body.budget != null) {
+  if (source === "lead_funnel" || hasScoping) {
     try {
       await db.collection("leads").insertOne({
         ticketId,
@@ -177,11 +200,11 @@ export const POST = apiHandler(async ({ db, client, request }) => {
         whatsappPhone: contactWhatsappPhone,
         phone: contactCallingPhone || contactWhatsappPhone || "",
         company: contactCompany,
-        budget: body.budget != null ? Number(body.budget) : null,
-        timeline: body.timeline ? sanitize(String(body.timeline)) : null,
-        services: Array.isArray(body.services) ? body.services.map(String) : [],
-        cmsRequirement: body.cmsRequirement ? sanitize(String(body.cmsRequirement)) : null,
-        appPlatform: body.appPlatform ? sanitize(String(body.appPlatform)) : null,
+        budget: budgetNum,
+        timeline: timelineVal,
+        services: servicesList,
+        cmsRequirement: cmsReqVal,
+        appPlatform: platformVal,
         preferredContactDate,
         preferredContactTime,
         timeZone,
@@ -226,9 +249,15 @@ export const POST = apiHandler(async ({ db, client, request }) => {
         admin_call_time_ist: adminCallTimeIST,
         company: contactCompany,
         subject: subject,
-        message: message,
+        message: formattedDescription,
         admin_url: adminUrl,
         request_id: requestId,
+        source: source === "lead_funnel" ? "Lead Funnel (Get Started)" : "Get In Touch Contact",
+        services: servicesList.length > 0 ? servicesList.join(", ") : undefined,
+        budget: budgetNum != null ? `$${budgetNum.toLocaleString()}` : undefined,
+        timeline: timelineVal || undefined,
+        app_platform: platformVal || undefined,
+        cms_requirement: cmsReqVal || undefined,
       },
       {
         from: { email: "no-reply@websmithdigital.com", name: "Websmith Digital Alerts" },
