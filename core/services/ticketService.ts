@@ -292,10 +292,17 @@ export const createPublicTicket = async (payload: {
   company?: string;
   subject: string;
   message: string;
+  source?: string;
+  budget?: number | null;
+  timeline?: string;
+  services?: string[];
+  cmsRequirement?: string;
+  appPlatform?: string;
 }) => {
   const response = await API.post("/tickets/public", payload);
   return response.data.data as Ticket;
 };
+
 
 export const updateTicketStatus = async (
   id: string,

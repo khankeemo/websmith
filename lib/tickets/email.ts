@@ -1,7 +1,10 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import type { Db } from "@/lib/server/api";
+import { type Db, ObjectId } from "@/lib/server/api";
+import { sendEmail } from "@/lib/email/mailer";
+import { buildChatUrl } from "@/lib/tickets/chat";
 import { buildClientPortalGreeting } from "@/core/services/clientPortalGreeting";
+
 
 // ============================================================================
 // RESOLUTION EMAIL + CLIENT PORTAL ONBOARDING (Public Website domain)
@@ -854,3 +857,111 @@ export async function createClientAccount(
   const result = await db.collection("users").insertOne(doc);
   return { ...(doc as any), _id: result.insertedId, temporaryPassword };
 }
+
+/** Send the automatic First Welcome Message after a public submission.
+ * Reuses the database-backed `first-welcome` template (seeded, never
+ * overwritten) and the existing sendEmail pipeline — no new email provider,
+ * no new sender identity. The secure chat link is generated server-side and
+ * embedded as a real URL (the raw JWT token is never exposed in the message). */
+export async function sendWelcomeEmail(
+  db: any,
+  client: any,
+  input: {
+    ticketId: string;
+    requestId: string;
+    contactName: string;
+    contactEmail: string;
+    subject: string;
+    description: string;
+    account: { customId?: string | null; _id: string };
+    origin: string;
+    createdAt: Date;
+  }
+) {
+  const templates = await ensureResolutionTemplates(db);
+  const template = templates.find((t) => t.key === FIRST_WELCOME_TEMPLATE_KEY) || findDefaultTemplate(templates);
+  if (!template) return;
+
+  const portalUrl = `${input.origin}/login`;
+  const data: Record<string, string> = {
+    client_name: input.contactName || "Valued Customer",
+    client_email: input.contactEmail,
+    client_id: String(input.account?.customId ?? ""),
+    query_subject: input.subject,
+    query_message: input.description,
+    resolution_summary: "",
+    portal_url: portalUrl,
+    chat_url: buildChatUrl({ _id: input.ticketId, contactEmail: input.contactEmail, contactName: input.contactName }, input.origin),
+    company_name: "Websmith Digital",
+    request_id: input.requestId || ticketRequestLabel({ _id: input.ticketId }),
+    query_status: "open",
+  };
+
+  const rendered = renderResolutionTemplate(template, data);
+  const bodyText = stripAdminMarkers(rendered.body);
+  const subject = stripAdminMarkers(rendered.subject) || `Thank You for Contacting Websmith Digital - ${input.requestId}`;
+
+  const sendResult = await sendEmail(
+    db,
+    "welcome_customer",
+    { email: input.contactEmail, name: input.contactName },
+    data,
+    {
+      from: { email: "no-reply@websmithdigital.com", name: "Websmith Digital" },
+      replyTo: "support@websmithdigital.com",
+      custom: { subject, html: resolutionHtmlBody(subject, bodyText), plainText: renderCustomerMessagePlain(bodyText) },
+    }
+  );
+
+  // Record outgoing Welcome message on ticket thread
+  const now = new Date();
+  try {
+    const historyEntry = {
+      action: "welcome_email",
+      actorRole: "system",
+      message: "First Welcome Message sent automatically after public submission.",
+      templateKey: template.key,
+      templateName: template.name,
+      recipient: input.contactEmail,
+      emailSubject: subject,
+      emailBody: bodyText,
+      emailDelivered: sendResult.success,
+      emailError: sendResult.success ? undefined : sendResult.error,
+      createdAt: now,
+    };
+
+    const welcomeMessage = {
+      id: crypto.randomUUID(),
+      senderType: "admin",
+      direction: "outbound",
+      senderEmail: "no-reply@websmithdigital.com",
+      senderName: "Websmith Digital Support",
+      recipientEmail: input.contactEmail,
+      message: bodyText,
+      createdAt: now,
+      source: "welcome_email",
+      deliveryStatus: sendResult.success ? "sent" : "failed",
+      deliveryError: sendResult.success ? undefined : sendResult.error,
+      providerMessageId: sendResult.messageId || undefined,
+    };
+
+    await db.collection("tickets").updateOne(
+      { _id: new ObjectId(input.ticketId) },
+      {
+        $set: {
+          welcomeSentAt: now,
+          updatedAt: now,
+          adminReadAt: now,
+        },
+        $push: {
+          history: historyEntry,
+          messages: welcomeMessage,
+        } as any,
+      }
+    );
+  } catch (threadErr) {
+    console.error("[Tickets/Email] Failed to append welcome message to thread:", threadErr);
+  }
+}
+
+

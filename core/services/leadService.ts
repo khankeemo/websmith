@@ -10,15 +10,22 @@ export interface PublicService {
 export interface LeadPayload {
   name: string;
   email: string;
-  phone: string;
+  phone?: string;
+  callingPhone?: string;
+  whatsappPhone?: string;
   company?: string;
   budget?: number | null;
   timeline?: string;
+  preferredContactDate?: string;
+  preferredContactTime?: string;
+  timeZone?: string;
+  adminCallTimeIST?: string;
   notes?: string;
   cmsRequirement?: string;
   appPlatform?: "iOS" | "Android" | "Both" | "";
   services: string[];
 }
+
 
 export const getPublicServices = async (): Promise<PublicService[]> => {
   try {

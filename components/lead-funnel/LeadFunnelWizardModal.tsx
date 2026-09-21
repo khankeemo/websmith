@@ -53,13 +53,17 @@ export default function LeadFunnelWizardModal({ isOpen, onClose }: LeadFunnelWiz
           />
         )}
         {leadWizardStep === "success" && (
-          <div style={{ textAlign: "center", padding: "24px 8px 8px" }}>
+          <div style={{ textAlign: "center", padding: "24px 8px 16px" }}>
             <CheckCircle2 size={56} color="#34C759" style={{ marginBottom: "16px" }} aria-hidden />
-            <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.65, fontSize: "15px" }}>
-              Thanks — our sales team will follow up shortly with next steps.
+            <h3 style={{ margin: "0 0 10px", fontSize: "20px", fontWeight: 700, color: "var(--text-primary)" }}>
+              Thank You! Your Request Has Been Received.
+            </h3>
+            <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.65, fontSize: "14px", maxWidth: "480px", marginLeft: "auto", marginRight: "auto" }}>
+              We have sent a confirmation email with your project summary and a direct two-way live chat link. Our agency team will review your consultation schedule shortly.
             </p>
           </div>
         )}
+
       </div>
     </Modal>
   );
