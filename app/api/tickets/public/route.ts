@@ -272,7 +272,11 @@ async function sendWelcomeEmail(
     "support_reply",
     { email: input.contactEmail, name: input.contactName },
     data,
-    { custom: { subject, html: resolutionHtmlBody(subject, bodyText), plainText: renderCustomerMessagePlain(bodyText) } }
+    {
+      from: { email: "no-reply@websmithdigital.com", name: "Websmith Digital" },
+      replyTo: "support@websmithdigital.com",
+      custom: { subject, html: resolutionHtmlBody(subject, bodyText), plainText: renderCustomerMessagePlain(bodyText) },
+    }
   );
 
   const now = new Date();
