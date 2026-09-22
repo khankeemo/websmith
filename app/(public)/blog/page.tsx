@@ -96,7 +96,10 @@ export default function BlogPage() {
             style={{
               background: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
               WebkitBackgroundClip: "text",
+              backgroundClip: "text",
               WebkitTextFillColor: "transparent",
+              color: "transparent",
+              textShadow: "none",
             }}
           >
             Engineering Blog

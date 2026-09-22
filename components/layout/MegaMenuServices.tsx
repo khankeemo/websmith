@@ -315,8 +315,10 @@ export default function MegaMenuServices({
         top: "calc(100% + 8px)",
         ...offsetStyle,
         width: "min(860px, calc(100vw - 32px))",
-        backgroundColor: isDark ? "#0d1322" : "#ffffff",
-        border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(0, 0, 0, 0.08)",
+        backgroundColor: isDark ? "rgba(13, 19, 34, 0.94)" : "rgba(255, 255, 255, 0.96)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(226, 232, 240, 0.9)",
         borderRadius: "20px",
         boxShadow: isDark
           ? "0 28px 70px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06)"
@@ -346,6 +348,7 @@ export default function MegaMenuServices({
                 type="button"
                 onMouseEnter={() => setActiveCategoryId(category.id)}
                 onClick={() => setActiveCategoryId(category.id)}
+                className={`wsd-nav-category-tab ${isActive ? "wsd-nav-category-tab-active" : ""}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -366,7 +369,6 @@ export default function MegaMenuServices({
                   border: "none",
                   cursor: "pointer",
                   textAlign: "left",
-                  transition: "all 0.16s ease",
                 }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -399,20 +401,14 @@ export default function MegaMenuServices({
                 key={idx}
                 href={service.href}
                 onClick={onClose}
+                className="wsd-nav-service-card"
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "12px",
-                  padding: "12px 14px",
-                  borderRadius: "14px",
-                  textDecoration: "none",
                   backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.02)",
                   border: isDark ? "1px solid rgba(255, 255, 255, 0.05)" : "1px solid rgba(0, 0, 0, 0.04)",
-                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                 }}
-                className="wsd-mega-service-card"
               >
                 <div
+                  className="wsd-nav-icon-box"
                   style={{
                     width: "36px",
                     height: "36px",
@@ -429,6 +425,7 @@ export default function MegaMenuServices({
                 </div>
                 <div>
                   <div
+                    className="wsd-nav-card-title"
                     style={{
                       fontSize: "13.5px",
                       fontWeight: 600,
@@ -525,14 +522,6 @@ export default function MegaMenuServices({
           View All Services <ArrowRight size={13} />
         </Link>
       </div>
-
-      <style>{`
-        .wsd-mega-service-card:hover {
-          background-color: ${isDark ? "rgba(37, 99, 235, 0.12)" : "rgba(37, 99, 235, 0.06)"} !important;
-          border-color: rgba(37, 99, 235, 0.3) !important;
-          transform: translateY(-1px);
-        }
-      `}</style>
     </div>
   );
 }

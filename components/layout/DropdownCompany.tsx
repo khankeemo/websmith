@@ -61,14 +61,16 @@ export default function DropdownCompany({
         left: 0,
         width: "410px",
         maxWidth: "92vw",
-        backgroundColor: isDark ? "#0d1322" : "#ffffff",
-        border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(0, 0, 0, 0.08)",
+        backgroundColor: isDark ? "rgba(13, 19, 34, 0.92)" : "rgba(255, 255, 255, 0.95)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(226, 232, 240, 0.9)",
         borderRadius: "18px",
         boxShadow: isDark
           ? "0 28px 70px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06)"
           : "0 24px 60px -12px rgba(0, 0, 0, 0.15), 0 8px 24px -6px rgba(0, 0, 0, 0.06)",
         padding: "10px",
-        zIndex: 100,
+        zIndex: 1400,
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -79,19 +81,10 @@ export default function DropdownCompany({
               key={index}
               href={item.href}
               onClick={onClose}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "10px 12px",
-                borderRadius: "12px",
-                textDecoration: "none",
-                backgroundColor: "transparent",
-                transition: "all 0.15s ease",
-              }}
-              className="wsd-company-row"
+              className="wsd-nav-menu-row"
             >
               <div
+                className="wsd-nav-icon-box"
                 style={{
                   width: "36px",
                   height: "36px",
@@ -118,7 +111,7 @@ export default function DropdownCompany({
                     lineHeight: 1.25,
                   }}
                 >
-                  <span>{item.title}</span>
+                  <span className="wsd-nav-row-title">{item.title}</span>
                   {item.badge && (
                     <span
                       style={{
@@ -146,17 +139,11 @@ export default function DropdownCompany({
                   {item.description}
                 </div>
               </div>
-              <ArrowRight size={14} style={{ opacity: 0.4, color: isDark ? "#ffffff" : "#0f172a" }} />
+              <ArrowRight size={14} className="wsd-nav-arrow" style={{ opacity: 0.4, color: isDark ? "#ffffff" : "#0f172a" }} />
             </Link>
           );
         })}
       </div>
-      <style>{`
-        .wsd-company-row:hover {
-          background-color: ${isDark ? "rgba(37, 99, 235, 0.12)" : "rgba(37, 99, 235, 0.06)"} !important;
-          transform: translateX(2px);
-        }
-      `}</style>
     </div>
   );
 }

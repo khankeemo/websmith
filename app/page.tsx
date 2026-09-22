@@ -1191,12 +1191,16 @@ export default function LandingPage() {
           <h1 style={styles.heroTitle} className="landing-hero-title">
             Enterprise Digital Ecosystems &amp;{" "}
             <span
+              className="landing-hero-highlight"
               style={{
-                background: isDark
-                  ? "linear-gradient(135deg, #2997ff 0%, #70baff 100%)"
-                  : "linear-gradient(135deg, #0071e3 0%, #409cff 100%)",
+                display: "inline-block",
+                background: "linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #34d399 100%)",
                 WebkitBackgroundClip: "text",
+                backgroundClip: "text",
                 WebkitTextFillColor: "transparent",
+                color: "transparent",
+                textShadow: "none",
+                filter: "drop-shadow(0 2px 10px rgba(6, 182, 212, 0.4))",
               }}
             >
               Custom Software
@@ -3175,6 +3179,17 @@ export default function LandingPage() {
           }
         }
 
+        .landing-hero-highlight {
+          display: inline-block !important;
+          background: linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #34d399 100%) !important;
+          -webkit-background-clip: text !important;
+          background-clip: text !important;
+          -webkit-text-fill-color: transparent !important;
+          color: transparent !important;
+          text-shadow: none !important;
+          filter: drop-shadow(0 2px 10px rgba(6, 182, 212, 0.4)) !important;
+        }
+
         @media (max-width: 1120px) {
           .ws-diversity-col {
             width: min(480px, 100%) !important;
@@ -3498,11 +3513,13 @@ function getLandingStyles(isDark: boolean): Record<string, any> {
     },
     techHighlight: {
       backgroundImage: isDark
-        ? "linear-gradient(90deg, #2997ff, #70baff)"
-        : "linear-gradient(90deg, #0071e3, #00c7be)",
+        ? "linear-gradient(90deg, #38bdf8, #06b6d4)"
+        : "linear-gradient(90deg, #0284c7, #0d9488)",
       WebkitBackgroundClip: "text",
       backgroundClip: "text",
+      WebkitTextFillColor: "transparent",
       color: "transparent",
+      textShadow: "none",
     },
     techSub: {
       margin: "12px 0 0",

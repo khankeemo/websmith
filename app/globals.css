@@ -1530,3 +1530,166 @@ html:not(.dark-theme) .wsd-portfolio-card:nth-child(3n):not(:hover),
   color: #033B2B !important;
   stroke: #033B2B !important;
 }
+
+/* Landing Page Hero Highlight - Prevents blur & text-shadow clipping bugs on theme switch */
+.landing-hero-highlight {
+  display: inline-block !important;
+  background: linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #34d399 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  text-shadow: none !important;
+  filter: drop-shadow(0 2px 10px rgba(6, 182, 212, 0.4)) !important;
+}
+
+/* ============================================================
+   UNIFIED NAVBAR MENU HOVER SYSTEM - Consistent Across All Pages
+   ============================================================ */
+
+/* Top-level Desktop Menu Links */
+.menu-item-hover {
+  position: relative;
+  transition: color 0.22s ease, opacity 0.22s ease;
+}
+.menu-item-hover::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  border-radius: 9999px;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(-50%);
+}
+.menu-item-hover:hover {
+  color: #3b82f6 !important;
+}
+.dark-theme .menu-item-hover:hover {
+  color: #38bdf8 !important;
+}
+.menu-item-hover:hover::after,
+.active-nav-link.menu-item-hover::after {
+  width: 75%;
+}
+
+/* Dropdown Menu Item Row (Company & Industries) */
+.wsd-nav-menu-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease !important;
+  cursor: pointer;
+}
+.dark-theme .wsd-nav-menu-row:hover {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.16) 0%, rgba(6, 182, 212, 0.08) 100%) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  box-shadow: 0 4px 16px -2px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  transform: translateX(3px);
+}
+html:not(.dark-theme) .wsd-nav-menu-row:hover,
+.light-theme .wsd-nav-menu-row:hover {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.10) 0%, rgba(6, 182, 212, 0.05) 100%) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+  box-shadow: 0 4px 14px -2px rgba(59, 130, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  transform: translateX(3px);
+}
+.wsd-nav-menu-row .wsd-nav-icon-box {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+.wsd-nav-menu-row:hover .wsd-nav-icon-box {
+  transform: scale(1.08);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.28), rgba(6, 182, 212, 0.2)) !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3) !important;
+  color: #38bdf8 !important;
+}
+.wsd-nav-menu-row .wsd-nav-row-title {
+  transition: color 0.2s ease;
+}
+.dark-theme .wsd-nav-menu-row:hover .wsd-nav-row-title {
+  color: #38bdf8 !important;
+}
+html:not(.dark-theme) .wsd-nav-menu-row:hover .wsd-nav-row-title,
+.light-theme .wsd-nav-menu-row:hover .wsd-nav-row-title {
+  color: #0284c7 !important;
+}
+.wsd-nav-menu-row .wsd-nav-arrow {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, color 0.2s ease;
+}
+.wsd-nav-menu-row:hover .wsd-nav-arrow {
+  transform: translateX(4px);
+  opacity: 1 !important;
+  color: #38bdf8 !important;
+}
+
+/* Services Mega-Menu Service Card */
+.wsd-nav-service-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease !important;
+}
+.dark-theme .wsd-nav-service-card:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.14) 0%, rgba(6, 182, 212, 0.08) 100%) !important;
+  border-color: rgba(59, 130, 246, 0.38) !important;
+  box-shadow: 0 6px 20px -4px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  transform: translateY(-2px);
+}
+html:not(.dark-theme) .wsd-nav-service-card:hover,
+.light-theme .wsd-nav-service-card:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.09) 0%, rgba(6, 182, 212, 0.04) 100%) !important;
+  border-color: rgba(59, 130, 246, 0.28) !important;
+  box-shadow: 0 6px 18px -4px rgba(59, 130, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  transform: translateY(-2px);
+}
+.wsd-nav-service-card .wsd-nav-icon-box {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+.wsd-nav-service-card:hover .wsd-nav-icon-box {
+  transform: scale(1.08);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.28), rgba(6, 182, 212, 0.2)) !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3) !important;
+  color: #38bdf8 !important;
+}
+.wsd-nav-service-card .wsd-nav-card-title {
+  transition: color 0.2s ease;
+}
+.dark-theme .wsd-nav-service-card:hover .wsd-nav-card-title {
+  color: #38bdf8 !important;
+}
+html:not(.dark-theme) .wsd-nav-service-card:hover .wsd-nav-card-title,
+.light-theme .wsd-nav-service-card:hover .wsd-nav-card-title {
+  color: #0284c7 !important;
+}
+
+/* Services Mega-Menu Left Category Tab */
+.wsd-nav-category-tab {
+  transition: background 0.2s ease, color 0.2s ease, transform 0.16s ease !important;
+}
+.wsd-nav-category-tab:hover:not(.wsd-nav-category-tab-active) {
+  background: rgba(59, 130, 246, 0.10) !important;
+  color: #38bdf8 !important;
+  transform: translateX(2px);
+}
+html:not(.dark-theme) .wsd-nav-category-tab:hover:not(.wsd-nav-category-tab-active),
+.light-theme .wsd-nav-category-tab:hover:not(.wsd-nav-category-tab-active) {
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: #0284c7 !important;
+  transform: translateX(2px);
+}
+.wsd-nav-category-tab-active {
+  background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
