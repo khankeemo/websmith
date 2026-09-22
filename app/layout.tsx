@@ -3,16 +3,29 @@
 // Features: Metadata configuration, imports client layout for conditional sidebar
 
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import ClientLayout from "./ClientLayout";
 import "./globals.css";
 import { getSiteUrl } from "../core/config/site";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-heading",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
 
 const siteUrl = getSiteUrl();
 const brandImage = "/images/websmith_original.jpg";
 
 export const metadata: Metadata = {
-  title: "Websmith - Your On-Demand Tech Partner",
-  description: "Websmith - Freelancer/SaaS Web Development Agency Management Platform. Connect with top-tier developers.",
+  title: "WebSmith Digital — Enterprise Digital Ecosystems & Custom Software Engineering",
+  description: "WebSmith Digital builds high-performance web applications, enterprise ERP systems, and universal software licensing platforms for high-growth businesses.",
   metadataBase: new URL(siteUrl),
   icons: {
     icon: [
@@ -24,22 +37,22 @@ export const metadata: Metadata = {
     apple: [{ url: "/images/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
-    title: "Websmith - Your On-Demand Tech Partner",
-    description: "Websmith - Freelancer/SaaS Web Development Agency Management Platform. Connect with top-tier developers.",
+    title: "WebSmith Digital — Enterprise Digital Ecosystems & Custom Software Engineering",
+    description: "WebSmith Digital builds high-performance web applications, enterprise ERP systems, and universal software licensing platforms for high-growth businesses.",
     url: siteUrl,
-    siteName: "Websmith",
+    siteName: "WebSmith Digital",
     images: [
       {
         url: brandImage,
-        alt: "Websmith",
+        alt: "WebSmith Digital",
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Websmith - Your On-Demand Tech Partner",
-    description: "Websmith - Freelancer/SaaS Web Development Agency Management Platform. Connect with top-tier developers.",
+    title: "WebSmith Digital — Enterprise Digital Ecosystems & Custom Software Engineering",
+    description: "WebSmith Digital builds high-performance web applications, enterprise ERP systems, and universal software licensing platforms for high-growth businesses.",
     images: [brandImage],
   },
   other: {
@@ -53,8 +66,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
-      <body>
+    <html lang="en" data-scroll-behavior="smooth" className={`${plusJakartaSans.variable} ${inter.variable}`}>
+      <body className="antialiased">
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

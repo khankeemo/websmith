@@ -35,6 +35,7 @@ import { getPublishedClients } from "./clients/services/clientService";
 import { getPublishedDevelopers } from "../core/services/userService";
 import { createPublicTicket } from "../core/services/ticketService";
 import { useLeadFunnel } from "./providers/LeadFunnelProvider";
+import { usePublicTheme } from "./providers/PublicThemeProvider";
 import { PhoneInputWithCountry } from "@/components/ui/PhoneInputWithCountry";
 import { validatePhoneNumber } from "@/core/utils/phoneValidation";
 import { useMediaAsset } from "../hooks/useMediaAsset";
@@ -634,6 +635,8 @@ function FloatingTechnologyBanner() {
 
 export default function LandingPage() {
   const { openLeadServicesModal } = useLeadFunnel();
+  const { publicTheme } = usePublicTheme();
+  const isDark = publicTheme === "dark";
   
   // Refs for smooth scroll
   const featuresRef = useRef<HTMLElement>(null);
@@ -1002,13 +1005,75 @@ export default function LandingPage() {
         </video>
         <div style={styles.heroOverlay} />
         <div style={styles.heroContent} className="landing-hero-content">
-          <h1 style={styles.heroTitle} className="landing-hero-title">Your On-Demand <span style={styles.highlight}>Tech Partner</span></h1>
-          <p style={styles.heroSubtitle} className="landing-hero-subtitle">Connect with top-tier developers, build amazing products, and scale your business with confidence.</p>
-          <button onClick={handleGetStarted} style={styles.ctaButton} className="cta-hover">
-            Get Started <ArrowRight size={18} />
-          </button>
+          <h1 style={styles.heroTitle} className="landing-hero-title">
+            Enterprise Digital Ecosystems &amp; <span style={styles.highlight}>Custom Software</span>
+          </h1>
+          <p style={styles.heroSubtitle} className="landing-hero-subtitle">
+            We architect high-performance web applications, enterprise ERP systems, and universal licensing infrastructure for high-growth businesses.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "14px", flexWrap: "wrap" }}>
+            <button onClick={handleGetStarted} style={styles.ctaButton} className="cta-hover">
+              Get Started <ArrowRight size={18} />
+            </button>
+            <Link
+              href="/portfolio"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "14px 28px",
+                borderRadius: "9999px",
+                fontSize: "15px",
+                fontWeight: 600,
+                color: "#ffffff",
+                backgroundColor: "rgba(255, 255, 255, 0.12)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+                textDecoration: "none",
+                transition: "all 0.2s ease",
+              }}
+              className="hero-secondary-btn"
+            >
+              Explore Portfolio
+            </Link>
+          </div>
         </div>
       </section>
+
+      {/* Enterprise Trust & Security Strip */}
+      <div
+        style={{
+          width: "100%",
+          padding: "14px clamp(16px, 4vw, 40px)",
+          backgroundColor: isDark ? "rgba(13, 19, 34, 0.75)" : "#f8fafc",
+          borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "clamp(16px, 3vw, 40px)",
+          flexWrap: "wrap",
+          fontSize: "12.5px",
+          fontWeight: 600,
+          color: isDark ? "rgba(255, 255, 255, 0.7)" : "#475569",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ color: "#3b82f6" }}>🔒</span>
+          <span>AES-256-GCM Credential Encryption</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ color: "#10b981" }}>🔑</span>
+          <span>HMAC-SHA256 Cryptographic API Gate</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ color: "#8b5cf6" }}>⚡</span>
+          <span>99.99% High-Availability Cloud Architecture</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ color: "#06b6d4" }}>🌍</span>
+          <span>418 World Timezones Live Support</span>
+        </div>
+      </div>
 
       {/* Features Grid */}
       <section id="features" ref={featuresRef} style={styles.section}>
@@ -1056,8 +1121,31 @@ export default function LandingPage() {
 
       {effectiveProjects.length > 0 && (
         <section id="projects" style={styles.section}>
-          <h2 style={styles.sectionTitle}>Projects</h2>
-          <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px", marginBottom: "16px" }}>
+            <div>
+              <h2 style={styles.sectionTitle}>Portfolio &amp; Case Studies</h2>
+              <p style={styles.sectionSubtitle}>Selected launches and delivery work with public-facing details only.</p>
+            </div>
+            <Link
+              href="/portfolio"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "13.5px",
+                fontWeight: 600,
+                color: "#3b82f6",
+                textDecoration: "none",
+                padding: "8px 18px",
+                borderRadius: "9999px",
+                backgroundColor: isDark ? "rgba(37, 99, 235, 0.15)" : "rgba(37, 99, 235, 0.08)",
+                border: isDark ? "1px solid rgba(37, 99, 235, 0.3)" : "1px solid rgba(37, 99, 235, 0.2)",
+                transition: "all 0.15s ease",
+              }}
+            >
+              View Full Portfolio ➔
+            </Link>
+          </div>
           <HorizontalCardStrip
             items={effectiveProjects}
             ariaLabel="Published projects"
@@ -1068,7 +1156,14 @@ export default function LandingPage() {
             renderItem={(project: any) => (
               <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard }} className="feature-card">
                 {project.previewImage ? (
-                  <img src={project.previewImage} alt={project.name} style={styles.projectPreviewImage} />
+                  <img 
+                    src={project.previewImage} 
+                    alt={project.name} 
+                    style={styles.projectPreviewImage} 
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/images/websmith_original.jpg";
+                    }}
+                  />
                 ) : null}
                 <div style={styles.featureIcon}><Briefcase size={28} /></div>
                 <h3 style={styles.featureTitle}>{project.name}</h3>

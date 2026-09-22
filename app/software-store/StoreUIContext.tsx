@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { STORAGE_CART_KEY, STORAGE_WISHLIST_KEY } from "./store-state";
 
 type DrawerHandlers = {
@@ -30,7 +30,7 @@ export function StoreUIProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
-  const [handlers, setHandlers] = useState<Partial<DrawerHandlers>>({});
+  const handlersRef = useRef<Partial<DrawerHandlers>>({});
 
   useEffect(() => {
     const updateCounts = () => {
@@ -65,31 +65,34 @@ export function StoreUIProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const openCart = useCallback(() => handlers.openCart?.(), [handlers]);
-  const openWishlist = useCallback(() => handlers.openWishlist?.(), [handlers]);
-  const openHistory = useCallback(() => handlers.openHistory?.(), [handlers]);
-  const openEmailCenter = useCallback(() => handlers.openEmailCenter?.(), [handlers]);
+  const openCart = useCallback(() => handlersRef.current.openCart?.(), []);
+  const openWishlist = useCallback(() => handlersRef.current.openWishlist?.(), []);
+  const openHistory = useCallback(() => handlersRef.current.openHistory?.(), []);
+  const openEmailCenter = useCallback(() => handlersRef.current.openEmailCenter?.(), []);
 
   const setDrawerHandlers = useCallback((h: DrawerHandlers) => {
-    setHandlers(h);
+    handlersRef.current = h;
   }, []);
 
+  const value = useMemo(
+    () => ({
+      searchQuery,
+      setSearchQuery,
+      cartCount,
+      wishlistCount,
+      setCartCount,
+      setWishlistCount,
+      openCart,
+      openWishlist,
+      openHistory,
+      openEmailCenter,
+      setDrawerHandlers,
+    }),
+    [searchQuery, cartCount, wishlistCount, openCart, openWishlist, openHistory, openEmailCenter, setDrawerHandlers]
+  );
+
   return (
-    <StoreUIContext.Provider
-      value={{
-        searchQuery,
-        setSearchQuery,
-        cartCount,
-        wishlistCount,
-        setCartCount,
-        setWishlistCount,
-        openCart,
-        openWishlist,
-        openHistory,
-        openEmailCenter,
-        setDrawerHandlers,
-      }}
-    >
+    <StoreUIContext.Provider value={value}>
       {children}
     </StoreUIContext.Provider>
   );

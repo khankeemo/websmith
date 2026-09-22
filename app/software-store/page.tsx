@@ -604,28 +604,31 @@ export default function SoftwareStorePage() {
   const [showCompare, setShowCompare] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
+  const setDrawerHandlers = storeUI?.setDrawerHandlers;
   useEffect(() => {
-    if (storeUI) {
-      storeUI.setDrawerHandlers({
+    if (setDrawerHandlers) {
+      setDrawerHandlers({
         openCart: () => setShowCart(true),
         openWishlist: () => setShowWishlist(true),
         openHistory: () => setShowHistory(true),
         openEmailCenter: () => setShowEmailCenter(true),
       });
     }
-  }, [storeUI]);
+  }, [setDrawerHandlers]);
 
+  const setCartCount = storeUI?.setCartCount;
   useEffect(() => {
-    if (storeUI) {
-      storeUI.setCartCount(cart.totalItems);
+    if (setCartCount) {
+      setCartCount(cart.totalItems);
     }
-  }, [cart.totalItems, storeUI]);
+  }, [cart.totalItems, setCartCount]);
 
+  const setWishlistCount = storeUI?.setWishlistCount;
   useEffect(() => {
-    if (storeUI) {
-      storeUI.setWishlistCount(wishlist.items.length);
+    if (setWishlistCount) {
+      setWishlistCount(wishlist.items.length);
     }
-  }, [wishlist.items.length, storeUI]);
+  }, [wishlist.items.length, setWishlistCount]);
 
   const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });

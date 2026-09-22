@@ -24,6 +24,7 @@ export const PUBLIC_PATHS = [
 
   // Public Pages
   "/services",
+  "/portfolio",
   "/lead-form",
   "/success",
   "/about",
@@ -57,6 +58,7 @@ export const PUBLIC_EXACT_ROUTES = [
 
   // Public Pages
   "/services",
+  "/portfolio",
   "/lead-form",
   "/success",
   "/about",

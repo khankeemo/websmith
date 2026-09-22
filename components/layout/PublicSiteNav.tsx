@@ -1,50 +1,42 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
+import Link from "next/link";
+import { useEffect, useLayoutEffect, useState, useRef, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Menu, X, Search, ShoppingCart, Heart, History as HistoryIcon, Mail } from "lucide-react";
+import { 
+  Menu, 
+  X, 
+  Search, 
+  ShoppingCart, 
+  Heart, 
+  History as HistoryIcon, 
+  Mail, 
+  ChevronDown, 
+  ChevronRight,
+  ExternalLink 
+} from "lucide-react";
 import { getStoredUser, getToken } from "../../lib/auth";
 import { usePublicTheme } from "../../app/providers/PublicThemeProvider";
 import { useLeadFunnel } from "../../app/providers/LeadFunnelProvider";
 import { useStoreUI } from "../../app/software-store/StoreUIContext";
-import {
-  defaultNavbarVisibility,
-  getNavbarVisibility,
-  NAVBAR_VISIBILITY_EVENT,
-  NavbarSectionKey,
-  NavbarVisibility,
-} from "../../core/services/publicSettingsService";
+import MegaMenuServices from "./MegaMenuServices";
+import DropdownIndustries from "./DropdownIndustries";
+import DropdownCompany from "./DropdownCompany";
 
 const brandLogo = "/images/websmith_1x1.jpg";
-
-export const PUBLIC_SITE_NAV_ITEMS = [
-  { name: "Home", href: "/" },
-  { name: "Features", href: "/#features" },
-  { name: "Projects", href: "/#projects", visibilityKey: "projects" },
-  { name: "Clients", href: "/#clients", visibilityKey: "clients" },
-  { name: "Developers", href: "/#developers", visibilityKey: "developers" },
-  { name: "Testimonials", href: "/#testimonials", visibilityKey: "testimonials" },
-  { name: "Software Store", href: "/software-store", visibilityKey: "softwareStore" },
-  { name: "Contact", href: "/#contact" },
-] satisfies Array<{ name: string; href: string; visibilityKey?: NavbarSectionKey }>;
 
 type PublicSiteNavProps = {
   /** Minimal bar (logo + Home + CTA) for sign-in pages — avoids the full marketing menu on /login */
   variant?: "full" | "auth";
 };
 
-/**
- * Single shared top navigation for public marketing pages (home, login, register, etc.).
- * Avoid duplicating separate header implementations per page.
- */
 export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navMounted, setNavMounted] = useState(false);
-  const [navbarVisibility, setNavbarVisibility] = useState<NavbarVisibility>(defaultNavbarVisibility);
   const { publicTheme, togglePublicTheme } = usePublicTheme();
   const { openLeadServicesModal } = useLeadFunnel();
   const isLogin = pathname === "/login";
@@ -53,60 +45,37 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
   const storeUI = useStoreUI();
   const isDark = publicTheme === "dark";
 
+  // DreamX Dropdown state
+  const [activeDropdown, setActiveDropdown] = useState<"services" | "industries" | "company" | null>(null);
+  const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Mobile accordion state
+  const [mobileExpandedSection, setMobileExpandedSection] = useState<"services" | "industries" | "company" | null>(null);
+
   useLayoutEffect(() => {
     setNavMounted(true);
   }, []);
 
   const showGuestThemeToggle = navMounted;
-  const visibleNavItems = PUBLIC_SITE_NAV_ITEMS.filter((item) => !item.visibilityKey || navbarVisibility[item.visibilityKey]);
 
-  useEffect(() => {
-    let mounted = true;
+  const handleMouseEnter = (menu: "services" | "industries" | "company") => {
+    if (dropdownTimeoutRef.current) clearTimeout(dropdownTimeoutRef.current);
+    setActiveDropdown(menu);
+  };
 
-    const refreshVisibility = () => {
-      getNavbarVisibility()
-        .then((value) => {
-          if (mounted) setNavbarVisibility(value);
-        })
-        .catch(() => {
-          if (mounted) setNavbarVisibility(defaultNavbarVisibility);
-        });
-    };
-
-    const handleVisibilityEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<NavbarVisibility>;
-      if (customEvent.detail) {
-        setNavbarVisibility({ ...defaultNavbarVisibility, ...customEvent.detail });
-        return;
-      }
-      refreshVisibility();
-    };
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== NAVBAR_VISIBILITY_EVENT || !event.newValue) return;
-      try {
-        const parsed = JSON.parse(event.newValue);
-        setNavbarVisibility({ ...defaultNavbarVisibility, ...(parsed.value || {}) });
-      } catch {
-        refreshVisibility();
-      }
-    };
-
-    refreshVisibility();
-    window.addEventListener(NAVBAR_VISIBILITY_EVENT, handleVisibilityEvent);
-    window.addEventListener("storage", handleStorage);
-
-    return () => {
-      mounted = false;
-      window.removeEventListener(NAVBAR_VISIBILITY_EVENT, handleVisibilityEvent);
-      window.removeEventListener("storage", handleStorage);
-    };
-  }, []);
+  const handleMouseLeave = () => {
+    dropdownTimeoutRef.current = setTimeout(() => {
+      setActiveDropdown(null);
+    }, 150);
+  };
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileOpen(false);
+      if (e.key === "Escape") {
+        setMobileOpen(false);
+        setActiveDropdown(null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => {
@@ -115,20 +84,26 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
     };
   }, [mobileOpen]);
 
+  // Close dropdowns on route change
+  useEffect(() => {
+    setActiveDropdown(null);
+    setMobileOpen(false);
+  }, [pathname]);
+
   if (isAuthLayout) {
     return (
       <nav style={styles.navAuth} className="landing-nav-shell public-site-nav public-site-nav--auth">
         <div style={styles.navAuthInner} className="landing-nav-content">
-          <a href="/" style={styles.logo} className="logo-hover" onClick={() => setMobileOpen(false)}>
+          <Link href="/" style={styles.logo} className="logo-hover" onClick={() => setMobileOpen(false)}>
             <div style={styles.logoCircle}>
               <Image src={brandLogo} alt="Websmith Digital logo" width={36} height={36} style={styles.logoImage} priority />
             </div>
             <span style={styles.logoText}>Websmith</span>
-          </a>
+          </Link>
           <div style={styles.authNavRight}>
-            <a href="/" style={styles.authTextLink}>
+            <Link href="/" style={styles.authTextLink}>
               Home
-            </a>
+            </Link>
             {showGuestThemeToggle && (
               <button
                 type="button"
@@ -153,8 +128,8 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
       style={{
         ...styles.nav,
         backgroundColor: isDark
-          ? "rgba(7, 11, 20, 0.92)"
-          : "rgba(255, 255, 255, 0.92)",
+          ? "rgba(10, 15, 29, 0.88)"
+          : "rgba(255, 255, 255, 0.9)",
         borderBottom: isDark
           ? "1px solid rgba(255, 255, 255, 0.08)"
           : "1px solid #e2e8f0",
@@ -164,7 +139,8 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
     >
       <div style={styles.navContent} className="landing-nav-content">
         <div style={styles.leftNavGroup}>
-          <a href="/" style={styles.logo} className="logo-hover" onClick={() => setMobileOpen(false)}>
+          {/* Brand Logo */}
+          <Link href="/" style={styles.logo} className="logo-hover" onClick={() => setMobileOpen(false)}>
             <div
               style={{
                 ...styles.logoCircle,
@@ -175,29 +151,171 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
               <Image src={brandLogo} alt="Websmith Digital logo" width={36} height={36} style={styles.logoImage} priority />
             </div>
             <span style={{ ...styles.logoText, color: isDark ? "#FFFFFF" : "#1d1d1f" }}>Websmith</span>
-          </a>
+          </Link>
+
+          {/* DreamX-Style Desktop Navigation */}
           <div style={styles.desktopMenu} className="desktop-menu">
-            {visibleNavItems.map((item, index) => {
-              const isCurrent = item.href === "/"
-                ? pathname === "/"
-                : item.href.startsWith("/#")
-                ? false
-                : pathname === item.href || (item.href === "/software-store" && pathname?.startsWith("/software-store"));
-              return (
-                <a
-                  key={index}
-                  href={item.href}
+            {/* 1. Home */}
+            <Link
+              href="/"
+              style={{
+                ...styles.menuItem,
+                color: pathname === "/" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                fontWeight: pathname === "/" ? 600 : 500,
+              }}
+              className={`menu-item-hover ${pathname === "/" ? "active-nav-link" : ""}`}
+            >
+              Home
+            </Link>
+
+            {/* 2. Services ▾ (DreamX Interactive Mega-Menu) */}
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => handleMouseEnter("services")}
+              onMouseLeave={handleMouseLeave}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveDropdown(activeDropdown === "services" ? null : "services")}
+                style={{
+                  ...styles.menuItem,
+                  color: pathname === "/services" || activeDropdown === "services" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                  fontWeight: pathname === "/services" || activeDropdown === "services" ? 600 : 500,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "8px 10px",
+                }}
+                className="menu-item-hover"
+                aria-expanded={activeDropdown === "services"}
+              >
+                <span>Services</span>
+                <ChevronDown
+                  size={14}
                   style={{
-                    ...styles.menuItem,
-                    color: isCurrent ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
-                    ...(isCurrent ? { fontWeight: 600 } : {}),
+                    transform: activeDropdown === "services" ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
                   }}
-                  className={`menu-item-hover ${isCurrent ? "active-nav-link" : ""}`}
-                >
-                  {item.name}
-                </a>
-              );
-            })}
+                />
+              </button>
+            </div>
+
+            {/* 3. Industries ▾ */}
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => handleMouseEnter("industries")}
+              onMouseLeave={handleMouseLeave}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveDropdown(activeDropdown === "industries" ? null : "industries")}
+                style={{
+                  ...styles.menuItem,
+                  color: activeDropdown === "industries" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                  fontWeight: activeDropdown === "industries" ? 600 : 500,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "8px 10px",
+                }}
+                className="menu-item-hover"
+                aria-expanded={activeDropdown === "industries"}
+              >
+                <span>Industries</span>
+                <ChevronDown
+                  size={14}
+                  style={{
+                    transform: activeDropdown === "industries" ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+              {activeDropdown === "industries" && (
+                <DropdownIndustries isDark={isDark} onClose={() => setActiveDropdown(null)} />
+              )}
+            </div>
+
+            {/* 4. Portfolio (Direct Link) */}
+            <Link
+              href="/portfolio"
+              style={{
+                ...styles.menuItem,
+                color: pathname === "/portfolio" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                fontWeight: pathname === "/portfolio" ? 600 : 500,
+              }}
+              className={`menu-item-hover ${pathname === "/portfolio" ? "active-nav-link" : ""}`}
+            >
+              Portfolio
+            </Link>
+
+            {/* 5. Company ▾ */}
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => handleMouseEnter("company")}
+              onMouseLeave={handleMouseLeave}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveDropdown(activeDropdown === "company" ? null : "company")}
+                style={{
+                  ...styles.menuItem,
+                  color: pathname === "/about" || pathname === "/careers" || activeDropdown === "company" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                  fontWeight: pathname === "/about" || pathname === "/careers" || activeDropdown === "company" ? 600 : 500,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "8px 10px",
+                }}
+                className="menu-item-hover"
+                aria-expanded={activeDropdown === "company"}
+              >
+                <span>Company</span>
+                <ChevronDown
+                  size={14}
+                  style={{
+                    transform: activeDropdown === "company" ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+              {activeDropdown === "company" && (
+                <DropdownCompany isDark={isDark} onClose={() => setActiveDropdown(null)} />
+              )}
+            </div>
+
+            {/* 6. Software Store */}
+            <Link
+              href="/software-store"
+              style={{
+                ...styles.menuItem,
+                color: pathname?.startsWith("/software-store") ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                fontWeight: pathname?.startsWith("/software-store") ? 600 : 500,
+              }}
+              className={`menu-item-hover ${pathname?.startsWith("/software-store") ? "active-nav-link" : ""}`}
+            >
+              Software Store
+            </Link>
+
+            {/* 7. Contact Us */}
+            <Link
+              href="/#contact"
+              style={{
+                ...styles.menuItem,
+                color: isDark ? "#E2E8F0" : "#1d1d1f",
+              }}
+              className="menu-item-hover"
+            >
+              Contact Us
+            </Link>
           </div>
         </div>
 
@@ -318,10 +436,31 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
               Log in
             </button>
           )}
-          <button type="button" onClick={() => openLeadServicesModal()} style={styles.ctaBtn} className="cta-hover public-nav-cta">
+          <button 
+            type="button" 
+            onClick={() => openLeadServicesModal()} 
+            style={{
+              ...styles.ctaBtn,
+              background: "linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)",
+              color: "#ffffff",
+              border: "none",
+              boxShadow: "0 4px 14px rgba(37, 99, 235, 0.35)",
+            }} 
+            className="cta-hover public-nav-cta"
+          >
             Get Started
           </button>
         </div>
+
+        {/* Global Centered Services Mega-Menu */}
+        {activeDropdown === "services" && (
+          <div
+            onMouseEnter={() => handleMouseEnter("services")}
+            onMouseLeave={handleMouseLeave}
+          >
+            <MegaMenuServices isDark={isDark} onClose={() => setActiveDropdown(null)} />
+          </div>
+        )}
 
         <button
           type="button"
@@ -339,6 +478,7 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
         </button>
       </div>
 
+      {/* Mobile Menu Panel */}
       {mobileOpen && (
         <>
           <button
@@ -354,6 +494,8 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
               ...styles.mobileMenu,
               backgroundColor: isDark ? "#070B14" : "#ffffff",
               borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#e2e8f0",
+              overflowY: "auto",
+              maxHeight: "85vh",
             }}
             className="public-mobile-menu-panel"
           >
@@ -407,29 +549,201 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                 </div>
               </div>
             )}
-            {visibleNavItems.map((item, index) => {
-              const isCurrent = item.href === "/"
-                ? pathname === "/"
-                : item.href.startsWith("/#")
-                ? false
-                : pathname === item.href || (item.href === "/software-store" && pathname?.startsWith("/software-store"));
-              return (
-                <a
-                  key={index}
-                  href={item.href}
+
+            {/* Mobile Nav Links */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <Link
+                href="/"
+                style={{
+                  ...styles.mobileMenuItem,
+                  color: pathname === "/" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                  fontWeight: pathname === "/" ? 600 : 500,
+                }}
+                className={`mobile-menu-item ${pathname === "/" ? "active-mobile-link" : ""}`}
+                onClick={() => setMobileOpen(false)}
+              >
+                Home
+              </Link>
+
+              {/* Mobile Services Accordion */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setMobileExpandedSection(mobileExpandedSection === "services" ? null : "services")}
                   style={{
                     ...styles.mobileMenuItem,
-                    color: isCurrent ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
-                    ...(isCurrent ? { fontWeight: 600 } : {}),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: isDark ? "#E2E8F0" : "#1d1d1f",
                   }}
-                  className={`mobile-menu-item ${isCurrent ? "active-mobile-link" : ""}`}
-                  onClick={() => setMobileOpen(false)}
                 >
-                  {item.name}
-                </a>
-              );
-            })}
+                  <span>Services</span>
+                  <ChevronDown
+                    size={16}
+                    style={{
+                      transform: mobileExpandedSection === "services" ? "rotate(180deg)" : "rotate(0deg)",
+                      transition: "transform 0.2s ease",
+                    }}
+                  />
+                </button>
+                {mobileExpandedSection === "services" && (
+                  <div style={{ paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                    <Link
+                      href="/services"
+                      onClick={() => setMobileOpen(false)}
+                      style={{ fontSize: "13px", color: "#3b82f6", fontWeight: 600, padding: "4px 0" }}
+                    >
+                      View All Services ➔
+                    </Link>
+                    <Link href="/services" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Software Engineering
+                    </Link>
+                    <Link href="/services" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Enterprise ERP & CRM
+                    </Link>
+                    <Link href="/services" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Universal Licensing (ULP)
+                    </Link>
+                    <Link href="/services" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      AI Solutions
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile Industries Accordion */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setMobileExpandedSection(mobileExpandedSection === "industries" ? null : "industries")}
+                  style={{
+                    ...styles.mobileMenuItem,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: isDark ? "#E2E8F0" : "#1d1d1f",
+                  }}
+                >
+                  <span>Industries</span>
+                  <ChevronDown
+                    size={16}
+                    style={{
+                      transform: mobileExpandedSection === "industries" ? "rotate(180deg)" : "rotate(0deg)",
+                      transition: "transform 0.2s ease",
+                    }}
+                  />
+                </button>
+                {mobileExpandedSection === "industries" && (
+                  <div style={{ paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>FinTech & Banking</span>
+                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>E-Commerce & Retail</span>
+                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>Healthcare & MedTech</span>
+                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>Enterprise SaaS</span>
+                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>Logistics & Supply Chain</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Portfolio */}
+              <Link
+                href="/portfolio"
+                style={{
+                  ...styles.mobileMenuItem,
+                  color: pathname === "/portfolio" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                  fontWeight: pathname === "/portfolio" ? 600 : 500,
+                }}
+                className={`mobile-menu-item ${pathname === "/portfolio" ? "active-mobile-link" : ""}`}
+                onClick={() => setMobileOpen(false)}
+              >
+                Portfolio
+              </Link>
+
+              {/* Mobile Company Accordion */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setMobileExpandedSection(mobileExpandedSection === "company" ? null : "company")}
+                  style={{
+                    ...styles.mobileMenuItem,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: isDark ? "#E2E8F0" : "#1d1d1f",
+                  }}
+                >
+                  <span>Company</span>
+                  <ChevronDown
+                    size={16}
+                    style={{
+                      transform: mobileExpandedSection === "company" ? "rotate(180deg)" : "rotate(0deg)",
+                      transition: "transform 0.2s ease",
+                    }}
+                  />
+                </button>
+                {mobileExpandedSection === "company" && (
+                  <div style={{ paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                    <Link href="/about" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      About Us
+                    </Link>
+                    <Link href="/careers" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Careers (Hiring)
+                    </Link>
+                    <Link href="/#developers" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Core Team
+                    </Link>
+                    <Link href="/blog" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Blog
+                    </Link>
+                    <Link href="/documentation" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Documentation
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Software Store */}
+              <Link
+                href="/software-store"
+                style={{
+                  ...styles.mobileMenuItem,
+                  color: pathname?.startsWith("/software-store") ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                  fontWeight: pathname?.startsWith("/software-store") ? 600 : 500,
+                }}
+                className={`mobile-menu-item ${pathname?.startsWith("/software-store") ? "active-mobile-link" : ""}`}
+                onClick={() => setMobileOpen(false)}
+              >
+                Software Store
+              </Link>
+
+              {/* Contact Us */}
+              <Link
+                href="/#contact"
+                style={{
+                  ...styles.mobileMenuItem,
+                  color: isDark ? "#E2E8F0" : "#1d1d1f",
+                }}
+                className="mobile-menu-item"
+                onClick={() => setMobileOpen(false)}
+              >
+                Contact Us
+              </Link>
+            </div>
+
             <div style={styles.mobileMenuDivider} />
+
             {showGuestThemeToggle && (
               <button type="button" onClick={togglePublicTheme} style={styles.mobileThemeBtn} className="mobile-theme-btn">
                 {publicTheme === "light" ? (
@@ -445,6 +759,7 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                 )}
               </button>
             )}
+
             {!isLogin && (
               <button
                 type="button"
@@ -458,13 +773,19 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                 Log in
               </button>
             )}
+
             <button
               type="button"
               onClick={() => {
                 setMobileOpen(false);
                 openLeadServicesModal();
               }}
-              style={styles.mobileCtaBtn}
+              style={{
+                ...styles.mobileCtaBtn,
+                background: "linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)",
+                color: "#ffffff",
+                border: "none",
+              }}
               className="cta-hover"
             >
               Get Started
@@ -472,8 +793,9 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
           </div>
         </>
       )}
+
       <style>{`
-        @media (max-width: 900px) {
+        @media (max-width: 980px) {
           .public-site-nav .desktop-menu,
           .public-site-nav .nav-buttons {
             display: none !important;

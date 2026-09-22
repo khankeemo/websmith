@@ -17,9 +17,8 @@
   --space-page: clamp(12px, 1.6vw, 22px);
   --space-page-x: clamp(16px, 3.5vw, 40px);
   --space-page-y: clamp(12px, 1.6vw, 24px);
-  --space-section: clamp(18px, 2.5vw, 32px);
-
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: var(--font-heading), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --text-body: 15px;
   --text-body-sm: 14px;
   --text-body-lg: 16px;
