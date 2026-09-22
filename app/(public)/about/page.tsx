@@ -80,7 +80,7 @@ export default function AboutPage() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: isDark ? "#070B14" : "#f8fafc",
+        backgroundColor: "transparent",
         color: isDark ? "#f8fafc" : "#0f172a",
         paddingTop: "48px",
         paddingBottom: "80px",
@@ -153,12 +153,10 @@ export default function AboutPage() {
             return (
               <div
                 key={idx}
+                className="wsd-unified-card"
                 style={{
                   padding: "24px 18px",
                   borderRadius: "20px",
-                  backgroundColor: isDark ? "rgba(13, 19, 34, 0.8)" : "#ffffff",
-                  border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
-                  boxShadow: isDark ? "none" : "0 4px 16px -2px rgba(0, 0, 0, 0.05)",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -238,11 +236,10 @@ export default function AboutPage() {
             return (
               <div
                 key={idx}
+                className="wsd-unified-card"
                 style={{
                   padding: "28px 24px",
                   borderRadius: "20px",
-                  backgroundColor: isDark ? "rgba(13, 19, 34, 0.7)" : "#ffffff",
-                  border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
                   display: "flex",
                   flexDirection: "column",
                 }}

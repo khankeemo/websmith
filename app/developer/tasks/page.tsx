@@ -186,28 +186,28 @@ export default function DeveloperTasksPage() {
 
       {/* Stats */}
       <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
+        <div style={styles.statCard} className="wsd-unified-card">
           <CheckSquare size={24} color="#007AFF" />
           <div>
             <p style={styles.statValue}>{stats.total}</p>
             <p style={styles.statLabel}>Total Tasks</p>
           </div>
         </div>
-        <div style={styles.statCard}>
+        <div style={styles.statCard} className="wsd-unified-card">
           <CheckSquare size={24} color="#8E8E93" />
           <div>
             <p style={styles.statValue}>{stats.todo}</p>
             <p style={styles.statLabel}>To Do</p>
           </div>
         </div>
-        <div style={styles.statCard}>
+        <div style={styles.statCard} className="wsd-unified-card">
           <CheckSquare size={24} color="#007AFF" />
           <div>
             <p style={styles.statValue}>{stats.inProgress}</p>
             <p style={styles.statLabel}>In Progress</p>
           </div>
         </div>
-        <div style={styles.statCard}>
+        <div style={styles.statCard} className="wsd-unified-card">
           <CheckSquare size={24} color="#34C759" />
           <div>
             <p style={styles.statValue}>{stats.done}</p>
@@ -428,7 +428,7 @@ export default function DeveloperTasksPage() {
 }
 
 const styles: Record<string, any> = {
-  container: { padding: 0, backgroundColor: "var(--bg-primary)", minHeight: "100vh" },
+  container: { padding: 0, backgroundColor: "transparent", minHeight: "100vh" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "24px" },
   title: { margin: 0, fontSize: "34px", fontWeight: 700, color: "var(--text-primary)" },
   subtitle: { margin: "8px 0 0", color: "var(--text-secondary)" },
@@ -437,7 +437,7 @@ const styles: Record<string, any> = {
   toggleBtn: { border: "none", background: "transparent", padding: "8px 10px", borderRadius: "8px", cursor: "pointer", color: "var(--text-secondary)" },
   toggleActive: { background: "var(--bg-primary)", color: "var(--text-primary)", boxShadow: "0 2px 8px color-mix(in srgb, var(--text-primary) 8%, transparent)" },
   statsGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" },
-  statCard: { display: "flex", alignItems: "center", gap: "16px", background: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "20px" },
+  statCard: { display: "flex", alignItems: "center", gap: "16px", borderRadius: "16px", padding: "20px" },
   statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "var(--text-primary)" },
   statLabel: { margin: "4px 0 0", fontSize: "13px", color: "var(--text-secondary)" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "20px" },

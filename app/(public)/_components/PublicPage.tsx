@@ -24,17 +24,17 @@ export function PublicPage({
     <div
       style={{
         ...styles.page,
-        backgroundColor: isDark ? "#070B14" : "#f8fafc",
+        backgroundColor: "transparent",
         color: isDark ? "#ffffff" : "#0f172a",
       }}
     >
       <section
         style={{
           ...styles.hero,
-          borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+          borderBottom: "none",
           background: isDark
-            ? "radial-gradient(ellipse at 50% -20%, rgba(37, 99, 235, 0.15), transparent 70%), #070B14"
-            : "radial-gradient(ellipse at 50% -20%, rgba(59, 130, 246, 0.08), transparent 70%), #f8fafc",
+            ? "radial-gradient(ellipse at 50% -20%, rgba(59, 130, 246, 0.18), transparent 70%)"
+            : "radial-gradient(ellipse at 50% -20%, rgba(6, 182, 212, 0.12), transparent 70%)",
         }}
       >
         <div style={styles.heroGlowA} />
@@ -120,11 +120,6 @@ export function PublicPage({
         .public-page-cta:hover {
           transform: translateY(-2px);
           box-shadow: 0 14px 30px rgba(37, 99, 235, 0.4);
-        }
-        .public-page-card:hover {
-          transform: translateY(-4px);
-          border-color: rgba(59, 130, 246, 0.35) !important;
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(59, 130, 246, 0.08);
         }
         .public-page-chip:hover {
           transform: translateY(-2px);
@@ -214,7 +209,7 @@ export function Card({
         borderTop: accent ? `3px solid ${accent}` : (isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0"),
         boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.25)" : "0 4px 20px -2px rgba(0, 0, 0, 0.05)",
       }}
-      className="public-page-card"
+      className="public-page-card wsd-unified-card"
     >
       {children}
     </article>

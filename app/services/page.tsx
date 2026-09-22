@@ -162,7 +162,7 @@ function ServicesContent() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: isDark ? "#070B14" : "#f8fafc",
+        backgroundColor: "transparent",
         color: isDark ? "#f8fafc" : "#0f172a",
         paddingTop: "48px",
         paddingBottom: "80px",
@@ -332,18 +332,12 @@ function ServicesContent() {
                   scrollMarginTop: "120px",
                   borderRadius: "24px",
                   padding: "36px clamp(24px, 3.5vw, 44px)",
-                  backgroundColor: isDark ? "rgba(13, 19, 34, 0.85)" : "#ffffff",
-                  border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
-                  boxShadow: isDark
-                    ? "0 20px 40px -10px rgba(0, 0, 0, 0.4)"
-                    : "0 10px 30px -6px rgba(15, 23, 42, 0.06)",
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
                   gap: "32px",
                   alignItems: "center",
-                  transition: "border-color 0.2s ease, transform 0.2s ease",
                 }}
-                className="wsd-service-pillar-card"
+                className="wsd-service-pillar-card wsd-unified-card"
               >
                 {/* Left Overview */}
                 <div>

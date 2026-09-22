@@ -183,7 +183,7 @@ export default function SettingsPage() {
       )}
 
       {/* Tab Content */}
-      <div style={styles.content}>
+      <div style={styles.content} className="wsd-unified-card wsd-card-blue">
         {/* Profile Tab */}
         {activeTab === "profile" && (
           <div style={styles.profileTab}>
@@ -329,7 +329,7 @@ const styles: any = {
     maxWidth: "100%",
     margin: 0,
     padding: 0,
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: "transparent",
     color: "var(--text-primary)",
     minHeight: "100vh",
   },
@@ -348,23 +348,29 @@ const styles: any = {
     alignItems: "center",
     gap: "8px",
     padding: "10px 16px",
+    borderRadius: "12px",
+    border: "none",
+    background: "transparent",
+    color: "var(--text-secondary)",
+    cursor: "pointer",
     fontSize: "14px",
     fontWeight: 600,
-    color: "var(--text-secondary)",
-    backgroundColor: "transparent",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
+    transition: "all 0.2s ease",
   },
-  tabActive: { color: "#007AFF", backgroundColor: "rgba(0, 122, 255, 0.1)" },
+  activeTab: {
+    backgroundColor: "var(--bg-secondary)",
+    color: "#007AFF",
+  },
+  tabActive: {
+    backgroundColor: "var(--bg-secondary)",
+    color: "#007AFF",
+  },
+  tabIcon: { display: "flex", alignItems: "center" },
   successMessage: { backgroundColor: "rgba(52, 199, 89, 0.1)", border: "1px solid #34C759", borderRadius: "12px", padding: "12px 16px", color: "#34C759", marginBottom: "24px" },
   errorMessage: { backgroundColor: "rgba(255, 59, 48, 0.1)", border: "1px solid #FF3B30", borderRadius: "12px", padding: "12px 16px", color: "#FF3B30", marginBottom: "24px" },
   content: {
-    backgroundColor: "var(--bg-primary)",
     borderRadius: "24px",
-    border: "1px solid var(--border-color)",
     padding: "32px",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.04)",
   },
   profileTab: { display: "flex", flexDirection: "column", gap: "32px" },
   profileSummaryCard: {

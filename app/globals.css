@@ -1167,3 +1167,366 @@ main.app-main-shell[data-shell="panel"] .app-main-scroll {
     max-width: none;
   }
 }
+
+/* ============================================================
+   UNIVERSAL 3-CORE-COLOR CONTINUOUS BACKGROUND SYSTEM
+   (Light Theme: Radiant Blue, Cyan, Green Ambient Flow)
+   (Dark Theme: Deep Cosmic Royal Blue, Cyan, Mint Nebulae)
+   Applied Across All Public Pages, Admin, Client, Developer Panels
+   ============================================================ */
+
+/* 1. Global Canvas Background (Fixed Flow) */
+html:not(.dark-theme),
+html:not(.dark-theme) body,
+.light-theme,
+.light-theme body {
+  background-color: #F8FAFC !important;
+  background-image: 
+    radial-gradient(ellipse 100% 60% at 50% 0%, rgba(59, 130, 246, 0.12), transparent 70%),
+    radial-gradient(ellipse 85% 55% at 85% 20%, rgba(6, 182, 212, 0.14), transparent 65%),
+    radial-gradient(ellipse 90% 60% at 15% 45%, rgba(16, 185, 129, 0.13), transparent 65%),
+    radial-gradient(ellipse 85% 55% at 85% 70%, rgba(59, 130, 246, 0.12), transparent 65%),
+    radial-gradient(ellipse 90% 60% at 15% 85%, rgba(6, 182, 212, 0.13), transparent 65%),
+    radial-gradient(ellipse 100% 60% at 50% 98%, rgba(16, 185, 129, 0.12), transparent 70%) !important;
+  background-attachment: fixed !important;
+  background-size: 100% 100% !important;
+}
+
+.dark-theme,
+.dark-theme body {
+  background-color: #050811 !important;
+  background-image: 
+    radial-gradient(ellipse 100% 60% at 50% 0%, rgba(59, 130, 246, 0.18), transparent 70%),
+    radial-gradient(ellipse 85% 55% at 85% 18%, rgba(6, 182, 212, 0.16), transparent 65%),
+    radial-gradient(ellipse 90% 60% at 15% 38%, rgba(16, 185, 129, 0.15), transparent 65%),
+    radial-gradient(ellipse 85% 55% at 85% 58%, rgba(59, 130, 246, 0.14), transparent 65%),
+    radial-gradient(ellipse 90% 60% at 15% 78%, rgba(6, 182, 212, 0.14), transparent 65%),
+    radial-gradient(ellipse 100% 60% at 50% 98%, rgba(16, 185, 129, 0.14), transparent 70%) !important;
+  background-attachment: fixed !important;
+  background-size: 100% 100% !important;
+}
+
+/* 2. Transparent Shells: let continuous background flow down every route */
+.app-layout-shell,
+.app-main-shell,
+.app-main-scroll {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* 3. Frosted Glass Panel Sidebar */
+html:not(.dark-theme) .app-layout-shell > aside,
+html:not(.dark-theme) .sidebar-root,
+html:not(.dark-theme) .app-sidebar,
+.light-theme .app-layout-shell > aside,
+.light-theme .sidebar-root,
+.light-theme .app-sidebar {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-right: 1px solid rgba(226, 232, 240, 0.8) !important;
+}
+.dark-theme .app-layout-shell > aside,
+.dark-theme .sidebar-root,
+.dark-theme .app-sidebar {
+  background: rgba(10, 15, 28, 0.76) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ============================================================
+   UNIVERSAL 3-CORE-COLOR FROSTED GLASS CARDS & HOVER SYSTEM
+   Applied to: .wsd-unified-card, .public-page-card, .wsd-portfolio-card,
+   and cards across Admin, Client, Developer dashboards & Public pages
+   ============================================================ */
+
+/* Base transition and interactive lift */
+.wsd-unified-card,
+.public-page-card,
+.wsd-portfolio-card {
+  transition: background-color 0.35s ease, background-image 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s ease !important;
+  cursor: pointer;
+}
+.wsd-unified-card:hover,
+.public-page-card:hover,
+.wsd-portfolio-card:hover {
+  transform: translateY(-5px);
+}
+
+/* RESTING STATE: Light Theme Frosted Light Glass */
+html:not(.dark-theme) .wsd-unified-card:not(:hover),
+html:not(.dark-theme) .public-page-card:not(:hover),
+html:not(.dark-theme) .wsd-portfolio-card:not(:hover),
+.light-theme .wsd-unified-card:not(:hover),
+.light-theme .public-page-card:not(:hover),
+.light-theme .wsd-portfolio-card:not(:hover) {
+  background-color: rgba(255, 255, 255, 0.86) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+/* RESTING STATE: Dark Theme Frosted Obsidian Glass */
+.dark-theme .wsd-unified-card:not(:hover),
+.dark-theme .public-page-card:not(:hover),
+.dark-theme .wsd-portfolio-card:not(:hover) {
+  background-color: rgba(14, 18, 30, 0.82) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+}
+
+/* ------------------------------------------------------------
+   RESTING SIGNATURE CORNER GLOWS (3 Core Colors)
+   ------------------------------------------------------------ */
+
+/* 1. Electric Blue Corner Glow (Resting) */
+html:not(.dark-theme) .wsd-card-blue:not(:hover),
+html:not(.dark-theme) .wsd-card-grid > .wsd-unified-card:nth-child(3n+1):not(:hover),
+html:not(.dark-theme) .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):not(:hover),
+html:not(.dark-theme) .wsd-unified-card:nth-child(3n+1):not(:hover),
+html:not(.dark-theme) .zoom-card:nth-child(3n+1) .wsd-unified-card:not(:hover),
+html:not(.dark-theme) .public-page-card:nth-child(3n+1):not(:hover),
+html:not(.dark-theme) .wsd-portfolio-card:nth-child(3n+1):not(:hover),
+.light-theme .wsd-card-blue:not(:hover),
+.light-theme .wsd-card-grid > .wsd-unified-card:nth-child(3n+1):not(:hover),
+.light-theme .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):not(:hover),
+.light-theme .wsd-unified-card:nth-child(3n+1):not(:hover),
+.light-theme .zoom-card:nth-child(3n+1) .wsd-unified-card:not(:hover),
+.light-theme .public-page-card:nth-child(3n+1):not(:hover),
+.light-theme .wsd-portfolio-card:nth-child(3n+1):not(:hover) {
+  background-image: radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.18), transparent 70%),
+                    radial-gradient(ellipse at 15% 85%, rgba(37, 99, 235, 0.06), transparent 70%) !important;
+  border-color: rgba(59, 130, 246, 0.24) !important;
+}
+.dark-theme .wsd-card-blue:not(:hover),
+.dark-theme .wsd-card-grid > .wsd-unified-card:nth-child(3n+1):not(:hover),
+.dark-theme .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):not(:hover),
+.dark-theme .wsd-unified-card:nth-child(3n+1):not(:hover),
+.dark-theme .zoom-card:nth-child(3n+1) .wsd-unified-card:not(:hover),
+.dark-theme .public-page-card:nth-child(3n+1):not(:hover),
+.dark-theme .wsd-portfolio-card:nth-child(3n+1):not(:hover) {
+  background-image: radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.20), transparent 70%),
+                    radial-gradient(ellipse at 15% 85%, rgba(37, 99, 235, 0.08), transparent 70%) !important;
+  border-color: rgba(59, 130, 246, 0.28) !important;
+}
+
+/* 2. Radiant Cyan Corner Glow (Resting) */
+html:not(.dark-theme) .wsd-card-cyan:not(:hover),
+html:not(.dark-theme) .wsd-card-grid > .wsd-unified-card:nth-child(3n+2):not(:hover),
+html:not(.dark-theme) .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):not(:hover),
+html:not(.dark-theme) .wsd-unified-card:nth-child(3n+2):not(:hover),
+html:not(.dark-theme) .zoom-card:nth-child(3n+2) .wsd-unified-card:not(:hover),
+html:not(.dark-theme) .public-page-card:nth-child(3n+2):not(:hover),
+html:not(.dark-theme) .wsd-portfolio-card:nth-child(3n+2):not(:hover),
+.light-theme .wsd-card-cyan:not(:hover),
+.light-theme .wsd-card-grid > .wsd-unified-card:nth-child(3n+2):not(:hover),
+.light-theme .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):not(:hover),
+.light-theme .wsd-unified-card:nth-child(3n+2):not(:hover),
+.light-theme .zoom-card:nth-child(3n+2) .wsd-unified-card:not(:hover),
+.light-theme .public-page-card:nth-child(3n+2):not(:hover),
+.light-theme .wsd-portfolio-card:nth-child(3n+2):not(:hover) {
+  background-image: radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.18), transparent 70%),
+                    radial-gradient(ellipse at 15% 85%, rgba(14, 165, 233, 0.06), transparent 70%) !important;
+  border-color: rgba(6, 182, 212, 0.24) !important;
+}
+.dark-theme .wsd-card-cyan:not(:hover),
+.dark-theme .wsd-card-grid > .wsd-unified-card:nth-child(3n+2):not(:hover),
+.dark-theme .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):not(:hover),
+.dark-theme .wsd-unified-card:nth-child(3n+2):not(:hover),
+.dark-theme .zoom-card:nth-child(3n+2) .wsd-unified-card:not(:hover),
+.dark-theme .public-page-card:nth-child(3n+2):not(:hover),
+.dark-theme .wsd-portfolio-card:nth-child(3n+2):not(:hover) {
+  background-image: radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.20), transparent 70%),
+                    radial-gradient(ellipse at 15% 85%, rgba(14, 165, 233, 0.08), transparent 70%) !important;
+  border-color: rgba(6, 182, 212, 0.28) !important;
+}
+
+/* 3. Emerald Mint Corner Glow (Resting) */
+html:not(.dark-theme) .wsd-card-green:not(:hover),
+html:not(.dark-theme) .wsd-card-grid > .wsd-unified-card:nth-child(3n):not(:hover),
+html:not(.dark-theme) .wsd-grid-tiles > .wsd-unified-card:nth-child(3n):not(:hover),
+html:not(.dark-theme) .wsd-unified-card:nth-child(3n):not(:hover),
+html:not(.dark-theme) .zoom-card:nth-child(3n) .wsd-unified-card:not(:hover),
+html:not(.dark-theme) .public-page-card:nth-child(3n):not(:hover),
+html:not(.dark-theme) .wsd-portfolio-card:nth-child(3n):not(:hover),
+.light-theme .wsd-card-green:not(:hover),
+.light-theme .wsd-card-grid > .wsd-unified-card:nth-child(3n):not(:hover),
+.light-theme .wsd-grid-tiles > .wsd-unified-card:nth-child(3n):not(:hover),
+.light-theme .wsd-unified-card:nth-child(3n):not(:hover),
+.light-theme .zoom-card:nth-child(3n) .wsd-unified-card:not(:hover),
+.light-theme .public-page-card:nth-child(3n):not(:hover),
+.light-theme .wsd-portfolio-card:nth-child(3n):not(:hover) {
+  background-image: radial-gradient(ellipse at 85% 15%, rgba(16, 185, 129, 0.18), transparent 70%),
+                    radial-gradient(ellipse at 15% 85%, rgba(5, 150, 105, 0.06), transparent 70%) !important;
+  border-color: rgba(16, 185, 129, 0.24) !important;
+}
+.dark-theme .wsd-card-green:not(:hover),
+.dark-theme .wsd-card-grid > .wsd-unified-card:nth-child(3n):not(:hover),
+.dark-theme .wsd-grid-tiles > .wsd-unified-card:nth-child(3n):not(:hover),
+.dark-theme .wsd-unified-card:nth-child(3n):not(:hover),
+.dark-theme .zoom-card:nth-child(3n) .wsd-unified-card:not(:hover),
+.dark-theme .public-page-card:nth-child(3n):not(:hover),
+.dark-theme .wsd-portfolio-card:nth-child(3n):not(:hover) {
+  background-image: radial-gradient(ellipse at 85% 15%, rgba(16, 185, 129, 0.20), transparent 70%),
+                    radial-gradient(ellipse at 15% 85%, rgba(5, 150, 105, 0.08), transparent 70%) !important;
+  border-color: rgba(16, 185, 129, 0.28) !important;
+}
+
+/* ------------------------------------------------------------
+   THE 3 CORE HOVER PALETTES (Blue, Cyan, Green — No Purple/Amber)
+   ------------------------------------------------------------ */
+
+/* PALETTE 1: RADIANT ELECTRIC BLUE HOVER (Also universal fallback for any card hover) */
+.wsd-unified-card:hover,
+.wsd-hover-blue:hover,
+.wsd-card-blue:hover,
+.wsd-unified-card:nth-child(3n+1):hover,
+.zoom-card:nth-child(3n+1):hover .wsd-unified-card,
+.zoom-card:nth-child(3n+1) .wsd-unified-card:hover,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+1):hover,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):hover,
+.public-page-card:nth-child(3n+1):hover,
+.wsd-portfolio-card:nth-child(3n+1):hover {
+  background-color: #3B82F6 !important;
+  background-image: linear-gradient(135deg, #93C5FD 0%, #60A5FA 45%, #2563EB 100%) !important;
+  border-color: rgba(59, 130, 246, 0.85) !important;
+  box-shadow: 0 24px 70px rgba(37, 99, 235, 0.45), 0 0 40px rgba(59, 130, 246, 0.3), inset 0 0 24px rgba(255, 255, 255, 0.3) !important;
+}
+.wsd-unified-card:hover h1, .wsd-unified-card:hover h2, .wsd-unified-card:hover h3, .wsd-unified-card:hover h4, .wsd-unified-card:hover h5, .wsd-unified-card:hover h6,
+.wsd-hover-blue:hover h1, .wsd-hover-blue:hover h2, .wsd-hover-blue:hover h3, .wsd-hover-blue:hover h4, .wsd-hover-blue:hover h5,
+.wsd-card-blue:hover h1, .wsd-card-blue:hover h2, .wsd-card-blue:hover h3, .wsd-card-blue:hover h4, .wsd-card-blue:hover h5,
+.wsd-unified-card:nth-child(3n+1):hover h1, .wsd-unified-card:nth-child(3n+1):hover h2, .wsd-unified-card:nth-child(3n+1):hover h3, .wsd-unified-card:nth-child(3n+1):hover h4,
+.zoom-card:nth-child(3n+1):hover .wsd-unified-card h1, .zoom-card:nth-child(3n+1):hover .wsd-unified-card h2, .zoom-card:nth-child(3n+1):hover .wsd-unified-card h3, .zoom-card:nth-child(3n+1):hover .wsd-unified-card h4,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+1):hover h1, .wsd-card-grid > .wsd-unified-card:nth-child(3n+1):hover h2,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+1):hover h3, .wsd-card-grid > .wsd-unified-card:nth-child(3n+1):hover h4,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):hover h1, .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):hover h2,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):hover h3, .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):hover h4,
+.public-page-card:nth-child(3n+1):hover h1, .public-page-card:nth-child(3n+1):hover h2,
+.public-page-card:nth-child(3n+1):hover h3, .public-page-card:nth-child(3n+1):hover h4,
+.wsd-portfolio-card:nth-child(3n+1):hover h1, .wsd-portfolio-card:nth-child(3n+1):hover h2,
+.wsd-portfolio-card:nth-child(3n+1):hover h3, .wsd-portfolio-card:nth-child(3n+1):hover h4 {
+  color: #04274F !important;
+}
+.wsd-unified-card:hover p, .wsd-unified-card:hover span, .wsd-unified-card:hover label,
+.wsd-hover-blue:hover p, .wsd-card-blue:hover p,
+.wsd-unified-card:nth-child(3n+1):hover p, .wsd-unified-card:nth-child(3n+1):hover span, .wsd-unified-card:nth-child(3n+1):hover label,
+.zoom-card:nth-child(3n+1):hover .wsd-unified-card p, .zoom-card:nth-child(3n+1):hover .wsd-unified-card span,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+1):hover p,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):hover p,
+.public-page-card:nth-child(3n+1):hover p,
+.wsd-portfolio-card:nth-child(3n+1):hover p {
+  color: #0B4A82 !important;
+}
+.wsd-unified-card:hover svg,
+.wsd-hover-blue:hover svg, .wsd-card-blue:hover svg,
+.wsd-unified-card:nth-child(3n+1):hover svg,
+.zoom-card:nth-child(3n+1):hover .wsd-unified-card svg,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+1):hover svg,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+1):hover svg,
+.public-page-card:nth-child(3n+1):hover svg,
+.wsd-portfolio-card:nth-child(3n+1):hover svg {
+  color: #04274F !important;
+  stroke: #04274F !important;
+}
+
+/* PALETTE 2: RADIANT CYAN / AQUA HOVER */
+.wsd-hover-cyan:hover,
+.wsd-card-cyan:hover,
+.wsd-unified-card:nth-child(3n+2):hover,
+.zoom-card:nth-child(3n+2):hover .wsd-unified-card,
+.zoom-card:nth-child(3n+2) .wsd-unified-card:hover,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+2):hover,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):hover,
+.public-page-card:nth-child(3n+2):hover,
+.wsd-portfolio-card:nth-child(3n+2):hover {
+  background-color: #06B6D4 !important;
+  background-image: linear-gradient(135deg, #67E8F9 0%, #22D3EE 45%, #06B6D4 100%) !important;
+  border-color: rgba(6, 182, 212, 0.85) !important;
+  box-shadow: 0 24px 70px rgba(6, 182, 212, 0.45), 0 0 40px rgba(6, 182, 212, 0.3), inset 0 0 24px rgba(255, 255, 255, 0.3) !important;
+}
+.wsd-hover-cyan:hover h1, .wsd-hover-cyan:hover h2, .wsd-hover-cyan:hover h3, .wsd-hover-cyan:hover h4, .wsd-hover-cyan:hover h5,
+.wsd-card-cyan:hover h1, .wsd-card-cyan:hover h2, .wsd-card-cyan:hover h3, .wsd-card-cyan:hover h4, .wsd-card-cyan:hover h5,
+.wsd-unified-card:nth-child(3n+2):hover h1, .wsd-unified-card:nth-child(3n+2):hover h2, .wsd-unified-card:nth-child(3n+2):hover h3, .wsd-unified-card:nth-child(3n+2):hover h4,
+.zoom-card:nth-child(3n+2):hover .wsd-unified-card h1, .zoom-card:nth-child(3n+2):hover .wsd-unified-card h2, .zoom-card:nth-child(3n+2):hover .wsd-unified-card h3, .zoom-card:nth-child(3n+2):hover .wsd-unified-card h4,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+2):hover h1, .wsd-card-grid > .wsd-unified-card:nth-child(3n+2):hover h2,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+2):hover h3, .wsd-card-grid > .wsd-unified-card:nth-child(3n+2):hover h4,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):hover h1, .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):hover h2,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):hover h3, .wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):hover h4,
+.public-page-card:nth-child(3n+2):hover h1, .public-page-card:nth-child(3n+2):hover h2,
+.public-page-card:nth-child(3n+2):hover h3, .public-page-card:nth-child(3n+2):hover h4,
+.wsd-portfolio-card:nth-child(3n+2):hover h1, .wsd-portfolio-card:nth-child(3n+2):hover h2,
+.wsd-portfolio-card:nth-child(3n+2):hover h3, .wsd-portfolio-card:nth-child(3n+2):hover h4 {
+  color: #043844 !important;
+}
+.wsd-hover-cyan:hover p, .wsd-card-cyan:hover p,
+.wsd-unified-card:nth-child(3n+2):hover p, .wsd-unified-card:nth-child(3n+2):hover span, .wsd-unified-card:nth-child(3n+2):hover label,
+.zoom-card:nth-child(3n+2):hover .wsd-unified-card p, .zoom-card:nth-child(3n+2):hover .wsd-unified-card span,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+2):hover p,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):hover p,
+.public-page-card:nth-child(3n+2):hover p,
+.wsd-portfolio-card:nth-child(3n+2):hover p {
+  color: #085566 !important;
+}
+.wsd-hover-cyan:hover svg, .wsd-card-cyan:hover svg,
+.wsd-unified-card:nth-child(3n+2):hover svg,
+.zoom-card:nth-child(3n+2):hover .wsd-unified-card svg,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n+2):hover svg,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n+2):hover svg,
+.public-page-card:nth-child(3n+2):hover svg,
+.wsd-portfolio-card:nth-child(3n+2):hover svg {
+  color: #043844 !important;
+  stroke: #043844 !important;
+}
+
+/* PALETTE 3: RADIANT EMERALD / MINT GREEN HOVER */
+.wsd-hover-green:hover,
+.wsd-card-green:hover,
+.wsd-unified-card:nth-child(3n):hover,
+.zoom-card:nth-child(3n):hover .wsd-unified-card,
+.zoom-card:nth-child(3n) .wsd-unified-card:hover,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n):hover,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n):hover,
+.public-page-card:nth-child(3n):hover,
+.wsd-portfolio-card:nth-child(3n):hover {
+  background-color: #10B981 !important;
+  background-image: linear-gradient(135deg, #6EE7B7 0%, #34D399 45%, #059669 100%) !important;
+  border-color: rgba(16, 185, 129, 0.85) !important;
+  box-shadow: 0 24px 70px rgba(16, 185, 129, 0.45), 0 0 40px rgba(16, 185, 129, 0.3), inset 0 0 24px rgba(255, 255, 255, 0.3) !important;
+}
+.wsd-hover-green:hover h1, .wsd-hover-green:hover h2, .wsd-hover-green:hover h3, .wsd-hover-green:hover h4, .wsd-hover-green:hover h5,
+.wsd-card-green:hover h1, .wsd-card-green:hover h2, .wsd-card-green:hover h3, .wsd-card-green:hover h4, .wsd-card-green:hover h5,
+.wsd-unified-card:nth-child(3n):hover h1, .wsd-unified-card:nth-child(3n):hover h2, .wsd-unified-card:nth-child(3n):hover h3, .wsd-unified-card:nth-child(3n):hover h4,
+.zoom-card:nth-child(3n):hover .wsd-unified-card h1, .zoom-card:nth-child(3n):hover .wsd-unified-card h2, .zoom-card:nth-child(3n):hover .wsd-unified-card h3, .zoom-card:nth-child(3n):hover .wsd-unified-card h4,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n):hover h1, .wsd-card-grid > .wsd-unified-card:nth-child(3n):hover h2,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n):hover h3, .wsd-card-grid > .wsd-unified-card:nth-child(3n):hover h4,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n):hover h1, .wsd-grid-tiles > .wsd-unified-card:nth-child(3n):hover h2,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n):hover h3, .wsd-grid-tiles > .wsd-unified-card:nth-child(3n):hover h4,
+.public-page-card:nth-child(3n):hover h1, .public-page-card:nth-child(3n):hover h2,
+.public-page-card:nth-child(3n):hover h3, .public-page-card:nth-child(3n):hover h4,
+.wsd-portfolio-card:nth-child(3n):hover h1, .wsd-portfolio-card:nth-child(3n):hover h2,
+.wsd-portfolio-card:nth-child(3n):hover h3, .wsd-portfolio-card:nth-child(3n):hover h4 {
+  color: #033B2B !important;
+}
+.wsd-hover-green:hover p, .wsd-card-green:hover p,
+.wsd-unified-card:nth-child(3n):hover p, .wsd-unified-card:nth-child(3n):hover span, .wsd-unified-card:nth-child(3n):hover label,
+.zoom-card:nth-child(3n):hover .wsd-unified-card p, .zoom-card:nth-child(3n):hover .wsd-unified-card span,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n):hover p,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n):hover p,
+.public-page-card:nth-child(3n):hover p,
+.wsd-portfolio-card:nth-child(3n):hover p {
+  color: #065F46 !important;
+}
+.wsd-hover-green:hover svg, .wsd-card-green:hover svg,
+.wsd-unified-card:nth-child(3n):hover svg,
+.zoom-card:nth-child(3n):hover .wsd-unified-card svg,
+.wsd-card-grid > .wsd-unified-card:nth-child(3n):hover svg,
+.wsd-grid-tiles > .wsd-unified-card:nth-child(3n):hover svg,
+.public-page-card:nth-child(3n):hover svg,
+.wsd-portfolio-card:nth-child(3n):hover svg {
+  color: #033B2B !important;
+  stroke: #033B2B !important;
+}

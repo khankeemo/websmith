@@ -97,7 +97,7 @@ function LoginPageContent() {
         <div style={styles.background}></div>
 
         {/* Main content */}
-        <div style={styles.card}>
+        <div style={styles.card} className="wsd-unified-card wsd-card-blue">
           {/* Logo - Circle Mask with WSD */}
           <div style={styles.logoContainer}>
             <div style={styles.circleMask} className="circle-mask-hover">
@@ -376,7 +376,7 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "flex-start",
-    backgroundColor: "var(--bg-secondary)",
+    backgroundColor: "transparent",
     position: "relative",
     fontFamily: "var(--font-sans)",
   },
@@ -402,13 +402,10 @@ const styles: any = {
   },
 
   card: {
-    backgroundColor: "var(--bg-primary)",
     borderRadius: "28px",
     padding: "48px 40px",
     width: "100%",
     maxWidth: "440px",
-    boxShadow: "var(--card-shadow)",
-    border: "1px solid var(--border-color)",
     position: "relative",
     zIndex: 1,
     marginTop: 0,

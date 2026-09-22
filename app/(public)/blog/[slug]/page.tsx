@@ -31,8 +31,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#070B14",
-        color: "#f8fafc",
+        backgroundColor: "transparent",
+        color: "var(--text-primary)",
         paddingTop: "40px",
         paddingBottom: "80px",
       }}

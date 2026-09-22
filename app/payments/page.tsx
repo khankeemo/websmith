@@ -437,7 +437,7 @@ const styles: any = {
     maxWidth: "100%",
     margin: 0,
     padding: 0,
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: "transparent",
     color: "var(--text-primary)",
     minHeight: "100vh",
   },

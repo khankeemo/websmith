@@ -358,7 +358,7 @@ const styles: any = {
     flexDirection: "column",
     gap: "32px",
     padding: 0,
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: "transparent",
   },
 
   // Header Styles

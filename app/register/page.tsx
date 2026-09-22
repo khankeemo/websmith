@@ -224,7 +224,7 @@ export default function RegisterPage() {
     <div style={styles.container}>
       <div style={styles.background}></div>
 
-      <div style={styles.card}>
+      <div style={styles.card} className="wsd-unified-card wsd-card-cyan">
         {/* Back to Login */}
         <button onClick={() => router.push("/login")} style={styles.backButton} className="back-button-hover">
           <ArrowLeft size={18} />
@@ -504,7 +504,7 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "transparent",
     position: "relative",
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
@@ -514,17 +514,13 @@ const styles: any = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: "radial-gradient(circle at 20% 50%, rgba(0,122,255,0.08) 0%, rgba(242,242,247,0) 50%)",
     pointerEvents: "none",
   },
   card: {
-    backgroundColor: "#FFFFFF",
     borderRadius: "28px",
     padding: "48px 40px",
     width: "100%",
     maxWidth: "520px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.03)",
-    border: "1px solid rgba(224,224,230,0.5)",
     position: "relative",
     zIndex: 1,
   },

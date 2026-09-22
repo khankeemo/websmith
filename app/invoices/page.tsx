@@ -413,7 +413,7 @@ export default function InvoicesPage() {
 
       {/* Stats Cards */}
       <div style={styles.statsGrid} className="wsd-grid-tiles">
-        <div style={styles.statCard}>
+        <div style={styles.statCard} className="wsd-unified-card">
           <div style={{ ...styles.statIcon, backgroundColor: "rgba(0, 122, 255, 0.1)" }}>
             <FileText size={20} color="#007AFF" />
           </div>
@@ -422,7 +422,7 @@ export default function InvoicesPage() {
             <div style={styles.statLabel}>Total Invoices</div>
           </div>
         </div>
-        <div style={styles.statCard}>
+        <div style={styles.statCard} className="wsd-unified-card">
           <div style={{ ...styles.statIcon, backgroundColor: "rgba(52, 199, 89, 0.1)" }}>
             <DollarSign size={20} color="#34C759" />
           </div>
@@ -431,7 +431,7 @@ export default function InvoicesPage() {
             <div style={styles.statLabel}>Total Value</div>
           </div>
         </div>
-        <div style={styles.statCard}>
+        <div style={styles.statCard} className="wsd-unified-card">
           <div style={{ ...styles.statIcon, backgroundColor: "rgba(255, 149, 0, 0.1)" }}>
             <Clock size={20} color="#FF9500" />
           </div>
@@ -440,7 +440,7 @@ export default function InvoicesPage() {
             <div style={styles.statLabel}>Pending</div>
           </div>
         </div>
-        <div style={styles.statCard}>
+        <div style={styles.statCard} className="wsd-unified-card">
           <div style={{ ...styles.statIcon, backgroundColor: "rgba(255, 59, 48, 0.1)" }}>
             <AlertCircle size={20} color="#FF3B30" />
           </div>
@@ -800,7 +800,7 @@ const styles: any = {
     maxWidth: "100%",
     margin: 0,
     padding: 0,
-    backgroundColor: 'var(--bg-primary)',
+    backgroundColor: 'transparent',
     minHeight: '100vh',
     color: 'var(--text-primary)',
   },
@@ -865,10 +865,7 @@ const styles: any = {
     alignItems: "center",
     gap: "20px",
     padding: "24px",
-    backgroundColor: "var(--bg-primary)",
     borderRadius: "20px",
-    border: "1.5px solid var(--border-color)",
-    boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
   },
   statIcon: {
     width: "52px",

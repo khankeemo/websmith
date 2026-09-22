@@ -198,7 +198,7 @@ export default function ForgotPasswordPage() {
       </header>
 
       <div style={styles.dialogArea}>
-        <div style={styles.card}>
+        <div style={styles.card} className="wsd-unified-card wsd-card-blue">
           <Link href="/login" style={styles.backLink}>
             <ArrowLeft size={16} />
             Back to login
@@ -422,16 +422,13 @@ const styles: Record<string, any> = {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "center",
-    backgroundColor: "rgba(17, 24, 39, 0.2)",
+    backgroundColor: "transparent",
   },
   card: {
     width: "100%",
     maxWidth: "520px",
     marginTop: "34px",
     borderRadius: "20px",
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #E5E7EB",
-    boxShadow: "0 24px 50px rgba(15, 23, 42, 0.2)",
     padding: "32px",
   },
   backLink: {

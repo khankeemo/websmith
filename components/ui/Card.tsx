@@ -18,7 +18,7 @@ export default function Card({
   return (
     <div 
       style={{ ...styles.card, ...style }} 
-      className={className}
+      className={className ? `wsd-unified-card ${className}` : "wsd-unified-card"}
       onClick={onClick}
     >
       {children}
@@ -28,12 +28,9 @@ export default function Card({
 
 const styles: any = {
   card: {
-    backgroundColor: "var(--bg-primary)",
     borderRadius: "14px",
     padding: "20px",
-    boxShadow: "var(--card-shadow)",
-    border: "1px solid var(--border-color)",
-    transition: "background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
     color: "var(--text-primary)",
+    position: "relative",
   },
 };

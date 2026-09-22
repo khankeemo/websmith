@@ -48,7 +48,7 @@ export default function BlogPage() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: isDark ? "#070B14" : "#f8fafc",
+        backgroundColor: "transparent",
         color: isDark ? "#f8fafc" : "#0f172a",
         paddingTop: "48px",
         paddingBottom: "80px",

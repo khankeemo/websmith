@@ -164,7 +164,7 @@ export default function PortfolioPage() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: isDark ? "#070B14" : "#f8fafc",
+        backgroundColor: "transparent",
         color: isDark ? "#f8fafc" : "#0f172a",
         paddingTop: "40px",
         paddingBottom: "80px",
@@ -338,16 +338,10 @@ export default function PortfolioPage() {
                 style={{
                   borderRadius: "20px",
                   overflow: "hidden",
-                  backgroundColor: isDark ? "rgba(13, 19, 34, 0.9)" : "#ffffff",
-                  border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
-                  boxShadow: isDark
-                    ? "0 18px 40px -10px rgba(0, 0, 0, 0.5)"
-                    : "0 12px 32px -8px rgba(15, 23, 42, 0.08)",
                   display: "flex",
                   flexDirection: "column",
-                  transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease",
                 }}
-                className="wsd-portfolio-card"
+                className="wsd-portfolio-card wsd-unified-card"
               >
                 {/* Visual Banner */}
                 <div

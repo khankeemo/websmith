@@ -283,11 +283,11 @@ const styles: any = {
     display: "flex",
     flexDirection: "row",
     alignItems: "stretch",
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: "transparent",
   },
   main: {
     flex: 1,
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: "transparent",
     minWidth: 0,
     minHeight: 0,
     width: "100%",

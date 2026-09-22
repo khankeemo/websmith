@@ -190,7 +190,7 @@ export default function ClientNotificationsPage() {
                     ...styles.notificationCard,
                     ...(notification.isRead ? {} : styles.unreadCard),
                   }}
-                  className="notification-item"
+                  className="notification-item wsd-unified-card"
                 >
                   <div style={styles.cardInfo}>
                     <div
@@ -249,7 +249,7 @@ export default function ClientNotificationsPage() {
 const styles: any = {
   container: {
     padding: 0,
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: "transparent",
     color: "var(--text-primary)",
   },
   header: {

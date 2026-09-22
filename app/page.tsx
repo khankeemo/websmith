@@ -644,7 +644,7 @@ function FloatingTechnologyBanner() {
   };
 
   return (
-    <section aria-label="Built With the Right Technology" style={styles.techSection}>
+    <section aria-label="Built With the Right Technology" style={styles.techSection} className="landing-section-tech">
       <div style={styles.techIntro}>
         <p style={styles.techEyebrow}>Powered by 50+ technologies</p>
         <h2 style={styles.techHeading}>
@@ -696,10 +696,10 @@ function FloatingTechnologyBanner() {
 
 const FEATURE_GRADIENTS = [
   "radial-gradient(ellipse at 80% 20%, rgba(59, 130, 246, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(37, 99, 235, 0.08), transparent 70%)",
-  "radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(139, 92, 246, 0.08), transparent 70%)",
+  "radial-gradient(ellipse at 80% 20%, rgba(59, 130, 246, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(6, 182, 212, 0.08), transparent 70%)",
   "radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(14, 165, 233, 0.08), transparent 70%)",
   "radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(5, 150, 105, 0.08), transparent 70%)",
-  "radial-gradient(ellipse at 80% 20%, rgba(245, 158, 11, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(217, 119, 6, 0.08), transparent 70%)",
+  "radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(59, 130, 246, 0.08), transparent 70%)",
 ];
 
 const FALLBACK_PROJECTS = [
@@ -1144,7 +1144,7 @@ export default function LandingPage() {
   })).filter((item) => Boolean(item.href));
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="landing-page-root">
       {/* Hero Section */}
       <section style={styles.hero} className="landing-hero">
         <video
@@ -1277,7 +1277,7 @@ export default function LandingPage() {
       </div>
 
       {/* Features Grid */}
-      <section id="features" ref={featuresRef} style={styles.section}>
+      <section id="features" ref={featuresRef} style={styles.section} className="landing-section-features">
         <div style={{ textAlign: "center", marginBottom: "36px" }}>
             <div
               style={{
@@ -1320,7 +1320,7 @@ export default function LandingPage() {
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }}
-              className="feature-card landing-feature-grid-card"
+              className={`feature-card landing-feature-grid-card feature-card-${['blue', 'blue', 'cyan', 'green', 'green'][index % 5]}`}
             >
               <div style={styles.featureIcon} className="landing-card-icon">{<feature.icon size={28} />}</div>
               <h3 style={styles.featureTitle} className="landing-card-title">{feature.title}</h3>
@@ -1334,7 +1334,7 @@ export default function LandingPage() {
       <FloatingTechnologyBanner />
 
       {/* Stats — looping carousel */}
-      <section style={styles.statsSection}>
+      <section style={styles.statsSection} className="landing-section-stats">
         <div style={styles.statsIntro}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: "14px" }}>
             <span
@@ -1364,7 +1364,7 @@ export default function LandingPage() {
       </section>
 
       {effectiveProjects.length > 0 && (
-        <section id="projects" style={styles.section}>
+        <section id="projects" style={styles.section} className="landing-section-projects">
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "16px", marginBottom: "24px" }}>
             <div>
               <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 16px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", backgroundColor: isDark ? "rgba(41, 151, 255, 0.15)" : "rgba(0, 113, 227, 0.08)", border: isDark ? "1px solid rgba(41, 151, 255, 0.25)" : "1px solid rgba(0, 113, 227, 0.16)", color: isDark ? "#2997ff" : "#0071e3", marginBottom: "12px" }}>
@@ -1538,7 +1538,7 @@ export default function LandingPage() {
 
       {/* Satisfied Clients - 4 Cards Layout */}
       {publicClients.length > 0 && (
-        <section id="clients" ref={clientsRef} style={styles.section}>
+        <section id="clients" ref={clientsRef} style={styles.section} className="landing-section-clients">
           <div style={{ textAlign: "center", marginBottom: "28px" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 16px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", backgroundColor: isDark ? "rgba(41, 151, 255, 0.15)" : "rgba(0, 113, 227, 0.08)", border: isDark ? "1px solid rgba(41, 151, 255, 0.25)" : "1px solid rgba(0, 113, 227, 0.16)", color: isDark ? "#2997ff" : "#0071e3", marginBottom: "12px" }}>
               <Building2 size={13} />
@@ -1572,7 +1572,7 @@ export default function LandingPage() {
 
       {/* Developers - expert profiles */}
       {publicDevelopers.length > 0 && (
-        <section id="developers" ref={developersRef} style={styles.section}>
+        <section id="developers" ref={developersRef} style={styles.section} className="landing-section-developers">
           <div style={{ textAlign: "center", marginBottom: "28px" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 16px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", backgroundColor: isDark ? "rgba(41, 151, 255, 0.15)" : "rgba(0, 113, 227, 0.08)", border: isDark ? "1px solid rgba(41, 151, 255, 0.25)" : "1px solid rgba(0, 113, 227, 0.16)", color: isDark ? "#2997ff" : "#0071e3", marginBottom: "12px" }}>
               <Users size={13} />
@@ -1612,7 +1612,7 @@ export default function LandingPage() {
 
       {/* Testimonials */}
       {reviewCards.length > 0 && (
-        <section id="testimonials" style={styles.section}>
+        <section id="testimonials" style={styles.section} className="landing-section-testimonials">
           <div style={{ textAlign: "center", marginBottom: "28px" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 16px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", backgroundColor: isDark ? "rgba(41, 151, 255, 0.15)" : "rgba(0, 113, 227, 0.08)", border: isDark ? "1px solid rgba(41, 151, 255, 0.25)" : "1px solid rgba(0, 113, 227, 0.16)", color: isDark ? "#2997ff" : "#0071e3", marginBottom: "12px" }}>
               <Star size={13} />
@@ -1648,7 +1648,7 @@ export default function LandingPage() {
 
 
       {/* Contact Section */}
-      <section id="contact" ref={contactFormRef} style={styles.contactSection}>
+      <section id="contact" ref={contactFormRef} style={styles.contactSection} className="landing-section-contact">
         <div style={styles.contactContainer}>
           <div style={styles.contactHeader}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 16px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", backgroundColor: isDark ? "rgba(41, 151, 255, 0.15)" : "rgba(0, 113, 227, 0.08)", border: isDark ? "1px solid rgba(41, 151, 255, 0.25)" : "1px solid rgba(0, 113, 227, 0.16)", color: isDark ? "#2997ff" : "#0071e3", marginBottom: "12px" }}>
@@ -2371,6 +2371,291 @@ export default function LandingPage() {
         }
 
         /* ============================================================
+           LIGHT THEME 3-COLOR PASTEL ATMOSPHERIC BACKGROUND SYSTEM
+           (Soft Blue, Soft Cyan, and Soft Mint Green — Seamless Background Canvas)
+           ============================================================ */
+        html:not(.dark-theme) .landing-page-root,
+        .light-theme .landing-page-root {
+          background-color: #f8fafc !important;
+          background-image: 
+            radial-gradient(ellipse 100% 60% at 50% 0%, rgba(59, 130, 246, 0.15), transparent 70%),
+            radial-gradient(ellipse 85% 55% at 85% 18%, rgba(6, 182, 212, 0.15), transparent 65%),
+            radial-gradient(ellipse 90% 60% at 15% 38%, rgba(16, 185, 129, 0.14), transparent 65%),
+            radial-gradient(ellipse 85% 55% at 85% 58%, rgba(59, 130, 246, 0.13), transparent 65%),
+            radial-gradient(ellipse 90% 60% at 15% 78%, rgba(6, 182, 212, 0.14), transparent 65%),
+            radial-gradient(ellipse 100% 60% at 50% 98%, rgba(16, 185, 129, 0.14), transparent 70%) !important;
+        }
+
+        /* 1. Features Section ("Why Choose Websmith"): Rich, Balanced Soft Blue Gradient */
+        html:not(.dark-theme) .landing-section-features,
+        .light-theme .landing-section-features {
+          background: 
+            radial-gradient(ellipse 80% 65% at 50% 30%, rgba(59, 130, 246, 0.16), transparent 75%),
+            radial-gradient(ellipse 65% 50% at 15% 70%, rgba(99, 102, 241, 0.10), transparent 65%),
+            radial-gradient(ellipse 65% 50% at 85% 70%, rgba(6, 182, 212, 0.10), transparent 65%) !important;
+          border: none !important;
+        }
+
+        /* 2. Floating Technology Banner: Soft Cyan-Blue Auroral Flow */
+        html:not(.dark-theme) .landing-section-tech,
+        .light-theme .landing-section-tech {
+          background: radial-gradient(ellipse 90% 60% at 50% 50%, rgba(59, 130, 246, 0.11), transparent 70%) !important;
+          border: none !important;
+        }
+
+        /* 3. Stats Section ("Momentum you can see"): Radiant Soft Cyan / Aqua Aura (Seamless Flow, No Borders) */
+        html:not(.dark-theme) .landing-section-stats,
+        .light-theme .landing-section-stats {
+          background: 
+            radial-gradient(ellipse 85% 70% at 50% 50%, rgba(6, 182, 212, 0.18), transparent 75%),
+            radial-gradient(ellipse 70% 50% at 10% 20%, rgba(14, 165, 233, 0.12), transparent 65%),
+            radial-gradient(ellipse 70% 50% at 90% 80%, rgba(6, 182, 212, 0.12), transparent 65%) !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+
+        /* 4. Portfolio & Case Studies: Ambient Cyan-to-Green Transition */
+        html:not(.dark-theme) .landing-section-projects,
+        .light-theme .landing-section-projects {
+          background: 
+            radial-gradient(ellipse 75% 55% at 15% 30%, rgba(6, 182, 212, 0.13), transparent 70%),
+            radial-gradient(ellipse 75% 55% at 85% 70%, rgba(16, 185, 129, 0.13), transparent 70%) !important;
+          border: none !important;
+        }
+
+        /* 5. Satisfied Clients: Lush Soft Mint / Emerald Green Aura (Seamless Flow, No Borders) */
+        html:not(.dark-theme) .landing-section-clients,
+        .light-theme .landing-section-clients {
+          background: 
+            radial-gradient(ellipse 85% 65% at 50% 40%, rgba(16, 185, 129, 0.18), transparent 75%),
+            radial-gradient(ellipse 70% 50% at 85% 20%, rgba(52, 211, 153, 0.12), transparent 65%),
+            radial-gradient(ellipse 70% 50% at 15% 80%, rgba(16, 185, 129, 0.12), transparent 65%) !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+
+        /* 6. Expert Developers: Harmonious Mint Green to Sky Transition */
+        html:not(.dark-theme) .landing-section-developers,
+        .light-theme .landing-section-developers {
+          background: 
+            radial-gradient(ellipse 80% 60% at 40% 40%, rgba(16, 185, 129, 0.12), transparent 70%),
+            radial-gradient(ellipse 70% 50% at 85% 75%, rgba(6, 182, 212, 0.12), transparent 65%) !important;
+          border: none !important;
+        }
+
+        /* 7. Testimonials Section: Ambient Soft Amber to Cyan Warm Blend */
+        html:not(.dark-theme) .landing-section-testimonials,
+        .light-theme .landing-section-testimonials {
+          background: 
+            radial-gradient(ellipse 80% 60% at 50% 45%, rgba(245, 158, 11, 0.10), transparent 70%),
+            radial-gradient(ellipse 70% 50% at 85% 30%, rgba(6, 182, 212, 0.10), transparent 65%) !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+
+        /* 8. Contact Section: Ambient Soft Blue Foundation */
+        html:not(.dark-theme) .landing-section-contact,
+        .light-theme .landing-section-contact {
+          background: 
+            radial-gradient(ellipse 85% 70% at 50% 30%, rgba(59, 130, 246, 0.14), transparent 75%) !important;
+          border: none !important;
+        }
+
+        /* ============================================================
+           LIGHT THEME SIGNATURE CORNER PASTEL GLOWS ACROSS ALL CARDS
+           (Blue, Purple, Cyan, Green, Amber Frosted Light Glass)
+           ============================================================ */
+        html:not(.dark-theme) .feature-card:not(:hover),
+        html:not(.dark-theme) .client-card:not(:hover),
+        html:not(.dark-theme) .developer-card:not(:hover),
+        html:not(.dark-theme) .testimonial-card:not(:hover),
+        html:not(.dark-theme) .landing-stat-card:not(:hover),
+        .light-theme .feature-card:not(:hover),
+        .light-theme .client-card:not(:hover),
+        .light-theme .developer-card:not(:hover),
+        .light-theme .testimonial-card:not(:hover),
+        .light-theme .landing-stat-card:not(:hover) {
+          background-color: rgba(255, 255, 255, 0.86) !important;
+          backdrop-filter: blur(16px) !important;
+          -webkit-backdrop-filter: blur(16px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.95) !important;
+          box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+        }
+
+        /* Stats Cards: Soft Cyan Corner Glow (Resting Only) */
+        html:not(.dark-theme) .landing-stat-card:not(:hover),
+        .light-theme .landing-stat-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.18), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(14, 165, 233, 0.06), transparent 70%) !important;
+          border-color: rgba(6, 182, 212, 0.24) !important;
+        }
+
+        /* Project Cards: Soft Electric Blue Corner Glow (Resting Only) */
+        html:not(.dark-theme) .landing-project-card:not(:hover),
+        .light-theme .landing-project-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.18), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(37, 99, 235, 0.06), transparent 70%) !important;
+          border-color: rgba(59, 130, 246, 0.24) !important;
+        }
+
+        /* Client Cards: Soft Emerald Green Corner Glow (Resting Only) */
+        html:not(.dark-theme) .landing-client-card:not(:hover),
+        .light-theme .landing-client-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(16, 185, 129, 0.18), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(5, 150, 105, 0.06), transparent 70%) !important;
+          border-color: rgba(16, 185, 129, 0.24) !important;
+        }
+
+        /* Developer Cards: Soft Electric Blue Corner Glow (Resting Only) */
+        html:not(.dark-theme) .landing-developer-card:not(:hover),
+        .light-theme .landing-developer-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.18), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(37, 99, 235, 0.06), transparent 70%) !important;
+          border-color: rgba(59, 130, 246, 0.24) !important;
+        }
+
+        /* Testimonial Cards: Soft Radiant Cyan Corner Glow (Resting Only) */
+        html:not(.dark-theme) .landing-testimonial-card:not(:hover),
+        .light-theme .landing-testimonial-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.18), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(14, 165, 233, 0.06), transparent 70%) !important;
+          border-color: rgba(6, 182, 212, 0.24) !important;
+        }
+
+        /* ============================================================
+           DARK THEME 5-COLOR COSMIC ATMOSPHERIC BACKGROUND SYSTEM
+           (Blue, Purple, Cyan, Green, and Amber Nebulae — Seamless Cosmic Flow)
+           ============================================================ */
+        .dark-theme .landing-page-root {
+          background-color: #050811 !important;
+          background-image: 
+            radial-gradient(ellipse 100% 60% at 50% 0%, rgba(59, 130, 246, 0.18), transparent 70%),
+            radial-gradient(ellipse 85% 55% at 85% 18%, rgba(6, 182, 212, 0.16), transparent 65%),
+            radial-gradient(ellipse 90% 60% at 15% 38%, rgba(16, 185, 129, 0.15), transparent 65%),
+            radial-gradient(ellipse 85% 55% at 85% 58%, rgba(168, 85, 247, 0.15), transparent 65%),
+            radial-gradient(ellipse 90% 60% at 15% 78%, rgba(245, 158, 11, 0.12), transparent 65%),
+            radial-gradient(ellipse 100% 60% at 50% 98%, rgba(59, 130, 246, 0.16), transparent 70%) !important;
+        }
+
+        /* 1. Features Section: Deep Royal Blue & Purple Cosmic Nebulae */
+        .dark-theme .landing-section-features {
+          background: 
+            radial-gradient(ellipse 80% 65% at 50% 30%, rgba(59, 130, 246, 0.18), transparent 75%),
+            radial-gradient(ellipse 65% 50% at 15% 70%, rgba(168, 85, 247, 0.14), transparent 65%),
+            radial-gradient(ellipse 65% 50% at 85% 70%, rgba(6, 182, 212, 0.12), transparent 65%) !important;
+          border: none !important;
+        }
+
+        /* 2. Floating Technology Banner: Deep Cyan-Blue Auroral Flow */
+        .dark-theme .landing-section-tech {
+          background: radial-gradient(ellipse 90% 60% at 50% 50%, rgba(59, 130, 246, 0.13), transparent 70%) !important;
+          border: none !important;
+        }
+
+        /* 3. Stats Section ("Momentum you can see"): Radiant Deep Cyan / Aqua Cosmic Aura (Seamless Flow, No Borders) */
+        .dark-theme .landing-section-stats {
+          background: 
+            radial-gradient(ellipse 85% 70% at 50% 50%, rgba(6, 182, 212, 0.18), transparent 75%),
+            radial-gradient(ellipse 70% 50% at 10% 20%, rgba(14, 165, 233, 0.12), transparent 65%),
+            radial-gradient(ellipse 70% 50% at 90% 80%, rgba(6, 182, 212, 0.12), transparent 65%) !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+
+        /* 4. Portfolio & Case Studies: Cosmic Cyan-to-Emerald Transition */
+        .dark-theme .landing-section-projects {
+          background: 
+            radial-gradient(ellipse 75% 55% at 15% 30%, rgba(6, 182, 212, 0.14), transparent 70%),
+            radial-gradient(ellipse 75% 55% at 85% 70%, rgba(16, 185, 129, 0.14), transparent 70%) !important;
+          border: none !important;
+        }
+
+        /* 5. Satisfied Clients: Deep Emerald & Mint Green Cosmic Glow (Seamless Flow, No Borders) */
+        .dark-theme .landing-section-clients {
+          background: 
+            radial-gradient(ellipse 85% 65% at 50% 40%, rgba(16, 185, 129, 0.18), transparent 75%),
+            radial-gradient(ellipse 70% 50% at 85% 20%, rgba(52, 211, 153, 0.12), transparent 65%),
+            radial-gradient(ellipse 70% 50% at 15% 80%, rgba(16, 185, 129, 0.12), transparent 65%) !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+
+        /* 6. Expert Developers: Deep Purple to Mint Auroral Glow */
+        .dark-theme .landing-section-developers {
+          background: 
+            radial-gradient(ellipse 80% 65% at 35% 40%, rgba(168, 85, 247, 0.15), transparent 70%),
+            radial-gradient(ellipse 70% 50% at 85% 75%, rgba(16, 185, 129, 0.13), transparent 65%) !important;
+          border: none !important;
+        }
+
+        /* 7. Testimonials Section: Deep Amber to Cyan Warm Cosmic Blend */
+        .dark-theme .landing-section-testimonials {
+          background: 
+            radial-gradient(ellipse 80% 60% at 50% 45%, rgba(245, 158, 11, 0.12), transparent 70%),
+            radial-gradient(ellipse 70% 50% at 85% 30%, rgba(6, 182, 212, 0.11), transparent 65%) !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+
+        /* 8. Contact Section: Deep Cosmic Blue Foundation */
+        .dark-theme .landing-section-contact {
+          background: 
+            radial-gradient(ellipse 85% 70% at 50% 30%, rgba(59, 130, 246, 0.16), transparent 75%) !important;
+          border: none !important;
+        }
+
+        /* ============================================================
+           DARK THEME SIGNATURE CORNER AMBIENT GLOWS ACROSS ALL CARDS
+           (Blue, Purple, Cyan, Green, Amber Frosted Obsidian Glass)
+           ============================================================ */
+        .dark-theme .feature-card:not(:hover),
+        .dark-theme .client-card:not(:hover),
+        .dark-theme .developer-card:not(:hover),
+        .dark-theme .testimonial-card:not(:hover),
+        .dark-theme .landing-stat-card:not(:hover) {
+          background-color: rgba(14, 18, 30, 0.82) !important;
+          backdrop-filter: blur(20px) !important;
+          -webkit-backdrop-filter: blur(20px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.12) !important;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+        }
+
+        /* Stats Cards: Subtle Cyan Corner Glow (Resting Only) */
+        .dark-theme .landing-stat-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.20), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(14, 165, 233, 0.08), transparent 70%) !important;
+          border-color: rgba(6, 182, 212, 0.28) !important;
+        }
+
+        /* Project Cards: Subtle Electric Blue Corner Glow (Resting Only) */
+        .dark-theme .landing-project-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.20), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(37, 99, 235, 0.08), transparent 70%) !important;
+          border-color: rgba(59, 130, 246, 0.28) !important;
+        }
+
+        /* Client Cards: Subtle Emerald Green Corner Glow (Resting Only) */
+        .dark-theme .landing-client-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(16, 185, 129, 0.20), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(5, 150, 105, 0.08), transparent 70%) !important;
+          border-color: rgba(16, 185, 129, 0.28) !important;
+        }
+
+        /* Developer Cards: Subtle Electric Blue Corner Glow (Resting Only) */
+        .dark-theme .landing-developer-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.20), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(37, 99, 235, 0.08), transparent 70%) !important;
+          border-color: rgba(59, 130, 246, 0.28) !important;
+        }
+
+        /* Testimonial Cards: Subtle Radiant Cyan Corner Glow (Resting Only) */
+        .dark-theme .landing-testimonial-card:not(:hover) {
+          background-image: radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.20), transparent 70%),
+                            radial-gradient(ellipse at 15% 85%, rgba(14, 165, 233, 0.08), transparent 70%) !important;
+          border-color: rgba(6, 182, 212, 0.28) !important;
+        }
+
+        /* ============================================================
            VIBRANT ELECTRIC CYAN / BLUE GRADIENT HOVER EFFECT FOR ALL CARDS
            Matching "Momentum you can see" stat cards (.landing-stat-card)
            ============================================================ */
@@ -2383,150 +2668,393 @@ export default function LandingPage() {
           cursor: pointer;
         }
 
-        /* Shared Card Hover Background & Cyan-Blue Luminous Glow (Lighter & Fresher) */
+        /* Base Card Hover Elevation / Lift */
         .feature-card:hover,
-        .client-card:hover,
-        .developer-card:hover,
-        .testimonial-card:hover,
-        .landing-stat-card:hover {
-          background-color: #38BDF8 !important;
-          background-image: linear-gradient(135deg, #67E8F9 0%, #38BDF8 50%, #2997FF 100%) !important;
-          border-color: rgba(56, 189, 248, 0.85) !important;
-          box-shadow: 0 24px 70px rgba(56, 189, 248, 0.45), 0 0 40px rgba(56, 189, 248, 0.3), inset 0 0 24px rgba(255, 255, 255, 0.28) !important;
-        }
-
-        /* Feature Card (Grid & Portfolio) Hover Specifics */
-        .feature-card:hover {
-          transform: translateY(-6px);
-        }
-        .feature-card:hover h3,
-        .feature-card:hover .landing-card-title {
-          color: #062A4A !important;
-        }
-        .feature-card:hover p,
-        .feature-card:hover .landing-card-desc,
-        .feature-card:hover .landing-card-muted {
-          color: #0D4876 !important;
-        }
-        .feature-card:hover .landing-card-subtitle {
-          color: #07355B !important;
-          font-weight: 600 !important;
-        }
-        .feature-card:hover .landing-card-icon {
-          background-color: rgba(255, 255, 255, 0.38) !important;
-          border-color: rgba(255, 255, 255, 0.6) !important;
-          box-shadow: 0 4px 14px rgba(6, 42, 74, 0.15);
-        }
-        .feature-card:hover .landing-card-icon svg {
-          color: #062A4A !important;
-          stroke: #062A4A !important;
-        }
-        .feature-card:hover a,
-        .feature-card:hover .landing-card-link {
-          color: #062A4A !important;
-          font-weight: 600 !important;
-        }
-        .feature-card:hover a svg,
-        .feature-card:hover .landing-card-link svg {
-          color: #062A4A !important;
-          stroke: #062A4A !important;
-        }
-        .feature-card:hover .landing-project-img {
-          border-color: rgba(255, 255, 255, 0.45) !important;
-          box-shadow: 0 8px 24px rgba(6, 42, 74, 0.25);
-        }
-
-        /* Client Card Hover Specifics */
-        .client-card:hover {
-          transform: translateY(-5px);
-        }
-        .client-card:hover h4,
-        .client-card:hover .landing-card-title {
-          color: #062A4A !important;
-        }
-        .client-card:hover .landing-card-subtitle {
-          color: #07355B !important;
-          font-weight: 600 !important;
-        }
-        .client-card:hover p,
-        .client-card:hover .landing-card-desc {
-          color: #0D4876 !important;
-        }
-        .client-card:hover .landing-client-avatar {
-          background-color: rgba(255, 255, 255, 0.38) !important;
-          border-color: rgba(255, 255, 255, 0.6) !important;
-          box-shadow: 0 4px 14px rgba(6, 42, 74, 0.18);
-        }
-        .client-card:hover .landing-client-avatar svg,
-        .client-card:hover svg {
-          color: #062A4A !important;
-          stroke: #062A4A !important;
-        }
-
-        /* Developer Card Hover Specifics */
         .developer-card:hover {
           transform: translateY(-6px);
         }
-        .developer-card:hover h4,
-        .developer-card:hover .landing-card-title {
-          color: #062A4A !important;
+        .client-card:hover,
+        .testimonial-card:hover {
+          transform: translateY(-5px);
         }
+
+        /* ------------------------------------------------------------
+           PALETTE 1: RADIANT CYAN / AQUA HOVER
+           Applied to: Stat Cards ("Momentum you can see"), Testimonial Cards, Cyan Feature Card ("24/7 Support")
+           ------------------------------------------------------------ */
+        html:not(.dark-theme) .landing-stat-card:hover,
+        .light-theme .landing-stat-card:hover,
+        .dark-theme .landing-stat-card:hover,
+        .landing-stat-card:hover,
+        html:not(.dark-theme) .feature-card-cyan:hover,
+        .light-theme .feature-card-cyan:hover,
+        .dark-theme .feature-card-cyan:hover,
+        .feature-card-cyan:hover,
+        html:not(.dark-theme) .testimonial-card:hover,
+        .light-theme .testimonial-card:hover,
+        .dark-theme .testimonial-card:hover,
+        .testimonial-card:hover,
+        html:not(.dark-theme) .landing-testimonial-card:hover,
+        .light-theme .landing-testimonial-card:hover,
+        .dark-theme .landing-testimonial-card:hover,
+        .landing-testimonial-card:hover {
+          background-color: #06B6D4 !important;
+          background-image: linear-gradient(135deg, #67E8F9 0%, #22D3EE 45%, #06B6D4 100%) !important;
+          border-color: rgba(6, 182, 212, 0.85) !important;
+          box-shadow: 0 24px 70px rgba(6, 182, 212, 0.45), 0 0 40px rgba(6, 182, 212, 0.3), inset 0 0 24px rgba(255, 255, 255, 0.3) !important;
+        }
+        html:not(.dark-theme) .landing-stat-card:hover .landing-stat-value,
+        .light-theme .landing-stat-card:hover .landing-stat-value,
+        .dark-theme .landing-stat-card:hover .landing-stat-value,
+        .landing-stat-card:hover .landing-stat-value,
+        html:not(.dark-theme) .feature-card-cyan:hover h3,
+        .light-theme .feature-card-cyan:hover h3,
+        .dark-theme .feature-card-cyan:hover h3,
+        .feature-card-cyan:hover h3,
+        html:not(.dark-theme) .feature-card-cyan:hover .landing-card-title,
+        .light-theme .feature-card-cyan:hover .landing-card-title,
+        .dark-theme .feature-card-cyan:hover .landing-card-title,
+        .feature-card-cyan:hover .landing-card-title,
+        html:not(.dark-theme) .testimonial-card:hover h4,
+        .light-theme .testimonial-card:hover h4,
+        .dark-theme .testimonial-card:hover h4,
+        .testimonial-card:hover h4,
+        html:not(.dark-theme) .testimonial-card:hover .landing-card-title,
+        .light-theme .testimonial-card:hover .landing-card-title,
+        .dark-theme .testimonial-card:hover .landing-card-title,
+        .testimonial-card:hover .landing-card-title {
+          color: #043844 !important;
+        }
+        html:not(.dark-theme) .testimonial-card:hover .landing-card-subtitle,
+        .light-theme .testimonial-card:hover .landing-card-subtitle,
+        .dark-theme .testimonial-card:hover .landing-card-subtitle,
+        .testimonial-card:hover .landing-card-subtitle {
+          color: #064B5B !important;
+          font-weight: 600 !important;
+        }
+        html:not(.dark-theme) .testimonial-card:hover .landing-testimonial-quote,
+        .light-theme .testimonial-card:hover .landing-testimonial-quote,
+        .dark-theme .testimonial-card:hover .landing-testimonial-quote,
+        .testimonial-card:hover .landing-testimonial-quote {
+          color: #043844 !important;
+          font-weight: 500 !important;
+        }
+        html:not(.dark-theme) .testimonial-card:hover .landing-testimonial-avatar,
+        .light-theme .testimonial-card:hover .landing-testimonial-avatar,
+        .dark-theme .testimonial-card:hover .landing-testimonial-avatar,
+        .testimonial-card:hover .landing-testimonial-avatar {
+          background-color: #043844 !important;
+          color: #FFFFFF !important;
+          box-shadow: 0 4px 14px rgba(4, 56, 68, 0.35) !important;
+        }
+        html:not(.dark-theme) .landing-stat-card:hover .landing-stat-label,
+        .light-theme .landing-stat-card:hover .landing-stat-label,
+        .dark-theme .landing-stat-card:hover .landing-stat-label,
+        .landing-stat-card:hover .landing-stat-label,
+        html:not(.dark-theme) .feature-card-cyan:hover p,
+        .light-theme .feature-card-cyan:hover p,
+        .dark-theme .feature-card-cyan:hover p,
+        .feature-card-cyan:hover p,
+        html:not(.dark-theme) .feature-card-cyan:hover .landing-card-desc,
+        .light-theme .feature-card-cyan:hover .landing-card-desc,
+        .dark-theme .feature-card-cyan:hover .landing-card-desc,
+        .feature-card-cyan:hover .landing-card-desc,
+        html:not(.dark-theme) .testimonial-card:hover p,
+        .light-theme .testimonial-card:hover p,
+        .dark-theme .testimonial-card:hover p,
+        .testimonial-card:hover p,
+        html:not(.dark-theme) .testimonial-card:hover .landing-card-desc,
+        .light-theme .testimonial-card:hover .landing-card-desc,
+        .dark-theme .testimonial-card:hover .landing-card-desc,
+        .testimonial-card:hover .landing-card-desc {
+          color: #085566 !important;
+        }
+        html:not(.dark-theme) .feature-card-cyan:hover .landing-card-icon,
+        .light-theme .feature-card-cyan:hover .landing-card-icon,
+        .dark-theme .feature-card-cyan:hover .landing-card-icon,
+        .feature-card-cyan:hover .landing-card-icon {
+          background-color: rgba(255, 255, 255, 0.4) !important;
+          border-color: rgba(255, 255, 255, 0.65) !important;
+          box-shadow: 0 4px 14px rgba(4, 56, 68, 0.15) !important;
+        }
+        html:not(.dark-theme) .feature-card-cyan:hover .landing-card-icon svg,
+        .light-theme .feature-card-cyan:hover .landing-card-icon svg,
+        .dark-theme .feature-card-cyan:hover .landing-card-icon svg,
+        .feature-card-cyan:hover .landing-card-icon svg {
+          color: #043844 !important;
+          stroke: #043844 !important;
+        }
+
+        /* ------------------------------------------------------------
+           PALETTE 2: RADIANT ELECTRIC BLUE HOVER
+           Applied to: Portfolio Project Cards, Developer Cards, Blue Feature Cards ("Expert Developers", "Fast Delivery")
+           ------------------------------------------------------------ */
+        html:not(.dark-theme) .landing-project-card:hover,
+        .light-theme .landing-project-card:hover,
+        .dark-theme .landing-project-card:hover,
+        .landing-project-card:hover,
+        html:not(.dark-theme) .developer-card:hover,
+        .light-theme .developer-card:hover,
+        .dark-theme .developer-card:hover,
+        .developer-card:hover,
+        html:not(.dark-theme) .landing-developer-card:hover,
+        .light-theme .landing-developer-card:hover,
+        .dark-theme .landing-developer-card:hover,
+        .landing-developer-card:hover,
+        html:not(.dark-theme) .feature-card-blue:hover,
+        .light-theme .feature-card-blue:hover,
+        .dark-theme .feature-card-blue:hover,
+        .feature-card-blue:hover,
+        html:not(.dark-theme) .feature-card:not(.feature-card-cyan):not(.feature-card-green):not(.landing-project-card):hover,
+        .light-theme .feature-card:not(.feature-card-cyan):not(.feature-card-green):not(.landing-project-card):hover,
+        .dark-theme .feature-card:not(.feature-card-cyan):not(.feature-card-green):not(.landing-project-card):hover,
+        .feature-card:not(.feature-card-cyan):not(.feature-card-green):not(.landing-project-card):hover {
+          background-color: #3B82F6 !important;
+          background-image: linear-gradient(135deg, #93C5FD 0%, #60A5FA 45%, #2563EB 100%) !important;
+          border-color: rgba(59, 130, 246, 0.85) !important;
+          box-shadow: 0 24px 70px rgba(37, 99, 235, 0.45), 0 0 40px rgba(59, 130, 246, 0.3), inset 0 0 24px rgba(255, 255, 255, 0.3) !important;
+        }
+        html:not(.dark-theme) .landing-project-card:hover h3,
+        .light-theme .landing-project-card:hover h3,
+        .dark-theme .landing-project-card:hover h3,
+        .landing-project-card:hover h3,
+        html:not(.dark-theme) .landing-project-card:hover .landing-card-title,
+        .light-theme .landing-project-card:hover .landing-card-title,
+        .dark-theme .landing-project-card:hover .landing-card-title,
+        .landing-project-card:hover .landing-card-title,
+        html:not(.dark-theme) .developer-card:hover h4,
+        .light-theme .developer-card:hover h4,
+        .dark-theme .developer-card:hover h4,
+        .developer-card:hover h4,
+        html:not(.dark-theme) .developer-card:hover .landing-card-title,
+        .light-theme .developer-card:hover .landing-card-title,
+        .dark-theme .developer-card:hover .landing-card-title,
+        .developer-card:hover .landing-card-title,
+        html:not(.dark-theme) .feature-card-blue:hover h3,
+        .light-theme .feature-card-blue:hover h3,
+        .dark-theme .feature-card-blue:hover h3,
+        .feature-card-blue:hover h3,
+        html:not(.dark-theme) .feature-card-blue:hover .landing-card-title,
+        .light-theme .feature-card-blue:hover .landing-card-title,
+        .dark-theme .feature-card-blue:hover .landing-card-title,
+        .feature-card-blue:hover .landing-card-title {
+          color: #04274F !important;
+        }
+        html:not(.dark-theme) .landing-project-card:hover .landing-card-subtitle,
+        .light-theme .landing-project-card:hover .landing-card-subtitle,
+        .dark-theme .landing-project-card:hover .landing-card-subtitle,
+        .landing-project-card:hover .landing-card-subtitle,
+        html:not(.dark-theme) .developer-card:hover .landing-card-role,
+        .light-theme .developer-card:hover .landing-card-role,
+        .dark-theme .developer-card:hover .landing-card-role,
         .developer-card:hover .landing-card-role {
           color: #07355B !important;
           font-weight: 600 !important;
         }
+        html:not(.dark-theme) .developer-card:hover .landing-skill-tag,
+        .light-theme .developer-card:hover .landing-skill-tag,
+        .dark-theme .developer-card:hover .landing-skill-tag,
         .developer-card:hover .landing-skill-tag {
-          background-color: rgba(255, 255, 255, 0.35) !important;
-          border-color: rgba(255, 255, 255, 0.55) !important;
-          color: #062A4A !important;
+          background-color: rgba(255, 255, 255, 0.4) !important;
+          border-color: rgba(255, 255, 255, 0.65) !important;
+          color: #04274F !important;
           font-weight: 600 !important;
-          box-shadow: 0 2px 6px rgba(6, 42, 74, 0.1);
+          box-shadow: 0 2px 6px rgba(4, 39, 79, 0.12) !important;
         }
+        html:not(.dark-theme) .developer-card:hover .landing-card-experience,
+        .light-theme .developer-card:hover .landing-card-experience,
+        .dark-theme .developer-card:hover .landing-card-experience,
         .developer-card:hover .landing-card-experience {
-          color: #07355B !important;
+          color: #0B4A82 !important;
           font-weight: 600 !important;
         }
+        html:not(.dark-theme) .landing-project-card:hover p,
+        .light-theme .landing-project-card:hover p,
+        .dark-theme .landing-project-card:hover p,
+        .landing-project-card:hover p,
+        html:not(.dark-theme) .landing-project-card:hover .landing-card-desc,
+        .light-theme .landing-project-card:hover .landing-card-desc,
+        .dark-theme .landing-project-card:hover .landing-card-desc,
+        .landing-project-card:hover .landing-card-desc,
+        html:not(.dark-theme) .landing-project-card:hover .landing-card-muted,
+        .light-theme .landing-project-card:hover .landing-card-muted,
+        .dark-theme .landing-project-card:hover .landing-card-muted,
+        .landing-project-card:hover .landing-card-muted,
+        html:not(.dark-theme) .developer-card:hover p,
+        .light-theme .developer-card:hover p,
+        .dark-theme .developer-card:hover p,
         .developer-card:hover p,
-        .developer-card:hover .landing-card-desc {
-          color: #0D4876 !important;
+        html:not(.dark-theme) .developer-card:hover .landing-card-desc,
+        .light-theme .developer-card:hover .landing-card-desc,
+        .dark-theme .developer-card:hover .landing-card-desc,
+        .developer-card:hover .landing-card-desc,
+        html:not(.dark-theme) .feature-card-blue:hover p,
+        .light-theme .feature-card-blue:hover p,
+        .dark-theme .feature-card-blue:hover p,
+        .feature-card-blue:hover p,
+        html:not(.dark-theme) .feature-card-blue:hover .landing-card-desc,
+        .light-theme .feature-card-blue:hover .landing-card-desc,
+        .dark-theme .feature-card-blue:hover .landing-card-desc,
+        .feature-card-blue:hover .landing-card-desc {
+          color: #0B4A82 !important;
         }
+        html:not(.dark-theme) .developer-card:hover .landing-dev-circle-mask,
+        .light-theme .developer-card:hover .landing-dev-circle-mask,
+        .dark-theme .developer-card:hover .landing-dev-circle-mask,
         .developer-card:hover .landing-dev-circle-mask {
-          border-color: rgba(255, 255, 255, 0.8) !important;
-          box-shadow: 0 6px 18px rgba(6, 42, 74, 0.25) !important;
+          border-color: rgba(255, 255, 255, 0.85) !important;
+          box-shadow: 0 6px 18px rgba(4, 39, 79, 0.25) !important;
         }
+        html:not(.dark-theme) .developer-card:hover .landing-dev-circle-initial,
+        .light-theme .developer-card:hover .landing-dev-circle-initial,
+        .dark-theme .developer-card:hover .landing-dev-circle-initial,
         .developer-card:hover .landing-dev-circle-initial {
-          background-color: #062A4A !important;
+          background-color: #04274F !important;
           color: #FFFFFF !important;
         }
+        html:not(.dark-theme) .landing-project-card:hover .landing-card-icon,
+        .light-theme .landing-project-card:hover .landing-card-icon,
+        .dark-theme .landing-project-card:hover .landing-card-icon,
+        .landing-project-card:hover .landing-card-icon,
+        html:not(.dark-theme) .feature-card-blue:hover .landing-card-icon,
+        .light-theme .feature-card-blue:hover .landing-card-icon,
+        .dark-theme .feature-card-blue:hover .landing-card-icon,
+        .feature-card-blue:hover .landing-card-icon {
+          background-color: rgba(255, 255, 255, 0.4) !important;
+          border-color: rgba(255, 255, 255, 0.65) !important;
+          box-shadow: 0 4px 14px rgba(4, 39, 79, 0.15) !important;
+        }
+        html:not(.dark-theme) .landing-project-card:hover .landing-card-icon svg,
+        .light-theme .landing-project-card:hover .landing-card-icon svg,
+        .dark-theme .landing-project-card:hover .landing-card-icon svg,
+        .landing-project-card:hover .landing-card-icon svg,
+        html:not(.dark-theme) .feature-card-blue:hover .landing-card-icon svg,
+        .light-theme .feature-card-blue:hover .landing-card-icon svg,
+        .dark-theme .feature-card-blue:hover .landing-card-icon svg,
+        .feature-card-blue:hover .landing-card-icon svg {
+          color: #04274F !important;
+          stroke: #04274F !important;
+        }
+        html:not(.dark-theme) .landing-project-card:hover a,
+        .light-theme .landing-project-card:hover a,
+        .dark-theme .landing-project-card:hover a,
+        .landing-project-card:hover a,
+        html:not(.dark-theme) .landing-project-card:hover .landing-card-link,
+        .light-theme .landing-project-card:hover .landing-card-link,
+        .dark-theme .landing-project-card:hover .landing-card-link,
+        .landing-project-card:hover .landing-card-link {
+          color: #04274F !important;
+          font-weight: 600 !important;
+        }
+        html:not(.dark-theme) .landing-project-card:hover a svg,
+        .light-theme .landing-project-card:hover a svg,
+        .dark-theme .landing-project-card:hover a svg,
+        .landing-project-card:hover a svg,
+        html:not(.dark-theme) .landing-project-card:hover .landing-card-link svg,
+        .light-theme .landing-project-card:hover .landing-card-link svg,
+        .dark-theme .landing-project-card:hover .landing-card-link svg,
+        .landing-project-card:hover .landing-card-link svg {
+          color: #04274F !important;
+          stroke: #04274F !important;
+        }
+        html:not(.dark-theme) .landing-project-card:hover .landing-project-img,
+        .light-theme .landing-project-card:hover .landing-project-img,
+        .dark-theme .landing-project-card:hover .landing-project-img,
+        .landing-project-card:hover .landing-project-img {
+          border-color: rgba(255, 255, 255, 0.5) !important;
+          box-shadow: 0 8px 24px rgba(4, 39, 79, 0.25) !important;
+        }
 
-        /* Testimonial Card Hover Specifics */
-        .testimonial-card:hover {
-          transform: translateY(-5px);
+        /* ------------------------------------------------------------
+           PALETTE 3: RADIANT EMERALD / MINT GREEN HOVER
+           Applied to: Client Cards, Green Feature Card ("Dedicated Teams", "Scalable Solutions")
+           ------------------------------------------------------------ */
+        html:not(.dark-theme) .client-card:hover,
+        .light-theme .client-card:hover,
+        .dark-theme .client-card:hover,
+        .client-card:hover,
+        html:not(.dark-theme) .landing-client-card:hover,
+        .light-theme .landing-client-card:hover,
+        .dark-theme .landing-client-card:hover,
+        .landing-client-card:hover,
+        html:not(.dark-theme) .feature-card-green:hover,
+        .light-theme .feature-card-green:hover,
+        .dark-theme .feature-card-green:hover,
+        .feature-card-green:hover {
+          background-color: #10B981 !important;
+          background-image: linear-gradient(135deg, #6EE7B7 0%, #34D399 45%, #059669 100%) !important;
+          border-color: rgba(16, 185, 129, 0.85) !important;
+          box-shadow: 0 24px 70px rgba(16, 185, 129, 0.45), 0 0 40px rgba(16, 185, 129, 0.3), inset 0 0 24px rgba(255, 255, 255, 0.3) !important;
         }
-        .testimonial-card:hover .landing-testimonial-avatar {
-          background-color: #062A4A !important;
-          color: #FFFFFF !important;
-          box-shadow: 0 4px 14px rgba(6, 42, 74, 0.35) !important;
+        html:not(.dark-theme) .client-card:hover h4,
+        .light-theme .client-card:hover h4,
+        .dark-theme .client-card:hover h4,
+        .client-card:hover h4,
+        html:not(.dark-theme) .client-card:hover .landing-card-title,
+        .light-theme .client-card:hover .landing-card-title,
+        .dark-theme .client-card:hover .landing-card-title,
+        .client-card:hover .landing-card-title,
+        html:not(.dark-theme) .feature-card-green:hover h3,
+        .light-theme .feature-card-green:hover h3,
+        .dark-theme .feature-card-green:hover h3,
+        .feature-card-green:hover h3,
+        html:not(.dark-theme) .feature-card-green:hover .landing-card-title,
+        .light-theme .feature-card-green:hover .landing-card-title,
+        .dark-theme .feature-card-green:hover .landing-card-title,
+        .feature-card-green:hover .landing-card-title {
+          color: #033B2B !important;
         }
-        .testimonial-card:hover .landing-testimonial-quote {
-          color: #062A4A !important;
-          font-weight: 500 !important;
+        html:not(.dark-theme) .client-card:hover .landing-card-subtitle,
+        .light-theme .client-card:hover .landing-card-subtitle,
+        .dark-theme .client-card:hover .landing-card-subtitle,
+        .client-card:hover .landing-card-subtitle {
+          color: #064E3B !important;
+          font-weight: 600 !important;
         }
-        .testimonial-card:hover h4,
-        .testimonial-card:hover .landing-card-title {
-          color: #062A4A !important;
+        html:not(.dark-theme) .client-card:hover p,
+        .light-theme .client-card:hover p,
+        .dark-theme .client-card:hover p,
+        .client-card:hover p,
+        html:not(.dark-theme) .client-card:hover .landing-card-desc,
+        .light-theme .client-card:hover .landing-card-desc,
+        .dark-theme .client-card:hover .landing-card-desc,
+        .client-card:hover .landing-card-desc,
+        html:not(.dark-theme) .feature-card-green:hover p,
+        .light-theme .feature-card-green:hover p,
+        .dark-theme .feature-card-green:hover p,
+        .feature-card-green:hover p,
+        html:not(.dark-theme) .feature-card-green:hover .landing-card-desc,
+        .light-theme .feature-card-green:hover .landing-card-desc,
+        .dark-theme .feature-card-green:hover .landing-card-desc,
+        .feature-card-green:hover .landing-card-desc {
+          color: #065F46 !important;
         }
-        .testimonial-card:hover .landing-card-subtitle {
-          color: #0D4876 !important;
-          font-weight: 500 !important;
+        html:not(.dark-theme) .client-card:hover .landing-client-avatar,
+        .light-theme .client-card:hover .landing-client-avatar,
+        .dark-theme .client-card:hover .landing-client-avatar,
+        .client-card:hover .landing-client-avatar,
+        html:not(.dark-theme) .feature-card-green:hover .landing-card-icon,
+        .light-theme .feature-card-green:hover .landing-card-icon,
+        .dark-theme .feature-card-green:hover .landing-card-icon,
+        .feature-card-green:hover .landing-card-icon {
+          background-color: rgba(255, 255, 255, 0.4) !important;
+          border-color: rgba(255, 255, 255, 0.65) !important;
+          box-shadow: 0 4px 14px rgba(3, 59, 43, 0.18) !important;
         }
-
-        /* Stat Card Hover Specifics (Momentum you can see) */
-        .landing-stat-card:hover .landing-stat-value {
-          color: #062A4A !important;
-        }
-        .landing-stat-card:hover .landing-stat-label {
-          color: #12527E !important;
+        html:not(.dark-theme) .client-card:hover .landing-client-avatar svg,
+        .light-theme .client-card:hover .landing-client-avatar svg,
+        .dark-theme .client-card:hover .landing-client-avatar svg,
+        .client-card:hover .landing-client-avatar svg,
+        html:not(.dark-theme) .client-card:hover svg,
+        .light-theme .client-card:hover svg,
+        .dark-theme .client-card:hover svg,
+        .client-card:hover svg,
+        html:not(.dark-theme) .feature-card-green:hover .landing-card-icon svg,
+        .light-theme .feature-card-green:hover .landing-card-icon svg,
+        .dark-theme .feature-card-green:hover .landing-card-icon svg,
+        .feature-card-green:hover .landing-card-icon svg {
+          color: #033B2B !important;
+          stroke: #033B2B !important;
         }
 
         /* Scale/elevate strip cells so hovered cards float gracefully above neighbors */
@@ -2730,8 +3258,8 @@ export default function LandingPage() {
 
 function getLandingStyles(isDark: boolean): Record<string, any> {
   const appleBlue = isDark ? "#2997ff" : "#0071e3";
-  const appleCanvas = isDark ? "#000000" : "#fbfbfd";
-  const appleSectionBg = isDark ? "#0a0a0c" : "#f5f5f7";
+  const appleCanvas = isDark ? "#050811" : "#f8fafc";
+  const appleSectionBg = isDark ? "#070d1a" : "#f4f8fb";
   const appleCardBg = isDark ? "#161617" : "#ffffff";
   const appleCardBorder = isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(0, 0, 0, 0.08)";
   const appleCardShadow = isDark 
@@ -2929,9 +3457,9 @@ function getLandingStyles(isDark: boolean): Record<string, any> {
     
     // Stats Section (Apple Keynote Style)
     statsSection: {
-      backgroundColor: appleSectionBg,
-      borderTop: appleHairline,
-      borderBottom: appleHairline,
+      backgroundColor: "transparent",
+      borderTop: "none",
+      borderBottom: "none",
       padding: "clamp(48px, 7vw, 84px) 0",
       overflow: "hidden",
     },
@@ -2943,11 +3471,9 @@ function getLandingStyles(isDark: boolean): Record<string, any> {
       overflow: "hidden",
       padding: "clamp(48px, 6vw, 80px) 0",
       marginBottom: "clamp(32px, 4vw, 48px)",
-      background: isDark
-        ? "radial-gradient(1100px 520px at 50% 0%, rgba(41,151,255,0.12), transparent 65%), #0a0a0c"
-        : "radial-gradient(1100px 520px at 50% 0%, rgba(0,113,227,0.06), transparent 65%), #f5f5f7",
-      borderTop: appleHairline,
-      borderBottom: appleHairline,
+      background: "transparent",
+      borderTop: "none",
+      borderBottom: "none",
     },
     techIntro: {
       textAlign: "center" as const,

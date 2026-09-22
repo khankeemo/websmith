@@ -191,7 +191,7 @@ export default function ClientTicketsPage() {
       </div>
 
       <div style={styles.layout} className="client-query-layout">
-        <div style={styles.listCard}>
+        <div style={styles.listCard} className="wsd-unified-card wsd-card-blue">
           <h2 style={styles.historyTitle}>Query List</h2>
           {sortedTickets.length === 0 ? (
             <p style={styles.historyEmpty}>No queries yet.</p>
@@ -221,7 +221,7 @@ export default function ClientTicketsPage() {
           )}
         </div>
 
-        <div style={styles.detailsCard}>
+        <div style={styles.detailsCard} className="wsd-unified-card wsd-card-cyan">
           {!selectedTicket ? (
             <div style={styles.emptyState}>
               <MessageSquare size={34} color="var(--text-secondary)" />
@@ -486,7 +486,7 @@ export default function ClientTicketsPage() {
 const styles: any = {
   container: {
     padding: 0,
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: "transparent",
     color: "var(--text-primary)",
     minHeight: "100vh",
   },
@@ -516,9 +516,7 @@ const styles: any = {
   },
   layout: { display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", gap: "20px", alignItems: "start" },
   listCard: {
-    backgroundColor: "var(--bg-primary)",
     borderRadius: "16px",
-    border: "1px solid var(--border-color)",
     padding: "14px",
   },
   historyTitle: { fontSize: "18px", fontWeight: 700, margin: "0 0 10px 0", color: "var(--text-primary)" },
@@ -548,9 +546,7 @@ const styles: any = {
   historyMeta: { fontSize: "12px", color: "#007AFF", fontWeight: 600, textTransform: "capitalize" as const },
   historyTime: { fontSize: "12px", color: "var(--text-secondary)", whiteSpace: "nowrap" as const },
   detailsCard: {
-    backgroundColor: "var(--bg-primary)",
     borderRadius: "16px",
-    border: "1px solid var(--border-color)",
     padding: "18px",
     display: "flex",
     flexDirection: "column" as const,

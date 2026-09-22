@@ -221,7 +221,7 @@ const styles: any = {
     display: "flex", 
     flexDirection: "column", 
     gap: "24px",
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: "transparent",
     minHeight: "100vh"
   },
   header: {},
