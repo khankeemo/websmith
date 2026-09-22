@@ -1320,11 +1320,11 @@ export default function LandingPage() {
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }}
-              className="feature-card"
+              className="feature-card landing-feature-grid-card"
             >
-              <div style={styles.featureIcon}>{<feature.icon size={28} />}</div>
-              <h3 style={styles.featureTitle}>{feature.title}</h3>
-              <p style={styles.featureDesc}>{feature.description}</p>
+              <div style={styles.featureIcon} className="landing-card-icon">{<feature.icon size={28} />}</div>
+              <h3 style={styles.featureTitle} className="landing-card-title">{feature.title}</h3>
+              <p style={styles.featureDesc} className="landing-card-desc">{feature.description}</p>
             </button>
           ))}
         </div>
@@ -1404,28 +1404,29 @@ export default function LandingPage() {
             direction="right-to-left"
             scale={1}
             renderItem={(project: any) => (
-              <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard, width: "100%", maxWidth: "100%" }} className="feature-card">
+              <div style={{ ...styles.horizontalCardSurface, ...styles.sliderCard, width: "100%", maxWidth: "100%" }} className="feature-card landing-project-card">
                 {project.previewImage ? (
                   <img 
                     src={project.previewImage} 
                     alt={project.name} 
                     style={styles.projectPreviewImage} 
+                    className="landing-project-img"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).src = "/images/portfolio/apexflow_mockup.jpg";
                     }}
                   />
                 ) : null}
-                <div style={styles.featureIcon}><Briefcase size={26} /></div>
-                <h3 style={styles.featureTitle}>{project.name}</h3>
-                <p style={styles.featureDesc}>{project.description}</p>
-                <p style={{ ...styles.clientCompany, marginTop: "12px" }}>{project.client || "Published Project"}</p>
+                <div style={styles.featureIcon} className="landing-card-icon"><Briefcase size={26} /></div>
+                <h3 style={styles.featureTitle} className="landing-card-title">{project.name}</h3>
+                <p style={styles.featureDesc} className="landing-card-desc">{project.description}</p>
+                <p style={{ ...styles.clientCompany, marginTop: "12px" }} className="landing-card-subtitle">{project.client || "Published Project"}</p>
                 {project.publicUrl ? (
-                  <a href={project.publicUrl} target="_blank" rel="noreferrer" style={styles.projectLink}>
+                  <a href={project.publicUrl} target="_blank" rel="noreferrer" style={styles.projectLink} className="landing-card-link">
                     <span>{project.publicUrl}</span>
                     <ExternalLink size={14} />
                   </a>
                 ) : (
-                  <p style={styles.projectLinkMuted}>Hosted project URL will appear here once added from the admin panel.</p>
+                  <p style={styles.projectLinkMuted} className="landing-card-muted">Hosted project URL will appear here once added from the admin panel.</p>
                 )}
               </div>
             )}
@@ -1555,13 +1556,13 @@ export default function LandingPage() {
             direction="left-to-right"
             scale={1}
             renderItem={(client, index) => (
-              <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard, width: "100%", maxWidth: "100%" }} className="client-card">
-                <div style={styles.clientAvatarContainer}>
-                  <Building2 size={22} color={isDark ? "#2997ff" : "#0071e3"} />
+              <div key={client.id || index} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard, width: "100%", maxWidth: "100%" }} className="client-card landing-client-card">
+                <div style={styles.clientAvatarContainer} className="landing-client-avatar">
+                  <Building2 size={22} color={isDark ? "#2997ff" : "#0071e3"} className="landing-client-icon" />
                 </div>
-                <h4 style={styles.clientName}>{client.name}</h4>
-                <p style={styles.clientCompany}>{client.company}</p>
-                <p style={styles.clientProject}>{client.description}</p>
+                <h4 style={styles.clientName} className="landing-card-title">{client.name}</h4>
+                <p style={styles.clientCompany} className="landing-card-subtitle">{client.company}</p>
+                <p style={styles.clientProject} className="landing-card-desc">{client.description}</p>
               </div>
             )}
           />
@@ -1589,19 +1590,19 @@ export default function LandingPage() {
             direction="right-to-left"
             scale={1}
             renderItem={(dev) => (
-              <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard, width: "100%", maxWidth: "100%" }} className="developer-card">
-                <div style={styles.circleMask}>
-                  {dev.avatar ? <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} /> : <span style={styles.circleInitial}>{dev.name.charAt(0)}</span>}
+              <div key={dev.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard, width: "100%", maxWidth: "100%" }} className="developer-card landing-developer-card">
+                <div style={styles.circleMask} className="landing-dev-circle-mask">
+                  {dev.avatar ? <img src={dev.avatar} alt={dev.name} style={styles.devAvatarImg} /> : <span style={styles.circleInitial} className="landing-dev-circle-initial">{dev.name.charAt(0)}</span>}
                 </div>
-                <h4 style={styles.developerName}>{dev.name}</h4>
-                <p style={styles.developerRole}>{dev.role}</p>
-                <div style={styles.skillTags}>
+                <h4 style={styles.developerName} className="landing-card-title">{dev.name}</h4>
+                <p style={styles.developerRole} className="landing-card-role">{dev.role}</p>
+                <div style={styles.skillTags} className="landing-skill-tags">
                   {dev.skills.slice(0, 3).map((skill, i) => (
-                    <span key={i} style={styles.skillTag}>{skill}</span>
+                    <span key={i} style={styles.skillTag} className="landing-skill-tag">{skill}</span>
                   ))}
                 </div>
-                <p style={styles.developerExperience}>{dev.experience}+ years experience</p>
-                <p style={styles.developerBlurb}>{dev.bio}</p>
+                <p style={styles.developerExperience} className="landing-card-experience">{dev.experience}+ years experience</p>
+                <p style={styles.developerBlurb} className="landing-card-desc">{dev.bio}</p>
               </div>
             )}
           />
@@ -1629,16 +1630,16 @@ export default function LandingPage() {
             direction="left-to-right"
             scale={1}
             renderItem={(testimonial) => (
-              <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard, ...styles.testimonialCard }} className="testimonial-card">
-                <div style={styles.testimonialAvatar}>{testimonial.name.slice(0, 2).toUpperCase()}</div>
-                <div style={styles.testimonialStars}>
+              <div key={testimonial.id} style={{ ...styles.horizontalCardSurfaceCenter, ...styles.sliderCard, ...styles.testimonialCard }} className="testimonial-card landing-testimonial-card">
+                <div style={styles.testimonialAvatar} className="landing-testimonial-avatar">{testimonial.name.slice(0, 2).toUpperCase()}</div>
+                <div style={styles.testimonialStars} className="landing-testimonial-stars">
                   {[...Array(testimonial.rating || 5)].map((_, i) => (
                     <Star key={i} size={16} fill="#FFB800" color="#FFB800" />
                   ))}
                 </div>
-                <p style={styles.testimonialText}>"{testimonial.quote}"</p>
-                <h4 style={styles.testimonialName}>{testimonial.name}</h4>
-                <p style={styles.testimonialCompany}>{testimonial.company}</p>
+                <p style={styles.testimonialText} className="landing-testimonial-quote">&ldquo;{testimonial.quote}&rdquo;</p>
+                <h4 style={styles.testimonialName} className="landing-card-title">{testimonial.name}</h4>
+                <p style={styles.testimonialCompany} className="landing-card-subtitle">{testimonial.company}</p>
               </div>
             )}
           />
@@ -2365,56 +2366,182 @@ export default function LandingPage() {
           transform: scale(0.98); 
         }
         
-        .feature-card,
-        .client-card,
-        .developer-card,
-        .testimonial-card {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          cursor: pointer;
-        }
-        .feature-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 12px 24px rgba(0,0,0,0.1);
-        }
-        .client-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-        }
-        .developer-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 12px 28px rgba(0,0,0,0.12);
-        }
-        .testimonial-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-        }
-
         .landing-card-strip::-webkit-scrollbar {
           display: none;
         }
 
-        /* Trust at scale — stat card hover pop */
+        /* ============================================================
+           VIBRANT ELECTRIC CYAN / BLUE GRADIENT HOVER EFFECT FOR ALL CARDS
+           Matching "Momentum you can see" stat cards (.landing-stat-card)
+           ============================================================ */
+        .feature-card,
+        .client-card,
+        .developer-card,
+        .testimonial-card,
         .landing-stat-card {
-          transition: background-color 0.35s ease, background-image 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, color 0.35s ease;
+          transition: background-color 0.35s ease, background-image 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s ease;
           cursor: pointer;
         }
+
+        /* Shared Card Hover Background & Cyan-Blue Luminous Glow (Lighter & Fresher) */
+        .feature-card:hover,
+        .client-card:hover,
+        .developer-card:hover,
+        .testimonial-card:hover,
         .landing-stat-card:hover {
-          background-color: #149CEA !important;
-          background-image: linear-gradient(135deg, #22D3EE 0%, #149CEA 55%, #1479EA 100%) !important;
-          border-color: rgba(20, 156, 234, 0.9) !important;
-          box-shadow: 0 26px 80px rgba(20, 156, 234, 0.55), 0 0 46px rgba(20, 156, 234, 0.38), inset 0 0 24px rgba(255, 255, 255, 0.16);
+          background-color: #38BDF8 !important;
+          background-image: linear-gradient(135deg, #67E8F9 0%, #38BDF8 50%, #2997FF 100%) !important;
+          border-color: rgba(56, 189, 248, 0.85) !important;
+          box-shadow: 0 24px 70px rgba(56, 189, 248, 0.45), 0 0 40px rgba(56, 189, 248, 0.3), inset 0 0 24px rgba(255, 255, 255, 0.28) !important;
         }
+
+        /* Feature Card (Grid & Portfolio) Hover Specifics */
+        .feature-card:hover {
+          transform: translateY(-6px);
+        }
+        .feature-card:hover h3,
+        .feature-card:hover .landing-card-title {
+          color: #062A4A !important;
+        }
+        .feature-card:hover p,
+        .feature-card:hover .landing-card-desc,
+        .feature-card:hover .landing-card-muted {
+          color: #0D4876 !important;
+        }
+        .feature-card:hover .landing-card-subtitle {
+          color: #07355B !important;
+          font-weight: 600 !important;
+        }
+        .feature-card:hover .landing-card-icon {
+          background-color: rgba(255, 255, 255, 0.38) !important;
+          border-color: rgba(255, 255, 255, 0.6) !important;
+          box-shadow: 0 4px 14px rgba(6, 42, 74, 0.15);
+        }
+        .feature-card:hover .landing-card-icon svg {
+          color: #062A4A !important;
+          stroke: #062A4A !important;
+        }
+        .feature-card:hover a,
+        .feature-card:hover .landing-card-link {
+          color: #062A4A !important;
+          font-weight: 600 !important;
+        }
+        .feature-card:hover a svg,
+        .feature-card:hover .landing-card-link svg {
+          color: #062A4A !important;
+          stroke: #062A4A !important;
+        }
+        .feature-card:hover .landing-project-img {
+          border-color: rgba(255, 255, 255, 0.45) !important;
+          box-shadow: 0 8px 24px rgba(6, 42, 74, 0.25);
+        }
+
+        /* Client Card Hover Specifics */
+        .client-card:hover {
+          transform: translateY(-5px);
+        }
+        .client-card:hover h4,
+        .client-card:hover .landing-card-title {
+          color: #062A4A !important;
+        }
+        .client-card:hover .landing-card-subtitle {
+          color: #07355B !important;
+          font-weight: 600 !important;
+        }
+        .client-card:hover p,
+        .client-card:hover .landing-card-desc {
+          color: #0D4876 !important;
+        }
+        .client-card:hover .landing-client-avatar {
+          background-color: rgba(255, 255, 255, 0.38) !important;
+          border-color: rgba(255, 255, 255, 0.6) !important;
+          box-shadow: 0 4px 14px rgba(6, 42, 74, 0.18);
+        }
+        .client-card:hover .landing-client-avatar svg,
+        .client-card:hover svg {
+          color: #062A4A !important;
+          stroke: #062A4A !important;
+        }
+
+        /* Developer Card Hover Specifics */
+        .developer-card:hover {
+          transform: translateY(-6px);
+        }
+        .developer-card:hover h4,
+        .developer-card:hover .landing-card-title {
+          color: #062A4A !important;
+        }
+        .developer-card:hover .landing-card-role {
+          color: #07355B !important;
+          font-weight: 600 !important;
+        }
+        .developer-card:hover .landing-skill-tag {
+          background-color: rgba(255, 255, 255, 0.35) !important;
+          border-color: rgba(255, 255, 255, 0.55) !important;
+          color: #062A4A !important;
+          font-weight: 600 !important;
+          box-shadow: 0 2px 6px rgba(6, 42, 74, 0.1);
+        }
+        .developer-card:hover .landing-card-experience {
+          color: #07355B !important;
+          font-weight: 600 !important;
+        }
+        .developer-card:hover p,
+        .developer-card:hover .landing-card-desc {
+          color: #0D4876 !important;
+        }
+        .developer-card:hover .landing-dev-circle-mask {
+          border-color: rgba(255, 255, 255, 0.8) !important;
+          box-shadow: 0 6px 18px rgba(6, 42, 74, 0.25) !important;
+        }
+        .developer-card:hover .landing-dev-circle-initial {
+          background-color: #062A4A !important;
+          color: #FFFFFF !important;
+        }
+
+        /* Testimonial Card Hover Specifics */
+        .testimonial-card:hover {
+          transform: translateY(-5px);
+        }
+        .testimonial-card:hover .landing-testimonial-avatar {
+          background-color: #062A4A !important;
+          color: #FFFFFF !important;
+          box-shadow: 0 4px 14px rgba(6, 42, 74, 0.35) !important;
+        }
+        .testimonial-card:hover .landing-testimonial-quote {
+          color: #062A4A !important;
+          font-weight: 500 !important;
+        }
+        .testimonial-card:hover h4,
+        .testimonial-card:hover .landing-card-title {
+          color: #062A4A !important;
+        }
+        .testimonial-card:hover .landing-card-subtitle {
+          color: #0D4876 !important;
+          font-weight: 500 !important;
+        }
+
+        /* Stat Card Hover Specifics (Momentum you can see) */
         .landing-stat-card:hover .landing-stat-value {
           color: #062A4A !important;
         }
         .landing-stat-card:hover .landing-stat-label {
           color: #12527E !important;
         }
-        /* scale the whole strip cell so the popup floats above neighboring cards */
+
+        /* Scale/elevate strip cells so hovered cards float gracefully above neighbors */
         .landing-card-strip > div > div:has(.landing-stat-card:hover) {
           position: relative;
           z-index: 5;
-          transform: scale(1.16) !important;
+          transform: scale(1.14) !important;
+        }
+        .landing-card-strip > div > div:has(.feature-card:hover),
+        .landing-card-strip > div > div:has(.client-card:hover),
+        .landing-card-strip > div > div:has(.developer-card:hover),
+        .landing-card-strip > div > div:has(.testimonial-card:hover) {
+          position: relative;
+          z-index: 5;
+          transform: translateY(-4px) scale(1.025) !important;
         }
 
         /* Built With the Right Technology — floating technology banner (Full Width Edge-to-Edge) */
@@ -2922,7 +3049,7 @@ function getLandingStyles(isDark: boolean): Record<string, any> {
       overflowX: "auto" as const,
       overflowY: "hidden",
       WebkitOverflowScrolling: "touch",
-      padding: "4px clamp(4px, 2vw, 12px) 12px",
+      padding: "16px clamp(4px, 2vw, 12px) 24px",
       boxSizing: "border-box" as const,
       scrollSnapType: "none",
       scrollbarWidth: "none" as const,
