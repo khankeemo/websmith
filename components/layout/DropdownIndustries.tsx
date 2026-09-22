@@ -15,31 +15,31 @@ const INDUSTRIES: IndustryItem[] = [
     title: "FinTech & Banking",
     description: "High-security payment gateways & wallet systems",
     icon: Landmark,
-    href: "/services",
+    href: "/industries?sector=fintech",
   },
   {
     title: "E-Commerce & Retail",
     description: "Multi-vendor marketplaces & high-speed checkout",
     icon: ShoppingCart,
-    href: "/services",
+    href: "/industries?sector=ecommerce",
   },
   {
     title: "Healthcare & MedTech",
     description: "Compliant patient portals & telehealth systems",
     icon: HeartPulse,
-    href: "/services",
+    href: "/industries?sector=healthcare",
   },
   {
     title: "Enterprise SaaS & B2B",
     description: "Multi-tenant platforms & subscription billing",
     icon: Cloud,
-    href: "/services",
+    href: "/industries?sector=saas",
   },
   {
     title: "Logistics & Supply Chain",
     description: "Fleet tracking & automated warehouse ERP",
     icon: Truck,
-    href: "/services",
+    href: "/industries?sector=logistics",
   },
 ];
 

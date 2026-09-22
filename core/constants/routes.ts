@@ -24,6 +24,7 @@ export const PUBLIC_PATHS = [
 
   // Public Pages
   "/services",
+  "/industries",
   "/portfolio",
   "/lead-form",
   "/success",
@@ -58,6 +59,7 @@ export const PUBLIC_EXACT_ROUTES = [
 
   // Public Pages
   "/services",
+  "/industries",
   "/portfolio",
   "/lead-form",
   "/success",
@@ -83,6 +85,7 @@ export const PUBLIC_EXACT_ROUTES = [
  */
 export const PUBLIC_ROUTE_PREFIXES = [
   "/blog/",
+  "/industries/",
   // Standalone checkout — must never render inside the dashboard shell.
   // This covers /software-store/checkout and its /success|/failed|/pending subpages.
   "/software-store/checkout",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
   Code2, 
@@ -33,11 +34,19 @@ import { useLeadFunnel } from "../providers/LeadFunnelProvider";
 
 type ServiceTab = "all" | "engineering" | "erp" | "licensing" | "cloud" | "ai";
 
-export default function ServicesPage() {
+function ServicesContent() {
   const { publicTheme } = usePublicTheme();
   const isDark = publicTheme === "dark";
   const { openLeadServicesModal } = useLeadFunnel();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") || searchParams.get("category");
   const [activeTab, setActiveTab] = useState<ServiceTab>("all");
+
+  useEffect(() => {
+    if (tabParam && ["all", "engineering", "erp", "licensing", "cloud", "ai"].includes(tabParam)) {
+      setActiveTab(tabParam as ServiceTab);
+    }
+  }, [tabParam]);
 
   const pillars = [
     {
@@ -318,7 +327,9 @@ export default function ServicesPage() {
             return (
               <div
                 key={idx}
+                id={pillar.id}
                 style={{
+                  scrollMarginTop: "120px",
                   borderRadius: "24px",
                   padding: "36px clamp(24px, 3.5vw, 44px)",
                   backgroundColor: isDark ? "rgba(13, 19, 34, 0.85)" : "#ffffff",
@@ -595,5 +606,19 @@ export default function ServicesPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function ServicesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ color: "#3b82f6", fontWeight: 600 }}>Loading Services...</div>
+        </div>
+      }
+    >
+      <ServicesContent />
+    </Suspense>
   );
 }

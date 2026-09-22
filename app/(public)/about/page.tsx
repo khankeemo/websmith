@@ -359,6 +359,183 @@ export default function AboutPage() {
         </div>
       </div>
 
+      {/* Core Engineering Team & Architects Section */}
+      <div id="team" style={{ width: "100%", maxWidth: "100%", margin: "0 auto 80px", padding: "0 clamp(20px, 4vw, 64px)", scrollMarginTop: "100px" }}>
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 16px",
+              borderRadius: "9999px",
+              backgroundColor: isDark ? "rgba(37, 99, 235, 0.15)" : "rgba(37, 99, 235, 0.08)",
+              border: isDark ? "1px solid rgba(37, 99, 235, 0.3)" : "1px solid rgba(37, 99, 235, 0.2)",
+              color: "#3b82f6",
+              fontSize: "13px",
+              fontWeight: 600,
+              marginBottom: "16px",
+            }}
+          >
+            <Users2 size={14} /> Technical Leadership
+          </div>
+          <h2
+            style={{
+              fontSize: "clamp(26px, 4vw, 36px)",
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              marginBottom: "12px",
+              color: isDark ? "#ffffff" : "#0f172a",
+            }}
+          >
+            Core Team &amp; Technical Architects
+          </h2>
+          <p style={{ fontSize: "15px", color: isDark ? "rgba(255, 255, 255, 0.6)" : "#64748b", maxWidth: "640px", margin: "0 auto" }}>
+            The senior systems engineers, security researchers, and product architects driving our platform ecosystems.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "24px",
+          }}
+        >
+          {[
+            {
+              name: "Alex Mercer",
+              role: "Principal Systems Architect",
+              specialty: "High-Throughput APIs, Distributed State & Cloud Infrastructure",
+              exp: "12+ yrs experience",
+              initials: "AM",
+            },
+            {
+              name: "Elena Rostova",
+              role: "VP of Engineering & Security",
+              specialty: "HMAC-SHA256 Cryptography, Node-Locking & PCI-DSS/HIPAA Compliance",
+              exp: "10+ yrs experience",
+              initials: "ER",
+            },
+            {
+              name: "Marcus Chen",
+              role: "Head of ERP & Enterprise Systems",
+              specialty: "Multi-Tenant Partitioning, Inventory Engines & Financial Billing",
+              exp: "11+ yrs experience",
+              initials: "MC",
+            },
+            {
+              name: "Sarah Al-Mansoor",
+              role: "Lead Frontend & Design Systems Architect",
+              specialty: "Next.js App Router, Micro-Interactions & Design Systems",
+              exp: "8+ yrs experience",
+              initials: "SM",
+            },
+            {
+              name: "Tariq Vance",
+              role: "Director of DevOps & SRE",
+              specialty: "Automated CI/CD, Kubernetes Orchestration & Zero-Downtime Releases",
+              exp: "9+ yrs experience",
+              initials: "TV",
+            },
+            {
+              name: "Maya Lin",
+              role: "AI & Data Architecture Lead",
+              specialty: "Autonomous Agent Pipelines, Vector Embeddings & Neural Search",
+              exp: "7+ yrs experience",
+              initials: "ML",
+            },
+          ].map((dev, idx) => (
+            <div
+              key={idx}
+              style={{
+                padding: "24px",
+                borderRadius: "20px",
+                backgroundColor: isDark ? "rgba(13, 19, 34, 0.75)" : "#ffffff",
+                border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+                transition: "transform 0.2s ease, border-color 0.2s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "14px",
+                    background: "linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    letterSpacing: "-0.02em",
+                    flexShrink: 0,
+                  }}
+                >
+                  {dev.initials}
+                </div>
+                <div>
+                  <h3
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 700,
+                      color: isDark ? "#ffffff" : "#0f172a",
+                      margin: 0,
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {dev.name}
+                  </h3>
+                  <div
+                    style={{
+                      fontSize: "12.5px",
+                      fontWeight: 600,
+                      color: "#3b82f6",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {dev.role}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  fontSize: "13px",
+                  lineHeight: 1.5,
+                  color: isDark ? "rgba(255, 255, 255, 0.65)" : "#475569",
+                  flex: 1,
+                }}
+              >
+                {dev.specialty}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingTop: "12px",
+                  borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.06)" : "1px solid #f1f5f9",
+                  fontSize: "11.5px",
+                  color: isDark ? "rgba(255, 255, 255, 0.45)" : "#94a3b8",
+                  fontWeight: 500,
+                }}
+              >
+                <span>{dev.exp}</span>
+                <span style={{ color: "#10b981", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#10b981" }} /> Active Architect
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Bottom CTA */}
       <div style={{ width: "100%", maxWidth: "100%", margin: "0 auto", padding: "0 clamp(20px, 4vw, 64px)" }}>
         <div

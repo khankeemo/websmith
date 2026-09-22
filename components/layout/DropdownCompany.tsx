@@ -29,7 +29,7 @@ const COMPANY_ITEMS: CompanyItem[] = [
     title: "Core Team & Developers",
     description: "Meet the technical architects behind our products",
     icon: Users2,
-    href: "/#developers",
+    href: "/about#team",
   },
   {
     title: "Engineering Blog",

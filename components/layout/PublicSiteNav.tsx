@@ -310,12 +310,13 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
 
             {/* 7. Contact Us */}
             <Link
-              href="/#contact"
+              href="/contact"
               style={{
                 ...styles.menuItem,
-                color: isDark ? "#E2E8F0" : "#1d1d1f",
+                color: pathname === "/contact" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                fontWeight: pathname === "/contact" ? 600 : 500,
               }}
-              className="menu-item-hover"
+              className={`menu-item-hover ${pathname === "/contact" ? "active-nav-link" : ""}`}
             >
               Contact Us
             </Link>
@@ -593,16 +594,16 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                     >
                       View All Services ➔
                     </Link>
-                    <Link href="/services" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                    <Link href="/services?tab=engineering#engineering" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
                       Software Engineering
                     </Link>
-                    <Link href="/services" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                    <Link href="/services?tab=erp#erp" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
                       Enterprise ERP & CRM
                     </Link>
-                    <Link href="/services" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                    <Link href="/services?tab=licensing#licensing" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
                       Universal Licensing (ULP)
                     </Link>
-                    <Link href="/services" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                    <Link href="/services?tab=ai#ai" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
                       AI Solutions
                     </Link>
                   </div>
@@ -637,11 +638,28 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                 </button>
                 {mobileExpandedSection === "industries" && (
                   <div style={{ paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
-                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>FinTech & Banking</span>
-                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>E-Commerce & Retail</span>
-                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>Healthcare & MedTech</span>
-                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>Enterprise SaaS</span>
-                    <span style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>Logistics & Supply Chain</span>
+                    <Link
+                      href="/industries"
+                      onClick={() => setMobileOpen(false)}
+                      style={{ fontSize: "13px", color: "#3b82f6", fontWeight: 600, padding: "4px 0" }}
+                    >
+                      View All Industries ➔
+                    </Link>
+                    <Link href="/industries?sector=fintech" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      FinTech & Banking
+                    </Link>
+                    <Link href="/industries?sector=ecommerce" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      E-Commerce & Retail
+                    </Link>
+                    <Link href="/industries?sector=healthcare" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Healthcare & MedTech
+                    </Link>
+                    <Link href="/industries?sector=saas" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Enterprise SaaS & B2B
+                    </Link>
+                    <Link href="/industries?sector=logistics" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Logistics & Supply Chain
+                    </Link>
                   </div>
                 )}
               </div>
@@ -689,19 +707,19 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                 {mobileExpandedSection === "company" && (
                   <div style={{ paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
                     <Link href="/about" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      About Us
+                      About WebSmith
                     </Link>
                     <Link href="/careers" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Careers (Hiring)
+                      Careers & Culture (Hiring)
                     </Link>
-                    <Link href="/#developers" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Core Team
+                    <Link href="/about#team" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
+                      Core Team & Architects
                     </Link>
                     <Link href="/blog" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Blog
+                      Engineering Blog
                     </Link>
                     <Link href="/documentation" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Documentation
+                      Documentation Center
                     </Link>
                   </div>
                 )}
@@ -723,12 +741,13 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
 
               {/* Contact Us */}
               <Link
-                href="/#contact"
+                href="/contact"
                 style={{
                   ...styles.mobileMenuItem,
-                  color: isDark ? "#E2E8F0" : "#1d1d1f",
+                  color: pathname === "/contact" ? "#007AFF" : (isDark ? "#E2E8F0" : "#1d1d1f"),
+                  fontWeight: pathname === "/contact" ? 600 : 500,
                 }}
-                className="mobile-menu-item"
+                className={`mobile-menu-item ${pathname === "/contact" ? "active-mobile-link" : ""}`}
                 onClick={() => setMobileOpen(false)}
               >
                 Contact Us

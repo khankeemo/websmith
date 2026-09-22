@@ -54,12 +54,12 @@ export type DocSection = {
 
 export const publicPrimaryNav = [
   { name: "Home", href: "/" },
+  { name: "Services", href: "/services" },
+  { name: "Industries", href: "/industries" },
+  { name: "Portfolio", href: "/portfolio" },
+  { name: "Software Store", href: "/software-store" },
   { name: "About", href: "/about" },
-  { name: "Careers", href: "/careers" },
-  { name: "Blog", href: "/blog" },
-  { name: "Documentation", href: "/documentation" },
-  { name: "Support", href: "/support" },
-  { name: "Contact", href: "/#contact" },
+  { name: "Contact", href: "/contact" },
 ] as const;
 
 export const publicFooterConfig = {
@@ -69,26 +69,33 @@ export const publicFooterConfig = {
   },
   sections: [
     {
+      title: "Solutions",
+      links: [
+        { label: "Software Engineering", href: "/services?tab=engineering" },
+        { label: "Enterprise ERP & CRM", href: "/services?tab=erp" },
+        { label: "Universal Licensing (ULP)", href: "/services?tab=licensing" },
+        { label: "Industry Solutions", href: "/industries" },
+        { label: "Software Store", href: "/software-store" },
+      ],
+    },
+    {
       title: "Company",
       links: [
-        { label: "About", href: "/about" },
-        { label: "Careers", href: "/careers" },
-        { label: "Blog", href: "/blog" },
+        { label: "About WebSmith", href: "/about" },
+        { label: "Core Architects", href: "/about#team" },
+        { label: "Client Portfolio", href: "/portfolio" },
+        { label: "Careers & Culture", href: "/careers" },
+        { label: "Engineering Blog", href: "/blog" },
       ],
     },
     {
-      title: "Resources",
+      title: "Resources & Legal",
       links: [
         { label: "Documentation", href: "/documentation" },
-        { label: "Support", href: "/support" },
-        { label: "Contact", href: "/#contact" },
-      ],
-    },
-    {
-      title: "Legal",
-      links: [
+        { label: "Support & Help", href: "/support" },
+        { label: "Contact Us", href: "/contact" },
         { label: "Privacy Policy", href: "/privacy" },
-        { label: "Terms of Services", href: "/terms" },
+        { label: "Terms of Service", href: "/terms" },
       ],
     },
   ] satisfies FooterSection[],
