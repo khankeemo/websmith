@@ -95,14 +95,14 @@ export function CartPanel({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className={`fixed inset-0 backdrop-blur-sm ${isDark ? "bg-[#02040A]/70" : "bg-slate-900/30"}`} />
+      <div className={`fixed inset-0 backdrop-blur-sm ${isDark ? "bg-slate-950/70" : "bg-slate-900/30"}`} />
       <motion.div
         role="dialog"
         aria-modal="true"
         aria-label="Shopping cart"
         className={`relative w-full max-w-lg backdrop-blur-2xl shadow-2xl overflow-y-auto border-l ${
           isDark
-            ? "bg-[#0B1220]/95 shadow-black/50 border-white/10 text-slate-100"
+            ? "bg-[#0f172a]/95 shadow-black/50 border-white/10 text-slate-100"
             : "bg-white/95 shadow-slate-400/20 border-slate-200 text-slate-900"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -112,11 +112,11 @@ export function CartPanel({
         exit="exit"
       >
         <div className={`sticky top-0 z-10 flex items-center justify-between p-5 border-b backdrop-blur-md ${
-          isDark ? "border-white/10 bg-[#0B1220]/90" : "border-slate-200 bg-white/90"
+          isDark ? "border-white/10 bg-[#0f172a]/90" : "border-slate-200 bg-white/90"
         }`}>
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
-              isDark ? "bg-indigo-500/20 border-indigo-400/30 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-600"
+              isDark ? "bg-blue-500/20 border-blue-400/30 text-blue-300" : "bg-blue-50 border-blue-200 text-blue-600"
             }`}>
               <ShoppingCart className="w-4 h-4" />
             </div>
@@ -143,7 +143,7 @@ export function CartPanel({
               transition={{ type: "spring" as const, stiffness: 200, damping: 20 }}
             >
               <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-5 border ${
-                isDark ? "bg-indigo-500/10 border-white/10" : "bg-indigo-50 border-slate-200"
+                isDark ? "bg-blue-500/10 border-white/10" : "bg-blue-50 border-slate-200"
               }`}>
                 <ShoppingBag className={`w-8 h-8 ${isDark ? "text-slate-600" : "text-slate-400"}`} />
               </div>
@@ -161,12 +161,12 @@ export function CartPanel({
                 variants={staggerItem(idx)}
                 className={`flex gap-3 p-4 rounded-xl border transition-all ${
                   isDark
-                    ? "border-white/10 bg-white/[0.03] hover:border-indigo-400/30 hover:bg-white/[0.05]"
-                    : "border-slate-200 bg-slate-50/70 hover:border-indigo-300 hover:bg-white shadow-xs"
+                    ? "border-white/10 bg-white/[0.03] hover:border-blue-400/30 hover:bg-white/[0.05]"
+                    : "border-slate-200 bg-slate-50/70 hover:border-blue-300 hover:bg-white shadow-xs"
                 }`}
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg shrink-0 border ${
-                  isDark ? "bg-indigo-500/20 border-white/10 text-white" : "bg-indigo-50 border-slate-200 text-slate-900"
+                  isDark ? "bg-blue-500/20 border-white/10 text-white" : "bg-blue-50 border-slate-200 text-slate-900"
                 }`}>
                   {item.product.logo_url ? (
                     <img src={item.product.logo_url} alt={item.product.name} className="w-8 h-8 rounded-lg object-contain" />
@@ -196,8 +196,8 @@ export function CartPanel({
                       aria-label={`Decrease quantity of ${item.product.name}`}
                       className={`w-7 h-7 rounded-full border flex items-center justify-center transition-colors ${
                         isDark
-                          ? "border-white/10 hover:bg-white/10 hover:border-indigo-400/40 text-slate-400 hover:text-white"
-                          : "border-slate-300 hover:bg-slate-200 hover:border-indigo-400 text-slate-600 hover:text-slate-900"
+                          ? "border-white/10 hover:bg-white/10 hover:border-blue-400/40 text-slate-400 hover:text-white"
+                          : "border-slate-300 hover:bg-slate-200 hover:border-blue-400 text-slate-600 hover:text-slate-900"
                       }`}
                     >
                       <Minus className="w-3 h-3" />
@@ -209,8 +209,8 @@ export function CartPanel({
                       aria-label={`Increase quantity of ${item.product.name}`}
                       className={`w-7 h-7 rounded-full border flex items-center justify-center transition-colors ${
                         isDark
-                          ? "border-white/10 hover:bg-white/10 hover:border-indigo-400/40 text-slate-400 hover:text-white"
-                          : "border-slate-300 hover:bg-slate-200 hover:border-indigo-400 text-slate-600 hover:text-slate-900"
+                          ? "border-white/10 hover:bg-white/10 hover:border-blue-400/40 text-slate-400 hover:text-white"
+                          : "border-slate-300 hover:bg-slate-200 hover:border-blue-400 text-slate-600 hover:text-slate-900"
                       }`}
                     >
                       <Plus className="w-3 h-3" />
@@ -238,7 +238,7 @@ export function CartPanel({
               isDark ? "border-white/10 bg-white/[0.03]" : "border-slate-200 bg-slate-50/80"
             }`}>
               <div className={`flex items-center gap-2 px-4 py-3 border-b ${
-                isDark ? "border-white/10 bg-indigo-500/10 text-indigo-300" : "border-slate-200 bg-indigo-50 text-indigo-700"
+                isDark ? "border-white/10 bg-blue-500/10 text-blue-300" : "border-slate-200 bg-blue-50 text-blue-700"
               }`}>
                 <Receipt className="w-4 h-4" />
                 <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-white" : "text-slate-900"}`}>Order Summary</span>
@@ -261,7 +261,7 @@ export function CartPanel({
                       aria-label="Toggle GST"
                       onClick={onToggleGst}
                       className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${
-                        showGst ? "bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.5)]" : isDark ? "bg-white/15" : "bg-slate-300"
+                        showGst ? "bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]" : isDark ? "bg-white/15" : "bg-slate-300"
                       }`}
                     >
                       <span
@@ -275,7 +275,7 @@ export function CartPanel({
                 <div className={`flex justify-between items-center pt-3 border-t ${isDark ? "border-white/10" : "border-slate-200"}`}>
                   <span className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Total</span>
                   <span className={`text-lg font-extrabold ${
-                    isDark ? "bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent" : "text-indigo-600"
+                    isDark ? "bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent" : "text-blue-600"
                   }`}>
                     {formatPrice(cart.totalPrice + (showGst ? cart.totalPrice * GST_RATE : 0))}
                   </span>
@@ -288,7 +288,7 @@ export function CartPanel({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onCheckout}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold text-sm shadow-[0_10px_32px_-8px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all duration-300"
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm shadow-[0_10px_32px_-8px_rgba(59,130,246,0.6)] hover:brightness-110 transition-all duration-300"
               >
                 <ArrowRight className="w-4 h-4" />
                 Proceed to Checkout
@@ -356,14 +356,14 @@ export function WishlistPanel({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className={`fixed inset-0 backdrop-blur-sm ${isDark ? "bg-[#02040A]/70" : "bg-slate-900/30"}`} />
+      <div className={`fixed inset-0 backdrop-blur-sm ${isDark ? "bg-slate-950/70" : "bg-slate-900/30"}`} />
       <motion.div
         role="dialog"
         aria-modal="true"
         aria-label="Wishlist"
         className={`relative w-full max-w-lg backdrop-blur-2xl shadow-2xl overflow-y-auto border-l ${
           isDark
-            ? "bg-[#0B1220]/95 shadow-black/50 border-white/10 text-slate-100"
+            ? "bg-[#0f172a]/95 shadow-black/50 border-white/10 text-slate-100"
             : "bg-white/95 shadow-slate-400/20 border-slate-200 text-slate-900"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -373,7 +373,7 @@ export function WishlistPanel({
         exit="exit"
       >
         <div className={`sticky top-0 z-10 flex items-center justify-between p-5 border-b backdrop-blur-md ${
-          isDark ? "border-white/10 bg-[#0B1220]/90" : "border-slate-200 bg-white/90"
+          isDark ? "border-white/10 bg-[#0f172a]/90" : "border-slate-200 bg-white/90"
         }`}>
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
@@ -461,7 +461,7 @@ export function WishlistPanel({
                       onAddToCart(item.product, item.plan);
                       onRemoveFromWishlist(item.product.id, item.plan?.id);
                     }}
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-xs font-bold shadow-[0_6px_20px_-6px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all"
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-xs font-bold shadow-[0_6px_20px_-6px_rgba(59,130,246,0.6)] hover:brightness-110 transition-all"
                   >
                     <ShoppingCart className="w-3 h-3" /> Move to Cart
                   </motion.button>
@@ -541,14 +541,14 @@ export function CompareModal({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className={`fixed inset-0 backdrop-blur-md ${isDark ? "bg-[#02040A]/80" : "bg-slate-900/40"}`} />
+      <div className={`fixed inset-0 backdrop-blur-md ${isDark ? "bg-slate-950/80" : "bg-slate-900/40"}`} />
       <motion.div
         role="dialog"
         aria-modal="true"
         aria-label="Compare products"
         className={`relative w-full max-w-6xl backdrop-blur-2xl border rounded-3xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col ${
           isDark
-            ? "bg-[#0B1220]/95 border-white/10 shadow-black/50 text-slate-100"
+            ? "bg-[#0f172a]/95 border-white/10 shadow-black/50 text-slate-100"
             : "bg-white/98 border-slate-200 shadow-slate-400/30 text-slate-900"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -562,7 +562,7 @@ export function CompareModal({
         }`}>
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
-              isDark ? "bg-indigo-500/20 border-indigo-400/30 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-600"
+              isDark ? "bg-cyan-500/20 border-cyan-400/30 text-cyan-300" : "bg-cyan-50 border-cyan-200 text-cyan-600"
             }`}>
               <Scale className="w-4 h-4" />
             </div>
@@ -591,7 +591,7 @@ export function CompareModal({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 border ${
-                          isDark ? "bg-indigo-500/20 border-white/10 text-white" : "bg-indigo-50 border-slate-200 text-slate-900"
+                          isDark ? "bg-cyan-500/20 border-white/10 text-white" : "bg-cyan-50 border-slate-200 text-slate-900"
                         }`}>
                           {p.logo_url ? (
                             <img src={p.logo_url} alt={p.name} className="w-7 h-7 rounded-lg object-contain" />
@@ -686,17 +686,17 @@ export function CompareModal({
               {row("Resources", (p) => (
                 <span className="flex flex-col gap-1">
                   {p.docs_url && (
-                    <a href={p.docs_url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline flex items-center gap-1">
+                    <a href={p.docs_url} target="_blank" rel="noopener noreferrer" className="text-cyan-500 hover:underline flex items-center gap-1">
                       <BookOpen className="w-3 h-3" /> Docs
                     </a>
                   )}
                   {p.support_url && (
-                    <a href={p.support_url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline flex items-center gap-1">
+                    <a href={p.support_url} target="_blank" rel="noopener noreferrer" className="text-cyan-500 hover:underline flex items-center gap-1">
                       <LifeBuoy className="w-3 h-3" /> Support
                     </a>
                   )}
                   {p.website && (
-                    <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline flex items-center gap-1">
+                    <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-cyan-500 hover:underline flex items-center gap-1">
                       <ExternalLink className="w-3 h-3" /> Website
                     </a>
                   )}
@@ -734,17 +734,17 @@ export function CompareTray({
         >
           <div className={`flex items-center gap-2 px-3 py-2 rounded-2xl backdrop-blur-2xl border shadow-xl ${
             isDark
-              ? "bg-[#0B1220]/95 border-indigo-400/30 shadow-black/80"
-              : "bg-white/95 border-indigo-300 shadow-slate-400/30"
+              ? "bg-[#0f172a]/95 border-cyan-400/30 shadow-black/80"
+              : "bg-white/95 border-cyan-300 shadow-slate-400/30"
           }`}>
-            <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-500 pl-1.5 pr-1">
+            <span className="flex items-center gap-1.5 text-xs font-bold text-cyan-500 pl-1.5 pr-1">
               <Scale className="w-3.5 h-3.5" /> {items.length}/{MAX_COMPARE}
             </span>
             {items.map((p) => (
               <div key={p.id} className="relative group">
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm border cursor-pointer ${
-                    isDark ? "bg-indigo-500/20 border-white/10 text-white" : "bg-indigo-50 border-slate-200 text-slate-900"
+                    isDark ? "bg-cyan-500/20 border-white/10 text-white" : "bg-cyan-50 border-slate-200 text-slate-900"
                   }`}
                   title={p.name}
                 >
@@ -768,7 +768,7 @@ export function CompareTray({
               whileTap={{ scale: 0.96 }}
               onClick={onOpen}
               disabled={items.length < 2}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-xs font-bold shadow-[0_8px_24px_-6px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed ml-1"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 text-white text-xs font-bold shadow-[0_8px_24px_-6px_rgba(6,182,212,0.6)] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed ml-1"
             >
               Compare {items.length >= 2 ? `(${items.length})` : "(min 2)"}
             </motion.button>

@@ -9,7 +9,7 @@ function ConfettiBackground() {
   const [particles, setParticles] = useState<{ id: number; x: number; delay: number; size: number; color: string }[]>([]);
 
   useEffect(() => {
-    const colors = ["#6366f1", "#8b5cf6", "#a855f7", "#ec4899", "#06b6d4", "#10b981"];
+    const colors = ["#3b82f6", "#06b6d4", "#10b981", "#60a5fa", "#22d3ee", "#34d399"];
     const items = Array.from({ length: 50 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
@@ -79,7 +79,7 @@ function CheckmarkAnimation() {
 
 export default function CheckoutSuccessPage() {
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen bg-transparent flex items-center justify-center relative overflow-hidden">
       <ConfettiBackground />
 
       <motion.div
@@ -88,7 +88,7 @@ export default function CheckoutSuccessPage() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="relative z-10 max-w-lg w-full mx-4 text-center"
       >
-        <div className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 backdrop-blur-xl p-10 shadow-2xl">
+        <div className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 wsd-unified-card backdrop-blur-xl p-10 shadow-2xl">
           <div className="flex justify-center mb-6">
             <CheckmarkAnimation />
           </div>

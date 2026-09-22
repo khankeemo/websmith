@@ -24,13 +24,13 @@ export const GST_RATE = 0.18;
 // storefront wrapper AND the portaled Email Center modal (which escapes the
 // store subtree via createPortal and therefore needs the vars applied inline).
 export const STORE_DARK_STYLE = {
-  "--bg-primary": "#070B14",
-  "--bg-secondary": "#0B1220",
-  "--bg-tertiary": "#111827",
+  "--bg-primary": "transparent",
+  "--bg-secondary": "rgba(15, 23, 42, 0.75)",
+  "--bg-tertiary": "rgba(30, 41, 59, 0.75)",
   "--text-primary": "#F1F5F9",
   "--text-secondary": "#94A3B8",
   "--text-muted": "#64748B",
-  "--border-color": "rgba(148, 163, 184, 0.16)",
+  "--border-color": "rgba(255, 255, 255, 0.12)",
   "--card-shadow": "0 20px 60px -15px rgba(0, 0, 0, 0.6)",
   colorScheme: "dark",
 } as CSSProperties;

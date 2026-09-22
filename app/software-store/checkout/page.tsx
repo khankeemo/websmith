@@ -163,7 +163,7 @@ function OrderSummarySkeleton() {
 function EmptyCart() {
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
-      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-6">
+      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-500/10 flex items-center justify-center mb-6">
         <ShoppingCart className="w-12 h-12 text-[var(--border-color)]" />
       </div>
       <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Your cart is empty</h2>
@@ -172,7 +172,7 @@ function EmptyCart() {
       </p>
       <a
         href="/software-store"
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25"
+        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm hover:from-blue-500 hover:to-cyan-500 transition-all shadow-lg shadow-blue-600/25"
       >
         Browse Store <ChevronRight className="w-4 h-4" />
       </a>
@@ -205,7 +205,7 @@ function Toast({ message, type, onClose }: { message: string; type: "success" | 
 }
 
 const inputClass =
-  "w-full px-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all";
+  "w-full px-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 transition-all";
 const inputErrorClass =
   "border-red-500/60 focus:ring-red-500/20 focus:border-red-500/60";
 const labelClass = "block text-sm font-medium text-[var(--text-secondary)] mb-1.5";
@@ -683,7 +683,7 @@ export default function CheckoutPage() {
             <div className="text-left space-y-4">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] mb-3">
-                  <KeyRound className="w-4 h-4 text-indigo-400" /> Your License Keys
+                  <KeyRound className="w-4 h-4 text-blue-400" /> Your License Keys
                 </h3>
                 <div className="space-y-3">
                   {paidOrder.licenses.map((lic) => (
@@ -695,7 +695,7 @@ export default function CheckoutPage() {
                             navigator.clipboard.writeText(lic.license_key);
                             setToast({ message: "License key copied", type: "success" });
                           }}
-                          className="text-xs text-indigo-400 hover:text-indigo-300"
+                          className="text-xs text-blue-400 hover:text-cyan-300"
                         >
                           Copy
                         </button>
@@ -722,7 +722,7 @@ export default function CheckoutPage() {
             <div className="flex flex-col sm:flex-row gap-3 mt-8 justify-center">
               <a
                 href="/software-store"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm hover:from-blue-500 hover:to-cyan-500 transition-all shadow-lg shadow-blue-600/25"
               >
                 <ShoppingCart className="w-4 h-4" /> Continue Shopping
               </a>
@@ -742,7 +742,7 @@ export default function CheckoutPage() {
   // CHECKOUT FORM
   // ============================================================
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
+    <div className="min-h-screen bg-transparent">
       <AnimatePresence>
         {toast && (
           <Toast key="toast" message={toast.message} type={toast.type} onClose={() => setToast(null)} />
@@ -762,15 +762,15 @@ export default function CheckoutPage() {
                 <div className="flex flex-col items-center shrink-0">
                   <div className={`w-11 h-11 rounded-full flex items-center justify-center border-2 transition-all ${
                     s.done
-                      ? "bg-gradient-to-br from-indigo-500 to-purple-600 border-transparent text-white shadow-lg shadow-indigo-600/25"
+                      ? "bg-gradient-to-br from-blue-600 to-cyan-500 border-transparent text-white shadow-lg shadow-blue-600/25"
                       : "border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                   }`}>
                     {s.done ? <Check className="w-5 h-5" /> : <s.icon className="w-5 h-5" />}
                   </div>
-                  <span className={`mt-2 text-[11px] font-semibold ${s.done ? "text-indigo-400" : "text-[var(--text-secondary)]"}`}>{s.label}</span>
+                  <span className={`mt-2 text-[11px] font-semibold ${s.done ? "text-blue-500 dark:text-blue-400" : "text-[var(--text-secondary)]"}`}>{s.label}</span>
                 </div>
                 {i < stepsMeta.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-3 rounded-full mb-5 transition-all ${stepsMeta[i].done ? "bg-gradient-to-r from-indigo-500 to-purple-500" : "bg-[var(--border-color)]"}`} />
+                  <div className={`flex-1 h-0.5 mx-3 rounded-full mb-5 transition-all ${stepsMeta[i].done ? "bg-gradient-to-r from-blue-600 to-cyan-500" : "bg-[var(--border-color)]"}`} />
                 )}
               </div>
             ))}
@@ -800,11 +800,11 @@ export default function CheckoutPage() {
               className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
             >
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                  <User className="w-5 h-5 text-indigo-400" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/15 to-cyan-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                  <User className="w-5 h-5 text-blue-400" />
                 </div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Contact Information</h2>
-                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Step 1</span>
+                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">Step 1</span>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <Field label="First Name" required error={formErrors.firstName}>
@@ -860,7 +860,7 @@ export default function CheckoutPage() {
                       <button
                         type="button"
                         onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                        className="flex items-center gap-1.5 px-3 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] hover:border-indigo-500/40 transition-colors whitespace-nowrap"
+                        className="flex items-center gap-1.5 px-3 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] hover:border-blue-500/40 transition-colors whitespace-nowrap"
                       >
                         <span>{selectedCountry?.flag || "🌐"}</span>
                         <span>{countryCode}</span>
@@ -874,7 +874,7 @@ export default function CheckoutPage() {
                               value={countrySearch}
                               onChange={e => setCountrySearch(e.target.value)}
                               placeholder="Search country..."
-                              className="w-full px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-indigo-500/50"
+                              className="w-full px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50"
                               autoFocus
                             />
                           </div>
@@ -888,7 +888,7 @@ export default function CheckoutPage() {
                               key={c.code}
                               type="button"
                               onClick={() => handleCountryPick(c)}
-                              className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-[var(--bg-tertiary)]/40 transition-colors ${c.dial === countryCode ? "bg-indigo-500/10 text-indigo-300" : "text-[var(--text-primary)]"}`}
+                              className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-[var(--bg-tertiary)]/40 transition-colors ${c.dial === countryCode ? "bg-blue-500/10 text-blue-600 dark:text-blue-300" : "text-[var(--text-primary)]"}`}
                             >
                               <span className="w-7">{c.flag}</span>
                               <span className="flex-1">{c.name}</span>
@@ -948,11 +948,11 @@ export default function CheckoutPage() {
               className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
             >
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                  <MapPin className="w-5 h-5 text-indigo-400" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/15 to-cyan-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5 text-blue-400" />
                 </div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Billing Address</h2>
-                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Step 2</span>
+                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">Step 2</span>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
@@ -1010,7 +1010,7 @@ export default function CheckoutPage() {
                       type="button"
                       onClick={runAddressLookup}
                       disabled={addressLookupStatus === "loading"}
-                      className="shrink-0 flex items-center gap-1.5 px-4 py-3 rounded-xl border border-indigo-500/40 text-sm font-semibold text-indigo-400 hover:bg-indigo-500/10 transition-all disabled:opacity-50"
+                      className="shrink-0 flex items-center gap-1.5 px-4 py-3 rounded-xl border border-blue-500/40 text-sm font-semibold text-blue-500 dark:text-blue-400 hover:bg-blue-500/10 transition-all disabled:opacity-50"
                     >
                       {addressLookupStatus === "loading" ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1074,7 +1074,7 @@ export default function CheckoutPage() {
 
                 <div className="sm:col-span-2 mt-2">
                   <p className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] mb-3">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
                     The fields above are filled automatically whenever possible — you can always edit them.
                   </p>
                 </div>
@@ -1122,11 +1122,11 @@ export default function CheckoutPage() {
               className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/30 backdrop-blur-sm p-6"
             >
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                  <CreditCard className="w-5 h-5 text-indigo-400" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/15 to-cyan-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                  <CreditCard className="w-5 h-5 text-blue-400" />
                 </div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Payment Method</h2>
-                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Step 3</span>
+                <span className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">Step 3</span>
               </div>
               {gateways.length === 0 ? (
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400">
@@ -1141,14 +1141,14 @@ export default function CheckoutPage() {
                       onClick={() => setSelectedGateway(g.name)}
                       className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${
                         selectedGateway === g.name
-                          ? "border-indigo-500 bg-indigo-500/5 shadow-[0_0_20px_-5px_rgba(99,102,241,0.2)]"
-                          : "border-[var(--border-color)] bg-[var(--bg-primary)] hover:border-indigo-500/40"
+                          ? "border-blue-500 bg-blue-500/5 shadow-[0_0_20px_-5px_rgba(59,130,246,0.2)]"
+                          : "border-[var(--border-color)] bg-[var(--bg-primary)] hover:border-blue-500/40"
                       }`}
                     >
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        selectedGateway === g.name ? "border-indigo-500" : "border-[var(--border-color)]"
+                        selectedGateway === g.name ? "border-blue-500" : "border-[var(--border-color)]"
                       }`}>
-                        {selectedGateway === g.name && <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />}
+                        {selectedGateway === g.name && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
                       </div>
                       <div className="flex items-center gap-2 min-w-0">
                         <CreditCard className="w-4 h-4 text-[var(--text-secondary)]" />
@@ -1191,8 +1191,8 @@ export default function CheckoutPage() {
 
                 <div className="relative">
                   <div className="flex items-center gap-3 mb-5">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                      <ShoppingCart className="w-5 h-5 text-indigo-400" />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/15 to-cyan-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                      <ShoppingCart className="w-5 h-5 text-blue-400" />
                     </div>
                     <div>
                       <h2 className="text-lg font-bold text-[var(--text-primary)]">Order Summary</h2>
@@ -1202,8 +1202,8 @@ export default function CheckoutPage() {
 
                   <div className="space-y-3 mb-5 max-h-[40vh] overflow-y-auto pr-1">
                     {cartItems.map((item, idx) => (
-                      <div key={`${item.product.id}-${item.plan?.id || 0}-${idx}`} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-primary)]/50 border border-[var(--border-color)]/50 hover:border-indigo-500/30 transition-colors">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-base font-bold shrink-0 overflow-hidden">
+                      <div key={`${item.product.id}-${item.plan?.id || 0}-${idx}`} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-primary)]/50 border border-[var(--border-color)]/50 hover:border-blue-500/30 transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-base font-bold shrink-0 overflow-hidden">
                           {item.product.logo_url ? (
                             <img src={item.product.logo_url} alt={item.product.name} className="w-8 h-8 rounded-lg object-contain" />
                           ) : (
@@ -1248,7 +1248,7 @@ export default function CheckoutPage() {
 
                     <div className="border-t border-[var(--border-color)] pt-3 flex justify-between">
                       <span className="text-base font-bold text-[var(--text-primary)]">Grand Total</span>
-                      <span className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                      <span className="text-xl font-bold bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent">
                         {orderTotals ? `${toMoney(orderTotals.total).toFixed(2)} ${orderTotals.currency}` : `$${toMoney(estimatedTotal).toFixed(2)}`}
                       </span>
                     </div>
@@ -1258,7 +1258,7 @@ export default function CheckoutPage() {
                   <button
                     onClick={handlePlaceOrder}
                     disabled={submitting || cartItems.length === 0}
-                    className="hidden lg:flex w-full mt-6 items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-base hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50"
+                    className="hidden lg:flex w-full mt-6 items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-base hover:from-blue-500 hover:to-cyan-500 transition-all shadow-lg shadow-blue-600/25 disabled:opacity-50"
                   >
                     {submitting ? (
                       <>
@@ -1296,7 +1296,7 @@ export default function CheckoutPage() {
           <button
             onClick={handlePlaceOrder}
             disabled={submitting || cartItems.length === 0}
-            className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm hover:from-blue-500 hover:to-cyan-500 transition-all shadow-lg shadow-blue-600/25 disabled:opacity-50"
           >
             {submitting ? (
               <>

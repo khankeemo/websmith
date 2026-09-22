@@ -64,7 +64,7 @@ export default function StoreEmailCenter({
       {renderButton && (
         <motion.button
           onClick={() => setOpen(true)}
-          className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] text-sky-300 hover:bg-white/[0.07] hover:border-sky-400/40 transition-all"
+          className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-blue-500/20 dark:border-white/10 bg-blue-500/5 dark:bg-white/[0.03] text-blue-600 dark:text-sky-300 hover:bg-blue-500/10 dark:hover:bg-white/[0.07] hover:border-blue-500/40 transition-all"
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.92 }}
           aria-label="Email / Support"

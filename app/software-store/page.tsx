@@ -37,7 +37,7 @@ function Shimmer() {
   return (
     <motion.div
       className="absolute inset-0"
-      style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), rgba(99,102,241,0.08), transparent)" }}
+      style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), rgba(59,130,246,0.08), transparent)" }}
       animate={{ x: ["-100%", "100%"] }}
       transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
     />
@@ -171,14 +171,14 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className={`fixed inset-0 backdrop-blur-sm ${isDark ? "bg-[#02040A]/70" : "bg-slate-900/30"}`} />
+      <div className={`fixed inset-0 backdrop-blur-sm ${isDark ? "bg-slate-950/70" : "bg-slate-900/30"}`} />
       <motion.div
         role="dialog"
         aria-modal="true"
         aria-label="Purchase history"
         className={`relative w-full max-w-2xl backdrop-blur-2xl shadow-2xl overflow-y-auto border-l ${
           isDark
-            ? "bg-[#0B1220]/95 shadow-black/50 border-white/10 text-slate-100"
+            ? "bg-[#0f172a]/95 shadow-black/50 border-white/10 text-slate-100"
             : "bg-white/95 shadow-slate-400/20 border-slate-200 text-slate-900"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -188,7 +188,7 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
         transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
       >
         <div className={`sticky top-0 z-10 flex items-center justify-between p-5 border-b backdrop-blur-md ${
-          isDark ? "border-white/10 bg-[#0B1220]/90" : "border-slate-200 bg-white/90"
+          isDark ? "border-white/10 bg-[#0f172a]/90" : "border-slate-200 bg-white/90"
         }`}>
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
@@ -224,10 +224,10 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                 onKeyDown={(e) => e.key === "Enter" && lookup()}
                 placeholder="you@example.com"
                 aria-label="Email used at checkout"
-                className={`flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all ${
+                className={`flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all ${
                   isDark
-                    ? "border-white/10 bg-white/[0.04] text-white placeholder-slate-500 focus:border-indigo-500/50"
-                    : "border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:border-indigo-500"
+                    ? "border-white/10 bg-white/[0.04] text-white placeholder-slate-500 focus:border-blue-500/50"
+                    : "border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:border-blue-500"
                 }`}
               />
               <motion.button
@@ -235,7 +235,7 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                 whileTap={{ scale: 0.97 }}
                 onClick={lookup}
                 disabled={loading}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold text-sm shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)] hover:brightness-110 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm shadow-[0_8px_24px_-8px_rgba(59,130,246,0.6)] hover:brightness-110 transition-all disabled:opacity-50"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />} Lookup
               </motion.button>
@@ -252,8 +252,8 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
                     key={order.id}
                     className={`rounded-2xl border overflow-hidden transition-all ${
                       isDark
-                        ? "border-white/10 bg-white/[0.03] hover:border-indigo-400/30"
-                        : "border-slate-200 bg-slate-50/70 hover:border-indigo-300 shadow-xs"
+                        ? "border-white/10 bg-white/[0.03] hover:border-blue-400/30"
+                        : "border-slate-200 bg-slate-50/70 hover:border-blue-300 shadow-xs"
                     }`}
                   >
                     <div className={`flex items-center justify-between p-4 border-b ${isDark ? "border-white/10" : "border-slate-200"}`}>
@@ -326,7 +326,7 @@ function PurchaseHistoryPanel({ onClose, onToast }: {
           {orders && orders.length === 0 && lookedUp && (
             <div className="flex flex-col items-center justify-center py-14 text-center">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 border ${
-                isDark ? "bg-indigo-500/10 border-white/10" : "bg-indigo-50 border-slate-200"
+                isDark ? "bg-blue-500/10 border-white/10" : "bg-blue-50 border-slate-200"
               }`}>
                 <Receipt className={`w-7 h-7 ${isDark ? "text-slate-600" : "text-slate-400"}`} />
               </div>
@@ -388,17 +388,17 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
       <div className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500">
         <motion.div
           className="absolute inset-0 rounded-3xl"
-          style={{ background: "conic-gradient(from 0deg, rgba(99,102,241,0.9), rgba(139,92,246,0.6), rgba(34,211,238,0.7), rgba(99,102,241,0.9))" }}
+          style={{ background: "conic-gradient(from 0deg, rgba(59,130,246,0.9), rgba(6,182,212,0.85), rgba(16,185,129,0.85), rgba(59,130,246,0.9))" }}
           animate={{ rotate: 360 }}
           transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
         />
       </div>
 
       <div
-        className={`relative flex h-full flex-1 flex-col overflow-hidden rounded-3xl border transition-all duration-500 focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+        className={`relative flex h-full flex-1 flex-col overflow-hidden rounded-3xl border transition-all duration-500 focus-visible:ring-2 focus-visible:ring-blue-400/50 wsd-unified-card ${
           isDark
-            ? "border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_50px_-20px_rgba(0,0,0,0.7)] group-hover:border-indigo-400/30 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(129,140,248,0.18),0_30px_80px_-20px_rgba(99,102,241,0.5)]"
-            : "border-slate-200 bg-white shadow-sm hover:shadow-xl hover:border-indigo-400/40"
+            ? "border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_50px_-20px_rgba(0,0,0,0.7)] group-hover:border-blue-400/30 group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(59,130,246,0.18),0_30px_80px_-20px_rgba(59,130,246,0.4)]"
+            : "border-slate-200 bg-white/70 backdrop-blur-xl shadow-sm hover:shadow-xl hover:border-blue-400/40"
         }`}
       >
         {/* cursor spotlight */}
@@ -408,34 +408,34 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
             style={{
               left: spot.x - 144,
               top: spot.y - 144,
-              background: "radial-gradient(circle, rgba(99,102,241,0.14), transparent 60%)",
+              background: "radial-gradient(circle, rgba(59,130,246,0.14), transparent 60%)",
             }}
           />
         )}
 
         {/* hover glow orb */}
         {isDark && (
-          <div className="pointer-events-none absolute -top-20 -right-16 w-56 h-56 rounded-full bg-indigo-500/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="pointer-events-none absolute -top-20 -right-16 w-56 h-56 rounded-full bg-cyan-500/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         )}
 
         {/* icon header */}
         <div className="relative h-40 shrink-0 overflow-hidden">
-          <div className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.28),rgba(139,92,246,0.12)_45%,transparent_75%)]" : "bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.12),transparent_75%)]"}`} />
+          <div className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.25),rgba(6,182,212,0.12)_45%,transparent_75%)]" : "bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.12),transparent_75%)]"}`} />
           <motion.div
             className="absolute -inset-x-1/4 -inset-y-1/2 opacity-60"
-            style={{ background: "linear-gradient(110deg, rgba(99,102,241,0.22), transparent 35%, rgba(34,211,238,0.16) 55%, transparent 75%, rgba(139,92,246,0.2))" }}
+            style={{ background: "linear-gradient(110deg, rgba(59,130,246,0.22), transparent 35%, rgba(6,182,212,0.16) 55%, transparent 75%, rgba(16,185,129,0.18))" }}
             animate={{ x: ["-20%", "20%"] }}
             transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
           />
           <div className="absolute inset-0 opacity-35"
             style={{ backgroundImage: isDark ? "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)" : "linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-          <div className={`absolute inset-0 bg-gradient-to-t ${isDark ? "from-[#0B1220]" : "from-white"} via-transparent to-transparent`} />
+          <div className={`absolute inset-0 bg-gradient-to-t ${isDark ? "from-[#0f172a]/90" : "from-white/90"} via-transparent to-transparent`} />
 
           {/* status badges */}
           <div className="absolute top-3.5 right-3.5 z-10 flex items-center gap-1.5">
             {product.featured && (
               <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border backdrop-blur-sm ${
-                isDark ? "bg-amber-400/15 text-amber-300 border-amber-400/25" : "bg-amber-100 text-amber-800 border-amber-200"
+                isDark ? "bg-cyan-400/15 text-cyan-300 border-cyan-400/25" : "bg-cyan-50 text-cyan-800 border-cyan-200"
               }`}>
                 <Star className="w-3 h-3 fill-current" /> Featured
               </span>
@@ -454,13 +454,13 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
             <motion.div
               className={`relative w-16 h-16 rounded-2xl flex items-center justify-center border shrink-0 ${
                 isDark
-                  ? "bg-[#0B1220]/85 backdrop-blur-md border-white/10 shadow-[0_8px_30px_-6px_rgba(99,102,241,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] text-white"
-                  : "bg-white border-slate-200 shadow-md text-slate-900"
+                  ? "bg-[#0f172a]/85 backdrop-blur-md border-white/10 shadow-[0_8px_30px_-6px_rgba(59,130,246,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] text-white"
+                  : "bg-white/90 border-slate-200 shadow-md text-slate-900"
               }`}
               animate={{ y: [0, -5, 0], rotate: [0, 1.5, 0] }}
               transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
             >
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/25 to-cyan-400/20 opacity-80" />
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/25 to-cyan-400/20 opacity-80" />
               <span className="relative text-2xl font-bold">
                 {product.logo_url ? (
                   <img src={product.logo_url} alt={product.name} className="w-10 h-10 rounded-xl object-contain" />
@@ -471,7 +471,7 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
             </motion.div>
             <div className="min-w-0 flex-1 pb-0.5">
               <h3 className={`font-bold text-base truncate transition-colors duration-300 ${
-                isDark ? "text-white group-hover:text-indigo-200" : "text-slate-900 group-hover:text-indigo-600"
+                isDark ? "text-white group-hover:text-blue-300" : "text-slate-900 group-hover:text-blue-600"
               }`}>{product.name}</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 {product.company_name && <p className={`text-[11px] truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>{product.company_name}</p>}
@@ -495,7 +495,7 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
           <div className="flex flex-wrap gap-1.5">
             {product.product_type && (
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                isDark ? "bg-indigo-500/10 text-indigo-300 border-indigo-500/20" : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                isDark ? "bg-blue-500/10 text-blue-300 border-blue-500/20" : "bg-blue-50 text-blue-700 border-blue-200"
               }`}>
                 <Tag className="w-2.5 h-2.5" />{product.product_type}
               </span>
@@ -550,10 +550,10 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
                 whileTap={{ scale: 0.97 }}
                 onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
                 aria-label={`Add ${product.name} to cart`}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50 ${
                   inCart
                     ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/25"
-                    : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md hover:brightness-110"
+                    : "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md hover:brightness-110"
                 }`}
               >
                 {inCart ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
@@ -561,14 +561,14 @@ function ProductCard({ product, cheapestPrice, planCount, hasTrial, inCart, onOp
               </motion.button>
               <button
                 onClick={(e) => { e.stopPropagation(); onOpen(); }}
-                className={`group/btn flex-1 flex items-center justify-center gap-1 px-3 py-3 rounded-xl border text-xs font-semibold active:scale-[0.97] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                className={`group/btn flex-1 flex items-center justify-center gap-1 px-3 py-3 rounded-xl border text-xs font-semibold active:scale-[0.97] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50 ${
                   isDark
-                    ? "border-white/10 bg-white/[0.04] text-slate-200 hover:border-indigo-400/40 hover:bg-white/[0.08] hover:text-white"
+                    ? "border-white/10 bg-white/[0.04] text-slate-200 hover:border-blue-400/40 hover:bg-white/[0.08] hover:text-white"
                     : "border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-200 hover:border-slate-300"
                 }`}
               >
                 View Details
-                <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5" />
+                <ChevronRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5" />
               </button>
             </div>
           </div>
@@ -761,19 +761,19 @@ export default function SoftwareStorePage() {
   }, []);
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 ${isDark ? "bg-[#070B14] text-slate-100" : "bg-[#F8FAFC] text-slate-900"}`}>
+    <div className={`min-h-screen bg-transparent transition-colors duration-200 ${isDark ? "text-slate-100" : "text-slate-900"}`}>
       <StoreToast toast={toast} />
 
       {/* Hero */}
       <div className="relative overflow-hidden">
-        <div className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_-20%,rgba(99,102,241,0.35),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(34,211,238,0.12),transparent_50%),radial-gradient(ellipse_at_5%_45%,rgba(139,92,246,0.16),transparent_55%)]" : "bg-[radial-gradient(ellipse_at_50%_-20%,rgba(99,102,241,0.12),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(34,211,238,0.06),transparent_50%),radial-gradient(ellipse_at_5%_45%,rgba(139,92,246,0.08),transparent_55%)]"}`} />
+        <div className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_-20%,rgba(59,130,246,0.32),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(6,182,212,0.15),transparent_50%),radial-gradient(ellipse_at_5%_45%,rgba(16,185,129,0.14),transparent_55%)]" : "bg-[radial-gradient(ellipse_at_50%_-20%,rgba(59,130,246,0.12),transparent_60%),radial-gradient(ellipse_at_85%_10%,rgba(6,182,212,0.06),transparent_50%),radial-gradient(ellipse_at_5%_45%,rgba(16,185,129,0.08),transparent_55%)]"}`} />
         <div className="absolute inset-0 opacity-30"
           style={{ backgroundImage: isDark ? "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)" : "linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
         {isDark && (
           <>
-            <motion.div className="absolute -top-24 left-[22%] w-72 h-72 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none"
+            <motion.div className="absolute -top-24 left-[22%] w-72 h-72 rounded-full bg-blue-600/20 blur-3xl pointer-events-none"
               animate={{ y: [0, 22, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} />
-            <motion.div className="absolute top-6 right-[20%] w-56 h-56 rounded-full bg-violet-600/15 blur-3xl pointer-events-none"
+            <motion.div className="absolute top-6 right-[20%] w-56 h-56 rounded-full bg-cyan-600/15 blur-3xl pointer-events-none"
               animate={{ y: [0, -18, 0] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} />
           </>
         )}
@@ -784,7 +784,7 @@ export default function SoftwareStorePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring" as const, stiffness: 260, damping: 24 }}
           >
-            Software <span className="bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-500 bg-clip-text text-transparent">Store</span>
+            Software <span className="bg-gradient-to-r from-blue-500 via-cyan-500 to-emerald-500 bg-clip-text text-transparent">Store</span>
           </motion.h1>
           <motion.p
             className={`text-base md:text-lg max-w-xl mx-auto mt-2.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}
@@ -800,8 +800,8 @@ export default function SoftwareStorePage() {
       {/* Filter Bar */}
       <div className={`backdrop-blur-2xl border-b transition-colors duration-200 ${
         isDark
-          ? "bg-[#070B14]/85 border-white/[0.08]"
-          : "bg-white/90 border-slate-200 shadow-sm"
+          ? "bg-[#0f172a]/70 border-white/[0.08]"
+          : "bg-white/70 border-slate-200 shadow-sm"
       }`}>
         <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -810,7 +810,7 @@ export default function SoftwareStorePage() {
                 ? "text-slate-300 bg-white/[0.04] border border-white/10"
                 : "text-slate-700 bg-slate-100 border border-slate-200"
             }`}>
-              <Filter className={`w-3.5 h-3.5 ${isDark ? "text-indigo-300" : "text-indigo-600"}`} />
+              <Filter className={`w-3.5 h-3.5 ${isDark ? "text-blue-300" : "text-blue-600"}`} />
               {filteredProducts.length} product{filteredProducts.length !== 1 ? "s" : ""}
             </span>
 
@@ -823,8 +823,8 @@ export default function SoftwareStorePage() {
                 aria-label="Filter by category"
                 className={`px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer backdrop-blur-sm transition-all ${
                   isDark
-                    ? "border-white/10 bg-[#0B1220]/90 text-slate-200 hover:border-indigo-500/40"
-                    : "border-slate-200 bg-white text-slate-800 hover:border-indigo-500/40 shadow-sm"
+                    ? "border-white/10 bg-[#0f172a]/80 text-slate-200 hover:border-blue-500/40"
+                    : "border-slate-200 bg-white/80 text-slate-800 hover:border-blue-500/40 shadow-sm"
                 }`}
               >
                 <option value="">All Categories</option>
@@ -839,8 +839,8 @@ export default function SoftwareStorePage() {
                 aria-label="Filter by platform"
                 className={`px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer backdrop-blur-sm transition-all ${
                   isDark
-                    ? "border-white/10 bg-[#0B1220]/90 text-slate-200 hover:border-indigo-500/40"
-                    : "border-slate-200 bg-white text-slate-800 hover:border-indigo-500/40 shadow-sm"
+                    ? "border-white/10 bg-[#0f172a]/80 text-slate-200 hover:border-blue-500/40"
+                    : "border-slate-200 bg-white/80 text-slate-800 hover:border-blue-500/40 shadow-sm"
                 }`}
               >
                 <option value="">All Platforms</option>
@@ -854,8 +854,8 @@ export default function SoftwareStorePage() {
               aria-label="Sort products"
               className={`px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer backdrop-blur-sm transition-all ${
                 isDark
-                  ? "border-white/10 bg-[#0B1220]/90 text-slate-200 hover:border-indigo-500/40"
-                  : "border-slate-200 bg-white text-slate-800 hover:border-indigo-500/40 shadow-sm"
+                  ? "border-white/10 bg-[#0f172a]/80 text-slate-200 hover:border-blue-500/40"
+                  : "border-slate-200 bg-white/80 text-slate-800 hover:border-blue-500/40 shadow-sm"
               }`}
             >
               <option value="newest">Sort: Newest</option>
@@ -864,7 +864,7 @@ export default function SoftwareStorePage() {
               <option value="name">Name: A-Z</option>
             </select>
 
-            <div className={`flex items-center rounded-xl border p-0.5 ${isDark ? "border-white/10 bg-[#0B1220]/60" : "border-slate-200 bg-slate-100"}`}>
+            <div className={`flex items-center rounded-xl border p-0.5 ${isDark ? "border-white/10 bg-[#0f172a]/60" : "border-slate-200 bg-slate-100/80"}`}>
               <button
                 onClick={() => setViewMode("grid")}
                 aria-label="Grid view"
@@ -917,7 +917,7 @@ export default function SoftwareStorePage() {
               onClick={handleRetry}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/20 hover:from-indigo-500 hover:to-purple-500 transition-all"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm shadow-lg shadow-blue-600/20 hover:from-blue-500 hover:to-cyan-500 transition-all"
             >
               <RefreshCw className="w-4 h-4" /> Try Again
             </motion.button>
@@ -930,7 +930,7 @@ export default function SoftwareStorePage() {
             transition={{ type: "spring" as const, stiffness: 200, damping: 20 }}
           >
             <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 border ${
-              isDark ? "bg-indigo-500/10 border-white/10" : "bg-indigo-50 border-slate-200"
+              isDark ? "bg-blue-500/10 border-white/10" : "bg-blue-50 border-slate-200"
             }`}>
               <Search className={`w-10 h-10 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
             </div>
@@ -945,7 +945,7 @@ export default function SoftwareStorePage() {
               }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/20 hover:from-indigo-500 hover:to-purple-500 transition-all"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm shadow-lg shadow-blue-600/20 hover:from-blue-500 hover:to-cyan-500 transition-all"
             >
               <RefreshCw className="w-4 h-4" /> Clear All Filters
             </motion.button>
@@ -1002,24 +1002,24 @@ export default function SoftwareStorePage() {
                       openDetail(product);
                     }
                   }}
-                  className={`group relative flex items-center gap-5 p-5 rounded-2xl border backdrop-blur-xl cursor-pointer transition-all duration-300 ${
+                  className={`group relative flex items-center gap-5 p-5 rounded-2xl border backdrop-blur-xl cursor-pointer transition-all duration-300 wsd-unified-card ${
                     isDark
-                      ? "border-white/10 bg-white/[0.03] hover:border-indigo-400/30 hover:shadow-[0_0_0_1px_rgba(129,140,248,0.15),0_16px_50px_-16px_rgba(99,102,241,0.35)]"
-                      : "border-slate-200 bg-white hover:border-indigo-300 shadow-sm hover:shadow-md"
+                      ? "border-white/10 bg-white/[0.03] hover:border-cyan-400/40 hover:shadow-[0_0_0_1px_rgba(6,182,212,0.18),0_16px_50px_-16px_rgba(6,182,212,0.35)]"
+                      : "border-slate-200 bg-white/70 hover:border-cyan-400/40 shadow-sm hover:shadow-md"
                   }`}
                 >
                   {product.featured && (
-                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-500 dark:text-amber-300 text-[10px] font-bold border border-amber-400/25 backdrop-blur-sm">
+                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-400/15 text-cyan-600 dark:text-cyan-300 text-[10px] font-bold border border-cyan-400/25 backdrop-blur-sm">
                       <Star className="w-2.5 h-2.5 fill-current" /> Featured
                     </div>
                   )}
 
                   <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center text-2xl border shrink-0 ${
                     isDark
-                      ? "bg-[#0B1220]/85 border-white/10 shadow-[0_8px_24px_-6px_rgba(99,102,241,0.4)] text-white"
+                      ? "bg-[#0f172a]/85 border-white/10 shadow-[0_8px_24px_-6px_rgba(6,182,212,0.4)] text-white"
                       : "bg-slate-50 border-slate-200 text-slate-900"
                   }`}>
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/25 to-cyan-400/15" />
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/25 to-cyan-400/15" />
                     <span className="relative font-bold">
                       {product.logo_url ? (
                         <img src={product.logo_url} alt={product.name} className="w-11 h-11 rounded-xl object-contain" />
@@ -1074,10 +1074,10 @@ export default function SoftwareStorePage() {
                         whileTap={{ scale: 0.97 }}
                         onClick={(e) => { e.stopPropagation(); const firstPlan = product.plans?.find((p) => p.is_active); handleAddToCart(product, firstPlan); }}
                         aria-label={`Add ${product.name} to cart`}
-                        className={`flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                        className={`flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50 ${
                           inCart
                             ? "bg-emerald-500/15 border border-emerald-400/30 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25"
-                            : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)] hover:brightness-110"
+                            : "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-[0_8px_24px_-8px_rgba(59,130,246,0.6)] hover:brightness-110"
                         }`}
                       >
                         {inCart ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
@@ -1086,10 +1086,10 @@ export default function SoftwareStorePage() {
                       <motion.button
                         whileTap={{ scale: 0.97 }}
                         onClick={(e) => { e.stopPropagation(); openDetail(product); }}
-                        className={`group/btn flex items-center justify-center gap-1 px-4 py-3 rounded-xl border text-xs font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 ${
+                        className={`group/btn flex items-center justify-center gap-1 px-4 py-3 rounded-xl border text-xs font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50 ${
                           isDark
-                            ? "border-white/10 bg-white/[0.04] text-slate-200 hover:border-indigo-400/40 hover:text-white"
-                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:text-slate-900"
+                            ? "border-white/10 bg-white/[0.04] text-slate-200 hover:border-blue-400/40 hover:text-white"
+                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-300 hover:text-slate-900"
                         }`}
                       >
                         Details
@@ -1104,8 +1104,7 @@ export default function SoftwareStorePage() {
         )}
       </div>
 
-      {/* Subtle smooth transition into footer */}
-      <div className={`h-10 pointer-events-none ${isDark ? "bg-gradient-to-b from-transparent to-[#070B14]" : "bg-gradient-to-b from-transparent to-[#F8FAFC]"}`} />
+      <div className="h-6" />
 
       <AnimatePresence>
         {showCart && (

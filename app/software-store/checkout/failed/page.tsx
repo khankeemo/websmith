@@ -27,14 +27,14 @@ function XMarkAnimation() {
 
 export default function CheckoutFailedPage() {
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+    <div className="min-h-screen bg-transparent flex items-center justify-center">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="max-w-lg w-full mx-4 text-center"
       >
-        <div className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 backdrop-blur-xl p-10 shadow-2xl">
+        <div className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-secondary)]/40 wsd-unified-card backdrop-blur-xl p-10 shadow-2xl">
           <div className="flex justify-center mb-6">
             <XMarkAnimation />
           </div>
@@ -74,7 +74,7 @@ export default function CheckoutFailedPage() {
           >
             <Link
               href="/software-store/checkout"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-600/25"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm hover:from-blue-500 hover:to-cyan-500 transition-all shadow-lg shadow-blue-600/25"
             >
               <RefreshCw className="w-4 h-4" />
               Retry Payment
