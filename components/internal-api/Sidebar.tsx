@@ -422,21 +422,27 @@ export default function Sidebar() {
       {/* Brand Section */}
       <div className="h-[72px] flex items-center px-4 border-b border-[var(--border-color)] group">
         <div className="flex items-center gap-3">
-          <div className="relative w-8 h-8 rounded-full overflow-hidden ring-1 ring-[var(--border-color)] flex-shrink-0 transition-transform duration-300 group-hover:scale-105">
+          <div className="relative w-9 h-9 rounded-xl overflow-hidden ring-1 ring-[var(--border-color)] flex-shrink-0 transition-transform duration-300 group-hover:scale-105 p-0.5 bg-[var(--bg-secondary)] flex items-center justify-center">
             <Image
-              src="/images/websmith_1x1.jpg"
-              alt="Websmith Digital Logo"
-              width={32}
-              height={32}
-              className="w-full h-full object-cover"
+              src="/images/icon.png"
+              alt="Websmith Digital Icon"
+              width={36}
+              height={36}
+              className="w-full h-full object-contain"
             />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] leading-tight flex items-center gap-1.5">
-              Websmith
+            <div className="flex items-center gap-1.5">
+              <Image
+                src="/images/wordmark1.png"
+                alt="Websmith Digital"
+                width={120}
+                height={20}
+                className="h-[20px] w-auto object-contain"
+              />
               <Sparkles size={12} className="text-blue-400" />
-            </h2>
-            <p className="text-[9px] text-[var(--text-secondary)] leading-tight flex items-center gap-1">
+            </div>
+            <p className="text-[9px] text-[var(--text-secondary)] leading-tight flex items-center gap-1 mt-0.5">
               <Shield size={8} className="text-emerald-400" />
               License Operations
             </p>

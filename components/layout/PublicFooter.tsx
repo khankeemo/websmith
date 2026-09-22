@@ -58,9 +58,15 @@ export default function PublicFooter() {
                 border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid var(--border-color)",
               }}
             >
-              <Image src="/images/websmith_1x1.jpg" alt="Websmith Digital logo" width={42} height={42} style={styles.footerLogo} />
+              <Image src="/images/icon.png" alt="Websmith Digital icon" width={48} height={48} style={styles.footerLogo} />
             </span>
-            <h3 style={styles.brandName}>{publicFooterConfig.brand.name}</h3>
+            <Image
+              src="/images/wordmark1.png"
+              alt={publicFooterConfig.brand.name}
+              width={200}
+              height={40}
+              style={{ height: "40px", width: "auto", objectFit: "contain" }}
+            />
           </div>
           <p style={styles.tagline}>{publicFooterConfig.brand.tagline}</p>
           <p style={styles.aboutSummary}>
@@ -153,12 +159,13 @@ const styles: Record<string, CSSProperties> = {
   brandRow: {
     display: "flex",
     alignItems: "center",
-    gap: "12px",
+    gap: "14px",
+    flexShrink: 0,
   },
   footerLogoShell: {
-    width: "42px",
-    height: "42px",
-    borderRadius: "50%",
+    width: "48px",
+    height: "48px",
+    borderRadius: "14px",
     overflow: "hidden",
     display: "inline-flex",
     alignItems: "center",
@@ -166,11 +173,13 @@ const styles: Record<string, CSSProperties> = {
     backgroundColor: "var(--bg-primary)",
     border: "1px solid var(--border-color)",
     flexShrink: 0,
+    padding: "3px",
   },
   footerLogo: {
     width: "100%",
     height: "100%",
-    objectFit: "cover",
+    objectFit: "contain",
+    transform: "scale(1.2)",
   },
   brandName: {
     margin: 0,

@@ -87,7 +87,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     type: "logo",
     label: "Panel Sidebar Logo",
     usage: "components/layout/Sidebar.tsx (all panel pages incl. Manage Page)",
-    fallback: "/images/websmith_1x1.jpg",
+    fallback: "/images/icon.png",
     accept: "image/png,image/jpeg,image/webp,image/gif,image/svg+xml",
   },
   {
@@ -95,7 +95,7 @@ export const MEDIA_SLOTS: MediaSlot[] = [
     type: "logo",
     label: "Android Chrome Logo",
     usage: "app/admin/manage-page Android Chrome favicon upload",
-    fallback: "/images/websmith_1x1.jpg",
+    fallback: "/images/icon.png",
     accept: "image/png,image/jpeg,image/webp,image/gif,image/svg+xml",
   },
   {

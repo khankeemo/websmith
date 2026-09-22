@@ -25,7 +25,8 @@ import MegaMenuServices from "./MegaMenuServices";
 import DropdownIndustries from "./DropdownIndustries";
 import DropdownCompany from "./DropdownCompany";
 
-const brandLogo = "/images/websmith_1x1.jpg";
+const brandLogo = "/images/icon.png";
+const brandWordmark = "/images/wordmark1.png";
 
 type PublicSiteNavProps = {
   /** Minimal bar (logo + Home + CTA) for sign-in pages — avoids the full marketing menu on /login */
@@ -96,9 +97,16 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
         <div style={styles.navAuthInner} className="landing-nav-content">
           <Link href="/" style={styles.logo} className="logo-hover" onClick={() => setMobileOpen(false)}>
             <div style={styles.logoCircle}>
-              <Image src={brandLogo} alt="Websmith Digital logo" width={36} height={36} style={styles.logoImage} priority />
+              <Image src={brandLogo} alt="Websmith Digital icon" width={42} height={42} style={styles.logoImage} priority />
             </div>
-            <span style={styles.logoText}>Websmith</span>
+            <Image
+              src={brandWordmark}
+              alt="Websmith Digital"
+              width={165}
+              height={34}
+              style={{ height: "34px", width: "auto", objectFit: "contain" }}
+              priority
+            />
           </Link>
           <div style={styles.authNavRight}>
             <Link href="/" style={styles.authTextLink}>
@@ -148,9 +156,16 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                 border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid var(--border-color)",
               }}
             >
-              <Image src={brandLogo} alt="Websmith Digital logo" width={36} height={36} style={styles.logoImage} priority />
+              <Image src={brandLogo} alt="Websmith Digital icon" width={42} height={42} style={styles.logoImage} priority />
             </div>
-            <span style={{ ...styles.logoText, color: isDark ? "#FFFFFF" : "#1d1d1f" }}>Websmith</span>
+            <Image
+              src={brandWordmark}
+              alt="Websmith Digital"
+              width={165}
+              height={34}
+              style={{ height: "34px", width: "auto", objectFit: "contain" }}
+              priority
+            />
           </Link>
 
           {/* DreamX-Style Desktop Navigation */}
@@ -900,14 +915,15 @@ const styles: Record<string, CSSProperties> = {
   logo: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
+    gap: "12px",
     cursor: "pointer",
     textDecoration: "none",
+    flexShrink: 0,
   },
   logoCircle: {
-    width: "36px",
-    height: "36px",
-    borderRadius: "50%",
+    width: "42px",
+    height: "42px",
+    borderRadius: "11px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -915,11 +931,13 @@ const styles: Record<string, CSSProperties> = {
     backgroundColor: "var(--bg-secondary)",
     boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
     flexShrink: 0,
+    padding: "2px",
   },
   logoImage: {
     width: "100%",
     height: "100%",
-    objectFit: "cover",
+    objectFit: "contain",
+    transform: "scale(1.2)",
   },
   themeEmoji: {
     fontSize: "18px",
@@ -940,6 +958,7 @@ const styles: Record<string, CSSProperties> = {
     gap: "32px",
     alignItems: "center",
     paddingRight: "24px",
+    flexShrink: 0,
   },
   menuItem: {
     fontSize: "15px",

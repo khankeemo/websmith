@@ -29,12 +29,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   icons: {
     icon: [
-      { url: "/images/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/images/icon.png", type: "image/png" },
       { url: "/images/favicon-32x32.png", sizes: "32x32", type: "image/png" },
       { url: "/images/favicon.ico" },
     ],
-    shortcut: ["/images/favicon.ico"],
-    apple: [{ url: "/images/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/images/icon.png"],
+    apple: [{ url: "/images/icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     title: "WebSmith Digital — Enterprise Digital Ecosystems & Custom Software Engineering",

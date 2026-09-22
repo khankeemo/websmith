@@ -25,19 +25,26 @@ export default function CheckoutLayout({ children }: { children: React.ReactNode
           <Link
             href="/software-store"
             aria-label="Websmith Software Store"
-            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+            className="flex items-center gap-3 transition-opacity hover:opacity-80"
           >
-            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-[#0f172a]/80 shadow-sm">
+            <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-[#0f172a]/80 shadow-sm p-0.5">
               <Image
-                src="/images/websmith_1x1.jpg"
+                src="/images/icon.png"
                 alt="Websmith logo"
-                width={36}
-                height={36}
-                className="h-full w-full object-cover"
+                width={40}
+                height={40}
+                className="h-full w-full object-contain scale-110"
                 priority
               />
             </span>
-            <span className="text-lg font-semibold text-slate-900 dark:text-white">Websmith</span>
+            <Image
+              src="/images/wordmark1.png"
+              alt="Websmith Digital"
+              width={160}
+              height={32}
+              style={{ height: "32px", width: "auto", objectFit: "contain" }}
+              priority
+            />
           </Link>
 
           <Link

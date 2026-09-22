@@ -101,11 +101,18 @@ function LoginPageContent() {
           {/* Logo - Circle Mask with WSD */}
           <div style={styles.logoContainer}>
             <div style={styles.circleMask} className="circle-mask-hover">
-              <Image src="/images/websmith_1x1.jpg" alt="Websmith Digital logo" width={64} height={64} style={styles.logoImage} priority />
+              <Image src="/images/icon.png" alt="Websmith Digital icon" width={72} height={72} style={styles.logoImage} priority />
             </div>
-            <h1 style={styles.logoTextLarge} className="logo-text-hover">
-              Websmith
-            </h1>
+            <div className="logo-text-hover" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Image
+                src="/images/wordmark1.png"
+                alt="Websmith Digital"
+                width={200}
+                height={38}
+                style={{ height: "38px", width: "auto", objectFit: "contain" }}
+                priority
+              />
+            </div>
           </div>
 
           {/* Welcome text */}
@@ -419,9 +426,9 @@ const styles: any = {
   },
 
   circleMask: {
-    width: "64px",
-    height: "64px",
-    borderRadius: "50%",
+    width: "72px",
+    height: "72px",
+    borderRadius: "18px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -429,11 +436,14 @@ const styles: any = {
     overflow: "hidden",
     backgroundColor: "var(--bg-primary)",
     boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+    border: "1px solid var(--border-color)",
+    padding: "4px",
   },
   logoImage: {
     width: "100%",
     height: "100%",
-    objectFit: "cover",
+    objectFit: "contain",
+    transform: "scale(1.2)",
   },
 
   logoTextLarge: {

@@ -229,18 +229,24 @@ export default function Sidebar({
       <div style={styles.logoContainer}>
         <div style={styles.maskCircle} className="logo-image-hover">
           <Image
-            src={sidebarLogo.managed ? sidebarLogo.url : "/images/websmith_1x1.jpg"}
+            src={sidebarLogo.managed ? sidebarLogo.url : "/images/icon.png"}
             alt="Websmith Digital Logo"
-            width={72}
-            height={72}
+            width={80}
+            height={80}
             style={styles.logoImage}
             loading="eager"
             priority={true}
           />
         </div>
-        <span style={styles.logoText} className="logo-text-hover">
-          Websmith
-        </span>
+        <div className="logo-text-hover" style={{ display: "flex", justifyContent: "center", alignItems: "center", marginTop: "4px" }}>
+          <Image
+            src="/images/wordmark1.png"
+            alt="Websmith Digital"
+            width={160}
+            height={30}
+            style={{ height: "30px", width: "auto", objectFit: "contain" }}
+          />
+        </div>
       </div>
 
       <div
@@ -538,13 +544,15 @@ const styles: any = {
   maskCircle: {
     width: "80px",
     height: "80px",
-    borderRadius: "50%",
+    borderRadius: "20px",
     background: "var(--bg-primary)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
     boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    border: "1px solid var(--border-color)",
+    padding: "4px",
     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
   },
 
@@ -552,7 +560,7 @@ const styles: any = {
     width: "100%",
     height: "100%",
     objectFit: "contain",
-    borderRadius: "50%",
+    transform: "scale(1.2)",
   },
 
   logoText: {
