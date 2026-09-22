@@ -1658,7 +1658,7 @@ export default function LandingPage() {
             <p style={styles.sectionSubtitle}>Have a project or high-scale platform in mind? Let&apos;s build something exceptional together.</p>
           </div>
           
-          <div style={styles.contactGrid} className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8 lg:gap-12 w-full">
+          <div style={styles.contactGrid} className="contact-grid-layout w-full">
             <div style={styles.contactInfo}>
               <h3 style={styles.contactInfoTitle}>Contact Information</h3>
               <p style={styles.contactInfoDesc}>Fill out the form and our team will get back to you within 24 hours.</p>
@@ -2292,6 +2292,20 @@ export default function LandingPage() {
 
 
       <style>{`
+        /* Contact Section 40% - 60% Split Layout */
+        .contact-grid-layout {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: clamp(24px, 3.5vw, 48px);
+          width: 100%;
+          align-items: start;
+        }
+        @media (min-width: 992px) {
+          .contact-grid-layout {
+            grid-template-columns: 4fr 6fr !important;
+          }
+        }
+
         /* Logo Hover */
         .logo-hover { 
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
@@ -3192,7 +3206,7 @@ function getLandingStyles(isDark: boolean): Record<string, any> {
       width: "100%",
       maxWidth: "100%",
       margin: 0,
-      padding: "0 clamp(16px, 3.5vw, 56px)",
+      padding: "0 clamp(20px, 3.5vw, 64px)",
       boxSizing: "border-box",
     },
     contactHeader: {
@@ -3201,7 +3215,6 @@ function getLandingStyles(isDark: boolean): Record<string, any> {
     },
     contactGrid: {
       display: "grid",
-      gridTemplateColumns: "minmax(300px, 360px) 1fr",
       gap: "clamp(24px, 3.5vw, 48px)",
       width: "100%",
       alignItems: "start",
@@ -3309,6 +3322,7 @@ function getLandingStyles(isDark: boolean): Record<string, any> {
       boxShadow: appleCardShadow,
       border: appleCardBorder,
       width: "100%",
+      maxWidth: "100%",
       boxSizing: "border-box",
     },
     contactForm: {
