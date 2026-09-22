@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { 
   Code2, 
@@ -275,16 +275,46 @@ export default function MegaMenuServices({
   const [activeCategoryId, setActiveCategoryId] = useState("software-engineering");
   const activeCategory =
     SERVICE_CATEGORIES.find((cat) => cat.id === activeCategoryId) || SERVICE_CATEGORIES[0];
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [offsetStyle, setOffsetStyle] = useState<React.CSSProperties>({ left: 0 });
+
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+
+    const adjustPosition = () => {
+      const rect = el.getBoundingClientRect();
+      const margin = 16;
+      let deltaX = 0;
+
+      // If cut off on the left (e.g. rect.left < margin)
+      if (rect.left < margin) {
+        deltaX = margin - rect.left;
+      }
+      // If overflowing on the right (e.g. rect.right > viewport - margin)
+      else if (rect.right > window.innerWidth - margin) {
+        deltaX = -(rect.right - (window.innerWidth - margin));
+      }
+
+      if (deltaX !== 0) {
+        setOffsetStyle({ left: `${deltaX}px` });
+      }
+    };
+
+    adjustPosition();
+    window.addEventListener("resize", adjustPosition);
+    return () => window.removeEventListener("resize", adjustPosition);
+  }, []);
 
   return (
     <div
+      ref={menuRef}
       className="wsd-mega-menu"
       style={{
         position: "absolute",
         top: "calc(100% + 8px)",
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "min(960px, calc(100vw - 32px))",
+        ...offsetStyle,
+        width: "min(860px, calc(100vw - 32px))",
         backgroundColor: isDark ? "#0d1322" : "#ffffff",
         border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(0, 0, 0, 0.08)",
         borderRadius: "20px",

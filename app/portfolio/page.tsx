@@ -43,7 +43,7 @@ const CURATED_PORTFOLIO: ShowcaseItem[] = [
     metrics: "Reduced inventory discrepancy by 94% across 8 warehouses",
     techStack: ["Next.js 16", "PostgreSQL", "Tailwind CSS", "Redis", "Docker"],
     publicUrl: "https://websmithdigital.com",
-    previewImage: "/images/websmith_original.jpg",
+    previewImage: "/images/portfolio/apexflow_mockup.jpg",
   },
   {
     id: "curated-2",
@@ -54,7 +54,7 @@ const CURATED_PORTFOLIO: ShowcaseItem[] = [
     metrics: "Over 25,000+ active device licenses managed with 99.99% uptime",
     techStack: ["Go", "Node.js", "Neon DB", "HMAC-SHA256", "C++ SDK"],
     publicUrl: "https://websmithdigital.com/license",
-    previewImage: "/images/websmith_1x1.jpg",
+    previewImage: "/images/portfolio/license_mockup.jpg",
   },
   {
     id: "curated-3",
@@ -65,7 +65,7 @@ const CURATED_PORTFOLIO: ShowcaseItem[] = [
     metrics: "3.2x faster page load and 65% lower server memory footprint",
     techStack: ["React 19", "Next.js", "WebSockets", "Recharts", "TypeScript"],
     publicUrl: "https://websmithdigital.com",
-    previewImage: "/images/websmith_original.jpg",
+    previewImage: "/images/portfolio/finpulse_mockup.jpg",
   },
   {
     id: "curated-4",
@@ -76,7 +76,7 @@ const CURATED_PORTFOLIO: ShowcaseItem[] = [
     metrics: "4.9-star rating with over 40,000 monthly patient consultations",
     techStack: ["React Native", "WebRTC", "Node.js", "AES-256", "iOS / Android"],
     publicUrl: "https://websmithdigital.com",
-    previewImage: "/images/websmith_1x1.jpg",
+    previewImage: "/images/portfolio/telemed_mockup.jpg",
   },
   {
     id: "curated-5",
@@ -87,7 +87,7 @@ const CURATED_PORTFOLIO: ShowcaseItem[] = [
     metrics: "Handled $4.8M+ in quarterly bulk volume seamlessly",
     techStack: ["Next.js", "Stripe API", "Neon PostgreSQL", "Tailwind CSS"],
     publicUrl: "https://websmithdigital.com/software-store",
-    previewImage: "/images/websmith_original.jpg",
+    previewImage: "/images/portfolio/marketplace_mockup.jpg",
   },
   {
     id: "curated-6",
@@ -98,7 +98,7 @@ const CURATED_PORTFOLIO: ShowcaseItem[] = [
     metrics: "18% reduction in total fuel consumption and zero lost shipments",
     techStack: ["TypeScript", "Mapbox GL", "PostGIS", "Redis Queue", "Python"],
     publicUrl: "https://websmithdigital.com",
-    previewImage: "/images/websmith_1x1.jpg",
+    previewImage: "/images/portfolio/fleet_mockup.jpg",
   },
 ];
 

@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { usePublicTheme } from "../../../app/providers/PublicThemeProvider";
 
 export function PublicPage({
   eyebrow,
@@ -14,27 +17,100 @@ export function PublicPage({
   children: ReactNode;
   cta?: { href: string; label: string };
 }) {
+  const { publicTheme } = usePublicTheme();
+  const isDark = publicTheme === "dark";
+
   return (
-    <div style={styles.page}>
-      <section style={styles.hero}>
+    <div
+      style={{
+        ...styles.page,
+        backgroundColor: isDark ? "#070B14" : "#f8fafc",
+        color: isDark ? "#ffffff" : "#0f172a",
+      }}
+    >
+      <section
+        style={{
+          ...styles.hero,
+          borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+          background: isDark
+            ? "radial-gradient(ellipse at 50% -20%, rgba(37, 99, 235, 0.15), transparent 70%), #070B14"
+            : "radial-gradient(ellipse at 50% -20%, rgba(59, 130, 246, 0.08), transparent 70%), #f8fafc",
+        }}
+      >
         <div style={styles.heroGlowA} />
         <div style={styles.heroGlowB} />
         <div style={styles.heroInner} className="public-page-hero-inner">
           <div style={styles.heroCopy}>
-            <p style={styles.eyebrow}>{eyebrow}</p>
-            <h1 style={styles.title}>{title}</h1>
-            <p style={styles.description}>{description}</p>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 16px",
+                borderRadius: "9999px",
+                backgroundColor: isDark ? "rgba(37, 99, 235, 0.15)" : "rgba(37, 99, 235, 0.08)",
+                border: isDark ? "1px solid rgba(37, 99, 235, 0.3)" : "1px solid rgba(37, 99, 235, 0.2)",
+                color: "#3b82f6",
+                fontSize: "12px",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                width: "fit-content",
+              }}
+            >
+              {eyebrow}
+            </span>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "clamp(34px, 5.5vw, 56px)",
+                fontWeight: 800,
+                lineHeight: 1.1,
+                letterSpacing: "-0.03em",
+                maxWidth: "1400px",
+                color: isDark ? "#ffffff" : "#0f172a",
+              }}
+            >
+              {title}
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                maxWidth: "1000px",
+                color: isDark ? "rgba(255, 255, 255, 0.7)" : "#475569",
+                fontSize: "clamp(16px, 2vw, 18px)",
+                lineHeight: 1.75,
+              }}
+            >
+              {description}
+            </p>
             {cta ? (
-              <Link href={cta.href} style={styles.cta} className="public-page-cta">
+              <Link
+                href={cta.href}
+                style={{
+                  marginTop: "12px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  width: "fit-content",
+                  padding: "12px 26px",
+                  borderRadius: "9999px",
+                  textDecoration: "none",
+                  background: "linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)",
+                  color: "#ffffff",
+                  fontWeight: 600,
+                  fontSize: "15px",
+                  boxShadow: "0 10px 25px -5px rgba(37, 99, 235, 0.4)",
+                }}
+                className="public-page-cta"
+              >
                 {cta.label}
               </Link>
             ) : null}
           </div>
         </div>
       </section>
-      <div style={styles.body}>
-        {children}
-      </div>
+      <div style={styles.body}>{children}</div>
       <style>{`
         .public-page-cta,
         .public-page-card,
@@ -43,17 +119,16 @@ export function PublicPage({
         }
         .public-page-cta:hover {
           transform: translateY(-2px);
-          box-shadow: 0 12px 28px rgba(0, 122, 255, 0.24);
-          background-color: #005fd1 !important;
+          box-shadow: 0 14px 30px rgba(37, 99, 235, 0.4);
         }
         .public-page-card:hover {
-          transform: translateY(-5px);
-          border-color: rgba(0, 122, 255, 0.26) !important;
-          box-shadow: 0 18px 40px rgba(15, 23, 42, 0.09), 0 8px 18px rgba(0, 122, 255, 0.08);
+          transform: translateY(-4px);
+          border-color: rgba(59, 130, 246, 0.35) !important;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(59, 130, 246, 0.08);
         }
         .public-page-chip:hover {
           transform: translateY(-2px);
-          border-color: rgba(0, 122, 255, 0.28) !important;
+          border-color: rgba(59, 130, 246, 0.35) !important;
         }
         @media (max-width: 920px) {
           .public-page-hero-inner {
@@ -68,8 +143,8 @@ export function PublicPage({
         }
         @media (max-width: 520px) {
           .public-page-card {
-            padding: 16px !important;
-            border-radius: 20px !important;
+            padding: 18px !important;
+            border-radius: 18px !important;
           }
         }
       `}</style>
@@ -86,11 +161,30 @@ export function Section({
   description?: string;
   children: ReactNode;
 }) {
+  const { publicTheme } = usePublicTheme();
+  const isDark = publicTheme === "dark";
+
   return (
     <section style={styles.section}>
       <div style={styles.sectionHeader}>
-        <h2 style={styles.sectionTitle}>{title}</h2>
-        {description ? <p style={styles.sectionDescription}>{description}</p> : null}
+        <h2
+          style={{
+            ...styles.sectionTitle,
+            color: isDark ? "#ffffff" : "#0f172a",
+          }}
+        >
+          {title}
+        </h2>
+        {description ? (
+          <p
+            style={{
+              ...styles.sectionDescription,
+              color: isDark ? "rgba(255, 255, 255, 0.7)" : "#64748b",
+            }}
+          >
+            {description}
+          </p>
+        ) : null}
       </div>
       {children}
     </section>
@@ -108,9 +202,18 @@ export function Card({
   children: ReactNode;
   accent?: string;
 }) {
+  const { publicTheme } = usePublicTheme();
+  const isDark = publicTheme === "dark";
+
   return (
     <article
-      style={{ ...styles.card, borderTop: accent ? `3px solid ${accent}` : styles.card.borderTop }}
+      style={{
+        ...styles.card,
+        backgroundColor: isDark ? "rgba(13, 19, 34, 0.75)" : "#ffffff",
+        border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+        borderTop: accent ? `3px solid ${accent}` : (isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0"),
+        boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.25)" : "0 4px 20px -2px rgba(0, 0, 0, 0.05)",
+      }}
       className="public-page-card"
     >
       {children}
@@ -119,11 +222,26 @@ export function Card({
 }
 
 export function BulletList({ items }: { items: string[] }) {
+  const { publicTheme } = usePublicTheme();
+  const isDark = publicTheme === "dark";
+
   return (
     <div style={styles.list}>
       {items.map((item) => (
-        <div key={item} style={styles.listItem}>
-          <span style={styles.dot} />
+        <div
+          key={item}
+          style={{
+            ...styles.listItem,
+            color: isDark ? "rgba(255, 255, 255, 0.75)" : "#475569",
+          }}
+        >
+          <span
+            style={{
+              ...styles.dot,
+              backgroundColor: "#3b82f6",
+              boxShadow: isDark ? "0 0 0 4px rgba(59, 130, 246, 0.2)" : "0 0 0 4px rgba(59, 130, 246, 0.12)",
+            }}
+          />
           <span>{item}</span>
         </div>
       ))}
@@ -149,36 +267,30 @@ export function TwoColumn({
 const styles: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
-    background:
-      "linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 96%, #007AFF 4%) 0%, var(--bg-primary) 24%, var(--bg-primary) 100%)",
-    color: "var(--text-primary)",
   },
   hero: {
     position: "relative",
     overflow: "hidden",
-    padding: "clamp(42px, 6vw, 76px) clamp(16px, 4vw, 48px) 34px",
-    borderBottom: "1px solid var(--border-color)",
-    background:
-      "linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 92%, transparent) 0%, color-mix(in srgb, var(--bg-secondary) 86%, transparent) 100%)",
+    padding: "clamp(48px, 6vw, 84px) clamp(16px, 4vw, 48px) 38px",
   },
   heroGlowA: {
     position: "absolute",
     top: "-80px",
     left: "-80px",
-    width: "260px",
-    height: "260px",
+    width: "320px",
+    height: "320px",
     borderRadius: "999px",
-    background: "radial-gradient(circle, rgba(0,122,255,0.18) 0%, rgba(0,122,255,0) 72%)",
+    background: "radial-gradient(circle, rgba(59,130,246,0.18) 0%, rgba(59,130,246,0) 72%)",
     pointerEvents: "none",
   },
   heroGlowB: {
     position: "absolute",
     right: "-120px",
     bottom: "-140px",
-    width: "340px",
-    height: "340px",
+    width: "380px",
+    height: "380px",
     borderRadius: "999px",
-    background: "radial-gradient(circle, rgba(34,197,94,0.12) 0%, rgba(34,197,94,0) 72%)",
+    background: "radial-gradient(circle, rgba(6,182,212,0.14) 0%, rgba(6,182,212,0) 72%)",
     pointerEvents: "none",
   },
   heroInner: {
@@ -189,54 +301,24 @@ const styles: Record<string, CSSProperties> = {
     gap: "28px",
     alignItems: "end",
     width: "100%",
+    maxWidth: "1400px",
+    margin: "0 auto",
   },
   heroCopy: {
     display: "grid",
-    gap: "14px",
-  },
-  eyebrow: {
-    margin: 0,
-    color: "#007AFF",
-    fontSize: "12px",
-    fontWeight: 700,
-    letterSpacing: "0.14em",
-    textTransform: "uppercase",
-  },
-  title: {
-    margin: 0,
-    fontSize: "clamp(34px, 6vw, 62px)",
-    lineHeight: 0.98,
-    letterSpacing: "-0.05em",
-    maxWidth: "1400px",
-  },
-  description: {
-    margin: 0,
-    maxWidth: "1400px",
-    color: "var(--text-secondary)",
-    fontSize: "clamp(16px, 2vw, 18px)",
-    lineHeight: 1.75,
-  },
-  cta: {
-    marginTop: "10px",
-    display: "inline-flex",
-    width: "fit-content",
-    padding: "13px 20px",
-    borderRadius: "14px",
-    textDecoration: "none",
-    backgroundColor: "#007AFF",
-    color: "#FFFFFF",
-    fontWeight: 700,
-    boxShadow: "0 10px 24px rgba(0, 122, 255, 0.18)",
+    gap: "16px",
   },
   body: {
     display: "grid",
     gap: "30px",
     width: "100%",
+    maxWidth: "1400px",
+    margin: "0 auto",
     padding: "36px clamp(16px, 4vw, 48px) 72px",
   },
   section: {
     display: "grid",
-    gap: "18px",
+    gap: "20px",
   },
   sectionHeader: {
     display: "grid",
@@ -245,14 +327,12 @@ const styles: Record<string, CSSProperties> = {
   },
   sectionTitle: {
     margin: 0,
-    fontSize: "clamp(24px, 3vw, 34px)",
+    fontSize: "clamp(24px, 3vw, 32px)",
     fontWeight: 700,
     letterSpacing: "-0.03em",
-    color: "var(--text-primary)",
   },
   sectionDescription: {
     margin: 0,
-    color: "var(--text-secondary)",
     lineHeight: 1.7,
     fontSize: "15px",
   },
@@ -264,16 +344,10 @@ const styles: Record<string, CSSProperties> = {
   card: {
     display: "grid",
     gap: "14px",
-    padding: "clamp(16px, 3vw, 24px)",
-    borderRadius: "24px",
-    border: "1px solid var(--border-color)",
-    borderTop: "1px solid var(--border-color)",
-    background:
-      "linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 78%, transparent) 0%, color-mix(in srgb, var(--bg-secondary) 92%, #007AFF 8%) 100%)",
-    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)",
+    padding: "clamp(18px, 3vw, 24px)",
+    borderRadius: "20px",
     minHeight: "220px",
   },
-
   list: {
     display: "grid",
     gap: "12px",
@@ -282,22 +356,20 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     gap: "12px",
     alignItems: "flex-start",
-    color: "var(--text-secondary)",
     lineHeight: 1.7,
+    fontSize: "15px",
   },
   dot: {
     width: "8px",
     height: "8px",
-    marginTop: "9px",
+    marginTop: "8px",
     borderRadius: "999px",
-    backgroundColor: "#007AFF",
     flexShrink: 0,
-    boxShadow: "0 0 0 4px rgba(0,122,255,0.14)",
   },
   twoColumn: {
     display: "grid",
     gridTemplateColumns: "minmax(0, 1.2fr) minmax(280px, 0.8fr)",
-    gap: "18px",
+    gap: "20px",
     alignItems: "start",
   },
 };

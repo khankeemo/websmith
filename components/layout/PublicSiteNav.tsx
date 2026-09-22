@@ -201,6 +201,9 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                   }}
                 />
               </button>
+              {activeDropdown === "services" && (
+                <MegaMenuServices isDark={isDark} onClose={() => setActiveDropdown(null)} />
+              )}
             </div>
 
             {/* 3. Industries ▾ */}
@@ -451,16 +454,6 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             Get Started
           </button>
         </div>
-
-        {/* Global Centered Services Mega-Menu */}
-        {activeDropdown === "services" && (
-          <div
-            onMouseEnter={() => handleMouseEnter("services")}
-            onMouseLeave={handleMouseLeave}
-          >
-            <MegaMenuServices isDark={isDark} onClose={() => setActiveDropdown(null)} />
-          </div>
-        )}
 
         <button
           type="button"

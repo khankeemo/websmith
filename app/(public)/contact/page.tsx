@@ -30,6 +30,9 @@ function PurchaseEnquiryForm() {
   })();
   const hasCartItems = cartItems.length > 0;
   const isPurchaseEnquiry = !!(productParam || planParam || versionParam || hasCartItems);
+  const productList = hasCartItems
+    ? cartItems.map(i => `${i.product}${i.plan ? ` (${i.plan})` : ''} x${i.quantity}`).join('\n')
+    : productParam;
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -98,10 +101,6 @@ function PurchaseEnquiryForm() {
       </section>
     );
   }
-
-  const productList = hasCartItems
-    ? cartItems.map(i => `${i.product}${i.plan ? ` (${i.plan})` : ''} x${i.quantity}`).join('\n')
-    : productParam;
 
   return (
     <section style={{ ...styles.purchaseSection, marginBottom: "56px" }}>
@@ -545,10 +544,11 @@ const styles: Record<string, CSSProperties> = {
   purchaseBadge: {
     display: "inline-block",
     width: "fit-content",
-    padding: "4px 12px",
-    borderRadius: "20px",
-    backgroundColor: "#007AFF",
-    color: "#fff",
+    padding: "6px 14px",
+    borderRadius: "9999px",
+    backgroundColor: "rgba(37, 99, 235, 0.15)",
+    border: "1px solid rgba(37, 99, 235, 0.3)",
+    color: "#3b82f6",
     fontSize: "11px",
     fontWeight: 700,
     letterSpacing: "0.08em",
@@ -591,13 +591,15 @@ const styles: Record<string, CSSProperties> = {
   submitBtn: {
     width: "fit-content",
     padding: "12px 32px",
-    borderRadius: "12px",
+    borderRadius: "9999px",
     border: "none",
-    backgroundColor: "#007AFF",
+    background: "linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)",
     color: "#fff",
     fontSize: "15px",
     fontWeight: 700,
     cursor: "pointer",
+    boxShadow: "0 10px 25px -5px rgba(37, 99, 235, 0.4)",
+    transition: "all 0.2s ease",
   },
   successBox: {
     padding: "40px",

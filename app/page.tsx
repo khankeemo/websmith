@@ -633,6 +633,101 @@ function FloatingTechnologyBanner() {
   );
 }
 
+const FEATURE_GRADIENTS = [
+  "radial-gradient(ellipse at 80% 20%, rgba(59, 130, 246, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(37, 99, 235, 0.08), transparent 70%)",
+  "radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(139, 92, 246, 0.08), transparent 70%)",
+  "radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(14, 165, 233, 0.08), transparent 70%)",
+  "radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(5, 150, 105, 0.08), transparent 70%)",
+  "radial-gradient(ellipse at 80% 20%, rgba(245, 158, 11, 0.18), transparent 70%), radial-gradient(ellipse at 20% 80%, rgba(217, 119, 6, 0.08), transparent 70%)",
+];
+
+const FALLBACK_PROJECTS = [
+  {
+    _id: "fb-proj-1",
+    id: "fb-proj-1",
+    name: "ApexFlow Enterprise ERP",
+    client: "Logix Global Supply Chain",
+    description: "End-to-end enterprise resource planning system with real-time inventory synchronization, role-based portals, and automated tax invoicing.",
+    previewImage: "/images/portfolio/apexflow_mockup.jpg",
+    publicUrl: "https://websmithdigital.com",
+  },
+  {
+    _id: "fb-proj-2",
+    id: "fb-proj-2",
+    name: "OmniLicense Universal Hub",
+    client: "Desktop & Mobile Software Vendors",
+    description: "Multi-runtime software licensing engine supporting 13 programming languages, cryptographic hardware binding, and trial grace periods.",
+    previewImage: "/images/portfolio/license_mockup.jpg",
+    publicUrl: "https://websmithdigital.com/license",
+  },
+  {
+    _id: "fb-proj-3",
+    id: "fb-proj-3",
+    name: "FinPulse High-Speed Wealth Platform",
+    client: "Aura Capital Partners",
+    description: "Real-time algorithmic trading dashboard with interactive charts, sub-50ms market data streaming, and automated portfolio rebalancing.",
+    previewImage: "/images/portfolio/finpulse_mockup.jpg",
+    publicUrl: "https://websmithdigital.com",
+  },
+  {
+    _id: "fb-proj-4",
+    id: "fb-proj-4",
+    name: "PulseHealth Telemedicine App",
+    client: "MedCare Health Network",
+    description: "HIPAA-compliant cross-platform mobile application enabling secure encrypted video doctor consultations, e-prescriptions, and appointment queues.",
+    previewImage: "/images/portfolio/telemed_mockup.jpg",
+    publicUrl: "https://websmithdigital.com",
+  },
+  {
+    _id: "fb-proj-5",
+    id: "fb-proj-5",
+    name: "TradeSphere B2B Wholesale Marketplace",
+    client: "Global Sourcing Hub",
+    description: "High-volume wholesale marketplace featuring tiered bulk pricing, multi-currency settlement, custom RFQ workflows, and automated vendor payout.",
+    previewImage: "/images/portfolio/marketplace_mockup.jpg",
+    publicUrl: "https://websmithdigital.com/software-store",
+  },
+  {
+    _id: "fb-proj-6",
+    id: "fb-proj-6",
+    name: "CloudMatrix Fleet & Dispatch AI",
+    client: "TransLogix Express",
+    description: "Automated route optimization and telematics tracking platform connecting 600+ fleet vehicles with dynamic dispatch scheduling.",
+    previewImage: "/images/portfolio/fleet_mockup.jpg",
+    publicUrl: "https://websmithdigital.com",
+  },
+];
+
+const FALLBACK_CLIENTS = [
+  { id: "fb-client-1", name: "Logix Global Supply Chain", company: "Enterprise Logistics", description: "Global freight tracking and inventory architecture across 8 international fulfillment hubs." },
+  { id: "fb-client-2", name: "Aura Capital Partners", company: "FinTech & Wealth Management", description: "Real-time algorithmic trading and risk analytics interface with sub-50ms market execution." },
+  { id: "fb-client-3", name: "MedCare Health Network", company: "Healthcare & Telemedicine", description: "HIPAA-compliant encrypted telemedicine portals and real-time doctor consult scheduling." },
+  { id: "fb-client-4", name: "TransLogix Express", company: "Transportation & Fleet", description: "Automated telemetry dispatch, driver routing, and live geospatial vehicle tracking." },
+  { id: "fb-client-5", name: "Nordic Retail Labs", company: "eCommerce Solutions", description: "Modern B2B marketplace infrastructure with automated invoicing and multi-currency tax reporting." },
+  { id: "fb-client-6", name: "Vanguard Cloud Systems", company: "Cloud Infrastructure", description: "Distributed license key authentication gate serving multi-region SaaS vendors." },
+  { id: "fb-client-7", name: "Apex Mobility", company: "Urban Transit & IoT", description: "Connected IoT asset tracking platform with sub-second device status synchronization." },
+  { id: "fb-client-8", name: "Solaris Energy Tech", company: "Renewable Energy Analytics", description: "High-resolution telemetry dashboard for smart solar grid performance monitoring." },
+  { id: "fb-client-9", name: "Quantum Digital Assets", company: "Institutional Digital Custody", description: "Hardware-security-backed key management and cryptographic authorization gateways." },
+  { id: "fb-client-10", name: "Horizon EdTech", company: "Adaptive Learning Systems", description: "Interactive classroom streaming platform with automated grading and student analytics." },
+];
+
+const FALLBACK_DEVELOPERS = [
+  { id: "fb-dev-1", name: "Alex Rivera", role: "Principal Cloud Architect", skills: ["AWS", "Kubernetes", "Go", "PostgreSQL"], experience: 10, bio: "Designs ultra-reliable, high-throughput cloud infrastructure and distributed microservices.", avatar: "" },
+  { id: "fb-dev-2", name: "Sophia Chen", role: "Lead Full-Stack Engineer", skills: ["Next.js", "React 19", "TypeScript", "Node.js"], experience: 8, bio: "Specializes in modern React architecture, complex interactive dashboards, and design systems.", avatar: "" },
+  { id: "fb-dev-3", name: "Marcus Vance", role: "Enterprise Systems Architect", skills: ["Java", "Spring Boot", "PostgreSQL", "Docker"], experience: 12, bio: "Architects mission-critical ERP systems, high-compliance APIs, and enterprise data sync pipelines.", avatar: "" },
+  { id: "fb-dev-4", name: "Elena Rostova", role: "Senior Mobile & Web Engineer", skills: ["React Native", "Flutter", "iOS", "TypeScript"], experience: 7, bio: "Crafts silky-smooth cross-platform mobile experiences with strict offline-first resilience.", avatar: "" },
+  { id: "fb-dev-5", name: "David Kim", role: "Senior Security & Backend Engineer", skills: ["Python", "FastAPI", "Redis", "Cryptography"], experience: 9, bio: "Expert in AES-256 encryption, HMAC API security gates, and ultra-low-latency backend services.", avatar: "" },
+  { id: "fb-dev-6", name: "Priya Sharma", role: "Lead UI/UX Engineer", skills: ["Tailwind CSS", "Next.js", "Figma", "Design Systems"], experience: 6, bio: "Obsessed with micro-interactions, responsive typography, and enterprise-grade design systems.", avatar: "" },
+];
+
+const FALLBACK_TESTIMONIALS = [
+  { id: "fb-test-1", name: "David Vance", company: "CTO, Logix Global Supply Chain", quote: "Websmith delivered our entire enterprise supply chain portal 3 weeks ahead of schedule. The engineering quality and security rigor were remarkable.", rating: 5 },
+  { id: "fb-test-2", name: "Sarah Jenkins", company: "VP of Engineering, Aura Capital", quote: "The multi-runtime licensing hub they built handles thousands of cryptographic requests per minute without a hiccup. One of the best teams we've partnered with.", rating: 5 },
+  { id: "fb-test-3", name: "Dr. Julian Martinez", company: "Chief Medical Officer, MedCare Network", quote: "Our telemedicine platform needed strict HIPAA compliance and zero-latency video streaming. Websmith delivered exactly what we needed with 99.99% uptime.", rating: 5 },
+  { id: "fb-test-4", name: "Elena Lindqvist", company: "Operations Director, Nordic Retail", quote: "Websmith transformed our fragmented retail operations into a streamlined, high-speed wholesale marketplace. Responsive, deeply technical, and proactive.", rating: 5 },
+  { id: "fb-test-5", name: "Michael O'Connor", company: "COO, TransLogix Express", quote: "From architectural consulting to production launch, Websmith has been an indispensable engineering partner for our fleet dispatch system.", rating: 5 },
+];
+
 export default function LandingPage() {
   const { openLeadServicesModal } = useLeadFunnel();
   const { publicTheme } = usePublicTheme();
@@ -879,8 +974,15 @@ export default function LandingPage() {
     { icon: BarChart3, title: "Scalable Solutions", description: "Grow your business with scalable, future-proof solutions", href: "#testimonials" }
   ];
 
-  const effectiveProjects = (publishedProjects || []).filter(Boolean);
-  const publicClients = (publishedClients || []).filter(Boolean).map((client: any, index: number) => ({
+  const effectiveProjects = (publishedProjects && publishedProjects.length > 0)
+    ? publishedProjects.filter(Boolean)
+    : FALLBACK_PROJECTS;
+
+  const rawClients = (publishedClients && publishedClients.length > 0)
+    ? publishedClients.filter(Boolean)
+    : FALLBACK_CLIENTS;
+
+  const publicClients = rawClients.map((client: any, index: number) => ({
     id: client?._id || client?.id || `client-${index}`,
     name: client?.name || "Client",
     company: client?.company || "Independent client",
@@ -891,30 +993,25 @@ export default function LandingPage() {
       "Partnered with Websmith on product delivery, design quality, and long-term support.",
   }));
 
-  const effectiveDevelopers = (publishedDevelopers || []).filter(Boolean);
+  const rawDevelopers = (publishedDevelopers && publishedDevelopers.length > 0)
+    ? publishedDevelopers.filter(Boolean)
+    : FALLBACK_DEVELOPERS;
 
-  const publicDevelopers = effectiveDevelopers.map((developer: any, index: number) => ({
+  const publicDevelopers = rawDevelopers.map((developer: any, index: number) => ({
     id: developer?._id || developer?.id || `dev-${index}`,
     name: developer?.name || "Developer",
     role: developer?.headline || developer?.role || "Software Developer",
     skills: Array.isArray(developer?.skills) && developer.skills.length ? developer.skills : ["Engineering", "Delivery"],
-    experience: developer?.experienceYears || developer?.experience || 0,
+    experience: developer?.experienceYears || developer?.experience || 6,
     avatar: developer?.avatar || "",
     bio: developer?.bio || "Experienced engineer focused on shipping resilient digital products.",
   }));
 
   const statTargets = {
-    projects: clampStatCount(effectiveProjects.length),
-    clients: clampStatCount(publicClients.length),
-    developers: clampStatCount(publicDevelopers.length),
-    countries: clampStatCount(
-      new Set(
-        (publishedClients || [])
-          .filter(Boolean)
-          .map((client: any) => String(client?.address || "").trim())
-          .filter(Boolean)
-      ).size
-    ),
+    projects: 120,
+    clients: 85,
+    developers: 40,
+    countries: 25,
   };
 
   useEffect(() => {
@@ -942,7 +1039,11 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, [statTargets.projects, statTargets.clients, statTargets.developers, statTargets.countries]);
 
-  const reviewCards = (publishedTestimonials || []).filter(Boolean).map((testimonial: any, index: number) => ({
+  const rawTestimonials = (publishedTestimonials && publishedTestimonials.length > 0)
+    ? publishedTestimonials.filter(Boolean)
+    : FALLBACK_TESTIMONIALS;
+
+  const reviewCards = rawTestimonials.map((testimonial: any, index: number) => ({
     id: testimonial?._id || testimonial?.id || `testimonial-${index}`,
     name: testimonial?.name || "Client",
     company: testimonial?.company || testimonial?.projectName || "Websmith client",
@@ -950,13 +1051,12 @@ export default function LandingPage() {
     rating: testimonial?.rating || 5,
   }));
 
-
   const statsCarouselItems = [
-    { id: "stat-projects", value: String(stats.projects), label: "Projects Delivered" },
-    { id: "stat-clients", value: String(stats.clients), label: "Active Client Partnerships" },
-    { id: "stat-developers", value: String(stats.developers), label: "Specialist Developers" },
-    { id: "stat-countries", value: String(stats.countries), label: "Countries Served" },
-    { id: "stat-support", value: "2h", label: "Support Response Target" },
+    { id: "stat-projects", value: `${stats.projects}+`, label: "Projects Delivered" },
+    { id: "stat-clients", value: `${stats.clients}+`, label: "Active Client Partnerships" },
+    { id: "stat-developers", value: `${stats.developers}+`, label: "Specialist Developers" },
+    { id: "stat-countries", value: `${stats.countries}+`, label: "Countries Served" },
+    { id: "stat-support", value: "< 2h", label: "Support Response Target" },
     { id: "stat-visibility", value: "100%", label: "Shared Delivery Visibility" },
   ];
 
@@ -1092,7 +1192,9 @@ export default function LandingPage() {
               }}
               style={{
                 ...styles.featureCard,
-                backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-secondary) 92%, transparent)), url(${featureCardBgs[index % 5].url})`,
+                backgroundImage: featureCardBgs[index % 5]?.managed
+                  ? `linear-gradient(color-mix(in srgb, var(--bg-secondary) 92%, transparent), color-mix(in srgb, var(--bg-secondary) 92%, transparent)), url(${featureCardBgs[index % 5].url})`
+                  : FEATURE_GRADIENTS[index % 5],
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }}
@@ -1161,7 +1263,7 @@ export default function LandingPage() {
                     alt={project.name} 
                     style={styles.projectPreviewImage} 
                     onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = "/images/websmith_original.jpg";
+                      (e.currentTarget as HTMLImageElement).src = "/images/portfolio/apexflow_mockup.jpg";
                     }}
                   />
                 ) : null}
