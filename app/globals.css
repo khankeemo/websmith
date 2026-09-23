@@ -1635,6 +1635,41 @@ html:not(.dark-theme) .wsd-portfolio-card:nth-child(3n):not(:hover),
   width: 75%;
 }
 
+/* Navbar Login & Secondary Action Button Hover - Theme Aware */
+.login-btn-hover {
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer;
+}
+html:not(.dark-theme) .login-btn-hover:hover,
+.light-theme .login-btn-hover:hover {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+  border-color: rgba(15, 23, 42, 0.18) !important;
+  color: #0f172a !important;
+  transform: translateY(-1px);
+}
+.dark-theme .login-btn-hover:hover {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+.login-btn-hover:active {
+  transform: scale(0.97);
+}
+
+/* Login Page: Prevent Vertical Scroll & Scrollbars */
+.app-main-scroll.auth-no-scroll,
+.login-page-active .app-main-scroll {
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+}
+
+.login-page-shell {
+  height: calc(100dvh - 72px) !important;
+  max-height: calc(100dvh - 72px) !important;
+  overflow: hidden !important;
+}
+
 /* Dropdown Menu Item Row (Company & Industries) */
 .wsd-nav-menu-row {
   position: relative;

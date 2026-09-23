@@ -378,14 +378,16 @@ export default function LoginPage() {
 
 const styles: any = {
   container: {
-    minHeight: "100vh",
+    height: "calc(100dvh - 72px)",
+    maxHeight: "calc(100dvh - 72px)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     backgroundColor: "transparent",
     position: "relative",
     fontFamily: "var(--font-sans)",
+    overflow: "hidden",
   },
 
   main: {
@@ -396,6 +398,7 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
+    boxSizing: "border-box",
   },
 
   background: {
@@ -410,29 +413,30 @@ const styles: any = {
 
   card: {
     borderRadius: "28px",
-    padding: "48px 40px",
+    padding: "34px 36px 28px",
     width: "100%",
     maxWidth: "440px",
     position: "relative",
     zIndex: 1,
     marginTop: 0,
+    boxSizing: "border-box",
   },
 
   logoContainer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    marginBottom: "32px",
+    marginBottom: "16px",
   },
 
   circleMask: {
-    width: "72px",
-    height: "72px",
+    width: "68px",
+    height: "68px",
     borderRadius: "18px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: "16px",
+    marginBottom: "10px",
     overflow: "hidden",
     backgroundColor: "var(--bg-primary)",
     boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
@@ -456,16 +460,16 @@ const styles: any = {
 
   headerText: {
     textAlign: "center",
-    marginBottom: "32px",
+    marginBottom: "20px",
   },
 
   title: {
-    fontSize: "28px",
+    fontSize: "26px",
     fontWeight: 600,
     color: "var(--text-primary)",
     letterSpacing: "-0.5px",
     margin: 0,
-    marginBottom: "8px",
+    marginBottom: "6px",
   },
 
   subtitle: {
@@ -557,7 +561,7 @@ const styles: any = {
 
   forgotContainer: {
     textAlign: "right",
-    marginBottom: "28px",
+    marginBottom: "18px",
   },
 
   forgotLink: {
@@ -569,7 +573,7 @@ const styles: any = {
 
   signinButton: {
     width: "100%",
-    padding: "14px",
+    padding: "13px",
     fontSize: "16px",
     fontWeight: 600,
     color: "#FFFFFF",
@@ -577,7 +581,7 @@ const styles: any = {
     border: "none",
     borderRadius: "12px",
     cursor: "pointer",
-    marginBottom: "20px",
+    marginBottom: "16px",
     fontFamily: "inherit",
   },
 
@@ -620,7 +624,7 @@ const styles: any = {
 
   footer: {
     position: "absolute",
-    bottom: "24px",
+    bottom: "12px",
     left: 0,
     right: 0,
     textAlign: "center",

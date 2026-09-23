@@ -2343,13 +2343,22 @@ export default function LandingPage() {
           width: 80%; 
         }
         
-        /* Login Button Hover */
+        /* Login Button Hover - Theme Aware */
         .login-btn-hover { 
           transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
           cursor: pointer; 
         }
-        .login-btn-hover:hover { 
-          background-color: #F2F2F7 !important; 
+        html:not(.dark-theme) .login-btn-hover:hover,
+        .light-theme .login-btn-hover:hover { 
+          background-color: rgba(15, 23, 42, 0.06) !important; 
+          border-color: rgba(15, 23, 42, 0.18) !important;
+          color: #0f172a !important;
+          transform: translateY(-2px); 
+        }
+        .dark-theme .login-btn-hover:hover { 
+          background-color: rgba(255, 255, 255, 0.14) !important; 
+          border-color: rgba(255, 255, 255, 0.28) !important;
+          color: #ffffff !important;
           transform: translateY(-2px); 
         }
         .login-btn-hover:active { 
