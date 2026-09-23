@@ -1,269 +1,14 @@
+// FILE: components/layout/MegaMenuServices.tsx
+// PURPOSE: Dynamic Services mega menu connected to CMS API
+
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { 
-  Code2, 
-  Smartphone, 
-  Server, 
-  Database, 
-  GitMerge, 
-  Zap, 
-  Building2, 
-  Workflow, 
-  PackageCheck, 
-  Receipt, 
-  Users, 
-  RefreshCw, 
-  KeyRound, 
-  Cpu, 
-  ShieldCheck, 
-  AppWindow, 
-  BarChart3, 
-  Lock, 
-  Palette, 
-  Layers, 
-  Component, 
-  Sparkles, 
-  Layout, 
-  Brush, 
-  Bot, 
-  BrainCircuit, 
-  FileSearch, 
-  MessageSquareCode, 
-  TrendingUp, 
-  ArrowRight,
-  Lightbulb,
-  type LucideIcon 
-} from "lucide-react";
-
-type ServiceItem = {
-  title: string;
-  subtitle: string;
-  icon: LucideIcon;
-  href: string;
-};
-
-type ServiceCategory = {
-  id: string;
-  label: string;
-  badge?: string;
-  services: ServiceItem[];
-};
-
-const SERVICE_CATEGORIES: ServiceCategory[] = [
-  {
-    id: "software-engineering",
-    label: "Software Engineering",
-    services: [
-      {
-        title: "Web App Development",
-        subtitle: "Scalable Next.js & React architectures",
-        icon: Code2,
-        href: "/services?tab=engineering#engineering",
-      },
-      {
-        title: "Mobile App Development",
-        subtitle: "Cross-platform iOS & Android experiences",
-        icon: Smartphone,
-        href: "/services?tab=engineering#engineering",
-      },
-      {
-        title: "Microservices & APIs",
-        subtitle: "High-throughput backend architectures",
-        icon: Server,
-        href: "/services?tab=engineering#engineering",
-      },
-      {
-        title: "Database & Cloud Cache",
-        subtitle: "Neon Serverless PostgreSQL & Redis",
-        icon: Database,
-        href: "/services?tab=cloud#cloud",
-      },
-      {
-        title: "DevOps & CI/CD Pipelines",
-        subtitle: "Automated containerization & deployments",
-        icon: GitMerge,
-        href: "/services?tab=cloud#cloud",
-      },
-      {
-        title: "Software Modernization",
-        subtitle: "Legacy system refactoring & optimization",
-        icon: Zap,
-        href: "/services?tab=engineering#engineering",
-      },
-    ],
-  },
-  {
-    id: "erp-crm",
-    label: "Enterprise ERP & CRM",
-    services: [
-      {
-        title: "Custom Enterprise ERP",
-        subtitle: "Tailored operations & reporting systems",
-        icon: Building2,
-        href: "/services?tab=erp#erp",
-      },
-      {
-        title: "CRM Workflow Automation",
-        subtitle: "Intelligent lead pipeline & deal tracking",
-        icon: Workflow,
-        href: "/services?tab=erp#erp",
-      },
-      {
-        title: "Inventory & Supply Chain",
-        subtitle: "Real-time stock tracking & barcode systems",
-        icon: PackageCheck,
-        href: "/services?tab=erp#erp",
-      },
-      {
-        title: "Billing & Invoicing Engine",
-        subtitle: "Multi-currency tax & subscription billing",
-        icon: Receipt,
-        href: "/services?tab=erp#erp",
-      },
-      {
-        title: "Role-Based Client Portals",
-        subtitle: "Secure enterprise workspaces for clients",
-        icon: Users,
-        href: "/services?tab=erp#erp",
-      },
-      {
-        title: "Third-Party Data Sync",
-        subtitle: "ERP, SAP, and accounting integrations",
-        icon: RefreshCw,
-        href: "/services?tab=erp#erp",
-      },
-    ],
-  },
-  {
-    id: "licensing-ulp",
-    label: "Universal Licensing (ULP)",
-    services: [
-      {
-        title: "Multi-Runtime SDK Publisher",
-        subtitle: "Compiled SDKs across 13 languages",
-        icon: KeyRound,
-        href: "/services?tab=licensing#licensing",
-      },
-      {
-        title: "Hardware Node-Locking",
-        subtitle: "CPU, Disk, MAC, and BIOS binding",
-        icon: Cpu,
-        href: "/services?tab=licensing#licensing",
-      },
-      {
-        title: "Trial & Offline Grace Periods",
-        subtitle: "Cryptographic offline validation",
-        icon: ShieldCheck,
-        href: "/services?tab=licensing#licensing",
-      },
-      {
-        title: "Universal License Center (ULC)",
-        subtitle: "In-app embeddable activation GUI",
-        icon: AppWindow,
-        href: "/services?tab=licensing#licensing",
-      },
-      {
-        title: "Activation & Revocation Dashboard",
-        subtitle: "Real-time device tracking & blacklists",
-        icon: BarChart3,
-        href: "/services?tab=licensing#licensing",
-      },
-      {
-        title: "HMAC-SHA256 API Gate",
-        subtitle: "Tamper-proof encrypted API channels",
-        icon: Lock,
-        href: "/services?tab=licensing#licensing",
-      },
-    ],
-  },
-  {
-    id: "design",
-    label: "UI/UX & Product Design",
-    services: [
-      {
-        title: "UI/UX System Design",
-        subtitle: "Intuitive, high-conversion interfaces",
-        icon: Palette,
-        href: "/services?tab=engineering#engineering",
-      },
-      {
-        title: "Design Systems & Tokens",
-        subtitle: "Figma and Tailwind component libraries",
-        icon: Component,
-        href: "/services?tab=engineering#engineering",
-      },
-      {
-        title: "UX Research & Wireframes",
-        subtitle: "Data-backed frictionless user flows",
-        icon: Layers,
-        href: "/services?tab=engineering#engineering",
-      },
-      {
-        title: "Interactive Prototyping",
-        subtitle: "High-fidelity clickable prototypes",
-        icon: Sparkles,
-        href: "/services?tab=engineering#engineering",
-      },
-      {
-        title: "Responsive Web Layouts",
-        subtitle: "Pixel-perfect mobile & desktop views",
-        icon: Layout,
-        href: "/services?tab=engineering#engineering",
-      },
-      {
-        title: "Brand Identity Design",
-        subtitle: "Digital brand systems, icons, & assets",
-        icon: Brush,
-        href: "/services?tab=engineering#engineering",
-      },
-    ],
-  },
-  {
-    id: "ai-solutions",
-    label: "AI Solutions",
-    badge: "New",
-    services: [
-      {
-        title: "Autonomous AI Agents",
-        subtitle: "Multi-agent workflows & task automation",
-        icon: Bot,
-        href: "/services?tab=ai#ai",
-      },
-      {
-        title: "Custom LLM & Vector RAG",
-        subtitle: "Enterprise knowledge base integration",
-        icon: BrainCircuit,
-        href: "/services?tab=ai#ai",
-      },
-      {
-        title: "Intelligent Document OCR",
-        subtitle: "Automated invoice & PDF data extraction",
-        icon: FileSearch,
-        href: "/services?tab=ai#ai",
-      },
-      {
-        title: "Support AI Assistants",
-        subtitle: "Context-aware automated client support",
-        icon: MessageSquareCode,
-        href: "/services?tab=ai#ai",
-      },
-      {
-        title: "Predictive Analytics Models",
-        subtitle: "Churn prediction & dynamic pricing models",
-        icon: TrendingUp,
-        href: "/services?tab=ai#ai",
-      },
-      {
-        title: "AI Security & Guardrails",
-        subtitle: "Prompt injection defense & data privacy",
-        icon: ShieldCheck,
-        href: "/services?tab=ai#ai",
-      },
-    ],
-  },
-];
+import { ArrowRight, Lightbulb, Code2 } from "lucide-react";
+import LucideIcon from "@/components/shared/LucideIcon";
+import { getPublicServiceCategories } from "@/lib/cms/cmsService";
+import type { CmsServiceCategory } from "@/lib/cms/types";
 
 export default function MegaMenuServices({
   isDark,
@@ -272,31 +17,46 @@ export default function MegaMenuServices({
   isDark: boolean;
   onClose: () => void;
 }) {
-  const [activeCategoryId, setActiveCategoryId] = useState("software-engineering");
-  const activeCategory =
-    SERVICE_CATEGORIES.find((cat) => cat.id === activeCategoryId) || SERVICE_CATEGORIES[0];
+  const [categories, setCategories] = useState<CmsServiceCategory[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+
   const menuRef = useRef<HTMLDivElement>(null);
-  const [offsetStyle, setOffsetStyle] = useState<React.CSSProperties>({ left: 0 });
+  const [offsetStyle, setOffsetStyle] = useState<{ left?: string }>({ left: "0px" });
 
   useEffect(() => {
-    const el = menuRef.current;
-    if (!el) return;
+    getPublicServiceCategories({ menuOnly: true })
+      .then((data) => {
+        setCategories(data || []);
+        if (data && data.length > 0) {
+          setActiveCategoryId(data[0]._id || data[0].slug || "");
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to load mega menu services:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
+  const activeCategory =
+    categories.find((c) => c._id === activeCategoryId || c.slug === activeCategoryId) ||
+    categories[0] ||
+    null;
+
+  useEffect(() => {
     const adjustPosition = () => {
-      const rect = el.getBoundingClientRect();
+      if (!menuRef.current) return;
+      const rect = menuRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
       const margin = 16;
-      let deltaX = 0;
 
-      // If cut off on the left (e.g. rect.left < margin)
-      if (rect.left < margin) {
-        deltaX = margin - rect.left;
-      }
-      // If overflowing on the right (e.g. rect.right > viewport - margin)
-      else if (rect.right > window.innerWidth - margin) {
-        deltaX = -(rect.right - (window.innerWidth - margin));
-      }
-
-      if (deltaX !== 0) {
+      if (rect.right > viewportWidth - margin) {
+        const overflow = rect.right - (viewportWidth - margin);
+        setOffsetStyle({ left: `-${overflow}px` });
+      } else if (rect.left < margin) {
+        const deltaX = margin - rect.left;
         setOffsetStyle({ left: `${deltaX}px` });
       }
     };
@@ -304,7 +64,7 @@ export default function MegaMenuServices({
     adjustPosition();
     window.addEventListener("resize", adjustPosition);
     return () => window.removeEventListener("resize", adjustPosition);
-  }, []);
+  }, [categories]);
 
   return (
     <div
@@ -327,130 +87,146 @@ export default function MegaMenuServices({
         zIndex: 1400,
       }}
     >
-      {/* Main 2-Column Area */}
-      <div style={{ display: "grid", gridTemplateColumns: "250px 1fr", minHeight: "340px" }}>
-        {/* Left Category Tabs */}
-        <div
-          style={{
-            padding: "16px 12px",
-            borderRight: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid rgba(0, 0, 0, 0.06)",
-            backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : "rgba(0, 0, 0, 0.01)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-          }}
-        >
-          {SERVICE_CATEGORIES.map((category) => {
-            const isActive = category.id === activeCategoryId;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onMouseEnter={() => setActiveCategoryId(category.id)}
-                onClick={() => setActiveCategoryId(category.id)}
-                className={`wsd-nav-category-tab ${isActive ? "wsd-nav-category-tab-active" : ""}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  width: "100%",
-                  padding: "10px 14px",
-                  borderRadius: "12px",
-                  fontSize: "13.5px",
-                  fontWeight: isActive ? 600 : 500,
-                  color: isActive
-                    ? "#ffffff"
-                    : isDark
-                    ? "rgba(255, 255, 255, 0.75)"
-                    : "rgba(15, 23, 42, 0.8)",
-                  backgroundColor: isActive
-                    ? "#2563eb"
-                    : "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  {category.label}
-                  {category.badge && (
-                    <span
-                      style={{
-                        display: "inline-block",
-                        width: "7px",
-                        height: "7px",
-                        borderRadius: "50%",
-                        backgroundColor: "#10b981",
-                        boxShadow: "0 0 8px #10b981",
-                      }}
-                    />
-                  )}
-                </span>
-                {isActive && <ArrowRight size={14} style={{ opacity: 0.9 }} />}
-              </button>
-            );
-          })}
+      {loading ? (
+        <div style={{ padding: "40px", textAlign: "center", color: isDark ? "#94a3b8" : "#64748b" }}>
+          Loading capabilities...
         </div>
-
-        {/* Right Service Cards Grid */}
-        <div style={{ padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", alignContent: "start" }}>
-          {activeCategory.services.map((service, idx) => {
-            const Icon = service.icon;
-            return (
-              <Link
-                key={idx}
-                href={service.href}
-                onClick={onClose}
-                className="wsd-nav-service-card"
-                style={{
-                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.02)",
-                  border: isDark ? "1px solid rgba(255, 255, 255, 0.05)" : "1px solid rgba(0, 0, 0, 0.04)",
-                }}
-              >
-                <div
-                  className="wsd-nav-icon-box"
+      ) : categories.length === 0 ? (
+        <div style={{ padding: "40px", textAlign: "center", color: isDark ? "#94a3b8" : "#64748b" }}>
+          No services configured yet.
+        </div>
+      ) : (
+        /* Main 2-Column Area */
+        <div style={{ display: "grid", gridTemplateColumns: "250px 1fr", minHeight: "340px" }}>
+          {/* Left Category Tabs */}
+          <div
+            style={{
+              padding: "16px 12px",
+              borderRight: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid rgba(0, 0, 0, 0.06)",
+              backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : "rgba(0, 0, 0, 0.01)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+            }}
+          >
+            {categories.map((category) => {
+              const currentId = category._id || category.slug;
+              const isActive = currentId === activeCategoryId || category.slug === activeCategoryId;
+              return (
+                <button
+                  key={currentId}
+                  type="button"
+                  onMouseEnter={() => setActiveCategoryId(currentId || "")}
+                  onClick={() => setActiveCategoryId(currentId || "")}
+                  className={`wsd-nav-category-tab ${isActive ? "wsd-nav-category-tab-active" : ""}`}
                   style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "10px",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: isDark ? "rgba(37, 99, 235, 0.15)" : "rgba(37, 99, 235, 0.08)",
-                    color: "#3b82f6",
-                    flexShrink: 0,
+                    justifyContent: "space-between",
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: "12px",
+                    fontSize: "13.5px",
+                    fontWeight: isActive ? 600 : 500,
+                    color: isActive
+                      ? "#ffffff"
+                      : isDark
+                      ? "rgba(255, 255, 255, 0.75)"
+                      : "rgba(15, 23, 42, 0.8)",
+                    backgroundColor: isActive ? "#2563eb" : "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
                   }}
                 >
-                  <Icon size={19} />
-                </div>
-                <div>
-                  <div
-                    className="wsd-nav-card-title"
+                  <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <LucideIcon name={category.icon} size={15} />
+                    {category.name}
+                    {category.badge && (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: "7px",
+                          height: "7px",
+                          borderRadius: "50%",
+                          backgroundColor: "#10b981",
+                          boxShadow: "0 0 8px #10b981",
+                        }}
+                      />
+                    )}
+                  </span>
+                  {isActive && <ArrowRight size={14} style={{ opacity: 0.9 }} />}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right Service Cards Grid */}
+          <div style={{ padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", alignContent: "start" }}>
+            {activeCategory && activeCategory.services && activeCategory.services.length > 0 ? (
+              activeCategory.services.map((service, idx) => {
+                const href = `/services?tab=${activeCategory.slug || "engineering"}#${service.slug || ""}`;
+                return (
+                  <Link
+                    key={service._id || idx}
+                    href={href}
+                    onClick={onClose}
+                    className="wsd-nav-service-card"
                     style={{
-                      fontSize: "13.5px",
-                      fontWeight: 600,
-                      color: isDark ? "#f8fafc" : "#0f172a",
-                      lineHeight: 1.3,
-                      marginBottom: "3px",
+                      backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.02)",
+                      border: isDark ? "1px solid rgba(255, 255, 255, 0.05)" : "1px solid rgba(0, 0, 0, 0.04)",
                     }}
                   >
-                    {service.title}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      color: isDark ? "rgba(255, 255, 255, 0.55)" : "rgba(100, 116, 139, 0.9)",
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {service.subtitle}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+                    <div
+                      className="wsd-nav-icon-box"
+                      style={{
+                        width: "36px",
+                        height: "36px",
+                        borderRadius: "10px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: isDark ? "rgba(37, 99, 235, 0.15)" : "rgba(37, 99, 235, 0.08)",
+                        color: "#3b82f6",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <LucideIcon name={service.icon} size={19} fallback={Code2} />
+                    </div>
+                    <div>
+                      <div
+                        className="wsd-nav-card-title"
+                        style={{
+                          fontSize: "13.5px",
+                          fontWeight: 600,
+                          color: isDark ? "#f8fafc" : "#0f172a",
+                          lineHeight: 1.3,
+                          marginBottom: "3px",
+                        }}
+                      >
+                        {service.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: isDark ? "rgba(255, 255, 255, 0.55)" : "rgba(100, 116, 139, 0.9)",
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {service.shortDescription}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })
+            ) : (
+              <div style={{ gridColumn: "1 / -1", padding: "20px", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
+                No active subcategories configured for this category.
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Bottom Bar: Explore all services */}
       <div

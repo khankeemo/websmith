@@ -28,9 +28,11 @@ export const POST = apiHandler(async ({ db, request, user, params }) => {
     rating,
     comment,
     date: new Date().toISOString(),
-    clientName: String(body.clientName ?? user.name ?? ""),
-    publishedAsTestimonial: false,
-    testimonialPublishedAt: null,
+    clientName: String(body.clientName ?? user.name ?? "").trim(),
+    authorName: String(body.authorName ?? body.clientName ?? user.name ?? "").trim(),
+    company: String(body.company ?? project.clientCompany ?? project.client ?? "").trim(),
+    publishedAsTestimonial: body.publishedAsTestimonial === true,
+    testimonialPublishedAt: body.publishedAsTestimonial === true ? new Date() : null,
   };
   const result = await db.collection<any>("projects").findOneAndUpdate(
     { _id: id },

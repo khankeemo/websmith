@@ -25,7 +25,13 @@ export default function DeveloperCard({ developer, viewMode, onEdit, onDelete, o
     return (
       <div style={styles.listRow}>
         <div style={styles.listInfo}>
-          <div style={styles.avatar}>{developer.name.charAt(0).toUpperCase()}</div>
+          <div style={{ ...styles.avatar, overflow: 'hidden' }}>
+            {developer.avatar ? (
+              <img src={developer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              developer.name.charAt(0).toUpperCase()
+            )}
+          </div>
           <div>
             <strong>{developer.name}</strong>
             <p style={styles.listMeta}>
@@ -54,7 +60,13 @@ export default function DeveloperCard({ developer, viewMode, onEdit, onDelete, o
   return (
     <div style={styles.card}>
       <div style={styles.cardHeader}>
-        <div style={styles.avatarLarge}>{developer.name.charAt(0).toUpperCase()}</div>
+        <div style={{ ...styles.avatarLarge, overflow: 'hidden' }}>
+          {developer.avatar ? (
+            <img src={developer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            developer.name.charAt(0).toUpperCase()
+          )}
+        </div>
         <div style={styles.badges}>
           <span style={{ ...styles.statusBadge, backgroundColor: `${getStatusColor(developer.status)}20`, color: getStatusColor(developer.status) }}>
             {developer.status}

@@ -21,7 +21,7 @@ export default function ClientCard({ client, onEdit, onDelete, onTogglePublish }
         <div style={styles.iconContainer}>
           <Users size={24} color="#007AFF" />
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {client.customId && (
             <span style={{ ...styles.statusBadge, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
               {client.customId}
@@ -34,6 +34,14 @@ export default function ClientCard({ client, onEdit, onDelete, onTogglePublish }
             border: `1px solid ${client.status === 'active' ? 'rgba(52, 199, 89, 0.2)' : 'rgba(255, 59, 48, 0.2)'}`
           }}>
             {client.status === 'active' ? 'Active' : 'Inactive'}
+          </span>
+          <span style={{
+            ...styles.statusBadge,
+            backgroundColor: client.published ? 'rgba(52, 199, 89, 0.15)' : 'rgba(142, 142, 147, 0.15)',
+            color: client.published ? '#34C759' : '#8E8E93',
+            border: `1px solid ${client.published ? 'rgba(52, 199, 89, 0.3)' : 'rgba(142, 142, 147, 0.3)'}`
+          }}>
+            {client.published ? 'Published' : 'Draft'}
           </span>
         </div>
       </div>
@@ -65,10 +73,20 @@ export default function ClientCard({ client, onEdit, onDelete, onTogglePublish }
 
       <div style={styles.cardActions}>
         {onTogglePublish && (
-          <button onClick={() => onTogglePublish(client)} style={styles.publishBtn} className="card-action-btn">
+          <button
+            onClick={() => onTogglePublish(client)}
+            style={{
+              ...styles.publishBtn,
+              backgroundColor: client.published ? 'rgba(255, 149, 0, 0.12)' : 'rgba(52, 199, 89, 0.15)',
+              color: client.published ? '#FF9500' : '#34C759',
+              border: `1px solid ${client.published ? 'rgba(255, 149, 0, 0.3)' : 'rgba(52, 199, 89, 0.3)'}`,
+            }}
+            className="card-action-btn"
+          >
             <span>{client.published ? 'Unpublish' : 'Publish'}</span>
           </button>
         )}
+
         <button onClick={() => onEdit(client)} style={styles.editBtn} className="card-action-btn">
           <Edit2 size={16} />
           <span>Edit</span>

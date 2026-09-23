@@ -24,6 +24,8 @@ import { useStoreUI } from "../../app/software-store/StoreUIContext";
 import MegaMenuServices from "./MegaMenuServices";
 import DropdownIndustries from "./DropdownIndustries";
 import DropdownCompany from "./DropdownCompany";
+import { getPublicIndustries, getPublicServiceCategories } from "../../lib/cms/cmsService";
+import type { CmsIndustry, CmsServiceCategory } from "../../lib/cms/types";
 
 const brandLogo = "/images/icon.png";
 const brandWordmark = "/images/wordmark1.png";
@@ -46,6 +48,10 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
   const storeUI = useStoreUI();
   const isDark = publicTheme === "dark";
 
+  // Dynamic CMS Data for mobile navigation
+  const [mobileIndustries, setMobileIndustries] = useState<CmsIndustry[]>([]);
+  const [mobileServiceCategories, setMobileServiceCategories] = useState<CmsServiceCategory[]>([]);
+
   // DreamX Dropdown state
   const [activeDropdown, setActiveDropdown] = useState<"services" | "industries" | "company" | null>(null);
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -55,6 +61,28 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
 
   useLayoutEffect(() => {
     setNavMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadNavData() {
+      try {
+        const [indList, catList] = await Promise.all([
+          getPublicIndustries(),
+          getPublicServiceCategories({ menuOnly: true }),
+        ]);
+        if (!isCancelled) {
+          if (Array.isArray(indList) && indList.length > 0) setMobileIndustries(indList);
+          if (Array.isArray(catList) && catList.length > 0) setMobileServiceCategories(catList);
+        }
+      } catch (err) {
+        console.error("Failed to load nav CMS data:", err);
+      }
+    }
+    loadNavData();
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   const showGuestThemeToggle = navMounted;
@@ -609,18 +637,16 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                     >
                       View All Services ➔
                     </Link>
-                    <Link href="/services?tab=engineering#engineering" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Software Engineering
-                    </Link>
-                    <Link href="/services?tab=erp#erp" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Enterprise ERP & CRM
-                    </Link>
-                    <Link href="/services?tab=licensing#licensing" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Universal Licensing (ULP)
-                    </Link>
-                    <Link href="/services?tab=ai#ai" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      AI Solutions
-                    </Link>
+                    {mobileServiceCategories.map((cat) => (
+                      <Link
+                        key={cat._id || cat.slug}
+                        href={`/services?tab=${cat.slug}#${cat.slug}`}
+                        onClick={() => setMobileOpen(false)}
+                        style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}
+                      >
+                        {cat.name}
+                      </Link>
+                    ))}
                   </div>
                 )}
               </div>
@@ -660,21 +686,16 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
                     >
                       View All Industries ➔
                     </Link>
-                    <Link href="/industries?sector=fintech" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      FinTech & Banking
-                    </Link>
-                    <Link href="/industries?sector=ecommerce" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      E-Commerce & Retail
-                    </Link>
-                    <Link href="/industries?sector=healthcare" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Healthcare & MedTech
-                    </Link>
-                    <Link href="/industries?sector=saas" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Enterprise SaaS & B2B
-                    </Link>
-                    <Link href="/industries?sector=logistics" onClick={() => setMobileOpen(false)} style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}>
-                      Logistics & Supply Chain
-                    </Link>
+                    {mobileIndustries.map((ind) => (
+                      <Link
+                        key={ind._id || ind.slug}
+                        href={`/industries?sector=${ind.slug}`}
+                        onClick={() => setMobileOpen(false)}
+                        style={{ fontSize: "13px", color: isDark ? "#94a3b8" : "#475569" }}
+                      >
+                        {ind.name}
+                      </Link>
+                    ))}
                   </div>
                 )}
               </div>

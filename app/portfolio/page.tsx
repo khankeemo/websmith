@@ -6,159 +6,66 @@ import Link from "next/link";
 import { 
   Briefcase, 
   ExternalLink, 
-  Code2, 
-  Layers, 
   Sparkles, 
   CheckCircle2, 
   ArrowRight,
-  Filter,
   Search,
-  Globe
 } from "lucide-react";
 import { getPublishedProjects, Project } from "../projects/services/projectService";
 import { usePublicTheme } from "../providers/PublicThemeProvider";
 import { useLeadFunnel } from "../providers/LeadFunnelProvider";
-
-type PortfolioCategory = "All" | "Web Apps" | "Enterprise ERP" | "Mobile Apps" | "Cloud & APIs";
-
-interface ShowcaseItem {
-  id: string;
-  title: string;
-  category: PortfolioCategory;
-  client: string;
-  description: string;
-  metrics: string;
-  techStack: string[];
-  publicUrl?: string;
-  previewImage?: string;
-}
-
-const CURATED_PORTFOLIO: ShowcaseItem[] = [
-  {
-    id: "curated-1",
-    title: "ApexFlow Enterprise ERP",
-    category: "Enterprise ERP",
-    client: "Logix Global Supply Chain",
-    description: "End-to-end enterprise resource planning system with real-time inventory synchronization, role-based portals, and automated tax invoicing.",
-    metrics: "Reduced inventory discrepancy by 94% across 8 warehouses",
-    techStack: ["Next.js 16", "PostgreSQL", "Tailwind CSS", "Redis", "Docker"],
-    publicUrl: "https://websmithdigital.com",
-    previewImage: "/images/portfolio/apexflow_mockup.jpg",
-  },
-  {
-    id: "curated-2",
-    title: "OmniLicense Universal Hub",
-    category: "Cloud & APIs",
-    client: "Desktop & Mobile Software Vendors",
-    description: "Multi-runtime software licensing engine supporting 13 programming languages, cryptographic hardware binding, and trial grace periods.",
-    metrics: "Over 25,000+ active device licenses managed with 99.99% uptime",
-    techStack: ["Go", "Node.js", "Neon DB", "HMAC-SHA256", "C++ SDK"],
-    publicUrl: "https://websmithdigital.com/license",
-    previewImage: "/images/portfolio/license_mockup.jpg",
-  },
-  {
-    id: "curated-3",
-    title: "FinPulse High-Speed Wealth Platform",
-    category: "Web Apps",
-    client: "Aura Capital Partners",
-    description: "Real-time algorithmic trading dashboard with interactive charts, sub-50ms market data streaming, and automated portfolio rebalancing.",
-    metrics: "3.2x faster page load and 65% lower server memory footprint",
-    techStack: ["React 19", "Next.js", "WebSockets", "Recharts", "TypeScript"],
-    publicUrl: "https://websmithdigital.com",
-    previewImage: "/images/portfolio/finpulse_mockup.jpg",
-  },
-  {
-    id: "curated-4",
-    title: "PulseHealth Telemedicine App",
-    category: "Mobile Apps",
-    client: "MedCare Health Network",
-    description: "HIPAA-compliant cross-platform mobile application enabling secure encrypted video doctor consultations, e-prescriptions, and appointment queues.",
-    metrics: "4.9-star rating with over 40,000 monthly patient consultations",
-    techStack: ["React Native", "WebRTC", "Node.js", "AES-256", "iOS / Android"],
-    publicUrl: "https://websmithdigital.com",
-    previewImage: "/images/portfolio/telemed_mockup.jpg",
-  },
-  {
-    id: "curated-5",
-    title: "TradeSphere B2B Wholesale Marketplace",
-    category: "Web Apps",
-    client: "Global Sourcing Hub",
-    description: "High-volume wholesale marketplace featuring tiered bulk pricing, multi-currency settlement, custom RFQ workflows, and automated vendor payout.",
-    metrics: "Handled $4.8M+ in quarterly bulk volume seamlessly",
-    techStack: ["Next.js", "Stripe API", "Neon PostgreSQL", "Tailwind CSS"],
-    publicUrl: "https://websmithdigital.com/software-store",
-    previewImage: "/images/portfolio/marketplace_mockup.jpg",
-  },
-  {
-    id: "curated-6",
-    title: "CloudMatrix Fleet & Dispatch AI",
-    category: "Enterprise ERP",
-    client: "TransLogix Express",
-    description: "Automated route optimization and telematics tracking platform connecting 600+ fleet vehicles with dynamic dispatch scheduling.",
-    metrics: "18% reduction in total fuel consumption and zero lost shipments",
-    techStack: ["TypeScript", "Mapbox GL", "PostGIS", "Redis Queue", "Python"],
-    publicUrl: "https://websmithdigital.com",
-    previewImage: "/images/portfolio/fleet_mockup.jpg",
-  },
-];
 
 export default function PortfolioPage() {
   const { publicTheme } = usePublicTheme();
   const isDark = publicTheme === "dark";
   const { openLeadServicesModal } = useLeadFunnel();
 
-  const [activeCategory, setActiveCategory] = useState<PortfolioCategory>("All");
+  const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [dbProjects, setDbProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getPublishedProjects()
-      .then((projects) => {
-        setDbProjects(projects || []);
-      })
-      .catch(() => {
-        setDbProjects([]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    let isCancelled = false;
+    async function loadProjects() {
+      try {
+        setLoading(true);
+        const data = await getPublishedProjects();
+        if (!isCancelled) {
+          setProjects(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch published projects:", err);
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    }
+    loadProjects();
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
-  // Merge database published projects with curated projects
-  const allProjects: ShowcaseItem[] = [
-    ...dbProjects.map((p) => ({
-      id: p._id || p.name,
-      title: p.name,
-      category: "Web Apps" as PortfolioCategory,
-      client: p.clientCompany || p.client || "Client Project",
-      description: p.description,
-      metrics: "Delivered on schedule with 100% quality score",
-      techStack: ["Next.js", "TypeScript", "Tailwind CSS"],
-      publicUrl: p.publicUrl,
-      previewImage: p.previewImage || "/images/websmith_original.jpg",
-    })),
-    ...CURATED_PORTFOLIO,
-  ];
+  // Dynamically derive category pills from database projects
+  const uniqueCategories = Array.from(
+    new Set(projects.map((p) => p.category?.trim()).filter(Boolean))
+  ) as string[];
 
-  const filteredProjects = allProjects.filter((project) => {
-    const matchesCategory = activeCategory === "All" || project.category === activeCategory;
+  const categories = ["All", ...uniqueCategories];
+
+  const filteredProjects = projects.filter((project) => {
+    const projectCat = project.category || "General";
+    const matchesCategory = activeCategory === "All" || projectCat.toLowerCase() === activeCategory.toLowerCase();
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      searchQuery.trim() === "" ||
-      project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.client.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.techStack.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+      query === "" ||
+      project.name.toLowerCase().includes(query) ||
+      (project.description && project.description.toLowerCase().includes(query)) ||
+      (project.clientCompany && project.clientCompany.toLowerCase().includes(query)) ||
+      (project.client && project.client.toLowerCase().includes(query)) ||
+      (project.techStack && project.techStack.some((t) => t.toLowerCase().includes(query)));
     return matchesCategory && matchesSearch;
   });
-
-  const categories: PortfolioCategory[] = [
-    "All",
-    "Web Apps",
-    "Enterprise ERP",
-    "Mobile Apps",
-    "Cloud & APIs",
-  ];
 
   return (
     <div
@@ -187,7 +94,7 @@ export default function PortfolioPage() {
             marginBottom: "20px",
           }}
         >
-          <Sparkles size={14} /> Proven Engineering & Launches
+          <Sparkles size={14} /> Proven Engineering &amp; Launches
         </div>
 
         <h1
@@ -246,7 +153,7 @@ export default function PortfolioPage() {
           {/* Category Tabs */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             {categories.map((cat) => {
-              const isActive = activeCategory === cat;
+              const isActive = activeCategory.toLowerCase() === cat.toLowerCase();
               return (
                 <button
                   key={cat}
@@ -312,7 +219,26 @@ export default function PortfolioPage() {
 
       {/* Projects Grid */}
       <div style={{ width: "100%", maxWidth: "100%", margin: "0 auto", padding: "0 clamp(20px, 4vw, 64px)" }}>
-        {filteredProjects.length === 0 ? (
+        {loading ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+              gap: "28px",
+            }}
+          >
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                style={{
+                  height: "380px",
+                  borderRadius: "20px",
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "#e2e8f0",
+                }}
+              />
+            ))}
+          </div>
+        ) : filteredProjects.length === 0 ? (
           <div
             style={{
               textAlign: "center",
@@ -337,7 +263,7 @@ export default function PortfolioPage() {
           >
             {filteredProjects.map((project) => (
               <div
-                key={project.id}
+                key={project._id || project.name}
                 style={{
                   borderRadius: "20px",
                   overflow: "hidden",
@@ -358,7 +284,7 @@ export default function PortfolioPage() {
                 >
                   <Image
                     src={project.previewImage && (project.previewImage.startsWith("/") || project.previewImage.startsWith("http")) ? project.previewImage : "/images/websmith_original.jpg"}
-                    alt={project.title}
+                    alt={project.name}
                     fill
                     unoptimized
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 380px"
@@ -373,24 +299,26 @@ export default function PortfolioPage() {
                         : "linear-gradient(to top, rgba(255, 255, 255, 0.9) 0%, transparent 60%)",
                     }}
                   />
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "12px",
-                      left: "12px",
-                      padding: "4px 10px",
-                      borderRadius: "8px",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      letterSpacing: "0.03em",
-                      backgroundColor: isDark ? "rgba(0, 0, 0, 0.6)" : "rgba(255, 255, 255, 0.9)",
-                      backdropFilter: "blur(8px)",
-                      color: "#3b82f6",
-                      border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #cbd5e1",
-                    }}
-                  >
-                    {project.category}
-                  </div>
+                  {project.category && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "12px",
+                        left: "12px",
+                        padding: "4px 10px",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        letterSpacing: "0.03em",
+                        backgroundColor: isDark ? "rgba(0, 0, 0, 0.6)" : "rgba(255, 255, 255, 0.9)",
+                        backdropFilter: "blur(8px)",
+                        color: "#3b82f6",
+                        border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #cbd5e1",
+                      }}
+                    >
+                      {project.category}
+                    </div>
+                  )}
                 </div>
 
                 {/* Card Content */}
@@ -405,7 +333,7 @@ export default function PortfolioPage() {
                       marginBottom: "6px",
                     }}
                   >
-                    {project.client}
+                    {project.clientCompany || project.client || "Client Project"}
                   </div>
 
                   <h3
@@ -417,7 +345,7 @@ export default function PortfolioPage() {
                       color: isDark ? "#ffffff" : "#0f172a",
                     }}
                   >
-                    {project.title}
+                    {project.name}
                   </h3>
 
                   <p
@@ -433,51 +361,55 @@ export default function PortfolioPage() {
                   </p>
 
                   {/* Measurable ROI Metric */}
-                  <div
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: "10px",
-                      backgroundColor: isDark ? "rgba(16, 185, 129, 0.08)" : "rgba(16, 185, 129, 0.06)",
-                      border: isDark ? "1px solid rgba(16, 185, 129, 0.2)" : "1px solid rgba(16, 185, 129, 0.15)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#10b981",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
-                    <span>{project.metrics}</span>
-                  </div>
+                  {project.metrics && (
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "10px",
+                        backgroundColor: isDark ? "rgba(16, 185, 129, 0.08)" : "rgba(16, 185, 129, 0.06)",
+                        border: isDark ? "1px solid rgba(16, 185, 129, 0.2)" : "1px solid rgba(16, 185, 129, 0.15)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#10b981",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+                      <span>{project.metrics}</span>
+                    </div>
+                  )}
 
                   {/* Tech Stack Chips */}
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "6px",
-                      marginBottom: "20px",
-                    }}
-                  >
-                    {project.techStack.map((tech, idx) => (
-                      <span
-                        key={idx}
-                        style={{
-                          padding: "3px 8px",
-                          borderRadius: "6px",
-                          fontSize: "11px",
-                          fontWeight: 500,
-                          backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "#f1f5f9",
-                          color: isDark ? "rgba(255, 255, 255, 0.75)" : "#334155",
-                          border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
-                        }}
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
+                  {Array.isArray(project.techStack) && project.techStack.length > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "6px",
+                        marginBottom: "20px",
+                      }}
+                    >
+                      {project.techStack.map((tech, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            padding: "3px 8px",
+                            borderRadius: "6px",
+                            fontSize: "11px",
+                            fontWeight: 500,
+                            backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "#f1f5f9",
+                            color: isDark ? "rgba(255, 255, 255, 0.75)" : "#334155",
+                            border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+                          }}
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Action Buttons */}
                   <div

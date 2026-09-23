@@ -2313,3 +2313,23 @@ html:not(.dark-theme) .admin-panel-scope .listRow,
   box-shadow: 0 8px 24px rgba(0, 122, 255, 0.12) !important;
   border-color: rgba(0, 122, 255, 0.3) !important;
 }
+
+
+/* CMS & Admin Dashboard Theme Variables */
+:root, .light-theme {
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --surface-muted: #f8fafc;
+  --surface-border: #e2e8f0;
+}
+
+.dark-theme {
+  --card-bg: #1e293b;
+  --card-border: #334155;
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --input-border: rgba(255, 255, 255, 0.15);
+  --surface-muted: rgba(255, 255, 255, 0.04);
+  --surface-border: rgba(255, 255, 255, 0.08);
+}

@@ -4,35 +4,18 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
-  Code2, 
-  Smartphone, 
-  Server, 
-  Database, 
-  Building2, 
-  Workflow, 
-  PackageCheck, 
-  Receipt, 
-  KeyRound, 
-  Cpu, 
-  ShieldCheck, 
-  AppWindow, 
-  Bot, 
-  BrainCircuit, 
-  FileSearch, 
-  Layers, 
   Sparkles, 
   ArrowRight, 
   CheckCircle2, 
-  Terminal,
-  Zap,
-  Lock,
-  GitBranch,
-  Headphones
+  Check,
+  ChevronRight,
+  Layers,
 } from "lucide-react";
 import { usePublicTheme } from "../providers/PublicThemeProvider";
 import { useLeadFunnel } from "../providers/LeadFunnelProvider";
-
-type ServiceTab = "all" | "engineering" | "erp" | "licensing" | "cloud" | "ai";
+import { getPublicServiceCategories } from "@/lib/cms/cmsService";
+import type { CmsServiceCategory, CmsServiceItem } from "@/lib/cms/types";
+import LucideIcon from "@/components/shared/LucideIcon";
 
 function ServicesContent() {
   const { publicTheme } = usePublicTheme();
@@ -40,95 +23,39 @@ function ServicesContent() {
   const { openLeadServicesModal } = useLeadFunnel();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") || searchParams.get("category");
-  const [activeTab, setActiveTab] = useState<ServiceTab>("all");
+
+  const [categories, setCategories] = useState<CmsServiceCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("all");
 
   useEffect(() => {
-    if (tabParam && ["all", "engineering", "erp", "licensing", "cloud", "ai"].includes(tabParam)) {
-      setActiveTab(tabParam as ServiceTab);
+    let isCancelled = false;
+    async function loadServices() {
+      try {
+        setLoading(true);
+        const data = await getPublicServiceCategories();
+        if (!isCancelled) {
+          const list = Array.isArray(data) ? data : [];
+          setCategories(list);
+          if (tabParam && (tabParam === "all" || list.some((c) => c.slug === tabParam))) {
+            setActiveTab(tabParam);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load CMS service categories:", err);
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
     }
+    loadServices();
+    return () => {
+      isCancelled = true;
+    };
   }, [tabParam]);
 
-  const pillars = [
-    {
-      id: "engineering",
-      category: "Software Engineering",
-      icon: Code2,
-      badge: "High-Scale",
-      title: "Custom Full-Stack Web & Mobile Architecture",
-      summary: "Modern, high-performance web systems and mobile applications built with sub-second response times and scalable cloud infrastructure.",
-      deliverables: [
-        "Production Next.js 16 & React 19 web applications",
-        "Cross-platform iOS & Android mobile development (React Native)",
-        "Microservices & High-Throughput REST/GraphQL APIs",
-        "Edge caching, image optimization & Core Web Vitals 95+",
-      ],
-      techStack: ["Next.js", "TypeScript", "React Native", "Node.js", "Tailwind CSS", "Go"],
-    },
-    {
-      id: "erp",
-      category: "Enterprise ERP & CRM",
-      icon: Building2,
-      badge: "Automation",
-      title: "Custom Business Management & Workflow ERPs",
-      summary: "Centralize your entire company's operations into a unified, secure dashboard with real-time inventory tracking, staff roles, and automated billing.",
-      deliverables: [
-        "Tailored ERP systems designed around your exact business logic",
-        "Real-time inventory sync & barcode/QR warehouse operations",
-        "Multi-currency billing, GST/VAT tax calculation & automated invoices",
-        "Role-based portals with granular permission controls (RBAC)",
-      ],
-      techStack: ["PostgreSQL", "Neon Serverless", "Redis Queues", "Docker", "REST API"],
-    },
-    {
-      id: "licensing",
-      category: "Universal Licensing (ULP)",
-      icon: KeyRound,
-      badge: "Proprietary Tech",
-      title: "Universal License Platform & 13-Language SDKs",
-      summary: "End-to-end commercial software licensing infrastructure for desktop, server, and mobile software vendors with hardware node-locking.",
-      deliverables: [
-        "Automated SDK compilation across 13 languages (Python, Go, C++, Rust, etc.)",
-        "Cryptographic hardware fingerprinting (CPU, Disk, MAC, Motherboard)",
-        "Time-bombed trial periods & cryptographic offline grace periods",
-        "Universal License Center (ULC) embeddable GUI client",
-      ],
-      techStack: ["C++", "Rust", "Go", "Python", "C#", "HMAC-SHA256", "AES-256-GCM"],
-    },
-    {
-      id: "cloud",
-      category: "Cloud Architecture & DevOps",
-      icon: Server,
-      badge: "High-Availability",
-      title: "Resilient Cloud Infrastructure & Distributed Databases",
-      summary: "Serverless architectures, automated CI/CD deployment pipelines, and zero-downtime database scaling engineered for mission-critical reliability.",
-      deliverables: [
-        "Serverless Neon PostgreSQL with automated branch scaling",
-        "Upstash Redis caching & QStash distributed message queues",
-        "Automated CI/CD workflows, containerization & edge CDN routing",
-        "Security audit, AES-256 encryption at rest & 99.99% uptime SLAs",
-      ],
-      techStack: ["AWS", "Vercel Edge", "Docker", "Neon DB", "Redis", "Upstash"],
-    },
-    {
-      id: "ai",
-      category: "AI Solutions & Integrations",
-      icon: Bot,
-      badge: "Next-Gen",
-      title: "Autonomous AI Workflows & Enterprise RAG",
-      summary: "Harness modern Large Language Models and intelligent agent workflows to automate complex business tasks, document extraction, and customer intelligence.",
-      deliverables: [
-        "Autonomous multi-agent task execution pipelines",
-        "Custom enterprise RAG (vector database search on private company data)",
-        "Intelligent document OCR for automated invoices, receipts & contracts",
-        "24/7 Context-aware client support chatbots with human escalation",
-      ],
-      techStack: ["LangChain", "Vector Embeddings", "OpenAI / Anthropic", "Python", "FastAPI"],
-    },
-  ];
-
-  const filteredPillars = activeTab === "all" 
-    ? pillars 
-    : pillars.filter(p => p.id === activeTab);
+  const filteredCategories = activeTab === "all"
+    ? categories
+    : categories.filter((c) => c.slug === activeTab);
 
   const processSteps = [
     {
@@ -148,13 +75,8 @@ function ServicesContent() {
     },
     {
       number: "04",
-      title: "Zero-Downtime Deployment",
-      description: "We deploy onto highly available cloud infrastructure with automated database migrations, SSL provisioning, and global edge CDN caching.",
-    },
-    {
-      number: "05",
-      title: "24/7 SLA Support & Scaling",
-      description: "Our core engineering team provides ongoing performance monitoring, security patches, feature iterations, and guaranteed SLA response times.",
+      title: "Turnkey Deployment & SLA Operations",
+      description: "Zero-downtime production deployment, telemetry observability, and 24/7 technical monitoring backed by formal enterprise uptime SLAs.",
     },
   ];
 
@@ -169,7 +91,15 @@ function ServicesContent() {
       }}
     >
       {/* Hero Header */}
-      <div style={{ width: "100%", maxWidth: "100%", margin: "0 auto", padding: "0 clamp(20px, 4vw, 64px)", textAlign: "center" }}>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          margin: "0 auto",
+          padding: "0 clamp(20px, 4vw, 64px)",
+          textAlign: "center",
+        }}
+      >
         <div
           style={{
             display: "inline-flex",
@@ -185,19 +115,19 @@ function ServicesContent() {
             marginBottom: "20px",
           }}
         >
-          <Sparkles size={14} /> Full-Spectrum Digital Engineering
+          <Sparkles size={14} /> Full-Cycle Engineering &amp; Architecture
         </div>
 
         <h1
           style={{
-            fontSize: "clamp(34px, 5vw, 56px)",
+            fontSize: "clamp(32px, 5vw, 54px)",
             fontWeight: 800,
             letterSpacing: "-0.03em",
             lineHeight: 1.15,
-            marginBottom: "18px",
+            marginBottom: "20px",
           }}
         >
-          Architecting High-Scale Systems &amp;{" "}
+          High-Velocity Software{" "}
           <span
             style={{
               background: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
@@ -208,24 +138,33 @@ function ServicesContent() {
               textShadow: "none",
             }}
           >
-            Digital Ecosystems
+            Capabilities
           </span>
         </h1>
 
         <p
           style={{
-            fontSize: "clamp(15px, 2vw, 18px)",
-            color: isDark ? "rgba(255, 255, 255, 0.65)" : "rgba(100, 116, 139, 0.9)",
+            fontSize: "clamp(16px, 2vw, 19px)",
+            color: isDark ? "rgba(255, 255, 255, 0.7)" : "#475569",
             maxWidth: "760px",
             margin: "0 auto 36px",
-            lineHeight: 1.6,
+            lineHeight: 1.65,
           }}
         >
-          From bespoke enterprise ERP platforms and universal software licensing to high-speed web apps and AI automations, we build reliable technology that drives measurable growth.
+          From bespoke enterprise ERP platforms and node-locked licensing SDKs to autonomous AI agents and low-latency cloud infrastructure, our senior engineering studio builds software designed to dominate.
         </p>
 
-        {/* Action CTAs */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "14px", flexWrap: "wrap", marginBottom: "48px" }}>
+        {/* Action Buttons */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "14px",
+            flexWrap: "wrap",
+            marginBottom: "52px",
+          }}
+        >
           <button
             type="button"
             onClick={() => openLeadServicesModal()}
@@ -233,19 +172,19 @@ function ServicesContent() {
               display: "inline-flex",
               alignItems: "center",
               gap: "8px",
-              padding: "13px 30px",
+              padding: "13px 28px",
               borderRadius: "9999px",
               fontSize: "14px",
-              fontWeight: 700,
+              fontWeight: 600,
               color: "#ffffff",
               background: "linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)",
               border: "none",
               cursor: "pointer",
-              boxShadow: "0 8px 24px -4px rgba(37, 99, 235, 0.4)",
+              boxShadow: "0 8px 20px -4px rgba(37, 99, 235, 0.4)",
               transition: "all 0.15s ease",
             }}
           >
-            Start Your Project <ArrowRight size={15} />
+            Request Architecture Scope <ArrowRight size={16} />
           </button>
 
           <Link
@@ -270,67 +209,102 @@ function ServicesContent() {
         </div>
 
         {/* Filter Tabs */}
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "6px",
-            borderRadius: "9999px",
-            backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "#ffffff",
-            border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
-            boxShadow: isDark ? "none" : "0 4px 16px -2px rgba(0, 0, 0, 0.04)",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            marginBottom: "52px",
-          }}
-        >
-          {[
-            { id: "all", label: "All Capabilities" },
-            { id: "engineering", label: "Software Engineering" },
-            { id: "erp", label: "Enterprise ERP" },
-            { id: "licensing", label: "Universal Licensing" },
-            { id: "cloud", label: "Cloud & DevOps" },
-            { id: "ai", label: "AI Solutions" },
-          ].map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as ServiceTab)}
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginBottom: "52px" }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
                 style={{
-                  padding: "8px 18px",
+                  width: "120px",
+                  height: "36px",
                   borderRadius: "9999px",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  border: "none",
-                  cursor: "pointer",
-                  backgroundColor: isActive ? "#2563eb" : "transparent",
-                  color: isActive
-                    ? "#ffffff"
-                    : isDark
-                    ? "rgba(255, 255, 255, 0.7)"
-                    : "rgba(15, 23, 42, 0.7)",
-                  transition: "all 0.15s ease",
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "#e2e8f0",
                 }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+              />
+            ))}
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px",
+              borderRadius: "9999px",
+              backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "#ffffff",
+              border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+              boxShadow: isDark ? "none" : "0 4px 16px -2px rgba(0, 0, 0, 0.04)",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              marginBottom: "52px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveTab("all")}
+              style={{
+                padding: "8px 18px",
+                borderRadius: "9999px",
+                fontSize: "13px",
+                fontWeight: 600,
+                border: "none",
+                cursor: "pointer",
+                backgroundColor: activeTab === "all" ? "#2563eb" : "transparent",
+                color: activeTab === "all"
+                  ? "#ffffff"
+                  : isDark
+                  ? "rgba(255, 255, 255, 0.7)"
+                  : "rgba(15, 23, 42, 0.7)",
+                transition: "all 0.15s ease",
+              }}
+            >
+              All Capabilities
+            </button>
+            {categories.map((cat) => {
+              const isActive = activeTab === cat.slug;
+              return (
+                <button
+                  key={cat._id || cat.slug}
+                  type="button"
+                  onClick={() => setActiveTab(cat.slug)}
+                  style={{
+                    padding: "8px 18px",
+                    borderRadius: "9999px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    border: "none",
+                    cursor: "pointer",
+                    backgroundColor: isActive ? "#2563eb" : "transparent",
+                    color: isActive
+                      ? "#ffffff"
+                      : isDark
+                      ? "rgba(255, 255, 255, 0.7)"
+                      : "rgba(15, 23, 42, 0.7)",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Service Pillars Grid */}
+      {/* Service Categories Grid */}
       <div style={{ width: "100%", maxWidth: "100%", margin: "0 auto 80px", padding: "0 clamp(20px, 4vw, 64px)" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
-          {filteredPillars.map((pillar, idx) => {
-            const Icon = pillar.icon;
+        <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+          {filteredCategories.map((category) => {
+            const subServices = category.services || [];
+            // Extract unique tech stack tags across subservices
+            const allTech: string[] = Array.from(
+              new Set(subServices.flatMap((s) => s.techStack || []))
+            ).slice(0, 8);
+
             return (
               <div
-                key={idx}
-                id={pillar.id}
+                key={category._id || category.slug}
+                id={category.slug}
                 style={{
                   scrollMarginTop: "120px",
                   borderRadius: "24px",
@@ -338,7 +312,7 @@ function ServicesContent() {
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
                   gap: "32px",
-                  alignItems: "center",
+                  alignItems: "flex-start",
                 }}
                 className="wsd-service-pillar-card wsd-unified-card"
               >
@@ -347,8 +321,8 @@ function ServicesContent() {
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
                     <div
                       style={{
-                        width: "42px",
-                        height: "42px",
+                        width: "44px",
+                        height: "44px",
                         borderRadius: "12px",
                         display: "flex",
                         alignItems: "center",
@@ -357,68 +331,112 @@ function ServicesContent() {
                         color: "#3b82f6",
                       }}
                     >
-                      <Icon size={22} />
+                      <LucideIcon name={category.icon || "Layers"} size={22} color="#3b82f6" />
                     </div>
-                    <span
-                      style={{
-                        padding: "4px 10px",
-                        borderRadius: "9999px",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        letterSpacing: "0.03em",
-                        backgroundColor: isDark ? "rgba(255, 255, 255, 0.06)" : "#f1f5f9",
-                        color: isDark ? "rgba(255, 255, 255, 0.8)" : "#334155",
-                      }}
-                    >
-                      {pillar.badge}
-                    </span>
+                    {category.badge && (
+                      <span
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: "9999px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          letterSpacing: "0.03em",
+                          backgroundColor: isDark ? "rgba(255, 255, 255, 0.06)" : "#f1f5f9",
+                          color: isDark ? "rgba(255, 255, 255, 0.8)" : "#334155",
+                        }}
+                      >
+                        {category.badge}
+                      </span>
+                    )}
                   </div>
 
                   <h2
                     style={{
-                      fontSize: "clamp(20px, 3vw, 24px)",
+                      fontSize: "clamp(22px, 3vw, 26px)",
                       fontWeight: 700,
                       lineHeight: 1.3,
                       marginBottom: "12px",
                       color: isDark ? "#ffffff" : "#0f172a",
                     }}
                   >
-                    {pillar.title}
+                    {category.name}
                   </h2>
 
                   <p
                     style={{
-                      fontSize: "14px",
+                      fontSize: "14.5px",
                       lineHeight: 1.6,
-                      color: isDark ? "rgba(255, 255, 255, 0.65)" : "#475569",
-                      marginBottom: "20px",
+                      color: isDark ? "rgba(255, 255, 255, 0.7)" : "#475569",
+                      marginBottom: "24px",
                     }}
                   >
-                    {pillar.summary}
+                    {category.description}
                   </p>
 
-                  {/* Tech Stack Tags */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {pillar.techStack.map((tech, tIdx) => (
-                      <span
-                        key={tIdx}
+                  {/* Subservices Badges */}
+                  {subServices.length > 0 && (
+                    <div style={{ marginBottom: "20px" }}>
+                      <div
                         style={{
-                          padding: "4px 10px",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "#f1f5f9",
-                          color: isDark ? "#94a3b8" : "#475569",
-                          border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+                          fontSize: "11.5px",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                          color: isDark ? "rgba(255, 255, 255, 0.45)" : "#64748b",
+                          marginBottom: "10px",
                         }}
                       >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
+                        Specialized Solutions ({subServices.length})
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                        {subServices.map((sub, sIdx) => (
+                          <span
+                            key={sIdx}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              padding: "5px 12px",
+                              borderRadius: "8px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              backgroundColor: isDark ? "rgba(37, 99, 235, 0.12)" : "rgba(37, 99, 235, 0.06)",
+                              color: "#3b82f6",
+                              border: isDark ? "1px solid rgba(37, 99, 235, 0.25)" : "1px solid rgba(37, 99, 235, 0.15)",
+                            }}
+                          >
+                            <LucideIcon name={sub.icon || "Check"} size={13} color="#3b82f6" />
+                            {sub.name || sub.title}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tech Stack Tags */}
+                  {allTech.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                      {allTech.map((tech, tIdx) => (
+                        <span
+                          key={tIdx}
+                          style={{
+                            padding: "4px 10px",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "#f1f5f9",
+                            color: isDark ? "#94a3b8" : "#475569",
+                            border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+                          }}
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Right Deliverables & CTA */}
+                {/* Right Deliverables & Subservices Breakdown */}
                 <div
                   style={{
                     padding: "24px",
@@ -440,14 +458,27 @@ function ServicesContent() {
                     Key Architecture &amp; Deliverables
                   </h3>
 
-                  <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {pillar.deliverables.map((item, dIdx) => (
-                      <li key={dIdx} style={{ display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "13.5px", lineHeight: 1.45 }}>
-                        <CheckCircle2 size={16} style={{ color: "#10b981", flexShrink: 0, marginTop: "2px" }} />
-                        <span style={{ color: isDark ? "rgba(255, 255, 255, 0.85)" : "#1e293b" }}>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "24px" }}>
+                    {subServices.length > 0 ? (
+                      subServices.slice(0, 5).map((sub, dIdx) => (
+                        <div key={dIdx} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                          <CheckCircle2 size={16} style={{ color: "#10b981", flexShrink: 0, marginTop: "2px" }} />
+                          <div>
+                            <div style={{ fontSize: "13.5px", fontWeight: 600, color: isDark ? "#ffffff" : "#0f172a" }}>
+                              {sub.name || sub.title}
+                            </div>
+                            <div style={{ fontSize: "12.5px", color: isDark ? "rgba(255, 255, 255, 0.65)" : "#64748b", lineHeight: 1.4 }}>
+                              {sub.shortDescription}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: "13px", color: isDark ? "rgba(255, 255, 255, 0.5)" : "#64748b" }}>
+                        Custom enterprise engineering specifications configured to your business roadmap.
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     type="button"
@@ -469,7 +500,7 @@ function ServicesContent() {
                       transition: "all 0.15s ease",
                     }}
                   >
-                    Request Consultation for this Service <ArrowRight size={14} />
+                    Request Consultation for {category.name} <ArrowRight size={14} />
                   </button>
                 </div>
               </div>

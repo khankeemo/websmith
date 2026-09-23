@@ -52,6 +52,12 @@ interface FormData {
   clientPhone: string;
   clientCompany: string;
   published: boolean;
+  category: string;
+  metrics: string;
+  techStack: string;
+  challenge: string;
+  solution: string;
+  isFeatured: boolean;
 }
 
 export default function ProjectModal({ isOpen, onClose, onSave, project }: ProjectModalProps) {
@@ -74,6 +80,12 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     clientPhone: '',
     clientCompany: '',
     published: false,
+    category: 'Web Apps',
+    metrics: '',
+    techStack: '',
+    challenge: '',
+    solution: '',
+    isFeatured: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [clients, setClients] = useState<RoleUser[]>([]);
@@ -120,6 +132,12 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         clientPhone: (project as any).clientPhone || '',
         clientCompany: (project as any).clientCompany || '',
         published: Boolean(project.published),
+        category: (project as any).category || (project as any).projectType || 'Web Apps',
+        metrics: (project as any).metrics || '',
+        techStack: Array.isArray((project as any).techStack) ? (project as any).techStack.join(', ') : ((project as any).techStack || ''),
+        challenge: (project as any).challenge || '',
+        solution: (project as any).solution || '',
+        isFeatured: Boolean((project as any).isFeatured),
       });
     } else {
       setFormData({
@@ -141,6 +159,12 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
         clientPhone: '',
         clientCompany: '',
         published: false,
+        category: 'Web Apps',
+        metrics: '',
+        techStack: '',
+        challenge: '',
+        solution: '',
+        isFeatured: false,
       });
     }
     setErrors({});
@@ -166,6 +190,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
     const submitData = {
       ...formData,
       budget: formData.budget ? parseFloat(formData.budget) : undefined,
+      techStack: formData.techStack ? formData.techStack.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
     };
     onSave(submitData);
   };
@@ -392,6 +417,84 @@ export default function ProjectModal({ isOpen, onClose, onSave, project }: Proje
               placeholder="https://images.example.com/project-cover.jpg"
             />
             {errors.previewImage && <p style={styles.errorText}>{errors.previewImage}</p>}
+          </div>
+
+          {/* Portfolio & Showcase Details */}
+          <div style={{ marginTop: '16px', marginBottom: '16px', padding: '16px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 700, margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#3b82f6' }}>
+              Public Portfolio Showcase Fields
+            </h4>
+            
+            <div style={styles.row} className="wsd-form-row">
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Portfolio Category</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => updateField('category', e.target.value)}
+                  style={styles.select}
+                >
+                  <option value="Web Apps">Web Apps</option>
+                  <option value="Enterprise ERP">Enterprise ERP</option>
+                  <option value="Mobile Apps">Mobile Apps</option>
+                  <option value="Cloud & APIs">Cloud & APIs</option>
+                  <option value="FinTech">FinTech</option>
+                  <option value="Healthcare">Healthcare</option>
+                  <option value="AI">AI</option>
+                  <option value="SaaS">SaaS</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Results / Metrics Highlight</label>
+                <input
+                  type="text"
+                  value={formData.metrics}
+                  onChange={(e) => updateField('metrics', e.target.value)}
+                  style={styles.input}
+                  placeholder="e.g. Reduced inventory discrepancy by 94%"
+                />
+              </div>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Tech Stack (comma-separated)</label>
+              <input
+                type="text"
+                value={formData.techStack}
+                onChange={(e) => updateField('techStack', e.target.value)}
+                style={styles.input}
+                placeholder="Next.js 16, PostgreSQL, Tailwind CSS, Redis"
+              />
+            </div>
+
+            <div style={styles.row} className="wsd-form-row">
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Challenge</label>
+                <textarea
+                  rows={2}
+                  value={formData.challenge}
+                  onChange={(e) => updateField('challenge', e.target.value)}
+                  style={{ ...styles.input, height: 'auto', minHeight: '60px' }}
+                  placeholder="The primary business/technical challenge..."
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Solution</label>
+                <textarea
+                  rows={2}
+                  value={formData.solution}
+                  onChange={(e) => updateField('solution', e.target.value)}
+                  style={{ ...styles.input, height: 'auto', minHeight: '60px' }}
+                  placeholder="How Websmith engineered the solution..."
+                />
+              </div>
+            </div>
+
+            <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+              <input type="checkbox" checked={formData.isFeatured} onChange={(e) => setFormData((prev) => ({ ...prev, isFeatured: e.target.checked }))} />
+              Featured Project (Highlighted in Portfolio)
+            </label>
           </div>
 
           <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>

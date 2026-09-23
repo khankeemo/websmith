@@ -5,12 +5,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Search, FolderOpen, LayoutGrid, List, Kanban, MessageSquareQuote, Star, X } from 'lucide-react';
+import { Plus, Search, FolderOpen, LayoutGrid, List, Kanban, MessageSquareQuote, Star, X, Edit2, Trash2 } from 'lucide-react';
 import { useProjects } from './hooks/useProjects';
 import ProjectCard from './components/ProjectCard';
 import ProjectModal from './components/ProjectModal';
 import KanbanBoard from '../../components/ui/KanbanBoard';
-import { Project, bulkUpdateProjectStatus, deleteProjectFeedback, getProjectFeedback, toggleFeedbackTestimonial, updateProjectStatus } from './services/projectService';
+import { Project, bulkUpdateProjectStatus, deleteProjectFeedback, getProjectFeedback, toggleFeedbackTestimonial, updateProjectStatus, submitProjectFeedback, updateProjectFeedback } from './services/projectService';
 import NavbarVisibilityToggle from '../../components/admin/NavbarVisibilityToggle';
 
 export default function ProjectsPage() {
@@ -23,6 +23,17 @@ export default function ProjectsPage() {
   const [feedbackProject, setFeedbackProject] = useState<Project | null>(null);
   const [feedbackItems, setFeedbackItems] = useState<NonNullable<Project['feedback']>>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [isAddingFeedback, setIsAddingFeedback] = useState(false);
+  const [editingFeedbackId, setEditingFeedbackId] = useState<string | null>(null);
+  const [feedbackForm, setFeedbackForm] = useState({
+    clientName: '',
+    company: '',
+    rating: 5,
+    comment: '',
+    publishedAsTestimonial: true,
+  });
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const handleAddProject = () => {
     setEditingProject(null);
@@ -76,6 +87,9 @@ export default function ProjectsPage() {
 
   const handleViewFeedback = async (project: Project) => {
     setFeedbackProject(project);
+    setIsAddingFeedback(false);
+    setEditingFeedbackId(null);
+    setFeedbackError(null);
     setFeedbackLoading(true);
     try {
       const feedback = await getProjectFeedback(project._id!);
@@ -85,6 +99,73 @@ export default function ProjectsPage() {
       setFeedbackItems([]);
     } finally {
       setFeedbackLoading(false);
+    }
+  };
+
+  const handleStartAddFeedback = () => {
+    setEditingFeedbackId(null);
+    setFeedbackForm({
+      clientName: feedbackProject?.client || '',
+      company: feedbackProject?.clientCompany || '',
+      rating: 5,
+      comment: '',
+      publishedAsTestimonial: true,
+    });
+    setFeedbackError(null);
+    setIsAddingFeedback(true);
+  };
+
+  const handleStartEditFeedback = (fb: any) => {
+    setEditingFeedbackId(fb._id);
+    setFeedbackForm({
+      clientName: fb.clientName || fb.authorName || feedbackProject?.client || '',
+      company: fb.company || feedbackProject?.clientCompany || '',
+      rating: fb.rating || 5,
+      comment: fb.comment || '',
+      publishedAsTestimonial: Boolean(fb.publishedAsTestimonial),
+    });
+    setFeedbackError(null);
+    setIsAddingFeedback(true);
+  };
+
+  const handleSaveFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackProject) return;
+    if (!feedbackForm.comment.trim()) {
+      setFeedbackError('Please enter a feedback comment or quote.');
+      return;
+    }
+    setFeedbackSaving(true);
+    setFeedbackError(null);
+    try {
+      let updatedList;
+      if (editingFeedbackId) {
+        updatedList = await updateProjectFeedback(feedbackProject._id!, editingFeedbackId, {
+          clientName: feedbackForm.clientName.trim(),
+          authorName: feedbackForm.clientName.trim(),
+          company: feedbackForm.company.trim(),
+          rating: Number(feedbackForm.rating) || 5,
+          comment: feedbackForm.comment.trim(),
+          publishedAsTestimonial: feedbackForm.publishedAsTestimonial,
+        });
+      } else {
+        updatedList = await submitProjectFeedback(feedbackProject._id!, {
+          clientName: feedbackForm.clientName.trim(),
+          authorName: feedbackForm.clientName.trim(),
+          company: feedbackForm.company.trim(),
+          rating: Number(feedbackForm.rating) || 5,
+          comment: feedbackForm.comment.trim(),
+          publishedAsTestimonial: feedbackForm.publishedAsTestimonial,
+        });
+      }
+      setFeedbackItems(updatedList);
+      setIsAddingFeedback(false);
+      setEditingFeedbackId(null);
+    } catch (err: any) {
+      console.error('Save feedback error:', err);
+      setFeedbackError(typeof err === 'string' ? err : 'Failed to save feedback');
+    } finally {
+      setFeedbackSaving(false);
     }
   };
 
@@ -302,21 +383,148 @@ export default function ProjectsPage() {
 
       {feedbackProject && (
         <div style={styles.feedbackModalBackdrop} onClick={() => setFeedbackProject(null)}>
-          <div style={styles.feedbackModal} onClick={(event) => event.stopPropagation()}>
+          <div style={{ ...styles.feedbackModal, maxWidth: '680px' }} onClick={(event) => event.stopPropagation()}>
             <div style={styles.feedbackModalHeader}>
               <div>
-                <h2 style={styles.feedbackModalTitle}>Project Feedback</h2>
+                <h2 style={styles.feedbackModalTitle}>Project Feedback & Testimonials</h2>
                 <p style={styles.feedbackModalSubtitle}>{feedbackProject.name} · {feedbackProject.client}</p>
               </div>
-              <button type="button" onClick={() => setFeedbackProject(null)} style={styles.iconBtn}>
-                <X size={18} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {!isAddingFeedback && (
+                  <button
+                    type="button"
+                    onClick={handleStartAddFeedback}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: '#007AFF',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Plus size={14} /> Add Testimonial
+                  </button>
+                )}
+                <button type="button" onClick={() => setFeedbackProject(null)} style={styles.iconBtn}>
+                  <X size={18} />
+                </button>
+              </div>
             </div>
+
+            {isAddingFeedback && (
+              <form onSubmit={handleSaveFeedback} style={{ padding: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--text-primary)' }}>
+                  {editingFeedbackId ? 'Edit Testimonial / Feedback' : 'New Testimonial / Feedback'}
+                </h3>
+                {feedbackError && (
+                  <p style={{ color: '#FF3B30', fontSize: '13px', margin: '0 0 10px 0' }}>{feedbackError}</p>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: 'var(--text-primary)' }}>Client / Author Name *</label>
+                    <input
+                      type="text"
+                      value={feedbackForm.clientName}
+                      onChange={(e) => setFeedbackForm({ ...feedbackForm, clientName: e.target.value })}
+                      placeholder="e.g. David Vance"
+                      required
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: 'var(--text-primary)' }}>Company / Title</label>
+                    <input
+                      type="text"
+                      value={feedbackForm.company}
+                      onChange={(e) => setFeedbackForm({ ...feedbackForm, company: e.target.value })}
+                      placeholder="e.g. CTO, Logix Global"
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: 'var(--text-primary)' }}>Rating (1 - 5 Stars)</label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFeedbackForm({ ...feedbackForm, rating: star })}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px',
+                        }}
+                      >
+                        <Star size={20} fill={star <= feedbackForm.rating ? '#FFB800' : 'none'} color={star <= feedbackForm.rating ? '#FFB800' : 'var(--text-secondary)'} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: 'var(--text-primary)' }}>Feedback / Testimonial Quote *</label>
+                  <textarea
+                    rows={3}
+                    value={feedbackForm.comment}
+                    onChange={(e) => setFeedbackForm({ ...feedbackForm, comment: e.target.value })}
+                    placeholder="Write client testimonial or feedback quote..."
+                    required
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px', resize: 'vertical' }}
+                  />
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>
+                  <input
+                    type="checkbox"
+                    checked={feedbackForm.publishedAsTestimonial}
+                    onChange={(e) => setFeedbackForm({ ...feedbackForm, publishedAsTestimonial: e.target.checked })}
+                  />
+                  Publish this as a testimonial on the public website
+                </label>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAddingFeedback(false); setEditingFeedbackId(null); }}
+                    style={{ padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={feedbackSaving}
+                    style={{ padding: '8px 18px', borderRadius: '10px', border: 'none', backgroundColor: '#007AFF', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {feedbackSaving ? 'Saving...' : editingFeedbackId ? 'Update Feedback' : 'Add Testimonial'}
+                  </button>
+                </div>
+              </form>
+            )}
 
             {feedbackLoading ? (
               <p style={styles.feedbackEmpty}>Loading feedback...</p>
             ) : feedbackItems.length === 0 ? (
-              <p style={styles.feedbackEmpty}>No client feedback has been submitted yet.</p>
+              <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+                <p style={styles.feedbackEmpty}>No client feedback has been submitted yet.</p>
+                {!isAddingFeedback && (
+                  <button
+                    type="button"
+                    onClick={handleStartAddFeedback}
+                    style={{ marginTop: '8px', padding: '8px 16px', borderRadius: '10px', backgroundColor: '#007AFF', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    + Add First Testimonial
+                  </button>
+                )}
+              </div>
             ) : (
               <div style={styles.feedbackList}>
                 {feedbackItems.map((feedback) => (
@@ -325,7 +533,8 @@ export default function ProjectsPage() {
                       <div>
                         <strong style={styles.feedbackClient}>{feedback.clientName || feedbackProject.client}</strong>
                         <p style={styles.feedbackMeta}>
-                          {feedback.date ? new Date(feedback.date).toLocaleDateString() : 'No date'} · {feedbackProject.clientEmail || 'No email'}
+                          {feedback.company ? feedback.company + ' · ' : ''}
+                          {feedback.date ? new Date(feedback.date).toLocaleDateString() : 'No date'}
                         </p>
                       </div>
                       <div style={styles.feedbackStars}>
@@ -348,8 +557,27 @@ export default function ProjectsPage() {
                           <MessageSquareQuote size={14} />
                           {feedback.publishedAsTestimonial ? 'Unpublish Testimonial' : 'Publish as Testimonial'}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditFeedback(feedback)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-secondary)',
+                            color: '#007AFF',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Edit2 size={13} /> Edit
+                        </button>
                         <button type="button" onClick={() => handleDeleteFeedback(feedback._id!)} style={styles.deleteFeedbackBtn}>
-                          Delete Feedback
+                          <Trash2 size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Delete
                         </button>
                       </div>
                     )}

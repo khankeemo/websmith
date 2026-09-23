@@ -1,47 +1,14 @@
+// FILE: components/layout/DropdownIndustries.tsx
+// PURPOSE: Dynamic Industries dropdown mega menu connected to CMS API
+
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Landmark, ShoppingCart, HeartPulse, Cloud, Truck, ArrowRight, type LucideIcon } from "lucide-react";
-
-type IndustryItem = {
-  title: string;
-  description: string;
-  icon: LucideIcon;
-  href: string;
-};
-
-const INDUSTRIES: IndustryItem[] = [
-  {
-    title: "FinTech & Banking",
-    description: "High-security payment gateways & wallet systems",
-    icon: Landmark,
-    href: "/industries?sector=fintech",
-  },
-  {
-    title: "E-Commerce & Retail",
-    description: "Multi-vendor marketplaces & high-speed checkout",
-    icon: ShoppingCart,
-    href: "/industries?sector=ecommerce",
-  },
-  {
-    title: "Healthcare & MedTech",
-    description: "Compliant patient portals & telehealth systems",
-    icon: HeartPulse,
-    href: "/industries?sector=healthcare",
-  },
-  {
-    title: "Enterprise SaaS & B2B",
-    description: "Multi-tenant platforms & subscription billing",
-    icon: Cloud,
-    href: "/industries?sector=saas",
-  },
-  {
-    title: "Logistics & Supply Chain",
-    description: "Fleet tracking & automated warehouse ERP",
-    icon: Truck,
-    href: "/industries?sector=logistics",
-  },
-];
+import { ArrowRight, Landmark } from "lucide-react";
+import LucideIcon from "@/components/shared/LucideIcon";
+import { getPublicIndustries } from "@/lib/cms/cmsService";
+import type { CmsIndustry } from "@/lib/cms/types";
 
 export default function DropdownIndustries({
   isDark,
@@ -50,6 +17,22 @@ export default function DropdownIndustries({
   isDark: boolean;
   onClose: () => void;
 }) {
+  const [industries, setIndustries] = useState<CmsIndustry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPublicIndustries()
+      .then((data) => {
+        setIndustries(data || []);
+      })
+      .catch((err) => {
+        console.warn("DropdownIndustries fetch error:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div
       className="wsd-mega-menu"
@@ -72,12 +55,24 @@ export default function DropdownIndustries({
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-        {INDUSTRIES.map((industry, index) => {
-          const Icon = industry.icon;
+        {loading && (
+          <div style={{ padding: "16px", textAlign: "center", fontSize: "13px", color: isDark ? "#94a3b8" : "#64748b" }}>
+            Loading sectors...
+          </div>
+        )}
+
+        {!loading && industries.length === 0 && (
+          <div style={{ padding: "16px", textAlign: "center", fontSize: "13px", color: isDark ? "#94a3b8" : "#64748b" }}>
+            No industries configured yet.
+          </div>
+        )}
+
+        {industries.map((industry, index) => {
+          const href = `/industries?sector=${industry.slug}`;
           return (
             <Link
-              key={index}
-              href={industry.href}
+              key={industry._id || index}
+              href={href}
               onClick={onClose}
               className="wsd-nav-menu-row"
             >
@@ -95,7 +90,7 @@ export default function DropdownIndustries({
                   flexShrink: 0,
                 }}
               >
-                <Icon size={18} />
+                <LucideIcon name={industry.icon} size={18} fallback={Landmark} />
               </div>
               <div style={{ flex: 1 }}>
                 <div
@@ -107,7 +102,7 @@ export default function DropdownIndustries({
                     lineHeight: 1.25,
                   }}
                 >
-                  {industry.title}
+                  {industry.name}
                 </div>
                 <div
                   style={{
@@ -117,7 +112,7 @@ export default function DropdownIndustries({
                     marginTop: "2px",
                   }}
                 >
-                  {industry.description}
+                  {industry.shortDescription}
                 </div>
               </div>
               <ArrowRight size={14} className="wsd-nav-arrow" style={{ opacity: 0.4, color: isDark ? "#ffffff" : "#0f172a" }} />

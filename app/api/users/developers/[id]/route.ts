@@ -16,6 +16,7 @@ export const PUT = apiHandler(async ({ db, request, user, params }) => {
   if (body.status !== undefined) update.status = body.status;
   if (body.joinedAt !== undefined) update.joinedAt = body.joinedAt || null;
   if (typeof body.published === "boolean") update.published = body.published;
+  if (typeof body.avatar === "string") update.avatar = body.avatar.trim();
   update.updatedAt = new Date();
 
   const existing = await db.collection("users").findOne({ _id: id, role: "developer" });

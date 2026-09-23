@@ -47,7 +47,10 @@ const COLLECTIONS = [
   'directmessages',
   'softwarestoreinquiries',
   'paymentwebhookevents',
-  'notification_logs'
+  'notification_logs',
+  'cms_industries',
+  'cms_service_categories',
+  'cms_services'
 ];
 
 const MIGRATIONS = [

@@ -1,3 +1,6 @@
+// FILE: app/api/projects/public/testimonials/route.ts
+// PURPOSE: Public API for published testimonials from project feedback
+
 import { apiHandler, json } from "@/lib/server/api";
 
 export const GET = apiHandler(async ({ db }) => {
@@ -11,10 +14,13 @@ export const GET = apiHandler(async ({ db }) => {
             _id: f._id?.toString() ?? `${p._id.toString()}-${testimonials.length}`,
             projectId: p._id.toString(),
             projectName: p.name,
-            rating: f.rating,
-            comment: f.comment,
-            date: f.date,
-            clientName: f.clientName,
+            name: f.authorName || f.clientName || "Client",
+            clientName: f.clientName || f.authorName || "Client",
+            company: f.company || p.clientCompany || p.client || "Enterprise Client",
+            quote: f.comment || f.quote || "",
+            comment: f.comment || f.quote || "",
+            rating: Number(f.rating) || 5,
+            date: f.date || "",
           });
         }
       }

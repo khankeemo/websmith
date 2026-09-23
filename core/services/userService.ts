@@ -16,6 +16,7 @@ export interface RoleUser {
   status?: "active" | "inactive" | "on-leave";
   experienceYears?: number;
   joinedAt?: string | null;
+  avatar?: string;
 }
 
 export const getUsersByRole = async (role: RoleUser["role"]) => {
@@ -52,6 +53,7 @@ export interface DeveloperPayload {
   status?: "active" | "inactive" | "on-leave";
   joinedAt?: string | null;
   published?: boolean;
+  avatar?: string;
 }
 
 export const getDevelopers = async () => {

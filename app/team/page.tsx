@@ -49,9 +49,14 @@ const DeveloperCard = ({
           width: '64px', height: '64px', borderRadius: '18px',
           background: `linear-gradient(135deg, #007AFF20, #007AFF40)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px',
-          fontWeight: '700', color: '#007AFF', border: `1.5px solid #007AFF20`
+          fontWeight: '700', color: '#007AFF', border: `1.5px solid #007AFF20`,
+          overflow: 'hidden', flexShrink: 0
         }}>
-          {dev.name.charAt(0).toUpperCase()}
+          {dev.avatar ? (
+            <img src={dev.avatar} alt={dev.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            dev.name.charAt(0).toUpperCase()
+          )}
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px', letterSpacing: '-0.3px' }}>{dev.name}</h3>
@@ -135,6 +140,7 @@ const DeveloperModal = ({
     headline: '',
     bio: '',
     status: 'active' as 'active' | 'inactive' | 'on-leave',
+    avatar: '',
     published: false,
   });
   const [localError, setLocalError] = useState('');
@@ -153,6 +159,7 @@ const DeveloperModal = ({
           headline: editingUser.headline || '',
           bio: editingUser.bio || '',
           status: editingUser.status || 'active',
+          avatar: editingUser.avatar || '',
           published: editingUser.published || false,
         });
       } else {
@@ -167,6 +174,7 @@ const DeveloperModal = ({
           headline: '',
           bio: '',
           status: 'active',
+          avatar: '',
           published: false,
         });
       }
@@ -216,6 +224,7 @@ const DeveloperModal = ({
       experienceYears: Number(formData.experienceYears) || 0,
       headline: formData.headline.trim(),
       bio: formData.bio.trim(),
+      avatar: formData.avatar.trim(),
       status: formData.status,
       published: publish ? true : formData.published,
     };
@@ -302,6 +311,24 @@ const DeveloperModal = ({
               <input type="text" value={formData.company} onChange={e => setFormData({ ...formData, company: e.target.value })} style={styles.input} placeholder="Freelance / Tech Co" />
             </div>
 
+                    <div style={styles.formGroup}>
+            <label style={styles.inputLabel}>Avatar Image URL</label>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={formData.avatar}
+                onChange={e => setFormData({ ...formData, avatar: e.target.value })}
+                style={styles.input}
+                placeholder="https://images.unsplash.com/... or /images/..."
+              />
+              {formData.avatar ? (
+                <div style={{ width: '42px', height: '42px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-color)' }}>
+                  <img src={formData.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                </div>
+              ) : null}
+            </div>
+          </div>
+
           <div style={styles.formGroup}>
             <label style={styles.inputLabel}>Description</label>
             <textarea
@@ -311,6 +338,15 @@ const DeveloperModal = ({
               placeholder="Write a short developer description..."
             />
           </div>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '12px 0' }}>
+            <input
+              type="checkbox"
+              checked={formData.published}
+              onChange={e => setFormData({ ...formData, published: e.target.checked })}
+            />
+            Publish this developer profile on the public website
+          </label>
 
           {localError ? <p style={{ color: '#FF3B30', fontSize: '13px', margin: '4px 0' }}>{localError}</p> : null}
 
@@ -382,6 +418,7 @@ export default function DevelopersPage() {
           bio: data.bio,
           status: data.status,
           published: data.published,
+          avatar: data.avatar,
         });
         setEditingUser(null);
       } else {

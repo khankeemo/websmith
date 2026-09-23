@@ -25,6 +25,12 @@ export interface Project {
   customClientId?: string;
   progress?: number;
   published?: boolean;
+  category?: string;
+  metrics?: string;
+  techStack?: string[];
+  challenge?: string;
+  solution?: string;
+  isFeatured?: boolean;
   sharedFiles?: Array<{
     _id?: string;
     name: string;
@@ -56,6 +62,8 @@ export interface Project {
     comment: string;
     date: string;
     clientName: string;
+    authorName?: string;
+    company?: string;
     publishedAsTestimonial?: boolean;
     testimonialPublishedAt?: string | null;
   }>;
@@ -147,7 +155,7 @@ export const getProjectFeedback = async (id: string) => {
 
 export const submitProjectFeedback = async (
   id: string,
-  payload: { rating: number; comment: string; clientName?: string }
+  payload: { rating: number; comment: string; clientName?: string; authorName?: string; company?: string; publishedAsTestimonial?: boolean }
 ) => {
   try {
     const response = await API.post(`/projects/${id}/feedback`, payload);
@@ -157,6 +165,21 @@ export const submitProjectFeedback = async (
     throw error.response?.data?.message || 'Failed to submit project feedback';
   }
 };
+
+export const updateProjectFeedback = async (
+  projectId: string,
+  feedbackId: string,
+  payload: { rating?: number; comment?: string; clientName?: string; authorName?: string; company?: string; publishedAsTestimonial?: boolean }
+) => {
+  try {
+    const response = await API.put(`/projects/${projectId}/feedback/${feedbackId}`, payload);
+    return response.data.data || [];
+  } catch (error: any) {
+    console.error('Update project feedback error:', error);
+    throw error.response?.data?.message || 'Failed to update project feedback';
+  }
+};
+
 
 export const toggleFeedbackTestimonial = async (
   projectId: string,

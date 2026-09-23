@@ -50,7 +50,7 @@ export const POST = apiHandler(async ({ db, request, user }) => {
     password: hashedPassword,
     role: "developer",
     adminLevel: null,
-    avatar: "",
+    avatar: String(body.avatar ?? "").trim(),
     phone: String(body.phone ?? "").trim(),
     company: String(body.company ?? "").trim(),
     preferences: { theme: "light", notifications: { email: true, push: true, projectUpdates: true, queryResponses: true } },

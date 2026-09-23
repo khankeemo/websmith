@@ -1,4 +1,4 @@
-export type NavbarSectionKey = "projects" | "clients" | "developers" | "testimonials" | "softwareStore";
+export type NavbarSectionKey = "projects" | "clients" | "developers" | "testimonials" | "softwareStore" | "industries" | "services";
 
 export type NavbarVisibility = Record<NavbarSectionKey, boolean>;
 
@@ -8,6 +8,8 @@ export const defaultNavbarVisibility: NavbarVisibility = {
   developers: true,
   testimonials: true,
   softwareStore: true,
+  industries: true,
+  services: true,
 };
 
 const NAVBAR_VISIBILITY_KEY = "navbar_visibility";

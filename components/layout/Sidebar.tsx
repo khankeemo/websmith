@@ -23,6 +23,7 @@ import {
   LifeBuoy,
   Database,
   Monitor,
+  Building2,
 } from "lucide-react";
 import API from "../../core/services/apiService";
 import { getUnreadCount } from "../../core/services/notificationService";
@@ -154,12 +155,18 @@ export default function Sidebar({
             ],
           },
           {
+            title: "WEBSITE CMS",
+            items: [
+              { name: "Industries", path: `${basePath}/industries`, icon: Building2 },
+              { name: "Services", path: `${basePath}/services`, icon: Wrench },
+            ],
+          },
+          {
             title: "WORK",
             items: [
               { name: "Clients", path: `${basePath}/clients`, icon: Users },
               { name: "Projects", path: `${basePath}/projects`, icon: Briefcase },
               { name: "Tasks", path: `${basePath}/tasks`, icon: CheckSquare },
-              { name: "Services", path: `${basePath}/services`, icon: Wrench },
             ],
           },
           {
