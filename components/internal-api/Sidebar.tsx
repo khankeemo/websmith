@@ -436,9 +436,9 @@ export default function Sidebar() {
               <Image
                 src="/images/wordmark1.png"
                 alt="Websmith Digital"
-                width={120}
-                height={20}
-                className="h-[20px] w-auto object-contain"
+                width={150}
+                height={26}
+                className="h-[26px] w-auto object-contain"
               />
               <Sparkles size={12} className="text-blue-400" />
             </div>

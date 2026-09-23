@@ -63,9 +63,9 @@ export default function PublicFooter() {
             <Image
               src="/images/wordmark1.png"
               alt={publicFooterConfig.brand.name}
-              width={200}
-              height={40}
-              style={{ height: "40px", width: "auto", objectFit: "contain" }}
+              width={235}
+              height={50}
+              style={{ height: "50px", width: "auto", objectFit: "contain" }}
             />
           </div>
           <p style={styles.tagline}>{publicFooterConfig.brand.tagline}</p>

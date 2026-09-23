@@ -102,9 +102,9 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             <Image
               src={brandWordmark}
               alt="Websmith Digital"
-              width={165}
-              height={34}
-              style={{ height: "34px", width: "auto", objectFit: "contain" }}
+              width={195}
+              height={44}
+              style={{ height: "44px", width: "auto", objectFit: "contain" }}
               priority
             />
           </Link>
@@ -161,9 +161,9 @@ export default function PublicSiteNav({ variant = "full" }: PublicSiteNavProps) 
             <Image
               src={brandWordmark}
               alt="Websmith Digital"
-              width={165}
-              height={34}
-              style={{ height: "34px", width: "auto", objectFit: "contain" }}
+              width={195}
+              height={44}
+              style={{ height: "44px", width: "auto", objectFit: "contain" }}
               priority
             />
           </Link>

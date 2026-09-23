@@ -107,9 +107,9 @@ function LoginPageContent() {
               <Image
                 src="/images/wordmark1.png"
                 alt="Websmith Digital"
-                width={200}
-                height={38}
-                style={{ height: "38px", width: "auto", objectFit: "contain" }}
+                width={240}
+                height={50}
+                style={{ height: "50px", width: "auto", objectFit: "contain" }}
                 priority
               />
             </div>

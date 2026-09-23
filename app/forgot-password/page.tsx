@@ -190,7 +190,7 @@ export default function ForgotPasswordPage() {
             <img
               src="/images/wordmark1.png"
               alt="Websmith Digital"
-              style={{ height: "34px", width: "auto", objectFit: "contain" }}
+              style={{ height: "44px", width: "auto", objectFit: "contain" }}
             />
           </Link>
           <div style={styles.navActions}>

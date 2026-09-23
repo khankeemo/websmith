@@ -40,9 +40,9 @@ export default function CheckoutLayout({ children }: { children: React.ReactNode
             <Image
               src="/images/wordmark1.png"
               alt="Websmith Digital"
-              width={160}
-              height={32}
-              style={{ height: "32px", width: "auto", objectFit: "contain" }}
+              width={190}
+              height={42}
+              style={{ height: "42px", width: "auto", objectFit: "contain" }}
               priority
             />
           </Link>

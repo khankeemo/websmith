@@ -242,9 +242,9 @@ export default function Sidebar({
           <Image
             src="/images/wordmark1.png"
             alt="Websmith Digital"
-            width={160}
-            height={30}
-            style={{ height: "30px", width: "auto", objectFit: "contain" }}
+            width={190}
+            height={42}
+            style={{ height: "42px", width: "auto", objectFit: "contain" }}
           />
         </div>
       </div>
