@@ -224,7 +224,7 @@ export default function RegisterPage() {
     <div style={styles.container}>
       <div style={styles.background}></div>
 
-      <div style={styles.card} className="wsd-unified-card wsd-card-cyan">
+      <div style={styles.card} className="wsd-auth-card">
         {/* Back to Login */}
         <button onClick={() => router.push("/login")} style={styles.backButton} className="back-button-hover">
           <ArrowLeft size={18} />

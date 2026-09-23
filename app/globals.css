@@ -1236,6 +1236,66 @@ html:not(.dark-theme) .app-sidebar,
 }
 
 /* ============================================================
+   AUTHENTICATION & FORM CARD SYSTEM (.wsd-auth-card, .wsd-form-card)
+   Stable, stationary container cards for forms (Login, Register, Forgot Password, Settings).
+   Preserves crisp readability and does NOT shift or flash bright saturated colors on hover.
+   ============================================================ */
+
+.wsd-auth-card,
+.wsd-form-card {
+  position: relative;
+  cursor: default !important;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Light Theme Resting */
+html:not(.dark-theme) .wsd-auth-card,
+html:not(.dark-theme) .wsd-form-card,
+.light-theme .wsd-auth-card,
+.light-theme .wsd-form-card {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  background-image: radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.12), transparent 70%),
+                    radial-gradient(ellipse at 15% 85%, rgba(37, 99, 235, 0.04), transparent 70%) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Dark Theme Resting */
+.dark-theme .wsd-auth-card,
+.dark-theme .wsd-form-card {
+  background-color: rgba(14, 18, 30, 0.85) !important;
+  background-image: radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.15), transparent 70%),
+                    radial-gradient(ellipse at 15% 85%, rgba(37, 99, 235, 0.05), transparent 70%) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+}
+
+/* Stable, Elegant Hover (No background flash, no text color mutation, no movement) */
+.wsd-auth-card:hover,
+.wsd-form-card:hover {
+  transform: none !important;
+  cursor: default !important;
+}
+
+html:not(.dark-theme) .wsd-auth-card:hover,
+html:not(.dark-theme) .wsd-form-card:hover,
+.light-theme .wsd-auth-card:hover,
+.light-theme .wsd-form-card:hover {
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.11), 0 0 20px rgba(59, 130, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark-theme .wsd-auth-card:hover,
+.dark-theme .wsd-form-card:hover {
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 24px rgba(59, 130, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ============================================================
    UNIVERSAL 3-CORE-COLOR FROSTED GLASS CARDS & HOVER SYSTEM
    Applied to: .wsd-unified-card, .public-page-card, .wsd-portfolio-card,
    and cards across Admin, Client, Developer dashboards & Public pages

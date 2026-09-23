@@ -202,7 +202,7 @@ export default function ForgotPasswordPage() {
       </header>
 
       <div style={styles.dialogArea}>
-        <div style={styles.card} className="wsd-unified-card wsd-card-blue">
+        <div style={styles.card} className="wsd-auth-card">
           <Link href="/login" style={styles.backLink}>
             <ArrowLeft size={16} />
             Back to login

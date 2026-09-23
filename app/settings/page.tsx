@@ -183,7 +183,7 @@ export default function SettingsPage() {
       )}
 
       {/* Tab Content */}
-      <div style={styles.content} className="wsd-unified-card wsd-card-blue">
+      <div style={styles.content} className="wsd-form-card">
         {/* Profile Tab */}
         {activeTab === "profile" && (
           <div style={styles.profileTab}>

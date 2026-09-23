@@ -97,7 +97,7 @@ function LoginPageContent() {
         <div style={styles.background}></div>
 
         {/* Main content */}
-        <div style={styles.card} className="wsd-unified-card wsd-card-blue">
+        <div style={styles.card} className="wsd-auth-card">
           {/* Logo - Circle Mask with WSD */}
           <div style={styles.logoContainer}>
             <div style={styles.circleMask} className="circle-mask-hover">
