@@ -306,7 +306,7 @@ export default function ProfilePageContent() {
   const isDeveloperPanel = activePanel === "Developer";
 
   return (
-    <div style={styles.page} className="wsd-page">
+    <div style={styles.page} className="wsd-page admin-panel-scope">
       <div style={styles.heroCard}>
         <div style={styles.heroGradient} />
         <div style={styles.heroContent}>

@@ -44,7 +44,7 @@ export default function ProjectCard({ project, onEdit, onDelete, onTogglePublish
   };
 
   return (
-    <div style={styles.card} className="project-card">
+    <div style={styles.card} className="project-card admin-card">
       <div style={styles.cardHeader}>
         <div style={styles.iconContainer}>
           <Folder size={24} color="#007AFF" />

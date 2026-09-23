@@ -300,27 +300,41 @@ function ticketPlaceholders(ticket: Ticket | null, chatUrl = ""): Record<string,
  * <html>. ClientLayout / Sidebar / globals.css are untouched.
  */
 const workspaceCss = `
-html.query-inbox-workspace .app-sidebar,
-html.query-inbox-workspace .app-mobile-topbar,
-html.query-inbox-workspace .app-mobile-overlay {
-  display: none !important;
-}
 html.query-inbox-workspace .app-main-shell[data-shell="panel"],
 html.query-inbox-workspace .app-main-shell {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+@media (max-width: 899px) {
+  html.query-inbox-workspace .app-main-shell[data-shell="panel"] {
+    padding: 69px 0 0 !important;
+  }
 }
 html.query-inbox-workspace .app-main-scroll {
   padding: 0 !important;
-  overflow: hidden;
+  margin: 0 !important;
+  overflow: hidden !important;
+  height: 100% !important;
+  max-height: 100% !important;
 }
 
 .query-inbox-root {
-  height: 100dvh;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   display: grid;
   grid-template-columns: 385px minmax(0, 1fr);
   overflow: hidden;
   background: var(--bg-primary);
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
 }
 .query-inbox-pane {
   display: flex;
@@ -1657,7 +1671,7 @@ export default function AdminMessagesClient() {
             <h1 style={styles.paneTitle}>Query Inbox</h1>
             <p style={styles.paneSubtitle}>Client portal questions and public contact inquiries in one threaded workspace.</p>
           </div>
-          <div style={styles.searchBox}>
+          <div style={styles.searchBox} className="admin-search-box">
             <Search size={15} color="var(--text-secondary)" />
             <input
               value={searchTerm}
@@ -1874,10 +1888,18 @@ export default function AdminMessagesClient() {
       `.ws-chat-surface`, which now lives on the messenger card below. */}
   <style dangerouslySetInnerHTML={{ __html: CHAT_SURFACE_CSS }} />
 <header className="qib-topbar">
-               <button type="button" onClick={() => router.push("/admin/dashboard")} style={styles.backBtn} title="Back to Messages">
-                 <ChevronLeft size={16} />
-                 Back to Messages
-               </button>
+               {selectedTicket && (
+                <button
+                  type="button"
+                  className="qib-mobile-back-btn"
+                  onClick={() => setSelectedTicket(null)}
+                  style={styles.backBtn}
+                  title="Back to Queries"
+                >
+                  <ChevronLeft size={16} />
+                  Queries
+                </button>
+              )}
                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
 <img
                   src={chatLogo.url}

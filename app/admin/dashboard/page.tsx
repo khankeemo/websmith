@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div style={styles.container} className="wsd-page admin-dashboard-page">
+    <div style={styles.container} className="wsd-page admin-dashboard-page admin-panel-scope">
       {/* HEADER SECTION */}
       <div style={styles.header} className="wsd-page-header">
         <div>
@@ -209,7 +209,7 @@ export default function AdminDashboardPage() {
                   />
                   <Tooltip 
                     contentStyle={{
-                      backgroundColor: "var(--bg-primary)",
+                      backgroundColor: 'transparent',
                       border: "1px solid var(--border-color)",
                       borderRadius: "12px",
                       padding: "8px 12px",
@@ -334,7 +334,6 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     gap: "32px",
-    padding: 0,
     backgroundColor: "transparent",
   },
   header: {

@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Layers3 } from "lucide-react";
+import { Plus, Pencil, Trash2, Layers3, Search } from "lucide-react";
 import { ViewModeToggle, GridListView } from "@/components/ui/ViewModeToggle";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -26,6 +26,17 @@ export default function AdminServicesPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<GridListView>("grid");
+  const [searchTerm, setSearchTerm] = useState("");
+
+    const filteredServices = useMemo(
+    () =>
+      services.filter(
+        (s) =>
+          (s.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (s.description || "").toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [services, searchTerm]
+  );
 
   const activeCount = useMemo(() => services.filter((service) => service.isActive).length, [services]);
 
@@ -98,26 +109,42 @@ export default function AdminServicesPage() {
   };
 
   return (
-    <div style={styles.container} className="wsd-page">
-      <div style={styles.header}>
-        <div>
+    <div style={styles.container} className="wsd-page admin-panel-scope">
+      <div style={styles.header} className="wsd-page-header">
+        <div style={styles.headerTitleBlock}>
           <h1 style={styles.title}>Services</h1>
           <p style={styles.subtitle}>Manage the service cards displayed in the lead funnel.</p>
         </div>
-        <div style={styles.headerActions}>
+
+        {/* Top & Middle Search */}
+        <div style={styles.middleSearchWrap} className="services-middle-search">
+          <div style={styles.searchBox} className="admin-search-box wsd-search-box">
+            <Search size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search services..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div style={styles.headerActions} className="wsd-page-actions">
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          <Button onClick={handleOpenCreate} leftIcon={<Plus size={18} />}>
+          <Button onClick={handleOpenCreate} leftIcon={<Plus size={16} />}>
             New Service
           </Button>
         </div>
       </div>
 
       <div style={styles.summary}>
-        <div style={styles.summaryCard}>
+        <div style={styles.summaryCard} className="admin-card">
           <p style={styles.summaryLabel}>Total Services</p>
           <p style={styles.summaryValue}>{services.length}</p>
         </div>
-        <div style={styles.summaryCard}>
+        <div style={styles.summaryCard} className="admin-card">
           <p style={styles.summaryLabel}>Active in Funnel</p>
           <p style={styles.summaryValue}>{activeCount}</p>
         </div>
@@ -136,8 +163,8 @@ export default function AdminServicesPage() {
 
       {!loading && !error && viewMode === "grid" && (
         <div style={styles.grid}>
-          {services.map((service) => (
-            <div key={service._id || service.name} style={styles.serviceCard} className="admin-service-card">
+          {filteredServices.map((service) => (
+            <div key={service._id || service.name} style={styles.serviceCard} className="admin-service-card admin-card">
               <div style={styles.cardTop}>
                 <div style={styles.iconWrap}>
                   <Layers3 size={22} color="#007AFF" />
@@ -171,7 +198,7 @@ export default function AdminServicesPage() {
 
       {!loading && !error && viewMode === "list" && (
         <div style={styles.listWrap}>
-          {services.map((service) => (
+          {filteredServices.map((service) => (
             <div key={service._id || service.name} style={styles.listRow}>
               <div style={styles.listRowMain}>
                 <strong style={styles.listRowTitle}>{service.name}</strong>
@@ -221,18 +248,50 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     gap: "32px",
-    padding: 0,
-    backgroundColor: 'var(--bg-primary)',
-    minHeight: '100vh',
+    backgroundColor: 'transparent',
+    minHeight: '100%',
+    width: '100%',
     color: 'var(--text-primary)',
   },
   header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "16px",
-    flexWrap: "wrap",
-    marginBottom: "8px",
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '20px',
+    marginBottom: '28px',
+    width: '100%',
+  },
+  headerTitleBlock: {
+    flexShrink: 0,
+    minWidth: '180px',
+  },
+  middleSearchWrap: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: '220px',
+  },
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '10px 18px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    width: '100%',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+    transition: 'all 0.2s ease',
+  },
+  searchInput: {
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    backgroundColor: 'transparent',
+    color: 'var(--text-primary)',
+    width: '100%',
   },
   headerActions: {
     display: "flex",
@@ -333,7 +392,7 @@ const styles: any = {
     gap: "24px",
   },
   serviceCard: {
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: 'transparent',
     borderRadius: "24px",
     padding: "24px",
     border: "1.5px solid var(--border-color)",

@@ -145,7 +145,7 @@ export default function SettingsPage() {
   if (!user) return null;
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-panel-scope">
       {/* Header */}
       <div style={styles.header}>
         <h1 style={styles.title}>Settings</h1>

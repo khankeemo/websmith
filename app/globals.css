@@ -262,12 +262,12 @@ html:not(.dark-theme) textarea::placeholder {
 
 /* Authenticated panels (sidebar routes): consistent inner spacing — not applied to public marketing shell */
 main.app-main-shell[data-shell="panel"] {
-  --space-page-x: clamp(18px, 2.5vw, 34px);
-  --space-page-y: clamp(14px, 1.6vw, 24px);
+  --space-page-x: clamp(24px, 3vw, 44px);
+  --space-page-y: clamp(24px, 2.5vw, 36px);
 }
 
 main.app-main-shell[data-shell="panel"] .app-main-scroll {
-  padding: var(--space-page-y) var(--space-page-x);
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -1968,4 +1968,348 @@ html:not(.dark-theme) .wsd-nav-category-tab:hover:not(.wsd-nav-category-tab-acti
   background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%) !important;
   color: #ffffff !important;
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+/* ============================================================
+   ADMIN PANEL UNIFIED THEME SYSTEM (ALL ADMIN PAGES)
+   Covers: Dashboard, Clients, Projects, Tasks, Services,
+   Developers, Admins, Messages/Queries, Invoices, Payments,
+   Manage Page, Notifications.
+   EXCLUDES: API Center (/internal/api/*)
+   ============================================================ */
+
+/* 1. Base Container & Theme Scope */
+.admin-panel-scope,
+.admin-dashboard-page {
+  color: var(--text-primary);
+  background-color: transparent !important;
+  padding: clamp(28px, 3vw, 44px) clamp(28px, 3.5vw, 48px) !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 100%;
+}
+
+/* Custom Sleek Scrollbars across the entire Admin Shell */
+.app-sidebar,
+.app-main-scroll,
+.query-inbox-pane,
+.qib-ticket-list,
+.qib-conv-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+.app-sidebar::-webkit-scrollbar,
+.app-main-scroll::-webkit-scrollbar,
+.query-inbox-pane::-webkit-scrollbar,
+.qib-ticket-list::-webkit-scrollbar,
+.qib-conv-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.app-sidebar::-webkit-scrollbar-track,
+.app-main-scroll::-webkit-scrollbar-track,
+.query-inbox-pane::-webkit-scrollbar-track,
+.qib-ticket-list::-webkit-scrollbar-track,
+.qib-conv-body::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb,
+.app-main-scroll::-webkit-scrollbar-thumb,
+.query-inbox-pane::-webkit-scrollbar-thumb,
+.qib-ticket-list::-webkit-scrollbar-thumb,
+.qib-conv-body::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35) !important;
+  border-radius: 9999px !important;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb:hover,
+.app-main-scroll::-webkit-scrollbar-thumb:hover,
+.query-inbox-pane::-webkit-scrollbar-thumb:hover,
+.qib-ticket-list::-webkit-scrollbar-thumb:hover,
+.qib-conv-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6) !important;
+}
+
+/* 2. Admin Cards & Hover Border Glow System */
+.admin-card,
+.admin-panel-scope .wsd-unified-card,
+.admin-panel-scope .userCard,
+.admin-panel-scope .team-card,
+.admin-panel-scope .task-card,
+.admin-panel-scope .serviceCard,
+.admin-panel-scope .invoiceCard,
+.admin-panel-scope .paymentCard,
+.admin-panel-scope .notificationCard {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s ease,
+              border-color 0.22s ease,
+              background-color 0.22s ease !important;
+}
+
+/* Light Theme Resting Admin Cards */
+html:not(.dark-theme) .admin-panel-scope .admin-card,
+html:not(.dark-theme) .admin-panel-scope .wsd-unified-card,
+.light-theme .admin-panel-scope .admin-card,
+.light-theme .admin-panel-scope .wsd-unified-card {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  background-image: none !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Dark Theme Resting Admin Cards */
+.dark-theme .admin-panel-scope .admin-card,
+.dark-theme .admin-panel-scope .wsd-unified-card {
+  background-color: rgba(15, 23, 42, 0.82) !important;
+  background-image: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Admin Card Hover: BORDER GLOW ONLY, NO BACKGROUND COLOR TAKEOVER */
+.admin-panel-scope .admin-card:hover,
+.admin-panel-scope .wsd-unified-card:hover,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card,
+.admin-panel-scope .zoom-card .wsd-unified-card:hover,
+.admin-panel-scope .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover {
+  transform: translateY(-4px) !important;
+  background-color: transparent !important;
+}
+
+/* Light Theme Hover Border Glow */
+html:not(.dark-theme) .admin-panel-scope .admin-card:hover,
+html:not(.dark-theme) .admin-panel-scope .wsd-unified-card:hover,
+html:not(.dark-theme) .admin-panel-scope .zoom-card:hover .wsd-unified-card,
+html:not(.dark-theme) .admin-panel-scope .zoom-card .wsd-unified-card:hover,
+html:not(.dark-theme) .admin-panel-scope .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover,
+html:not(.dark-theme) .admin-panel-scope .wsd-unified-card:nth-child(n):hover,
+.light-theme .admin-panel-scope .admin-card:hover,
+.light-theme .admin-panel-scope .wsd-unified-card:hover,
+.light-theme .admin-panel-scope .zoom-card:hover .wsd-unified-card,
+.light-theme .admin-panel-scope .zoom-card .wsd-unified-card:hover,
+.light-theme .admin-panel-scope .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover,
+.light-theme .admin-panel-scope .wsd-unified-card:nth-child(n):hover {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  background-image: none !important;
+  border-color: rgba(0, 122, 255, 0.65) !important;
+  box-shadow: 0 0 20px rgba(0, 122, 255, 0.22), 0 14px 34px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Dark Theme Hover Border Glow */
+.dark-theme .admin-panel-scope .admin-card:hover,
+.dark-theme .admin-panel-scope .wsd-unified-card:hover,
+.dark-theme .admin-panel-scope .zoom-card:hover .wsd-unified-card,
+.dark-theme .admin-panel-scope .zoom-card .wsd-unified-card:hover,
+.dark-theme .admin-panel-scope .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover,
+.dark-theme .admin-panel-scope .wsd-unified-card:nth-child(n):hover {
+  background-color: rgba(15, 23, 42, 0.9) !important;
+  background-image: none !important;
+  border-color: rgba(59, 130, 246, 0.75) !important;
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.35), 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 0 12px rgba(59, 130, 246, 0.06) !important;
+}
+
+/* Neutralize typography and SVG fills on hover across all admin scope */
+.admin-panel-scope .wsd-unified-card:hover h1,
+.admin-panel-scope .wsd-unified-card:hover h2,
+.admin-panel-scope .wsd-unified-card:hover h3,
+.admin-panel-scope .wsd-unified-card:hover h4,
+.admin-panel-scope .wsd-unified-card:hover h5,
+.admin-panel-scope .wsd-unified-card:hover h6,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card h1,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card h2,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card h3,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card h4,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover h1,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover h2,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover h3,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover h4 {
+  color: var(--text-primary) !important;
+}
+
+.admin-panel-scope .wsd-unified-card:hover p,
+.admin-panel-scope .wsd-unified-card:hover span,
+.admin-panel-scope .wsd-unified-card:hover label,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card p,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card span,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card label,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover p,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover span,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover label {
+  color: inherit !important;
+}
+
+.admin-panel-scope .wsd-unified-card:hover svg,
+.admin-panel-scope .zoom-card:hover .wsd-unified-card svg,
+.admin-panel-scope .wsd-unified-card:nth-child(n):hover svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* 3. Unified Admin Search Box */
+[class*="-middle-search"],
+.wsd-middle-search {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  min-width: 220px !important;
+  width: 100% !important;
+}
+
+.admin-search-box {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 18px !important;
+  min-height: 44px !important;
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 14px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+.admin-search-box:focus-within {
+  border-color: #007AFF !important;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15) !important;
+}
+.admin-search-box input,
+.admin-search-input {
+  flex: 1 !important;
+  border: none !important;
+  outline: none !important;
+  font-size: 14px !important;
+  font-family: inherit !important;
+  background-color: transparent !important;
+  color: var(--text-primary) !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+.admin-search-box input::placeholder,
+.admin-search-input::placeholder {
+  color: var(--text-secondary) !important;
+}
+
+/* 4. Unified Admin Primary Button */
+.admin-primary-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 42px !important;
+  padding: 0 20px !important;
+  background-color: #007AFF !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.25) !important;
+  white-space: nowrap !important;
+}
+.admin-primary-btn:hover {
+  background-color: #0062cc !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.35) !important;
+}
+.admin-primary-btn:active {
+  transform: scale(0.98) !important;
+}
+
+/* 5. Unified Admin Filter Tabs */
+.admin-filter-tab {
+  padding: 8px 16px !important;
+  border-radius: 9999px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.admin-filter-tab:hover {
+  color: var(--text-primary) !important;
+  border-color: rgba(0, 122, 255, 0.4) !important;
+}
+.admin-filter-tab-active {
+  background-color: #007AFF !important;
+  border-color: #007AFF !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25) !important;
+}
+
+/* 6. Unified Admin Modal */
+.admin-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2000 !important;
+  padding: 16px !important;
+}
+.admin-modal-card {
+  background-color: var(--bg-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 24px !important;
+  padding: 28px !important;
+  width: 100% !important;
+  max-width: 600px !important;
+  box-shadow: var(--card-shadow) !important;
+  animation: adminModalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+@keyframes adminModalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+/* List View Card Elevation System */
+.admin-panel-scope .wsd-list-row,
+.admin-panel-scope .admin-list-row,
+.admin-panel-scope .listRow {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+
+html:not(.dark-theme) .admin-panel-scope .wsd-list-row,
+html:not(.dark-theme) .admin-panel-scope .admin-list-row,
+html:not(.dark-theme) .admin-panel-scope .listRow,
+.light-theme .admin-panel-scope .wsd-list-row,
+.light-theme .admin-panel-scope .admin-list-row,
+.light-theme .admin-panel-scope .listRow {
+  background-color: #FFFFFF !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+}
+
+.dark-theme .admin-panel-scope .wsd-list-row,
+.dark-theme .admin-panel-scope .admin-list-row,
+.dark-theme .admin-panel-scope .listRow {
+  background-color: rgba(22, 30, 49, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+.admin-panel-scope .wsd-list-row:hover,
+.admin-panel-scope .admin-list-row:hover,
+.admin-panel-scope .listRow:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.12) !important;
+  border-color: rgba(0, 122, 255, 0.3) !important;
 }

@@ -163,7 +163,7 @@ export default function ManagePage() {
   );
 
   const renderSocialFields = () => (
-    <div style={styles.socialRow}>
+    <div style={styles.socialRow} className="social-grid-row">
       {SOCIAL_PLATFORM_META.map((platform) => {
         const Icon = platform.icon;
         const error = errors[platform.key];
@@ -195,7 +195,23 @@ export default function ManagePage() {
   );
 
   return (
-    <div className="wsd-page">
+    <div className="wsd-page admin-panel-scope">
+      <style>{`
+        @media (max-width: 1024px) {
+          .manage-page-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .media-row-grid {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .social-grid-row {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
       <header style={styles.header}>
         <div>
           <h1 style={styles.title}>Manage Page</h1>
@@ -207,48 +223,50 @@ export default function ManagePage() {
         <div style={styles.loading}>Loading...</div>
       ) : (
         <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.card}>
-            <div style={styles.cardHeader}>
-              <h2 style={styles.cardTitle}>Contact Information</h2>
-              <p style={styles.cardSubtitle}>This information is displayed publicly on the landing page and contact page.</p>
-            </div>
-
-            <div style={styles.formGroup}>
-              <div style={styles.fieldLabelRow}>
-                <MapPin size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
-                <label style={styles.label}>Headquarters Address</label>
+          <div style={styles.contactSocialGrid} className="manage-page-grid">
+            <div style={{ ...styles.card, height: '100%', boxSizing: 'border-box' }} className="admin-card">
+              <div style={styles.cardHeader}>
+                <h2 style={styles.cardTitle}>Contact Information</h2>
+                <p style={styles.cardSubtitle}>This information is displayed publicly on the landing page and contact page.</p>
               </div>
-              <textarea
-                style={styles.textarea}
-                value={contactInfo.headquarters}
-                onChange={(e) => setField('headquarters', e.target.value)}
-                placeholder="e.g. 123 Tech Street, Silicon Valley, CA 94000"
-              />
-            </div>
 
-            <div style={styles.formGroup}>
-              <div style={styles.fieldLabelRow}>
-                <Mail size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
-                <label style={styles.label}>Email Addresses</label>
+              <div style={styles.formGroup}>
+                <div style={styles.fieldLabelRow}>
+                  <MapPin size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                  <label style={styles.label}>Headquarters Address</label>
+                </div>
+                <textarea
+                  style={styles.textarea}
+                  value={contactInfo.headquarters}
+                  onChange={(e) => setField('headquarters', e.target.value)}
+                  placeholder="e.g. 123 Tech Street, Silicon Valley, CA 94000"
+                />
               </div>
-              {renderEmailFields()}
-            </div>
 
-            <div style={styles.formGroup}>
-              <div style={styles.fieldLabelRow}>
-                <Phone size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
-                <label style={styles.label}>Phone Numbers</label>
+              <div style={styles.formGroup}>
+                <div style={styles.fieldLabelRow}>
+                  <Mail size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                  <label style={styles.label}>Email Addresses</label>
+                </div>
+                {renderEmailFields()}
               </div>
-              {renderPhoneFields()}
-            </div>
-          </div>
 
-          <div style={styles.card}>
-            <div style={styles.cardHeader}>
-              <h2 style={styles.cardTitle}>Social Media Links</h2>
-              <p style={styles.cardSubtitle}>Manage official social media profiles displayed on the website. Leave a link empty to hide that platform.</p>
+              <div style={styles.formGroup}>
+                <div style={styles.fieldLabelRow}>
+                  <Phone size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                  <label style={styles.label}>Phone Numbers</label>
+                </div>
+                {renderPhoneFields()}
+              </div>
             </div>
-            {renderSocialFields()}
+
+            <div style={{ ...styles.card, height: '100%', boxSizing: 'border-box' }} className="admin-card">
+              <div style={styles.cardHeader}>
+                <h2 style={styles.cardTitle}>Social Media Links</h2>
+                <p style={styles.cardSubtitle}>Manage official social media profiles displayed on the website. Leave a link empty to hide that platform.</p>
+              </div>
+              {renderSocialFields()}
+            </div>
           </div>
 
           <div style={styles.formActions}>
@@ -370,7 +388,7 @@ function WebsiteMediaCard() {
   };
 
   return (
-    <div style={styles.card}>
+    <div style={styles.card} className="admin-card">
       <div style={styles.cardHeader}>
         <h2 style={styles.cardTitle}>Website Media</h2>
         <p style={styles.cardSubtitle}>
@@ -390,7 +408,7 @@ function WebsiteMediaCard() {
             const isUploading = uploadingKey === slot.key;
             const Icon = slot.type === 'video' ? Film : ImageIcon;
             return (
-              <div key={slot.key} style={styles.mediaRow}>
+              <div key={slot.key} style={styles.mediaRow} className="media-row-grid">
                 <div style={styles.mediaInfo}>
                   <div style={styles.fieldLabelRow}>
                     <Icon size={15} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
@@ -440,6 +458,13 @@ function WebsiteMediaCard() {
 const styles: any = {
   header: {
     marginBottom: '32px',
+  },
+  contactSocialGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.45fr) minmax(0, 1fr)',
+    gap: '24px',
+    alignItems: 'stretch',
+    width: '100%',
   },
   title: {
     fontSize: '34px',
@@ -512,7 +537,7 @@ const styles: any = {
     padding: '12px 16px',
     borderRadius: '8px',
     border: '1px solid var(--border-color)',
-    backgroundColor: 'var(--bg-primary)',
+    backgroundColor: 'transparent',
     color: 'var(--text-primary)',
     fontSize: '15px',
     outline: 'none',
@@ -526,7 +551,7 @@ const styles: any = {
     padding: '12px 16px',
     borderRadius: '8px',
     border: '1px solid var(--border-color)',
-    backgroundColor: 'var(--bg-primary)',
+    backgroundColor: 'transparent',
     color: 'var(--text-primary)',
     fontSize: '15px',
     minHeight: '80px',
@@ -536,8 +561,9 @@ const styles: any = {
   },
   socialRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-    gap: '14px',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: '16px 14px',
+    alignItems: 'start',
   },
   socialCell: {
     display: 'flex',
@@ -594,13 +620,13 @@ const styles: any = {
   },
   mediaRow: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(220px, 1.4fr) 180px 110px',
-    gap: '16px',
+    gridTemplateColumns: 'minmax(240px, 1.4fr) 200px 120px',
+    gap: '20px',
     alignItems: 'center',
-    padding: '14px 16px',
+    padding: '16px 20px',
     border: '1px solid var(--border-color)',
     borderRadius: '12px',
-    backgroundColor: 'var(--bg-primary)',
+    backgroundColor: 'transparent',
   },
   mediaInfo: {
     display: 'flex',
@@ -619,8 +645,8 @@ const styles: any = {
     opacity: 0.8,
   },
   mediaPreview: {
-    width: '180px',
-    height: '100px',
+    width: '200px',
+    height: '110px',
     borderRadius: '10px',
     overflow: 'hidden',
     backgroundColor: 'var(--bg-secondary)',

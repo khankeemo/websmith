@@ -79,14 +79,14 @@ export default function DevelopersPage() {
   };
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-panel-scope">
       {/* Header */}
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Developers</h1>
           <p style={styles.subtitle}>Manage your development team and their profiles</p>
         </div>
-        <button onClick={handleAddDeveloper} style={styles.addBtn} className="add-btn">
+        <button onClick={handleAddDeveloper} style={styles.addBtn} className="admin-primary-btn add-btn">
           <Plus size={18} />
           <span>New Developer</span>
         </button>
@@ -257,7 +257,7 @@ const styles: Record<string, any> = {
   statValue: { margin: 0, fontSize: "28px", fontWeight: 700, color: "var(--text-primary)" },
   statLabel: { margin: "4px 0 0", fontSize: "13px", color: "var(--text-secondary)" },
   searchSection: { marginBottom: "24px", display: "flex", gap: "12px", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" },
-  searchBox: { display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "12px" },
+  searchBox: { display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", backgroundColor: 'transparent', border: "1px solid var(--border-color)", borderRadius: "12px" },
   searchInput: { border: "none", outline: "none", width: "100%", fontSize: "15px", backgroundColor: "transparent", color: "var(--text-primary)" },
   viewToggle: { display: "flex", background: "var(--bg-secondary)", borderRadius: "12px", padding: "4px" },
   toggleBtn: { border: "none", background: "transparent", padding: "8px 10px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" },

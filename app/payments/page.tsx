@@ -152,12 +152,43 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-panel-scope">
       {/* Header */}
-      <div style={styles.header}>
-        <div>
+      <div style={styles.header} className="wsd-page-header">
+        <div style={styles.headerTitleBlock}>
           <h1 style={styles.title}>Payments</h1>
           <p style={styles.subtitle}>Track all your transactions and payments</p>
+        </div>
+
+        {/* Top & Middle Search */}
+        <div style={styles.middleSearchWrap} className="payments-middle-search">
+          <div style={styles.searchBox} className="admin-search-box wsd-search-box">
+            <Search size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search by invoice #, client, or transaction ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+              className="admin-search-input"
+            />
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div style={styles.headerButtons} className="wsd-page-actions">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="all">All Payments</option>
+            <option value="completed">Completed</option>
+            <option value="pending">Pending</option>
+            <option value="failed">Failed</option>
+            <option value="refunded">Refunded</option>
+          </select>
         </div>
       </div>
 
@@ -201,32 +232,7 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div style={styles.searchSection} className="payments-search-section wsd-toolbar">
-        <div style={styles.searchWrapper} className="wsd-search-box">
-          <Search size={18} style={styles.searchIcon} />
-          <input
-            type="text"
-            placeholder="Search by invoice #, client, or transaction ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-            className="input-focus"
-          />
-        </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          style={styles.filterSelect}
-        >
-          <option value="all">All Status</option>
-          <option value="completed">Completed</option>
-          <option value="pending">Pending</option>
-          <option value="failed">Failed</option>
-          <option value="refunded">Refunded</option>
-        </select>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
-      </div>
+      
 
       {downloadError && (
         <div style={styles.errorBanner} role="alert">
@@ -436,10 +442,9 @@ const styles: any = {
     width: "100%",
     maxWidth: "100%",
     margin: 0,
-    padding: 0,
     backgroundColor: "transparent",
     color: "var(--text-primary)",
-    minHeight: "100vh",
+    minHeight: '100%',
   },
   loadingContainer: {
     display: "flex",
@@ -458,7 +463,28 @@ const styles: any = {
     animation: "spin 0.8s linear infinite",
   },
   header: {
-    marginBottom: "32px",
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '20px',
+    marginBottom: '28px',
+    width: '100%',
+  },
+  headerTitleBlock: {
+    flexShrink: 0,
+    minWidth: '180px',
+  },
+  middleSearchWrap: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: '220px',
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   title: {
     fontSize: "34px",
@@ -482,7 +508,7 @@ const styles: any = {
     alignItems: "center",
     gap: "16px",
     padding: "20px",
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: 'transparent',
     borderRadius: "16px",
     border: "1px solid var(--border-color)",
   },
@@ -509,34 +535,34 @@ const styles: any = {
     marginBottom: "24px",
     flexWrap: "wrap",
   },
-  searchWrapper: {
-    flex: 1,
-    position: "relative",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "14px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    color: "var(--text-secondary)",
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '10px 18px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    width: '100%',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+    transition: 'all 0.2s ease',
   },
   searchInput: {
-    width: "100%",
-    padding: "12px 16px 12px 40px",
-    fontSize: "16px",
-    border: "1.5px solid var(--border-color)",
-    borderRadius: "12px",
-    outline: "none",
-    transition: "all 0.2s ease",
-    backgroundColor: "var(--bg-primary)",
-    color: "var(--text-primary)",
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    backgroundColor: 'transparent',
+    color: 'var(--text-primary)',
+    width: '100%',
   },
   filterSelect: {
     padding: "12px 16px",
     fontSize: "14px",
     border: "1.5px solid var(--border-color)",
     borderRadius: "12px",
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: 'transparent',
     color: "var(--text-primary)",
     cursor: "pointer",
   },
@@ -561,7 +587,7 @@ const styles: any = {
     overflowX: "auto" as const,
     borderRadius: "20px",
     border: "1px solid var(--border-color)",
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: 'transparent',
     boxShadow: "0 10px 30px rgba(0,0,0,0.04)",
   },
   paymentsTable: {
@@ -590,7 +616,7 @@ const styles: any = {
     transition: "background-color 0.2s ease",
   },
   paymentCard: {
-    backgroundColor: "var(--bg-primary)",
+    backgroundColor: 'transparent',
     borderRadius: "16px",
     border: "1px solid var(--border-color)",
     padding: "20px",

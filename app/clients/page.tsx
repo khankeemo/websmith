@@ -109,39 +109,40 @@ export default function ClientsPage() {
 
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-panel-scope">
       <div style={styles.header} className="clients-header wsd-page-header">
-        <div>
+        <div style={styles.headerTitleBlock}>
           <h1 style={styles.title}>Clients</h1>
           <p style={styles.subtitle}>Manage clients from one place</p>
         </div>
-        <div style={styles.headerButtons} className="wsd-page-actions">
 
-          <button onClick={handleAddClient} style={styles.addBtn} className="add-btn">
-            <Plus size={18} />
+        {/* WIDE TOP & MIDDLE SEARCH BAR */}
+        <div style={styles.middleSearchWrap} className="clients-middle-search">
+          <div style={styles.searchBox} className="admin-search-box wsd-search-box">
+            <Search size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search accounts..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+        </div>
+
+        {/* RIGHT ACTION BUTTONS */}
+        <div style={styles.headerButtons} className="wsd-page-actions">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          <NavbarVisibilityToggle
+            sectionKey="clients"
+            label="Clients"
+            variant="compact"
+          />
+          <button onClick={handleAddClient} style={styles.addBtn} className="admin-primary-btn add-btn">
+            <Plus size={16} />
             <span>New Client</span>
           </button>
         </div>
-      </div>
-
-      <NavbarVisibilityToggle
-        sectionKey="clients"
-        label="Clients"
-        description="Show or hide the Clients link in the public website navbar. The section remains reachable by direct URL."
-      />
-
-      <div style={styles.searchSection} className="wsd-toolbar">
-        <div style={styles.searchBox} className="wsd-search-box">
-          <Search size={18} color="var(--text-secondary)" />
-          <input
-            type="text"
-            placeholder="Search accounts..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
-        </div>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {successMessage && (
@@ -165,12 +166,7 @@ export default function ClientsPage() {
       )}
 
       <div style={styles.sectionBlock}>
-        <div style={styles.sectionHeader}>
-          <div>
-            <h2 style={styles.sectionTitle}>Clients</h2>
-            <p style={styles.sectionDescription}>Manage your active client base and their account credentials.</p>
-          </div>
-        </div>
+        
 
         {loading ? (
           <div style={styles.loadingContainer}>
@@ -272,22 +268,35 @@ export default function ClientsPage() {
 
 const styles: any = {
   container: {
-    padding: 0,
-    backgroundColor: 'var(--bg-primary)',
-    minHeight: '100vh',
     color: 'var(--text-primary)',
+    backgroundColor: 'transparent',
+    minHeight: '100%',
+    width: '100%',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '40px',
+    alignItems: 'center',
+    gap: '20px',
+    marginBottom: '28px',
+    width: '100%',
+  },
+  headerTitleBlock: {
+    flexShrink: 0,
+    minWidth: '180px',
+  },
+  middleSearchWrap: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: '220px',
   },
   headerButtons: {
     display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    gap: '8px',
+    alignItems: 'center',
+    flexShrink: 0,
+    flexWrap: 'nowrap',
   },
   title: {
     fontSize: '34px',
@@ -302,19 +311,21 @@ const styles: any = {
     margin: 0,
   },
   addBtn: {
-    padding: '12px 24px',
+    padding: '9px 16px',
     backgroundColor: '#007AFF',
     color: '#FFFFFF',
     border: 'none',
-    borderRadius: '14px',
-    fontSize: '14px',
+    borderRadius: '12px',
+    fontSize: '13px',
     fontWeight: 700,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
+    gap: '6px',
     fontFamily: 'inherit',
     boxShadow: '0 4px 12px rgba(0,122,255,0.2)',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   secondaryBtn: {
     padding: '12px 20px',
@@ -331,7 +342,7 @@ const styles: any = {
     fontFamily: 'inherit',
   },
   searchSection: {
-    marginBottom: '40px',
+    marginBottom: '20px',
     display: 'flex',
     alignItems: 'center',
     gap: '16px',
@@ -399,23 +410,24 @@ const styles: any = {
   searchBox: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
-    padding: '14px 20px',
+    gap: '12px',
+    padding: '10px 18px',
     backgroundColor: 'var(--bg-secondary)',
-    border: '1.5px solid var(--border-color)',
-    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    width: '100%',
     boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-    flex: 1,
-    minWidth: 0,
+    transition: 'all 0.2s ease',
   },
   searchInput: {
     flex: 1,
     border: 'none',
     outline: 'none',
-    fontSize: '16px',
+    fontSize: '14px',
     fontFamily: 'inherit',
     backgroundColor: 'transparent',
     color: 'var(--text-primary)',
+    width: '100%',
   },
   grid: {
     display: 'grid',
@@ -469,10 +481,10 @@ const styles: any = {
     backgroundColor: 'rgba(255, 59, 48, 0.05)',
     borderRadius: '24px',
     border: '1.5px solid rgba(255, 59, 48, 0.1)',
-    marginBottom: '40px',
+    marginBottom: '20px',
   },
   successContainer: {
-    marginBottom: '40px',
+    marginBottom: '20px',
     padding: '16px 24px',
     backgroundColor: 'rgba(52, 199, 89, 0.1)',
     border: '1.5px solid #34C759',

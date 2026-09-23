@@ -16,7 +16,7 @@ interface ClientCardProps {
 
 export default function ClientCard({ client, onEdit, onDelete, onTogglePublish }: ClientCardProps) {
   return (
-    <div style={styles.card} className="client-card">
+    <div style={styles.card} className="client-card admin-card">
       <div style={styles.cardHeader}>
         <div style={styles.iconContainer}>
           <Users size={24} color="#007AFF" />

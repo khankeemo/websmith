@@ -40,7 +40,7 @@ export default function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
   };
 
   return (
-    <div style={styles.card} className="task-card">
+    <div style={styles.card} className="task-card admin-card">
       <div style={styles.cardHeader}>
         <div style={styles.iconContainer}>
           <CheckSquare size={24} color="#007AFF" />

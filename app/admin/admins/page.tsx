@@ -219,30 +219,35 @@ export default function AdminsPage() {
   );
 
   return (
-    <div style={styles.container} className="wsd-page">
-      <header style={styles.header}>
-        <div>
+    <div style={styles.container} className="wsd-page admin-panel-scope">
+      <header style={styles.header} className="wsd-page-header">
+        <div style={styles.headerTitleBlock}>
           <h1 style={styles.title}>Admins</h1>
           <p style={styles.subtitle}>Manage sub-admins and internal system access</p>
         </div>
-        <button onClick={() => setIsAdminModalOpen(true)} style={styles.primaryBtn}>
-          <Plus size={18} />
-          <span>Add Admin</span>
-        </button>
-      </header>
 
-      <section style={styles.searchSection}>
-        <div style={styles.searchBox}>
-          <Search size={20} color="var(--text-secondary)" />
-          <input
-            placeholder="Search admins by name, email or company..."
-            style={styles.searchInput}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        {/* Top & Middle Search */}
+        <div style={styles.middleSearchWrap} className="admins-middle-search">
+          <div style={styles.searchBox} className="admin-search-box wsd-search-box">
+            <Search size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+            <input
+              placeholder="Search admins by name, email or company..."
+              style={styles.searchInput}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
-      </section>
+
+        {/* Right Actions */}
+        <div style={styles.headerButtons} className="wsd-page-actions">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          <button onClick={() => setIsAdminModalOpen(true)} style={styles.primaryBtn} className="admin-primary-btn">
+            <Plus size={16} />
+            <span>Add Admin</span>
+          </button>
+        </div>
+      </header>
 
       <div style={styles.sectionBlock}>
         {loading ? (
@@ -330,16 +335,36 @@ export default function AdminsPage() {
 
 const styles: any = {
   container: {
-    padding: 0,
     width: '100%',
     maxWidth: '100%',
     margin: 0,
+    backgroundColor: 'transparent',
+    minHeight: '100%',
+    color: 'var(--text-primary)',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '40px',
+    marginBottom: '28px',
+    gap: '20px',
+    width: '100%',
+  },
+  headerTitleBlock: {
+    flexShrink: 0,
+    minWidth: '180px',
+  },
+  middleSearchWrap: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: '220px',
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   title: {
     fontSize: '34px',
@@ -355,45 +380,41 @@ const styles: any = {
     margin: 0,
   },
   primaryBtn: {
-    padding: '12px 24px',
+    padding: '9px 16px',
     backgroundColor: '#007AFF',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '14px',
-    fontSize: '15px',
+    borderRadius: '12px',
+    fontSize: '13px',
     fontWeight: 700,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    boxShadow: '0 8px 16px rgba(0,122,255,0.2)',
-  },
-  searchSection: {
-    marginBottom: '40px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    flexWrap: 'wrap' as const,
+    gap: '6px',
+    boxShadow: '0 4px 12px rgba(0,122,255,0.2)',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   searchBox: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
-    padding: '14px 20px',
+    gap: '12px',
+    padding: '10px 18px',
     backgroundColor: 'var(--bg-secondary)',
-    border: '1.5px solid var(--border-color)',
-    borderRadius: '16px',
-    flex: 1,
-    minWidth: '240px',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    width: '100%',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
   },
   searchInput: {
     flex: 1,
     border: 'none',
     outline: 'none',
-    fontSize: '16px',
+    fontSize: '14px',
     fontFamily: 'inherit',
     backgroundColor: 'transparent',
     color: 'var(--text-primary)',
+    width: '100%',
   },
   sectionBlock: {
     marginBottom: '56px',

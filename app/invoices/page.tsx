@@ -399,16 +399,48 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-panel-scope">
       {/* Header */}
       <div style={styles.header} className="wsd-page-header">
-        <div>
+        <div style={styles.headerTitleBlock}>
           <h1 style={styles.title}>Invoices</h1>
           <p style={styles.subtitle}>Manage and track all customer billing</p>
         </div>
-        <button onClick={() => { setEditingInvoice(null); setIsModalOpen(true); }} style={styles.createButton} className="create-btn">
-          <Plus size={18} /> Create Invoice
-        </button>
+
+        {/* Top & Middle Search */}
+        <div style={styles.middleSearchWrap} className="invoices-middle-search">
+          <div style={styles.searchBox} className="admin-search-box wsd-search-box">
+            <Search size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search by invoice # or client..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+              className="admin-search-input"
+            />
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div style={styles.headerButtons} className="wsd-page-actions">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="all">All Status</option>
+            <option value="paid">Paid</option>
+            <option value="partially_paid">Partially Paid</option>
+            <option value="pending">Pending</option>
+            <option value="overdue">Overdue</option>
+            <option value="draft">Draft</option>
+          </select>
+          <button onClick={() => { setEditingInvoice(null); setIsModalOpen(true); }} style={styles.createButton} className="admin-primary-btn create-btn">
+            <Plus size={16} /> Create Invoice
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -449,34 +481,6 @@ export default function InvoicesPage() {
             <div style={styles.statLabel}>Overdue</div>
           </div>
         </div>
-      </div>
-
-      {/* Search and Filter */}
-      <div style={styles.searchSection} className="wsd-toolbar">
-        <div style={styles.searchWrapper} className="wsd-search-box">
-          <Search size={18} style={styles.searchIcon} />
-          <input
-            type="text"
-            placeholder="Search by invoice # or client..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-            className="input-focus"
-          />
-        </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          style={styles.filterSelect}
-        >
-          <option value="all">All Status</option>
-          <option value="paid">Paid</option>
-          <option value="partially_paid">Partially Paid</option>
-          <option value="pending">Pending</option>
-          <option value="overdue">Overdue</option>
-          <option value="draft">Draft</option>
-        </select>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {/* Invoices Table */}
@@ -796,12 +800,11 @@ export default function InvoicesPage() {
 
 const styles: any = {
   container: {
-    width: "100%",
-    maxWidth: "100%",
+    width: '100%',
+    maxWidth: '100%',
     margin: 0,
-    padding: 0,
     backgroundColor: 'transparent',
-    minHeight: '100vh',
+    minHeight: '100%',
     color: 'var(--text-primary)',
   },
   loadingContainer: {
@@ -823,10 +826,26 @@ const styles: any = {
   header: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: "40px",
-    flexWrap: "wrap",
-    gap: "16px",
+    alignItems: "center",
+    marginBottom: "28px",
+    gap: "20px",
+    width: "100%",
+  },
+  headerTitleBlock: {
+    flexShrink: 0,
+    minWidth: "180px",
+  },
+  middleSearchWrap: {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    minWidth: "220px",
+  },
+  headerButtons: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+    flexShrink: 0,
   },
   title: {
     fontSize: "34px",
@@ -843,16 +862,18 @@ const styles: any = {
   createButton: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
-    padding: "12px 24px",
+    gap: "6px",
+    padding: "9px 16px",
     backgroundColor: "#007AFF",
     color: "#FFFFFF",
     border: "none",
-    borderRadius: "14px",
+    borderRadius: "12px",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: 700,
     boxShadow: '0 4px 12px rgba(0,122,255,0.2)',
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
   statsGrid: {
     display: "grid",
@@ -892,27 +913,27 @@ const styles: any = {
     marginBottom: "32px",
     flexWrap: "wrap",
   },
-  searchWrapper: {
-    flex: 1,
-    position: "relative",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "14px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    color: "var(--text-secondary)",
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '10px 18px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    width: '100%',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+    transition: 'all 0.2s ease',
   },
   searchInput: {
-    width: "100%",
-    padding: "12px 16px 12px 42px",
-    fontSize: "16px",
-    border: "1.5px solid var(--border-color)",
-    borderRadius: "14px",
-    outline: "none",
-    backgroundColor: "var(--bg-secondary)",
-    color: "var(--text-primary)",
-    transition: "all 0.2s ease",
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    backgroundColor: 'transparent',
+    color: 'var(--text-primary)',
+    width: '100%',
   },
   filterSelect: {
     padding: "12px 16px",

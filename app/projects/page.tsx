@@ -130,75 +130,73 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-panel-scope">
       {/* Header */}
       <div style={styles.header} className="projects-header wsd-page-header">
-        <div>
+        <div style={styles.headerTitleBlock}>
           <h1 style={styles.title}>Projects</h1>
           <p style={styles.subtitle}>Manage all your development projects</p>
         </div>
-        <button onClick={handleAddProject} style={styles.addBtn} className="add-btn">
-          <Plus size={18} />
-          <span>New Project</span>
-        </button>
-      </div>
 
-      <div style={styles.visibilityGrid}>
-        <NavbarVisibilityToggle
-          sectionKey="projects"
-          label="Projects"
-          description="Show or hide the Projects link in the public website navbar. Published projects remain accessible by direct URL."
-        />
-        <NavbarVisibilityToggle
-          sectionKey="testimonials"
-          label="Testimonials"
-          description="Show or hide the Testimonials link in the public website navbar. Published testimonials remain available by direct URL."
-        />
-      </div>
+        {/* Top & Middle Search */}
+        <div style={styles.middleSearchWrap} className="projects-middle-search">
+          <div style={styles.searchBox} className="admin-search-box wsd-search-box">
+            <Search size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+        </div>
 
-      {/* Search and Filter */}
-      <div style={styles.searchSection} className="projects-search-section wsd-toolbar">
-        <div style={styles.searchBox} className="wsd-search-box">
-          <Search size={18} color="var(--text-secondary)" />
-          <input
-            type="text"
-            placeholder="Search projects..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
+        {/* Right Actions */}
+        <div style={styles.headerButtons} className="wsd-page-actions">
+          <div style={styles.viewToggle}>
+            <button onClick={() => setViewMode('grid')} style={{ ...styles.toggleBtn, ...(viewMode === 'grid' ? styles.toggleActive : {}) }} title="Grid view"><LayoutGrid size={16} /></button>
+            <button onClick={() => setViewMode('list')} style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleActive : {}) }} title="List view"><List size={16} /></button>
+            <button onClick={() => setViewMode('kanban')} style={{ ...styles.toggleBtn, ...(viewMode === 'kanban' ? styles.toggleActive : {}) }} title="Kanban view"><Kanban size={16} /></button>
+          </div>
+          <NavbarVisibilityToggle
+            sectionKey="projects"
+            label="Projects"
+            variant="compact"
           />
-        </div>
-        <div style={styles.viewToggle}>
-          <button onClick={() => setViewMode('grid')} style={{ ...styles.toggleBtn, ...(viewMode === 'grid' ? styles.toggleActive : {}) }}><LayoutGrid size={16} /></button>
-          <button onClick={() => setViewMode('list')} style={{ ...styles.toggleBtn, ...(viewMode === 'list' ? styles.toggleActive : {}) }}><List size={16} /></button>
-          <button onClick={() => setViewMode('kanban')} style={{ ...styles.toggleBtn, ...(viewMode === 'kanban' ? styles.toggleActive : {}) }}><Kanban size={16} /></button>
-        </div>
-        <div style={styles.filterTabs} className="wsd-chip-row">
-          <button
-            onClick={() => setStatusFilter('all')}
-            style={{ ...styles.filterTab, ...(statusFilter === 'all' ? styles.filterTabActive : {}) }}
-          >
-            All ({statusCounts.all})
-          </button>
-          <button
-            onClick={() => setStatusFilter('pending')}
-            style={{ ...styles.filterTab, ...(statusFilter === 'pending' ? styles.filterTabActive : {}) }}
-          >
-            Pending ({statusCounts.pending})
-          </button>
-          <button
-            onClick={() => setStatusFilter('in-progress')}
-            style={{ ...styles.filterTab, ...(statusFilter === 'in-progress' ? styles.filterTabActive : {}) }}
-          >
-            In Progress ({statusCounts['in-progress']})
-          </button>
-          <button
-            onClick={() => setStatusFilter('completed')}
-            style={{ ...styles.filterTab, ...(statusFilter === 'completed' ? styles.filterTabActive : {}) }}
-          >
-            Completed ({statusCounts.completed})
+          <button onClick={handleAddProject} style={styles.addBtn} className="admin-primary-btn add-btn">
+            <Plus size={16} />
+            <span>New Project</span>
           </button>
         </div>
+      </div>
+
+      {/* Filter Tabs Row */}
+      <div style={styles.filterTabsRow} className="wsd-chip-row">
+        <button
+          onClick={() => setStatusFilter('all')}
+          style={{ ...styles.filterTab, ...(statusFilter === 'all' ? styles.filterTabActive : {}) }}
+        >
+          All ({statusCounts.all})
+        </button>
+        <button
+          onClick={() => setStatusFilter('pending')}
+          style={{ ...styles.filterTab, ...(statusFilter === 'pending' ? styles.filterTabActive : {}) }}
+        >
+          Pending ({statusCounts.pending})
+        </button>
+        <button
+          onClick={() => setStatusFilter('in-progress')}
+          style={{ ...styles.filterTab, ...(statusFilter === 'in-progress' ? styles.filterTabActive : {}) }}
+        >
+          In Progress ({statusCounts['in-progress']})
+        </button>
+        <button
+          onClick={() => setStatusFilter('completed')}
+          style={{ ...styles.filterTab, ...(statusFilter === 'completed' ? styles.filterTabActive : {}) }}
+        >
+          Completed ({statusCounts.completed})
+        </button>
       </div>
 
       {/* Loading State */}
@@ -253,7 +251,7 @@ export default function ProjectsPage() {
       {!loading && !error && filteredProjects.length > 0 && viewMode === 'list' && (
         <div style={styles.list} className="wsd-list">
           {filteredProjects.map((project) => (
-            <div key={project._id} style={styles.listRow} className="wsd-list-row">
+            <div key={project._id} style={styles.listRow} className="wsd-list-row admin-card">
               <div>
                 <strong>{project.name}</strong>
                 <p style={styles.listMeta}>{project.client} · {project.assignedDeveloperName || 'Unassigned'}</p>
@@ -391,16 +389,42 @@ export default function ProjectsPage() {
 
 const styles: any = {
   container: { 
-    padding: 0,
-    backgroundColor: 'var(--bg-primary)',
-    minHeight: '100vh',
+    backgroundColor: 'transparent',
+    minHeight: '100%',
+    width: '100%',
     color: 'var(--text-primary)'
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '32px',
+    alignItems: 'center',
+    gap: '20px',
+    marginBottom: '20px',
+    width: '100%',
+  },
+  headerTitleBlock: {
+    flexShrink: 0,
+    minWidth: '180px',
+  },
+  middleSearchWrap: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: '220px',
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    flexShrink: 0,
+    flexWrap: 'nowrap',
+  },
+  filterTabsRow: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    marginBottom: '24px',
+    overflowX: 'auto',
   },
   title: {
     fontSize: '34px',
@@ -446,23 +470,22 @@ const styles: any = {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    padding: '12px 16px',
-    backgroundColor: 'var(--bg-primary)',
-    border: '1.5px solid var(--border-color)',
+    padding: '10px 18px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
     borderRadius: '14px',
-    marginBottom: '16px',
-    boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
-    flex: 1,
-    minWidth: 0,
+    width: '100%',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
   },
   searchInput: {
     flex: 1,
     border: 'none',
     outline: 'none',
-    fontSize: '15px',
+    fontSize: '14px',
     fontFamily: 'inherit',
     backgroundColor: 'transparent',
     color: 'var(--text-primary)',
+    width: '100%',
   },
   filterTabs: {
     display: 'flex',
@@ -495,10 +518,32 @@ const styles: any = {
     gap: '24px',
   },
   list: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  listRow: { display: 'grid', gridTemplateColumns: '1.5fr auto auto auto', gap: '16px', alignItems: 'center', padding: '16px 20px', border: '1.5px solid var(--border-color)', borderRadius: '16px', backgroundColor: 'var(--bg-primary)' },
+  listRow: {
+    display: 'grid',
+    gridTemplateColumns: '1.5fr auto auto auto',
+    gap: '16px',
+    alignItems: 'center',
+    padding: '16px 20px',
+    border: '1px solid var(--border-color)',
+    borderRadius: '16px',
+    backgroundColor: 'var(--bg-secondary)',
+    boxShadow: '0 4px 16px rgba(15, 23, 42, 0.05)',
+    transition: 'all 0.2s ease',
+  },
   listMeta: { margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'capitalize' },
   listActions: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
-  listBtn: { padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 },
+  listBtn: {
+    padding: '8px 14px',
+    borderRadius: '10px',
+    border: '1px solid var(--border-color)',
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontWeight: 600,
+    fontSize: '13px',
+    transition: 'all 0.2s ease',
+  },
   loadingContainer: {
     display: 'flex',
     flexDirection: 'column',
@@ -566,7 +611,7 @@ const styles: any = {
     fontFamily: 'inherit',
   },
   feedbackModalBackdrop: { position: 'fixed' as const, inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '20px' },
-  feedbackModal: { width: '100%', maxWidth: '680px', maxHeight: '86vh', overflow: 'auto', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
+  feedbackModal: { width: '100%', maxWidth: '680px', maxHeight: '86vh', overflow: 'auto', backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
   feedbackModalHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' },
   feedbackModalTitle: { margin: 0, color: 'var(--text-primary)', fontSize: '22px', fontWeight: 700 },
   feedbackModalSubtitle: { margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px' },

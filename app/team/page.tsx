@@ -445,28 +445,41 @@ export default function DevelopersPage() {
   }
 
   return (
-    <div style={styles.container} className="wsd-page">
-      <div style={styles.pageHeader}>
-        <div>
+    <div style={styles.container} className="wsd-page admin-panel-scope">
+      <div style={styles.pageHeader} className="wsd-page-header">
+        <div style={styles.headerTitleBlock}>
           <h1 style={styles.pageTitle}>Developers</h1>
           <p style={styles.pageSubtitle}>Manage your technical workforce and role-based access</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingUser(null);
-            setIsModalOpen(true);
-          }}
-          style={styles.primaryBtn}
-        >
-          <Plus size={20} /> Add Developer
-        </button>
-      </div>
 
-      <NavbarVisibilityToggle
-        sectionKey="developers"
-        label="Developers"
-        description="Show or hide the Developers link in the public website navbar. Developer profiles remain reachable by direct URL."
-      />
+        {/* Top & Middle Search */}
+        <div style={styles.middleSearchWrap} className="team-middle-search">
+          <div style={styles.searchInner} className="admin-search-box wsd-search-box">
+            <Search size={18} style={styles.searchIcon} />
+            <input type="text" placeholder="Search by name, email or skills..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={styles.searchInput} />
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div style={styles.headerButtons} className="wsd-page-actions">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          <NavbarVisibilityToggle
+            sectionKey="developers"
+            label="Developers"
+            variant="compact"
+          />
+          <button
+            onClick={() => {
+              setEditingUser(null);
+              setIsModalOpen(true);
+            }}
+            style={styles.primaryBtn}
+            className="admin-primary-btn"
+          >
+            <Plus size={16} /> Add Developer
+          </button>
+        </div>
+      </div>
 
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
@@ -481,14 +494,6 @@ export default function DevelopersPage() {
           <Code size={24} color="#AF52DE" />
           <div><div style={styles.statValue}>{stats.specialists}</div><div style={styles.statLabel}>Active Specialists</div></div>
         </div>
-      </div>
-
-      <div style={styles.searchSection}>
-        <div style={styles.searchInner}>
-          <Search size={18} style={styles.searchIcon} />
-          <input type="text" placeholder="Search by name, email or skills..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={styles.searchInput} />
-        </div>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {filteredDevelopers.length === 0 ? (
@@ -565,19 +570,37 @@ export default function DevelopersPage() {
 
 const styles: any = {
   container: {
-    padding: 0,
     width: '100%',
     maxWidth: '100%',
     margin: 0,
-    backgroundColor: 'var(--bg-primary)',
-    minHeight: '100vh',
+    backgroundColor: 'transparent',
+    minHeight: '100%',
     color: 'var(--text-primary)',
   },
   pageHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '40px',
+    alignItems: 'center',
+    marginBottom: '24px',
+    gap: '20px',
+    width: '100%',
+  },
+  headerTitleBlock: {
+    flexShrink: 0,
+    minWidth: '180px',
+  },
+  middleSearchWrap: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: '220px',
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    flexShrink: 0,
+    flexWrap: 'nowrap' as const,
   },
   pageTitle: {
     fontSize: '34px',
@@ -591,17 +614,20 @@ const styles: any = {
     color: 'var(--text-secondary)'
   },
   primaryBtn: {
-    padding: '12px 24px',
+    padding: '9px 16px',
     backgroundColor: '#007AFF',
     color: 'white',
     border: 'none',
-    borderRadius: '14px',
+    borderRadius: '12px',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '6px',
+    fontSize: '13px',
     fontWeight: '700',
-    boxShadow: '0 4px 12px rgba(0,122,255,0.2)'
+    boxShadow: '0 4px 12px rgba(0,122,255,0.2)',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   statsGrid: {
     display: 'grid',
@@ -632,35 +658,29 @@ const styles: any = {
     textTransform: 'uppercase',
     letterSpacing: '0.5px'
   },
-  searchSection: {
-    marginBottom: '32px',
+  searchInner: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
-    flexWrap: 'wrap' as const,
-  },
-  searchInner: {
-    position: 'relative',
-    flex: 1,
-    minWidth: '220px',
+    gap: '12px',
+    padding: '10px 18px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    width: '100%',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
   },
   searchIcon: {
-    position: 'absolute',
-    left: '18px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    color: 'var(--text-secondary)'
+    color: 'var(--text-secondary)',
+    flexShrink: 0,
   },
   searchInput: {
+    flex: 1,
     width: '100%',
-    padding: '16px 20px 16px 52px',
-    backgroundColor: 'var(--bg-primary)',
-    border: '1.5px solid var(--border-color)',
-    borderRadius: '16px',
-    fontSize: '16px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    fontSize: '14px',
     color: 'var(--text-primary)',
     outline: 'none',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.02)'
   },
   teamGrid: {
     display: 'grid',

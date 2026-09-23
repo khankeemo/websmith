@@ -13,12 +13,14 @@ type NavbarVisibilityToggleProps = {
   sectionKey: NavbarSectionKey;
   label: string;
   description?: string;
+  variant?: "card" | "compact";
 };
 
 export default function NavbarVisibilityToggle({
   sectionKey,
   label,
   description = "Control whether this section appears in the public website navigation menu.",
+  variant = "card",
 }: NavbarVisibilityToggleProps) {
   const [visibility, setVisibility] = useState<NavbarVisibility>(defaultNavbarVisibility);
   const [loading, setLoading] = useState(true);
@@ -66,6 +68,27 @@ export default function NavbarVisibilityToggle({
   );
 
   const checked = visibility[sectionKey];
+
+  if (variant === "compact") {
+    return (
+      <div style={styles.compactWrap} title={description} className="wsd-navbar-toggle-compact">
+        <span style={styles.compactLabel}>Public Navbar</span>
+        <label style={{ ...styles.compactSwitchWrap, opacity: loading ? 0.55 : 1 }}>
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={loading || saving}
+            onChange={(event) => handleChange(event.target.checked)}
+            style={styles.checkbox}
+          />
+          <span style={{ ...styles.compactSwitchTrack, ...(checked ? styles.compactSwitchTrackActive : {}) }}>
+            <span style={{ ...styles.compactSwitchThumb, ...(checked ? styles.compactSwitchThumbActive : {}) }} />
+          </span>
+          <span style={styles.compactSwitchText}>{checked ? "Visible" : "Hidden"}</span>
+        </label>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.card}>
@@ -179,5 +202,59 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-primary)",
     fontSize: "13px",
     fontWeight: 800,
+  },
+  compactWrap: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "7px 12px",
+    borderRadius: "12px",
+    border: "1px solid var(--border-color)",
+    backgroundColor: "var(--bg-secondary)",
+  },
+  compactLabel: {
+    color: "var(--text-secondary)",
+    fontWeight: 600,
+    fontSize: "12px",
+    whiteSpace: "nowrap",
+  },
+  compactSwitchWrap: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    cursor: "pointer",
+    userSelect: "none",
+  },
+  compactSwitchTrack: {
+    width: "36px",
+    height: "20px",
+    borderRadius: "999px",
+    backgroundColor: "rgba(142, 142, 147, 0.4)",
+    position: "relative",
+    transition: "background-color 0.2s ease",
+    flexShrink: 0,
+  },
+  compactSwitchTrackActive: {
+    backgroundColor: "#34C759",
+  },
+  compactSwitchThumb: {
+    position: "absolute",
+    top: "2px",
+    left: "2px",
+    width: "16px",
+    height: "16px",
+    borderRadius: "50%",
+    backgroundColor: "#FFFFFF",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+    transition: "transform 0.2s ease",
+  },
+  compactSwitchThumbActive: {
+    transform: "translateX(16px)",
+  },
+  compactSwitchText: {
+    color: "var(--text-primary)",
+    fontSize: "12px",
+    fontWeight: 700,
+    minWidth: "44px",
   },
 };

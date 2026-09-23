@@ -328,8 +328,8 @@ export default function Sidebar({
                   e.currentTarget.style.transform = "translateX(4px)";
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  {item.icon && <item.icon size={18} style={{ opacity: isActive ? 1 : 0.7 }} />}
+                <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+                  {item.icon && <item.icon size={15} style={{ opacity: isActive ? 1 : 0.7 }} />}
                   <span>{item.name}</span>
                 </div>
                 {item.name === "Notifications" && unreadCount > 0 && (
@@ -342,15 +342,46 @@ export default function Sidebar({
       ))}
 
       <style>{`
-        .app-sidebar {
+        .app-sidebar,
+        aside.app-sidebar,
+        div.app-sidebar {
           transition: transform 0.3s ease, box-shadow 0.3s ease;
           display: flex;
           flex-direction: column;
-          overflow-x: hidden;
-          overflow-y: auto;
-          -webkit-overflow-scrolling: touch;
           min-height: 0;
           align-self: stretch;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        @media (min-width: 901px) {
+          .app-sidebar,
+          aside.app-sidebar,
+          div.app-sidebar {
+            overflow: hidden !important;
+            overflow-y: hidden !important;
+          }
+        }
+        @media (min-width: 901px) and (max-height: 800px) {
+          .app-sidebar,
+          aside.app-sidebar,
+          div.app-sidebar {
+            overflow-y: auto !important;
+            scrollbar-width: thin !important;
+          }
+        }
+        @media (max-width: 900px) {
+          .app-sidebar.app-sidebar-open {
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+        }
+        .app-sidebar::-webkit-scrollbar,
+        aside.app-sidebar::-webkit-scrollbar,
+        div.app-sidebar::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+          background: transparent !important;
         }
         .logo-image-hover {
           transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -394,24 +425,38 @@ export default function Sidebar({
             top: 69px;
             left: 0;
             bottom: 0;
-            z-index: 1200;
+            z-index: 1300;
             width: min(82vw, 320px) !important;
+            min-width: 0 !important;
             height: calc(100dvh - 69px) !important;
             max-height: calc(100dvh - 69px) !important;
             transform: translateX(-100%);
             box-shadow: none;
             overflow-x: hidden;
-            overflow-y: auto;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
             border-top: 1px solid var(--border-color);
+            visibility: hidden;
+            pointer-events: none;
           }
           .app-sidebar.app-sidebar-open {
             transform: translateX(0);
-            box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+            visibility: visible !important;
+            pointer-events: auto !important;
+            box-shadow: 0 18px 40px rgba(0,0,0,0.25);
           }
         }
         @media (max-width: 480px) {
           .app-sidebar {
             width: min(88vw, 320px) !important;
+            min-width: 0 !important;
+          }
+        }
+        @media (min-width: 901px) and (max-height: 800px) {
+          .app-sidebar {
+            padding: 6px 8px 8px !important;
+            overflow-y: auto !important;
+            scrollbar-width: thin !important;
           }
         }
       `}</style>
@@ -426,7 +471,7 @@ const styles: any = {
     maxHeight: "100%",
     background: "var(--bg-secondary)",
     color: "var(--text-primary)",
-    padding: "16px 14px 20px",
+    padding: "8px 10px 10px",
     display: "flex",
     flexDirection: "column",
     borderRight: "1px solid var(--border-color)",
@@ -434,24 +479,26 @@ const styles: any = {
     minHeight: 0,
     boxSizing: "border-box",
     alignSelf: "stretch",
+    overflow: "hidden",
+    overflowY: "hidden",
   },
 
   profileSection: {
     display: "flex",
     alignItems: "center",
-    padding: "8px 10px",
-    borderRadius: "12px",
+    padding: "5px 8px",
+    borderRadius: "10px",
     backgroundColor: "var(--bg-primary)",
-    marginBottom: "8px",
+    marginBottom: "5px",
     marginTop: 0,
-    gap: "10px",
+    gap: "8px",
     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     border: "1px solid var(--border-color)",
     flexShrink: 0,
   },
   profileAvatar: {
-    width: "34px",
-    height: "34px",
+    width: "28px",
+    height: "28px",
     borderRadius: "50%",
     backgroundColor: "var(--bg-secondary)",
     display: "flex",
@@ -490,8 +537,8 @@ const styles: any = {
   quickActions: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "6px",
-    marginBottom: "14px",
+    gap: "4px",
+    marginBottom: "6px",
     flexShrink: 0,
   },
 
@@ -500,13 +547,13 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "6px",
-    padding: "7px 8px",
+    gap: "4px",
+    padding: "4px 6px",
     background: "transparent",
     border: "1px solid rgba(255, 59, 48, 0.18)",
-    borderRadius: "10px",
+    borderRadius: "8px",
     color: "#ff3b30",
-    fontSize: "11px",
+    fontSize: "10px",
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.3s ease",
@@ -516,13 +563,13 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "6px",
-    padding: "7px 8px",
+    gap: "4px",
+    padding: "4px 6px",
     background: "var(--bg-primary)",
     border: "1px solid var(--border-color)",
-    borderRadius: "10px",
+    borderRadius: "8px",
     color: "var(--text-primary)",
-    fontSize: "11px",
+    fontSize: "10px",
     fontWeight: 600,
     cursor: "pointer",
   },
@@ -536,15 +583,15 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: "16px",
-    gap: "8px",
+    marginBottom: "6px",
+    gap: "2px",
     flexShrink: 0,
   },
 
   maskCircle: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "20px",
+    width: "50px",
+    height: "50px",
+    borderRadius: "12px",
     background: "var(--bg-primary)",
     display: "flex",
     alignItems: "center",
@@ -552,7 +599,7 @@ const styles: any = {
     overflow: "hidden",
     boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
     border: "1px solid var(--border-color)",
-    padding: "4px",
+    padding: "3px",
     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
   },
 
@@ -573,7 +620,7 @@ const styles: any = {
   },
 
   section: {
-    marginBottom: "18px",
+    marginBottom: "5px",
   },
 
   sectionTitle: {

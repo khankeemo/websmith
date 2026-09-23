@@ -137,7 +137,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div style={styles.container} className="wsd-page admin-dashboard-page">
+    <div style={styles.container} className="wsd-page admin-dashboard-page admin-panel-scope">
       {/* HEADER SECTION */}
       <div style={styles.header} className="dashboard-header">
         <div>
@@ -361,7 +361,6 @@ const styles: any = {
     display: "flex",
     flexDirection: "column",
     gap: "32px",
-    padding: 0,
     backgroundColor: "transparent",
   },
 

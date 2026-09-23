@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, CheckCircle, Clock, MailOpen } from "lucide-react";
+import { Bell, CheckCircle, Clock, MailOpen, Search } from "lucide-react";
 import API from "../../../core/services/apiService";
 
 interface Notification {
@@ -17,6 +17,7 @@ interface Notification {
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -57,7 +58,7 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div style={styles.container} className="wsd-page">
+      <div style={styles.container} className="wsd-page admin-panel-scope">
         <div style={styles.loadingContainer}>
           <div style={styles.spinner}></div>
           <p style={{ color: 'var(--text-secondary)' }}>Loading notifications...</p>
@@ -67,25 +68,43 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-panel-scope">
       {/* Header */}
-      <div style={styles.header}>
-        <div>
+      <div style={styles.header} className="wsd-page-header">
+        <div style={styles.headerTitleBlock}>
           <h1 style={styles.title}>Notifications</h1>
           <p style={styles.subtitle}>Stay updated with system activities, client queries, and team updates</p>
         </div>
-        <button 
-          onClick={markAllAsRead} 
-          style={{
-            ...styles.markReadBtn,
-            opacity: notifications.some(n => !n.isRead) ? 1 : 0.5,
-            cursor: notifications.some(n => !n.isRead) ? 'pointer' : 'default'
-          }}
-          disabled={!notifications.some(n => !n.isRead)}
-        >
-          <MailOpen size={18} />
-          <span>Mark all as read</span>
-        </button>
+
+        {/* Top & Middle Search */}
+        <div style={styles.middleSearchWrap} className="notifications-middle-search">
+          <div style={styles.searchBox} className="admin-search-box wsd-search-box">
+            <Search size={18} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search notifications..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div style={styles.headerButtons} className="wsd-page-actions">
+          <button 
+            onClick={markAllAsRead} 
+            style={{
+              ...styles.markReadBtn,
+              opacity: notifications.some(n => !n.isRead) ? 1 : 0.5,
+              cursor: notifications.some(n => !n.isRead) ? 'pointer' : 'default'
+            }}
+            disabled={!notifications.some(n => !n.isRead)}
+          >
+            <MailOpen size={16} />
+            <span>Mark all read</span>
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -104,7 +123,7 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div style={styles.grid}>
-            {notifications.map((notification) => (
+            {notifications.filter(n => (n.message || '').toLowerCase().includes(searchTerm.toLowerCase())).map((notification) => (
               <div 
                 key={notification._id} 
                 style={{
@@ -160,16 +179,55 @@ export default function NotificationsPage() {
 
 const styles: any = {
   container: {
-    padding: 0,
-    backgroundColor: 'var(--bg-primary)',
-    minHeight: '100vh',
     color: 'var(--text-primary)',
+    backgroundColor: 'transparent',
+    minHeight: '100%',
+    width: '100%',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '40px',
+    alignItems: 'center',
+    gap: '20px',
+    marginBottom: '28px',
+    width: '100%',
+  },
+  headerTitleBlock: {
+    flexShrink: 0,
+    minWidth: '180px',
+  },
+  middleSearchWrap: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: '220px',
+  },
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '10px 18px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '14px',
+    width: '100%',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+  },
+  searchInput: {
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    backgroundColor: 'transparent',
+    color: 'var(--text-primary)',
+    width: '100%',
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   title: {
     fontSize: '34px',
@@ -185,48 +243,50 @@ const styles: any = {
   markReadBtn: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '12px 20px',
+    gap: '8px',
+    padding: '9px 16px',
     backgroundColor: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
     border: '1.5px solid var(--border-color)',
-    borderRadius: '14px',
-    fontSize: '14px',
+    borderRadius: '12px',
+    fontSize: '13px',
     fontWeight: 700,
+    cursor: 'pointer',
     transition: 'all 0.2s ease',
   },
   listContainer: {
     marginTop: '20px',
   },
   emptyState: {
-    textAlign: 'center',
-    padding: '100px 20px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '16px',
-    background: 'var(--bg-secondary)',
-    borderRadius: '32px',
-    border: '1.5px dashed var(--border-color)',
+    justifyContent: 'center',
+    padding: '80px 20px',
+    textAlign: 'center',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '24px',
+    border: '1px dashed var(--border-color)',
+    gap: '12px',
   },
   grid: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
+    gap: '12px',
   },
   notificationCard: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '24px',
-    backgroundColor: 'var(--bg-primary)',
-    borderRadius: '20px',
-    border: '1.5px solid var(--border-color)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+    justifyContent: 'space-between',
+    padding: '16px 20px',
+    borderRadius: '16px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    gap: '16px',
   },
   unreadCard: {
-    borderColor: '#007AFF55',
-    backgroundColor: 'rgba(0, 122, 255, 0.02)',
+    borderLeft: '4px solid #007AFF',
+    backgroundColor: 'rgba(0, 122, 255, 0.03)',
   },
   cardInfo: {
     display: 'flex',
