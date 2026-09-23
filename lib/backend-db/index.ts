@@ -31,16 +31,6 @@ export async function getDb(): Promise<Pool> {
     ssl: { rejectUnauthorized: false }
   });
 
-  // Run pending versioned migrations (executes .sql files in order)
-  try {
-    await runMigrations(pool);
-  } catch (migrationError) {
-    console.error('[Database] Migration error:', migrationError instanceof Error ? migrationError.message : migrationError);
-    if (migrationError instanceof Error && migrationError.stack) {
-      console.error('[Database] Migration stack:', migrationError.stack);
-    }
-  }
-
   // Test connection and ensure tables exist
   const client = await pool.connect();
 
@@ -48,6 +38,21 @@ export async function getDb(): Promise<Pool> {
     // ============================================================
     // CREATE ALL TABLES WITH COMPLETE SCHEMA
     // ============================================================
+
+    // 0. Create users table (API Center Admin / Auth)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT DEFAULT 'admin',
+        avatar TEXT,
+        theme TEXT DEFAULT 'system',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // 1. Create products table (COMPLETE)
     await client.query(`
@@ -1733,6 +1738,18 @@ export async function getDb(): Promise<Pool> {
     }
 
     // ============================================================
+    // VERSIONED MIGRATIONS
+    // ============================================================
+    try {
+      await runMigrations(pool);
+    } catch (migrationError) {
+      console.error('[Database] Migration error:', migrationError instanceof Error ? migrationError.message : migrationError);
+      if (migrationError instanceof Error && migrationError.stack) {
+        console.error('[Database] Migration stack:', migrationError.stack);
+      }
+    }
+
+    // ============================================================
     // MIGRATIONS FOR EXISTING TABLES
     // ============================================================
 
@@ -1777,6 +1794,17 @@ export async function getDb(): Promise<Pool> {
     try { await client.query(`ALTER TABLE renewal_requests ADD COLUMN IF NOT EXISTS current_plan_id TEXT`); } catch (e) {}
     try { await client.query(`ALTER TABLE renewal_requests ADD COLUMN IF NOT EXISTS customer_email TEXT`); } catch (e) {}
     try { await client.query(`ALTER TABLE renewal_requests ADD COLUMN IF NOT EXISTS customer_mobile TEXT`); } catch (e) {}
+    // notification_logs migrations
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS subject TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS response TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS error TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS hardware_id TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS sender_name TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS sender_email TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS template_name TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS support_request_id TEXT`); } catch (e) {}
+    try { await client.query(`ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS sales_enquiry_id TEXT`); } catch (e) {}
 
     // ============================================================
     // CREATE ALL INDEXES

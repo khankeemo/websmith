@@ -8,7 +8,11 @@
     "start": "next start",
     "test": "node --experimental-strip-types tests/sdk-generation/validator.test.mjs && node --experimental-strip-types tests/sdk-generation/multi-runtime.test.mjs",
     "test:generation": "node --experimental-strip-types tests/sdk-generation/validator.test.mjs",
-    "test:multi-runtime": "node --experimental-strip-types tests/sdk-generation/multi-runtime.test.mjs"
+    "test:multi-runtime": "node --experimental-strip-types tests/sdk-generation/multi-runtime.test.mjs",
+    "db:push": "node scripts/init_db.mjs",
+    "db:init": "node scripts/init_db.mjs",
+    "db:reset": "node scripts/init_db.mjs --fresh",
+    "db:seed-user": "node scripts/seed_user.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
