@@ -1591,6 +1591,187 @@ html:not(.dark-theme) .wsd-portfolio-card:nth-child(3n):not(:hover),
   stroke: #033B2B !important;
 }
 
+/* ============================================================
+   ADMIN DASHBOARD HOVER SYSTEM: BORDER GLOW ONLY (NO COLOR FILL)
+   Overrides the high-saturation 3-core-color hover fills on
+   Admin Dashboard cards, keeping resting frosted backgrounds &
+   legible text while delivering a high-end glowing border effect.
+   ============================================================ */
+
+/* 1. Neutralize full-color background fills and preserve resting glass & text */
+.admin-dashboard-page .wsd-unified-card:hover,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card,
+.admin-dashboard-page .zoom-card .wsd-unified-card:hover,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card,
+.admin-dashboard-page .zoom-card:nth-child(n) .wsd-unified-card:hover,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover {
+  background-color: transparent !important;
+}
+
+.admin-dashboard-page .zoom-card .wsd-unified-card:hover {
+  transform: none !important;
+}
+
+/* Light Theme Resting Glass on Hover */
+html:not(.dark-theme) .admin-dashboard-page .wsd-unified-card:hover,
+html:not(.dark-theme) .admin-dashboard-page .zoom-card:hover .wsd-unified-card,
+html:not(.dark-theme) .admin-dashboard-page .zoom-card .wsd-unified-card:hover,
+html:not(.dark-theme) .admin-dashboard-page .wsd-unified-card:nth-child(n):hover,
+html:not(.dark-theme) .admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card,
+html:not(.dark-theme) .admin-dashboard-page .zoom-card:nth-child(n) .wsd-unified-card:hover,
+html:not(.dark-theme) .admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover,
+.light-theme .admin-dashboard-page .wsd-unified-card:hover,
+.light-theme .admin-dashboard-page .zoom-card:hover .wsd-unified-card,
+.light-theme .admin-dashboard-page .zoom-card .wsd-unified-card:hover,
+.light-theme .admin-dashboard-page .wsd-unified-card:nth-child(n):hover,
+.light-theme .admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card,
+.light-theme .admin-dashboard-page .zoom-card:nth-child(n) .wsd-unified-card:hover,
+.light-theme .admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  background-image: none !important;
+  border-color: rgba(0, 122, 255, 0.6) !important;
+  box-shadow: 0 0 22px rgba(0, 122, 255, 0.22), 0 16px 36px rgba(15, 23, 42, 0.08), inset 0 0 10px rgba(0, 122, 255, 0.04) !important;
+}
+
+/* Dark Theme Resting Glass on Hover */
+.dark-theme .admin-dashboard-page .wsd-unified-card:hover,
+.dark-theme .admin-dashboard-page .zoom-card:hover .wsd-unified-card,
+.dark-theme .admin-dashboard-page .zoom-card .wsd-unified-card:hover,
+.dark-theme .admin-dashboard-page .wsd-unified-card:nth-child(n):hover,
+.dark-theme .admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card,
+.dark-theme .admin-dashboard-page .zoom-card:nth-child(n) .wsd-unified-card:hover,
+.dark-theme .admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover {
+  background-color: rgba(14, 18, 30, 0.88) !important;
+  background-image: none !important;
+  border-color: rgba(59, 130, 246, 0.75) !important;
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.35), 0 18px 44px rgba(0, 0, 0, 0.55), inset 0 0 14px rgba(59, 130, 246, 0.08) !important;
+}
+
+/* Reset typography & SVG colors to natural values on hover */
+.admin-dashboard-page .wsd-unified-card:hover h1,
+.admin-dashboard-page .wsd-unified-card:hover h2,
+.admin-dashboard-page .wsd-unified-card:hover h3,
+.admin-dashboard-page .wsd-unified-card:hover h4,
+.admin-dashboard-page .wsd-unified-card:hover h5,
+.admin-dashboard-page .wsd-unified-card:hover h6,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card h1,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card h2,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card h3,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card h4,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover h1,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover h2,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover h3,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover h4,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card h1,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card h2,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card h3,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card h4,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover h1,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover h2,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover h3,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover h4 {
+  color: var(--text-primary) !important;
+}
+
+.admin-dashboard-page .wsd-unified-card:hover p,
+.admin-dashboard-page .wsd-unified-card:hover span,
+.admin-dashboard-page .wsd-unified-card:hover label,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card p,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card span,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card label,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover p,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover span,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover label,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card p,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card span,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card label,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover p,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover span,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover label {
+  color: inherit !important;
+}
+
+.admin-dashboard-page .wsd-unified-card:hover svg,
+.admin-dashboard-page .zoom-card:hover .wsd-unified-card svg,
+.admin-dashboard-page .wsd-unified-card:nth-child(n):hover svg,
+.admin-dashboard-page .zoom-card:nth-child(n):hover .wsd-unified-card svg,
+.admin-dashboard-page .wsd-grid-tiles > .wsd-unified-card:nth-child(n):hover svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* 2. Precision Stat-Card Accent Border Glows on Hover */
+/* Blue Stat Card Glow (Projects) */
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-blue:hover,
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-blue:hover .wsd-unified-card,
+.light-theme .admin-dashboard-page .admin-stat-blue:hover,
+.light-theme .admin-dashboard-page .admin-stat-blue:hover .wsd-unified-card {
+  border-color: rgba(0, 122, 255, 0.7) !important;
+  box-shadow: 0 0 24px rgba(0, 122, 255, 0.28), 0 16px 36px rgba(15, 23, 42, 0.08) !important;
+}
+.dark-theme .admin-dashboard-page .admin-stat-blue:hover,
+.dark-theme .admin-dashboard-page .admin-stat-blue:hover .wsd-unified-card {
+  border-color: rgba(0, 122, 255, 0.8) !important;
+  box-shadow: 0 0 24px rgba(0, 122, 255, 0.38), 0 18px 44px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Green Stat Card Glow (Clients) */
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-green:hover,
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-green:hover .wsd-unified-card,
+.light-theme .admin-dashboard-page .admin-stat-green:hover,
+.light-theme .admin-dashboard-page .admin-stat-green:hover .wsd-unified-card {
+  border-color: rgba(52, 199, 89, 0.7) !important;
+  box-shadow: 0 0 24px rgba(52, 199, 89, 0.28), 0 16px 36px rgba(15, 23, 42, 0.08) !important;
+}
+.dark-theme .admin-dashboard-page .admin-stat-green:hover,
+.dark-theme .admin-dashboard-page .admin-stat-green:hover .wsd-unified-card {
+  border-color: rgba(52, 199, 89, 0.8) !important;
+  box-shadow: 0 0 24px rgba(52, 199, 89, 0.38), 0 18px 44px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Orange Stat Card Glow (Tasks) */
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-orange:hover,
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-orange:hover .wsd-unified-card,
+.light-theme .admin-dashboard-page .admin-stat-orange:hover,
+.light-theme .admin-dashboard-page .admin-stat-orange:hover .wsd-unified-card {
+  border-color: rgba(255, 149, 0, 0.7) !important;
+  box-shadow: 0 0 24px rgba(255, 149, 0, 0.28), 0 16px 36px rgba(15, 23, 42, 0.08) !important;
+}
+.dark-theme .admin-dashboard-page .admin-stat-orange:hover,
+.dark-theme .admin-dashboard-page .admin-stat-orange:hover .wsd-unified-card {
+  border-color: rgba(255, 149, 0, 0.8) !important;
+  box-shadow: 0 0 24px rgba(255, 149, 0, 0.38), 0 18px 44px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Purple Stat Card Glow (Revenue) */
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-purple:hover,
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-purple:hover .wsd-unified-card,
+.light-theme .admin-dashboard-page .admin-stat-purple:hover,
+.light-theme .admin-dashboard-page .admin-stat-purple:hover .wsd-unified-card {
+  border-color: rgba(175, 82, 222, 0.7) !important;
+  box-shadow: 0 0 24px rgba(175, 82, 222, 0.28), 0 16px 36px rgba(15, 23, 42, 0.08) !important;
+}
+.dark-theme .admin-dashboard-page .admin-stat-purple:hover,
+.dark-theme .admin-dashboard-page .admin-stat-purple:hover .wsd-unified-card {
+  border-color: rgba(175, 82, 222, 0.8) !important;
+  box-shadow: 0 0 24px rgba(175, 82, 222, 0.38), 0 18px 44px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Teal Stat Card Glow (Developers) */
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-teal:hover,
+html:not(.dark-theme) .admin-dashboard-page .admin-stat-teal:hover .wsd-unified-card,
+.light-theme .admin-dashboard-page .admin-stat-teal:hover,
+.light-theme .admin-dashboard-page .admin-stat-teal:hover .wsd-unified-card {
+  border-color: rgba(20, 184, 166, 0.7) !important;
+  box-shadow: 0 0 24px rgba(20, 184, 166, 0.28), 0 16px 36px rgba(15, 23, 42, 0.08) !important;
+}
+.dark-theme .admin-dashboard-page .admin-stat-teal:hover,
+.dark-theme .admin-dashboard-page .admin-stat-teal:hover .wsd-unified-card {
+  border-color: rgba(20, 184, 166, 0.8) !important;
+  box-shadow: 0 0 24px rgba(20, 184, 166, 0.38), 0 18px 44px rgba(0, 0, 0, 0.55) !important;
+}
+
 /* Landing Page Hero Highlight - Prevents blur & text-shadow clipping bugs on theme switch */
 .landing-hero-highlight {
   display: inline-block !important;

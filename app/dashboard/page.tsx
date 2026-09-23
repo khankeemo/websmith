@@ -105,6 +105,7 @@ export default function DashboardPage() {
       color: "#007AFF",
       bg: "rgba(0, 122, 255, 0.1)",
       trend: "+12%",
+      accentClass: "admin-stat-blue",
     },
     {
       icon: Users,
@@ -113,6 +114,7 @@ export default function DashboardPage() {
       color: "#34C759",
       bg: "rgba(52, 199, 89, 0.1)",
       trend: "+8%",
+      accentClass: "admin-stat-green",
     },
     {
       icon: CheckCircle,
@@ -121,6 +123,7 @@ export default function DashboardPage() {
       color: "#FF9500",
       bg: "rgba(255, 149, 0, 0.1)",
       trend: "-3%",
+      accentClass: "admin-stat-orange",
     },
     {
       icon: DollarSign,
@@ -129,11 +132,12 @@ export default function DashboardPage() {
       color: "#AF52DE",
       bg: "rgba(175, 82, 222, 0.1)",
       trend: "+23%",
+      accentClass: "admin-stat-purple",
     },
   ];
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-dashboard-page">
       {/* HEADER SECTION */}
       <div style={styles.header} className="dashboard-header">
         <div>
@@ -149,8 +153,8 @@ export default function DashboardPage() {
       {/* STATS GRID WITH ZOOM-IN ANIMATION */}
       <div style={styles.grid} className="dashboard-stats-grid">
         {statCards.map((card, index) => (
-          <div key={index} style={styles.cardWrapper} className="zoom-card">
-            <Card>
+          <div key={index} style={styles.cardWrapper} className={`zoom-card ${card.accentClass}`}>
+            <Card className={`admin-dashboard-card ${card.accentClass}`}>
               <div style={styles.cardContent}>
                 <div style={{ ...styles.iconContainer, backgroundColor: card.bg }}>
                   <card.icon size={22} color={card.color} />

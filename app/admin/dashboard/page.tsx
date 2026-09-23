@@ -97,6 +97,7 @@ export default function AdminDashboardPage() {
       color: "#007AFF",
       bg: "rgba(0, 122, 255, 0.16)",
       trend: "+12%",
+      accentClass: "admin-stat-blue",
     },
     {
       icon: Users,
@@ -105,6 +106,7 @@ export default function AdminDashboardPage() {
       color: "#34C759",
       bg: "rgba(52, 199, 89, 0.16)",
       trend: "+8%",
+      accentClass: "admin-stat-green",
     },
     {
       icon: CheckCircle,
@@ -113,6 +115,7 @@ export default function AdminDashboardPage() {
       color: "#FF9500",
       bg: "rgba(255, 149, 0, 0.16)",
       trend: "-3%",
+      accentClass: "admin-stat-orange",
     },
     {
       icon: DollarSign,
@@ -121,6 +124,7 @@ export default function AdminDashboardPage() {
       color: "#AF52DE",
       bg: "rgba(175, 82, 222, 0.16)",
       trend: "+23%",
+      accentClass: "admin-stat-purple",
     },
     {
       icon: Users,
@@ -129,11 +133,12 @@ export default function AdminDashboardPage() {
       color: "#14B8A6",
       bg: "rgba(20, 184, 166, 0.16)",
       trend: "+5%",
+      accentClass: "admin-stat-teal",
     },
   ];
 
   return (
-    <div style={styles.container} className="wsd-page">
+    <div style={styles.container} className="wsd-page admin-dashboard-page">
       {/* HEADER SECTION */}
       <div style={styles.header} className="wsd-page-header">
         <div>
@@ -149,8 +154,8 @@ export default function AdminDashboardPage() {
       {/* STATS GRID */}
       <div style={{ ...styles.grid, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }} className="wsd-grid-tiles">
         {statCards.map((card, index) => (
-          <div key={index} style={styles.cardWrapper} className="zoom-card">
-            <Card>
+          <div key={index} style={styles.cardWrapper} className={`zoom-card ${card.accentClass}`}>
+            <Card className={`admin-dashboard-card ${card.accentClass}`}>
               <div style={styles.cardContent}>
                 <div style={{ ...styles.iconContainer, backgroundColor: card.bg }}>
                   <card.icon size={22} color={card.color} />
@@ -175,7 +180,7 @@ export default function AdminDashboardPage() {
       <div style={styles.main} className="wsd-two-column">
         {/* CHART CARD */}
         <div className="zoom-card" style={styles.chartWrapper}>
-          <Card>
+          <Card className="admin-dashboard-card admin-chart-card">
             <div style={styles.chartHeader}>
               <div>
                 <h3 style={styles.sectionTitle}>Revenue Overview</h3>
@@ -229,7 +234,7 @@ export default function AdminDashboardPage() {
 
         {/* ACTIVITY CARD */}
         <div className="zoom-card">
-          <Card>
+          <Card className="admin-dashboard-card admin-activity-card">
             <h3 style={styles.sectionTitle}>Recent Activity</h3>
             <div style={styles.activityList}>
               {stats.recentActivity.slice(0, 6).map((activity, index) => (
@@ -257,7 +262,7 @@ export default function AdminDashboardPage() {
 
       {/* QUICK STATS */}
       <div className="zoom-card">
-        <Card>
+        <Card className="admin-dashboard-card admin-quickstats-card">
           <div style={styles.quickStats} className="wsd-grid-tiles">
             <div style={styles.quickStatItem}>
               <Clock size={24} color="#007AFF" />
